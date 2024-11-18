@@ -1,0 +1,10 @@
+version: v2
+name: buf.build/tmc/nlm
+deps:
+  - buf.build/googleapis/googleapis
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT
