@@ -113,7 +113,189 @@ message SourceIssue {
     Reason reason = 1;
 }
 
+message GetNotesResponse {
+  repeated Source notes = 1;
+}
+
+message AudioOverview {
+  string status = 1;
+  string content = 2;
+  string instructions = 3;
+}
+
+message GenerateDocumentGuidesResponse {
+  repeated DocumentGuide guides = 1;
+}
+
+message DocumentGuide {
+  string content = 1;
+}
+
+message GenerateNotebookGuideResponse {
+  string content = 1;
+}
+
+message GenerateOutlineResponse {
+  string content = 1;
+}
+
+message GenerateSectionResponse {
+  string content = 1;
+}
+
+message StartDraftResponse {
+}
+
+message StartSectionResponse {
+}
+
+
+
+
 message ListRecentlyViewedProjectsResponse {
   repeated Project projects = 1;
 }
 
+
+
+/*
+service NotebookLM {
+    // Notebook/Project operations
+    rpc ListRecentlyViewedProjects(google.protobuf.Empty) returns (ListRecentlyViewedProjectsResponse) {
+        option (rpc_id) = "wXbhsf";
+    }
+    rpc CreateProject(CreateNotebookRequest) returns (Project) {
+        option (rpc_id) = "CCqFvf";
+    }
+    rpc GetProject(LoadNotebookRequest) returns (Project) {
+        option (rpc_id) = "rLM1Ne";
+    }
+    rpc DeleteProjects(DeleteProjectsRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "WWINqb";
+    }
+    rpc MutateProject(MutateProjectRequest) returns (Project) {
+        option (rpc_id) = "s0tc2d";
+    }
+    rpc RemoveRecentlyViewedProject(RemoveRecentlyViewedProjectRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "fejl7e";
+    }
+
+    // Source operations
+    rpc AddSources(AddSourceRequest) returns (Source) {
+        option (rpc_id) = "izAoDd";
+    }
+    rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "tGMBJ";
+    }
+    rpc MutateSource(MutateSourceRequest) returns (Source) {
+        option (rpc_id) = "b7Wfje";
+    }
+    rpc RefreshSource(RefreshSourceRequest) returns (Source) {
+        option (rpc_id) = "FLmJqe";
+    }
+    rpc LoadSource(LoadSourceRequest) returns (Source) {
+        option (rpc_id) = "hizoJc";
+    }
+    rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse) {
+        option (rpc_id) = "yR9Yof";
+    }
+    rpc ActOnSources(ActOnSourcesRequest) returns (ActOnSourcesResponse) {
+        option (rpc_id) = "yyryJe";
+    }
+
+    // Note operations
+    rpc CreateNote(CreateNoteRequest) returns (Note) {
+        option (rpc_id) = "CYK0Xb";
+    }
+    rpc MutateNote(UpdateNoteRequest) returns (Note) {
+        option (rpc_id) = "cYAfTb";
+    }
+    rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "AH0mwd";
+    }
+    rpc GetNotes(GetNotesRequest) returns (GetNotesResponse) {
+        option (rpc_id) = "cFji9";
+    }
+
+    // Audio operations
+    rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview) {
+        option (rpc_id) = "AHyHrd";
+    }
+    rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
+        option (rpc_id) = "VUsiyb";
+    }
+    rpc DeleteAudioOverview(DeleteAudioOverviewRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "sJDbic";
+    }
+
+    // Generation operations
+    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
+        option (rpc_id) = "tr032e";
+    }
+    rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {
+        option (rpc_id) = "VfAZjd";
+    }
+    rpc GenerateOutline(GenerateOutlineRequest) returns (GenerateOutlineResponse) {
+        option (rpc_id) = "lCjAd";
+    }
+    rpc GenerateSection(GenerateSectionRequest) returns (GenerateSectionResponse) {
+        option (rpc_id) = "BeTrYd";
+    }
+    rpc StartDraft(StartDraftRequest) returns (StartDraftResponse) {
+        option (rpc_id) = "exXvGf";
+    }
+    rpc StartSection(StartSectionRequest) returns (StartSectionResponse) {
+        option (rpc_id) = "pGC7gf";
+    }
+
+    // Account operations
+    rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account) {
+        option (rpc_id) = "ZwVcOc";
+    }
+    rpc MutateAccount(MutateAccountRequest) returns (Account) {
+        option (rpc_id) = "hT54vc";
+    }
+
+    // Analytics operations
+    rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics) {
+        option (rpc_id) = "AUrzMb";
+    }
+    rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "uNyJKe";
+    }
+}
+
+// Sharing service
+service NotebookLMSharing {
+    rpc ShareAudio(ShareAudioRequest) returns (ShareAudioResponse) {
+        option (rpc_id) = "RGP97b";
+    }
+    rpc GetProjectDetails(GetProjectDetailsRequest) returns (ProjectDetails) {
+        option (rpc_id) = "JFMDGd";
+    }
+    rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse) {
+        option (rpc_id) = "QDyure";
+    }
+}
+
+// Guidebooks service
+service NotebookLMGuidebooks {
+    rpc DeleteGuidebook(DeleteGuidebookRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "ARGkVc";
+    }
+    rpc GetGuidebook(GetGuidebookRequest) returns (Guidebook) {
+        option (rpc_id) = "EYqtU";
+    }
+    rpc ListRecentlyViewedGuidebooks(ListRecentlyViewedGuidebooksRequest) returns (ListRecentlyViewedGuidebooksResponse) {
+        option (rpc_id) = "YJBpHc";
+    }
+    rpc PublishGuidebook(PublishGuidebookRequest) returns (Guidebook) {
+        option (rpc_id) = "R6smae";
+    }
+    rpc GetGuidebookDetails(GetGuidebookDetailsRequest) returns (GuidebookDetails) {
+        option (rpc_id) = "LJyzeb";
+    }
+    rpc ShareGuidebook(ShareGuidebookRequest) returns (ShareGuidebookResponse) {
+        option (rpc_id) = "OTl0K";
+    }
+}

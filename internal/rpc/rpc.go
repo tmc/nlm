@@ -7,24 +7,65 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 )
 
-// RPC endpoint IDs for NotebookLM
+// RPC endpoint IDs for NotebookLM services
 const (
-	// RPCListNotebooks lists all notebooks
-	RPCListNotebooks = "wXbhsf"
+	// NotebookLM service - Project/Notebook operations
+	RPCListRecentlyViewedProjects = "wXbhsf" // ListRecentlyViewedProjects
+	RPCCreateProject              = "CCqFvf" // CreateProject
+	RPCGetProject                 = "rLM1Ne" // GetProject
+	RPCDeleteProjects             = "WWINqb" // DeleteProjects
+	RPCMutateProject              = "s0tc2d" // MutateProject
+	RPCRemoveRecentlyViewed       = "fejl7e" // RemoveRecentlyViewedProject
 
-	// RPCAudioOverview creates an audio overview with special instructions
-	RPCAudioOverview = "AHyHrd"
-	// RPCLoadAudioOverview loads audio overview/metadata
-	RPCLoadAudioOverview = "VUsiyb"
+	// NotebookLM service - Source operations
+	RPCAddSources           = "izAoDd" // AddSources
+	RPCDeleteSources        = "tGMBJ"  // DeleteSources
+	RPCMutateSource         = "b7Wfje" // MutateSource
+	RPCRefreshSource        = "FLmJqe" // RefreshSource
+	RPCLoadSource           = "hizoJc" // LoadSource
+	RPCCheckSourceFreshness = "yR9Yof" // CheckSourceFreshness
+	RPCActOnSources         = "yyryJe" // ActOnSources
 
-	// RPCCreateNotebook creates a new notebook
-	RPCCreateNotebook = "CCqFvf"
-	// Other verified RPCs:
-	RPCLoadNotebook = "rLM1Ne" // Load notebook content
-	RPCTextProcess  = "tr032e" // Text processing
-	RPCMetadata     = "VfAZjd" // Get notebook metadata
-	RPCSync         = "cFji9"  // Notebook sync
-	RPCInsertNote   = "izAoDd" // Insert content
+	// NotebookLM service - Note operations
+	RPCCreateNote  = "CYK0Xb" // CreateNote
+	RPCMutateNote  = "cYAfTb" // MutateNote
+	RPCDeleteNotes = "AH0mwd" // DeleteNotes
+	RPCGetNotes    = "cFji9"  // GetNotes
+
+	// NotebookLM service - Audio operations
+	RPCCreateAudioOverview = "AHyHrd" // CreateAudioOverview
+	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
+	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
+
+	// NotebookLM service - Generation operations
+	RPCGenerateDocumentGuides = "tr032e" // GenerateDocumentGuides
+	RPCGenerateNotebookGuide  = "VfAZjd" // GenerateNotebookGuide
+	RPCGenerateOutline        = "lCjAd"  // GenerateOutline
+	RPCGenerateSection        = "BeTrYd" // GenerateSection
+	RPCStartDraft             = "exXvGf" // StartDraft
+	RPCStartSection           = "pGC7gf" // StartSection
+
+	// NotebookLM service - Account operations
+	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
+	RPCMutateAccount      = "hT54vc" // MutateAccount
+
+	// NotebookLM service - Analytics operations
+	RPCGetProjectAnalytics = "AUrzMb" // GetProjectAnalytics
+	RPCSubmitFeedback      = "uNyJKe" // SubmitFeedback
+
+	// NotebookLMSharing service operations
+	RPCShareAudio        = "RGP97b" // ShareAudio
+	RPCGetProjectDetails = "JFMDGd" // GetProjectDetails
+	RPCShareProject      = "QDyure" // ShareProject
+
+	// NotebookLMGuidebooks service operations
+	RPCDeleteGuidebook              = "ARGkVc" // DeleteGuidebook
+	RPCGetGuidebook                 = "EYqtU"  // GetGuidebook
+	RPCListRecentlyViewedGuidebooks = "YJBpHc" // ListRecentlyViewedGuidebooks
+	RPCPublishGuidebook             = "R6smae" // PublishGuidebook
+	RPCGetGuidebookDetails          = "LJyzeb" // GetGuidebookDetails
+	RPCShareGuidebook               = "OTl0K"  // ShareGuidebook
+	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
 )
 
 // Call represents a NotebookLM RPC call
@@ -104,7 +145,7 @@ func (c *Client) Heartbeat() error {
 // ListNotebooks returns all notebooks
 func (c *Client) ListNotebooks() (json.RawMessage, error) {
 	return c.Do(Call{
-		ID: RPCMetadata,
+		ID: RPCListRecentlyViewedProjects,
 	})
 }
 

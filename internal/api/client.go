@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 )
 
 type Notebook = pb.Project
+type Note = pb.Source
 
 // Client handles NotebookLM API interactions.
 type Client struct {
@@ -29,15 +31,15 @@ func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
 	}
 }
 
-// Notebook operations
+// Project/Notebook operations
 
-func (c *Client) ListNotebooks() ([]*Notebook, error) {
+func (c *Client) ListRecentlyViewedProjects() ([]*Notebook, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCListNotebooks,
+		ID:   rpc.RPCListRecentlyViewedProjects,
 		Args: []interface{}{nil, 1},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list notebooks failed: %w", err)
+		return nil, fmt.Errorf("list projects: %w", err)
 	}
 
 	var response pb.ListRecentlyViewedProjectsResponse
@@ -47,13 +49,13 @@ func (c *Client) ListNotebooks() ([]*Notebook, error) {
 	return response.Projects, nil
 }
 
-func (c *Client) CreateNotebook(title string) (*Notebook, error) {
+func (c *Client) CreateProject(title string, emoji string) (*Notebook, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCCreateNotebook,
-		Args: []interface{}{title, "📔"},
+		ID:   rpc.RPCCreateProject,
+		Args: []interface{}{title, emoji},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("rpc call: %w", err)
+		return nil, fmt.Errorf("create project: %w", err)
 	}
 
 	var project pb.Project
@@ -63,80 +65,188 @@ func (c *Client) CreateNotebook(title string) (*Notebook, error) {
 	return &project, nil
 }
 
-func (c *Client) DeleteNotebook(id string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCSync,
-		Args:       []interface{}{id},
-		NotebookID: id,
+func (c *Client) GetProject(projectID string) (*Notebook, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGetProject,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
 	})
 	if err != nil {
-		return fmt.Errorf("rpc call: %w", err)
+		return nil, fmt.Errorf("get project: %w", err)
+	}
+
+	var project pb.Project
+	if err := beprotojson.Unmarshal(resp, &project); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &project, nil
+}
+
+func (c *Client) DeleteProjects(projectIDs []string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCDeleteProjects,
+		Args: []interface{}{projectIDs},
+	})
+	if err != nil {
+		return fmt.Errorf("delete projects: %w", err)
 	}
 	return nil
+}
+
+func (c *Client) MutateProject(projectID string, updates *pb.Project) (*Notebook, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateProject,
+		Args:       []interface{}{projectID, updates},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("mutate project: %w", err)
+	}
+
+	var project pb.Project
+	if err := beprotojson.Unmarshal(resp, &project); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &project, nil
+}
+
+func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCRemoveRecentlyViewed,
+		Args: []interface{}{projectID},
+	})
+	return err
 }
 
 // Source operations
 
-func (c *Client) ListSources(notebookID string) ([]*pb.Source, error) {
+/*
+func (c *Client) AddSources(projectID string, sources []*pb.Source) ([]*pb.Source, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCLoadNotebook,
-		Args:       []interface{}{notebookID},
-		NotebookID: notebookID,
+		ID:         rpc.RPCAddSources,
+		Args:       []interface{}{projectID, sources},
+		NotebookID: projectID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("load notebook: %w", err)
+		return nil, fmt.Errorf("add sources: %w", err)
 	}
 
-	var notebook pb.Project
-	if err := beprotojson.Unmarshal(resp, &notebook); err != nil {
+	var result []*pb.Source
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
+	return result, nil
+}
+*/
 
-	return notebook.Sources, nil
+func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCDeleteSources,
+		Args: []interface{}{
+			[][][]string{{sourceIDs}},
+		},
+		NotebookID: projectID,
+	})
+	return err
 }
 
-func (c *Client) AddSourceFromURL(notebookID, url string) error {
+func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCInsertNote, // Note: RPC name remains same despite functionality
-		NotebookID: notebookID,
-		Args: []interface{}{
-			[]interface{}{
-				[]interface{}{
-					nil,
-					nil,
-					[]string{url},
-				},
-			},
-			notebookID,
-		},
+		ID:   rpc.RPCMutateSource,
+		Args: []interface{}{sourceID, updates},
 	})
 	if err != nil {
-		return fmt.Errorf("add source failed: %w", err)
+		return nil, fmt.Errorf("mutate source: %w", err)
 	}
-	fmt.Println(string(resp))
-	return nil
+
+	var source pb.Source
+	if err := beprotojson.Unmarshal(resp, &source); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &source, nil
 }
 
-func (c *Client) AddSourceFromReader(notebookID string, r io.Reader, filename string) error {
+func (c *Client) RefreshSource(sourceID string) (*pb.Source, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCRefreshSource,
+		Args: []interface{}{sourceID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("refresh source: %w", err)
+	}
+
+	var source pb.Source
+	if err := beprotojson.Unmarshal(resp, &source); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &source, nil
+}
+
+func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCLoadSource,
+		Args: []interface{}{sourceID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load source: %w", err)
+	}
+
+	var source pb.Source
+	if err := beprotojson.Unmarshal(resp, &source); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &source, nil
+}
+
+/*
+func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCCheckSourceFreshness,
+		Args: []interface{}{sourceID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("check source freshness: %w", err)
+	}
+
+	var result pb.CheckSourceFreshnessResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &result, nil
+}
+*/
+
+func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCActOnSources,
+		Args:       []interface{}{projectID, action, sourceIDs},
+		NotebookID: projectID,
+	})
+	return err
+}
+
+// Source upload utility methods
+
+func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename string) (string, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
-		return fmt.Errorf("read content: %w", err)
+		return "", fmt.Errorf("read content: %w", err)
 	}
 
 	contentType := http.DetectContentType(content)
 
 	if strings.HasPrefix(contentType, "text/") {
-		return c.AddSourceFromText(notebookID, string(content), filename)
+		return c.AddSourceFromText(projectID, string(content), filename)
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(content)
-	return c.AddSourceFromBase64(notebookID, encoded, filename, contentType)
+	return c.AddSourceFromBase64(projectID, encoded, filename, contentType)
 }
 
-func (c *Client) AddSourceFromText(notebookID, content, title string) error {
+func (c *Client) AddSourceFromText(projectID string, content, title string) (string, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCInsertNote,
-		NotebookID: notebookID,
+		ID:         rpc.RPCAddSources,
+		NotebookID: projectID,
 		Args: []interface{}{
 			[]interface{}{
 				[]interface{}{
@@ -146,23 +256,27 @@ func (c *Client) AddSourceFromText(notebookID, content, title string) error {
 						content,
 					},
 					nil,
-					2, // This seems to be the type for text sources
+					2, // text source type
 				},
 			},
-			notebookID,
+			projectID,
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("add text source failed: %w", err)
+		return "", fmt.Errorf("add text source: %w", err)
 	}
-	fmt.Println(resp)
-	return nil
+
+	sourceID, err := extractSourceID(resp)
+	if err != nil {
+		return "", fmt.Errorf("extract source ID: %w", err)
+	}
+	return sourceID, nil
 }
 
-func (c *Client) AddSourceFromBase64(notebookID, content, filename, contentType string) error {
+func (c *Client) AddSourceFromBase64(projectID string, content, filename, contentType string) (string, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCInsertNote,
-		NotebookID: notebookID,
+		ID:         rpc.RPCAddSources,
+		NotebookID: projectID,
 		Args: []interface{}{
 			[]interface{}{
 				[]interface{}{
@@ -172,134 +286,471 @@ func (c *Client) AddSourceFromBase64(notebookID, content, filename, contentType 
 					"base64",
 				},
 			},
-			notebookID,
+			projectID,
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("add binary source failed: %w", err)
+		return "", fmt.Errorf("add binary source: %w", err)
 	}
-	fmt.Println(resp)
-	return nil
+
+	sourceID, err := extractSourceID(resp)
+	if err != nil {
+		return "", fmt.Errorf("extract source ID: %w", err)
+	}
+	return sourceID, nil
 }
 
-func (c *Client) AddSourceFromFile(notebookID, filepath string) error {
+func (c *Client) AddSourceFromFile(projectID string, filepath string) (string, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
-		return fmt.Errorf("open file: %w", err)
+		return "", fmt.Errorf("open file: %w", err)
 	}
 	defer f.Close()
 
-	return c.AddSourceFromReader(notebookID, f, filepath)
+	return c.AddSourceFromReader(projectID, f, filepath)
 }
 
-func (c *Client) RemoveSource(notebookID, sourceID string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCRemoveSource,
+func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCAddSources,
+		NotebookID: projectID,
 		Args: []interface{}{
-			notebookID,
-			sourceID,
-		},
-		NotebookID: notebookID,
-	})
-	if err != nil {
-		return fmt.Errorf("remove source: %w", err)
-	}
-	return nil
-}
-
-func (c *Client) RenameSource(sourceID, newName string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCRenameSource,
-		Args: []interface{}{
-			nil,
-			[]string{sourceID},
-			[][][]string{{{newName}}},
+			[]interface{}{
+				[]interface{}{
+					nil,
+					nil,
+					[]string{url},
+				},
+			},
+			projectID,
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("rename source: %w", err)
+		return "", fmt.Errorf("add source from URL: %w", err)
 	}
-	return nil
+
+	sourceID, err := extractSourceID(resp)
+	if err != nil {
+		return "", fmt.Errorf("extract source ID: %w", err)
+	}
+	return sourceID, nil
+}
+
+// Helper function to extract source ID from response
+func extractSourceID(resp json.RawMessage) (string, error) {
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return "", fmt.Errorf("parse response: %w", err)
+	}
+
+	// Response format: [[[["id","url",[metadata],[settings]]]]
+	if len(data) > 0 && len(data[0].([]interface{})) > 0 {
+		sourceData := data[0].([]interface{})[0].([]interface{})
+		if len(sourceData) > 0 {
+			if id, ok := sourceData[0].(string); ok {
+				return id, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("could not extract source ID from response")
 }
 
 // Note operations
 
-func (c *Client) CreateNote(notebookID string, title string) error {
-	_, err := c.rpc.Do(rpc.Call{
+func (c *Client) CreateNote(projectID string, title string, initialContent string) (*Note, error) {
+	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCCreateNote,
 		Args: []interface{}{
-			notebookID,
-			"",       // empty content initially
+			projectID,
+			initialContent,
 			[]int{1}, // note type
 			nil,
 			title,
 		},
-		NotebookID: notebookID,
+		NotebookID: projectID,
 	})
-	return err
+	if err != nil {
+		return nil, fmt.Errorf("create note: %w", err)
+	}
+
+	var note Note
+	if err := beprotojson.Unmarshal(resp, &note); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &note, nil
 }
 
-func (c *Client) UpdateNote(notebookID, noteID string, content, title string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCUpdateNote,
+func (c *Client) MutateNote(projectID string, noteID string, content string, title string) (*Note, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCMutateNote,
 		Args: []interface{}{
-			notebookID,
+			projectID,
 			noteID,
 			[][][]interface{}{{
 				{content, title, []interface{}{}},
 			}},
 		},
-		NotebookID: notebookID,
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("mutate note: %w", err)
+	}
+
+	var note Note
+	if err := beprotojson.Unmarshal(resp, &note); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &note, nil
+}
+
+func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCDeleteNotes,
+		Args: []interface{}{
+			[][][]string{{noteIDs}},
+		},
+		NotebookID: projectID,
 	})
 	return err
 }
 
-func (c *Client) RemoveNote(noteID string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCRemoveNote,
-		Args: []interface{}{
-			[][][]string{{{noteID}}},
-		},
+func (c *Client) GetNotes(projectID string) ([]*Note, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGetNotes,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
 	})
 	if err != nil {
-		return fmt.Errorf("remove note: %w", err)
+		return nil, fmt.Errorf("get notes: %w", err)
 	}
-	return nil
+
+	var response pb.GetNotesResponse
+	if err := beprotojson.Unmarshal(resp, &response); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return response.Notes, nil
 }
 
-// Audio overview operations
+// Audio operations
 
-type AudioOverviewOptions struct {
-	Instructions string
-}
+func (c *Client) CreateAudioOverview(projectID string, instructions string) (*AudioOverviewResult, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("project ID required")
+	}
+	if instructions == "" {
+		return nil, fmt.Errorf("instructions required")
+	}
 
-func (c *Client) CreateAudioOverview(notebookID string, opts AudioOverviewOptions) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCAudioOverview,
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCCreateAudioOverview,
 		Args: []interface{}{
-			notebookID,
-			0, // Fixed value in the protocol
-			[]string{opts.Instructions},
+			projectID,
+			0,
+			[]string{
+				instructions,
+			},
 		},
-		NotebookID: notebookID,
+		NotebookID: projectID,
 	})
 	if err != nil {
-		return fmt.Errorf("create audio overview: %w", err)
+		return nil, fmt.Errorf("create audio overview: %w", err)
 	}
-	return nil
+
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return nil, fmt.Errorf("parse response JSON: %w", err)
+	}
+
+	result := &AudioOverviewResult{
+		ProjectID: projectID,
+	}
+
+	// Handle empty or nil response
+	if len(data) == 0 {
+		return result, nil
+	}
+
+	// Parse the wrb.fr response format
+	// Format: [null,null,[3,"<base64-audio>","<id>","<title>",null,true],null,[false]]
+	if len(data) > 2 {
+		audioData, ok := data[2].([]interface{})
+		if !ok || len(audioData) < 4 {
+			// Creation might be in progress, return result without error
+			return result, nil
+		}
+
+		// Extract audio data (index 1)
+		if audioBase64, ok := audioData[1].(string); ok {
+			result.AudioData = audioBase64
+		}
+
+		// Extract ID (index 2)
+		if id, ok := audioData[2].(string); ok {
+			result.AudioID = id
+		}
+
+		// Extract title (index 3)
+		if title, ok := audioData[3].(string); ok {
+			result.Title = title
+		}
+
+		// Extract ready status (index 5)
+		if len(audioData) > 5 {
+			if ready, ok := audioData[5].(bool); ok {
+				result.IsReady = ready
+			}
+		}
+	}
+
+	return result, nil
 }
 
-// Sync operations
-
-func (c *Client) SyncNotebook(notebookID string, timestamp [2]int64) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCSync,
+func (c *Client) GetAudioOverview(projectID string) (*AudioOverviewResult, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCGetAudioOverview,
 		Args: []interface{}{
-			notebookID,
-			nil,
-			timestamp,
+			projectID,
+			1,
 		},
-		NotebookID: notebookID,
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get audio overview: %w", err)
+	}
+
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return nil, fmt.Errorf("parse response JSON: %w", err)
+	}
+
+	result := &AudioOverviewResult{
+		ProjectID: projectID,
+	}
+
+	// Handle empty or nil response
+	if len(data) == 0 {
+		return result, nil
+	}
+
+	// Parse the wrb.fr response format
+	// Format: [null,null,[3,"<base64-audio>","<id>","<title>",null,true],null,[false]]
+	if len(data) > 2 {
+		audioData, ok := data[2].([]interface{})
+		if !ok || len(audioData) < 4 {
+			return nil, fmt.Errorf("invalid audio data format")
+		}
+
+		// Extract audio data (index 1)
+		if audioBase64, ok := audioData[1].(string); ok {
+			result.AudioData = audioBase64
+		}
+
+		// Extract ID (index 2)
+		if id, ok := audioData[2].(string); ok {
+			result.AudioID = id
+		}
+
+		// Extract title (index 3)
+		if title, ok := audioData[3].(string); ok {
+			result.Title = title
+		}
+
+		// Extract ready status (index 5)
+		if len(audioData) > 5 {
+			if ready, ok := audioData[5].(bool); ok {
+				result.IsReady = ready
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// AudioOverviewResult represents an audio overview response
+type AudioOverviewResult struct {
+	ProjectID string
+	AudioID   string
+	Title     string
+	AudioData string // Base64 encoded audio data
+	IsReady   bool
+}
+
+// GetAudioBytes returns the decoded audio data
+func (r *AudioOverviewResult) GetAudioBytes() ([]byte, error) {
+	if r.AudioData == "" {
+		return nil, fmt.Errorf("no audio data available")
+	}
+	return base64.StdEncoding.DecodeString(r.AudioData)
+}
+
+func (c *Client) DeleteAudioOverview(projectID string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCDeleteAudioOverview,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
 	})
 	return err
+}
+
+// Generation operations
+
+func (c *Client) GenerateDocumentGuides(projectID string) (*pb.GenerateDocumentGuidesResponse, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGenerateDocumentGuides,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate document guides: %w", err)
+	}
+
+	var guides pb.GenerateDocumentGuidesResponse
+	if err := beprotojson.Unmarshal(resp, &guides); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &guides, nil
+}
+
+func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGuideResponse, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGenerateNotebookGuide,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate notebook guide: %w", err)
+	}
+
+	var guide pb.GenerateNotebookGuideResponse
+	if err := beprotojson.Unmarshal(resp, &guide); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &guide, nil
+}
+
+func (c *Client) GenerateOutline(projectID string) (*pb.GenerateOutlineResponse, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGenerateOutline,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate outline: %w", err)
+	}
+
+	var outline pb.GenerateOutlineResponse
+	if err := beprotojson.Unmarshal(resp, &outline); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &outline, nil
+}
+
+func (c *Client) GenerateSection(projectID string) (*pb.GenerateSectionResponse, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGenerateSection,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate section: %w", err)
+	}
+
+	var section pb.GenerateSectionResponse
+	if err := beprotojson.Unmarshal(resp, &section); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &section, nil
+}
+
+func (c *Client) StartDraft(projectID string) (*pb.StartDraftResponse, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCStartDraft,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start draft: %w", err)
+	}
+
+	var draft pb.StartDraftResponse
+	if err := beprotojson.Unmarshal(resp, &draft); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &draft, nil
+}
+
+func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCStartSection,
+		Args:       []interface{}{projectID},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start section: %w", err)
+	}
+
+	var section pb.StartSectionResponse
+	if err := beprotojson.Unmarshal(resp, &section); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	return &section, nil
+}
+
+// Sharing operations
+
+// ShareOption represents audio sharing visibility options
+type ShareOption int
+
+const (
+	SharePrivate ShareOption = 0
+	SharePublic  ShareOption = 1
+)
+
+// ShareAudioResult represents the response from sharing audio
+type ShareAudioResult struct {
+	ShareURL string
+	ShareID  string
+	IsPublic bool
+}
+
+// ShareAudio shares an audio overview with optional public access
+func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAudioResult, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCShareAudio,
+		Args: []interface{}{
+			[]int{int(shareOption)},
+			projectID,
+		},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("share audio: %w", err)
+	}
+
+	// Parse the raw response
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	result := &ShareAudioResult{
+		IsPublic: shareOption == SharePublic,
+	}
+
+	// Extract share URL and ID from response
+	if len(data) > 0 {
+		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
+			if shareURL, ok := shareData[0].(string); ok {
+				result.ShareURL = shareURL
+			}
+			if len(shareData) > 1 {
+				if shareID, ok := shareData[1].(string); ok {
+					result.ShareID = shareID
+				}
+			}
+		}
+	}
+
+	return result, nil
 }
