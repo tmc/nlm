@@ -33,7 +33,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  list, ls          List all notebooks\n")
 		fmt.Fprintf(os.Stderr, "  create <title>    Create a new notebook\n")
 		fmt.Fprintf(os.Stderr, "  rm <id>           Delete a notebook\n")
-		fmt.Fprintf(os.Stderr, "  add <id> <file>   Add note from file to notebook\n")
+		fmt.Fprintf(os.Stderr, "  add <id> <input>  Add note to notebook (URL or file)\n")
 		fmt.Fprintf(os.Stderr, "  get <id>          Get all notes from notebook\n")
 		fmt.Fprintf(os.Stderr, "  hb                Send heartbeat\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
@@ -123,8 +123,19 @@ func remove(c *api.Client, id string) error {
 	return c.DeleteNotebook(id)
 }
 
-func addNote(c *api.Client, notebookID, filename string) error {
-	return nil
+func addNote(c *api.Client, notebookID, input string) error {
+	// Check if input is a URL
+	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
+		fmt.Printf("Adding note from URL: %s\n", input)
+		return c.AddNoteFromURL(notebookID, input)
+	}
+
+	// Check if input is a file
+	if _, err := os.Stat(input); err == nil {
+		return fmt.Errorf("file upload not implemented yet")
+	}
+
+	return fmt.Errorf("invalid input: must be URL or file path")
 }
 
 func getNotes(c *api.Client, notebookID string) error {

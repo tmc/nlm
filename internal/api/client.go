@@ -70,3 +70,26 @@ func (c *Client) DeleteNotebook(id string) error {
 	}
 	return nil
 }
+
+// Add this to the Client methods
+func (c *Client) AddNoteFromURL(notebookID, url string) error {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCInsertNote,
+		NotebookID: notebookID,
+		Args: []interface{}{
+			[]interface{}{
+				[]interface{}{
+					nil,
+					nil,
+					[]string{url},
+				},
+			},
+			notebookID,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("add note failed: %w", err)
+	}
+	fmt.Println(resp)
+	return nil
+}
