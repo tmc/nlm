@@ -3,50 +3,51 @@
 package auth
 
 import (
-	"fmt"
-	"os"
-	"os/exec"
-	"strings"
+    "fmt"
+    "os"
+    "os/exec"
+    "strings"
 )
 
 func detectSafari(debug bool) Browser {
-	paths := []string{
-		"/Applications/Safari.app/Contents/MacOS/Safari",
-	}
-
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			version := getSafariVersion()
-			return Browser{
-				Type:    BrowserSafari,
-				Path:    path,
-				Name:    "Safari",
-				Version: version,
-			}
-		}
-	}
-
-	return Browser{Type: BrowserUnknown}
+    for _, browser := range macOSBrowserPaths {
+        if browser.Type != BrowserSafari {
+            continue
+        }
+        if _, err := os.Stat(browser.Path); err == nil {
+            version := getSafariVersion()
+            if debug {
+                fmt.Printf("Found Safari at %s (version: %s)\n", browser.Path, version)
+            }
+            return Browser{
+                Type:    BrowserSafari,
+                Path:    browser.Path,
+                Name:    "Safari",
+                Version: version,
+            }
+        }
+    }
+    return Browser{Type: BrowserUnknown}
 }
 
 func getSafariVersion() string {
-	cmd := exec.Command("defaults", "read", "/Applications/Safari.app/Contents/Info.plist", "CFBundleShortVersionString")
-	out, err := cmd.Output()
-	if err != nil {
-		return "unknown"
-	}
-	return strings.TrimSpace(string(out))
+    cmd := exec.Command("defaults", "read", "/Applications/Safari.app/Contents/Info.plist", "CFBundleShortVersionString")
+    out, err := cmd.Output()
+    if err != nil {
+        return "unknown"
+    }
+    return strings.TrimSpace(string(out))
 }
 
 type SafariAutomation struct {
-	debug  bool
-	script string
+    debug bool
+    script string
 }
 
 func newSafariAutomation(debug bool) *SafariAutomation {
-	return &SafariAutomation{
-		debug: debug,
-		script: `
+    return &SafariAutomation{
+        debug: debug,
+        script: `
 tell application "Safari"
     activate
     make new document
@@ -65,20 +66,20 @@ tell application "Safari"
     return authToken & "|" & cookies
 end tell
 `,
-	}
+    }
 }
 
 func (sa *SafariAutomation) Execute() (token, cookies string, err error) {
-	cmd := exec.Command("osascript", "-e", sa.script)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", "", err
-	}
+    cmd := exec.Command("osascript", "-e", sa.script)
+    out, err := cmd.Output()
+    if err != nil {
+        return "", "", err
+    }
 
-	parts := strings.Split(string(out), "|")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("unexpected Safari automation output")
-	}
+    parts := strings.Split(string(out), "|")
+    if len(parts) != 2 {
+        return "", "", fmt.Errorf("unexpected Safari automation output")
+    }
 
-	return parts[0], parts[1], nil
+    return parts[0], parts[1], nil
 }
