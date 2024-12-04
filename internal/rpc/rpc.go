@@ -12,6 +12,8 @@ const (
 	// RPCListNotebooks lists all notebooks
 	RPCListNotebooks = "wXbhsf"
 
+	// RPCAudioOverview creates an audio overview with special instructions
+	RPCAudioOverview = "AHyHrd"
 	// RPCLoadAudioOverview loads audio overview/metadata
 	RPCLoadAudioOverview = "VUsiyb"
 
