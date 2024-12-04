@@ -2,11 +2,14 @@
 
 `nlm` is a command-line interface for Google's NotebookLM, allowing you to manage notebooks, sources, and audio overviews from your terminal.
 
+🔊 Listen to an Audio Overview of this tool here: [https://notebooklm.google.com/notebook/437c839c-5a24-455b-b8da-d35ba8931811/audio](https://notebooklm.google.com/notebook/437c839c-5a24-455b-b8da-d35ba8931811/audio).
+
 ## Installation 🚀
 
 ```bash
 go install github.com/tmc/nlm/cmd/nlm@latest
 ```
+
 
 <details>
 <summary>📦 Installing Go (if needed)</summary>
