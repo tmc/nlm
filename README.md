@@ -10,6 +10,45 @@
 go install github.com/tmc/nlm/cmd/nlm@latest
 ```
 
+### Usage 
+
+```shell
+Usage: nlm <command> [arguments]
+
+Notebook Commands:
+  list, ls          List all notebooks
+  create <title>    Create a new notebook
+  rm <id>           Delete a notebook
+  analytics <id>    Show notebook analytics
+
+Source Commands:
+  sources <id>      List sources in notebook
+  add <id> <input>  Add source to notebook
+  rm-source <id> <source-id>  Remove source
+  rename-source <source-id> <new-name>  Rename source
+  refresh-source <source-id>  Refresh source content
+  check-source <source-id>  Check source freshness
+
+Note Commands:
+  notes <id>        List notes in notebook
+  new-note <id> <title>  Create new note
+  edit-note <id> <note-id> <content>  Edit note
+  rm-note <note-id>  Remove note
+
+Audio Commands:
+  audio-create <id> <instructions>  Create audio overview
+  audio-get <id>    Get audio overview
+  audio-rm <id>     Delete audio overview
+  audio-share <id>  Share audio overview
+
+Generation Commands:
+  generate-guide <id>  Generate notebook guide
+  generate-outline <id>  Generate content outline
+  generate-section <id>  Generate new section
+
+Other Commands:
+  auth              Setup authentication
+```
 
 <details>
 <summary>📦 Installing Go (if needed)</summary>
