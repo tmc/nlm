@@ -265,7 +265,7 @@ func create(c *api.Client, title string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Created notebook %v\n", notebook)
+	fmt.Println(notebook.ProjectId)
 	return nil
 }
 
