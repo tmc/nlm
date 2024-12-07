@@ -216,10 +216,11 @@ nlm -debug list
 
 ### Environment Variables
 
-- `NLM_AUTH_TOKEN`: Authentication token
-- `NLM_COOKIES`: Authentication cookies
+- `NLM_AUTH_TOKEN`: Authentication token (stored in ~/.nlm/env)
+- `NLM_COOKIES`: Authentication cookies (stored in ~/.nlm/env)
+- `NLM_BROWSER_PROFILE`: Chrome profile to use for authentication (default: "Default")
 
-These are typically set by the `auth` command, but can be manually configured if needed.
+These are typically managed by the `auth` command, but can be manually configured if needed.
 
 ## Contributing 🤝
 

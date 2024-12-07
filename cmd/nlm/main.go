@@ -98,8 +98,8 @@ func run() error {
 
 	var opts []batchexecute.Option
 	for i := 0; i < 3; i++ {
-		if i > 0 {
-			fmt.Fprintln(os.Stderr, "nlm: attempting again to obtain authorization information")
+		if i > 1 {
+			fmt.Fprintln(os.Stderr, "nlm: attempting again to obtain login information")
 			debug = true
 		}
 

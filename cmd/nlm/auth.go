@@ -2,11 +2,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/tmc/nlm/internal/auth"
@@ -89,7 +91,7 @@ func persistAuthToDisk(cookies, authToken, profileName string) (string, string, 
 
 	// Create or update env file
 	envFile := filepath.Join(nlmDir, "env")
-	content := fmt.Sprintf("NLM_COOKIES=%q\nexport NLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\n",
+	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\n",
 		cookies,
 		authToken,
 		profileName,
@@ -101,4 +103,40 @@ func persistAuthToDisk(cookies, authToken, profileName string) (string, string, 
 
 	fmt.Fprintf(os.Stderr, "nlm: auth info written to %s\n", envFile)
 	return authToken, cookies, nil
+}
+
+func loadStoredEnv() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".nlm", "env"))
+	if err != nil {
+		return
+	}
+
+	s := bufio.NewScanner(strings.NewReader(string(data)))
+	for s.Scan() {
+		line := strings.TrimSpace(s.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+
+		key = strings.TrimSpace(key)
+		if os.Getenv(key) != "" {
+			continue
+		}
+
+		value = strings.TrimSpace(value)
+		if unquoted, err := strconv.Unquote(value); err == nil {
+			value = unquoted
+		}
+		os.Setenv(key, value)
+	}
 }
