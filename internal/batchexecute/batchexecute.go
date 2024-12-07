@@ -3,6 +3,7 @@ package batchexecute
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -14,6 +15,9 @@ import (
 	"sync"
 	"time"
 )
+
+// ErrUnauthorized represent an unauthorized request.
+var ErrUnauthorized = errors.New("unauthorized")
 
 // RPC represents a single RPC call
 type RPC struct {
@@ -41,7 +45,12 @@ func (e *BatchExecuteError) Error() string {
 	return fmt.Sprintf("batchexecute error: %s (status: %d)", e.Message, e.StatusCode)
 }
 
-// Add these methods to Client
+func (e *BatchExecuteError) Unwrap() error {
+	if e.StatusCode == 401 {
+		return ErrUnauthorized
+	}
+	return nil
+}
 
 // Do executes a single RPC call
 func (c *Client) Do(rpc RPC) (*Response, error) {

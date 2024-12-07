@@ -30,10 +30,27 @@ func New(debug bool) *BrowserAuth {
 	}
 }
 
-func (ba *BrowserAuth) GetAuth() (token, cookies string, err error) {
+type Options struct {
+	ProfileName string
+}
+
+type Option func(*Options)
+
+func WithProfileName(p string) Option { return func(o *Options) { o.ProfileName = p } }
+
+func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error) {
+	o := &Options{
+		ProfileName: "Default",
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
+
 	defer ba.cleanup()
 
 	// Create temp directory for new Chrome instance
+	if ba.debug {
+	}
 	tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
 	if err != nil {
 		return "", "", fmt.Errorf("create temp dir: %w", err)
@@ -41,7 +58,7 @@ func (ba *BrowserAuth) GetAuth() (token, cookies string, err error) {
 	ba.tempDir = tempDir
 
 	// Copy profile data
-	if err := ba.copyProfileData(); err != nil {
+	if err := ba.copyProfileData(o.ProfileName); err != nil {
 		return "", "", fmt.Errorf("copy profile: %w", err)
 	}
 
@@ -101,8 +118,8 @@ func (ba *BrowserAuth) GetAuth() (token, cookies string, err error) {
 	return ba.extractAuthData(ctx)
 }
 
-func (ba *BrowserAuth) copyProfileData() error {
-	sourceDir := getProfilePath()
+func (ba *BrowserAuth) copyProfileData(profileName string) error {
+	sourceDir := filepath.Join(getProfilePath(), profileName)
 	if ba.debug {
 		fmt.Printf("Copying profile data from: %s\n", sourceDir)
 	}
@@ -126,7 +143,7 @@ func (ba *BrowserAuth) copyProfileData() error {
 
 		if err := copyFile(src, dst); err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("copy %s: %w", file, err)
+				return fmt.Errorf("issue with profile copy %s: %w", file, err)
 			}
 			if ba.debug {
 				fmt.Printf("Skipping non-existent file: %s\n", file)
@@ -134,6 +151,7 @@ func (ba *BrowserAuth) copyProfileData() error {
 		}
 	}
 
+	// explain each of these lines in a comment (explain why:)
 	// Create minimal Local State file
 	localState := `{"os_crypt":{"encrypted_key":""}}`
 	if err := os.WriteFile(filepath.Join(ba.tempDir, "Local State"), []byte(localState), 0644); err != nil {
@@ -209,72 +227,6 @@ func (ba *BrowserAuth) waitForDebugger(debugURL string) error {
 	}
 }
 
-func (ba *BrowserAuth) extractAuthData(ctx context.Context) (token, cookies string, err error) {
-	fmt.Println("Navigating to NotebookLM...")
-
-	err = chromedp.Run(ctx,
-		chromedp.Navigate("https://notebooklm.google.com"),
-		chromedp.WaitVisible("body", chromedp.ByQuery),
-	)
-	if err != nil {
-		return "", "", fmt.Errorf("navigation failed: %w", err)
-	}
-
-	fmt.Println("Page loaded, checking for auth data...")
-
-	// Poll for auth data with status updates
-	for i := 0; i < 30; i++ { // Try for 30 seconds
-		var hasAuth bool
-		err = chromedp.Run(ctx,
-			chromedp.Evaluate(`!!window.WIZ_global_data`, &hasAuth),
-		)
-		if err != nil {
-			fmt.Printf("Check %d: Error checking auth data: %v\n", i+1, err)
-			time.Sleep(time.Second)
-			continue
-		}
-
-		if hasAuth {
-			fmt.Println("Found auth data, extracting...")
-			err = chromedp.Run(ctx,
-				chromedp.Evaluate(`WIZ_global_data.SNlM0e`, &token),
-				chromedp.ActionFunc(func(ctx context.Context) error {
-					cks, err := network.GetCookies().WithUrls([]string{"https://notebooklm.google.com"}).Do(ctx)
-					if err != nil {
-						return err
-					}
-					var cookieStrs []string
-					for _, ck := range cks {
-						cookieStrs = append(cookieStrs,
-							fmt.Sprintf("%s=%s", ck.Name, ck.Value))
-					}
-					cookies = strings.Join(cookieStrs, "; ")
-					return nil
-				}),
-			)
-			if err != nil {
-				return "", "", fmt.Errorf("extract auth data: %w", err)
-			}
-
-			if token != "" {
-				return token, cookies, nil
-			}
-		}
-
-		if ba.debug {
-			fmt.Printf("Check %d: Waiting for auth data...\n", i+1)
-		}
-		time.Sleep(time.Second)
-	}
-
-	// Get current URL for diagnostics
-	var currentURL string
-	_ = chromedp.Run(ctx,
-		chromedp.Location(&currentURL),
-	)
-	return "", "", fmt.Errorf("auth data not found after 30 seconds (current URL: %s)", currentURL)
-}
-
 func (ba *BrowserAuth) cleanup() {
 	if ba.cancel != nil {
 		ba.cancel()
@@ -302,4 +254,84 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(destination, source)
 	return err
+}
+
+func (ba *BrowserAuth) extractAuthData(ctx context.Context) (token, cookies string, err error) {
+	// Navigate and wait for initial page load
+	if err := chromedp.Run(ctx,
+		chromedp.Navigate("https://notebooklm.google.com"),
+		chromedp.WaitVisible("body", chromedp.ByQuery),
+	); err != nil {
+		return "", "", fmt.Errorf("failed to load page: %w", err)
+	}
+
+	// Create timeout context
+	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-pollCtx.Done():
+			var currentURL string
+			_ = chromedp.Run(ctx, chromedp.Location(&currentURL))
+			return "", "", fmt.Errorf("auth data not found after timeout (URL: %s)", currentURL)
+
+		case <-ticker.C:
+			token, cookies, err = ba.tryExtractAuth(ctx)
+			if err != nil {
+				if ba.debug {
+					// show seconds remaining from ctx at end of this:
+					deadline, _ := ctx.Deadline()
+					remaining := time.Until(deadline).Seconds()
+					fmt.Printf("   Auth check failed: %v (%.1f seconds remaining)\n", err, remaining)
+				}
+				continue
+			}
+			if token != "" {
+				return token, cookies, nil
+			}
+			if ba.debug {
+				fmt.Println("Waiting for auth data...")
+			}
+		}
+	}
+}
+
+func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies string, err error) {
+	var hasAuth bool
+	err = chromedp.Run(ctx,
+		chromedp.Evaluate(`!!window.WIZ_global_data`, &hasAuth),
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("check auth presence: %w", err)
+	}
+
+	if !hasAuth {
+		return "", "", nil
+	}
+
+	err = chromedp.Run(ctx,
+		chromedp.Evaluate(`WIZ_global_data.SNlM0e`, &token),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			cks, err := network.GetCookies().WithUrls([]string{"https://notebooklm.google.com"}).Do(ctx)
+			if err != nil {
+				return fmt.Errorf("get cookies: %w", err)
+			}
+
+			var cookieStrs []string
+			for _, ck := range cks {
+				cookieStrs = append(cookieStrs, fmt.Sprintf("%s=%s", ck.Name, ck.Value))
+			}
+			cookies = strings.Join(cookieStrs, "; ")
+			return nil
+		}),
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("extract auth data: %w", err)
+	}
+
+	return token, cookies, nil
 }

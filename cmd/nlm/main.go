@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -14,16 +15,18 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 )
 
+// Global flags
+var (
+	authToken string
+	cookies   string
+	debug     bool
+)
+
 func main() {
 	log.SetPrefix("nlm: ")
 	log.SetFlags(0)
 
-	// Global flags
-	var (
-		authToken string
-		cookies   string
-		debug     bool
-	)
+	// change this so flag usage doesn't print these values..
 	flag.StringVar(&authToken, "auth", os.Getenv("NLM_AUTH_TOKEN"), "auth token (or set NLM_AUTH_TOKEN)")
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
 	flag.BoolVar(&debug, "debug", false, "enable debug output")
@@ -62,28 +65,59 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n\n")
 
 		fmt.Fprintf(os.Stderr, "Other Commands:\n")
-		fmt.Fprintf(os.Stderr, "  auth              Setup authentication\n")
+		fmt.Fprintf(os.Stderr, "  auth [profile]    Setup authentication\n")
 		fmt.Fprintf(os.Stderr, "  share <id>        Share notebook\n")
 		fmt.Fprintf(os.Stderr, "  feedback <msg>    Submit feedback\n")
 		fmt.Fprintf(os.Stderr, "  hb                Send heartbeat\n\n")
 	}
 
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	flag.Parse()
+	loadStoredEnv()
+
+	if authToken == "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if cookies == "" {
+		cookies = os.Getenv("NLM_COOKIES")
+	}
 
 	if flag.NArg() < 1 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	opts := []batchexecute.Option{}
-	if debug {
-		opts = append(opts, batchexecute.WithDebug(true))
-	}
-	client := api.New(authToken, cookies, opts...)
-
 	cmd := flag.Arg(0)
 	args := flag.Args()[1:]
 
+	var opts []batchexecute.Option
+	for i := 0; i < 3; i++ {
+		if i > 0 {
+			fmt.Fprintln(os.Stderr, "nlm: attempting again to obtain authorization information")
+			debug = true
+		}
+
+		if err := runCmd(api.New(authToken, cookies, opts...), cmd, args...); err == nil {
+			return nil
+		} else if !errors.Is(err, batchexecute.ErrUnauthorized) {
+			return err
+		}
+
+		var err error
+		if authToken, cookies, err = handleAuth(nil, debug); err != nil {
+			fmt.Fprintf(os.Stderr, "  -> %v\n", err)
+		}
+	}
+	return fmt.Errorf("nlm: failed after 3 attempts")
+}
+
+func runCmd(client *api.Client, cmd string, args ...string) error {
 	var err error
 	switch cmd {
 	// Notebook operations
@@ -197,7 +231,7 @@ func main() {
 	// 	}
 	// 	err = submitFeedback(client, args[0])
 	case "auth":
-		err = handleAuth(args, debug)
+		_, _, err = handleAuth(args, debug)
 
 	case "hb":
 		err = heartbeat(client)
@@ -206,9 +240,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }
 
 // Notebook operations

@@ -1,34 +1,45 @@
+// chagne this to use x/term and write the auth file to the users's home dir in a cache file.
 package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/tmc/nlm/internal/auth"
+	"golang.org/x/term"
 )
 
-func handleAuth(args []string, debug bool) error {
+func handleAuth(args []string, debug bool) (string, string, error) {
+	isTty := term.IsTerminal(int(os.Stdin.Fd()))
+
+	if !isTty {
+		// Parse HAR/curl from stdin
+		input, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to read stdin: %w", err)
+		}
+		return detectAuthInfo(string(input))
+	}
+
+	profileName := "Default"
+	if v := os.Getenv("NLM_BROWSER_PROFILE"); v != "" {
+		profileName = v
+	}
 	if len(args) > 0 {
-		// Handle existing curl/HAR parsing
-		return detectAuthInfo(strings.Join(args, " "))
+		profileName = args[0]
 	}
 
-	auth := auth.New(debug)
-
-	fmt.Println("Launching Chrome to extract authentication...")
-	token, cookies, err := auth.GetAuth()
+	a := auth.New(debug)
+	fmt.Fprintf(os.Stderr, "nlm: launching browser to login... (profile:%v)  (set with NLM_BROWSER_PROFILE)\n", profileName)
+	token, cookies, err := a.GetAuth(auth.WithProfileName(profileName))
 	if err != nil {
-		return fmt.Errorf("browser auth failed: %w", err)
+		return "", "", fmt.Errorf("browser auth failed: %w", err)
 	}
-
-	if debug {
-		fmt.Printf("Token: %s\n", token)
-		fmt.Printf("Cookies: %s\n", cookies)
-	}
-
-	return writeAuthToEnv(cookies, token)
+	return persistAuthToDisk(cookies, token, profileName)
 }
 
 func readFromStdin() (string, error) {
@@ -44,12 +55,12 @@ func readFromStdin() (string, error) {
 	return input.String(), nil
 }
 
-func detectAuthInfo(cmd string) error {
+func detectAuthInfo(cmd string) (string, string, error) {
 	// Extract cookies
 	cookieRe := regexp.MustCompile(`-H ['"]cookie: ([^'"]+)['"]`)
 	cookieMatch := cookieRe.FindStringSubmatch(cmd)
 	if len(cookieMatch) < 2 {
-		return fmt.Errorf("no cookies found")
+		return "", "", fmt.Errorf("no cookies found")
 	}
 	cookies := cookieMatch[1]
 
@@ -57,22 +68,37 @@ func detectAuthInfo(cmd string) error {
 	atRe := regexp.MustCompile(`at=([^&\s]+)`)
 	atMatch := atRe.FindStringSubmatch(cmd)
 	if len(atMatch) < 2 {
-		return fmt.Errorf("no auth token found")
+		return "", "", fmt.Errorf("no auth token found")
 	}
 	authToken := atMatch[1]
-	return writeAuthToEnv(cookies, authToken)
+	persistAuthToDisk(cookies, authToken, "")
+	return authToken, cookies, nil
 }
 
-func writeAuthToEnv(cookies, authToken string) error {
-	// Create or update .env file
-	envFile := ".env"
-	content := fmt.Sprintf("export NLM_COOKIES=%q\nexport NLM_AUTH_TOKEN=%q\n", cookies, authToken)
-
-	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
-		return fmt.Errorf("write env file: %w", err)
+func persistAuthToDisk(cookies, authToken, profileName string) (string, string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", "", fmt.Errorf("get home dir: %w", err)
 	}
 
-	fmt.Printf("Auth info written to %s\n", envFile)
-	fmt.Println("Run 'source .env' to load the variables")
-	return nil
+	// Create .nlm directory if it doesn't exist
+	nlmDir := filepath.Join(homeDir, ".nlm")
+	if err := os.MkdirAll(nlmDir, 0700); err != nil {
+		return "", "", fmt.Errorf("create .nlm directory: %w", err)
+	}
+
+	// Create or update env file
+	envFile := filepath.Join(nlmDir, "env")
+	content := fmt.Sprintf("NLM_COOKIES=%q\nexport NLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\n",
+		cookies,
+		authToken,
+		profileName,
+	)
+
+	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
+		return "", "", fmt.Errorf("write env file: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "nlm: auth info written to %s\n", envFile)
+	return authToken, cookies, nil
 }
