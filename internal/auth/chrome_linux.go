@@ -48,3 +48,12 @@ func getProfilePath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "google-chrome")
 }
+
+func getChromePath() string {
+    for _, name := range []string{"google-chrome", "chrome", "chromium"} {
+        if path, err := exec.LookPath(name); err == nil {
+            return path
+        }
+    }
+    return ""
+}
