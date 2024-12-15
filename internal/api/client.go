@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
@@ -311,6 +313,17 @@ func (c *Client) AddSourceFromFile(projectID string, filepath string) (string, e
 }
 
 func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) {
+	// Check if it's a YouTube URL first
+	if isYouTubeURL(url) {
+		videoID, err := extractYouTubeVideoID(url)
+		if err != nil {
+			return "", fmt.Errorf("invalid YouTube URL: %w", err)
+		}
+		// Use dedicated YouTube method
+		return c.AddYouTubeSource(projectID, videoID)
+	}
+
+	// Regular URL handling
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCAddSources,
 		NotebookID: projectID,
@@ -331,13 +344,41 @@ func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) 
 
 	sourceID, err := extractSourceID(resp)
 	if err != nil {
+		fmt.Fprintln(os.Stderr, resp)
+		spew.Dump(resp)
 		return "", fmt.Errorf("extract source ID: %w", err)
 	}
 	return sourceID, nil
 }
 
+// Helper functions for YouTube URL handling
+func isYouTubeURL(urlStr string) bool {
+	return strings.Contains(urlStr, "youtube.com") || strings.Contains(urlStr, "youtu.be")
+}
+
+func extractYouTubeVideoID(urlStr string) (string, error) {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return "", err
+	}
+
+	if u.Host == "youtu.be" {
+		return strings.TrimPrefix(u.Path, "/"), nil
+	}
+
+	if strings.Contains(u.Host, "youtube.com") && u.Path == "/watch" {
+		return u.Query().Get("v"), nil
+	}
+
+	return "", fmt.Errorf("unsupported YouTube URL format")
+}
+
 // Helper function to extract source ID from response
 func extractSourceID(resp json.RawMessage) (string, error) {
+	if len(resp) == 0 {
+		return "", fmt.Errorf("empty response")
+	}
+
 	var data []interface{}
 	if err := json.Unmarshal(resp, &data); err != nil {
 		return "", fmt.Errorf("parse response: %w", err)
@@ -354,6 +395,55 @@ func extractSourceID(resp json.RawMessage) (string, error) {
 	}
 
 	return "", fmt.Errorf("could not extract source ID from response")
+}
+
+// AddYouTubeSource adds a YouTube video as a source to a project
+func (c *Client) AddYouTubeSource(projectID, videoID string) (string, error) {
+	if c.rpc.Config.Debug {
+		fmt.Printf("=== AddYouTubeSource ===\n")
+		fmt.Printf("Project ID: %s\n", projectID)
+		fmt.Printf("Video ID: %s\n", videoID)
+	}
+
+	// Modified payload structure for YouTube
+	payload := []interface{}{
+		[]interface{}{
+			[]interface{}{
+				nil,                                     // content
+				nil,                                     // title
+				videoID,                                 // video ID (not in array)
+				nil,                                     // unused
+				pb.SourceType_SOURCE_TYPE_YOUTUBE_VIDEO, // source type
+			},
+		},
+		projectID,
+	}
+
+	if c.rpc.Config.Debug {
+		fmt.Printf("\nPayload Structure:\n")
+		spew.Dump(payload)
+	}
+
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCAddSources,
+		NotebookID: projectID,
+		Args:       payload,
+	})
+	if err != nil {
+		return "", fmt.Errorf("add YouTube source: %w", err)
+	}
+
+	if c.rpc.Config.Debug {
+		fmt.Printf("\nRaw Response:\n%s\n", string(resp))
+	}
+
+	sourceID, err := extractSourceID(resp)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, resp)
+		spew.Dump(resp)
+		return "", fmt.Errorf("extract source ID: %w", err)
+	}
+	return sourceID, nil
 }
 
 // Note operations
