@@ -311,6 +311,8 @@ func (c *Client) AddSourceFromFile(projectID string, filepath string) (string, e
 }
 
 func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) {
+	fmt.Printf("⏳ Fetching content from URL: %s\n", url)
+
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCAddSources,
 		NotebookID: projectID,

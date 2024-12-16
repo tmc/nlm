@@ -10,7 +10,7 @@
 go install github.com/tmc/nlm/cmd/nlm@latest
 ```
 
-### Usage 
+### Usage
 
 ```shell
 Usage: nlm <command> [arguments]
@@ -53,6 +53,13 @@ Other Commands:
 <details>
 <summary>📦 Installing Go (if needed)</summary>
 
+### Version Requirements ⚠️
+
+This project requires Go 1.23 or later due to dependencies:
+- `chromedp`: Required for browser automation (requires Go 1.23)
+- `google/go-cmp`: Testing dependencies (requires Go 1.21)
+- `google.golang.org/protobuf`: Protocol buffer support (requires Go 1.21)
+
 ### Option 1: Using Package Managers
 
 **macOS (using Homebrew):**
@@ -64,17 +71,19 @@ brew install go
 ```bash
 sudo apt update
 sudo apt install golang
+# Note: If the packaged version is older than 1.23, use Option 2 below
 ```
 
 **Linux (Fedora):**
 ```bash
 sudo dnf install golang
+# Note: If the packaged version is older than 1.23, use Option 2 below
 ```
 
-### Option 2: Direct Download
+### Option 2: Direct Download (Recommended)
 
 1. Visit the [Go Downloads page](https://go.dev/dl/)
-2. Download the appropriate version for your OS
+2. Download Go 1.23 or later for your OS
 3. Follow the installation instructions:
 
 **macOS:**
@@ -85,9 +94,9 @@ sudo dnf install golang
 **Linux:**
 ```bash
 # Example for Linux AMD64 (adjust version as needed)
-wget https://go.dev/dl/go1.21.6.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.23.0.linux-amd64.tar.gz
 sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf go1.21.6.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
 ```
 
 ### Post-Installation Setup
@@ -98,9 +107,9 @@ export PATH=$PATH:/usr/local/go/bin
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
-Verify installation:
+Verify installation and version:
 ```bash
-go version
+go version  # Should show 1.23.0 or later
 ```
 </details>
 
