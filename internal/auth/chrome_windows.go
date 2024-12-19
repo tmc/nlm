@@ -43,9 +43,27 @@ func getProfilePath() string {
 }
 
 func getChromePath() string {
-	programFiles := os.Getenv("PROGRAMFILES")
-	if programFiles == "" {
-		programFiles = "C:\\Program Files"
+	// List of possible Chrome installation paths
+	paths := []string{
+		filepath.Join(os.Getenv("PROGRAMFILES"), "Google", "Chrome", "Application", "chrome.exe"),
+		filepath.Join(os.Getenv("PROGRAMFILES(X86)"), "Google", "Chrome", "Application", "chrome.exe"),
+		filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome", "Application", "chrome.exe"),
 	}
-	return filepath.Join(programFiles, "Google", "Chrome", "Application", "chrome.exe")
+
+	// Add default paths if environment variables are not set
+	if os.Getenv("PROGRAMFILES") == "" {
+		paths = append(paths, filepath.Join("C:\\Program Files", "Google", "Chrome", "Application", "chrome.exe"))
+	}
+	if os.Getenv("PROGRAMFILES(X86)") == "" {
+		paths = append(paths, filepath.Join("C:\\Program Files (x86)", "Google", "Chrome", "Application", "chrome.exe"))
+	}
+
+	// Try each path and return the first one that exists
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	return ""
 }
