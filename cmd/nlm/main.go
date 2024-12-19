@@ -320,8 +320,16 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 		return "", fmt.Errorf("input required (file, URL, or '-' for stdin)")
 	}
 
-	// Check if input is a URL
-	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
+	// Check if input is a URL (with or without protocol)
+	isURL := strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") ||
+		(!strings.Contains(input, " ") && strings.Contains(input, ".") &&
+			!strings.HasPrefix(input, ".") && !strings.HasSuffix(input, "."))
+
+	if isURL {
+		// Add https:// prefix if missing
+		if !strings.HasPrefix(input, "http://") && !strings.HasPrefix(input, "https://") {
+			input = "https://" + input
+		}
 		fmt.Printf("Adding source from URL: %s\n", input)
 		return c.AddSourceFromURL(notebookID, input)
 	}
@@ -573,7 +581,9 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 	}
 
 	if !result.IsReady {
-		fmt.Println("✅ Audio overview creation started. Use 'nlm audio-get' to check status.")
+		fmt.Println("✅ Audio overview creation started")
+		fmt.Println("⏳ This may take a few minutes to complete")
+		fmt.Println("💡 Use 'nlm audio-get' to check status and download when ready")
 		return nil
 	}
 
@@ -584,6 +594,7 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 
 	// Save audio file if available
 	if result.AudioData != "" {
+		fmt.Println("⏳ Downloading audio file...")
 		audioData, err := result.GetAudioBytes()
 		if err != nil {
 			return fmt.Errorf("decode audio data: %w", err)
@@ -593,7 +604,7 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 		if err := os.WriteFile(filename, audioData, 0644); err != nil {
 			return fmt.Errorf("save audio file: %w", err)
 		}
-		fmt.Printf("  Saved audio to: %s\n", filename)
+		fmt.Printf("✅ Saved audio to: %s\n", filename)
 	}
 
 	return nil
