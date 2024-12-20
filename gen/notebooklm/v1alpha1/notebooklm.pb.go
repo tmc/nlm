@@ -828,53 +828,6 @@ func (x *SourceIssue) GetReason() SourceIssue_Reason {
 	return SourceIssue_REASON_UNSPECIFIED
 }
 
-type GetNotesResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	Notes []*Source `protobuf:"bytes,1,rep,name=notes,proto3" json:"notes,omitempty"`
-}
-
-func (x *GetNotesResponse) Reset() {
-	*x = GetNotesResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[9]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *GetNotesResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GetNotesResponse) ProtoMessage() {}
-
-func (x *GetNotesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[9]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GetNotesResponse.ProtoReflect.Descriptor instead.
-func (*GetNotesResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{9}
-}
-
-func (x *GetNotesResponse) GetNotes() []*Source {
-	if x != nil {
-		return x.Notes
-	}
-	return nil
-}
-
 type AudioOverview struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -888,7 +841,7 @@ type AudioOverview struct {
 func (x *AudioOverview) Reset() {
 	*x = AudioOverview{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[10]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -901,7 +854,7 @@ func (x *AudioOverview) String() string {
 func (*AudioOverview) ProtoMessage() {}
 
 func (x *AudioOverview) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[10]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -914,7 +867,7 @@ func (x *AudioOverview) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioOverview.ProtoReflect.Descriptor instead.
 func (*AudioOverview) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{10}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AudioOverview) GetStatus() string {
@@ -938,6 +891,218 @@ func (x *AudioOverview) GetInstructions() string {
 	return ""
 }
 
+type SourceGroup struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	SourceIds []string `protobuf:"bytes,1,rep,name=source_ids,json=sourceIds,proto3" json:"source_ids,omitempty"`
+}
+
+func (x *SourceGroup) Reset() {
+	*x = SourceGroup{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SourceGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceGroup) ProtoMessage() {}
+
+func (x *SourceGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceGroup.ProtoReflect.Descriptor instead.
+func (*SourceGroup) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SourceGroup) GetSourceIds() []string {
+	if x != nil {
+		return x.SourceIds
+	}
+	return nil
+}
+
+type ActionConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ActionType        string     `protobuf:"bytes,1,opt,name=action_type,json=actionType,proto3" json:"action_type,omitempty"` // "faq", "study_guide", "timeline", etc
+	Context           []*Context `protobuf:"bytes,2,rep,name=context,proto3" json:"context,omitempty"`
+	AdditionalContext string     `protobuf:"bytes,3,opt,name=additional_context,json=additionalContext,proto3" json:"additional_context,omitempty"` // Often empty string in requests
+}
+
+func (x *ActionConfig) Reset() {
+	*x = ActionConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ActionConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActionConfig) ProtoMessage() {}
+
+func (x *ActionConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActionConfig.ProtoReflect.Descriptor instead.
+func (*ActionConfig) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ActionConfig) GetActionType() string {
+	if x != nil {
+		return x.ActionType
+	}
+	return ""
+}
+
+func (x *ActionConfig) GetContext() []*Context {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+func (x *ActionConfig) GetAdditionalContext() string {
+	if x != nil {
+		return x.AdditionalContext
+	}
+	return ""
+}
+
+type Context struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`     // Often "[CONTEXT]"
+	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"` // Often empty string
+}
+
+func (x *Context) Reset() {
+	*x = Context{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Context) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Context) ProtoMessage() {}
+
+func (x *Context) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Context.ProtoReflect.Descriptor instead.
+func (*Context) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *Context) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Context) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+type GetNotesResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Notes []*Source `protobuf:"bytes,1,rep,name=notes,proto3" json:"notes,omitempty"`
+}
+
+func (x *GetNotesResponse) Reset() {
+	*x = GetNotesResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetNotesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNotesResponse) ProtoMessage() {}
+
+func (x *GetNotesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNotesResponse.ProtoReflect.Descriptor instead.
+func (*GetNotesResponse) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetNotesResponse) GetNotes() []*Source {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
 type GenerateDocumentGuidesResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -949,7 +1114,7 @@ type GenerateDocumentGuidesResponse struct {
 func (x *GenerateDocumentGuidesResponse) Reset() {
 	*x = GenerateDocumentGuidesResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[11]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -962,7 +1127,7 @@ func (x *GenerateDocumentGuidesResponse) String() string {
 func (*GenerateDocumentGuidesResponse) ProtoMessage() {}
 
 func (x *GenerateDocumentGuidesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[11]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +1140,7 @@ func (x *GenerateDocumentGuidesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateDocumentGuidesResponse.ProtoReflect.Descriptor instead.
 func (*GenerateDocumentGuidesResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{11}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GenerateDocumentGuidesResponse) GetGuides() []*DocumentGuide {
@@ -996,7 +1161,7 @@ type DocumentGuide struct {
 func (x *DocumentGuide) Reset() {
 	*x = DocumentGuide{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[12]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1009,7 +1174,7 @@ func (x *DocumentGuide) String() string {
 func (*DocumentGuide) ProtoMessage() {}
 
 func (x *DocumentGuide) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[12]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +1187,7 @@ func (x *DocumentGuide) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentGuide.ProtoReflect.Descriptor instead.
 func (*DocumentGuide) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{12}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DocumentGuide) GetContent() string {
@@ -1043,7 +1208,7 @@ type GenerateNotebookGuideResponse struct {
 func (x *GenerateNotebookGuideResponse) Reset() {
 	*x = GenerateNotebookGuideResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[13]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1056,7 +1221,7 @@ func (x *GenerateNotebookGuideResponse) String() string {
 func (*GenerateNotebookGuideResponse) ProtoMessage() {}
 
 func (x *GenerateNotebookGuideResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[13]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1069,7 +1234,7 @@ func (x *GenerateNotebookGuideResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateNotebookGuideResponse.ProtoReflect.Descriptor instead.
 func (*GenerateNotebookGuideResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{13}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GenerateNotebookGuideResponse) GetContent() string {
@@ -1090,7 +1255,7 @@ type GenerateOutlineResponse struct {
 func (x *GenerateOutlineResponse) Reset() {
 	*x = GenerateOutlineResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[14]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1103,7 +1268,7 @@ func (x *GenerateOutlineResponse) String() string {
 func (*GenerateOutlineResponse) ProtoMessage() {}
 
 func (x *GenerateOutlineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[14]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1116,7 +1281,7 @@ func (x *GenerateOutlineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateOutlineResponse.ProtoReflect.Descriptor instead.
 func (*GenerateOutlineResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{14}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GenerateOutlineResponse) GetContent() string {
@@ -1137,7 +1302,7 @@ type GenerateSectionResponse struct {
 func (x *GenerateSectionResponse) Reset() {
 	*x = GenerateSectionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[15]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1150,7 +1315,7 @@ func (x *GenerateSectionResponse) String() string {
 func (*GenerateSectionResponse) ProtoMessage() {}
 
 func (x *GenerateSectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[15]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1163,7 +1328,7 @@ func (x *GenerateSectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateSectionResponse.ProtoReflect.Descriptor instead.
 func (*GenerateSectionResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{15}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GenerateSectionResponse) GetContent() string {
@@ -1182,7 +1347,7 @@ type StartDraftResponse struct {
 func (x *StartDraftResponse) Reset() {
 	*x = StartDraftResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[16]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1195,7 +1360,7 @@ func (x *StartDraftResponse) String() string {
 func (*StartDraftResponse) ProtoMessage() {}
 
 func (x *StartDraftResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[16]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1208,7 +1373,7 @@ func (x *StartDraftResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDraftResponse.ProtoReflect.Descriptor instead.
 func (*StartDraftResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{16}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{19}
 }
 
 type StartSectionResponse struct {
@@ -1220,7 +1385,7 @@ type StartSectionResponse struct {
 func (x *StartSectionResponse) Reset() {
 	*x = StartSectionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[17]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1233,7 +1398,7 @@ func (x *StartSectionResponse) String() string {
 func (*StartSectionResponse) ProtoMessage() {}
 
 func (x *StartSectionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[17]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1246,7 +1411,314 @@ func (x *StartSectionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartSectionResponse.ProtoReflect.Descriptor instead.
 func (*StartSectionResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{17}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{20}
+}
+
+type CreateAudioOverviewRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectId    string `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Instructions string `protobuf:"bytes,2,opt,name=instructions,proto3" json:"instructions,omitempty"`
+}
+
+func (x *CreateAudioOverviewRequest) Reset() {
+	*x = CreateAudioOverviewRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[21]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *CreateAudioOverviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAudioOverviewRequest) ProtoMessage() {}
+
+func (x *CreateAudioOverviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[21]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAudioOverviewRequest.ProtoReflect.Descriptor instead.
+func (*CreateAudioOverviewRequest) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *CreateAudioOverviewRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *CreateAudioOverviewRequest) GetInstructions() string {
+	if x != nil {
+		return x.Instructions
+	}
+	return ""
+}
+
+type GetAudioOverviewRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectId string `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+}
+
+func (x *GetAudioOverviewRequest) Reset() {
+	*x = GetAudioOverviewRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[22]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *GetAudioOverviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAudioOverviewRequest) ProtoMessage() {}
+
+func (x *GetAudioOverviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[22]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAudioOverviewRequest.ProtoReflect.Descriptor instead.
+func (*GetAudioOverviewRequest) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *GetAudioOverviewRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+type DeleteAudioOverviewRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectId string `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+}
+
+func (x *DeleteAudioOverviewRequest) Reset() {
+	*x = DeleteAudioOverviewRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[23]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DeleteAudioOverviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteAudioOverviewRequest) ProtoMessage() {}
+
+func (x *DeleteAudioOverviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[23]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteAudioOverviewRequest.ProtoReflect.Descriptor instead.
+func (*DeleteAudioOverviewRequest) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *DeleteAudioOverviewRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+type ShareAudioRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ProjectId  string `protobuf:"bytes,1,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
+	Visibility string `protobuf:"bytes,2,opt,name=visibility,proto3" json:"visibility,omitempty"` // "private" or "public"
+}
+
+func (x *ShareAudioRequest) Reset() {
+	*x = ShareAudioRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[24]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ShareAudioRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareAudioRequest) ProtoMessage() {}
+
+func (x *ShareAudioRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[24]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareAudioRequest.ProtoReflect.Descriptor instead.
+func (*ShareAudioRequest) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ShareAudioRequest) GetProjectId() string {
+	if x != nil {
+		return x.ProjectId
+	}
+	return ""
+}
+
+func (x *ShareAudioRequest) GetVisibility() string {
+	if x != nil {
+		return x.Visibility
+	}
+	return ""
+}
+
+type ShareAudioResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ShareUrl string `protobuf:"bytes,1,opt,name=share_url,json=shareUrl,proto3" json:"share_url,omitempty"`
+}
+
+func (x *ShareAudioResponse) Reset() {
+	*x = ShareAudioResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[25]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ShareAudioResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ShareAudioResponse) ProtoMessage() {}
+
+func (x *ShareAudioResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[25]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ShareAudioResponse.ProtoReflect.Descriptor instead.
+func (*ShareAudioResponse) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *ShareAudioResponse) GetShareUrl() string {
+	if x != nil {
+		return x.ShareUrl
+	}
+	return ""
+}
+
+type ActOnSourcesRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	SourceGroups []*SourceGroup `protobuf:"bytes,1,rep,name=source_groups,json=sourceGroups,proto3" json:"source_groups,omitempty"`
+	// Fields 2-5 appear to be optional/nil in requests
+	ActionConfig *ActionConfig `protobuf:"bytes,6,opt,name=action_config,json=actionConfig,proto3" json:"action_config,omitempty"`
+}
+
+func (x *ActOnSourcesRequest) Reset() {
+	*x = ActOnSourcesRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[26]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ActOnSourcesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActOnSourcesRequest) ProtoMessage() {}
+
+func (x *ActOnSourcesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[26]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActOnSourcesRequest.ProtoReflect.Descriptor instead.
+func (*ActOnSourcesRequest) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ActOnSourcesRequest) GetSourceGroups() []*SourceGroup {
+	if x != nil {
+		return x.SourceGroups
+	}
+	return nil
+}
+
+func (x *ActOnSourcesRequest) GetActionConfig() *ActionConfig {
+	if x != nil {
+		return x.ActionConfig
+	}
+	return nil
 }
 
 type ListRecentlyViewedProjectsResponse struct {
@@ -1260,7 +1732,7 @@ type ListRecentlyViewedProjectsResponse struct {
 func (x *ListRecentlyViewedProjectsResponse) Reset() {
 	*x = ListRecentlyViewedProjectsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[18]
+		mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[27]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1273,7 +1745,7 @@ func (x *ListRecentlyViewedProjectsResponse) String() string {
 func (*ListRecentlyViewedProjectsResponse) ProtoMessage() {}
 
 func (x *ListRecentlyViewedProjectsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[18]
+	mi := &file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[27]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1286,7 +1758,7 @@ func (x *ListRecentlyViewedProjectsResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use ListRecentlyViewedProjectsResponse.ProtoReflect.Descriptor instead.
 func (*ListRecentlyViewedProjectsResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{18}
+	return file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ListRecentlyViewedProjectsResponse) GetProjects() []*Project {
@@ -1444,40 +1916,88 @@ var file_notebooklm_v1alpha1_notebooklm_proto_rawDesc = []byte{
 	0x4e, 0x4f, 0x57, 0x4e, 0x10, 0x0d, 0x12, 0x1b, 0x0a, 0x17, 0x52, 0x45, 0x41, 0x53, 0x4f, 0x4e,
 	0x5f, 0x44, 0x4f, 0x57, 0x4e, 0x4c, 0x4f, 0x41, 0x44, 0x5f, 0x46, 0x41, 0x49, 0x4c, 0x55, 0x52,
 	0x45, 0x10, 0x0e, 0x12, 0x12, 0x0a, 0x0e, 0x52, 0x45, 0x41, 0x53, 0x4f, 0x4e, 0x5f, 0x55, 0x4e,
-	0x4b, 0x4e, 0x4f, 0x57, 0x4e, 0x10, 0x0f, 0x22, 0x45, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x4e, 0x6f,
-	0x74, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x31, 0x0a, 0x05, 0x6e,
-	0x6f, 0x74, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x6e, 0x6f, 0x74,
-	0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31,
-	0x2e, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x05, 0x6e, 0x6f, 0x74, 0x65, 0x73, 0x22, 0x65,
-	0x0a, 0x0d, 0x41, 0x75, 0x64, 0x69, 0x6f, 0x4f, 0x76, 0x65, 0x72, 0x76, 0x69, 0x65, 0x77, 0x12,
-	0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65,
-	0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e,
-	0x74, 0x12, 0x22, 0x0a, 0x0c, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x69, 0x6f, 0x6e,
-	0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x63,
-	0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x5c, 0x0a, 0x1e, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74,
-	0x65, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x47, 0x75, 0x69, 0x64, 0x65, 0x73, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3a, 0x0a, 0x06, 0x67, 0x75, 0x69, 0x64, 0x65,
-	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x6e, 0x6f, 0x74, 0x65, 0x62, 0x6f,
-	0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x44, 0x6f,
-	0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x47, 0x75, 0x69, 0x64, 0x65, 0x52, 0x06, 0x67, 0x75, 0x69,
-	0x64, 0x65, 0x73, 0x22, 0x29, 0x0a, 0x0d, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x47,
-	0x75, 0x69, 0x64, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x22, 0x39,
-	0x0a, 0x1d, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x4e, 0x6f, 0x74, 0x65, 0x62, 0x6f,
-	0x6f, 0x6b, 0x47, 0x75, 0x69, 0x64, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
-	0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x22, 0x33, 0x0a, 0x17, 0x47, 0x65, 0x6e,
-	0x65, 0x72, 0x61, 0x74, 0x65, 0x4f, 0x75, 0x74, 0x6c, 0x69, 0x6e, 0x65, 0x52, 0x65, 0x73, 0x70,
-	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x22, 0x33,
-	0x0a, 0x17, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x53, 0x65, 0x63, 0x74, 0x69, 0x6f,
-	0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e,
+	0x4b, 0x4e, 0x4f, 0x57, 0x4e, 0x10, 0x0f, 0x22, 0x65, 0x0a, 0x0d, 0x41, 0x75, 0x64, 0x69, 0x6f,
+	0x4f, 0x76, 0x65, 0x72, 0x76, 0x69, 0x65, 0x77, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x12, 0x22, 0x0a, 0x0c, 0x69, 0x6e,
+	0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x0c, 0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x2c,
+	0x0a, 0x0b, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x12, 0x1d, 0x0a,
+	0x0a, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f, 0x69, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
+	0x09, 0x52, 0x09, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x49, 0x64, 0x73, 0x22, 0x96, 0x01, 0x0a,
+	0x0c, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x12, 0x1f, 0x0a,
+	0x0b, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x0a, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x54, 0x79, 0x70, 0x65, 0x12, 0x36,
+	0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32,
+	0x1c, 0x2e, 0x6e, 0x6f, 0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31, 0x61,
+	0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x52, 0x07, 0x63,
+	0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x12, 0x2d, 0x0a, 0x12, 0x61, 0x64, 0x64, 0x69, 0x74, 0x69,
+	0x6f, 0x6e, 0x61, 0x6c, 0x5f, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x18, 0x03, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x11, 0x61, 0x64, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x61, 0x6c, 0x43, 0x6f,
+	0x6e, 0x74, 0x65, 0x78, 0x74, 0x22, 0x31, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74,
+	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b,
+	0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x45, 0x0a, 0x10, 0x47, 0x65, 0x74, 0x4e,
+	0x6f, 0x74, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x31, 0x0a, 0x05,
+	0x6e, 0x6f, 0x74, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1b, 0x2e, 0x6e, 0x6f,
+	0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61,
+	0x31, 0x2e, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x05, 0x6e, 0x6f, 0x74, 0x65, 0x73, 0x22,
+	0x5c, 0x0a, 0x1e, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x44, 0x6f, 0x63, 0x75, 0x6d,
+	0x65, 0x6e, 0x74, 0x47, 0x75, 0x69, 0x64, 0x65, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x12, 0x3a, 0x0a, 0x06, 0x67, 0x75, 0x69, 0x64, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
+	0x0b, 0x32, 0x22, 0x2e, 0x6e, 0x6f, 0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76,
+	0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74,
+	0x47, 0x75, 0x69, 0x64, 0x65, 0x52, 0x06, 0x67, 0x75, 0x69, 0x64, 0x65, 0x73, 0x22, 0x29, 0x0a,
+	0x0d, 0x44, 0x6f, 0x63, 0x75, 0x6d, 0x65, 0x6e, 0x74, 0x47, 0x75, 0x69, 0x64, 0x65, 0x12, 0x18,
+	0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x22, 0x39, 0x0a, 0x1d, 0x47, 0x65, 0x6e, 0x65,
+	0x72, 0x61, 0x74, 0x65, 0x4e, 0x6f, 0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x47, 0x75, 0x69, 0x64,
+	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e,
 	0x74, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74,
-	0x65, 0x6e, 0x74, 0x22, 0x14, 0x0a, 0x12, 0x53, 0x74, 0x61, 0x72, 0x74, 0x44, 0x72, 0x61, 0x66,
-	0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x16, 0x0a, 0x14, 0x53, 0x74, 0x61,
-	0x72, 0x74, 0x53, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x5e, 0x0a, 0x22, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x63, 0x65, 0x6e, 0x74, 0x6c,
+	0x65, 0x6e, 0x74, 0x22, 0x33, 0x0a, 0x17, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x61, 0x74, 0x65, 0x4f,
+	0x75, 0x74, 0x6c, 0x69, 0x6e, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18,
+	0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x22, 0x33, 0x0a, 0x17, 0x47, 0x65, 0x6e, 0x65,
+	0x72, 0x61, 0x74, 0x65, 0x53, 0x65, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x22, 0x14, 0x0a,
+	0x12, 0x53, 0x74, 0x61, 0x72, 0x74, 0x44, 0x72, 0x61, 0x66, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x16, 0x0a, 0x14, 0x53, 0x74, 0x61, 0x72, 0x74, 0x53, 0x65, 0x63, 0x74,
+	0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x5f, 0x0a, 0x1a, 0x43,
+	0x72, 0x65, 0x61, 0x74, 0x65, 0x41, 0x75, 0x64, 0x69, 0x6f, 0x4f, 0x76, 0x65, 0x72, 0x76, 0x69,
+	0x65, 0x77, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f,
+	0x6a, 0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x70,
+	0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x22, 0x0a, 0x0c, 0x69, 0x6e, 0x73, 0x74,
+	0x72, 0x75, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0c,
+	0x69, 0x6e, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x38, 0x0a, 0x17,
+	0x47, 0x65, 0x74, 0x41, 0x75, 0x64, 0x69, 0x6f, 0x4f, 0x76, 0x65, 0x72, 0x76, 0x69, 0x65, 0x77,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65,
+	0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x70, 0x72, 0x6f,
+	0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x22, 0x3b, 0x0a, 0x1a, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65,
+	0x41, 0x75, 0x64, 0x69, 0x6f, 0x4f, 0x76, 0x65, 0x72, 0x76, 0x69, 0x65, 0x77, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x5f,
+	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63,
+	0x74, 0x49, 0x64, 0x22, 0x52, 0x0a, 0x11, 0x53, 0x68, 0x61, 0x72, 0x65, 0x41, 0x75, 0x64, 0x69,
+	0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x70, 0x72, 0x6f, 0x6a,
+	0x65, 0x63, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x70, 0x72,
+	0x6f, 0x6a, 0x65, 0x63, 0x74, 0x49, 0x64, 0x12, 0x1e, 0x0a, 0x0a, 0x76, 0x69, 0x73, 0x69, 0x62,
+	0x69, 0x6c, 0x69, 0x74, 0x79, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x76, 0x69, 0x73,
+	0x69, 0x62, 0x69, 0x6c, 0x69, 0x74, 0x79, 0x22, 0x31, 0x0a, 0x12, 0x53, 0x68, 0x61, 0x72, 0x65,
+	0x41, 0x75, 0x64, 0x69, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a,
+	0x09, 0x73, 0x68, 0x61, 0x72, 0x65, 0x5f, 0x75, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x08, 0x73, 0x68, 0x61, 0x72, 0x65, 0x55, 0x72, 0x6c, 0x22, 0xa4, 0x01, 0x0a, 0x13, 0x41,
+	0x63, 0x74, 0x4f, 0x6e, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x12, 0x45, 0x0a, 0x0d, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f, 0x67, 0x72, 0x6f,
+	0x75, 0x70, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x6e, 0x6f, 0x74, 0x65,
+	0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e,
+	0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x52, 0x0c, 0x73, 0x6f, 0x75,
+	0x72, 0x63, 0x65, 0x47, 0x72, 0x6f, 0x75, 0x70, 0x73, 0x12, 0x46, 0x0a, 0x0d, 0x61, 0x63, 0x74,
+	0x69, 0x6f, 0x6e, 0x5f, 0x63, 0x6f, 0x6e, 0x66, 0x69, 0x67, 0x18, 0x06, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x21, 0x2e, 0x6e, 0x6f, 0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31,
+	0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x6e,
+	0x66, 0x69, 0x67, 0x52, 0x0c, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x43, 0x6f, 0x6e, 0x66, 0x69,
+	0x67, 0x22, 0x5e, 0x0a, 0x22, 0x4c, 0x69, 0x73, 0x74, 0x52, 0x65, 0x63, 0x65, 0x6e, 0x74, 0x6c,
 	0x79, 0x56, 0x69, 0x65, 0x77, 0x65, 0x64, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x73, 0x52,
 	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x38, 0x0a, 0x08, 0x70, 0x72, 0x6f, 0x6a, 0x65,
 	0x63, 0x74, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1c, 0x2e, 0x6e, 0x6f, 0x74, 0x65,
@@ -1530,7 +2050,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_rawDescGZIP() []byte {
 }
 
 var file_notebooklm_v1alpha1_notebooklm_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_notebooklm_v1alpha1_notebooklm_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_notebooklm_v1alpha1_notebooklm_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_notebooklm_v1alpha1_notebooklm_proto_goTypes = []interface{}{
 	(SourceType)(0),                            // 0: notebooklm.v1alpha1.SourceType
 	(SourceSettings_SourceStatus)(0),           // 1: notebooklm.v1alpha1.SourceSettings.SourceStatus
@@ -1544,43 +2064,55 @@ var file_notebooklm_v1alpha1_notebooklm_proto_goTypes = []interface{}{
 	(*YoutubeSourceMetadata)(nil),              // 9: notebooklm.v1alpha1.YoutubeSourceMetadata
 	(*SourceSettings)(nil),                     // 10: notebooklm.v1alpha1.SourceSettings
 	(*SourceIssue)(nil),                        // 11: notebooklm.v1alpha1.SourceIssue
-	(*GetNotesResponse)(nil),                   // 12: notebooklm.v1alpha1.GetNotesResponse
-	(*AudioOverview)(nil),                      // 13: notebooklm.v1alpha1.AudioOverview
-	(*GenerateDocumentGuidesResponse)(nil),     // 14: notebooklm.v1alpha1.GenerateDocumentGuidesResponse
-	(*DocumentGuide)(nil),                      // 15: notebooklm.v1alpha1.DocumentGuide
-	(*GenerateNotebookGuideResponse)(nil),      // 16: notebooklm.v1alpha1.GenerateNotebookGuideResponse
-	(*GenerateOutlineResponse)(nil),            // 17: notebooklm.v1alpha1.GenerateOutlineResponse
-	(*GenerateSectionResponse)(nil),            // 18: notebooklm.v1alpha1.GenerateSectionResponse
-	(*StartDraftResponse)(nil),                 // 19: notebooklm.v1alpha1.StartDraftResponse
-	(*StartSectionResponse)(nil),               // 20: notebooklm.v1alpha1.StartSectionResponse
-	(*ListRecentlyViewedProjectsResponse)(nil), // 21: notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse
-	(*timestamppb.Timestamp)(nil),              // 22: google.protobuf.Timestamp
-	(*wrapperspb.Int32Value)(nil),              // 23: google.protobuf.Int32Value
+	(*AudioOverview)(nil),                      // 12: notebooklm.v1alpha1.AudioOverview
+	(*SourceGroup)(nil),                        // 13: notebooklm.v1alpha1.SourceGroup
+	(*ActionConfig)(nil),                       // 14: notebooklm.v1alpha1.ActionConfig
+	(*Context)(nil),                            // 15: notebooklm.v1alpha1.Context
+	(*GetNotesResponse)(nil),                   // 16: notebooklm.v1alpha1.GetNotesResponse
+	(*GenerateDocumentGuidesResponse)(nil),     // 17: notebooklm.v1alpha1.GenerateDocumentGuidesResponse
+	(*DocumentGuide)(nil),                      // 18: notebooklm.v1alpha1.DocumentGuide
+	(*GenerateNotebookGuideResponse)(nil),      // 19: notebooklm.v1alpha1.GenerateNotebookGuideResponse
+	(*GenerateOutlineResponse)(nil),            // 20: notebooklm.v1alpha1.GenerateOutlineResponse
+	(*GenerateSectionResponse)(nil),            // 21: notebooklm.v1alpha1.GenerateSectionResponse
+	(*StartDraftResponse)(nil),                 // 22: notebooklm.v1alpha1.StartDraftResponse
+	(*StartSectionResponse)(nil),               // 23: notebooklm.v1alpha1.StartSectionResponse
+	(*CreateAudioOverviewRequest)(nil),         // 24: notebooklm.v1alpha1.CreateAudioOverviewRequest
+	(*GetAudioOverviewRequest)(nil),            // 25: notebooklm.v1alpha1.GetAudioOverviewRequest
+	(*DeleteAudioOverviewRequest)(nil),         // 26: notebooklm.v1alpha1.DeleteAudioOverviewRequest
+	(*ShareAudioRequest)(nil),                  // 27: notebooklm.v1alpha1.ShareAudioRequest
+	(*ShareAudioResponse)(nil),                 // 28: notebooklm.v1alpha1.ShareAudioResponse
+	(*ActOnSourcesRequest)(nil),                // 29: notebooklm.v1alpha1.ActOnSourcesRequest
+	(*ListRecentlyViewedProjectsResponse)(nil), // 30: notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse
+	(*timestamppb.Timestamp)(nil),              // 31: google.protobuf.Timestamp
+	(*wrapperspb.Int32Value)(nil),              // 32: google.protobuf.Int32Value
 }
 var file_notebooklm_v1alpha1_notebooklm_proto_depIdxs = []int32{
 	6,  // 0: notebooklm.v1alpha1.Project.sources:type_name -> notebooklm.v1alpha1.Source
 	4,  // 1: notebooklm.v1alpha1.Project.metadata:type_name -> notebooklm.v1alpha1.ProjectMetadata
-	22, // 2: notebooklm.v1alpha1.ProjectMetadata.create_time:type_name -> google.protobuf.Timestamp
-	22, // 3: notebooklm.v1alpha1.ProjectMetadata.modified_time:type_name -> google.protobuf.Timestamp
+	31, // 2: notebooklm.v1alpha1.ProjectMetadata.create_time:type_name -> google.protobuf.Timestamp
+	31, // 3: notebooklm.v1alpha1.ProjectMetadata.modified_time:type_name -> google.protobuf.Timestamp
 	5,  // 4: notebooklm.v1alpha1.Source.source_id:type_name -> notebooklm.v1alpha1.SourceId
 	7,  // 5: notebooklm.v1alpha1.Source.metadata:type_name -> notebooklm.v1alpha1.SourceMetadata
 	10, // 6: notebooklm.v1alpha1.Source.settings:type_name -> notebooklm.v1alpha1.SourceSettings
-	23, // 7: notebooklm.v1alpha1.Source.warnings:type_name -> google.protobuf.Int32Value
+	32, // 7: notebooklm.v1alpha1.Source.warnings:type_name -> google.protobuf.Int32Value
 	8,  // 8: notebooklm.v1alpha1.SourceMetadata.google_docs:type_name -> notebooklm.v1alpha1.GoogleDocsSourceMetadata
 	9,  // 9: notebooklm.v1alpha1.SourceMetadata.youtube:type_name -> notebooklm.v1alpha1.YoutubeSourceMetadata
-	23, // 10: notebooklm.v1alpha1.SourceMetadata.last_update_time_seconds:type_name -> google.protobuf.Int32Value
-	22, // 11: notebooklm.v1alpha1.SourceMetadata.last_modified_time:type_name -> google.protobuf.Timestamp
+	32, // 10: notebooklm.v1alpha1.SourceMetadata.last_update_time_seconds:type_name -> google.protobuf.Int32Value
+	31, // 11: notebooklm.v1alpha1.SourceMetadata.last_modified_time:type_name -> google.protobuf.Timestamp
 	0,  // 12: notebooklm.v1alpha1.SourceMetadata.source_type:type_name -> notebooklm.v1alpha1.SourceType
 	1,  // 13: notebooklm.v1alpha1.SourceSettings.status:type_name -> notebooklm.v1alpha1.SourceSettings.SourceStatus
 	2,  // 14: notebooklm.v1alpha1.SourceIssue.reason:type_name -> notebooklm.v1alpha1.SourceIssue.Reason
-	6,  // 15: notebooklm.v1alpha1.GetNotesResponse.notes:type_name -> notebooklm.v1alpha1.Source
-	15, // 16: notebooklm.v1alpha1.GenerateDocumentGuidesResponse.guides:type_name -> notebooklm.v1alpha1.DocumentGuide
-	3,  // 17: notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse.projects:type_name -> notebooklm.v1alpha1.Project
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	15, // 15: notebooklm.v1alpha1.ActionConfig.context:type_name -> notebooklm.v1alpha1.Context
+	6,  // 16: notebooklm.v1alpha1.GetNotesResponse.notes:type_name -> notebooklm.v1alpha1.Source
+	18, // 17: notebooklm.v1alpha1.GenerateDocumentGuidesResponse.guides:type_name -> notebooklm.v1alpha1.DocumentGuide
+	13, // 18: notebooklm.v1alpha1.ActOnSourcesRequest.source_groups:type_name -> notebooklm.v1alpha1.SourceGroup
+	14, // 19: notebooklm.v1alpha1.ActOnSourcesRequest.action_config:type_name -> notebooklm.v1alpha1.ActionConfig
+	3,  // 20: notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse.projects:type_name -> notebooklm.v1alpha1.Project
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_notebooklm_v1alpha1_notebooklm_proto_init() }
@@ -1698,18 +2230,6 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetNotesResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AudioOverview); i {
 			case 0:
 				return &v.state
@@ -1721,8 +2241,20 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 				return nil
 			}
 		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SourceGroup); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateDocumentGuidesResponse); i {
+			switch v := v.(*ActionConfig); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1734,7 +2266,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DocumentGuide); i {
+			switch v := v.(*Context); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1746,7 +2278,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateNotebookGuideResponse); i {
+			switch v := v.(*GetNotesResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1758,7 +2290,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateOutlineResponse); i {
+			switch v := v.(*GenerateDocumentGuidesResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1770,7 +2302,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateSectionResponse); i {
+			switch v := v.(*DocumentGuide); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1782,7 +2314,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StartDraftResponse); i {
+			switch v := v.(*GenerateNotebookGuideResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1794,7 +2326,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StartSectionResponse); i {
+			switch v := v.(*GenerateOutlineResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1806,6 +2338,114 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GenerateSectionResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*StartDraftResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*StartSectionResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CreateAudioOverviewRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GetAudioOverviewRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DeleteAudioOverviewRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ShareAudioRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ShareAudioResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ActOnSourcesRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_notebooklm_proto_msgTypes[27].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ListRecentlyViewedProjectsResponse); i {
 			case 0:
 				return &v.state
@@ -1828,7 +2468,7 @@ func file_notebooklm_v1alpha1_notebooklm_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_notebooklm_v1alpha1_notebooklm_proto_rawDesc,
 			NumEnums:      3,
-			NumMessages:   19,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
