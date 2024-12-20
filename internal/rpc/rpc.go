@@ -69,6 +69,23 @@ const (
 	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
 )
 
+// Action types for ActOnSources RPC
+const (
+	ActionRephrase        = "rephrase"
+	ActionExpand          = "expand"
+	ActionSummarize       = "summarize"
+	ActionCritique        = "critique"
+	ActionBrainstorm      = "brainstorm"
+	ActionVerify          = "verify"
+	ActionExplain         = "explain"
+	ActionOutline         = "outline"
+	ActionStudyGuide      = "study_guide"
+	ActionFAQ             = "faq"
+	ActionBriefingDoc     = "briefing_doc"
+	ActionTimeline        = "timeline"
+	ActionTableOfContents = "table_of_contents"
+)
+
 // Call represents a NotebookLM RPC call
 type Call struct {
 	ID         string        // RPC endpoint ID
@@ -82,7 +99,6 @@ type Client struct {
 	client *batchexecute.Client
 }
 
-// New creates a new NotebookLM RPC client
 // New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 	config := batchexecute.Config{

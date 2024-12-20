@@ -113,14 +113,30 @@ message SourceIssue {
     Reason reason = 1;
 }
 
-message GetNotesResponse {
-  repeated Source notes = 1;
-}
-
 message AudioOverview {
   string status = 1;
   string content = 2;
   string instructions = 3;
+}
+
+message SourceGroup {
+    repeated string source_ids = 1;
+}
+
+message ActionConfig {
+    string action_type = 1;  // "faq", "study_guide", "timeline", etc
+    repeated Context context = 2;
+    string additional_context = 3;  // Often empty string in requests
+}
+
+message Context {
+    string key = 1;    // Often "[CONTEXT]"
+    string value = 2;  // Often empty string
+}
+
+
+message GetNotesResponse {
+  repeated Source notes = 1;
 }
 
 message GenerateDocumentGuidesResponse {
@@ -149,13 +165,37 @@ message StartDraftResponse {
 message StartSectionResponse {
 }
 
+message CreateAudioOverviewRequest {
+    string project_id = 1;
+    string instructions = 2;
+}
 
+message GetAudioOverviewRequest {
+    string project_id = 1;
+}
 
+message DeleteAudioOverviewRequest {
+    string project_id = 1;
+}
+
+message ShareAudioRequest {
+    string project_id = 1;
+    string visibility = 2;  // "private" or "public"
+}
+
+message ShareAudioResponse {
+    string share_url = 1;
+}
+
+message ActOnSourcesRequest {
+    repeated SourceGroup source_groups = 1;
+    // Fields 2-5 appear to be optional/nil in requests
+    ActionConfig action_config = 6;
+}
 
 message ListRecentlyViewedProjectsResponse {
   repeated Project projects = 1;
 }
-
 
 
 /*
@@ -299,3 +339,4 @@ service NotebookLMGuidebooks {
         option (rpc_id) = "OTl0K";
     }
 }
+*/
