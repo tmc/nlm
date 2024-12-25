@@ -109,6 +109,18 @@ func TestDecodeResponse(t *testing.T) {
 			err: nil,
 		},
 		{
+			name:  "YouTube Source Addition Response",
+			input: `)]}'\n105\n[["wrb.fr","izAoDd",null,null,null,[3],"generic"]]\n6\n[["e",4,null,null,237]]`,
+			expected: []Response{
+				{
+					ID:    "izAoDd",
+					Index: 0,
+					Data:  json.RawMessage(`null`),
+				},
+			},
+			err: nil,
+		},
+		{
 			name: "Invalid Chunk Length",
 			input: `abc
 [["wrb.fr","test","data",null,null,null,"generic"]]`,

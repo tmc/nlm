@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/chromedp/cdproto v0.0.0-20241022234722-4d5d5faf59fb
 	github.com/chromedp/chromedp v0.11.2
+	github.com/davecgh/go-spew v1.1.1
 	github.com/google/go-cmp v0.6.0
 	golang.org/x/term v0.27.0
 	google.golang.org/protobuf v1.35.2

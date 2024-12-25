@@ -21,9 +21,10 @@ var ErrUnauthorized = errors.New("unauthorized")
 
 // RPC represents a single RPC call
 type RPC struct {
-	ID    string        // RPC endpoint ID
-	Args  []interface{} // Arguments for the call
-	Index string        // "generic" or numeric index
+	ID        string            // RPC endpoint ID
+	Args      []interface{}     // Arguments for the call
+	Index     string            // "generic" or numeric index
+	URLParams map[string]string // Request-specific URL parameters
 }
 
 // Response represents a decoded RPC response
@@ -82,11 +83,25 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	// Add query parameters
 	q := u.Query()
 	q.Set("rpcids", strings.Join([]string{rpcs[0].ID}, ","))
+
+	// Add all URL parameters
 	for k, v := range c.config.URLParams {
 		q.Set(k, v)
 	}
+	if len(rpcs) > 0 && rpcs[0].URLParams != nil {
+		for k, v := range rpcs[0].URLParams {
+			q.Set(k, v)
+		}
+	}
+	// Add rt=c parameter for chunked responses
+	q.Set("rt", "c")
 	q.Set("_reqid", c.reqid.Next())
 	u.RawQuery = q.Encode()
+
+	if c.config.Debug {
+		fmt.Printf("\n=== BatchExecute Request ===\n")
+		fmt.Printf("URL: %s\n", u.String())
+	}
 
 	// Build request body
 	var envelope []interface{}
@@ -103,6 +118,11 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	form.Set("f.req", string(reqBody))
 	form.Set("at", c.config.AuthToken)
 
+	if c.config.Debug {
+		fmt.Printf("\nRequest Body:\n%s\n", form.Encode())
+		fmt.Printf("\nDecoded Request Body:\n%s\n", string(reqBody))
+	}
+
 	// Create request
 	req, err := http.NewRequest("POST", u.String(), strings.NewReader(form.Encode()))
 	if err != nil {
@@ -110,10 +130,18 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	}
 
 	// Set headers
+	req.Header.Set("content-type", "application/x-www-form-urlencoded;charset=UTF-8")
 	for k, v := range c.config.Headers {
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("cookie", c.config.Cookies)
+
+	if c.config.Debug {
+		fmt.Printf("\nRequest Headers:\n")
+		for k, v := range req.Header {
+			fmt.Printf("%s: %v\n", k, v)
+		}
+	}
 
 	// Execute request
 	resp, err := c.httpClient.Do(req)
@@ -127,6 +155,11 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		return nil, fmt.Errorf("read response: %w", err)
 	}
 
+	if c.config.Debug {
+		fmt.Printf("\nResponse Status: %s\n", resp.Status)
+		fmt.Printf("Response Body:\n%s\n", string(body))
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, &BatchExecuteError{
 			StatusCode: resp.StatusCode,
@@ -135,23 +168,21 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		}
 	}
 
-	var responses []Response
-	// if "rt" == "c", then it's a chunked response
-	if req.URL.Query().Get("rt") == "c" {
-		responses, err = decodeChunkedResponse(string(body))
-		if err != nil {
-			return nil, fmt.Errorf("decode response: %w", err)
+	// Parse chunked response
+	responses, err := decodeChunkedResponse(string(body))
+	if err != nil {
+		if c.config.Debug {
+			fmt.Printf("Failed to decode chunked response: %v\n", err)
 		}
-	} else if req.URL.Query().Get("rt") == "" {
+		// Fallback to regular response parsing
 		responses, err = decodeResponse(string(body))
 		if err != nil {
 			return nil, fmt.Errorf("decode response: %w", err)
 		}
-	} else {
-		return nil, fmt.Errorf("unsupported response type '%s'", req.URL.Query().Get("rt"))
 	}
+
 	if len(responses) == 0 {
-		return nil, fmt.Errorf("empty response")
+		return nil, fmt.Errorf("no valid responses found")
 	}
 
 	return &responses[0], nil

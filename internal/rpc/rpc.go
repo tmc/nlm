@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/tmc/nlm/internal/batchexecute"
 )
 
@@ -77,6 +78,7 @@ type Call struct {
 
 // Client handles NotebookLM RPC communication
 type Client struct {
+	Config batchexecute.Config
 	client *batchexecute.Client
 }
 
@@ -107,31 +109,53 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 		},
 	}
 	return &Client{
+		Config: config,
 		client: batchexecute.NewClient(config, options...),
 	}
 }
 
 // Do executes a NotebookLM RPC call
 func (c *Client) Do(call Call) (json.RawMessage, error) {
-	// Update source path if notebook ID is provided
-	cfg := c.client.Config()
-	if call.NotebookID != "" {
-		cfg.URLParams["source-path"] = "/notebook/" + call.NotebookID
-	} else {
-		cfg.URLParams["source-path"] = "/"
+	if c.Config.Debug {
+		fmt.Printf("\n=== RPC Call ===\n")
+		fmt.Printf("ID: %s\n", call.ID)
+		fmt.Printf("NotebookID: %s\n", call.NotebookID)
+		fmt.Printf("Args:\n")
+		spew.Dump(call.Args)
 	}
-	c.client = batchexecute.NewClient(cfg)
 
-	// Convert to batchexecute RPC
+	// Create request-specific URL parameters
+	urlParams := make(map[string]string)
+	for k, v := range c.Config.URLParams {
+		urlParams[k] = v
+	}
+
+	if call.NotebookID != "" {
+		urlParams["source-path"] = "/notebook/" + call.NotebookID
+	} else {
+		urlParams["source-path"] = "/"
+	}
+
 	rpc := batchexecute.RPC{
-		ID:    call.ID,
-		Args:  call.Args,
-		Index: "generic",
+		ID:        call.ID,
+		Args:      call.Args,
+		Index:     "generic",
+		URLParams: urlParams,
+	}
+
+	if c.Config.Debug {
+		fmt.Printf("\nRPC Request:\n")
+		spew.Dump(rpc)
 	}
 
 	resp, err := c.client.Do(rpc)
 	if err != nil {
 		return nil, fmt.Errorf("execute rpc: %w", err)
+	}
+
+	if c.Config.Debug {
+		fmt.Printf("\nRPC Response:\n")
+		spew.Dump(resp)
 	}
 
 	return resp.Data, nil
