@@ -88,7 +88,7 @@ message SourceSettings {
       SOURCE_STATUS_ERROR = 3;
     }
     SourceStatus status = 2;
-    // google.internal.labs.tailwind.common.v1.SourceIssue reason = 3;
+    SourceIssue reason = 3;
 }
 
 message SourceIssue {
@@ -109,8 +109,11 @@ message SourceIssue {
     REASON_GOOGLE_DOCS_ERROR_UNKNOWN = 13;
     REASON_DOWNLOAD_FAILURE = 14;
     REASON_UNKNOWN = 15;
+    REASON_TOO_LARGE = 16;
+    REASON_UNSUPPORTED_TYPE = 17;
+    REASON_PROCESSING_ERROR = 18;
   }
-    Reason reason = 1;
+  Reason reason = 1;
 }
 
 message AudioOverview {
@@ -197,6 +200,9 @@ message ListRecentlyViewedProjectsResponse {
   repeated Project projects = 1;
 }
 
+message AddSourceResponse {
+    string source_id = 1;
+}
 
 /*
 service NotebookLM {
