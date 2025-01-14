@@ -17,19 +17,17 @@ import (
 
 // Global flags
 var (
-	authToken string
-	cookies   string
-	debug     bool
+	authToken     string
+	cookies       string
+	debug         bool
+	chromeProfile string
 )
 
-func main() {
-	log.SetPrefix("nlm: ")
-	log.SetFlags(0)
-
-	// change this so flag usage doesn't print these values..
+func init() {
+	flag.BoolVar(&debug, "debug", false, "enable debug output")
+	flag.StringVar(&chromeProfile, "profile", os.Getenv("NLM_BROWSER_PROFILE"), "Chrome profile to use")
 	flag.StringVar(&authToken, "auth", os.Getenv("NLM_AUTH_TOKEN"), "auth token (or set NLM_AUTH_TOKEN)")
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
-	flag.BoolVar(&debug, "debug", false, "enable debug output")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
@@ -70,15 +68,27 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  feedback <msg>    Submit feedback\n")
 		fmt.Fprintf(os.Stderr, "  hb                Send heartbeat\n\n")
 	}
+}
+
+func main() {
+	flag.Parse()
+
+	if debug {
+		fmt.Fprintf(os.Stderr, "nlm: debug mode enabled\n")
+		if chromeProfile != "" {
+			fmt.Fprintf(os.Stderr, "nlm: using Chrome profile: %s\n", chromeProfile)
+		}
+	}
+
+	// Load stored environment variables
+	loadStoredEnv()
 
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 }
 
 func run() error {
-	flag.Parse()
 	loadStoredEnv()
 
 	if authToken == "" {
