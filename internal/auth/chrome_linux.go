@@ -50,10 +50,10 @@ func getProfilePath() string {
 }
 
 func getChromePath() string {
-    for _, name := range []string{"google-chrome", "chrome", "chromium"} {
-        if path, err := exec.LookPath(name); err == nil {
-            return path
-        }
-    }
-    return ""
+	for _, name := range []string{"google-chrome", "chrome", "chromium"} {
+		if path, err := exec.LookPath(name); err == nil {
+			return path
+		}
+	}
+	return ""
 }

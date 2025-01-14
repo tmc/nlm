@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
@@ -229,20 +231,61 @@ func (c *Client) ActOnSources(projectID string, action string, sourceIDs []strin
 
 // Source upload utility methods
 
-func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename string) (string, error) {
+// detectMIMEType attempts to determine the MIME type of content using multiple methods:
+// 1. Use provided contentType if specified
+// 2. Use http.DetectContentType for binary detection
+// 3. Use file extension as fallback
+// 4. Default to application/octet-stream if all else fails
+func detectMIMEType(content []byte, filename string, providedType string) string {
+	// Use explicitly provided type if available
+	if providedType != "" {
+		return providedType
+	}
+
+	// Try content-based detection first
+	detectedType := http.DetectContentType(content)
+	if detectedType != "application/octet-stream" && !strings.HasPrefix(detectedType, "text/plain") {
+		return detectedType
+	}
+
+	// Try extension-based detection
+	ext := filepath.Ext(filename)
+	if ext != "" {
+		if mimeType := mime.TypeByExtension(ext); mimeType != "" {
+			return mimeType
+		}
+	}
+
+	// If we detected text/plain but have a known extension, trust the extension
+	if strings.HasPrefix(detectedType, "text/plain") && ext != "" {
+		if mimeType := mime.TypeByExtension(ext); mimeType != "" {
+			return mimeType
+		}
+	}
+
+	return detectedType
+}
+
+func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename string, contentType ...string) (string, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
 		return "", fmt.Errorf("read content: %w", err)
 	}
 
-	contentType := http.DetectContentType(content)
+	// Get provided content type if available
+	var providedType string
+	if len(contentType) > 0 {
+		providedType = contentType[0]
+	}
 
-	if strings.HasPrefix(contentType, "text/") {
+	detectedType := detectMIMEType(content, filename, providedType)
+
+	if strings.HasPrefix(detectedType, "text/") {
 		return c.AddSourceFromText(projectID, string(content), filename)
 	}
 
 	encoded := base64.StdEncoding.EncodeToString(content)
-	return c.AddSourceFromBase64(projectID, encoded, filename, contentType)
+	return c.AddSourceFromBase64(projectID, encoded, filename, detectedType)
 }
 
 func (c *Client) AddSourceFromText(projectID string, content, title string) (string, error) {
@@ -304,14 +347,18 @@ func (c *Client) AddSourceFromBase64(projectID string, content, filename, conten
 	return sourceID, nil
 }
 
-func (c *Client) AddSourceFromFile(projectID string, filepath string) (string, error) {
+func (c *Client) AddSourceFromFile(projectID string, filepath string, contentType ...string) (string, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return "", fmt.Errorf("open file: %w", err)
 	}
 	defer f.Close()
 
-	return c.AddSourceFromReader(projectID, f, filepath)
+	var providedType string
+	if len(contentType) > 0 {
+		providedType = contentType[0]
+	}
+	return c.AddSourceFromReader(projectID, f, filepath, providedType)
 }
 
 func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) {
