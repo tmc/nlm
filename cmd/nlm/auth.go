@@ -1,4 +1,3 @@
-// chagne this to use x/term and write the auth file to the users's home dir in a cache file.
 package main
 
 import (
@@ -27,34 +26,25 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 		return detectAuthInfo(string(input))
 	}
 
-	profileName := "Default"
-	if v := os.Getenv("NLM_BROWSER_PROFILE"); v != "" {
-		profileName = v
-	}
-	if len(args) > 0 {
-		profileName = args[0]
+	// Use the global chromeProfile variable if set, otherwise use environment variable or default
+	profileName := chromeProfile
+	if profileName == "" {
+		profileName = "Default"
+		if v := os.Getenv("NLM_BROWSER_PROFILE"); v != "" {
+			profileName = v
+		}
+		if len(args) > 0 {
+			profileName = args[0]
+		}
 	}
 
 	a := auth.New(debug)
-	fmt.Fprintf(os.Stderr, "nlm: launching browser to login... (profile:%v)  (set with NLM_BROWSER_PROFILE)\n", profileName)
+	fmt.Fprintf(os.Stderr, "nlm: launching browser to login... (profile:%v)  (set with NLM_BROWSER_PROFILE or -profile flag)\n", profileName)
 	token, cookies, err := a.GetAuth(auth.WithProfileName(profileName))
 	if err != nil {
 		return "", "", fmt.Errorf("browser auth failed: %w", err)
 	}
 	return persistAuthToDisk(cookies, token, profileName)
-}
-
-func readFromStdin() (string, error) {
-	var input strings.Builder
-	buf := make([]byte, 1024)
-	for {
-		n, err := os.Stdin.Read(buf)
-		if err != nil {
-			break
-		}
-		input.Write(buf[:n])
-	}
-	return input.String(), nil
 }
 
 func detectAuthInfo(cmd string) (string, string, error) {
