@@ -91,6 +91,19 @@ func main() {
 	}
 }
 
+// isAuthCommand returns true if the command requires authentication
+func isAuthCommand(cmd string) bool {
+	// Only help-related commands don't need auth
+	if cmd == "help" || cmd == "-h" || cmd == "--help" {
+		return false
+	}
+	// Auth command doesn't need prior auth
+	if cmd == "auth" {
+		return false
+	}
+	return true
+}
+
 func run() error {
 	loadStoredEnv()
 
@@ -100,7 +113,7 @@ func run() error {
 	if cookies == "" {
 		cookies = os.Getenv("NLM_COOKIES")
 	}
-
+	
 	if flag.NArg() < 1 {
 		flag.Usage()
 		os.Exit(1)
@@ -108,6 +121,12 @@ func run() error {
 
 	cmd := flag.Arg(0)
 	args := flag.Args()[1:]
+	
+	// Check if this command needs authentication
+	if isAuthCommand(cmd) && (authToken == "" || cookies == "") {
+		fmt.Fprintf(os.Stderr, "Authentication required for '%s'. Run 'nlm auth' first.\n", cmd)
+		// Continue anyway in case the user is just testing
+	}
 
 	var opts []batchexecute.Option
 	for i := 0; i < 3; i++ {
