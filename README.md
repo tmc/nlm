@@ -148,6 +148,10 @@ nlm add <notebook-id> document.pdf
 # Add source from stdin
 echo "Some text" | nlm add <notebook-id> -
 
+# Add content from stdin with specific MIME type
+cat data.xml | nlm add <notebook-id> - -mime="text/xml"
+cat data.json | nlm add <notebook-id> - -mime="application/json"
+
 # Rename a source
 nlm rename-source <source-id> "New Title"
 
@@ -246,6 +250,7 @@ We've improved the way files are uploaded to NotebookLM with more accurate MIME 
 - Multi-stage detection process using content analysis and file extensions
 - Better handling of text versus binary content
 - Improved error handling and diagnostics
+- Manual MIME type specification with new `-mime` flag for precise control
 
 ### 2. YouTube Source Support
 
@@ -268,6 +273,7 @@ File upload capabilities have been refined:
 - Support for more file formats
 - Better handling of large files
 - Enhanced error reporting and diagnostics
+- New `-mime` flag for explicitly specifying content type for any file or stdin input
 
 ## Contributing 🤝
 
