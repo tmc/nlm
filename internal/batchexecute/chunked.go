@@ -24,8 +24,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 		return nil, fmt.Errorf("peek response prefix: %w", err)
 	}
 	
-	// Check for and discard the )]}'
- prefix
+	// Check for and discard the )]}' prefix
 	if len(prefix) >= 4 && string(prefix[:4]) == ")]}''" {
 		_, err = br.ReadString('\n')
 		if err != nil {
