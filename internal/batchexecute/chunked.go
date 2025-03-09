@@ -23,8 +23,13 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	if err != nil && err != io.EOF {
 		return nil, fmt.Errorf("peek response prefix: %w", err)
 	}
+<<<<<<< HEAD
 
 	// Check for and discard the )]}'
+=======
+	
+	// Check for and discard the )]}' prefix
+>>>>>>> fc89ac7 (batchexecute: Fix syntax error in chunked response handler)
 	if len(prefix) >= 4 && string(prefix[:4]) == ")]}''" {
 		_, err = br.ReadString('\n')
 		if err != nil {
