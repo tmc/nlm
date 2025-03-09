@@ -2,6 +2,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -244,6 +245,14 @@ func detectMIMEType(content []byte, filename string, providedType string) string
 
 	// Try content-based detection first
 	detectedType := http.DetectContentType(content)
+
+	// Special case for JSON files - check content
+	if bytes.HasPrefix(bytes.TrimSpace(content), []byte("{")) || 
+	   bytes.HasPrefix(bytes.TrimSpace(content), []byte("[")) {
+		// This looks like JSON content
+		return "application/json"
+	}
+	
 	if detectedType != "application/octet-stream" && !strings.HasPrefix(detectedType, "text/plain") {
 		return detectedType
 	}

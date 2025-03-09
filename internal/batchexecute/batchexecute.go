@@ -173,11 +173,27 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	if err != nil {
 		if c.config.Debug {
 			fmt.Printf("Failed to decode response: %v\n", err)
+			fmt.Printf("Raw response: %s\n", string(body))
 		}
+		
+		// Special handling for certain responses
+		if strings.Contains(string(body), "\"error\"") {
+			// It contains an error field, let's try to extract it
+			var errorResp struct {
+				Error string `json:"error"`
+			}
+			if jerr := json.Unmarshal(body, &errorResp); jerr == nil && errorResp.Error != "" {
+				return nil, fmt.Errorf("server error: %s", errorResp.Error)
+			}
+		}
+		
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
 	if len(responses) == 0 {
+		if c.config.Debug {
+			fmt.Printf("No valid responses found in: %s\n", string(body))
+		}
 		return nil, fmt.Errorf("no valid responses found")
 	}
 

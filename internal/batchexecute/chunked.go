@@ -54,7 +54,15 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 			size, err := strconv.Atoi(strings.TrimSpace(line))
 			if err != nil {
 				// If not a number, it might be direct JSON data
-				chunks = append(chunks, line)
+				// Check if it looks like JSON
+				if strings.HasPrefix(strings.TrimSpace(line), "{") || strings.HasPrefix(strings.TrimSpace(line), "[") {
+					chunks = append(chunks, line)
+				} else if strings.HasPrefix(strings.TrimSpace(line), "wrb.fr") {
+					// It might be a direct RPC response without proper JSON format
+					chunks = append(chunks, "["+line+"]")
+				} else {
+					chunks = append(chunks, line)
+				}
 				continue
 			}
 			
