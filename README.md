@@ -48,6 +48,7 @@ Generation Commands:
 
 Other Commands:
   auth              Setup authentication
+  batch <commands>  Execute multiple commands in batch
 ```
 
 <details>
@@ -152,6 +153,9 @@ nlm rename-source <source-id> "New Title"
 
 # Remove a source
 nlm rm-source <notebook-id> <source-id>
+
+# Add a YouTube video as a source
+nlm add <notebook-id> https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
 
 ### Note Operations
@@ -186,6 +190,17 @@ nlm audio-share <notebook-id>
 nlm audio-share <notebook-id> --public
 ```
 
+### Batch Mode
+
+Execute multiple commands in a single request for better performance:
+
+```bash
+# Create a notebook and add multiple sources in one batch request
+nlm batch "create 'My Research Notebook'" "add NOTEBOOK_ID https://example.com/article" "add NOTEBOOK_ID research.pdf"
+```
+
+The batch mode reduces latency by sending multiple commands in a single network request.
+
 ## Examples 📋
 
 Create a notebook and add some content:
@@ -196,6 +211,7 @@ notebook_id=$(nlm create "Research Notes" | grep -o 'notebook [^ ]*' | cut -d' '
 # Add some sources
 nlm add $notebook_id https://example.com/research-paper
 nlm add $notebook_id research-data.pdf
+nlm add $notebook_id https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
 # Create an audio overview
 nlm audio-create $notebook_id "summarize in a professional tone"
@@ -221,6 +237,37 @@ nlm -debug list
 - `NLM_BROWSER_PROFILE`: Chrome profile to use for authentication (default: "Default")
 
 These are typically managed by the `auth` command, but can be manually configured if needed.
+
+## Recent Improvements 🚀
+
+### 1. Enhanced MIME Type Detection
+
+We've improved the way files are uploaded to NotebookLM with more accurate MIME type detection:
+- Multi-stage detection process using content analysis and file extensions
+- Better handling of text versus binary content
+- Improved error handling and diagnostics
+
+### 2. YouTube Source Support
+
+You can now easily add YouTube videos as sources to your notebooks:
+- Automatic detection of various YouTube URL formats
+- Support for standard youtube.com links and shortened youtu.be URLs
+- Proper extraction and processing of video content
+
+### 3. Improved Batch Execute Handling
+
+The batch mode has been enhanced for better performance and reliability:
+- Chunked response handling for larger responses
+- More robust authentication flow
+- Better error handling and recovery
+- Improved request ID generation for API stability
+
+### 4. File Upload Enhancements
+
+File upload capabilities have been refined:
+- Support for more file formats
+- Better handling of large files
+- Enhanced error reporting and diagnostics
 
 ## Contributing 🤝
 
