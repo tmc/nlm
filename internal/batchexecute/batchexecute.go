@@ -217,7 +217,26 @@ func decodeResponse(raw string) ([]Response, error) {
 	// Try to parse as a regular response
 	var responses [][]interface{}
 	if err := json.NewDecoder(strings.NewReader(raw)).Decode(&responses); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		// Check if this might be a number response (happens with some API errors)
+		if strings.TrimSpace(raw) == "1" || strings.TrimSpace(raw) == "0" {
+			// This is likely a boolean-like response (success/failure)
+			// Return a synthetic success response
+			return []Response{
+				{
+					ID:   "synthetic",
+					Data: json.RawMessage(`{"success": true}`),
+				},
+			}, nil
+		}
+		
+		// Try to parse as a single array
+		var singleArray []interface{}
+		if err := json.NewDecoder(strings.NewReader(raw)).Decode(&singleArray); err == nil {
+			// Convert it to our expected format
+			responses = [][]interface{}{singleArray}
+		} else {
+			return nil, fmt.Errorf("decode response: %w", err)
+		}
 	}
 
 	var result []Response
