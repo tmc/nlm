@@ -280,7 +280,8 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 
 	detectedType := detectMIMEType(content, filename, providedType)
 
-	if strings.HasPrefix(detectedType, "text/") {
+	// Treat plain text or JSON content as text source
+	if strings.HasPrefix(detectedType, "text/") || detectedType == "application/json" {
 		return c.AddSourceFromText(projectID, string(content), filename)
 	}
 
