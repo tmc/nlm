@@ -23,9 +23,8 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	if err != nil && err != io.EOF {
 		return nil, fmt.Errorf("peek response prefix: %w", err)
 	}
-	
+
 	// Check for and discard the )]}'
- prefix
 	if len(prefix) >= 4 && string(prefix[:4]) == ")]}''" {
 		_, err = br.ReadString('\n')
 		if err != nil {
@@ -34,11 +33,11 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	}
 
 	var (
-		chunks    []string
-		scanner   = bufio.NewScanner(br)
-		chunkData strings.Builder
+		chunks     []string
+		scanner    = bufio.NewScanner(br)
+		chunkData  strings.Builder
 		collecting bool
-		chunkSize int
+		chunkSize  int
 	)
 
 	// Process each line
@@ -58,7 +57,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 				chunks = append(chunks, line)
 				continue
 			}
-			
+
 			chunkSize = size
 			collecting = true
 			chunkData.Reset()
@@ -67,7 +66,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 
 		// If we're collecting a chunk, add this line to the current chunk
 		chunkData.WriteString(line)
-		
+
 		// If we've collected enough data, add the chunk and reset
 		if chunkData.Len() >= chunkSize {
 			chunks = append(chunks, chunkData.String())

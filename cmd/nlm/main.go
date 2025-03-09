@@ -4,8 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -21,6 +23,7 @@ var (
 	cookies       string
 	debug         bool
 	chromeProfile string
+	mimeType      string
 )
 
 func init() {
@@ -28,6 +31,7 @@ func init() {
 	flag.StringVar(&chromeProfile, "profile", os.Getenv("NLM_BROWSER_PROFILE"), "Chrome profile to use")
 	flag.StringVar(&authToken, "auth", os.Getenv("NLM_AUTH_TOKEN"), "auth token (or set NLM_AUTH_TOKEN)")
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
+	flag.StringVar(&mimeType, "mime", "", "specify MIME type for content (e.g. 'text/xml', 'application/json')")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
@@ -325,6 +329,10 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	switch input {
 	case "-": // stdin
 		fmt.Fprintln(os.Stderr, "Reading from stdin...")
+		if mimeType != "" {
+			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", mimeType)
+			return c.AddSourceFromReader(notebookID, os.Stdin, "Pasted Text", mimeType)
+		}
 		return c.AddSourceFromReader(notebookID, os.Stdin, "Pasted Text")
 	case "": // empty input
 		return "", fmt.Errorf("input required (file, URL, or '-' for stdin)")
@@ -339,6 +347,16 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	// Try as local file
 	if _, err := os.Stat(input); err == nil {
 		fmt.Printf("Adding source from file: %s\n", input)
+		if mimeType != "" {
+			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", mimeType)
+			// Read the file and use AddSourceFromReader with the specified MIME type
+			file, err := os.Open(input)
+			if err != nil {
+				return "", fmt.Errorf("open file: %w", err)
+			}
+			defer file.Close()
+			return c.AddSourceFromReader(notebookID, file, filepath.Base(input), mimeType)
+		}
 		return c.AddSourceFromFile(notebookID, input)
 	}
 
@@ -346,6 +364,7 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	fmt.Println("Adding text content as source...")
 	return c.AddSourceFromText(notebookID, input, "Text Source")
 }
+
 
 func removeSource(c *api.Client, notebookID, sourceID string) error {
 	fmt.Printf("Are you sure you want to remove source %s? [y/N] ", sourceID)

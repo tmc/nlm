@@ -184,7 +184,6 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	return &responses[0], nil
 }
 
-
 // decodeResponse decodes the batchexecute response
 func decodeResponse(raw string) ([]Response, error) {
 	raw = strings.TrimSpace(strings.TrimPrefix(raw, ")]}'"))
@@ -249,7 +248,6 @@ func decodeChunkedResponse(r io.Reader) ([]Response, error) {
 func isDigit(c rune) bool {
 	return c >= '0' && c <= '9'
 }
-
 
 func min(a, b int) int {
 	if a < b {
