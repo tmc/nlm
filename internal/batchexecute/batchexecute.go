@@ -145,6 +145,15 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	// Execute request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		// Check for common network errors and provide more helpful messages
+		if strings.Contains(err.Error(), "dial tcp") {
+			if strings.Contains(err.Error(), "i/o timeout") {
+				return nil, fmt.Errorf("connection timeout - check your network connection and try again: %w", err)
+			}
+			if strings.Contains(err.Error(), "connect: bad file descriptor") {
+				return nil, fmt.Errorf("network connection error - try restarting your network connection: %w", err)
+			}
+		}
 		return nil, fmt.Errorf("execute request: %w", err)
 	}
 	defer resp.Body.Close()
