@@ -27,13 +27,27 @@ type Note = pb.Source
 // Client handles NotebookLM API interactions.
 type Client struct {
 	rpc *rpc.Client
+	config struct {
+		Debug bool
+	}
 }
 
 // New creates a new NotebookLM API client.
 func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
-	return &Client{
+	// Basic validation of auth parameters
+	if authToken == "" || cookies == "" {
+		fmt.Fprintf(os.Stderr, "Warning: Missing authentication credentials. Use 'nlm auth' to setup authentication.\n")
+	}
+	
+	// Create the client
+	client := &Client{
 		rpc: rpc.New(authToken, cookies, opts...),
 	}
+	
+	// Get debug setting from environment for consistency
+	client.config.Debug = os.Getenv("NLM_DEBUG") == "true"
+	
+	return client
 }
 
 // Project/Notebook operations
@@ -290,7 +304,13 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 	detectedType := detectMIMEType(content, filename, providedType)
 
 	// Treat plain text or JSON content as text source
-	if strings.HasPrefix(detectedType, "text/") || detectedType == "application/json" {
+	if strings.HasPrefix(detectedType, "text/") || 
+	   detectedType == "application/json" || 
+	   strings.HasSuffix(filename, ".json") {
+		// Add debug output about JSON handling for any environment
+		if strings.HasSuffix(filename, ".json") || detectedType == "application/json" {
+			fmt.Fprintf(os.Stderr, "Handling JSON file as text: %s (MIME: %s)\n", filename, detectedType)
+		}
 		return c.AddSourceFromText(projectID, string(content), filename)
 	}
 
