@@ -3,6 +3,8 @@ package beprotojson
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -167,6 +169,76 @@ func flattenSingleValueArray(arr []interface{}) interface{} {
 func isArray(val interface{}) bool {
 	_, ok := val.([]interface{})
 	return ok
+}
+
+// UnmarshalArray attempts to parse a JSON array string that may have trailing digits
+// This is used specifically for handling the error: "cannot unmarshal object into Go value of type []interface {}"
+func UnmarshalArray(data string) ([]interface{}, error) {
+	// Clean the data by removing trailing digits
+	data = cleanTrailingDigits(data)
+
+	// Try standard unmarshaling first
+	var result []interface{}
+	err := json.Unmarshal([]byte(data), &result)
+	if err == nil {
+		return result, nil
+	}
+
+	// Try to extract just the array part if unmarshaling fails
+	arrayPattern := regexp.MustCompile(`\[\[.*?\]\]`)
+	matches := arrayPattern.FindString(data)
+	if matches != "" {
+		err = json.Unmarshal([]byte(matches), &result)
+		if err == nil {
+			return result, nil
+		}
+	}
+
+	// Try to find a balanced bracket structure
+	start := strings.Index(data, "[[")
+	if start >= 0 {
+		// Find matching end brackets
+		bracketCount := 0
+		end := start
+		for i := start; i < len(data); i++ {
+			if data[i] == '[' {
+				bracketCount++
+			} else if data[i] == ']' {
+				bracketCount--
+				if bracketCount == 0 {
+					end = i + 1
+					break
+				}
+			}
+		}
+
+		if end > start {
+			extracted := data[start:end]
+			err = json.Unmarshal([]byte(extracted), &result)
+			if err == nil {
+				return result, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("failed to unmarshal array: %w", err)
+}
+
+// cleanTrailingDigits removes any trailing digits that might appear after valid JSON
+func cleanTrailingDigits(data string) string {
+	// First check if the data ends with a closing bracket
+	if len(data) > 0 && data[len(data)-1] == ']' {
+		return data
+	}
+
+	// Find the last valid JSON character (closing bracket)
+	for i := len(data) - 1; i >= 0; i-- {
+		if data[i] == ']' {
+			return data[:i+1]
+		}
+	}
+
+	return data
 }
 
 func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflect.FieldDescriptor, val interface{}) error {
