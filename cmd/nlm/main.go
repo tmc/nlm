@@ -202,7 +202,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		}
 		err = updateNote(client, args[0], args[1], args[2], args[3])
 	case "rm-note":
-		if len(args) != 1 {
+		if len(args) != 2 {
 			log.Fatal("usage: nlm rm-note <notebook-id> <note-id>")
 		}
 		err = removeNote(client, args[0], args[1])
