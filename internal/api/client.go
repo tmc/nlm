@@ -61,11 +61,25 @@ func (c *Client) ListRecentlyViewedProjects() ([]*Notebook, error) {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
 
-	var response pb.ListRecentlyViewedProjectsResponse
-	if err := beprotojson.Unmarshal(resp, &response); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
+	// Try to extract projects using chunked response parser first
+	// This is a more robust approach for handling the chunked response format
+	body := string(resp)
+	// Try to parse the response from the chunked response format
+	p := NewChunkedResponseParser(body).WithDebug(true)
+	projects, err := p.ParseListProjectsResponse()
+	if err != nil {
+		// Debug output the raw response in case of error
+		fmt.Printf("DEBUG: Raw response before parsing:\n%s\n", body)
+
+		// Try to parse using the regular method as a fallback
+		var response pb.ListRecentlyViewedProjectsResponse
+		if err2 := beprotojson.Unmarshal(resp, &response); err2 != nil {
+			// Both methods failed
+			return nil, fmt.Errorf("parse response: %w (chunked parser: %v)", err2, err)
+		}
+		return response.Projects, nil
 	}
-	return response.Projects, nil
+	return projects, nil
 }
 
 func (c *Client) CreateProject(title string, emoji string) (*Notebook, error) {
