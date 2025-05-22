@@ -94,6 +94,17 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 // extractWRBResponse attempts to manually extract a response from a chunk that contains "wrb.fr"
 // but can't be properly parsed as JSON
 func extractWRBResponse(chunk string) *Response {
+	// Try to parse this as a regular JSON array first
+	var data []interface{}
+	if err := json.Unmarshal([]byte(chunk), &data); err == nil {
+		// Use the standard extraction logic
+		responses, err := extractResponses([][]interface{}{data})
+		if err == nil && len(responses) > 0 {
+			return &responses[0]
+		}
+	}
+	
+	// If JSON parsing fails, try manual extraction
 	// Try to extract the ID (comes after "wrb.fr")
 	idMatch := strings.Index(chunk, "wrb.fr")
 	if idMatch < 0 {
@@ -120,25 +131,79 @@ func extractWRBResponse(chunk string) *Response {
 	
 	// Look for any JSON-like data after the ID
 	dataStart := strings.Index(chunk[idEnd:], "{")
-	if dataStart < 0 {
+	var jsonData string
+	if dataStart >= 0 {
+		dataStart += idEnd // Adjust for the offset
+		// Find the end of the JSON object
+		dataEnd := findJSONEnd(chunk, dataStart, '{', '}')
+		if dataEnd > dataStart {
+			jsonData = chunk[dataStart:dataEnd]
+		}
+	} else {
 		// No JSON object found, try to find a JSON array
 		dataStart = strings.Index(chunk[idEnd:], "[")
-		if dataStart < 0 {
-			// Use a synthetic success response
-			return &Response{
-				ID:   id,
-				Data: json.RawMessage(`{"success":true}`),
+		if dataStart >= 0 {
+			dataStart += idEnd // Adjust for the offset
+			// Find the end of the JSON array
+			dataEnd := findJSONEnd(chunk, dataStart, '[', ']')
+			if dataEnd > dataStart {
+				jsonData = chunk[dataStart:dataEnd]
 			}
 		}
 	}
 	
-	dataStart += idEnd // Adjust for the offset
+	// If we found valid JSON data, use it; otherwise use a synthetic response
+	if jsonData != "" {
+		return &Response{
+			ID:   id,
+			Data: json.RawMessage(jsonData),
+		}
+	}
 	
-	// Create a response with what we found
+	// Use a synthetic success response
 	return &Response{
 		ID:   id,
-		Data: json.RawMessage(`{"extracted":true}`),
+		Data: json.RawMessage(`{"success":true}`),
 	}
+}
+
+// findJSONEnd finds the end of a JSON object or array starting from the given position
+func findJSONEnd(s string, start int, openChar, closeChar rune) int {
+	count := 0
+	inQuotes := false
+	escaped := false
+	
+	for i := start; i < len(s); i++ {
+		c := rune(s[i])
+		
+		if escaped {
+			escaped = false
+			continue
+		}
+		
+		if c == '\\' && inQuotes {
+			escaped = true
+			continue
+		}
+		
+		if c == '"' {
+			inQuotes = !inQuotes
+			continue
+		}
+		
+		if !inQuotes {
+			if c == openChar {
+				count++
+			} else if c == closeChar {
+				count--
+				if count == 0 {
+					return i + 1
+				}
+			}
+		}
+	}
+	
+	return len(s) // Return end of string if no matching close found
 }
 
 // processChunks processes all chunks and extracts the RPC responses
