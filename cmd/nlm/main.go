@@ -113,7 +113,7 @@ func run() error {
 	if cookies == "" {
 		cookies = os.Getenv("NLM_COOKIES")
 	}
-	
+
 	if flag.NArg() < 1 {
 		flag.Usage()
 		os.Exit(1)
@@ -121,7 +121,7 @@ func run() error {
 
 	cmd := flag.Arg(0)
 	args := flag.Args()[1:]
-	
+
 	// Check if this command needs authentication
 	if isAuthCommand(cmd) && (authToken == "" || cookies == "") {
 		fmt.Fprintf(os.Stderr, "Authentication required for '%s'. Run 'nlm auth' first.\n", cmd)
@@ -382,7 +382,6 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	fmt.Println("Adding text content as source...")
 	return c.AddSourceFromText(notebookID, input, "Text Source")
 }
-
 
 func removeSource(c *api.Client, notebookID, sourceID string) error {
 	fmt.Printf("Are you sure you want to remove source %s? [y/N] ", sourceID)

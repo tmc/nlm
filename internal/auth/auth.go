@@ -33,21 +33,23 @@ func New(debug bool) *BrowserAuth {
 }
 
 type Options struct {
-	ProfileName        string
-	TryAllProfiles     bool
-	ScanBeforeAuth     bool
-	TargetURL          string
-	PreferredBrowsers  []string
-	CheckNotebooks     bool
+	ProfileName       string
+	TryAllProfiles    bool
+	ScanBeforeAuth    bool
+	TargetURL         string
+	PreferredBrowsers []string
+	CheckNotebooks    bool
 }
 
 type Option func(*Options)
 
 func WithProfileName(p string) Option { return func(o *Options) { o.ProfileName = p } }
-func WithTryAllProfiles() Option { return func(o *Options) { o.TryAllProfiles = true } }
-func WithScanBeforeAuth() Option { return func(o *Options) { o.ScanBeforeAuth = true } }
+func WithTryAllProfiles() Option      { return func(o *Options) { o.TryAllProfiles = true } }
+func WithScanBeforeAuth() Option      { return func(o *Options) { o.ScanBeforeAuth = true } }
 func WithTargetURL(url string) Option { return func(o *Options) { o.TargetURL = url } }
-func WithPreferredBrowsers(browsers []string) Option { return func(o *Options) { o.PreferredBrowsers = browsers } }
+func WithPreferredBrowsers(browsers []string) Option {
+	return func(o *Options) { o.PreferredBrowsers = browsers }
+}
 func WithCheckNotebooks() Option { return func(o *Options) { o.CheckNotebooks = true } }
 
 // tryMultipleProfiles attempts to authenticate using each profile until one succeeds
@@ -57,18 +59,18 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 	if err != nil {
 		return "", "", fmt.Errorf("scan profiles: %w", err)
 	}
-	
+
 	if len(profiles) == 0 {
 		return "", "", fmt.Errorf("no valid browser profiles found")
 	}
-	
+
 	// Convert to profile names by browser
 	type BrowserProfile struct {
 		Browser string
 		Name    string
 		Path    string
 	}
-	
+
 	var browserProfiles []BrowserProfile
 	for _, p := range profiles {
 		browserProfiles = append(browserProfiles, BrowserProfile{
@@ -77,23 +79,23 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 			Path:    p.Path,
 		})
 	}
-	
+
 	// Try each profile
 	for _, profile := range profiles {
 		if ba.debug {
 			fmt.Printf("Trying profile: %s [%s]\n", profile.Name, profile.Browser)
 		}
-		
+
 		// Clean up previous attempts
 		ba.cleanup()
-		
+
 		// Create new temp directory
 		tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
 		if err != nil {
 			continue
 		}
 		ba.tempDir = tempDir
-		
+
 		// Copy profile data
 		if err := ba.copyProfileDataFromPath(profile.Path); err != nil {
 			if ba.debug {
@@ -101,11 +103,11 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 			}
 			continue
 		}
-		
+
 		// Set up Chrome and try to authenticate
 		var ctx context.Context
 		var cancel context.CancelFunc
-		
+
 		// Use chromedp.ExecAllocator approach
 		opts := []chromedp.ExecAllocatorOption{
 			chromedp.NoFirstRun,
@@ -128,26 +130,26 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 			chromedp.Flag("safebrowsing-disable-auto-update", true),
 			chromedp.Flag("enable-automation", true),
 			chromedp.Flag("password-store", "basic"),
-			
+
 			// Find the appropriate browser path - first try Brave if that's what this profile is from
 			chromedp.ExecPath(getChromePath()),
 		}
-		
+
 		allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 		ba.cancel = allocCancel
 		ctx, cancel = chromedp.NewContext(allocCtx)
 		defer cancel()
-		
+
 		// Use a longer timeout (45 seconds) to give more time for login processes
 		ctx, cancel = context.WithTimeout(ctx, 45*time.Second)
 		defer cancel()
-		
+
 		if ba.debug {
 			ctx, _ = chromedp.NewContext(ctx, chromedp.WithLogf(func(format string, args ...interface{}) {
 				fmt.Printf("ChromeDP: "+format+"\n", args...)
 			}))
 		}
-		
+
 		token, cookies, err = ba.extractAuthDataForURL(ctx, targetURL)
 		if err == nil && token != "" {
 			if ba.debug {
@@ -155,27 +157,27 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 			}
 			return token, cookies, nil
 		}
-		
+
 		if ba.debug {
 			fmt.Printf("Profile %s [%s] could not authenticate: %v\n", profile.Name, profile.Browser, err)
 		}
 	}
-	
+
 	return "", "", fmt.Errorf("no profiles could authenticate")
 }
 
 type ProfileInfo struct {
-	Name              string
-	Path              string
-	LastUsed          time.Time
-	Files             []string
-	Size              int64
-	Browser           string
-	HasTargetCookies  bool
-	TargetDomain      string
-	NotebookCount     int
-	AuthToken         string
-	AuthCookies       string
+	Name             string
+	Path             string
+	LastUsed         time.Time
+	Files            []string
+	Size             int64
+	Browser          string
+	HasTargetCookies bool
+	TargetDomain     string
+	NotebookCount    int
+	AuthToken        string
+	AuthCookies      string
 }
 
 // scanProfiles finds all available Chrome profiles across different browsers
@@ -186,28 +188,28 @@ func (ba *BrowserAuth) scanProfiles() ([]ProfileInfo, error) {
 // scanProfilesForDomain finds all available Chrome profiles and checks for cookies matching the domain
 func (ba *BrowserAuth) scanProfilesForDomain(targetDomain string) ([]ProfileInfo, error) {
 	var allProfiles []ProfileInfo
-	
+
 	// Check Chrome profiles
 	chromePath := getProfilePath()
 	chromeProfiles, err := scanBrowserProfiles(chromePath, "Chrome", targetDomain)
 	if err == nil {
 		allProfiles = append(allProfiles, chromeProfiles...)
 	}
-	
+
 	// Check Chrome Canary profiles
 	canaryPath := getCanaryProfilePath()
 	canaryProfiles, err := scanBrowserProfiles(canaryPath, "Chrome Canary", targetDomain)
 	if err == nil {
 		allProfiles = append(allProfiles, canaryProfiles...)
 	}
-	
+
 	// Check Brave profiles
 	bravePath := getBraveProfilePath()
 	braveProfiles, err := scanBrowserProfiles(bravePath, "Brave", targetDomain)
 	if err == nil {
 		allProfiles = append(allProfiles, braveProfiles...)
 	}
-	
+
 	// First sort by whether they have target cookies (if a target domain was specified)
 	if targetDomain != "" {
 		sort.Slice(allProfiles, func(i, j int) bool {
@@ -226,7 +228,7 @@ func (ba *BrowserAuth) scanProfilesForDomain(targetDomain string) ([]ProfileInfo
 			return allProfiles[i].LastUsed.After(allProfiles[j].LastUsed)
 		})
 	}
-	
+
 	return allProfiles, nil
 }
 
@@ -237,25 +239,25 @@ func scanBrowserProfiles(profilePath, browserName string, targetDomain string) (
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
-		
+
 		// Skip special directories
 		if entry.Name() == "System Profile" || entry.Name() == "Guest Profile" {
 			continue
 		}
-		
+
 		fullPath := filepath.Join(profilePath, entry.Name())
-		
+
 		// Check for key files that indicate it's a valid profile
 		validFiles := []string{"Cookies", "Login Data", "History"}
 		var foundFiles []string
 		var isValid bool
 		var totalSize int64
-		
+
 		for _, file := range validFiles {
 			filePath := filepath.Join(fullPath, file)
 			fileInfo, err := os.Stat(filePath)
@@ -265,17 +267,17 @@ func scanBrowserProfiles(profilePath, browserName string, targetDomain string) (
 				isValid = true
 			}
 		}
-		
+
 		if !isValid {
 			continue
 		}
-		
+
 		// Get last modified time as a proxy for "last used"
 		info, err := os.Stat(fullPath)
 		if err != nil {
 			continue
 		}
-		
+
 		profile := ProfileInfo{
 			Name:     entry.Name(),
 			Path:     fullPath,
@@ -284,7 +286,7 @@ func scanBrowserProfiles(profilePath, browserName string, targetDomain string) (
 			Size:     totalSize,
 			Browser:  browserName,
 		}
-		
+
 		// Check if this profile has cookies for the target domain
 		if targetDomain != "" {
 			cookiesPath := filepath.Join(fullPath, "Cookies")
@@ -292,10 +294,10 @@ func scanBrowserProfiles(profilePath, browserName string, targetDomain string) (
 			profile.HasTargetCookies = hasCookies
 			profile.TargetDomain = targetDomain
 		}
-		
+
 		profiles = append(profiles, profile)
 	}
-	
+
 	return profiles, nil
 }
 
@@ -308,18 +310,18 @@ func checkProfileForDomainCookies(cookiesPath, targetDomain string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	// Check if the file has a reasonable size (not empty)
 	if cookiesInfo.Size() < 1000 { // SQLite databases with cookies are typically larger than 1KB
 		return false
 	}
-	
+
 	// Check if the file was modified recently (within the last 30 days)
 	// This is a reasonable proxy for "has active cookies for this domain"
 	if time.Since(cookiesInfo.ModTime()) > 30*24*time.Hour {
 		return false
 	}
-	
+
 	// Since we can't actually check the database content without SQLite,
 	// we're making an educated guess based on file size and modification time
 	// A more accurate implementation would use SQLite to query the database
@@ -331,13 +333,13 @@ func countNotebooks(token, cookies string) (int, error) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
-	
+
 	// Create a new request to the notebooks API
 	req, err := http.NewRequest("GET", "https://notebooklm.google.com/gen_notebook/notebook", nil)
 	if err != nil {
 		return 0, fmt.Errorf("create request: %w", err)
 	}
-	
+
 	// Add headers
 	req.Header.Add("Cookie", cookies)
 	req.Header.Add("x-goog-api-key", "AIzaSyDRYGVeXVJ5EQwWNjBORFQdrgzjbGsEYg0")
@@ -345,47 +347,47 @@ func countNotebooks(token, cookies string) (int, error) {
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
-	
+
 	// Make the request
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, fmt.Errorf("request notebooks: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// Check response code
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("API error: status code %d", resp.StatusCode)
 	}
-	
+
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, fmt.Errorf("read response body: %w", err)
 	}
-	
+
 	// Simple check for notebook entries
 	// This is a simplified approach - a full implementation would parse the JSON properly
 	notebooks := strings.Count(string(body), `"notebookId"`)
-	
+
 	return notebooks, nil
 }
 
 func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error) {
 	o := &Options{
-		ProfileName:        "Default",
-		TryAllProfiles:     false,
-		ScanBeforeAuth:     true, // Default to showing profile information
-		TargetURL:          "https://notebooklm.google.com",
-		PreferredBrowsers:  []string{},
-		CheckNotebooks:     false,
+		ProfileName:       "Default",
+		TryAllProfiles:    false,
+		ScanBeforeAuth:    true, // Default to showing profile information
+		TargetURL:         "https://notebooklm.google.com",
+		PreferredBrowsers: []string{},
+		CheckNotebooks:    false,
 	}
 	for _, opt := range opts {
 		opt(o)
 	}
 
 	defer ba.cleanup()
-	
+
 	// Extract domain from target URL for cookie checks
 	targetDomain := ""
 	if o.TargetURL != "" {
@@ -393,18 +395,18 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 			targetDomain = u.Hostname()
 		}
 	}
-	
+
 	// If scan is requested, show available profiles
 	if o.ScanBeforeAuth {
 		profiles, err := ba.scanProfilesForDomain(targetDomain)
 		if err != nil {
 			return "", "", fmt.Errorf("scan profiles: %w", err)
 		}
-		
+
 		// If requested, check notebooks for each profile that has valid cookies
 		if o.CheckNotebooks {
 			fmt.Println("Checking notebook access for profiles...")
-			
+
 			// Create a pool of profiles to check
 			var profilesToCheck []ProfileInfo
 			for _, p := range profiles {
@@ -412,13 +414,13 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					profilesToCheck = append(profilesToCheck, p)
 				}
 			}
-			
+
 			// Check a maximum of 5 profiles to avoid taking too long
 			maxToCheck := 5
 			if len(profilesToCheck) > maxToCheck {
 				profilesToCheck = profilesToCheck[:maxToCheck]
 			}
-			
+
 			// Process each profile to check for notebook access
 			updatedProfiles := make([]ProfileInfo, 0, len(profiles))
 			for _, p := range profiles {
@@ -430,10 +432,10 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 						break
 					}
 				}
-				
+
 				if shouldCheck {
 					fmt.Printf("  Checking notebooks for %s [%s]...", p.Name, p.Browser)
-					
+
 					// Set up a temporary Chrome instance to authenticate
 					tempDir, err := os.MkdirTemp("", "nlm-notebook-check-*")
 					if err != nil {
@@ -441,14 +443,14 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
-					
+
 					// Create a temporary BrowserAuth
 					tempAuth := &BrowserAuth{
 						debug:   false,
 						tempDir: tempDir,
 					}
 					defer os.RemoveAll(tempDir)
-					
+
 					// Copy profile data
 					err = tempAuth.copyProfileDataFromPath(p.Path)
 					if err != nil {
@@ -456,10 +458,10 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
-					
+
 					// Try to authenticate
 					authCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-					
+
 					// Set up Chrome
 					opts := []chromedp.ExecAllocatorOption{
 						chromedp.NoFirstRun,
@@ -469,28 +471,28 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 						chromedp.Flag("headless", true),
 						chromedp.UserDataDir(tempDir),
 					}
-					
+
 					allocCtx, allocCancel := chromedp.NewExecAllocator(authCtx, opts...)
 					defer allocCancel()
-					
+
 					ctx, ctxCancel := chromedp.NewContext(allocCtx)
 					defer ctxCancel()
-					
+
 					// Try to authenticate
 					token, cookies, err := tempAuth.extractAuthDataForURL(ctx, o.TargetURL)
 					cancel()
-					
+
 					if err != nil || token == "" {
 						fmt.Println(" Not authenticated")
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
-					
+
 					// Store auth data
 					profile := p
 					profile.AuthToken = token
 					profile.AuthCookies = cookies
-					
+
 					// Try to get notebooks
 					notebookCount, err := countNotebooks(token, cookies)
 					if err != nil {
@@ -498,7 +500,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 						updatedProfiles = append(updatedProfiles, profile)
 						continue
 					}
-					
+
 					profile.NotebookCount = notebookCount
 					fmt.Printf(" Found %d notebooks\n", notebookCount)
 					updatedProfiles = append(updatedProfiles, profile)
@@ -507,11 +509,11 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					updatedProfiles = append(updatedProfiles, p)
 				}
 			}
-			
+
 			// Replace profiles with updated ones
 			profiles = updatedProfiles
 		}
-		
+
 		// Show profile information
 		fmt.Println("Available browser profiles:")
 		fmt.Println("===========================")
@@ -524,14 +526,14 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					cookieStatus = fmt.Sprintf(" [✗ No %s cookies]", targetDomain)
 				}
 			}
-			
+
 			notebookStatus := ""
 			if p.NotebookCount > 0 {
 				notebookStatus = fmt.Sprintf(" [%d notebooks]", p.NotebookCount)
 			}
-			
-			fmt.Printf("%d. %s [%s] - Last used: %s (%d files, %.1f MB)%s%s\n", 
-				1, p.Name, p.Browser, 
+
+			fmt.Printf("%d. %s [%s] - Last used: %s (%d files, %.1f MB)%s%s\n",
+				1, p.Name, p.Browser,
 				p.LastUsed.Format("2006-01-02 15:04:05"),
 				len(p.Files),
 				float64(p.Size)/(1024*1024),
@@ -539,7 +541,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				notebookStatus)
 		}
 		fmt.Println("===========================")
-		
+
 		if o.TryAllProfiles {
 			fmt.Println("Will try profiles in order shown above...")
 		} else {
@@ -632,13 +634,13 @@ func (ba *BrowserAuth) copyProfileData(profileName string) error {
 	// If profileName is "Default" and it doesn't exist, find the most recently used profile
 	profilePath := getProfilePath()
 	sourceDir := filepath.Join(profilePath, profileName)
-	
+
 	// Check if the requested profile exists
 	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
 		// First try the same profile name in Chrome Canary
 		canaryPath := getCanaryProfilePath()
 		canarySourceDir := filepath.Join(canaryPath, profileName)
-		
+
 		if _, err := os.Stat(canarySourceDir); err == nil {
 			sourceDir = canarySourceDir
 			if ba.debug {
@@ -651,7 +653,7 @@ func (ba *BrowserAuth) copyProfileData(profileName string) error {
 			if len(profiles) > 0 {
 				sourceDir = profiles[0].Path
 				if ba.debug {
-					fmt.Printf("Profile 'Default' not found, using most recently used profile: %s [%s]\n", 
+					fmt.Printf("Profile 'Default' not found, using most recently used profile: %s [%s]\n",
 						profiles[0].Name, profiles[0].Browser)
 				}
 			} else if foundProfile := findMostRecentProfile(profilePath); foundProfile != "" {
@@ -662,7 +664,7 @@ func (ba *BrowserAuth) copyProfileData(profileName string) error {
 			}
 		}
 	}
-	
+
 	return ba.copyProfileDataFromPath(sourceDir)
 }
 
@@ -714,24 +716,24 @@ func findMostRecentProfile(profilePath string) string {
 	if err != nil {
 		return ""
 	}
-	
+
 	var mostRecent string
 	var mostRecentTime time.Time
-	
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
-		
+
 		// Skip special directories
 		if entry.Name() == "System Profile" || entry.Name() == "Guest Profile" {
 			continue
 		}
-		
+
 		// Check for existence of key files that indicate it's a valid profile
 		validFiles := []string{"Cookies", "Login Data", "History"}
 		hasValidFiles := false
-		
+
 		for _, file := range validFiles {
 			filePath := filepath.Join(profilePath, entry.Name(), file)
 			if _, err := os.Stat(filePath); err == nil {
@@ -739,25 +741,25 @@ func findMostRecentProfile(profilePath string) string {
 				break
 			}
 		}
-		
+
 		if !hasValidFiles {
 			continue
 		}
-		
+
 		// Check profile directory's modification time
 		fullPath := filepath.Join(profilePath, entry.Name())
 		info, err := os.Stat(fullPath)
 		if err != nil {
 			continue
 		}
-		
+
 		modTime := info.ModTime()
 		if mostRecent == "" || modTime.After(mostRecentTime) {
 			mostRecent = fullPath
 			mostRecentTime = modTime
 		}
 	}
-	
+
 	return mostRecent
 }
 
@@ -869,7 +871,7 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 	); err != nil {
 		return "", "", fmt.Errorf("failed to load page: %w", err)
 	}
-	
+
 	// First check if we're already on a login page, which would indicate authentication failure
 	var currentURL string
 	if err := chromedp.Run(ctx, chromedp.Location(&currentURL)); err == nil {
@@ -877,12 +879,12 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 		if ba.debug {
 			fmt.Printf("Initial navigation landed on: %s\n", currentURL)
 		}
-		
+
 		// If we immediately landed on an auth page, this profile is likely not authenticated
-		if strings.Contains(currentURL, "accounts.google.com") || 
-		   strings.Contains(currentURL, "signin") || 
-		   strings.Contains(currentURL, "login") {
-		   	if ba.debug {
+		if strings.Contains(currentURL, "accounts.google.com") ||
+			strings.Contains(currentURL, "signin") ||
+			strings.Contains(currentURL, "login") {
+			if ba.debug {
 				fmt.Printf("Immediately redirected to auth page: %s\n", currentURL)
 			}
 			return "", "", fmt.Errorf("redirected to authentication page - not logged in")
@@ -895,8 +897,8 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
-	
-	authFailCount := 0 // Count consecutive auth failures
+
+	authFailCount := 0   // Count consecutive auth failures
 	maxAuthFailures := 3 // Max consecutive failures before giving up
 
 	for {
@@ -910,17 +912,17 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 			token, cookies, err = ba.tryExtractAuth(ctx)
 			if err != nil {
 				// Count specific failures that indicate we're definitely not authenticated
-				if strings.Contains(err.Error(), "sign-in") || 
-				   strings.Contains(err.Error(), "login") ||
-				   strings.Contains(err.Error(), "missing essential") {
+				if strings.Contains(err.Error(), "sign-in") ||
+					strings.Contains(err.Error(), "login") ||
+					strings.Contains(err.Error(), "missing essential") {
 					authFailCount++
-					
+
 					// If we've had too many clear auth failures, give up earlier
 					if authFailCount >= maxAuthFailures {
 						return "", "", fmt.Errorf("definitive authentication failure: %w", err)
 					}
 				}
-				
+
 				if ba.debug {
 					// Show seconds remaining from ctx at end of this:
 					deadline, _ := ctx.Deadline()
@@ -929,7 +931,7 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 				}
 				continue
 			}
-			
+
 			// Only accept the token and cookies if we get a proper non-empty response
 			// and tryExtractAuth has already done its validation
 			if token != "" && cookies != "" {
@@ -939,17 +941,17 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 					if ba.debug {
 						fmt.Printf("Successful authentication URL: %s\n", successURL)
 					}
-					
+
 					// Double-check we're not on a login page (shouldn't happen with our improved checks)
-					if strings.Contains(successURL, "accounts.google.com") || 
-					   strings.Contains(successURL, "signin") {
+					if strings.Contains(successURL, "accounts.google.com") ||
+						strings.Contains(successURL, "signin") {
 						return "", "", fmt.Errorf("authentication appeared to succeed but we're on login page: %s", successURL)
 					}
 				}
-				
+
 				return token, cookies, nil
 			}
-			
+
 			if ba.debug {
 				fmt.Println("Waiting for auth data...")
 			}
@@ -969,7 +971,7 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	if !hasAuth {
 		return "", "", nil
 	}
-	
+
 	// Check if we're on a signin page - this means we're not actually authenticated
 	var isSigninPage bool
 	err = chromedp.Run(ctx,
@@ -984,19 +986,19 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 			fmt.Printf("Error checking if on signin page: %v\n", err)
 		}
 	}
-	
+
 	if isSigninPage {
 		// We're on a login page, not actually authenticated
 		return "", "", fmt.Errorf("detected sign-in page - not authenticated")
 	}
-	
+
 	// Additional check - get current URL to verify we're on the expected domain
 	var currentURL string
 	err = chromedp.Run(ctx, chromedp.Location(&currentURL))
 	if err == nil {
-		if strings.Contains(currentURL, "accounts.google.com") || 
-		   strings.Contains(currentURL, "signin") || 
-		   strings.Contains(currentURL, "login") {
+		if strings.Contains(currentURL, "accounts.google.com") ||
+			strings.Contains(currentURL, "signin") ||
+			strings.Contains(currentURL, "login") {
 			return "", "", fmt.Errorf("detected sign-in URL: %s", currentURL)
 		}
 	}
@@ -1010,7 +1012,7 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	if err != nil {
 		return "", "", fmt.Errorf("check token presence: %w", err)
 	}
-	
+
 	if !tokenExists {
 		return "", "", fmt.Errorf("token not found or invalid")
 	}
@@ -1034,17 +1036,17 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	if err != nil {
 		return "", "", fmt.Errorf("extract auth data: %w", err)
 	}
-	
+
 	// Validate token format - should be a non-trivial string
 	if token == "" || len(token) < 20 {
 		return "", "", fmt.Errorf("invalid token format (too short): %s", token)
 	}
-	
+
 	// Validate cookies - we should have some essential cookies
 	if cookies == "" || len(cookies) < 50 {
 		return "", "", fmt.Errorf("insufficient cookies data")
 	}
-	
+
 	// Check for specific cookies that should be present when authenticated
 	requiredCookies := []string{"SID", "HSID", "SSID", "APISID"}
 	var foundRequired bool
@@ -1054,7 +1056,7 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 			break
 		}
 	}
-	
+
 	if !foundRequired {
 		return "", "", fmt.Errorf("missing essential authentication cookies")
 	}

@@ -37,7 +37,7 @@ func TestHTTPRecorder(t *testing.T) {
 		// Record the request
 		timestamp := time.Now().Format("20060102-150405.000")
 		filename := filepath.Join(recordDir, fmt.Sprintf("%s-request.txt", timestamp))
-		
+
 		reqFile, err := os.Create(filename)
 		if err != nil {
 			t.Logf("Failed to create request file: %v", err)
@@ -53,7 +53,7 @@ func TestHTTPRecorder(t *testing.T) {
 		for k, v := range r.Header {
 			fmt.Fprintf(reqFile, "  %s: %v\n", k, v)
 		}
-		
+
 		// Record request body if present
 		if r.Body != nil {
 			fmt.Fprintf(reqFile, "\nBody:\n")
@@ -93,7 +93,7 @@ func TestHTTPRecorder(t *testing.T) {
 		for k, v := range resp.Header {
 			fmt.Fprintf(respFile, "  %s: %v\n", k, v)
 		}
-		
+
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
 			t.Logf("Failed to read response body: %v", err)
@@ -125,7 +125,7 @@ func TestHTTPRecorder(t *testing.T) {
 
 	// Create client with debug mode enabled
 	client := New(
-		authToken, 
+		authToken,
 		cookies,
 		batchexecute.WithDebug(true),
 	)

@@ -184,7 +184,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			fmt.Printf("Failed to decode response: %v\n", err)
 			fmt.Printf("Raw response: %s\n", string(body))
 		}
-		
+
 		// Special handling for certain responses
 		if strings.Contains(string(body), "\"error\"") {
 			// It contains an error field, let's try to extract it
@@ -195,7 +195,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 				return nil, fmt.Errorf("server error: %s", errorResp.Error)
 			}
 		}
-		
+
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
@@ -208,7 +208,6 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 
 	return &responses[0], nil
 }
-
 
 // decodeResponse decodes the batchexecute response
 func decodeResponse(raw string) ([]Response, error) {
@@ -237,7 +236,7 @@ func decodeResponse(raw string) ([]Response, error) {
 				},
 			}, nil
 		}
-		
+
 		// Try to parse as a single array
 		var singleArray []interface{}
 		if err := json.NewDecoder(strings.NewReader(raw)).Decode(&singleArray); err == nil {
@@ -293,7 +292,6 @@ func decodeChunkedResponse(r io.Reader) ([]Response, error) {
 func isDigit(c rune) bool {
 	return c >= '0' && c <= '9'
 }
-
 
 func min(a, b int) int {
 	if a < b {

@@ -23,7 +23,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	if err != nil && err != io.EOF {
 		return nil, fmt.Errorf("peek response prefix: %w", err)
 	}
-	
+
 	// Check for and discard the )]}' prefix
 	if len(prefix) >= 4 && string(prefix[:4]) == ")]}''" {
 		_, err = br.ReadString('\n')
@@ -33,11 +33,11 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	}
 
 	var (
-		chunks    []string
-		scanner   = bufio.NewScanner(br)
-		chunkData strings.Builder
+		chunks     []string
+		scanner    = bufio.NewScanner(br)
+		chunkData  strings.Builder
 		collecting bool
-		chunkSize int
+		chunkSize  int
 	)
 
 	// Process each line
@@ -65,7 +65,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 				}
 				continue
 			}
-			
+
 			chunkSize = size
 			collecting = true
 			chunkData.Reset()
@@ -74,7 +74,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 
 		// If we're collecting a chunk, add this line to the current chunk
 		chunkData.WriteString(line)
-		
+
 		// If we've collected enough data, add the chunk and reset
 		if chunkData.Len() >= chunkSize {
 			chunks = append(chunks, chunkData.String())
@@ -103,32 +103,32 @@ func extractWRBResponse(chunk string) *Response {
 			return &responses[0]
 		}
 	}
-	
+
 	// If JSON parsing fails, try manual extraction
 	// Try to extract the ID (comes after "wrb.fr")
 	idMatch := strings.Index(chunk, "wrb.fr")
 	if idMatch < 0 {
 		return nil
 	}
-	
+
 	// Skip past "wrb.fr" and find next quotes
 	idStart := idMatch + 7 // length of "wrb.fr" + 1 for a likely comma or quote
 	for idStart < len(chunk) && (chunk[idStart] == ',' || chunk[idStart] == '"' || chunk[idStart] == ' ') {
 		idStart++
 	}
-	
+
 	// Find the end of the ID (next quote or comma)
 	idEnd := idStart
 	for idEnd < len(chunk) && chunk[idEnd] != '"' && chunk[idEnd] != ',' && chunk[idEnd] != ' ' {
 		idEnd++
 	}
-	
+
 	if idStart >= idEnd || idStart >= len(chunk) {
 		return nil
 	}
-	
+
 	id := chunk[idStart:idEnd]
-	
+
 	// Look for any JSON-like data after the ID
 	dataStart := strings.Index(chunk[idEnd:], "{")
 	var jsonData string
@@ -151,7 +151,7 @@ func extractWRBResponse(chunk string) *Response {
 			}
 		}
 	}
-	
+
 	// If we found valid JSON data, use it; otherwise use a synthetic response
 	if jsonData != "" {
 		return &Response{
@@ -159,7 +159,7 @@ func extractWRBResponse(chunk string) *Response {
 			Data: json.RawMessage(jsonData),
 		}
 	}
-	
+
 	// Use a synthetic success response
 	return &Response{
 		ID:   id,
@@ -172,25 +172,25 @@ func findJSONEnd(s string, start int, openChar, closeChar rune) int {
 	count := 0
 	inQuotes := false
 	escaped := false
-	
+
 	for i := start; i < len(s); i++ {
 		c := rune(s[i])
-		
+
 		if escaped {
 			escaped = false
 			continue
 		}
-		
+
 		if c == '\\' && inQuotes {
 			escaped = true
 			continue
 		}
-		
+
 		if c == '"' {
 			inQuotes = !inQuotes
 			continue
 		}
-		
+
 		if !inQuotes {
 			if c == openChar {
 				count++
@@ -202,7 +202,7 @@ func findJSONEnd(s string, start int, openChar, closeChar rune) int {
 			}
 		}
 	}
-	
+
 	return len(s) // Return end of string if no matching close found
 }
 
@@ -218,18 +218,18 @@ func processChunks(chunks []string) ([]Response, error) {
 	for _, chunk := range chunks {
 		// Try to fix any common escaping issues before parsing
 		chunk = strings.ReplaceAll(chunk, "\\\"", "\"")
-		
+
 		// Remove any outer quotes if present
 		trimmed := strings.TrimSpace(chunk)
 		if (strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) ||
-		   (strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) {
+			(strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) {
 			// This is a quoted string that might contain escaped JSON
 			unquoted, err := strconv.Unquote(chunk)
 			if err == nil {
 				chunk = unquoted
 			}
 		}
-		
+
 		// Try to parse as a JSON array
 		var data [][]interface{}
 		if err := json.Unmarshal([]byte(chunk), &data); err != nil {
@@ -238,7 +238,7 @@ func processChunks(chunks []string) ([]Response, error) {
 			if err := json.Unmarshal([]byte(chunk), &singleData); err != nil {
 				// If it still fails, check if it contains wrb.fr and try to manually extract
 				if strings.Contains(chunk, "wrb.fr") {
-					// Manually construct a response 
+					// Manually construct a response
 					fmt.Printf("Attempting to manually extract wrb.fr response from: %s\n", chunk)
 					if resp := extractWRBResponse(chunk); resp != nil {
 						allResponses = append(allResponses, *resp)
