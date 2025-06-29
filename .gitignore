@@ -1,3 +1,10 @@
 .env
 
 **/.claude/settings.local.json
+
+# Test binaries
+cmd/nlm/nlm_test
+
+# Coverage files  
+coverage.html
+coverage.out

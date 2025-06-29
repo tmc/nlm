@@ -1,0 +1,38 @@
+# Test flag parsing
+
+# Test debug flag doesn't break help
+! exec ./nlm_test -debug help
+stderr 'Warning: Missing authentication credentials'
+stderr 'Usage: nlm <command>'
+stderr 'nlm: debug mode enabled'
+
+# Test auth flag doesn't break help
+! exec ./nlm_test -auth test-token help
+stderr 'Warning: Missing authentication credentials'
+stderr 'Usage: nlm <command>'
+
+# Test cookies flag doesn't break help  
+! exec ./nlm_test -cookies test-cookies help
+stderr 'Warning: Missing authentication credentials'
+stderr 'Usage: nlm <command>'
+
+# Test profile flag doesn't break help
+! exec ./nlm_test -profile test-profile help
+stderr 'Warning: Missing authentication credentials'
+stderr 'Usage: nlm <command>'
+
+# Test mime flag doesn't break help
+! exec ./nlm_test -mime application/json help
+stderr 'Warning: Missing authentication credentials'
+stderr 'Usage: nlm <command>'
+
+# Test multiple flags together
+! exec ./nlm_test -debug -auth test-token -cookies test-cookies -profile test-profile help
+stderr 'Usage: nlm <command>'
+stderr 'nlm: debug mode enabled'
+stderr 'nlm: using Chrome profile: test-profile'
+
+# Test environment variable support
+env NLM_BROWSER_PROFILE=env-profile
+! exec ./nlm_test -debug help
+stderr 'nlm: using Chrome profile: env-profile'

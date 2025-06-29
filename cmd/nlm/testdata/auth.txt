@@ -1,0 +1,41 @@
+# Test authentication behavior
+
+# Commands that should NOT require auth
+! exec ./nlm_test help
+stderr 'Warning: Missing authentication credentials'
+stderr 'Usage: nlm <command>'
+
+exec ./nlm_test -h  
+stderr 'Usage: nlm <command>'
+
+# Skip auth command test as it tries to launch browser
+# ! exec ./nlm_test auth
+# ! stderr 'Authentication required'
+
+# Commands that SHOULD require auth - these should show auth warning
+# but continue (the actual API calls will fail gracefully)
+! exec ./nlm_test list
+stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+
+! exec ./nlm_test create test-notebook  
+stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
+
+! exec ./nlm_test sources notebook123
+stderr 'Authentication required for.*sources.*Run.*nlm auth.*first'
+
+# Test that providing auth tokens suppresses the warning
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test list
+! stderr 'Authentication required'
+
+# Test partial auth still shows warning
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=
+! exec ./nlm_test list
+stderr 'Authentication required'
+
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=test-cookies  
+! exec ./nlm_test list
+stderr 'Authentication required'

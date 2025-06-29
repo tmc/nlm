@@ -1,0 +1,27 @@
+# Test basic CLI functionality
+
+# Test help output
+! exec ./nlm_test help
+stderr 'Warning: Missing authentication credentials'
+stderr 'Usage: nlm <command>'
+stderr 'Notebook Commands'
+stderr 'Source Commands'
+stderr 'Note Commands'
+stderr 'Audio Commands'
+
+# Test no arguments shows usage and exits with code 1
+! exec ./nlm_test
+stderr 'Usage: nlm <command>'
+stderr 'Notebook Commands'
+
+# Test invalid command shows usage and exits with code 1  
+! exec ./nlm_test invalid-command
+stderr 'Usage: nlm <command>'
+
+# Test -h flag shows help
+exec ./nlm_test -h
+stderr 'Usage: nlm <command>'
+
+# Test --help flag shows help
+exec ./nlm_test --help
+stderr 'Usage: nlm <command>'
