@@ -39,7 +39,7 @@ func getChromePath() string {
 
 	// Try finding browsers via mdfind
 	browserPaths := map[string]string{
-		"com.google.Chrome":  "Contents/MacOS/Google Chrome",
+		"com.google.Chrome": "Contents/MacOS/Google Chrome",
 		"com.brave.Browser": "Contents/MacOS/Brave Browser",
 	}
 
@@ -125,20 +125,20 @@ func findBrowserViaMDFind(bundleID string) string {
 func getMostRecentPath(paths []string) string {
 	var mostRecent string
 	var mostRecentTime time.Time
-	
+
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil {
 			continue
 		}
-		
+
 		modTime := info.ModTime()
 		if mostRecent == "" || modTime.After(mostRecentTime) {
 			mostRecent = path
 			mostRecentTime = modTime
 		}
 	}
-	
+
 	return mostRecent
 }
 
@@ -159,7 +159,7 @@ func removeQuarantine(path string) error {
 func getProfilePath() string {
 	home, _ := os.UserHomeDir()
 	chromePath := filepath.Join(home, "Library", "Application Support", "Google", "Chrome")
-	
+
 	// Check if Chrome directory exists, if not, try Brave
 	if _, err := os.Stat(chromePath); os.IsNotExist(err) {
 		// Try Brave instead
@@ -168,7 +168,7 @@ func getProfilePath() string {
 			return bravePath
 		}
 	}
-	
+
 	return chromePath
 }
 

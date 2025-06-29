@@ -25,10 +25,10 @@ type Mode string
 const (
 	// ModeRecord records all HTTP interactions to disk
 	ModeRecord Mode = "record"
-	
+
 	// ModeReplay replays recorded HTTP interactions from disk
 	ModeReplay Mode = "replay"
-	
+
 	// ModePassthrough bypasses recording/replaying
 	ModePassthrough Mode = "passthrough"
 )
@@ -70,7 +70,7 @@ type RecordingTransport struct {
 	Transport      http.RoundTripper
 	RecordMatcher  func(req *http.Request) string
 	RequestFilters []func(req *http.Request)
-	
+
 	recordings     map[string][]Recording
 	recordingMutex sync.RWMutex
 }
@@ -80,12 +80,12 @@ func NewRecordingTransport(mode Mode, recordingsDir string, baseTransport http.R
 	if baseTransport == nil {
 		baseTransport = http.DefaultTransport
 	}
-	
+
 	// Create recordings directory if it doesn't exist
 	if mode == ModeRecord {
 		os.MkdirAll(recordingsDir, 0755)
 	}
-	
+
 	return &RecordingTransport{
 		Mode:           mode,
 		RecordingsDir:  recordingsDir,
@@ -101,17 +101,17 @@ func defaultRecordMatcher(req *http.Request) string {
 	// Extract RPC function ID from the request body
 	body, _ := io.ReadAll(req.Body)
 	req.Body = io.NopCloser(bytes.NewReader(body)) // Restore for later use
-	
+
 	// Extract RPC endpoint ID for NotebookLM API calls
 	// The format is typically something like: [["VUsiyb",["arg1","arg2"]]]
 	funcIDPattern := regexp.MustCompile(`\[\["([a-zA-Z0-9]+)",`)
 	matches := funcIDPattern.FindSubmatch(body)
-	
+
 	if len(matches) >= 2 {
 		funcID := string(matches[1])
 		return fmt.Sprintf("%s_%s", req.Method, funcID)
 	}
-	
+
 	// Fall back to URL path based matching for non-RPC calls
 	path := req.URL.Path
 	return fmt.Sprintf("%s_%s", req.Method, path)
@@ -148,7 +148,7 @@ func (rt *RecordingTransport) RoundTrip(req *http.Request) (*http.Response, erro
 		// Fall through to passthrough if no matching recording found
 		fmt.Printf("No matching recording found for %s, falling back to live request\n", req.URL.String())
 	}
-	
+
 	// Passthrough mode or fallback
 	return rt.Transport.RoundTrip(req)
 }
@@ -161,11 +161,11 @@ func (rt *RecordingTransport) recordRequest(req *http.Request) (*http.Response, 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Write body to buffer and restore for original request
 	bodyBuf.Write(body)
 	req.Body = io.NopCloser(bytes.NewReader(body))
-	
+
 	// Create a copy of the request for recording
 	recordedReq := RecordedRequest{
 		Method:  req.Method,
@@ -174,7 +174,7 @@ func (rt *RecordingTransport) recordRequest(req *http.Request) (*http.Response, 
 		Headers: req.Header.Clone(),
 		Body:    bodyBuf.String(),
 	}
-	
+
 	// Apply filters to the recorded request to remove sensitive data
 	for _, filter := range rt.RequestFilters {
 		reqCopy := &http.Request{
@@ -186,13 +186,13 @@ func (rt *RecordingTransport) recordRequest(req *http.Request) (*http.Response, 
 		filter(reqCopy)
 		recordedReq.Headers = reqCopy.Header
 	}
-	
+
 	// Make the actual HTTP request
 	resp, err := rt.Transport.RoundTrip(req)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Read and restore the response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -200,34 +200,34 @@ func (rt *RecordingTransport) recordRequest(req *http.Request) (*http.Response, 
 	}
 	resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(respBody))
-	
+
 	// Create the recorded response
 	recordedResp := RecordedResponse{
 		StatusCode: resp.StatusCode,
 		Headers:    resp.Header.Clone(),
 		Body:       string(respBody),
 	}
-	
+
 	recording := Recording{
 		Request:  recordedReq,
 		Response: recordedResp,
 	}
-	
+
 	// Store the recording
 	key := rt.keyForRequest(req)
 	rt.saveRecording(key, recording)
-	
+
 	return resp, nil
 }
 
 // replayRequest replays a recorded HTTP interaction
 func (rt *RecordingTransport) replayRequest(req *http.Request) (*http.Response, error) {
 	key := rt.keyForRequest(req)
-	
+
 	rt.recordingMutex.RLock()
 	recordings, ok := rt.recordings[key]
 	rt.recordingMutex.RUnlock()
-	
+
 	if !ok {
 		// Try to load recordings from disk
 		var err error
@@ -236,22 +236,22 @@ func (rt *RecordingTransport) replayRequest(req *http.Request) (*http.Response, 
 			return nil, nil
 		}
 	}
-	
+
 	// Find the best matching recording based on request body similarity
 	reqBody, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil, err
 	}
 	req.Body = io.NopCloser(bytes.NewReader(reqBody))
-	
+
 	bestMatch := findBestMatch(recordings, string(reqBody))
-	
+
 	// Create a response from the recording
 	header := http.Header{}
 	for k, v := range bestMatch.Response.Headers {
 		header[k] = v
 	}
-	
+
 	return &http.Response{
 		StatusCode:    bestMatch.Response.StatusCode,
 		Header:        header,
@@ -265,20 +265,20 @@ func (rt *RecordingTransport) replayRequest(req *http.Request) (*http.Response, 
 func (rt *RecordingTransport) saveRecording(key string, recording Recording) {
 	rt.recordingMutex.Lock()
 	defer rt.recordingMutex.Unlock()
-	
+
 	// Add to in-memory cache
 	if _, ok := rt.recordings[key]; !ok {
 		rt.recordings[key] = make([]Recording, 0)
 	}
 	rt.recordings[key] = append(rt.recordings[key], recording)
-	
+
 	// Create a unique filename for this recording
 	timestamp := time.Now().Format("20060102-150405")
 	hash := md5.Sum([]byte(recording.Request.Body))
 	hashStr := hex.EncodeToString(hash[:])[:8]
-	
+
 	filename := filepath.Join(rt.RecordingsDir, fmt.Sprintf("%s_%s_%s.json", key, timestamp, hashStr))
-	
+
 	// Save to disk
 	file, err := os.Create(filename)
 	if err != nil {
@@ -286,7 +286,7 @@ func (rt *RecordingTransport) saveRecording(key string, recording Recording) {
 		return
 	}
 	defer file.Close()
-	
+
 	enc := json.NewEncoder(file)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(recording); err != nil {
@@ -301,32 +301,32 @@ func (rt *RecordingTransport) loadRecordings(key string) ([]Recording, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	recordings := make([]Recording, 0, len(matches))
 	for _, match := range matches {
 		file, err := os.Open(match)
 		if err != nil {
 			continue
 		}
-		
+
 		var recording Recording
 		err = json.NewDecoder(file).Decode(&recording)
 		file.Close()
-		
+
 		if err != nil {
 			continue
 		}
-		
+
 		recordings = append(recordings, recording)
 	}
-	
+
 	// Update in-memory cache
 	if len(recordings) > 0 {
 		rt.recordingMutex.Lock()
 		rt.recordings[key] = recordings
 		rt.recordingMutex.Unlock()
 	}
-	
+
 	return recordings, nil
 }
 
@@ -335,12 +335,12 @@ func findBestMatch(recordings []Recording, reqBody string) Recording {
 	if len(recordings) == 1 {
 		return recordings[0]
 	}
-	
+
 	// Find the recording with the most similar request body
 	// This is a very simple implementation - could be improved
 	bestMatch := recordings[0]
 	bestScore := 0
-	
+
 	for _, recording := range recordings {
 		score := similarityScore(recording.Request.Body, reqBody)
 		if score > bestScore {
@@ -348,7 +348,7 @@ func findBestMatch(recordings []Recording, reqBody string) Recording {
 			bestMatch = recording
 		}
 	}
-	
+
 	return bestMatch
 }
 
@@ -358,14 +358,14 @@ func similarityScore(s1, s2 string) int {
 	// This is a very simple implementation
 	// For beproto calls, we just check if the core arguments (excluding timestamps)
 	// are the same
-	
+
 	// For more complex matching, we could use algorithms like
 	// Levenshtein distance, Jaccard similarity, etc.
-	
+
 	if s1 == s2 {
 		return 100 // Exact match
 	}
-	
+
 	// Count common characters
 	score := 0
 	minLen := min(len(s1), len(s2))
@@ -374,7 +374,7 @@ func similarityScore(s1, s2 string) int {
 			score++
 		}
 	}
-	
+
 	return score
 }
 
@@ -395,7 +395,7 @@ func NewRecordingClient(mode Mode, recordingsDir string, baseClient *http.Client
 	if baseTransport == nil {
 		baseTransport = http.DefaultTransport
 	}
-	
+
 	return &http.Client{
 		Transport: NewRecordingTransport(mode, recordingsDir, baseTransport),
 		Timeout:   30 * time.Second,
@@ -407,10 +407,10 @@ func NewTestServer(recordingsDir string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Read the request body
 		_, _ = io.ReadAll(r.Body)
-		
+
 		// Generate a key for this request
 		key := r.Method + "_" + r.URL.Path
-		
+
 		// Try to find a matching recording file
 		pattern := filepath.Join(recordingsDir, fmt.Sprintf("%s_*.json", key))
 		matches, err := filepath.Glob(pattern)
@@ -418,7 +418,7 @@ func NewTestServer(recordingsDir string) *httptest.Server {
 			http.Error(w, "No matching recording found", http.StatusNotFound)
 			return
 		}
-		
+
 		// Load the first matching recording
 		file, err := os.Open(matches[0])
 		if err != nil {
@@ -426,14 +426,14 @@ func NewTestServer(recordingsDir string) *httptest.Server {
 			return
 		}
 		defer file.Close()
-		
+
 		var recording Recording
 		err = json.NewDecoder(file).Decode(&recording)
 		if err != nil {
 			http.Error(w, "Failed to decode recording", http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Write the recorded response
 		for k, v := range recording.Response.Headers {
 			for _, vv := range v {

@@ -44,8 +44,8 @@ func TestListProjectsWithRecording(t *testing.T) {
 	httpClient := httprr.NewRecordingClient(mode, recordingsDir, nil)
 
 	// Create API client
-	client := New(authToken, cookies, 
-		batchexecute.WithHTTPClient(httpClient), 
+	client := New(authToken, cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(true))
 
 	// Call the API method
@@ -83,7 +83,7 @@ func TestWithRecordingServer(t *testing.T) {
 	defer server.Close()
 
 	// Create API client that points to the test server
-	client := New("test-token", "test-cookie", 
+	client := New("test-token", "test-cookie",
 		batchexecute.WithDebug(true),
 	)
 
