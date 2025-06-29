@@ -1,0 +1,42 @@
+# Test input handling for add command
+
+# Test empty input handling  
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 ''
+stderr 'input required.*file, URL'
+
+# Test stdin input handling - skip this test for now since stdin command is not available
+# env NLM_AUTH_TOKEN=test-token
+# env NLM_COOKIES=test-cookies
+# ! exec ./nlm_test add notebook123 -
+# stderr 'Reading from stdin'
+
+# Test URL input (this will fail at API level but should show correct message)
+env NLM_AUTH_TOKEN=test-token  
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 https://example.com
+stdout 'Adding source from URL'
+
+# Test file input (create a test file first)
+exec mkdir temp
+exec sh -c 'echo "test content" > temp/test.txt'
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies  
+! exec ./nlm_test add notebook123 temp/test.txt
+stdout 'Adding source from file'
+
+# Test file input with MIME type
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -mime application/json add notebook123 temp/test.txt
+stderr 'Using specified MIME type: application/json'
+
+# Test text content input (fallback when file doesn't exist)
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 'Some text content'
+stdout 'Adding text content as source'
+
+# Clean up
+exec rm -rf temp input.txt
