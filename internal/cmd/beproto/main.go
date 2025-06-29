@@ -11,9 +11,9 @@ import (
 	"os"
 	"strings"
 
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
 func main() {
@@ -153,7 +153,7 @@ func unmarshal(r io.Reader, w io.Writer, messageType string, raw bool, debug boo
 		if err != nil {
 			return fmt.Errorf("write output: %w", err)
 		}
-		
+
 		// Add final newline
 		fmt.Fprintln(w)
 		return nil
@@ -201,7 +201,7 @@ func marshal(r io.Reader, w io.Writer, messageType string, raw bool, debug bool)
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
-		
+
 		// Skip empty lines
 		if strings.TrimSpace(line) == "" {
 			continue

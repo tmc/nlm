@@ -28,13 +28,13 @@ type AuthOptions struct {
 func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 	// Create a new FlagSet
 	authFlags := flag.NewFlagSet("auth", flag.ContinueOnError)
-	
+
 	// Define auth-specific flags
 	opts := &AuthOptions{
 		ProfileName: chromeProfile,
 		TargetURL:   "https://notebooklm.google.com",
 	}
-	
+
 	authFlags.BoolVar(&opts.TryAllProfiles, "all", false, "Try all available browser profiles")
 	authFlags.BoolVar(&opts.TryAllProfiles, "a", false, "Try all available browser profiles (shorthand)")
 	authFlags.StringVar(&opts.ProfileName, "profile", opts.ProfileName, "Specific Chrome profile to use")
@@ -47,7 +47,7 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 	authFlags.BoolVar(&opts.Debug, "d", debug, "Enable debug output (shorthand)")
 	authFlags.BoolVar(&opts.Help, "help", false, "Show help for auth command")
 	authFlags.BoolVar(&opts.Help, "h", false, "Show help for auth command (shorthand)")
-	
+
 	// Set custom usage
 	authFlags.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: nlm auth [login] [options] [profile-name]\n\n")
@@ -59,7 +59,7 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 		fmt.Fprintf(os.Stderr, "Example: nlm auth login -profile Work\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth -all\n")
 	}
-	
+
 	// Filter out the 'login' argument if present
 	filteredArgs := make([]string, 0, len(args))
 	for _, arg := range args {
@@ -67,28 +67,28 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 			filteredArgs = append(filteredArgs, arg)
 		}
 	}
-	
+
 	// Parse the flags
 	err := authFlags.Parse(filteredArgs)
 	if err != nil {
 		return nil, nil, err
 	}
-	
+
 	// If help is requested, show usage and return nil
 	if opts.Help {
 		authFlags.Usage()
 		return nil, nil, fmt.Errorf("help shown")
 	}
-	
+
 	// Remaining arguments after flag parsing
 	remainingArgs := authFlags.Args()
-	
+
 	// If there's an argument and no specific profile is set via flag, treat the first arg as profile name
 	if !opts.TryAllProfiles && opts.ProfileName == "" && len(remainingArgs) > 0 {
 		opts.ProfileName = remainingArgs[0]
 		remainingArgs = remainingArgs[1:]
 	}
-	
+
 	// Set default profile name if needed
 	if !opts.TryAllProfiles && opts.ProfileName == "" {
 		opts.ProfileName = "Default"
@@ -96,7 +96,7 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 			opts.ProfileName = v
 		}
 	}
-	
+
 	return opts, remainingArgs, nil
 }
 
@@ -111,11 +111,11 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 	}
 
 	isTty := term.IsTerminal(int(os.Stdin.Fd()))
-	
+
 	if debug {
 		fmt.Fprintf(os.Stderr, "Input is from a TTY: %v\n", isTty)
 	}
-	
+
 	// Look for 'login' command which forces browser auth
 	forceBrowser := false
 	for _, arg := range args {
@@ -127,7 +127,7 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 			break
 		}
 	}
-	
+
 	// Only parse from stdin if it's not a TTY and we're not forcing browser auth
 	if !isTty && !forceBrowser {
 		// Check if there's input without blocking
@@ -138,7 +138,7 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 			if err != nil {
 				return "", "", fmt.Errorf("failed to read stdin: %w", err)
 			}
-			
+
 			if len(input) > 0 {
 				if debug {
 					fmt.Fprintf(os.Stderr, "Parsing auth info from stdin input (%d bytes)\n", len(input))
@@ -151,7 +151,7 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 			fmt.Fprintf(os.Stderr, "Stdin is not a TTY but is a character device, proceeding to browser auth\n")
 		}
 	}
-	
+
 	// Check for login subcommand which explicitly indicates browser auth
 	isLoginCommand := false
 	for _, arg := range args {
@@ -169,44 +169,44 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 		}
 		return "", "", fmt.Errorf("error parsing auth flags: %w", err)
 	}
-	
+
 	// Show what we're going to do based on options
 	if opts.TryAllProfiles {
 		fmt.Fprintf(os.Stderr, "nlm: trying all browser profiles to find one with valid authentication...\n")
 	} else {
 		fmt.Fprintf(os.Stderr, "nlm: launching browser to login... (profile:%v)\n", opts.ProfileName)
 	}
-	
+
 	// Use the debug flag from options if set, otherwise use the global debug flag
 	useDebug := opts.Debug || debug
-	
+
 	a := auth.New(useDebug)
-	
+
 	// Prepare options for auth call
 	// Custom options
 	authOpts := []auth.Option{auth.WithScanBeforeAuth(), auth.WithTargetURL(opts.TargetURL)}
-	
+
 	// Add more verbose output for login command
 	if isLoginCommand && useDebug {
 		fmt.Fprintf(os.Stderr, "Using explicit login mode with browser authentication\n")
 	}
-	
+
 	if opts.TryAllProfiles {
 		authOpts = append(authOpts, auth.WithTryAllProfiles())
 	} else {
 		authOpts = append(authOpts, auth.WithProfileName(opts.ProfileName))
 	}
-	
+
 	if opts.CheckNotebooks {
 		authOpts = append(authOpts, auth.WithCheckNotebooks())
 	}
-	
+
 	// Get auth data
 	token, cookies, err := a.GetAuth(authOpts...)
 	if err != nil {
 		return "", "", fmt.Errorf("browser auth failed: %w", err)
 	}
-	
+
 	return persistAuthToDisk(cookies, token, opts.ProfileName)
 }
 
