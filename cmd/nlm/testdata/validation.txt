@@ -1,0 +1,89 @@
+# Test command validation
+
+# Test create command validation
+! exec ./nlm_test create
+stderr 'usage: nlm create <title>'
+
+# Test rm command validation  
+! exec ./nlm_test rm
+stderr 'usage: nlm rm <id>'
+
+# Test sources command validation
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+
+# Test add command validation - no args
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+
+# Test add command validation - one arg
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
+
+# Test rm-source command validation
+! exec ./nlm_test rm-source
+stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+
+# Test rm-source command validation - one arg
+! exec ./nlm_test rm-source notebook123
+stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+
+# Test rename-source command validation
+! exec ./nlm_test rename-source
+stderr 'usage: nlm rename-source <source-id> <new-name>'
+
+# Test rename-source command validation - one arg
+! exec ./nlm_test rename-source source123
+stderr 'usage: nlm rename-source <source-id> <new-name>'
+
+# Test new-note command validation
+! exec ./nlm_test new-note
+stderr 'usage: nlm new-note <notebook-id> <title>'
+
+# Test new-note command validation - one arg
+! exec ./nlm_test new-note notebook123  
+stderr 'usage: nlm new-note <notebook-id> <title>'
+
+# Test update-note command validation
+! exec ./nlm_test update-note
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+
+# Test rm-note command validation
+! exec ./nlm_test rm-note
+stderr 'usage: nlm rm-note <notebook-id> <note-id>'
+
+# Test rm-note command validation - one arg
+! exec ./nlm_test rm-note notebook123
+stderr 'usage: nlm rm-note <notebook-id> <note-id>'
+
+# Test audio-create command validation
+! exec ./nlm_test audio-create
+stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+
+# Test audio-create command validation - one arg
+! exec ./nlm_test audio-create notebook123
+stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+
+# Test audio-get command validation
+! exec ./nlm_test audio-get
+stderr 'usage: nlm audio-get <notebook-id>'
+
+# Test audio-rm command validation  
+! exec ./nlm_test audio-rm
+stderr 'usage: nlm audio-rm <notebook-id>'
+
+# Test audio-share command validation
+! exec ./nlm_test audio-share
+stderr 'usage: nlm audio-share <notebook-id>'
+
+# Test generate-guide command validation
+! exec ./nlm_test generate-guide
+stderr 'usage: nlm generate-guide <notebook-id>'
+
+# Test generate-outline command validation
+! exec ./nlm_test generate-outline
+stderr 'usage: nlm generate-outline <notebook-id>'
+
+# Test generate-section command validation
+! exec ./nlm_test generate-section
+stderr 'usage: nlm generate-section <notebook-id>'
