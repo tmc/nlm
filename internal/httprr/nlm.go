@@ -111,19 +111,19 @@ func scrubNLMResponseIDs(buf *bytes.Buffer) error {
 	content := buf.String()
 
 	// Remove or normalize notebook IDs (typically long alphanumeric strings)
-	notebookIDPattern := regexp.MustCompile(`"id":"[a-zA-Z0-9_-]{20,}"`)
+	notebookIDPattern := regexp.MustCompile(`"id"\s*:\s*"[a-zA-Z0-9_-]{10,}"`)
 	content = notebookIDPattern.ReplaceAllString(content, `"id":"[NOTEBOOK_ID]"`)
 
 	// Remove or normalize source IDs
-	sourceIDPattern := regexp.MustCompile(`"sourceId":"[a-zA-Z0-9_-]{20,}"`)
+	sourceIDPattern := regexp.MustCompile(`"sourceId"\s*:\s*"[a-zA-Z0-9_-]{10,}"`)
 	content = sourceIDPattern.ReplaceAllString(content, `"sourceId":"[SOURCE_ID]"`)
 
 	// Remove session IDs or similar temporary identifiers
-	sessionIDPattern := regexp.MustCompile(`"sessionId":"[a-zA-Z0-9_-]{20,}"`)
+	sessionIDPattern := regexp.MustCompile(`"sessionId"\s*:\s*"[a-zA-Z0-9_-]{10,}"`)
 	content = sessionIDPattern.ReplaceAllString(content, `"sessionId":"[SESSION_ID]"`)
 
 	// Remove request IDs that might appear in error responses
-	requestIDPattern := regexp.MustCompile(`"requestId":"[a-zA-Z0-9_-]{20,}"`)
+	requestIDPattern := regexp.MustCompile(`"requestId"\s*:\s*"[a-zA-Z0-9_-]{10,}"`)
 	content = requestIDPattern.ReplaceAllString(content, `"requestId":"[REQUEST_ID]"`)
 
 	buf.Reset()
@@ -165,7 +165,7 @@ func NotebookLMRecordMatcher(req *http.Request) string {
 
 	// Extract RPC endpoint ID for NotebookLM API calls
 	// The format is typically something like: [["VUsiyb",["arg1","arg2"]]]
-	funcIDPattern := regexp.MustCompile(`\[\["([a-zA-Z0-9]+)",`)
+	funcIDPattern := regexp.MustCompile(`\[\[\"([a-zA-Z0-9]+)\",`)
 	matches := funcIDPattern.FindStringSubmatch(bodyStr)
 
 	if len(matches) >= 2 {

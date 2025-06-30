@@ -186,7 +186,7 @@ func TestScrubNLMResponseIDs(t *testing.T) {
 
 func TestNotebookLMRecordMatcher(t *testing.T) {
 	// Test with NotebookLM RPC call
-	bodyContent := `[[\"VUsiyb\",[\"test notebook\",\"description\"]]]`
+	bodyContent := `[["VUsiyb",["test notebook","description"]]]`
 	body := &Body{Data: []byte(bodyContent)}
 
 	req, err := http.NewRequest("POST", "https://notebooklm.google.com/api", body)

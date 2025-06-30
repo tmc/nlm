@@ -26,7 +26,10 @@ func recordAndReplayListProjects() error {
 
 	// Record mode
 	fmt.Println("Recording mode:")
-	recordingClient := httprr.NewRecordingClient(httprr.ModeRecord, recordingsDir, nil)
+	recordingClient, err := httprr.NewRecordingClient(filepath.Join(recordingsDir, "record.httprr"), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create recording client: %w", err)
+	}
 
 	client := api.New(
 		authToken,
@@ -48,10 +51,13 @@ func recordAndReplayListProjects() error {
 
 	// Replay mode
 	fmt.Println("\nReplay mode:")
-	replayClient := httprr.NewRecordingClient(httprr.ModeReplay, recordingsDir, &http.Client{
+	replayClient, err := httprr.NewRecordingClient(filepath.Join(recordingsDir, "record.httprr"), &http.Client{
 		// Configure a failing transport to verify we're actually using recordings
 		Transport: http.RoundTripper(failingTransport{}),
 	})
+	if err != nil {
+		return fmt.Errorf("failed to create replay client: %w", err)
+	}
 
 	replayAPIClient := api.New(
 		"fake-token", // Use fake credentials to verify we're using recordings
