@@ -1,8 +1,8 @@
 package api
 
 import (
+	"net/http"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -10,43 +10,21 @@ import (
 )
 
 // TestListProjectsWithRecording tests the ListRecentlyViewedProjects method
-// with request recording and replay.
+// with request recording and replay using the enhanced httprr.
 func TestListProjectsWithRecording(t *testing.T) {
-	// Skip in normal testing
-	if os.Getenv("RECORD_LIST_PROJECTS") != "true" && os.Getenv("REPLAY_LIST_PROJECTS") != "true" {
-		t.Skip("Skipping recording test. Set RECORD_LIST_PROJECTS=true or REPLAY_LIST_PROJECTS=true to run.")
-	}
+	// Use the enhanced httprr's graceful skipping
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 
-	// Get credentials from environment
-	authToken := os.Getenv("NLM_AUTH_TOKEN")
-	cookies := os.Getenv("NLM_COOKIES")
-	if authToken == "" || cookies == "" {
-		t.Fatalf("Missing credentials. Set NLM_AUTH_TOKEN and NLM_COOKIES environment variables.")
-	}
-
-	// Determine testing mode (record or replay)
-	mode := httprr.ModePassthrough
-	if os.Getenv("RECORD_LIST_PROJECTS") == "true" {
-		mode = httprr.ModeRecord
-		t.Log("Recording mode enabled")
-	} else if os.Getenv("REPLAY_LIST_PROJECTS") == "true" {
-		mode = httprr.ModeReplay
-		t.Log("Replay mode enabled")
-	}
-
-	// Create recordings directory
-	recordingsDir := filepath.Join("testdata", "recordings")
-	if mode == httprr.ModeRecord {
-		os.MkdirAll(recordingsDir, 0755)
-	}
-
-	// Create HTTP client with recording transport
-	httpClient := httprr.NewRecordingClient(mode, recordingsDir, nil)
+	// Create NLM test client with enhanced httprr
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
 
 	// Create API client
-	client := New(authToken, cookies,
+	client := New(
+		os.Getenv("NLM_AUTH_TOKEN"),
+		os.Getenv("NLM_COOKIES"),
 		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(true))
+		batchexecute.WithDebug(true),
+	)
 
 	// Call the API method
 	t.Log("Listing projects...")
@@ -66,37 +44,83 @@ func TestListProjectsWithRecording(t *testing.T) {
 	}
 }
 
-// TestWithRecordingServer tests using a recording server for API calls
-func TestWithRecordingServer(t *testing.T) {
-	// Skip in normal testing
-	if os.Getenv("TEST_RECORDING_SERVER") != "true" {
-		t.Skip("Skipping recording server test. Set TEST_RECORDING_SERVER=true to run.")
-	}
+// TestCreateProjectWithRecording tests the CreateProject method with httprr recording
+func TestCreateProjectWithRecording(t *testing.T) {
+	// Use the enhanced httprr's graceful skipping
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 
-	recordingsDir := filepath.Join("testdata", "recordings")
-	if _, err := os.Stat(recordingsDir); os.IsNotExist(err) {
-		t.Skipf("No recordings found in %s. Run with RECORD_LIST_PROJECTS=true first", recordingsDir)
-	}
+	// Create NLM test client with enhanced httprr
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
 
-	// Create a test server that serves recorded responses
-	server := httprr.NewTestServer(recordingsDir)
-	defer server.Close()
-
-	// Create API client that points to the test server
-	client := New("test-token", "test-cookie",
+	// Create API client
+	client := New(
+		os.Getenv("NLM_AUTH_TOKEN"),
+		os.Getenv("NLM_COOKIES"),
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(true),
 	)
 
 	// Call the API method
-	t.Log("Listing projects from test server...")
-	projects, err := client.ListRecentlyViewedProjects()
+	t.Log("Creating test project...")
+	project, err := client.CreateProject("Test Project - "+t.Name(), "📝")
 	if err != nil {
-		t.Fatalf("Failed to list projects from test server: %v", err)
+		t.Fatalf("Failed to create project: %v", err)
 	}
 
-	// Check results
-	t.Logf("Found %d projects from test server", len(projects))
-	for i, p := range projects {
-		t.Logf("Project %d: %s (%s)", i, p.Title, p.ProjectId)
+	t.Logf("Created project: %s (%s)", project.Title, project.ProjectId)
+
+	// Clean up by deleting the test project
+	t.Cleanup(func() {
+		if err := client.DeleteProjects([]string{project.ProjectId}); err != nil {
+			t.Logf("Failed to clean up test project: %v", err)
+		}
+	})
+}
+
+// TestAddSourceFromTextWithRecording tests adding text sources with httprr recording
+func TestAddSourceFromTextWithRecording(t *testing.T) {
+	// Use the enhanced httprr's graceful skipping
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+
+	// Create NLM test client with enhanced httprr
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Create API client
+	client := New(
+		os.Getenv("NLM_AUTH_TOKEN"),
+		os.Getenv("NLM_COOKIES"),
+		batchexecute.WithHTTPClient(httpClient),
+		batchexecute.WithDebug(true),
+	)
+
+	// First, we need a project to add sources to
+	t.Log("Listing projects to find a project...")
+	projects, err := client.ListRecentlyViewedProjects()
+	if err != nil {
+		t.Fatalf("Failed to list projects: %v", err)
 	}
+
+	if len(projects) == 0 {
+		t.Skip("No projects found to test with")
+	}
+
+	// Use the first project
+	projectID := projects[0].ProjectId
+	t.Logf("Testing with project: %s", projectID)
+
+	// Call the API method
+	t.Log("Adding text source...")
+	sourceID, err := client.AddSourceFromText(projectID, "This is a test source created by automated test", "Test Source - "+t.Name())
+	if err != nil {
+		t.Fatalf("Failed to add text source: %v", err)
+	}
+
+	t.Logf("Added source with ID: %s", sourceID)
+
+	// Clean up by deleting the test source
+	t.Cleanup(func() {
+		if err := client.DeleteSources(projectID, []string{sourceID}); err != nil {
+			t.Logf("Failed to clean up test source: %v", err)
+		}
+	})
 }
