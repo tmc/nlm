@@ -89,50 +89,40 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 		// Clean up previous attempts
 		ba.cleanup()
 
-		// Create new temp directory
+		// Create a temporary directory but copy the profile data to preserve encryption keys
 		tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
 		if err != nil {
 			continue
 		}
-		ba.tempDir = tempDir
-
-		// Copy profile data
+		
+		// Copy the entire profile directory to temp location
 		if err := ba.copyProfileDataFromPath(profile.Path); err != nil {
 			if ba.debug {
 				fmt.Printf("Error copying profile %s: %v\n", profile.Name, err)
 			}
+			os.RemoveAll(tempDir)
 			continue
 		}
+		ba.tempDir = tempDir
 
 		// Set up Chrome and try to authenticate
 		var ctx context.Context
 		var cancel context.CancelFunc
 
-		// Use chromedp.ExecAllocator approach
+		// Use chromedp.ExecAllocator approach with minimal automation flags
 		opts := []chromedp.ExecAllocatorOption{
 			chromedp.NoFirstRun,
 			chromedp.NoDefaultBrowserCheck,
-			chromedp.DisableGPU,
-			chromedp.Flag("disable-extensions", true),
-			chromedp.Flag("disable-sync", true),
-			chromedp.Flag("disable-popup-blocking", true),
-			chromedp.Flag("window-size", "1280,800"),
 			chromedp.UserDataDir(ba.tempDir),
 			chromedp.Flag("headless", !ba.debug),
-			chromedp.Flag("disable-hang-monitor", true),
-			chromedp.Flag("disable-ipc-flooding-protection", true),
-			chromedp.Flag("disable-popup-blocking", true),
-			chromedp.Flag("disable-prompt-on-repost", true),
-			chromedp.Flag("disable-renderer-backgrounding", true),
-			chromedp.Flag("disable-sync", true),
-			chromedp.Flag("force-color-profile", "srgb"),
-			chromedp.Flag("metrics-recording-only", true),
-			chromedp.Flag("safebrowsing-disable-auto-update", true),
-			chromedp.Flag("enable-automation", true),
-			chromedp.Flag("password-store", "basic"),
+			chromedp.Flag("window-size", "1280,800"),
+			chromedp.Flag("new-window", true),
+			chromedp.Flag("no-first-run", true),
+			chromedp.Flag("disable-default-apps", true),
+			chromedp.Flag("remote-debugging-port", "0"), // Use random port
 
-			// Find the appropriate browser path - first try Brave if that's what this profile is from
-			chromedp.ExecPath(getChromePath()),
+			// Use the appropriate browser executable for this profile type
+			chromedp.ExecPath(getBrowserPathForProfile(profile.Browser)),
 		}
 
 		allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
@@ -555,66 +545,68 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		return ba.tryMultipleProfiles(o.TargetURL)
 	}
 
-	// Create temp directory for new Chrome instance
-	if ba.debug {
+	// Find the actual profile to use (similar to multi-profile approach)
+	profiles, err := ba.scanProfiles()
+	if err != nil {
+		return "", "", fmt.Errorf("scan profiles: %w", err)
 	}
+	
+	// Find the profile that matches the requested name
+	var selectedProfile *ProfileInfo
+	for _, p := range profiles {
+		if p.Name == o.ProfileName {
+			selectedProfile = &p
+			break
+		}
+	}
+	
+	// If no exact match, use the first profile (most recently used)
+	if selectedProfile == nil && len(profiles) > 0 {
+		selectedProfile = &profiles[0]
+		if ba.debug {
+			fmt.Printf("Profile '%s' not found, using most recently used profile: %s [%s]\n",
+				o.ProfileName, selectedProfile.Name, selectedProfile.Browser)
+		}
+	}
+	
+	if selectedProfile == nil {
+		return "", "", fmt.Errorf("no valid profiles found")
+	}
+	
+	// Create a temporary directory and copy profile data to preserve encryption keys
 	tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
 	if err != nil {
 		return "", "", fmt.Errorf("create temp dir: %w", err)
 	}
 	ba.tempDir = tempDir
-
-	// Copy profile data
-	if err := ba.copyProfileData(o.ProfileName); err != nil {
+	
+	// Copy the profile data
+	if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
 		return "", "", fmt.Errorf("copy profile: %w", err)
 	}
 
 	var ctx context.Context
 	var cancel context.CancelFunc
-	var debugURL string
 
-	chromeCanaryPath := "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary" // macOS example
+	// Use chromedp.ExecAllocator approach with minimal automation flags
+	chromeOpts := []chromedp.ExecAllocatorOption{
+		chromedp.NoFirstRun,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.UserDataDir(ba.tempDir),
+		chromedp.Flag("headless", !ba.debug),
+		chromedp.Flag("window-size", "1280,800"),
+		chromedp.Flag("new-window", true),
+		chromedp.Flag("no-first-run", true),
+		chromedp.Flag("disable-default-apps", true),
+		chromedp.Flag("remote-debugging-port", "0"), // Use random port
 
-	if ba.useExec {
-		// Use original exec.Command approach
-		debugURL, err = ba.startChromeExec()
-		if err != nil {
-			return "", "", err
-		}
-		allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), debugURL)
-		ba.cancel = allocCancel
-		ctx, cancel = chromedp.NewContext(allocCtx)
-	} else {
-		// Use chromedp.ExecAllocator approach
-		opts := []chromedp.ExecAllocatorOption{
-			chromedp.NoFirstRun,
-			chromedp.NoDefaultBrowserCheck,
-			chromedp.DisableGPU,
-			chromedp.Flag("disable-extensions", true),
-			chromedp.Flag("disable-sync", true),
-			chromedp.Flag("disable-popup-blocking", true),
-			chromedp.Flag("window-size", "1280,800"),
-			chromedp.UserDataDir(ba.tempDir),
-			chromedp.Flag("headless", !ba.debug),
-			chromedp.Flag("disable-hang-monitor", true),
-			chromedp.Flag("disable-ipc-flooding-protection", true),
-			chromedp.Flag("disable-popup-blocking", true),
-			chromedp.Flag("disable-prompt-on-repost", true),
-			chromedp.Flag("disable-renderer-backgrounding", true),
-			chromedp.Flag("disable-sync", true),
-			chromedp.Flag("force-color-profile", "srgb"),
-			chromedp.Flag("metrics-recording-only", true),
-			chromedp.Flag("safebrowsing-disable-auto-update", true),
-			chromedp.Flag("enable-automation", true),
-			chromedp.Flag("password-store", "basic"),
-
-			chromedp.ExecPath(chromeCanaryPath),
-		}
-
-		allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
-		ba.cancel = allocCancel
-		ctx, cancel = chromedp.NewContext(allocCtx)
+		// Use the appropriate browser executable for this profile type
+		chromedp.ExecPath(getBrowserPathForProfile(selectedProfile.Browser)),
 	}
+
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), chromeOpts...)
+	ba.cancel = allocCancel
+	ctx, cancel = chromedp.NewContext(allocCtx)
 	defer cancel()
 
 	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
