@@ -23,6 +23,9 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	if err != nil && err != io.EOF {
 		return nil, fmt.Errorf("peek response prefix: %w", err)
 	}
+	
+	// Debug: print the prefix
+	fmt.Printf("DEBUG: Response prefix: %q\n", prefix)
 
 	// Check for and discard the )]}' prefix
 	if len(prefix) >= 4 && string(prefix[:4]) == ")]}''" {
@@ -43,9 +46,11 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	// Process each line
 	for scanner.Scan() {
 		line := scanner.Text()
+		fmt.Printf("DEBUG: Processing line: %q\n", line)
 
 		// Skip empty lines
 		if strings.TrimSpace(line) == "" {
+			fmt.Printf("DEBUG: Skipping empty line\n")
 			continue
 		}
 
@@ -208,6 +213,11 @@ func findJSONEnd(s string, start int, openChar, closeChar rune) int {
 
 // processChunks processes all chunks and extracts the RPC responses
 func processChunks(chunks []string) ([]Response, error) {
+	fmt.Printf("DEBUG: processChunks called with %d chunks\n", len(chunks))
+	for i, chunk := range chunks {
+		fmt.Printf("DEBUG: Chunk %d: %q\n", i, chunk)
+	}
+	
 	if len(chunks) == 0 {
 		return nil, fmt.Errorf("no chunks found")
 	}
