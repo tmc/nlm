@@ -52,6 +52,41 @@ func getChromePath() string {
 	return ""
 }
 
+// getBrowserPathForProfile returns the appropriate browser executable for a given browser type
+func getBrowserPathForProfile(browserName string) string {
+	switch browserName {
+	case "Brave":
+		// Try Brave paths first
+		bravePaths := []string{
+			"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+		}
+		for _, path := range bravePaths {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+		// Try finding via mdfind
+		if path := findBrowserViaMDFind("com.brave.Browser"); path != "" {
+			return filepath.Join(path, "Contents/MacOS/Brave Browser")
+		}
+	case "Chrome Canary":
+		canaryPaths := []string{
+			"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+		}
+		for _, path := range canaryPaths {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+		if path := findBrowserViaMDFind("com.google.Chrome.canary"); path != "" {
+			return filepath.Join(path, "Contents/MacOS/Google Chrome Canary")
+		}
+	}
+	
+	// Fallback to any Chrome-based browser
+	return getChromePath()
+}
+
 func detectChrome(debug bool) Browser {
 	// First try standard paths
 	for _, browser := range macOSBrowserPaths {
