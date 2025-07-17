@@ -99,6 +99,12 @@ func (o UnmarshalOptions) setField(m protoreflect.Message, fd protoreflect.Field
 func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protoreflect.FieldDescriptor, val interface{}) error {
 	arr, ok := val.([]interface{})
 	if !ok {
+		// Handle special case where API returns a number instead of array for repeated fields
+		// This typically represents an empty array or special condition
+		if isEmptyArrayCode(val) {
+			// Leave the repeated field empty (default behavior)
+			return nil
+		}
 		return fmt.Errorf("expected array for repeated field, got %T", val)
 	}
 
@@ -109,6 +115,17 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 		}
 	}
 	return nil
+}
+
+// isEmptyArrayCode checks if a value represents an empty array code from the NotebookLM API
+func isEmptyArrayCode(val interface{}) bool {
+	if num, isNum := val.(float64); isNum {
+		// For NotebookLM API, certain numbers represent empty arrays
+		// [16] represents an empty project list
+		// Add other codes here as we discover them
+		return num == 16
+	}
+	return false
 }
 
 func (o UnmarshalOptions) appendToList(list protoreflect.List, fd protoreflect.FieldDescriptor, val interface{}) error {
