@@ -113,7 +113,70 @@ First, authenticate with your Google account:
 nlm auth
 ```
 
-This will launch Chrome to authenticate with your Google account. The authentication tokens will be saved in `.env` file.
+This will launch your default Chromium-based browser to authenticate with your Google account. The authentication tokens will be saved in `~/.nlm/env` file.
+
+### Browser Support
+
+The tool supports multiple browsers:
+- **Google Chrome** (default)
+- **Chrome Canary**
+- **Brave Browser**
+- **Chromium**
+- **Microsoft Edge**
+
+### Brave Browser Authentication
+
+If you use Brave Browser, the tool will automatically detect and use it:
+
+```bash
+# The tool will automatically find and use Brave profiles
+nlm auth
+
+# Force authentication with all available profiles (including Brave)
+nlm auth --all
+
+# Check which profiles have NotebookLM access
+nlm auth --notebooks
+
+# Use a specific Brave profile
+nlm auth --profile "Profile 1"
+```
+
+### Profile Management
+
+The authentication system automatically scans for browser profiles and prioritizes them based on:
+- Profiles that already have NotebookLM cookies
+- Most recently used profiles
+- Profiles with existing notebooks
+
+To see available profiles:
+```bash
+nlm auth --all --notebooks
+```
+
+### Advanced Authentication Options
+
+```bash
+# Try all available browser profiles
+nlm auth --all
+
+# Use a specific browser profile
+nlm auth --profile "Work Profile"
+
+# Check notebook access for profiles
+nlm auth --notebooks
+
+# Enable debug output to see authentication process
+nlm auth --debug
+```
+
+### Environment Variables
+
+- `NLM_AUTH_TOKEN`: Authentication token (stored in ~/.nlm/env)
+- `NLM_COOKIES`: Authentication cookies (stored in ~/.nlm/env)
+- `NLM_BROWSER_PROFILE`: Chrome/Brave profile to use (default: "Default")
+
+These are typically managed by the `auth` command, but can be manually configured if needed.
 
 ## Usage 💻
 
@@ -238,9 +301,13 @@ nlm -debug list
 
 - `NLM_AUTH_TOKEN`: Authentication token (stored in ~/.nlm/env)
 - `NLM_COOKIES`: Authentication cookies (stored in ~/.nlm/env)
-- `NLM_BROWSER_PROFILE`: Chrome profile to use for authentication (default: "Default")
+- `NLM_BROWSER_PROFILE`: Chrome/Brave profile to use for authentication (default: "Default")
 
 These are typically managed by the `auth` command, but can be manually configured if needed.
+
+## Troubleshooting 🔧
+
+If you encounter issues with authentication, API errors, or file uploads, please see the [Troubleshooting Guide](TROUBLESHOOTING.md) for detailed solutions to common problems.
 
 ## Recent Improvements 🚀
 
