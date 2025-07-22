@@ -26,6 +26,7 @@ const (
 	RPCLoadSource           = "hizoJc" // LoadSource
 	RPCCheckSourceFreshness = "yR9Yof" // CheckSourceFreshness
 	RPCActOnSources         = "yyryJe" // ActOnSources
+	RPCDiscoverSources      = "qXyaNe" // DiscoverSources
 
 	// NotebookLM service - Note operations
 	RPCCreateNote  = "CYK0Xb" // CreateNote
@@ -39,12 +40,14 @@ const (
 	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
 
 	// NotebookLM service - Generation operations
-	RPCGenerateDocumentGuides = "tr032e" // GenerateDocumentGuides
-	RPCGenerateNotebookGuide  = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline        = "lCjAd"  // GenerateOutline
-	RPCGenerateSection        = "BeTrYd" // GenerateSection
-	RPCStartDraft             = "exXvGf" // StartDraft
-	RPCStartSection           = "pGC7gf" // StartSection
+	RPCGenerateDocumentGuides     = "tr032e" // GenerateDocumentGuides
+	RPCGenerateNotebookGuide      = "VfAZjd" // GenerateNotebookGuide
+	RPCGenerateOutline            = "lCjAd"  // GenerateOutline
+	RPCGenerateSection            = "BeTrYd" // GenerateSection
+	RPCStartDraft                 = "exXvGf" // StartDraft
+	RPCStartSection               = "pGC7gf" // StartSection
+	RPCGenerateFreeFormStreamed   = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
+	RPCGenerateReportSuggestions  = "GHsKob" // GenerateReportSuggestions
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -67,6 +70,17 @@ const (
 	RPCGetGuidebookDetails          = "LJyzeb" // GetGuidebookDetails
 	RPCShareGuidebook               = "OTl0K"  // ShareGuidebook
 	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
+
+	// LabsTailwindOrchestrationService - Artifact operations
+	RPCCreateArtifact = "xpWGLf" // CreateArtifact
+	RPCGetArtifact    = "BnLyuf" // GetArtifact
+	RPCUpdateArtifact = "DJezBc" // UpdateArtifact
+	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact
+	RPCListArtifacts  = "LfTXoe" // ListArtifacts
+
+	// LabsTailwindOrchestrationService - Additional operations
+	RPCListFeaturedProjects = "nS9Qlc" // ListFeaturedProjects
+	RPCReportContent        = "rJKx8e" // ReportContent
 )
 
 // Call represents a NotebookLM RPC call

@@ -1,0 +1,378 @@
+// Orchestration service definitions discovered from JavaScript analysis
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/empty.proto";
+
+package notebooklm.v1alpha1;
+
+option go_package = "github.com/tmc/nlm/gen/notebooklm/v1alpha1;notebooklm";
+
+// Additional messages for orchestration
+
+message Context {
+    // Context information, structure inferred from usage
+    string project_id = 1;
+    repeated string source_ids = 2;
+}
+
+message Artifact {
+    string artifact_id = 1;
+    string project_id = 2;
+    ArtifactType type = 3;
+    repeated ArtifactSource sources = 4;
+    ArtifactState state = 5;
+    Source note = 7;  // Note is a special type of Source
+    AudioOverview audio_overview = 8;
+    Report tailored_report = 9;
+    App app = 10;
+}
+
+enum ArtifactType {
+    ARTIFACT_TYPE_UNSPECIFIED = 0;
+    ARTIFACT_TYPE_NOTE = 1;
+    ARTIFACT_TYPE_AUDIO_OVERVIEW = 2;
+    ARTIFACT_TYPE_REPORT = 3;
+    ARTIFACT_TYPE_APP = 4;
+}
+
+enum ArtifactState {
+    ARTIFACT_STATE_UNSPECIFIED = 0;
+    ARTIFACT_STATE_CREATING = 1;
+    ARTIFACT_STATE_READY = 2;
+    ARTIFACT_STATE_FAILED = 3;
+}
+
+message ArtifactSource {
+    SourceId source_id = 1;
+    repeated TextFragment text_fragments = 2;
+}
+
+message TextFragment {
+    string text = 1;
+    int32 start_offset = 2;
+    int32 end_offset = 3;
+}
+
+message Report {
+    string title = 1;
+    string content = 2;
+    repeated Section sections = 3;
+}
+
+message Section {
+    string title = 1;
+    string content = 2;
+}
+
+message App {
+    string app_id = 1;
+    string name = 2;
+    string description = 3;
+}
+
+// Request/Response messages for LabsTailwindOrchestrationService
+
+message CreateArtifactRequest {
+    Context context = 1;
+    string project_id = 2;
+    Artifact artifact = 3;
+}
+
+message GetArtifactRequest {
+    string artifact_id = 1;
+}
+
+message UpdateArtifactRequest {
+    Artifact artifact = 1;
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message DeleteArtifactRequest {
+    string artifact_id = 1;
+}
+
+message ListArtifactsRequest {
+    string project_id = 1;
+    int32 page_size = 2;
+    string page_token = 3;
+}
+
+message ListArtifactsResponse {
+    repeated Artifact artifacts = 1;
+    string next_page_token = 2;
+}
+
+message ActOnSourcesRequest {
+    string project_id = 1;
+    string action = 2;
+    repeated string source_ids = 3;
+}
+
+message CreateAudioOverviewRequest {
+    string project_id = 1;
+    int32 audio_type = 2;
+    repeated string instructions = 3;
+}
+
+message GetAudioOverviewRequest {
+    string project_id = 1;
+    int32 request_type = 2;
+}
+
+message DeleteAudioOverviewRequest {
+    string project_id = 1;
+}
+
+message DiscoverSourcesRequest {
+    string project_id = 1;
+    string query = 2;
+}
+
+message DiscoverSourcesResponse {
+    repeated Source sources = 1;
+}
+
+message GenerateFreeFormStreamedRequest {
+    string project_id = 1;
+    string prompt = 2;
+    repeated string source_ids = 3;
+}
+
+message GenerateFreeFormStreamedResponse {
+    string chunk = 1;
+    bool is_final = 2;
+}
+
+message GenerateReportSuggestionsRequest {
+    string project_id = 1;
+}
+
+message GenerateReportSuggestionsResponse {
+    repeated string suggestions = 1;
+}
+
+message GetProjectAnalyticsRequest {
+    string project_id = 1;
+}
+
+message ProjectAnalytics {
+    int32 source_count = 1;
+    int32 note_count = 2;
+    int32 audio_overview_count = 3;
+    google.protobuf.Timestamp last_accessed = 4;
+}
+
+message ListFeaturedProjectsRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+}
+
+message ListFeaturedProjectsResponse {
+    repeated Project projects = 1;
+    string next_page_token = 2;
+}
+
+// Update existing request messages to match Gemini's findings
+message AddSourceRequest {
+    repeated SourceInput sources = 1;
+    string project_id = 2;
+}
+
+message SourceInput {
+    // For text sources
+    string title = 1;
+    string content = 2;
+    
+    // For file upload
+    string base64_content = 3;
+    string filename = 4;
+    string mime_type = 5;
+    
+    // For URL sources
+    string url = 6;
+    
+    // For YouTube
+    string youtube_video_id = 7;
+    
+    SourceType source_type = 8;
+}
+
+message CreateNoteRequest {
+    string project_id = 1;
+    string content = 2;
+    repeated int32 note_type = 3;
+    string title = 5;
+}
+
+message DeleteNotesRequest {
+    repeated string note_ids = 1;
+}
+
+message GetNotesRequest {
+    string project_id = 1;
+}
+
+message MutateNoteRequest {
+    string project_id = 1;
+    string note_id = 2;
+    repeated NoteUpdate updates = 3;
+}
+
+message NoteUpdate {
+    string content = 1;
+    string title = 2;
+    repeated string tags = 3;
+}
+
+// Account management
+message GetOrCreateAccountRequest {
+    // Empty for now, uses auth token
+}
+
+message MutateAccountRequest {
+    Account account = 1;
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message Account {
+    string account_id = 1;
+    string email = 2;
+    AccountSettings settings = 3;
+}
+
+message AccountSettings {
+    bool email_notifications = 1;
+    string default_project_emoji = 2;
+}
+
+// Service definition
+service LabsTailwindOrchestrationService {
+    // Artifact operations
+    rpc CreateArtifact(CreateArtifactRequest) returns (Artifact);
+    rpc GetArtifact(GetArtifactRequest) returns (Artifact);
+    rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact);
+    rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty);
+    rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse);
+    
+    // Source operations
+    rpc ActOnSources(ActOnSourcesRequest) returns (google.protobuf.Empty);
+    rpc AddSources(AddSourceRequest) returns (Project);
+    rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse);
+    rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty);
+    rpc DiscoverSources(DiscoverSourcesRequest) returns (DiscoverSourcesResponse);
+    rpc LoadSource(LoadSourceRequest) returns (Source);
+    rpc MutateSource(MutateSourceRequest) returns (Source);
+    rpc RefreshSource(RefreshSourceRequest) returns (Source);
+    
+    // Audio operations
+    rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview);
+    rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview);
+    rpc DeleteAudioOverview(DeleteAudioOverviewRequest) returns (google.protobuf.Empty);
+    
+    // Note operations
+    rpc CreateNote(CreateNoteRequest) returns (Source);
+    rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty);
+    rpc GetNotes(GetNotesRequest) returns (GetNotesResponse);
+    rpc MutateNote(MutateNoteRequest) returns (Source);
+    
+    // Project operations
+    rpc CreateProject(CreateProjectRequest) returns (Project);
+    rpc DeleteProjects(DeleteProjectsRequest) returns (google.protobuf.Empty);
+    rpc GetProject(GetProjectRequest) returns (Project);
+    rpc ListFeaturedProjects(ListFeaturedProjectsRequest) returns (ListFeaturedProjectsResponse);
+    rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse);
+    rpc MutateProject(MutateProjectRequest) returns (Project);
+    rpc RemoveRecentlyViewedProject(RemoveRecentlyViewedProjectRequest) returns (google.protobuf.Empty);
+    
+    // Generation operations
+    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse);
+    rpc GenerateFreeFormStreamed(GenerateFreeFormStreamedRequest) returns (stream GenerateFreeFormStreamedResponse);
+    rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse);
+    rpc GenerateOutline(GenerateOutlineRequest) returns (GenerateOutlineResponse);
+    rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse);
+    
+    // Analytics and feedback
+    rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics);
+    rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty);
+    
+    // Account operations
+    rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account);
+    rpc MutateAccount(MutateAccountRequest) returns (Account);
+}
+
+// Placeholder messages that need to be defined
+message CreateProjectRequest {
+    string title = 1;
+    string emoji = 2;
+}
+
+message DeleteProjectsRequest {
+    repeated string project_ids = 1;
+}
+
+message DeleteSourcesRequest {
+    repeated string source_ids = 1;
+}
+
+message GetProjectRequest {
+    string project_id = 1;
+}
+
+message ListRecentlyViewedProjectsRequest {
+    google.protobuf.Int32Value limit = 1;
+    google.protobuf.Int32Value offset = 2;
+    google.protobuf.Int32Value filter = 3;
+    repeated int32 options = 4;
+}
+
+message MutateProjectRequest {
+    string project_id = 1;
+    Project updates = 2;
+}
+
+message MutateSourceRequest {
+    string source_id = 1;
+    Source updates = 2;
+}
+
+message RemoveRecentlyViewedProjectRequest {
+    string project_id = 1;
+}
+
+message CheckSourceFreshnessRequest {
+    string source_id = 1;
+}
+
+message CheckSourceFreshnessResponse {
+    bool is_fresh = 1;
+    google.protobuf.Timestamp last_checked = 2;
+}
+
+message LoadSourceRequest {
+    string source_id = 1;
+}
+
+message RefreshSourceRequest {
+    string source_id = 1;
+}
+
+message GenerateDocumentGuidesRequest {
+    string project_id = 1;
+}
+
+message GenerateNotebookGuideRequest {
+    string project_id = 1;
+}
+
+message GenerateOutlineRequest {
+    string project_id = 1;
+}
+
+message SubmitFeedbackRequest {
+    string project_id = 1;
+    string feedback_type = 2;
+    string feedback_text = 3;
+}
