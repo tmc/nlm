@@ -55,10 +55,22 @@ func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
 func (c *Client) ListRecentlyViewedProjects() ([]*Notebook, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:   rpc.RPCListRecentlyViewedProjects,
-		Args: []interface{}{nil, 1},
+		Args: []interface{}{nil, 1, nil, []int{2}}, // Match web UI format: [null,1,null,[2]]
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
+	}
+
+	// Check if this is an empty array code response
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err == nil {
+		// Check for empty array code [16]
+		if len(data) == 1 {
+			if code, ok := data[0].(float64); ok && int(code) == 16 {
+				// Return empty projects list
+				return []*Notebook{}, nil
+			}
+		}
 	}
 
 	// Try to extract projects using chunked response parser first
