@@ -1,0 +1,188 @@
+// Sharing service definitions discovered from JavaScript analysis
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+package notebooklm.v1alpha1;
+
+option go_package = "github.com/tmc/nlm/gen/notebooklm/v1alpha1;notebooklm";
+
+// Sharing-related messages
+
+message ShareAudioRequest {
+    repeated int32 share_options = 1;  // e.g., [0] for private, [1] for public
+    string project_id = 2;
+}
+
+message ShareAudioResponse {
+    repeated string share_info = 1;  // [share_url, share_id]
+}
+
+message GetProjectDetailsRequest {
+    string share_id = 1;
+}
+
+message ProjectDetails {
+    string project_id = 1;
+    string title = 2;
+    string emoji = 3;
+    string owner_name = 4;
+    bool is_public = 5;
+    google.protobuf.Timestamp shared_at = 6;
+    repeated SourceSummary sources = 7;
+}
+
+message SourceSummary {
+    string source_id = 1;
+    string title = 2;
+    SourceType source_type = 3;
+}
+
+message ShareProjectRequest {
+    string project_id = 1;
+    ShareSettings settings = 2;
+}
+
+message ShareSettings {
+    bool is_public = 1;
+    repeated string allowed_emails = 2;
+    bool allow_comments = 3;
+    bool allow_downloads = 4;
+    google.protobuf.Timestamp expiry_time = 5;
+}
+
+message ShareProjectResponse {
+    string share_url = 1;
+    string share_id = 2;
+    ShareSettings settings = 3;
+}
+
+// Guidebook-related messages
+message Guidebook {
+    string guidebook_id = 1;
+    string project_id = 2;
+    string title = 3;
+    string content = 4;
+    GuidebookStatus status = 5;
+    google.protobuf.Timestamp published_at = 6;
+}
+
+enum GuidebookStatus {
+    GUIDEBOOK_STATUS_UNSPECIFIED = 0;
+    GUIDEBOOK_STATUS_DRAFT = 1;
+    GUIDEBOOK_STATUS_PUBLISHED = 2;
+    GUIDEBOOK_STATUS_ARCHIVED = 3;
+}
+
+message DeleteGuidebookRequest {
+    string guidebook_id = 1;
+}
+
+message GetGuidebookRequest {
+    string guidebook_id = 1;
+}
+
+message ListRecentlyViewedGuidebooksRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+}
+
+message ListRecentlyViewedGuidebooksResponse {
+    repeated Guidebook guidebooks = 1;
+    string next_page_token = 2;
+}
+
+message PublishGuidebookRequest {
+    string guidebook_id = 1;
+    PublishSettings settings = 2;
+}
+
+message PublishSettings {
+    bool is_public = 1;
+    repeated string tags = 2;
+}
+
+message PublishGuidebookResponse {
+    Guidebook guidebook = 1;
+    string public_url = 2;
+}
+
+message GetGuidebookDetailsRequest {
+    string guidebook_id = 1;
+}
+
+message GuidebookDetails {
+    Guidebook guidebook = 1;
+    repeated GuidebookSection sections = 2;
+    GuidebookAnalytics analytics = 3;
+}
+
+message GuidebookSection {
+    string section_id = 1;
+    string title = 2;
+    string content = 3;
+    int32 order = 4;
+}
+
+message GuidebookAnalytics {
+    int32 view_count = 1;
+    int32 share_count = 2;
+    google.protobuf.Timestamp last_viewed = 3;
+}
+
+message ShareGuidebookRequest {
+    string guidebook_id = 1;
+    ShareSettings settings = 2;
+}
+
+message ShareGuidebookResponse {
+    string share_url = 1;
+    string share_id = 2;
+}
+
+message GuidebookGenerateAnswerRequest {
+    string guidebook_id = 1;
+    string question = 2;
+    GenerateAnswerSettings settings = 3;
+}
+
+message GenerateAnswerSettings {
+    int32 max_length = 1;
+    float temperature = 2;
+    bool include_sources = 3;
+}
+
+message GuidebookGenerateAnswerResponse {
+    string answer = 1;
+    repeated SourceReference sources = 2;
+    float confidence_score = 3;
+}
+
+message SourceReference {
+    string source_id = 1;
+    string title = 2;
+    string excerpt = 3;
+}
+
+// Service definitions
+service LabsTailwindSharingService {
+    // Audio sharing
+    rpc ShareAudio(ShareAudioRequest) returns (ShareAudioResponse);
+    
+    // Project sharing
+    rpc GetProjectDetails(GetProjectDetailsRequest) returns (ProjectDetails);
+    rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse);
+}
+
+service LabsTailwindGuidebooksService {
+    // Guidebook operations
+    rpc DeleteGuidebook(DeleteGuidebookRequest) returns (google.protobuf.Empty);
+    rpc GetGuidebook(GetGuidebookRequest) returns (Guidebook);
+    rpc ListRecentlyViewedGuidebooks(ListRecentlyViewedGuidebooksRequest) returns (ListRecentlyViewedGuidebooksResponse);
+    rpc PublishGuidebook(PublishGuidebookRequest) returns (PublishGuidebookResponse);
+    rpc GetGuidebookDetails(GetGuidebookDetailsRequest) returns (GuidebookDetails);
+    rpc ShareGuidebook(ShareGuidebookRequest) returns (ShareGuidebookResponse);
+    rpc GuidebookGenerateAnswer(GuidebookGenerateAnswerRequest) returns (GuidebookGenerateAnswerResponse);
+}
