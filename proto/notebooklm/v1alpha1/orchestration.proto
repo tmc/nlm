@@ -5,6 +5,8 @@ import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/empty.proto";
+import "notebooklm/v1alpha1/rpc_extensions.proto";
+import "notebooklm/v1alpha1/notebooklm.proto";
 
 package notebooklm.v1alpha1;
 
@@ -250,22 +252,64 @@ message AccountSettings {
 
 // Service definition
 service LabsTailwindOrchestrationService {
+    option (batchexecute_app) = "LabsTailwindUi";
+    option (batchexecute_host) = "notebooklm.google.com";
+    
     // Artifact operations
-    rpc CreateArtifact(CreateArtifactRequest) returns (Artifact);
-    rpc GetArtifact(GetArtifactRequest) returns (Artifact);
-    rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact);
-    rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty);
-    rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse);
+    rpc CreateArtifact(CreateArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "xpWGLf";
+        option (arg_format) = "[%context%, %project_id%, %artifact%]";
+    }
+    rpc GetArtifact(GetArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "BnLyuf";
+        option (arg_format) = "[%artifact_id%]";
+    }
+    rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "DJezBc";
+        option (arg_format) = "[%artifact%, %update_mask%]";
+    }
+    rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "WxBZtb";
+        option (arg_format) = "[%artifact_id%]";
+    }
+    rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse) {
+        option (rpc_id) = "LfTXoe";
+        option (arg_format) = "[%project_id%, %page_size%, %page_token%]";
+    }
     
     // Source operations
-    rpc ActOnSources(ActOnSourcesRequest) returns (google.protobuf.Empty);
-    rpc AddSources(AddSourceRequest) returns (Project);
-    rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse);
-    rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty);
-    rpc DiscoverSources(DiscoverSourcesRequest) returns (DiscoverSourcesResponse);
-    rpc LoadSource(LoadSourceRequest) returns (Source);
-    rpc MutateSource(MutateSourceRequest) returns (Source);
-    rpc RefreshSource(RefreshSourceRequest) returns (Source);
+    rpc ActOnSources(ActOnSourcesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "yyryJe";
+        option (arg_format) = "[%project_id%, %action%, %source_ids%]";
+    }
+    rpc AddSources(AddSourceRequest) returns (Project) {
+        option (rpc_id) = "izAoDd";
+        option (arg_format) = "[%sources%, %project_id%]";
+    }
+    rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse) {
+        option (rpc_id) = "yR9Yof";
+        option (arg_format) = "[%source_id%]";
+    }
+    rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "tGMBJ";
+        option (arg_format) = "[[%source_ids%]]";
+    }
+    rpc DiscoverSources(DiscoverSourcesRequest) returns (DiscoverSourcesResponse) {
+        option (rpc_id) = "qXyaNe";
+        option (arg_format) = "[%project_id%, %query%]";
+    }
+    rpc LoadSource(LoadSourceRequest) returns (Source) {
+        option (rpc_id) = "hizoJc";
+        option (arg_format) = "[%source_id%]";
+    }
+    rpc MutateSource(MutateSourceRequest) returns (Source) {
+        option (rpc_id) = "b7Wfje";
+        option (arg_format) = "[%source_id%, %updates%]";
+    }
+    rpc RefreshSource(RefreshSourceRequest) returns (Source) {
+        option (rpc_id) = "FLmJqe";
+        option (arg_format) = "[%source_id%]";
+    }
     
     // Audio operations
     rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview);
@@ -279,13 +323,35 @@ service LabsTailwindOrchestrationService {
     rpc MutateNote(MutateNoteRequest) returns (Source);
     
     // Project operations
-    rpc CreateProject(CreateProjectRequest) returns (Project);
-    rpc DeleteProjects(DeleteProjectsRequest) returns (google.protobuf.Empty);
-    rpc GetProject(GetProjectRequest) returns (Project);
-    rpc ListFeaturedProjects(ListFeaturedProjectsRequest) returns (ListFeaturedProjectsResponse);
-    rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse);
-    rpc MutateProject(MutateProjectRequest) returns (Project);
-    rpc RemoveRecentlyViewedProject(RemoveRecentlyViewedProjectRequest) returns (google.protobuf.Empty);
+    rpc CreateProject(CreateProjectRequest) returns (Project) {
+        option (rpc_id) = "CCqFvf";
+        option (arg_format) = "[%title%, %emoji%]";
+    }
+    rpc DeleteProjects(DeleteProjectsRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "WWINqb";
+        option (arg_format) = "[%project_ids%]";
+    }
+    rpc GetProject(GetProjectRequest) returns (Project) {
+        option (rpc_id) = "rLM1Ne";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc ListFeaturedProjects(ListFeaturedProjectsRequest) returns (ListFeaturedProjectsResponse) {
+        option (rpc_id) = "nS9Qlc";
+        option (arg_format) = "[%page_size%, %page_token%]";
+    }
+    rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse) {
+        option (rpc_id) = "wXbhsf";
+        option (arg_format) = "[null, 1, null, [2]]";
+        option (chunked_response) = true;
+    }
+    rpc MutateProject(MutateProjectRequest) returns (Project) {
+        option (rpc_id) = "s0tc2d";
+        option (arg_format) = "[%project_id%, %updates%]";
+    }
+    rpc RemoveRecentlyViewedProject(RemoveRecentlyViewedProjectRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "fejl7e";
+        option (arg_format) = "[%project_id%]";
+    }
     
     // Generation operations
     rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse);
