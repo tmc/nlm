@@ -1,0 +1,147 @@
+# Test security isolation for nlm CLI
+# Ensures sensitive data (tokens, cookies, credentials) are properly isolated
+
+# Test 1: Environment variable isolation - sensitive vars shouldn't leak to output
+env NLM_AUTH_TOKEN=super-secret-token-12345
+env NLM_COOKIES=SID=secret123; HSID=hsidsecret456; SSID=ssidsecret789
+env NLM_API_KEY=private-api-key-xyz
+env GOOGLE_API_KEY=google-secret-key
+! exec ./nlm_test help
+# Help output should NOT contain any sensitive data
+! stdout 'super-secret-token'
+! stdout 'secret123'
+! stdout 'hsidsecret'
+! stdout 'ssidsecret'
+! stdout 'private-api-key'
+! stdout 'google-secret-key'
+! stderr 'super-secret-token'
+! stderr 'secret123'
+! stderr 'private-api-key'
+
+# Test 2: Token handling security - tokens not exposed in error messages
+env NLM_AUTH_TOKEN=confidential-token-abcdef
+env NLM_COOKIES=SID=cookie-secret-data
+! exec ./nlm_test ls
+# Error messages should not contain the actual token values
+! stderr 'confidential-token-abcdef'
+! stderr 'cookie-secret-data'
+! stdout 'confidential-token-abcdef'
+! stdout 'cookie-secret-data'
+
+# Test 3: Debug mode security - ensure debug doesn't leak credentials
+env NLM_AUTH_TOKEN=debug-secret-token
+env NLM_COOKIES=SID=debug-cookie-secret
+! exec ./nlm_test -debug ls
+# Debug output should mask or omit sensitive values
+! stderr 'debug-secret-token'
+! stderr 'debug-cookie-secret'
+! stdout 'debug-secret-token'
+! stdout 'debug-cookie-secret'
+# But debug mode should show some indication of auth presence
+stderr 'Authentication.*'
+
+# Test 4: Cookie isolation - cookies not leaked in network error messages
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=SID=network-test-secret; HSID=another-secret
+env NLM_API_URL=http://invalid.notebooklm.test:99999
+! exec ./nlm_test ls
+# Network errors should not expose cookie values
+! stderr 'network-test-secret'
+! stderr 'another-secret'
+! stdout 'network-test-secret'
+! stdout 'another-secret'
+
+# Test 5: Invalid auth error messages shouldn't leak credentials
+env NLM_AUTH_TOKEN=''
+env NLM_COOKIES=''
+! exec ./nlm_test ls
+stderr 'Authentication required'
+# Empty auth shouldn't try to show any values
+! stderr 'NLM_AUTH_TOKEN'
+! stderr 'NLM_COOKIES'
+
+# Test 6: File permissions test (requires actual auth command test)
+# This would need to test that ~/.nlm/env is created with 0600 permissions
+# Skip for now as it requires modifying the test harness
+
+# Test 7: Command-line flag security - auth passed via flags shouldn't leak
+! exec ./nlm_test -auth flag-secret-token -cookies 'flag-cookie-secret' help
+# Help output shouldn't contain flag values
+! stdout 'flag-secret-token'
+! stdout 'flag-cookie-secret'
+! stderr 'flag-secret-token'
+! stderr 'flag-cookie-secret'
+
+# Test 8: Process isolation - child processes via URL fetch
+env NLM_AUTH_TOKEN=parent-secret-token
+env NLM_COOKIES=parent-cookie-secret
+env SENSITIVE_VAR=should-not-inherit
+! exec ./nlm_test add notebook123 https://example.com
+# URL fetch subprocess shouldn't expose parent credentials
+! stdout 'parent-secret-token'
+! stdout 'parent-cookie-secret'
+! stdout 'should-not-inherit'
+! stderr 'parent-secret-token'
+! stderr 'parent-cookie-secret'
+! stderr 'should-not-inherit'
+
+# Test 9: Text content input shouldn't echo back credentials if accidentally included
+env NLM_AUTH_TOKEN=real-token
+env NLM_COOKIES=real-cookies
+! exec ./nlm_test add notebook123 'My password is secret123 and token is xyz789'
+# The content might be shown but shouldn't expose env credentials
+! stdout 'real-token'
+! stdout 'real-cookies'
+! stderr 'real-token'
+! stderr 'real-cookies'
+
+# Test 10: Version command shouldn't expose any auth data
+env NLM_AUTH_TOKEN=version-test-secret
+env NLM_COOKIES=version-test-cookies
+exec ./nlm_test version
+! stdout 'version-test-secret'
+! stdout 'version-test-cookies'
+! stderr 'version-test-secret'
+! stderr 'version-test-cookies'
+
+# Test 11: Multiple auth tokens - ensure all are masked
+env NLM_AUTH_TOKEN=token1-secret
+env NLM_COOKIES=SID=sid-secret; HSID=hsid-secret; SSID=ssid-secret; APISID=api-secret
+env NLM_BROWSER_PROFILE=secret-profile
+! exec ./nlm_test -debug ls
+# None of the auth components should appear in output
+! stderr 'token1-secret'
+! stderr 'sid-secret'
+! stderr 'hsid-secret'
+! stderr 'ssid-secret'
+! stderr 'api-secret'
+! stderr 'secret-profile'
+
+# Test 12: JSON output mode shouldn't leak credentials
+env NLM_AUTH_TOKEN=json-mode-secret
+env NLM_COOKIES=json-cookie-secret
+! exec ./nlm_test -json ls
+# JSON errors shouldn't contain auth data
+! stdout 'json-mode-secret'
+! stdout 'json-cookie-secret'
+! stderr 'json-mode-secret'
+! stderr 'json-cookie-secret'
+
+# Test 13: Profile flag with sensitive name
+! exec ./nlm_test -profile 'my-secret-profile-name' help
+! stdout 'my-secret-profile-name'
+! stderr 'my-secret-profile-name'
+
+# Test 14: API base URL with embedded credentials (should be rejected/masked)
+env NLM_API_URL=https://user:password123@notebooklm.google.com
+env NLM_AUTH_TOKEN=test
+env NLM_COOKIES=test
+! exec ./nlm_test ls
+# Embedded credentials should never appear
+! stdout 'password123'
+! stderr 'password123'
+! stdout 'user:password'
+! stderr 'user:password'
+
+# Clean up any temp files
+exec rm -rf temp
