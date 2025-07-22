@@ -10,6 +10,6 @@ import (
 // RPC ID: xpWGLf
 // Argument format: [%context%, %project_id%, %artifact%]
 func EncodeCreateArtifactArgs(req *notebooklmv1alpha1.CreateArtifactRequest) []interface{} {
-	// TODO: Implement encoding for format: [%context%, %project_id%, %artifact%]
-	return []interface{}{}
+	// CreateArtifact encoding
+	return []interface{}{encodeContext(req.GetContext()), req.GetProjectId(), encodeArtifact(req.GetArtifact())}
 }

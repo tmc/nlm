@@ -1,0 +1,83 @@
+{{- $rpcID := methodExtension .Method "notebooklm.v1alpha1.rpc_id" }}
+{{- $argFormat := methodExtension .Method "notebooklm.v1alpha1.arg_format" }}
+package method
+{{- if $argFormat }}
+
+import (
+	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+)
+{{- end }}
+{{- if $rpcID }}
+{{- if $argFormat }}
+// GENERATION_BEHAVIOR: append
+
+// Encode{{.Method.GoName}}Args encodes arguments for {{.Service.GoName}}.{{.Method.GoName}}
+// RPC ID: {{$rpcID}}
+// Argument format: {{$argFormat}}
+func Encode{{.Method.GoName}}Args(req *notebooklmv1alpha1.{{.Method.Input.GoIdent.GoName}}) []interface{} {
+	{{- if eq $argFormat "[null, 1, null, [2]]" }}
+	// Special case for ListRecentlyViewedProjects
+	return []interface{}{nil, 1, nil, []int{2}}
+	{{- else if eq $argFormat "[%title%, %emoji%]" }}
+	// CreateProject encoding
+	return []interface{}{req.GetTitle(), req.GetEmoji()}
+	{{- else if eq $argFormat "[%project_id%]" }}
+	// Single project ID encoding
+	return []interface{}{req.GetProjectId()}
+	{{- else if eq $argFormat "[%project_ids%]" }}
+	// Multiple project IDs encoding
+	return []interface{}{req.GetProjectIds()}
+	{{- else if eq $argFormat "[%source_id%]" }}
+	// Single source ID encoding
+	return []interface{}{req.GetSourceId()}
+	{{- else if eq $argFormat "[[%source_ids%]]" }}
+	// Nested source IDs encoding
+	return []interface{}{[]interface{}{req.GetSourceIds()}}
+	{{- else if eq $argFormat "[%sources%, %project_id%]" }}
+	// AddSources encoding
+	var sources []interface{}
+	for _, src := range req.GetSources() {
+		// Encode each source based on its type
+		sources = append(sources, encodeSourceInput(src))
+	}
+	return []interface{}{sources, req.GetProjectId()}
+	{{- else if eq $argFormat "[%project_id%, %action%, %source_ids%]" }}
+	// ActOnSources encoding
+	return []interface{}{req.GetProjectId(), req.GetAction(), req.GetSourceIds()}
+	{{- else if eq $argFormat "[%project_id%, %updates%]" }}
+	// MutateProject encoding
+	return []interface{}{req.GetProjectId(), encodeProjectUpdates(req.GetUpdates())}
+	{{- else if eq $argFormat "[%source_id%, %updates%]" }}
+	// MutateSource encoding
+	return []interface{}{req.GetSourceId(), encodeSourceUpdates(req.GetUpdates())}
+	{{- else if eq $argFormat "[%project_id%, %query%]" }}
+	// DiscoverSources encoding
+	return []interface{}{req.GetProjectId(), req.GetQuery()}
+	{{- else if eq $argFormat "[%artifact%, %update_mask%]" }}
+	// UpdateArtifact encoding
+	return []interface{}{encodeArtifact(req.GetArtifact()), encodeFieldMask(req.GetUpdateMask())}
+	{{- else if eq $argFormat "[%project_id%, %page_size%, %page_token%]" }}
+	// ListArtifacts encoding
+	return []interface{}{req.GetProjectId(), req.GetPageSize(), req.GetPageToken()}
+	{{- else if eq $argFormat "[%artifact_id%]" }}
+	// Single artifact ID encoding
+	return []interface{}{req.GetArtifactId()}
+	{{- else if eq $argFormat "[%context%, %project_id%, %artifact%]" }}
+	// CreateArtifact encoding
+	return []interface{}{encodeContext(req.GetContext()), req.GetProjectId(), encodeArtifact(req.GetArtifact())}
+	{{- else if eq $argFormat "[%page_size%, %page_token%]" }}
+	// Pagination encoding
+	return []interface{}{req.GetPageSize(), req.GetPageToken()}
+	{{- else }}
+	// TODO: Implement encoding for format: {{$argFormat}}
+	return []interface{}{}
+	{{- end }}
+}
+
+{{- else }}
+// GENERATION_BEHAVIOR: append
+
+// TODO: Add arg_format to {{.Service.GoName}}.{{.Method.GoName}} in proto file
+// RPC ID: {{$rpcID}}
+{{- end }}
+{{- end }}

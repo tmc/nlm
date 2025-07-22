@@ -10,6 +10,6 @@ import (
 // RPC ID: BnLyuf
 // Argument format: [%artifact_id%]
 func EncodeGetArtifactArgs(req *notebooklmv1alpha1.GetArtifactRequest) []interface{} {
-	// TODO: Implement encoding for format: [%artifact_id%]
-	return []interface{}{}
+	// Single artifact ID encoding
+	return []interface{}{req.GetArtifactId()}
 }

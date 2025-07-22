@@ -10,6 +10,6 @@ import (
 // RPC ID: nS9Qlc
 // Argument format: [%page_size%, %page_token%]
 func EncodeListFeaturedProjectsArgs(req *notebooklmv1alpha1.ListFeaturedProjectsRequest) []interface{} {
-	// TODO: Implement encoding for format: [%page_size%, %page_token%]
-	return []interface{}{}
+	// Pagination encoding
+	return []interface{}{req.GetPageSize(), req.GetPageToken()}
 }
