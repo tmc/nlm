@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/api"
 	"github.com/tmc/nlm/internal/batchexecute"
 )
@@ -38,7 +39,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  list, ls          List all notebooks\n")
 		fmt.Fprintf(os.Stderr, "  create <title>    Create a new notebook\n")
 		fmt.Fprintf(os.Stderr, "  rm <id>           Delete a notebook\n")
-		fmt.Fprintf(os.Stderr, "  analytics <id>    Show notebook analytics\n\n")
+		fmt.Fprintf(os.Stderr, "  analytics <id>    Show notebook analytics\n")
+		fmt.Fprintf(os.Stderr, "  list-featured     List featured notebooks\n\n")
 
 		fmt.Fprintf(os.Stderr, "Source Commands:\n")
 		fmt.Fprintf(os.Stderr, "  sources <id>      List sources in notebook\n")
@@ -46,7 +48,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  rm-source <id> <source-id>  Remove source\n")
 		fmt.Fprintf(os.Stderr, "  rename-source <source-id> <new-name>  Rename source\n")
 		fmt.Fprintf(os.Stderr, "  refresh-source <source-id>  Refresh source content\n")
-		fmt.Fprintf(os.Stderr, "  check-source <source-id>  Check source freshness\n\n")
+		fmt.Fprintf(os.Stderr, "  check-source <source-id>  Check source freshness\n")
+		fmt.Fprintf(os.Stderr, "  discover-sources <id> <query>  Discover relevant sources\n\n")
 
 		fmt.Fprintf(os.Stderr, "Note Commands:\n")
 		fmt.Fprintf(os.Stderr, "  notes <id>        List notes in notebook\n")
@@ -60,10 +63,17 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n\n")
 
+		fmt.Fprintf(os.Stderr, "Artifact Commands:\n")
+		fmt.Fprintf(os.Stderr, "  create-artifact <id> <type>  Create artifact (note|audio|report|app)\n")
+		fmt.Fprintf(os.Stderr, "  get-artifact <artifact-id>  Get artifact details\n")
+		fmt.Fprintf(os.Stderr, "  list-artifacts <id>  List artifacts in notebook\n")
+		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
+
 		fmt.Fprintf(os.Stderr, "Generation Commands:\n")
 		fmt.Fprintf(os.Stderr, "  generate-guide <id>  Generate notebook guide\n")
 		fmt.Fprintf(os.Stderr, "  generate-outline <id>  Generate content outline\n")
-		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n\n")
+		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n")
+		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n\n")
 
 		fmt.Fprintf(os.Stderr, "Other Commands:\n")
 		fmt.Fprintf(os.Stderr, "  auth [profile]    Setup authentication\n")
@@ -79,7 +89,14 @@ func main() {
 	if debug {
 		fmt.Fprintf(os.Stderr, "nlm: debug mode enabled\n")
 		if chromeProfile != "" {
-			fmt.Fprintf(os.Stderr, "nlm: using Chrome profile: %s\n", chromeProfile)
+			// Mask potentially sensitive profile names in debug output
+			maskedProfile := chromeProfile
+			if len(chromeProfile) > 8 {
+				maskedProfile = chromeProfile[:4] + "****" + chromeProfile[len(chromeProfile)-4:]
+			} else if len(chromeProfile) > 2 {
+				maskedProfile = chromeProfile[:2] + "****"
+			}
+			fmt.Fprintf(os.Stderr, "nlm: using Chrome profile: %s\n", maskedProfile)
 		}
 	}
 
@@ -87,11 +104,160 @@ func main() {
 	loadStoredEnv()
 
 	if err := run(); err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "nlm: %v\n", err)
+		os.Exit(1)
 	}
 }
 
 // isAuthCommand returns true if the command requires authentication
+// validateArgs validates command arguments without requiring authentication
+func validateArgs(cmd string, args []string) error {
+	switch cmd {
+	case "create":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm create <title>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "rm":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm rm <id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "sources":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm sources <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "add":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm add <notebook-id> <file>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "rm-source":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm rm-source <notebook-id> <source-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "rename-source":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm rename-source <source-id> <new-name>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "new-note":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm new-note <notebook-id> <title>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "update-note":
+		if len(args) != 4 {
+			fmt.Fprintf(os.Stderr, "usage: nlm update-note <notebook-id> <note-id> <content> <title>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "rm-note":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm rm-note <notebook-id> <note-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "audio-create":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm audio-create <notebook-id> <instructions>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "audio-get":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm audio-get <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "audio-rm":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm audio-rm <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "audio-share":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm audio-share <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "generate-guide":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm generate-guide <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "generate-outline":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm generate-outline <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "generate-section":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm generate-section <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "generate-chat":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm generate-chat <notebook-id> <prompt>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "create-artifact":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm create-artifact <notebook-id> <type>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "get-artifact":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm get-artifact <artifact-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "list-artifacts":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm list-artifacts <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "delete-artifact":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm delete-artifact <artifact-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "discover-sources":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm discover-sources <notebook-id> <query>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "analytics":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm analytics <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "check-source":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm check-source <source-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	}
+	return nil
+}
+
+// isValidCommand checks if a command is valid
+func isValidCommand(cmd string) bool {
+	validCommands := []string{
+		"help", "-h", "--help",
+		"list", "ls", "create", "rm", "analytics", "list-featured",
+		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
+		"notes", "new-note", "update-note", "rm-note",
+		"audio-create", "audio-get", "audio-rm", "audio-share",
+		"create-artifact", "get-artifact", "list-artifacts", "delete-artifact",
+		"generate-guide", "generate-outline", "generate-section", "generate-chat",
+		"auth", "hb", "share", "feedback",
+	}
+	
+	for _, valid := range validCommands {
+		if cmd == valid {
+			return true
+		}
+	}
+	return false
+}
+
 func isAuthCommand(cmd string) bool {
 	// Only help-related commands don't need auth
 	if cmd == "help" || cmd == "-h" || cmd == "--help" {
@@ -121,14 +287,42 @@ func run() error {
 
 	cmd := flag.Arg(0)
 	args := flag.Args()[1:]
+	
+
+	// Check if command is valid first
+	if !isValidCommand(cmd) {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	// Validate arguments first (before authentication check)
+	if err := validateArgs(cmd, args); err != nil {
+		return err
+	}
 
 	// Check if this command needs authentication
 	if isAuthCommand(cmd) && (authToken == "" || cookies == "") {
 		fmt.Fprintf(os.Stderr, "Authentication required for '%s'. Run 'nlm auth' first.\n", cmd)
-		// Continue anyway in case the user is just testing
+		return fmt.Errorf("authentication required")
+	}
+
+	// Handle help commands without creating API client
+	if cmd == "help" || cmd == "-h" || cmd == "--help" {
+		flag.Usage()
+		os.Exit(0)
 	}
 
 	var opts []batchexecute.Option
+	
+	// Support HTTP recording for testing
+	if recordingDir := os.Getenv("HTTPRR_RECORDING_DIR"); recordingDir != "" {
+		// In recording mode, we would set up HTTP client options
+		// This requires integration with httprr library
+		if debug {
+			fmt.Fprintf(os.Stderr, "DEBUG: HTTP recording enabled with directory: %s\n", recordingDir)
+		}
+	}
+	
 	for i := 0; i < 3; i++ {
 		if i > 1 {
 			fmt.Fprintln(os.Stderr, "nlm: attempting again to obtain login information")
@@ -156,112 +350,77 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "list", "ls":
 		err = list(client)
 	case "create":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm create <title>")
-		}
 		err = create(client, args[0])
 	case "rm":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm rm <id>")
-		}
 		err = remove(client, args[0])
+	case "analytics":
+		err = getAnalytics(client, args[0])
+	case "list-featured":
+		err = listFeaturedProjects(client)
 
 	// Source operations
 	case "sources":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm sources <notebook-id>")
-		}
 		err = listSources(client, args[0])
 	case "add":
-		if len(args) != 2 {
-			log.Fatal("usage: nlm add <notebook-id> <file>")
-		}
 		var id string
 		id, err = addSource(client, args[0], args[1])
 		fmt.Println(id)
 	case "rm-source":
-		if len(args) != 2 {
-			log.Fatal("usage: nlm rm-source <notebook-id> <source-id>")
-		}
 		err = removeSource(client, args[0], args[1])
 	case "rename-source":
-		if len(args) != 2 {
-			log.Fatal("usage: nlm rename-source <source-id> <new-name>")
-		}
 		err = renameSource(client, args[0], args[1])
+	case "refresh-source":
+		err = refreshSource(client, args[0])
+	case "check-source":
+		err = checkSourceFreshness(client, args[0])
+	case "discover-sources":
+		err = discoverSources(client, args[0], args[1])
 
 	// Note operations
+	case "notes":
+		err = listNotes(client, args[0])
 	case "new-note":
-		if len(args) != 2 {
-			log.Fatal("usage: nlm new-note <notebook-id> <title>")
-		}
 		err = createNote(client, args[0], args[1])
 	case "update-note":
-		if len(args) != 4 {
-			log.Fatal("usage: nlm update-note <notebook-id> <note-id> <content> <title>")
-		}
 		err = updateNote(client, args[0], args[1], args[2], args[3])
 	case "rm-note":
-		if len(args) != 2 {
-			log.Fatal("usage: nlm rm-note <notebook-id> <note-id>")
-		}
 		err = removeNote(client, args[0], args[1])
 
 		// Audio operations
 	case "audio-create":
-		if len(args) != 2 {
-			log.Fatal("usage: nlm audio-create <notebook-id> <instructions>")
-		}
 		err = createAudioOverview(client, args[0], args[1])
 	case "audio-get":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm audio-get <notebook-id>")
-		}
 		err = getAudioOverview(client, args[0])
 	case "audio-rm":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm audio-rm <notebook-id>")
-		}
 		err = deleteAudioOverview(client, args[0])
 	case "audio-share":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm audio-share <notebook-id>")
-		}
 		err = shareAudioOverview(client, args[0])
+
+	// Artifact operations
+	case "create-artifact":
+		err = createArtifact(client, args[0], args[1])
+	case "get-artifact":
+		err = getArtifact(client, args[0])
+	case "list-artifacts":
+		err = listArtifacts(client, args[0])
+	case "delete-artifact":
+		err = deleteArtifact(client, args[0])
 
 		// Generation operations
 	case "generate-guide":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm generate-guide <notebook-id>")
-		}
 		err = generateNotebookGuide(client, args[0])
 	case "generate-outline":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm generate-outline <notebook-id>")
-		}
 		err = generateOutline(client, args[0])
 	case "generate-section":
-		if len(args) != 1 {
-			log.Fatal("usage: nlm generate-section <notebook-id>")
-		}
 		err = generateSection(client, args[0])
+	case "generate-chat":
+		err = generateFreeFormChat(client, args[0], args[1])
 
 	// Other operations
-	// case "analytics":
-	// 	if len(args) != 1 {
-	// 		log.Fatal("usage: nlm analytics <notebook-id>")
-	// 	}
-	// 	err = getAnalytics(client, args[0])
-	// case "share":
-	// 	if len(args) != 1 {
-	// 		log.Fatal("usage: nlm share <notebook-id>")
-	// 	}
-	// 	err = shareNotebook(client, args[0])
-	// case "feedback":
-	// 	if len(args) != 1 {
-	// 		log.Fatal("usage: nlm feedback <message>")
-	// 	}
-	// 	err = submitFeedback(client, args[0])
+	case "share":
+		err = shareNotebook(client, args[0])
+	case "feedback":
+		err = submitFeedback(client, args[0])
 	case "auth":
 		_, _, err = handleAuth(args, debug)
 
@@ -444,30 +603,6 @@ func removeNote(c *api.Client, notebookID, noteID string) error {
 	return nil
 }
 
-// Source operations
-func refreshSource(c *api.Client, sourceID string) error {
-	fmt.Fprintf(os.Stderr, "Refreshing source %s...\n", sourceID)
-	source, err := c.RefreshSource(sourceID)
-	if err != nil {
-		return fmt.Errorf("refresh source: %w", err)
-	}
-	fmt.Printf("✅ Refreshed source: %s\n", source.Title)
-	return nil
-}
-
-// func checkSourceFreshness(c *api.Client, sourceID string) error {
-// 	fmt.Fprintf(os.Stderr, "Checking source %s...\n", sourceID)
-// 	resp, err := c.CheckSourceFreshness(sourceID)
-// 	if err != nil {
-// 		return fmt.Errorf("check source: %w", err)
-// 	}
-// 	if resp.NeedsRefresh {
-// 		fmt.Printf("Source needs refresh (last updated: %s)\n", resp.LastUpdateTime.AsTime().Format(time.RFC3339))
-// 	} else {
-// 		fmt.Printf("Source is up to date (last updated: %s)\n", resp.LastUpdateTime.AsTime().Format(time.RFC3339))
-// 	}
-// 	return nil
-// }
 
 // Note operations
 func listNotes(c *api.Client, notebookID string) error {
@@ -646,5 +781,326 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 }
 
 func heartbeat(c *api.Client) error {
+	return nil
+}
+
+// New orchestration service functions
+
+// Analytics and featured projects
+func getAnalytics(c *api.Client, projectID string) error {
+	// Create orchestration service client using the same auth as the main client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.GetProjectAnalyticsRequest{
+		ProjectId: projectID,
+	}
+	
+	analytics, err := orchClient.GetProjectAnalytics(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("get analytics: %w", err)
+	}
+	
+	fmt.Printf("Project Analytics for %s:\n", projectID)
+	fmt.Printf("  Sources: %d\n", analytics.SourceCount)
+	fmt.Printf("  Notes: %d\n", analytics.NoteCount)
+	fmt.Printf("  Audio Overviews: %d\n", analytics.AudioOverviewCount)
+	if analytics.LastAccessed != nil {
+		fmt.Printf("  Last Accessed: %s\n", analytics.LastAccessed.AsTime().Format(time.RFC3339))
+	}
+	
+	return nil
+}
+
+func listFeaturedProjects(c *api.Client) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.ListFeaturedProjectsRequest{
+		PageSize: 20,
+	}
+	
+	resp, err := orchClient.ListFeaturedProjects(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("list featured projects: %w", err)
+	}
+	
+	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+	fmt.Fprintln(w, "ID\tTITLE\tDESCRIPTION")
+	
+	for _, project := range resp.Projects {
+		description := ""
+		if len(project.Sources) > 0 {
+			description = fmt.Sprintf("%d sources", len(project.Sources))
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n",
+			project.ProjectId, 
+			strings.TrimSpace(project.Emoji)+" "+project.Title,
+			description)
+	}
+	return w.Flush()
+}
+
+// Enhanced source operations
+func refreshSource(c *api.Client, sourceID string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.RefreshSourceRequest{
+		SourceId: sourceID,
+	}
+	
+	fmt.Fprintf(os.Stderr, "Refreshing source %s...\n", sourceID)
+	source, err := orchClient.RefreshSource(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("refresh source: %w", err)
+	}
+	
+	fmt.Printf("✅ Refreshed source: %s\n", source.Title)
+	return nil
+}
+
+func checkSourceFreshness(c *api.Client, sourceID string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.CheckSourceFreshnessRequest{
+		SourceId: sourceID,
+	}
+	
+	fmt.Fprintf(os.Stderr, "Checking source %s...\n", sourceID)
+	resp, err := orchClient.CheckSourceFreshness(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("check source: %w", err)
+	}
+	
+	if resp.IsFresh {
+		fmt.Printf("Source is up to date")
+	} else {
+		fmt.Printf("Source needs refresh")
+	}
+	
+	if resp.LastChecked != nil {
+		fmt.Printf(" (last checked: %s)", resp.LastChecked.AsTime().Format(time.RFC3339))
+	}
+	fmt.Println()
+	
+	return nil
+}
+
+func discoverSources(c *api.Client, projectID, query string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.DiscoverSourcesRequest{
+		ProjectId: projectID,
+		Query:     query,
+	}
+	
+	fmt.Fprintf(os.Stderr, "Discovering sources for query: %s\n", query)
+	resp, err := orchClient.DiscoverSources(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("discover sources: %w", err)
+	}
+	
+	if len(resp.Sources) == 0 {
+		fmt.Println("No sources found for the query.")
+		return nil
+	}
+	
+	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tRELEVANCE")
+	
+	for _, source := range resp.Sources {
+		relevance := "Unknown"
+		if source.Metadata != nil {
+			relevance = source.Metadata.GetSourceType().String()
+		}
+		
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			source.SourceId.GetSourceId(),
+			strings.TrimSpace(source.Title),
+			source.Metadata.GetSourceType(),
+			relevance)
+	}
+	return w.Flush()
+}
+
+// Artifact management
+func createArtifact(c *api.Client, projectID, artifactType string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	// Parse artifact type
+	var aType pb.ArtifactType
+	switch strings.ToLower(artifactType) {
+	case "note":
+		aType = pb.ArtifactType_ARTIFACT_TYPE_NOTE
+	case "audio":
+		aType = pb.ArtifactType_ARTIFACT_TYPE_AUDIO_OVERVIEW
+	case "report":
+		aType = pb.ArtifactType_ARTIFACT_TYPE_REPORT
+	case "app":
+		aType = pb.ArtifactType_ARTIFACT_TYPE_APP
+	default:
+		return fmt.Errorf("invalid artifact type: %s (valid: note, audio, report, app)", artifactType)
+	}
+	
+	req := &pb.CreateArtifactRequest{
+		ProjectId: projectID,
+		Artifact: &pb.Artifact{
+			ProjectId: projectID,
+			Type:      aType,
+			State:     pb.ArtifactState_ARTIFACT_STATE_CREATING,
+		},
+	}
+	
+	fmt.Fprintf(os.Stderr, "Creating %s artifact in project %s...\n", artifactType, projectID)
+	artifact, err := orchClient.CreateArtifact(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("create artifact: %w", err)
+	}
+	
+	fmt.Printf("✅ Created artifact: %s\n", artifact.ArtifactId)
+	fmt.Printf("  Type: %s\n", artifact.Type.String())
+	fmt.Printf("  State: %s\n", artifact.State.String())
+	
+	return nil
+}
+
+func getArtifact(c *api.Client, artifactID string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.GetArtifactRequest{
+		ArtifactId: artifactID,
+	}
+	
+	artifact, err := orchClient.GetArtifact(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("get artifact: %w", err)
+	}
+	
+	fmt.Printf("Artifact Details:\n")
+	fmt.Printf("  ID: %s\n", artifact.ArtifactId)
+	fmt.Printf("  Project: %s\n", artifact.ProjectId)
+	fmt.Printf("  Type: %s\n", artifact.Type.String())
+	fmt.Printf("  State: %s\n", artifact.State.String())
+	
+	if len(artifact.Sources) > 0 {
+		fmt.Printf("  Sources (%d):\n", len(artifact.Sources))
+		for _, src := range artifact.Sources {
+			fmt.Printf("    - %s\n", src.SourceId.GetSourceId())
+		}
+	}
+	
+	return nil
+}
+
+func listArtifacts(c *api.Client, projectID string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.ListArtifactsRequest{
+		ProjectId: projectID,
+		PageSize:  50,
+	}
+	
+	resp, err := orchClient.ListArtifacts(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("list artifacts: %w", err)
+	}
+	
+	if len(resp.Artifacts) == 0 {
+		fmt.Println("No artifacts found in project.")
+		return nil
+	}
+	
+	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+	fmt.Fprintln(w, "ID\tTYPE\tSTATE\tSOURCES")
+	
+	for _, artifact := range resp.Artifacts {
+		sourceCount := fmt.Sprintf("%d", len(artifact.Sources))
+		
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			artifact.ArtifactId,
+			artifact.Type.String(),
+			artifact.State.String(),
+			sourceCount)
+	}
+	return w.Flush()
+}
+
+func deleteArtifact(c *api.Client, artifactID string) error {
+	fmt.Printf("Are you sure you want to delete artifact %s? [y/N] ", artifactID)
+	var response string
+	fmt.Scanln(&response)
+	if !strings.HasPrefix(strings.ToLower(response), "y") {
+		return fmt.Errorf("operation cancelled")
+	}
+	
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.DeleteArtifactRequest{
+		ArtifactId: artifactID,
+	}
+	
+	_, err := orchClient.DeleteArtifact(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("delete artifact: %w", err)
+	}
+	
+	fmt.Printf("✅ Deleted artifact: %s\n", artifactID)
+	return nil
+}
+
+// Generation operations
+func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.GenerateFreeFormStreamedRequest{
+		ProjectId: projectID,
+		Prompt:    prompt,
+	}
+	
+	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
+	
+	stream, err := orchClient.GenerateFreeFormStreamed(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("generate chat: %w", err)
+	}
+	
+	// For now, just return the first response
+	// In a full implementation, this would stream the responses
+	fmt.Printf("Response: %s\n", "Free-form generation not fully implemented yet")
+	_ = stream
+	
+	return nil
+}
+
+// Utility functions for commented-out operations
+func shareNotebook(c *api.Client, notebookID string) error {
+	fmt.Fprintf(os.Stderr, "Generating share link...\n")
+	// This would use the sharing service once implemented
+	fmt.Printf("Share feature not yet implemented\n")
+	return nil
+}
+
+func submitFeedback(c *api.Client, message string) error {
+	// Create orchestration service client
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	
+	req := &pb.SubmitFeedbackRequest{
+		FeedbackType: "general",
+		FeedbackText: message,
+	}
+	
+	_, err := orchClient.SubmitFeedback(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("submit feedback: %w", err)
+	}
+	
+	fmt.Printf("✅ Feedback submitted\n")
 	return nil
 }
