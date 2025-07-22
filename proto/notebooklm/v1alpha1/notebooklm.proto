@@ -3,8 +3,11 @@ syntax = "proto3";
 
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 package notebooklm.v1alpha1;
+
+option go_package = "github.com/tmc/nlm/gen/notebooklm/v1alpha1;notebooklm";
 
 message Project {
   string title = 1;
