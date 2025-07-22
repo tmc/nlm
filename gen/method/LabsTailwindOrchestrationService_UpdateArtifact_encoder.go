@@ -10,6 +10,6 @@ import (
 // RPC ID: DJezBc
 // Argument format: [%artifact%, %update_mask%]
 func EncodeUpdateArtifactArgs(req *notebooklmv1alpha1.UpdateArtifactRequest) []interface{} {
-	// TODO: Implement encoding for format: [%artifact%, %update_mask%]
-	return []interface{}{}
+	// UpdateArtifact encoding
+	return []interface{}{encodeArtifact(req.GetArtifact()), encodeFieldMask(req.GetUpdateMask())}
 }

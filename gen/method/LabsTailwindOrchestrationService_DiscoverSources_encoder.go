@@ -10,6 +10,6 @@ import (
 // RPC ID: qXyaNe
 // Argument format: [%project_id%, %query%]
 func EncodeDiscoverSourcesArgs(req *notebooklmv1alpha1.DiscoverSourcesRequest) []interface{} {
-	// TODO: Implement encoding for format: [%project_id%, %query%]
-	return []interface{}{}
+	// DiscoverSources encoding
+	return []interface{}{req.GetProjectId(), req.GetQuery()}
 }

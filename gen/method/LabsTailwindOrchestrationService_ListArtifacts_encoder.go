@@ -10,6 +10,6 @@ import (
 // RPC ID: LfTXoe
 // Argument format: [%project_id%, %page_size%, %page_token%]
 func EncodeListArtifactsArgs(req *notebooklmv1alpha1.ListArtifactsRequest) []interface{} {
-	// TODO: Implement encoding for format: [%project_id%, %page_size%, %page_token%]
-	return []interface{}{}
+	// ListArtifacts encoding
+	return []interface{}{req.GetProjectId(), req.GetPageSize(), req.GetPageToken()}
 }
