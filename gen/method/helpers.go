@@ -49,6 +49,53 @@ func encodeProjectUpdates(updates *notebooklmv1alpha1.Project) interface{} {
 	return result
 }
 
+// encodeShareSettings encodes share settings for the batchexecute format
+func encodeShareSettings(settings *notebooklmv1alpha1.ShareSettings) interface{} {
+	if settings == nil {
+		return nil
+	}
+	result := make(map[string]interface{})
+	result["is_public"] = settings.GetIsPublic()
+	if len(settings.GetAllowedEmails()) > 0 {
+		result["allowed_emails"] = settings.GetAllowedEmails()
+	}
+	result["allow_comments"] = settings.GetAllowComments()
+	result["allow_downloads"] = settings.GetAllowDownloads()
+	if settings.GetExpiryTime() != nil {
+		result["expiry_time"] = settings.GetExpiryTime()
+	}
+	return result
+}
+
+// encodePublishSettings encodes publish settings for the batchexecute format
+func encodePublishSettings(settings *notebooklmv1alpha1.PublishSettings) interface{} {
+	if settings == nil {
+		return nil
+	}
+	result := make(map[string]interface{})
+	result["is_public"] = settings.GetIsPublic()
+	if len(settings.GetTags()) > 0 {
+		result["tags"] = settings.GetTags()
+	}
+	return result
+}
+
+// encodeGenerateAnswerSettings encodes generate answer settings for the batchexecute format
+func encodeGenerateAnswerSettings(settings *notebooklmv1alpha1.GenerateAnswerSettings) interface{} {
+	if settings == nil {
+		return nil
+	}
+	result := make(map[string]interface{})
+	if settings.GetMaxLength() != 0 {
+		result["max_length"] = settings.GetMaxLength()
+	}
+	if settings.GetTemperature() != 0 {
+		result["temperature"] = settings.GetTemperature()
+	}
+	result["include_sources"] = settings.GetIncludeSources()
+	return result
+}
+
 // encodeSourceUpdates encodes source updates for the batchexecute format
 func encodeSourceUpdates(updates *notebooklmv1alpha1.Source) interface{} {
 	// Return a map with only the fields that are set

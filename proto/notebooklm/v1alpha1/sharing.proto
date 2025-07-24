@@ -4,6 +4,8 @@ syntax = "proto3";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
+import "notebooklm/v1alpha1/notebooklm.proto";
+import "notebooklm/v1alpha1/rpc_extensions.proto";
 
 package notebooklm.v1alpha1;
 
@@ -169,20 +171,50 @@ message SourceReference {
 // Service definitions
 service LabsTailwindSharingService {
     // Audio sharing
-    rpc ShareAudio(ShareAudioRequest) returns (ShareAudioResponse);
+    rpc ShareAudio(ShareAudioRequest) returns (ShareAudioResponse) {
+        option (rpc_id) = "RGP97b";
+        option (arg_format) = "[%share_options%, %project_id%]";
+    }
     
     // Project sharing
-    rpc GetProjectDetails(GetProjectDetailsRequest) returns (ProjectDetails);
-    rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse);
+    rpc GetProjectDetails(GetProjectDetailsRequest) returns (ProjectDetails) {
+        option (rpc_id) = "JFMDGd";
+        option (arg_format) = "[%share_id%]";
+    }
+    rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse) {
+        option (rpc_id) = "QDyure";
+        option (arg_format) = "[%project_id%, %settings%]";
+    }
 }
 
 service LabsTailwindGuidebooksService {
     // Guidebook operations
-    rpc DeleteGuidebook(DeleteGuidebookRequest) returns (google.protobuf.Empty);
-    rpc GetGuidebook(GetGuidebookRequest) returns (Guidebook);
-    rpc ListRecentlyViewedGuidebooks(ListRecentlyViewedGuidebooksRequest) returns (ListRecentlyViewedGuidebooksResponse);
-    rpc PublishGuidebook(PublishGuidebookRequest) returns (PublishGuidebookResponse);
-    rpc GetGuidebookDetails(GetGuidebookDetailsRequest) returns (GuidebookDetails);
-    rpc ShareGuidebook(ShareGuidebookRequest) returns (ShareGuidebookResponse);
-    rpc GuidebookGenerateAnswer(GuidebookGenerateAnswerRequest) returns (GuidebookGenerateAnswerResponse);
+    rpc DeleteGuidebook(DeleteGuidebookRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "ARGkVc";
+        option (arg_format) = "[%guidebook_id%]";
+    }
+    rpc GetGuidebook(GetGuidebookRequest) returns (Guidebook) {
+        option (rpc_id) = "EYqtU";
+        option (arg_format) = "[%guidebook_id%]";
+    }
+    rpc ListRecentlyViewedGuidebooks(ListRecentlyViewedGuidebooksRequest) returns (ListRecentlyViewedGuidebooksResponse) {
+        option (rpc_id) = "YJBpHc";
+        option (arg_format) = "[%page_size%, %page_token%]";
+    }
+    rpc PublishGuidebook(PublishGuidebookRequest) returns (PublishGuidebookResponse) {
+        option (rpc_id) = "R6smae";
+        option (arg_format) = "[%guidebook_id%, %settings%]";
+    }
+    rpc GetGuidebookDetails(GetGuidebookDetailsRequest) returns (GuidebookDetails) {
+        option (rpc_id) = "LJyzeb";
+        option (arg_format) = "[%guidebook_id%]";
+    }
+    rpc ShareGuidebook(ShareGuidebookRequest) returns (ShareGuidebookResponse) {
+        option (rpc_id) = "OTl0K";
+        option (arg_format) = "[%guidebook_id%, %settings%]";
+    }
+    rpc GuidebookGenerateAnswer(GuidebookGenerateAnswerRequest) returns (GuidebookGenerateAnswerResponse) {
+        option (rpc_id) = "itA0pc";
+        option (arg_format) = "[%guidebook_id%, %question%, %settings%]";
+    }
 }
