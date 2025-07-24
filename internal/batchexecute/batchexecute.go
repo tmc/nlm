@@ -142,19 +142,65 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		}
 	}
 
-	// Execute request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		// Check for common network errors and provide more helpful messages
-		if strings.Contains(err.Error(), "dial tcp") {
-			if strings.Contains(err.Error(), "i/o timeout") {
-				return nil, fmt.Errorf("connection timeout - check your network connection and try again: %w", err)
+	// Execute request with retry logic
+	var resp *http.Response
+	var lastErr error
+	
+	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
+		if attempt > 0 {
+			// Calculate retry delay with exponential backoff
+			multiplier := 1 << uint(attempt-1)
+			delay := time.Duration(float64(c.config.RetryDelay) * float64(multiplier))
+			if delay > c.config.RetryMaxDelay {
+				delay = c.config.RetryMaxDelay
 			}
-			if strings.Contains(err.Error(), "connect: bad file descriptor") {
-				return nil, fmt.Errorf("network connection error - try restarting your network connection: %w", err)
+			
+			if c.config.Debug {
+				fmt.Printf("\nRetrying request (attempt %d/%d) after %v...\n", attempt, c.config.MaxRetries, delay)
 			}
+			time.Sleep(delay)
 		}
-		return nil, fmt.Errorf("execute request: %w", err)
+		
+		// Clone the request for each attempt
+		reqClone := req.Clone(req.Context())
+		if req.Body != nil {
+			reqClone.Body = io.NopCloser(strings.NewReader(form.Encode()))
+		}
+		
+		resp, err = c.httpClient.Do(reqClone)
+		if err != nil {
+			lastErr = err
+			// Check for common network errors and provide more helpful messages
+			if strings.Contains(err.Error(), "dial tcp") {
+				if strings.Contains(err.Error(), "i/o timeout") {
+					lastErr = fmt.Errorf("connection timeout - check your network connection and try again: %w", err)
+				} else if strings.Contains(err.Error(), "connect: bad file descriptor") {
+					lastErr = fmt.Errorf("network connection error - try restarting your network connection: %w", err)
+				}
+			} else {
+				lastErr = fmt.Errorf("execute request: %w", err)
+			}
+			
+			// Check if error is retryable
+			if isRetryableError(err) && attempt < c.config.MaxRetries {
+				continue
+			}
+			return nil, lastErr
+		}
+		
+		// Check if response status is retryable
+		if isRetryableStatus(resp.StatusCode) && attempt < c.config.MaxRetries {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("server returned status %d", resp.StatusCode)
+			continue
+		}
+		
+		// Success or non-retryable error
+		break
+	}
+	
+	if resp == nil {
+		return nil, fmt.Errorf("all retry attempts failed: %w", lastErr)
 	}
 	defer resp.Body.Close()
 
@@ -376,6 +422,11 @@ type Config struct {
 	URLParams map[string]string
 	Debug     bool
 	UseHTTP   bool
+	
+	// Retry configuration
+	MaxRetries    int           // Maximum number of retry attempts (default: 3)
+	RetryDelay    time.Duration // Initial delay between retries (default: 1s)
+	RetryMaxDelay time.Duration // Maximum delay between retries (default: 10s)
 }
 
 // Client handles batchexecute operations
@@ -388,6 +439,17 @@ type Client struct {
 
 // NewClient creates a new batchexecute client
 func NewClient(config Config, opts ...Option) *Client {
+	// Set default retry configuration if not specified
+	if config.MaxRetries == 0 {
+		config.MaxRetries = 3
+	}
+	if config.RetryDelay == 0 {
+		config.RetryDelay = 1 * time.Second
+	}
+	if config.RetryMaxDelay == 0 {
+		config.RetryMaxDelay = 10 * time.Second
+	}
+	
 	c := &Client{
 		config:     config,
 		httpClient: http.DefaultClient,
@@ -459,5 +521,49 @@ func readUntil(r io.Reader, delim byte) (string, error) {
 			return result.String(), nil
 		}
 		result.WriteByte(buf[0])
+	}
+}
+
+// isRetryableError checks if an error is retryable
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errStr := err.Error()
+	
+	// Network-related errors that are retryable
+	retryablePatterns := []string{
+		"connection refused",
+		"connection reset",
+		"i/o timeout",
+		"TLS handshake timeout",
+		"EOF",
+		"broken pipe",
+		"no such host",
+		"network is unreachable",
+		"temporary failure",
+	}
+	
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// isRetryableStatus checks if an HTTP status code is retryable
+func isRetryableStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
 	}
 }

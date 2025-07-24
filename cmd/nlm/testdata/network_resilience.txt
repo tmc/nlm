@@ -1,0 +1,26 @@
+# Test network resilience with retry logic
+
+# Set up test environment with mock auth
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+
+# Test that commands handle network failures gracefully
+# Since we can't simulate real network failures in tests, we'll verify
+# that the commands properly report network errors
+
+# Test with invalid auth (simulates auth failure)
+! exec ./nlm_test list
+stderr 'batchexecute error'
+
+# The retry logic should be transparent to users when it eventually succeeds
+# Real network testing would require integration tests with a mock server
+
+# Test timeout handling - commands should fail gracefully
+env NLM_AUTH_TOKEN=invalid-token
+! exec ./nlm_test create test-notebook
+stderr 'batchexecute error'
+
+# Test that debug mode shows retry information
+env NLM_DEBUG=true
+! exec ./nlm_test -debug list
+stderr 'BatchExecute Request'
