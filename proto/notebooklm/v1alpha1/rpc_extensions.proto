@@ -1,0 +1,72 @@
+// RPC extensions for NotebookLM batchexecute API
+syntax = "proto3";
+
+import "google/protobuf/descriptor.proto";
+
+package notebooklm.v1alpha1;
+
+option go_package = "github.com/tmc/nlm/gen/notebooklm/v1alpha1;notebooklm";
+
+// Custom options for RPC methods to define batchexecute metadata
+extend google.protobuf.MethodOptions {
+  // The RPC endpoint ID used in batchexecute calls
+  string rpc_id = 51000;
+  
+  // The argument encoding format for the RPC
+  // Can contain placeholders that map to request message fields
+  // Examples:
+  //   "[null, %limit%]" - simple format with one field
+  //   "[null, %limit%, null, %options%]" - format with multiple fields
+  //   "[[%sources%], %project_id%]" - nested format
+  string arg_format = 51001;
+  
+  // Whether this RPC uses chunked response format
+  bool chunked_response = 51002;
+  
+  // Custom response parser hint
+  string response_parser = 51003;
+}
+
+// Custom options for message fields to define encoding behavior
+extend google.protobuf.FieldOptions {
+  // How to encode this field in batchexecute format
+  // Examples:
+  //   "array" - encode as array even if single value
+  //   "string" - always encode as string
+  //   "number" - encode as number
+  //   "null_if_empty" - encode as null if field is empty/zero
+  string batchexecute_encoding = 51010;
+  
+  // The key to use when this field appears in argument format
+  // e.g., if arg_format is "[null, %page_size%]" then a field with
+  // arg_key = "page_size" will be substituted there
+  string arg_key = 51011;
+}
+
+// Custom options for services
+extend google.protobuf.ServiceOptions {
+  // The batchexecute app name for this service
+  string batchexecute_app = 51020;
+  
+  // The host for this service
+  string batchexecute_host = 51021;
+}
+
+// Encoding hints for batchexecute format
+message BatchExecuteEncoding {
+  // How to handle empty/zero values
+  enum EmptyValueHandling {
+    EMPTY_VALUE_DEFAULT = 0;
+    EMPTY_VALUE_NULL = 1;
+    EMPTY_VALUE_OMIT = 2;
+    EMPTY_VALUE_EMPTY_ARRAY = 3;
+  }
+  
+  // How to encode arrays
+  enum ArrayEncoding {
+    ARRAY_DEFAULT = 0;
+    ARRAY_NESTED = 1;      // [[item1], [item2]]
+    ARRAY_FLAT = 2;        // [item1, item2]
+    ARRAY_WRAPPED = 3;     // [[[item1, item2]]]
+  }
+}

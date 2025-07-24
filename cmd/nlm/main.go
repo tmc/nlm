@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/api"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/rpc"
 )
 
 // Global flags
@@ -75,9 +77,13 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n")
 		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n\n")
 
+		fmt.Fprintf(os.Stderr, "Sharing Commands:\n")
+		fmt.Fprintf(os.Stderr, "  share <id>        Share notebook publicly\n")
+		fmt.Fprintf(os.Stderr, "  share-private <id>  Share notebook privately\n")
+		fmt.Fprintf(os.Stderr, "  share-details <share-id>  Get details of shared project\n\n")
+
 		fmt.Fprintf(os.Stderr, "Other Commands:\n")
 		fmt.Fprintf(os.Stderr, "  auth [profile]    Setup authentication\n")
-		fmt.Fprintf(os.Stderr, "  share <id>        Share notebook\n")
 		fmt.Fprintf(os.Stderr, "  feedback <msg>    Submit feedback\n")
 		fmt.Fprintf(os.Stderr, "  hb                Send heartbeat\n\n")
 	}
@@ -178,6 +184,21 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm audio-share <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "share":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm share <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "share-private":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm share-private <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "share-details":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm share-details <share-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "generate-guide":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-guide <notebook-id>\n")
@@ -247,7 +268,7 @@ func isValidCommand(cmd string) bool {
 		"audio-create", "audio-get", "audio-rm", "audio-share",
 		"create-artifact", "get-artifact", "list-artifacts", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-chat",
-		"auth", "hb", "share", "feedback",
+		"auth", "hb", "share", "share-private", "share-details", "feedback",
 	}
 	
 	for _, valid := range validCommands {
@@ -416,9 +437,15 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "generate-chat":
 		err = generateFreeFormChat(client, args[0], args[1])
 
-	// Other operations
+	// Sharing operations
 	case "share":
 		err = shareNotebook(client, args[0])
+	case "share-private":
+		err = shareNotebookPrivate(client, args[0])
+	case "share-details":
+		err = getShareDetails(client, args[0])
+	
+	// Other operations
 	case "feedback":
 		err = submitFeedback(client, args[0])
 	case "auth":
@@ -1081,9 +1108,43 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 
 // Utility functions for commented-out operations
 func shareNotebook(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Generating share link...\n")
-	// This would use the sharing service once implemented
-	fmt.Printf("Share feature not yet implemented\n")
+	fmt.Fprintf(os.Stderr, "Generating public share link...\n")
+	
+	// Create RPC client directly for sharing project
+	rpcClient := rpc.New(authToken, cookies)
+	call := rpc.Call{
+		ID:   "QDyure", // ShareProject RPC ID
+		Args: []interface{}{
+			notebookID,
+			map[string]interface{}{
+				"is_public": true,
+				"allow_comments": true,
+				"allow_downloads": false,
+			},
+		},
+	}
+	
+	resp, err := rpcClient.Do(call)
+	if err != nil {
+		return fmt.Errorf("share project: %w", err)
+	}
+	
+	// Parse response to extract share URL
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return fmt.Errorf("parse response: %w", err)
+	}
+	
+	if len(data) > 0 {
+		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
+			if shareURL, ok := shareData[0].(string); ok {
+				fmt.Printf("Share URL: %s\n", shareURL)
+				return nil
+			}
+		}
+	}
+	
+	fmt.Printf("Project shared successfully (URL format not recognized)\n")
 	return nil
 }
 
@@ -1102,5 +1163,82 @@ func submitFeedback(c *api.Client, message string) error {
 	}
 	
 	fmt.Printf("✅ Feedback submitted\n")
+	return nil
+}
+
+func shareNotebookPrivate(c *api.Client, notebookID string) error {
+	fmt.Fprintf(os.Stderr, "Generating private share link...\n")
+	
+	// Create RPC client directly for sharing project
+	rpcClient := rpc.New(authToken, cookies)
+	call := rpc.Call{
+		ID:   "QDyure", // ShareProject RPC ID
+		Args: []interface{}{
+			notebookID,
+			map[string]interface{}{
+				"is_public": false,
+				"allow_comments": false,
+				"allow_downloads": false,
+			},
+		},
+	}
+	
+	resp, err := rpcClient.Do(call)
+	if err != nil {
+		return fmt.Errorf("share project privately: %w", err)
+	}
+	
+	// Parse response to extract share URL
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return fmt.Errorf("parse response: %w", err)
+	}
+	
+	if len(data) > 0 {
+		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
+			if shareURL, ok := shareData[0].(string); ok {
+				fmt.Printf("Private Share URL: %s\n", shareURL)
+				return nil
+			}
+		}
+	}
+	
+	fmt.Printf("Project shared privately (URL format not recognized)\n")
+	return nil
+}
+
+func getShareDetails(c *api.Client, shareID string) error {
+	fmt.Fprintf(os.Stderr, "Getting share details...\n")
+	
+	// Create RPC client directly for getting project details
+	rpcClient := rpc.New(authToken, cookies)
+	call := rpc.Call{
+		ID:   "JFMDGd", // GetProjectDetails RPC ID
+		Args: []interface{}{shareID},
+	}
+	
+	resp, err := rpcClient.Do(call)
+	if err != nil {
+		return fmt.Errorf("get project details: %w", err)
+	}
+	
+	// Parse response to extract project details
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return fmt.Errorf("parse response: %w", err)
+	}
+	
+	// Display project details in a readable format
+	fmt.Printf("Share Details:\n")
+	fmt.Printf("Share ID: %s\n", shareID)
+	
+	if len(data) > 0 {
+		// Try to parse the project details from the response
+		// The exact format depends on the API response structure
+		fmt.Printf("Details: %v\n", data)
+	} else {
+		fmt.Printf("No details available for this share ID\n")
+	}
+	
 	return nil
 }
