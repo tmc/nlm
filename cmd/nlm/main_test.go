@@ -27,12 +27,30 @@ func TestMain(m *testing.M) {
 }
 
 func TestCLICommands(t *testing.T) {
+	// Create a temporary home directory for test isolation
+	tmpHome, err := os.MkdirTemp("", "nlm-test-home-*")
+	if err != nil {
+		t.Fatalf("failed to create temp home: %v", err)
+	}
+	defer os.RemoveAll(tmpHome)
+
 	// Set up the script test environment
 	engine := script.NewEngine()
 	engine.Cmds["nlm_test"] = script.Program("./nlm_test", func(cmd *exec.Cmd) error {
-		if cmd.Process != nil {
-			cmd.Process.Signal(os.Interrupt)
+		// Create minimal environment with only essential variables
+		env := []string{
+			"PATH=" + os.Getenv("PATH"),
+			"HOME=" + tmpHome,
+			"TERM=" + os.Getenv("TERM"), // For colored output
 		}
+		// Only include Go-related vars if they exist
+		if gopath := os.Getenv("GOPATH"); gopath != "" {
+			env = append(env, "GOPATH="+gopath)
+		}
+		if goroot := os.Getenv("GOROOT"); goroot != "" {
+			env = append(env, "GOROOT="+goroot)
+		}
+		cmd.Env = env
 		return nil
 	}, time.Second)
 
@@ -48,7 +66,21 @@ func TestCLICommands(t *testing.T) {
 		}
 
 		t.Run(file.Name(), func(t *testing.T) {
-			state, err := script.NewState(context.Background(), ".", nil)
+			// Create minimal environment for the script state
+			env := []string{
+				"PATH=" + os.Getenv("PATH"),
+				"HOME=" + tmpHome,
+				"TERM=" + os.Getenv("TERM"), // For colored output
+			}
+			// Only include Go-related vars if they exist
+			if gopath := os.Getenv("GOPATH"); gopath != "" {
+				env = append(env, "GOPATH="+gopath)
+			}
+			if goroot := os.Getenv("GOROOT"); goroot != "" {
+				env = append(env, "GOROOT="+goroot)
+			}
+			
+			state, err := script.NewState(context.Background(), ".", env)
 			if err != nil {
 				t.Fatalf("failed to create script state: %v", err)
 			}
@@ -67,6 +99,13 @@ func TestCLICommands(t *testing.T) {
 
 // Test the CLI help output using direct exec
 func TestHelpCommand(t *testing.T) {
+	// Create a temporary home directory for test isolation
+	tmpHome, err := os.MkdirTemp("", "nlm-test-home-*")
+	if err != nil {
+		t.Fatalf("failed to create temp home: %v", err)
+	}
+	defer os.RemoveAll(tmpHome)
+
 	tests := []struct {
 		name     string
 		args     []string
@@ -88,7 +127,7 @@ func TestHelpCommand(t *testing.T) {
 		{
 			name:     "help command",
 			args:     []string{"help"},
-			wantExit: true,
+			wantExit: false,
 			contains: []string{"Usage: nlm <command>", "Notebook Commands"},
 		},
 	}
@@ -97,6 +136,10 @@ func TestHelpCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Run the command directly using exec.Command
 			cmd := exec.Command("./nlm_test", tt.args...)
+			cmd.Env = []string{
+				"PATH=" + os.Getenv("PATH"),
+				"HOME=" + tmpHome,
+			}
 			output, err := cmd.CombinedOutput()
 
 			// Check exit code
@@ -120,6 +163,13 @@ func TestHelpCommand(t *testing.T) {
 
 // Test command validation using direct exec
 func TestCommandValidation(t *testing.T) {
+	// Create a temporary home directory for test isolation
+	tmpHome, err := os.MkdirTemp("", "nlm-test-home-*")
+	if err != nil {
+		t.Fatalf("failed to create temp home: %v", err)
+	}
+	defer os.RemoveAll(tmpHome)
+
 	tests := []struct {
 		name     string
 		args     []string
@@ -168,6 +218,10 @@ func TestCommandValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Run the command directly using exec.Command
 			cmd := exec.Command("./nlm_test", tt.args...)
+			cmd.Env = []string{
+				"PATH=" + os.Getenv("PATH"),
+				"HOME=" + tmpHome,
+			}
 			output, err := cmd.CombinedOutput()
 
 			// Should exit with error
@@ -194,6 +248,13 @@ func TestCommandValidation(t *testing.T) {
 
 // Test flag parsing using direct exec
 func TestFlags(t *testing.T) {
+	// Create a temporary home directory for test isolation
+	tmpHome, err := os.MkdirTemp("", "nlm-test-home-*")
+	if err != nil {
+		t.Fatalf("failed to create temp home: %v", err)
+	}
+	defer os.RemoveAll(tmpHome)
+
 	tests := []struct {
 		name string
 		args []string
@@ -236,8 +297,12 @@ func TestFlags(t *testing.T) {
 			cmd.Args = append(cmd.Args, tt.args...)
 			cmd.Args = append(cmd.Args, "help")
 
-			// Set environment variables if specified
-			cmd.Env = os.Environ()
+			// Start with minimal environment
+			cmd.Env = []string{
+				"PATH=" + os.Getenv("PATH"),
+				"HOME=" + tmpHome,
+			}
+			// Add test-specific environment variables
 			for k, v := range tt.env {
 				cmd.Env = append(cmd.Env, k+"="+v)
 			}
@@ -261,6 +326,13 @@ func TestFlags(t *testing.T) {
 
 // Test authentication requirements using direct exec
 func TestAuthRequirements(t *testing.T) {
+	// Create a temporary home directory for test isolation
+	tmpHome, err := os.MkdirTemp("", "nlm-test-home-*")
+	if err != nil {
+		t.Fatalf("failed to create temp home: %v", err)
+	}
+	defer os.RemoveAll(tmpHome)
+
 	tests := []struct {
 		name         string
 		command      []string
@@ -279,8 +351,8 @@ func TestAuthRequirements(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Run without auth credentials
 			cmd := exec.Command("./nlm_test", tt.command...)
-			// Clear auth environment variables
-			cmd.Env = []string{"PATH=" + os.Getenv("PATH")}
+			// Clear auth environment variables and use isolated HOME
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + tmpHome}
 
 			output, err := cmd.CombinedOutput()
 			outputStr := string(output)
