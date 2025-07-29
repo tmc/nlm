@@ -254,6 +254,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm check-source <source-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "notes":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm notes <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "feedback":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm feedback <message>\n")
