@@ -1,9 +1,9 @@
 # Test basic CLI functionality
 
 # Test help output
-! exec ./nlm_test help
-stderr 'Warning: Missing authentication credentials'
+exec ./nlm_test help
 stderr 'Usage: nlm <command>'
+! stderr 'Warning: Missing authentication credentials'
 stderr 'Notebook Commands'
 stderr 'Source Commands'
 stderr 'Note Commands'
