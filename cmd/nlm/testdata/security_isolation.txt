@@ -117,15 +117,15 @@ exec ./nlm_test -debug ls
 ! stderr 'api-secret'
 ! stderr 'secret-profile'
 
-# Test 12: JSON output mode shouldn't leak credentials
-env NLM_AUTH_TOKEN=json-mode-secret
-env NLM_COOKIES=json-cookie-secret
-exec ./nlm_test -json ls
-# JSON errors shouldn't contain auth data
-! stdout 'json-mode-secret'
-! stdout 'json-cookie-secret'
-! stderr 'json-mode-secret'
-! stderr 'json-cookie-secret'
+# Test 12: Output mode shouldn't leak credentials
+env NLM_AUTH_TOKEN=output-secret
+env NLM_COOKIES=output-cookie-secret
+exec ./nlm_test ls
+# Output shouldn't contain auth data
+! stdout 'output-secret'
+! stdout 'output-cookie-secret'
+! stderr 'output-secret'
+! stderr 'output-cookie-secret'
 
 # Test 13: Profile flag with sensitive name
 exec ./nlm_test -profile 'my-secret-profile-name' help
@@ -136,7 +136,7 @@ exec ./nlm_test -profile 'my-secret-profile-name' help
 env NLM_API_URL=https://user:password123@notebooklm.google.com
 env NLM_AUTH_TOKEN=test
 env NLM_COOKIES=test
-! exec ./nlm_test ls
+exec ./nlm_test ls
 # Embedded credentials should never appear
 ! stdout 'password123'
 ! stderr 'password123'
