@@ -1,12 +1,13 @@
 # Test authentication behavior
 
 # Commands that should NOT require auth
-! exec ./nlm_test help
-stderr 'Warning: Missing authentication credentials'
+exec ./nlm_test help
 stderr 'Usage: nlm <command>'
+! stderr 'Warning: Missing authentication credentials'
 
 exec ./nlm_test -h  
 stderr 'Usage: nlm <command>'
+! stderr 'Warning: Missing authentication credentials'
 
 # Skip auth command test as it tries to launch browser
 # ! exec ./nlm_test auth
@@ -26,7 +27,7 @@ stderr 'Authentication required for.*sources.*Run.*nlm auth.*first'
 # Test that providing auth tokens suppresses the warning
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
-! exec ./nlm_test list
+exec ./nlm_test list
 ! stderr 'Authentication required'
 
 # Test partial auth still shows warning
