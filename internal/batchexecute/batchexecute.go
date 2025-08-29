@@ -57,6 +57,40 @@ func (c *Client) Do(rpc RPC) (*Response, error) {
 	return c.Execute([]RPC{rpc})
 }
 
+// maskSensitiveValue masks sensitive values like tokens for debug output
+func maskSensitiveValue(value string) string {
+	if len(value) <= 8 {
+		return strings.Repeat("*", len(value))
+	} else if len(value) <= 16 {
+		start := value[:2]
+		end := value[len(value)-2:]
+		return start + strings.Repeat("*", len(value)-4) + end
+	} else {
+		start := value[:3]
+		end := value[len(value)-3:]
+		return start + strings.Repeat("*", len(value)-6) + end
+	}
+}
+
+// maskCookieValues masks cookie values in cookie header for debug output  
+func maskCookieValues(cookies string) string {
+	// Split cookies by semicolon
+	parts := strings.Split(cookies, ";")
+	var masked []string
+	
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if name, value, found := strings.Cut(part, "="); found {
+			maskedValue := maskSensitiveValue(value)
+			masked = append(masked, name+"="+maskedValue)
+		} else {
+			masked = append(masked, part) // Keep parts without = as-is
+		}
+	}
+	
+	return strings.Join(masked, "; ")
+}
+
 func buildRPCData(rpc RPC) []interface{} {
 	// Convert args to JSON string
 	argsJSON, _ := json.Marshal(rpc.Args)
@@ -83,7 +117,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	q := u.Query()
 	q.Set("rpcids", strings.Join([]string{rpcs[0].ID}, ","))
 
-	// Add all URL parameters
+	// Add all URL parameters (including rt parameter if set)
 	for k, v := range c.config.URLParams {
 		q.Set(k, v)
 	}
@@ -92,8 +126,8 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			q.Set(k, v)
 		}
 	}
-	// Add rt=c parameter for chunked responses
-	q.Set("rt", "c")
+	// Note: rt parameter is now controlled via URLParams from client configuration
+	// If not set, we'll get JSON array format (easier to parse)
 	q.Set("_reqid", c.reqid.Next())
 	u.RawQuery = q.Encode()
 
@@ -118,7 +152,37 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	form.Set("at", c.config.AuthToken)
 
 	if c.config.Debug {
-		fmt.Printf("\nRequest Body:\n%s\n", form.Encode())
+		// Safely display auth token with conservative masking
+		token := c.config.AuthToken
+		var tokenDisplay string
+		if len(token) <= 8 {
+			// For very short tokens, mask completely  
+			tokenDisplay = strings.Repeat("*", len(token))
+		} else if len(token) <= 16 {
+			// For short tokens, show first 2 and last 2 chars
+			start := token[:2]
+			end := token[len(token)-2:]
+			tokenDisplay = start + strings.Repeat("*", len(token)-4) + end
+		} else {
+			// For long tokens, show first 3 and last 3 chars
+			start := token[:3]
+			end := token[len(token)-3:]
+			tokenDisplay = start + strings.Repeat("*", len(token)-6) + end
+		}
+		fmt.Printf("\nAuth Token: %s\n", tokenDisplay)
+		
+		// Mask auth token in request body display
+		maskedForm := url.Values{}
+		for k, v := range form {
+			if k == "at" && len(v) > 0 {
+				// Mask the auth token value
+				maskedValue := maskSensitiveValue(v[0])
+				maskedForm.Set(k, maskedValue)
+			} else {
+				maskedForm[k] = v
+			}
+		}
+		fmt.Printf("\nRequest Body:\n%s\n", maskedForm.Encode())
 		fmt.Printf("\nDecoded Request Body:\n%s\n", string(reqBody))
 	}
 
@@ -138,7 +202,13 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	if c.config.Debug {
 		fmt.Printf("\nRequest Headers:\n")
 		for k, v := range req.Header {
-			fmt.Printf("%s: %v\n", k, v)
+			if strings.ToLower(k) == "cookie" && len(v) > 0 {
+				// Mask cookie values for security
+				maskedCookies := maskCookieValues(v[0])
+				fmt.Printf("%s: [%s]\n", k, maskedCookies)
+			} else {
+				fmt.Printf("%s: %v\n", k, v)
+			}
 		}
 	}
 
@@ -252,7 +322,16 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		return nil, fmt.Errorf("no valid responses found")
 	}
 
-	return &responses[0], nil
+	// Check the first response for API errors
+	firstResponse := &responses[0]
+	if apiError, isError := IsErrorResponse(firstResponse); isError {
+		if c.config.Debug {
+			fmt.Printf("Detected API error: %s\n", apiError.Error())
+		}
+		return nil, apiError
+	}
+
+	return firstResponse, nil
 }
 
 // decodeResponse decodes the batchexecute response
@@ -271,14 +350,14 @@ func decodeResponse(raw string) ([]Response, error) {
 	// Try to parse as a regular response
 	var responses [][]interface{}
 	if err := json.NewDecoder(strings.NewReader(raw)).Decode(&responses); err != nil {
-		// Check if this might be a number response (happens with some API errors)
-		if strings.TrimSpace(raw) == "1" || strings.TrimSpace(raw) == "0" {
-			// This is likely a boolean-like response (success/failure)
-			// Return a synthetic success response
+		// Check if this might be a numeric response (happens with API errors)
+		trimmedRaw := strings.TrimSpace(raw)
+		if code, parseErr := strconv.Atoi(trimmedRaw); parseErr == nil {
+			// This is a numeric response, potentially an error code
 			return []Response{
 				{
-					ID:   "synthetic",
-					Data: json.RawMessage(`{"success": true}`),
+					ID:   "numeric",
+					Data: json.RawMessage(fmt.Sprintf("%d", code)),
 				},
 			}, nil
 		}
