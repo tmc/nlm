@@ -156,6 +156,7 @@ message GenerateReportSuggestionsResponse {
     repeated string suggestions = 1;
 }
 
+
 message GetProjectAnalyticsRequest {
     string project_id = 1;
 }
@@ -312,15 +313,36 @@ service LabsTailwindOrchestrationService {
     }
     
     // Audio operations
-    rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview);
-    rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview);
-    rpc DeleteAudioOverview(DeleteAudioOverviewRequest) returns (google.protobuf.Empty);
+    rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview) {
+        option (rpc_id) = "AHyHrd";
+        option (arg_format) = "[%project_id%, %instructions%]";
+    }
+    rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
+        option (rpc_id) = "VUsiyb";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc DeleteAudioOverview(DeleteAudioOverviewRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "sJDbic";
+        option (arg_format) = "[%project_id%]";
+    }
     
     // Note operations
-    rpc CreateNote(CreateNoteRequest) returns (Source);
-    rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty);
-    rpc GetNotes(GetNotesRequest) returns (GetNotesResponse);
-    rpc MutateNote(MutateNoteRequest) returns (Source);
+    rpc CreateNote(CreateNoteRequest) returns (Source) {
+        option (rpc_id) = "CYK0Xb";
+        option (arg_format) = "[%project_id%, %title%, %content%]";
+    }
+    rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "AH0mwd";
+        option (arg_format) = "[%note_ids%]";
+    }
+    rpc GetNotes(GetNotesRequest) returns (GetNotesResponse) {
+        option (rpc_id) = "cFji9";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc MutateNote(MutateNoteRequest) returns (Source) {
+        option (rpc_id) = "cYAfTb";
+        option (arg_format) = "[%note_id%, %title%, %content%]";
+    }
     
     // Project operations
     rpc CreateProject(CreateProjectRequest) returns (Project) {
@@ -354,19 +376,62 @@ service LabsTailwindOrchestrationService {
     }
     
     // Generation operations
-    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse);
-    rpc GenerateFreeFormStreamed(GenerateFreeFormStreamedRequest) returns (stream GenerateFreeFormStreamedResponse);
-    rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse);
-    rpc GenerateOutline(GenerateOutlineRequest) returns (GenerateOutlineResponse);
-    rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse);
+    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
+        option (rpc_id) = "tr032e";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateFreeFormStreamed(GenerateFreeFormStreamedRequest) returns (stream GenerateFreeFormStreamedResponse) {
+        option (rpc_id) = "BD";
+        option (arg_format) = "[%project_id%, %prompt%]";
+    }
+    rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {
+        option (rpc_id) = "VfAZjd";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateOutline(GenerateOutlineRequest) returns (GenerateOutlineResponse) {
+        option (rpc_id) = "lCjAd";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse) {
+        option (rpc_id) = "GHsKob";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateSection(GenerateSectionRequest) returns (GenerateSectionResponse) {
+        option (rpc_id) = "BeTrYd";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc StartDraft(StartDraftRequest) returns (StartDraftResponse) {
+        option (rpc_id) = "exXvGf";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc StartSection(StartSectionRequest) returns (StartSectionResponse) {
+        option (rpc_id) = "pGC7gf";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateMagicView(GenerateMagicViewRequest) returns (GenerateMagicViewResponse) {
+        option (rpc_id) = "uK8f7c";
+        option (arg_format) = "[%project_id%, %source_ids%]";
+    }
     
     // Analytics and feedback
-    rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics);
-    rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty);
+    rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics) {
+        option (rpc_id) = "AUrzMb";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "uNyJKe";
+        option (arg_format) = "[%project_id%, %feedback_type%, %feedback_text%]";
+    }
     
     // Account operations
-    rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account);
-    rpc MutateAccount(MutateAccountRequest) returns (Account);
+    rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account) {
+        option (rpc_id) = "ZwVcOc";
+        option (arg_format) = "[]";
+    }
+    rpc MutateAccount(MutateAccountRequest) returns (Account) {
+        option (rpc_id) = "hT54vc";
+        option (arg_format) = "[%account%, %update_mask%]";
+    }
 }
 
 // Placeholder messages that need to be defined
@@ -434,6 +499,18 @@ message GenerateNotebookGuideRequest {
 }
 
 message GenerateOutlineRequest {
+    string project_id = 1;
+}
+
+message GenerateSectionRequest {
+    string project_id = 1;
+}
+
+message StartDraftRequest {
+    string project_id = 1;
+}
+
+message StartSectionRequest {
     string project_id = 1;
 }
 

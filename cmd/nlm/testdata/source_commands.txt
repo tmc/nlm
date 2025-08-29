@@ -65,7 +65,7 @@ stderr 'usage: nlm add <notebook-id> <file>'
 
 # Test add without authentication (should fail)
 ! exec ./nlm_test add notebook123 file.txt
-stderr 'extract source ID'
+stderr 'add text source:'
 ! stderr 'panic'
 
 # Test add with valid authentication but invalid notebook ID
@@ -77,13 +77,13 @@ stderr 'nlm:'
 # Test add with empty notebook ID
 env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
 ! exec ./nlm_test add "" file.txt
-stderr 'extract source ID'
+stderr 'add text source:'
 ! stderr 'panic'
 
 # Test add with empty file parameter
 env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
 ! exec ./nlm_test add notebook123 ""
-stderr 'extract source ID'
+stderr 'add text source:'
 ! stderr 'panic'
 
 # Test add with non-existent file
@@ -300,7 +300,7 @@ stderr 'Usage: nlm <command>'
 ! exec ./nlm_test sources notebook123
 stderr 'list sources:'
 ! exec ./nlm_test add notebook123 file.txt
-stderr 'extract source ID'
+stderr 'add text source:'
 ! exec ./nlm_test rm-source notebook123 source456
 stdout 'Are you sure you want to remove source'
 stderr 'operation cancelled'
@@ -339,7 +339,7 @@ stderr 'list sources:'
 # Test commands with partial authentication (only cookies, no token)
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test add notebook123 file.txt
-stderr 'extract source ID'
+stderr 'add text source:'
 ! stderr 'panic'
 
 # Test commands with empty authentication values

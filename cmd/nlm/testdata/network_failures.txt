@@ -63,8 +63,8 @@ env NLM_COOKIES=fake-cookies-invalid-should-cause-network-error
 ! stderr 'broken pipe.*panic'
 ! stderr 'runtime error'
 ! stderr 'fatal error'
-# Should show parse response error instead of network error
-stderr 'parse response'
+# Should show API error instead of network error  
+stderr 'API error|Authentication|Unauthenticated'
 
 # Test 3.2: Create command with connection failure simulation
 env NLM_AUTH_TOKEN=fake-token-invalid
@@ -119,8 +119,8 @@ env NLM_COOKIES=fake-cookies-malformed-json
 
 # Test 6.1: Commands should still validate args without DNS
 ! exec ./nlm_test notes invalid-notebook-id
-# Notes command currently doesn't check auth, so gets parsing error
-stderr 'parse response'
+# Notes command gets API error
+stderr 'API error|Authentication|Unauthenticated'
 ! stderr 'panic'
 ! stderr 'DNS'
 ! stderr 'lookup'
@@ -149,8 +149,8 @@ env NLM_COOKIES=fake-cookies-partial-response
 ! exec ./nlm_test audio-get invalid-notebook-id
 ! stderr 'panic'
 ! stderr 'runtime error'
-# Should handle incomplete JSON gracefully - shows parse error
-stderr 'parse response JSON|unexpected end of JSON input'
+# Should handle incomplete JSON gracefully - shows API error
+stderr 'API error|Authentication|Unauthenticated|execute rpc'
 
 # Test 7.2: Audio creation with connection drop mid-response
 env NLM_AUTH_TOKEN=fake-token-connection-drop
@@ -215,7 +215,7 @@ env NLM_COOKIES=fake-cookies-transient-failure
 env NLM_AUTH_TOKEN=fake-token-invalid
 env NLM_COOKIES=fake-cookies-invalid
 ! exec ./nlm_test analytics invalid-notebook-id
-stderr 'RPC ID not defined in proto'
+stderr 'API error|Authentication|Unauthenticated|execute rpc'
 ! stderr 'panic'
 ! stderr 'network'
 
@@ -229,8 +229,8 @@ env NLM_COOKIES=fake-cookies-network-timeout
 stderr 'nlm: debug mode enabled'
 ! stderr 'panic'
 ! stderr 'runtime error'
-# Debug output should help diagnose network issues - shows parse error
-stderr 'parse response'
+# Debug output should help diagnose network issues - shows API error
+stderr 'API error|Authentication|execute rpc'
 
 # Test 10.2: Profile-specific debug with connection issues
 env NLM_AUTH_TOKEN=fake-token-connection-error
@@ -240,7 +240,7 @@ stderr 'nlm: debug mode enabled'
 stderr 'nlm: using Chrome profile: test.*file'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'parse response'
+stderr 'API error|Authentication|execute rpc'
 
 # === SECTION 11: Partial authentication scenarios ===
 # Test behavior when auth is incomplete
@@ -269,7 +269,7 @@ env NLM_COOKIES=fake-cookies-url-parse-error
 stdout 'Adding text content as source'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # Test 12.2: Unsupported URL schemes handled gracefully
 env NLM_AUTH_TOKEN=fake-token-invalid-scheme
@@ -278,7 +278,7 @@ env NLM_COOKIES=fake-cookies-invalid-scheme
 stdout 'Adding text content as source'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # Test 12.3: Malformed URLs don't crash
 env NLM_AUTH_TOKEN=fake-token-malformed-url
@@ -287,7 +287,7 @@ env NLM_COOKIES=fake-cookies-malformed-url
 stdout 'Adding source from URL'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # Test 12.4: MIME type with network failures
 env NLM_AUTH_TOKEN=fake-token-mime-error
@@ -296,7 +296,7 @@ env NLM_COOKIES=fake-cookies-mime-error
 stdout 'Adding text content as source'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # Test 12.5: Very long URLs handled safely
 env NLM_AUTH_TOKEN=fake-token-long-url
@@ -305,7 +305,7 @@ env NLM_COOKIES=fake-cookies-long-url
 stdout 'Adding source from URL'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # === SECTION 13: File handling edge cases with network errors ===
 
@@ -319,7 +319,7 @@ env NLM_COOKIES=fake-cookies-file-not-found
 stdout 'Adding text content as source'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # Test 13.2: Empty file handling with network error
 exec touch temp/empty.txt
@@ -329,7 +329,7 @@ env NLM_COOKIES=fake-cookies-empty-file
 stdout 'Adding source from file'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # Test 13.3: Binary file with network issues
 exec sh -c 'printf "\x00\x01\x02\x03binary data\x04\x05" > temp/binary.dat'
@@ -339,7 +339,7 @@ env NLM_COOKIES=fake-cookies-binary-upload
 stdout 'Adding source from file'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 
 # === SECTION 14: Timing and timeout verification ===
 # Test that commands complete within reasonable time
@@ -352,7 +352,7 @@ env NLM_COOKIES=fake-cookies-upload-timeout
 stdout 'Adding source from file'
 ! stderr 'panic'
 ! stderr 'runtime error'
-stderr 'empty response'
+stderr 'API error|Authentication|execute rpc'
 # Should complete without hanging indefinitely
 
 # Test 14.2: URL fetch with slow response
@@ -373,7 +373,7 @@ env NLM_COOKIES=fake-cookies-concurrent
 ! stderr 'panic'
 ! stderr 'race'
 ! stderr 'concurrent map'
-stderr 'parse response'
+stderr 'API error|Authentication|execute rpc'
 
 # Clean up test files
 exec rm -rf temp

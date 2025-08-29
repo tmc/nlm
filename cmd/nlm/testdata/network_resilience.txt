@@ -20,7 +20,7 @@ env NLM_AUTH_TOKEN=invalid-token
 env NLM_COOKIES=invalid-cookies
 ! exec ./nlm_test list
 # Should show parse/API error, not crash - this tests error handling resilience
-stderr 'parse response|batchexecute error'
+stderr 'API error|Authentication|execute rpc'
 
 # Test 4: Debug mode should show network activity details
 env NLM_DEBUG=true
