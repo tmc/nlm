@@ -24,11 +24,12 @@ stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
 ! exec ./nlm_test sources notebook123
 stderr 'Authentication required for.*sources.*Run.*nlm auth.*first'
 
-# Test that providing auth tokens suppresses the warning
+# Test that providing auth tokens suppresses the warning but fails on API call
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
-exec ./nlm_test list
+! exec ./nlm_test list
 ! stderr 'Authentication required'
+stderr 'parse response'
 
 # Test partial auth still shows warning
 env NLM_AUTH_TOKEN=test-token

@@ -13,14 +13,16 @@ stderr 'nlm: authentication required'
 ! stderr 'DEBUG: Raw response'
 ! stderr 'Attempting to manually extract'
 
-# Test with invalid auth tokens - should make API call and may show parsing errors
+# Test with invalid auth tokens - should make API call and fail with parsing errors
 # (this is expected behavior when auth tokens are provided but invalid)
 env NLM_AUTH_TOKEN=invalid-token
 env NLM_COOKIES=invalid-cookies
-exec ./nlm_test ls
+! exec ./nlm_test ls
 # Should not show the auth required message since tokens are provided
 ! stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
 ! stderr 'nlm: authentication required'
+# Should show parsing errors because invalid tokens cause API failure
+stderr 'parse response'
 
 # Test short alias without auth
 env NLM_AUTH_TOKEN=
