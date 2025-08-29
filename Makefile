@@ -1,4 +1,4 @@
-.PHONY: all build test clean beproto
+.PHONY: all build test clean beproto generate
 
 all: build
 
@@ -13,3 +13,6 @@ test:
 
 clean:
 	rm -f nlm beproto
+
+generate:
+	cd proto && go tool buf generate
