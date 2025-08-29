@@ -19,19 +19,37 @@ import (
 func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	// First, strip the prefix if present
 	br := bufio.NewReader(r)
-	prefix, err := br.Peek(4)
+	
+	// The response format is )]}'\n\n or )]}'\n
+	// We need to consume the entire prefix including newlines
+	prefix, err := br.Peek(6) // Peek enough to see )]}'\n
 	if err != nil && err != io.EOF {
-		return nil, fmt.Errorf("peek response prefix: %w", err)
+		// If we can't peek 6, try 4
+		prefix, err = br.Peek(4)
+		if err != nil && err != io.EOF {
+			return nil, fmt.Errorf("peek response prefix: %w", err)
+		}
 	}
 	
-	// Debug: print the prefix
-	fmt.Printf("DEBUG: Response prefix: %q\n", prefix)
+	// Debug: print what we see
+	if len(prefix) > 0 {
+		fmt.Printf("DEBUG: Response starts with: %q\n", prefix)
+	}
 
-	// Check for and discard the )]}' prefix
+	// Check for and discard the )]}' prefix with newlines
 	if len(prefix) >= 4 && string(prefix[:4]) == ")]}''" {
-		_, err = br.ReadString('\n')
-		if err != nil {
+		// Read the first line ()]}')
+		line, err := br.ReadString('\n')
+		if err != nil && err != io.EOF {
 			return nil, fmt.Errorf("read prefix line: %w", err)
+		}
+		fmt.Printf("DEBUG: Discarded prefix line: %q\n", line)
+		
+		// Check if there's an additional empty line and consume it
+		nextByte, err := br.Peek(1)
+		if err == nil && len(nextByte) > 0 && nextByte[0] == '\n' {
+			br.ReadByte() // Consume the extra newline
+			fmt.Printf("DEBUG: Discarded extra newline after prefix\n")
 		}
 	}
 
@@ -41,15 +59,28 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 		chunkData  strings.Builder
 		collecting bool
 		chunkSize  int
+		allLines   []string
 	)
+
+	// Increase scanner buffer size to handle large chunks (up to 10MB)
+	const maxScanTokenSize = 10 * 1024 * 1024 // 10MB
+	buf := make([]byte, maxScanTokenSize)
+	scanner.Buffer(buf, maxScanTokenSize)
 
 	// Process each line
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Printf("DEBUG: Processing line: %q\n", line)
+		allLines = append(allLines, line)
+		
+		// Only debug small lines to avoid flooding
+		if len(line) < 200 {
+			fmt.Printf("DEBUG: Processing line: %q\n", line)
+		} else {
+			fmt.Printf("DEBUG: Processing large line (%d bytes)\n", len(line))
+		}
 
-		// Skip empty lines
-		if strings.TrimSpace(line) == "" {
+		// Skip empty lines only if not collecting
+		if !collecting && strings.TrimSpace(line) == "" {
 			fmt.Printf("DEBUG: Skipping empty line\n")
 			continue
 		}
@@ -66,6 +97,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 					// It might be a direct RPC response without proper JSON format
 					chunks = append(chunks, "["+line+"]")
 				} else {
+					// Fallback: treat as a potential response chunk anyway
 					chunks = append(chunks, line)
 				}
 				continue
@@ -74,14 +106,19 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 			chunkSize = size
 			collecting = true
 			chunkData.Reset()
+			fmt.Printf("DEBUG: Expecting chunk of %d bytes\n", chunkSize)
 			continue
 		}
 
 		// If we're collecting a chunk, add this line to the current chunk
+		if chunkData.Len() > 0 {
+			chunkData.WriteString("\n")
+		}
 		chunkData.WriteString(line)
 
 		// If we've collected enough data, add the chunk and reset
 		if chunkData.Len() >= chunkSize {
+			fmt.Printf("DEBUG: Collected full chunk (%d bytes)\n", chunkData.Len())
 			chunks = append(chunks, chunkData.String())
 			collecting = false
 		}
@@ -89,7 +126,36 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 
 	// Check if we have any partial chunk data remaining
 	if collecting && chunkData.Len() > 0 {
+		// We have partial data, add it as a chunk
+		fmt.Printf("DEBUG: Adding partial chunk (%d of %d bytes)\n", chunkData.Len(), chunkSize)
 		chunks = append(chunks, chunkData.String())
+	} else if collecting && chunkData.Len() == 0 {
+		// We were expecting data but got none
+		// Only treat small numbers as potential error codes
+		if chunkSize < 1000 {
+			// Small number, might be an error code
+			possibleError := strconv.Itoa(chunkSize)
+			fmt.Printf("DEBUG: Expected %d bytes but got 0, treating %s as potential error response\n", chunkSize, possibleError)
+			chunks = append(chunks, possibleError)
+		} else {
+			// Large number, probably a real chunk size but we didn't get the data
+			// This might be a parsing issue with the scanner
+			fmt.Printf("DEBUG: Expected large chunk (%d bytes) but got 0, scanner may have hit limit\n", chunkSize)
+			// Try to use all lines as the chunk data
+			if len(allLines) > 1 {
+				// Skip the first line (chunk size) and use the rest
+				chunks = append(chunks, strings.Join(allLines[1:], "\n"))
+			}
+		}
+	}
+
+	// If we still have no chunks but we processed lines, this might be a different response format
+	if len(chunks) == 0 && len(allLines) > 0 {
+		// Treat all the lines as a single response
+		allData := strings.Join(allLines, "\n")
+		if strings.TrimSpace(allData) != "" {
+			chunks = append(chunks, allData)
+		}
 	}
 
 	// Process all collected chunks
@@ -165,10 +231,11 @@ func extractWRBResponse(chunk string) *Response {
 		}
 	}
 
-	// Use a synthetic success response
+	// No data found - return response with null data (don't mask the issue)
+	fmt.Printf("WARNING: No data found in wrb.fr response for ID %s\n", id)
 	return &Response{
 		ID:   id,
-		Data: json.RawMessage(`{"success":true}`),
+		Data: nil, // Return nil to indicate no data rather than fake success
 	}
 }
 
@@ -212,6 +279,19 @@ func findJSONEnd(s string, start int, openChar, closeChar rune) int {
 }
 
 // processChunks processes all chunks and extracts the RPC responses
+// isNumeric checks if a string contains only numeric characters
+func isNumeric(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func processChunks(chunks []string) ([]Response, error) {
 	fmt.Printf("DEBUG: processChunks called with %d chunks\n", len(chunks))
 	for i, chunk := range chunks {
@@ -220,6 +300,27 @@ func processChunks(chunks []string) ([]Response, error) {
 	
 	if len(chunks) == 0 {
 		return nil, fmt.Errorf("no chunks found")
+	}
+
+	// Check for numeric responses (potential error codes)
+	// These need to be converted to synthetic Response objects so our error handling can process them
+	for _, chunk := range chunks {
+		trimmed := strings.TrimSpace(chunk)
+		// Skip empty or prefix chunks
+		if trimmed == "" || trimmed == ")]}'" {
+			continue
+		}
+		// Check if this looks like a pure numeric response (potential error code)
+		if len(trimmed) <= 10 && isNumeric(trimmed) && !strings.Contains(trimmed, "wrb.fr") {
+			// Create a synthetic response with the numeric data
+			// This allows our error handling system to process it properly
+			return []Response{
+				{
+					ID:   "numeric",
+					Data: json.RawMessage(trimmed),
+				},
+			}, nil
+		}
 	}
 
 	var allResponses []Response
@@ -314,6 +415,9 @@ func extractResponses(data [][]interface{}) ([]Response, error) {
 					resp.Data = rawData
 				}
 			}
+		} else {
+			// Data is null - this usually indicates an authentication issue or inaccessible resource
+			fmt.Printf("WARNING: Received null data for RPC %s - possible authentication issue\n", id)
 		}
 
 		// Extract the response index
