@@ -24,11 +24,11 @@ stdout 'Adding source from URL'
 # Test file input - skip for now since it requires file setup
 # File input testing would need proper setup
 
-# Test file input with MIME type - expect file not found error
+# Test file input with MIME type - when file doesn't exist, treated as text content
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test -mime application/json add notebook123 temp/test.txt
-stderr 'no such file|Using specified MIME type: application/json'
+stdout 'Adding text content as source'
 
 # Test text content input (fallback when file doesn't exist)
 env NLM_AUTH_TOKEN=test-token

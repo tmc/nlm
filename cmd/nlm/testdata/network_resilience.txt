@@ -1,28 +1,33 @@
 # Test network resilience with retry logic
 
-# Set up test environment with mock auth
+# Test 1: Commands without authentication should show auth errors (no network calls)
+! exec ./nlm_test list
+stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+
+# Test 2: Commands with partial authentication should still require auth
 env NLM_AUTH_TOKEN=test-token
+! exec ./nlm_test list
+stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+
 env NLM_COOKIES=test-cookies
-
-# Test that commands handle network failures gracefully
-# Since we can't simulate real network failures in tests, we'll verify
-# that the commands properly report network errors
-
-# Test with test auth (may succeed with mock responses)
-exec ./nlm_test list
-# Should show list output or graceful error
-stdout 'ID.*TITLE.*LAST UPDATED|Authentication required'
-
-# The retry logic should be transparent to users when it eventually succeeds
-# Real network testing would require integration tests with a mock server
-
-# Test timeout handling - commands should handle errors gracefully
-env NLM_AUTH_TOKEN=invalid-token
+env NLM_AUTH_TOKEN=
 ! exec ./nlm_test create test-notebook
-# Should show graceful error, not crash
-stderr 'batchexecute error|parse response|Authentication required'
+stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
 
-# Test that debug mode shows retry information
+# Test 3: Commands with both auth token and cookies will attempt network calls
+# Invalid tokens will cause API errors, but the client should handle them gracefully
+env NLM_AUTH_TOKEN=invalid-token
+env NLM_COOKIES=invalid-cookies
+! exec ./nlm_test list
+# Should show parse/API error, not crash - this tests error handling resilience
+stderr 'parse response|batchexecute error'
+
+# Test 4: Debug mode should show network activity details
 env NLM_DEBUG=true
-exec ./nlm_test -debug list
-stderr 'Response prefix|debug mode enabled'
+env NLM_AUTH_TOKEN=test-debug-token
+env NLM_COOKIES=test-debug-cookies
+! exec ./nlm_test -debug list
+# Debug output shows request/response activity and error handling
+stderr 'debug mode enabled'
+stdout 'Auth token loaded: true'
+stdout 'Cookies loaded: true'
