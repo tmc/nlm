@@ -14,7 +14,7 @@ stderr 'Authentication required for.*feedback.*Run.*nlm auth.*first'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback 'Basic test feedback message'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'panic'
 
@@ -22,7 +22,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback ''
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -31,7 +31,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback 'This is a longer feedback message with multiple words'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -40,7 +40,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback 'Feedback with special chars: @#$%^&*()[]{}|;:,.<>?'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -49,7 +49,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback 'Message with "quotes" and '\''apostrophes'\'''
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -58,7 +58,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback 'This is a very long feedback message that contains many words and should test how the system handles longer input strings without breaking or causing any issues with argument parsing or processing'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -74,7 +74,7 @@ stderr 'usage: nlm feedback <message>'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test -debug feedback 'Debug test message'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -83,7 +83,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test -chunked feedback 'Chunked response test message'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -92,7 +92,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test -debug -chunked feedback 'Debug and chunked test message'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -262,7 +262,7 @@ stderr 'Authentication required'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback '测试消息 with 日本語 and émojis 🚀'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -271,7 +271,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback 'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur Excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -293,14 +293,14 @@ stderr 'Authentication required'
 env NLM_AUTH_TOKEN='malformed token with\nnewlines'
 env NLM_COOKIES='malformed=cookies;with\ttabs'
 ! exec ./nlm_test feedback 'Test with malformed env vars'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'panic'
 
 # Test feedback with newlines in message (API error expected)  
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback 'Line 1\nLine 2\nLine 3'
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'
@@ -309,7 +309,7 @@ stderr 'SubmitFeedback: RPC ID not defined in proto'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test feedback '   '
-stderr 'SubmitFeedback: RPC ID not defined in proto'
+stderr 'SubmitFeedback|API error|execute rpc'
 ! stderr 'Authentication required'
 ! stderr 'usage:'
 ! stderr 'panic'

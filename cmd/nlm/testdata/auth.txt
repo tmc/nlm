@@ -29,7 +29,7 @@ env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test list
 ! stderr 'Authentication required'
-stderr 'parse response'
+stderr 'API error|Authentication|execute rpc'
 
 # Test partial auth still shows warning
 env NLM_AUTH_TOKEN=test-token

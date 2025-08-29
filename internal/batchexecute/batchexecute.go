@@ -387,9 +387,30 @@ func decodeResponse(raw string) ([]Response, error) {
 			ID: id,
 		}
 
+		// Intelligently parse response data from multiple possible positions
+		// Format: ["wrb.fr", "rpcId", response_data, null, null, actual_data, "generic"]
+		var responseData interface{}
+		
+		// Try position 2 first (traditional location)
 		if rpcData[2] != nil {
 			if dataStr, ok := rpcData[2].(string); ok {
 				resp.Data = json.RawMessage(dataStr)
+				responseData = dataStr
+			} else {
+				// If position 2 is not a string, use it directly
+				responseData = rpcData[2]
+			}
+		}
+		
+		// If position 2 is null/empty, try position 5 (actual data)
+		if responseData == nil && len(rpcData) > 5 && rpcData[5] != nil {
+			responseData = rpcData[5]
+		}
+		
+		// Convert responseData to JSON if it's not already a string
+		if responseData != nil && resp.Data == nil {
+			if dataBytes, err := json.Marshal(responseData); err == nil {
+				resp.Data = json.RawMessage(dataBytes)
 			}
 		}
 

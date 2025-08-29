@@ -68,9 +68,132 @@ func Encode{{.Method.GoName}}Args(req *notebooklmv1alpha1.{{.Method.Input.GoIden
 	{{- else if eq $argFormat "[%page_size%, %page_token%]" }}
 	// Pagination encoding
 	return []interface{}{req.GetPageSize(), req.GetPageToken()}
+	{{- else if eq $argFormat "[]" }}
+	// No parameters required for this RPC
+	return []interface{}{}
+	{{- else if eq $argFormat "[%project_id%, %title%, %content%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetTitle(),
+		req.GetContent(),
+	}
+	{{- else if eq $argFormat "[%note_id%, %title%, %content%]" }}
+	// MutateNote has updates field instead of direct title/content
+	var title, content string
+	if len(req.GetUpdates()) > 0 {
+		title = req.GetUpdates()[0].GetTitle()
+		content = req.GetUpdates()[0].GetContent()
+	}
+	return []interface{}{
+		req.GetNoteId(),
+		title,
+		content,
+	}
+	{{- else if eq $argFormat "[%project_id%, %instructions%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetInstructions(),
+	}
+	{{- else if eq $argFormat "[%project_id%, %prompt%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetPrompt(),
+	}
+	{{- else if eq $argFormat "[%share_options%, %project_id%]" }}
+	var shareOptions []interface{}
+	for _, option := range req.GetShareOptions() {
+		shareOptions = append(shareOptions, option)
+	}
+	return []interface{}{
+		shareOptions,
+		req.GetProjectId(),
+	}
+	{{- else if eq $argFormat "[%note_ids%]" }}
+	var noteIds []interface{}
+	for _, noteId := range req.GetNoteIds() {
+		noteIds = append(noteIds, noteId)
+	}
+	return []interface{}{noteIds}
+	{{- else if eq $argFormat "[%project_id%, %feedback_type%, %feedback_text%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetFeedbackType(),
+		req.GetFeedbackText(),
+	}
+	{{- else if eq $argFormat "[%account%, %update_mask%]" }}
+	return []interface{}{
+		req.GetAccount(),
+		req.GetUpdateMask(),
+	}
+	{{- else if eq $argFormat "[%project_id%, %settings%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetSettings(),
+	}
+	{{- else if eq $argFormat "[%guidebook_id%]" }}
+	return []interface{}{
+		req.GetGuidebookId(),
+	}
+	{{- else if eq $argFormat "[%share_id%]" }}
+	return []interface{}{
+		req.GetShareId(),
+	}
+	{{- else if eq $argFormat "[%guidebook_id%, %settings%]" }}
+	return []interface{}{
+		req.GetGuidebookId(),
+		req.GetSettings(),
+	}
+	{{- else if eq $argFormat "[%guidebook_id%, %question%, %settings%]" }}
+	return []interface{}{
+		req.GetGuidebookId(),
+		req.GetQuestion(),
+		req.GetSettings(),
+	}
+	{{- else if eq $argFormat "[%feedback%, %project_id%]" }}
+	return []interface{}{
+		req.GetFeedback(),
+		req.GetProjectId(),
+	}
+	{{- else if eq $argFormat "[%project_id%, %document_id%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetDocumentId(),
+	}
+	{{- else if eq $argFormat "[%project_id%, %section_id%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetSectionId(),
+	}
+	{{- else if eq $argFormat "[%project_id%, %topic%]" }}
+	return []interface{}{
+		req.GetProjectId(),
+		req.GetTopic(),
+	}
+	{{- else if eq $argFormat "[%updates%]" }}
+	return []interface{}{
+		req.GetUpdates(),
+	}
+	{{- else if eq $argFormat "[%project_id%, %source_ids%]" }}
+	var sourceIds []interface{}
+	for _, sourceId := range req.GetSourceIds() {
+		sourceIds = append(sourceIds, sourceId)
+	}
+	return []interface{}{
+		req.GetProjectId(),
+		sourceIds,
+	}
 	{{- else }}
+	// Generalized pattern matching for unknown formats
+	{{- if eq $argFormat "[]" }}
+	// No parameters required
+	return []interface{}{}
+	{{- else }}
+	// Parse the arg_format and try to match fields generically
+	// Format: {{$argFormat}}
+	// This is a fallback - consider adding specific handling above
 	// TODO: Implement encoding for format: {{$argFormat}}
 	return []interface{}{}
+	{{- end }}
 	{{- end }}
 }
 

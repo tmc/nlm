@@ -54,6 +54,10 @@ const (
 	LabsTailwindOrchestrationService_GenerateNotebookGuide_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateNotebookGuide"
 	LabsTailwindOrchestrationService_GenerateOutline_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateOutline"
 	LabsTailwindOrchestrationService_GenerateReportSuggestions_FullMethodName   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateReportSuggestions"
+	LabsTailwindOrchestrationService_GenerateSection_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateSection"
+	LabsTailwindOrchestrationService_StartDraft_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDraft"
+	LabsTailwindOrchestrationService_StartSection_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartSection"
+	LabsTailwindOrchestrationService_GenerateMagicView_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateMagicView"
 	LabsTailwindOrchestrationService_GetProjectAnalytics_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetProjectAnalytics"
 	LabsTailwindOrchestrationService_SubmitFeedback_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/SubmitFeedback"
 	LabsTailwindOrchestrationService_GetOrCreateAccount_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetOrCreateAccount"
@@ -102,6 +106,10 @@ type LabsTailwindOrchestrationServiceClient interface {
 	GenerateNotebookGuide(ctx context.Context, in *GenerateNotebookGuideRequest, opts ...grpc.CallOption) (*GenerateNotebookGuideResponse, error)
 	GenerateOutline(ctx context.Context, in *GenerateOutlineRequest, opts ...grpc.CallOption) (*GenerateOutlineResponse, error)
 	GenerateReportSuggestions(ctx context.Context, in *GenerateReportSuggestionsRequest, opts ...grpc.CallOption) (*GenerateReportSuggestionsResponse, error)
+	GenerateSection(ctx context.Context, in *GenerateSectionRequest, opts ...grpc.CallOption) (*GenerateSectionResponse, error)
+	StartDraft(ctx context.Context, in *StartDraftRequest, opts ...grpc.CallOption) (*StartDraftResponse, error)
+	StartSection(ctx context.Context, in *StartSectionRequest, opts ...grpc.CallOption) (*StartSectionResponse, error)
+	GenerateMagicView(ctx context.Context, in *GenerateMagicViewRequest, opts ...grpc.CallOption) (*GenerateMagicViewResponse, error)
 	// Analytics and feedback
 	GetProjectAnalytics(ctx context.Context, in *GetProjectAnalyticsRequest, opts ...grpc.CallOption) (*ProjectAnalytics, error)
 	SubmitFeedback(ctx context.Context, in *SubmitFeedbackRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -429,6 +437,42 @@ func (c *labsTailwindOrchestrationServiceClient) GenerateReportSuggestions(ctx c
 	return out, nil
 }
 
+func (c *labsTailwindOrchestrationServiceClient) GenerateSection(ctx context.Context, in *GenerateSectionRequest, opts ...grpc.CallOption) (*GenerateSectionResponse, error) {
+	out := new(GenerateSectionResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GenerateSection_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) StartDraft(ctx context.Context, in *StartDraftRequest, opts ...grpc.CallOption) (*StartDraftResponse, error) {
+	out := new(StartDraftResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_StartDraft_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) StartSection(ctx context.Context, in *StartSectionRequest, opts ...grpc.CallOption) (*StartSectionResponse, error) {
+	out := new(StartSectionResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_StartSection_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GenerateMagicView(ctx context.Context, in *GenerateMagicViewRequest, opts ...grpc.CallOption) (*GenerateMagicViewResponse, error) {
+	out := new(GenerateMagicViewResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GenerateMagicView_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *labsTailwindOrchestrationServiceClient) GetProjectAnalytics(ctx context.Context, in *GetProjectAnalyticsRequest, opts ...grpc.CallOption) (*ProjectAnalytics, error) {
 	out := new(ProjectAnalytics)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetProjectAnalytics_FullMethodName, in, out, opts...)
@@ -507,6 +551,10 @@ type LabsTailwindOrchestrationServiceServer interface {
 	GenerateNotebookGuide(context.Context, *GenerateNotebookGuideRequest) (*GenerateNotebookGuideResponse, error)
 	GenerateOutline(context.Context, *GenerateOutlineRequest) (*GenerateOutlineResponse, error)
 	GenerateReportSuggestions(context.Context, *GenerateReportSuggestionsRequest) (*GenerateReportSuggestionsResponse, error)
+	GenerateSection(context.Context, *GenerateSectionRequest) (*GenerateSectionResponse, error)
+	StartDraft(context.Context, *StartDraftRequest) (*StartDraftResponse, error)
+	StartSection(context.Context, *StartSectionRequest) (*StartSectionResponse, error)
+	GenerateMagicView(context.Context, *GenerateMagicViewRequest) (*GenerateMagicViewResponse, error)
 	// Analytics and feedback
 	GetProjectAnalytics(context.Context, *GetProjectAnalyticsRequest) (*ProjectAnalytics, error)
 	SubmitFeedback(context.Context, *SubmitFeedbackRequest) (*emptypb.Empty, error)
@@ -615,6 +663,18 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateOutline(conte
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateReportSuggestions(context.Context, *GenerateReportSuggestionsRequest) (*GenerateReportSuggestionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateReportSuggestions not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateSection(context.Context, *GenerateSectionRequest) (*GenerateSectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateSection not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) StartDraft(context.Context, *StartDraftRequest) (*StartDraftResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartDraft not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) StartSection(context.Context, *StartSectionRequest) (*StartSectionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartSection not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateMagicView(context.Context, *GenerateMagicViewRequest) (*GenerateMagicViewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateMagicView not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetProjectAnalytics(context.Context, *GetProjectAnalyticsRequest) (*ProjectAnalytics, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProjectAnalytics not implemented")
@@ -1221,6 +1281,78 @@ func _LabsTailwindOrchestrationService_GenerateReportSuggestions_Handler(srv int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_GenerateSection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateSectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateSection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GenerateSection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateSection(ctx, req.(*GenerateSectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_StartDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDraft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_StartDraft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDraft(ctx, req.(*StartDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_StartSection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartSectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartSection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_StartSection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartSection(ctx, req.(*StartSectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GenerateMagicView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateMagicViewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateMagicView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GenerateMagicView_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateMagicView(ctx, req.(*GenerateMagicViewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_GetProjectAnalytics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetProjectAnalyticsRequest)
 	if err := dec(in); err != nil {
@@ -1423,6 +1555,22 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GenerateReportSuggestions",
 			Handler:    _LabsTailwindOrchestrationService_GenerateReportSuggestions_Handler,
+		},
+		{
+			MethodName: "GenerateSection",
+			Handler:    _LabsTailwindOrchestrationService_GenerateSection_Handler,
+		},
+		{
+			MethodName: "StartDraft",
+			Handler:    _LabsTailwindOrchestrationService_StartDraft_Handler,
+		},
+		{
+			MethodName: "StartSection",
+			Handler:    _LabsTailwindOrchestrationService_StartSection_Handler,
+		},
+		{
+			MethodName: "GenerateMagicView",
+			Handler:    _LabsTailwindOrchestrationService_GenerateMagicView_Handler,
 		},
 		{
 			MethodName: "GetProjectAnalytics",

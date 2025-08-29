@@ -6,10 +6,10 @@ import (
 
 // GENERATION_BEHAVIOR: append
 
-// EncodeDeleteAudioOverviewArgs encodes arguments for LabsTailwindOrchestrationService.DeleteAudioOverview
-// RPC ID: sJDbic
+// EncodeStartSectionArgs encodes arguments for LabsTailwindOrchestrationService.StartSection
+// RPC ID: pGC7gf
 // Argument format: [%project_id%]
-func EncodeDeleteAudioOverviewArgs(req *notebooklmv1alpha1.DeleteAudioOverviewRequest) []interface{} {
+func EncodeStartSectionArgs(req *notebooklmv1alpha1.StartSectionRequest) []interface{} {
 	// Single project ID encoding
 	return []interface{}{req.GetProjectId()}
 }

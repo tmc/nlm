@@ -4,6 +4,8 @@ syntax = "proto3";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/any.proto";
+import "notebooklm/v1alpha1/rpc_extensions.proto";
 
 package notebooklm.v1alpha1;
 
@@ -159,147 +161,168 @@ message ListRecentlyViewedProjectsResponse {
   repeated Project projects = 1;
 }
 
+// Additional message not in sharing.proto
+message ShareOptions {
+    bool public = 1;
+    repeated string emails = 2;
+}
 
+// Note: The NotebookLM service request/response types are defined in orchestration.proto
 
 /*
 service NotebookLM {
     // Notebook/Project operations
     rpc ListRecentlyViewedProjects(google.protobuf.Empty) returns (ListRecentlyViewedProjectsResponse) {
         option (rpc_id) = "wXbhsf";
+        option (arg_format) = "[null, 1, null, [2]]";
     }
     rpc CreateProject(CreateNotebookRequest) returns (Project) {
         option (rpc_id) = "CCqFvf";
+        option (arg_format) = "[%title%, %emoji%]";
     }
     rpc GetProject(LoadNotebookRequest) returns (Project) {
         option (rpc_id) = "rLM1Ne";
+        option (arg_format) = "[%project_id%]";
     }
     rpc DeleteProjects(DeleteProjectsRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "WWINqb";
+        option (arg_format) = "[%project_ids%]";
     }
     rpc MutateProject(MutateProjectRequest) returns (Project) {
         option (rpc_id) = "s0tc2d";
+        option (arg_format) = "[%project_id%, %updates%]";
     }
     rpc RemoveRecentlyViewedProject(RemoveRecentlyViewedProjectRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "fejl7e";
+        option (arg_format) = "[%project_id%]";
     }
 
     // Source operations
     rpc AddSources(AddSourceRequest) returns (Source) {
         option (rpc_id) = "izAoDd";
+        option (arg_format) = "[%sources%, %project_id%]";
     }
     rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "tGMBJ";
+        option (arg_format) = "[[%source_ids%]]";
     }
     rpc MutateSource(MutateSourceRequest) returns (Source) {
         option (rpc_id) = "b7Wfje";
+        option (arg_format) = "[%source_id%, %updates%]";
     }
     rpc RefreshSource(RefreshSourceRequest) returns (Source) {
         option (rpc_id) = "FLmJqe";
+        option (arg_format) = "[%source_id%]";
     }
     rpc LoadSource(LoadSourceRequest) returns (Source) {
         option (rpc_id) = "hizoJc";
+        option (arg_format) = "[%source_id%]";
     }
     rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse) {
         option (rpc_id) = "yR9Yof";
+        option (arg_format) = "[%source_id%]";
     }
     rpc ActOnSources(ActOnSourcesRequest) returns (ActOnSourcesResponse) {
         option (rpc_id) = "yyryJe";
+        option (arg_format) = "[%project_id%, %action%, %source_ids%]";
     }
 
     // Note operations
     rpc CreateNote(CreateNoteRequest) returns (Note) {
         option (rpc_id) = "CYK0Xb";
+        option (arg_format) = "[%project_id%, %title%, %content%]";
     }
     rpc MutateNote(UpdateNoteRequest) returns (Note) {
         option (rpc_id) = "cYAfTb";
+        option (arg_format) = "[%note_id%, %title%, %content%]";
     }
     rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "AH0mwd";
+        option (arg_format) = "[%note_ids%]";
     }
     rpc GetNotes(GetNotesRequest) returns (GetNotesResponse) {
         option (rpc_id) = "cFji9";
+        option (arg_format) = "[%project_id%]";
     }
 
     // Audio operations
     rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview) {
         option (rpc_id) = "AHyHrd";
+        option (arg_format) = "[%project_id%]";
     }
     rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
         option (rpc_id) = "VUsiyb";
+        option (arg_format) = "[%project_id%]";
     }
     rpc DeleteAudioOverview(DeleteAudioOverviewRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "sJDbic";
+        option (arg_format) = "[%project_id%]";
     }
 
     // Generation operations
     rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
         option (rpc_id) = "tr032e";
+        option (arg_format) = "[%project_id%, %document_id%]";
     }
     rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {
         option (rpc_id) = "VfAZjd";
+        option (arg_format) = "[%project_id%]";
     }
     rpc GenerateOutline(GenerateOutlineRequest) returns (GenerateOutlineResponse) {
         option (rpc_id) = "lCjAd";
+        option (arg_format) = "[%project_id%, %topic%]";
     }
     rpc GenerateSection(GenerateSectionRequest) returns (GenerateSectionResponse) {
         option (rpc_id) = "BeTrYd";
+        option (arg_format) = "[%project_id%, %section_id%]";
     }
     rpc StartDraft(StartDraftRequest) returns (StartDraftResponse) {
         option (rpc_id) = "exXvGf";
+        option (arg_format) = "[%project_id%]";
     }
     rpc StartSection(StartSectionRequest) returns (StartSectionResponse) {
         option (rpc_id) = "pGC7gf";
+        option (arg_format) = "[%project_id%, %section_id%]";
+    }
+    rpc GenerateMagicView(GenerateMagicViewRequest) returns (GenerateMagicViewResponse) {
+        option (rpc_id) = "uK8f7c";
+        option (arg_format) = "[%project_id%, %source_ids%]";
     }
 
     // Account operations
     rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account) {
         option (rpc_id) = "ZwVcOc";
+        option (arg_format) = "[]";
     }
     rpc MutateAccount(MutateAccountRequest) returns (Account) {
         option (rpc_id) = "hT54vc";
+        option (arg_format) = "[%updates%]";
     }
 
     // Analytics operations
     rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics) {
         option (rpc_id) = "AUrzMb";
+        option (arg_format) = "[%project_id%]";
     }
     rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "uNyJKe";
-    }
-}
-
-// Sharing service
-service NotebookLMSharing {
-    rpc ShareAudio(ShareAudioRequest) returns (ShareAudioResponse) {
-        option (rpc_id) = "RGP97b";
-    }
-    rpc GetProjectDetails(GetProjectDetailsRequest) returns (ProjectDetails) {
-        option (rpc_id) = "JFMDGd";
-    }
-    rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse) {
-        option (rpc_id) = "QDyure";
-    }
-}
-
-// Guidebooks service
-service NotebookLMGuidebooks {
-    rpc DeleteGuidebook(DeleteGuidebookRequest) returns (google.protobuf.Empty) {
-        option (rpc_id) = "ARGkVc";
-    }
-    rpc GetGuidebook(GetGuidebookRequest) returns (Guidebook) {
-        option (rpc_id) = "EYqtU";
-    }
-    rpc ListRecentlyViewedGuidebooks(ListRecentlyViewedGuidebooksRequest) returns (ListRecentlyViewedGuidebooksResponse) {
-        option (rpc_id) = "YJBpHc";
-    }
-    rpc PublishGuidebook(PublishGuidebookRequest) returns (Guidebook) {
-        option (rpc_id) = "R6smae";
-    }
-    rpc GetGuidebookDetails(GetGuidebookDetailsRequest) returns (GuidebookDetails) {
-        option (rpc_id) = "LJyzeb";
-    }
-    rpc ShareGuidebook(ShareGuidebookRequest) returns (ShareGuidebookResponse) {
-        option (rpc_id) = "OTl0K";
+        option (arg_format) = "[%feedback%, %project_id%]";
     }
 }
 */
+
+message GenerateMagicViewRequest {
+    string project_id = 1;
+    repeated string source_ids = 2;
+}
+
+message MagicViewItem {
+    string title = 1;
+}
+
+message GenerateMagicViewResponse {
+    string title = 1;
+    repeated MagicViewItem items = 4;
+}
+
+// Sharing and Guidebooks services are defined in sharing.proto

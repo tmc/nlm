@@ -329,44 +329,163 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 
 // CreateAudioOverview calls the CreateAudioOverview RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewRequest) (*notebooklmv1alpha1.AudioOverview, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("CreateAudioOverview: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "AHyHrd",
+		Args: method.EncodeCreateAudioOverviewArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CreateAudioOverview: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.AudioOverview
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CreateAudioOverview: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GetAudioOverview calls the GetAudioOverview RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GetAudioOverview(ctx context.Context, req *notebooklmv1alpha1.GetAudioOverviewRequest) (*notebooklmv1alpha1.AudioOverview, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GetAudioOverview: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "VUsiyb",
+		Args: method.EncodeGetAudioOverviewArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetAudioOverview: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.AudioOverview
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetAudioOverview: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // DeleteAudioOverview calls the DeleteAudioOverview RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context.Context, req *notebooklmv1alpha1.DeleteAudioOverviewRequest) (*emptypb.Empty, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("DeleteAudioOverview: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "sJDbic",
+		Args: method.EncodeDeleteAudioOverviewArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteAudioOverview: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("DeleteAudioOverview: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // CreateNote calls the CreateNote RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, req *notebooklmv1alpha1.CreateNoteRequest) (*notebooklmv1alpha1.Source, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("CreateNote: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "CYK0Xb",
+		Args: method.EncodeCreateNoteArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CreateNote: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Source
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CreateNote: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // DeleteNotes calls the DeleteNotes RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context, req *notebooklmv1alpha1.DeleteNotesRequest) (*emptypb.Empty, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("DeleteNotes: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "AH0mwd",
+		Args: method.EncodeDeleteNotesArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteNotes: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("DeleteNotes: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GetNotes calls the GetNotes RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, req *notebooklmv1alpha1.GetNotesRequest) (*notebooklmv1alpha1.GetNotesResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GetNotes: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "cFji9",
+		Args: method.EncodeGetNotesArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetNotes: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetNotesResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetNotes: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // MutateNote calls the MutateNote RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context, req *notebooklmv1alpha1.MutateNoteRequest) (*notebooklmv1alpha1.Source, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("MutateNote: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "cYAfTb",
+		Args: method.EncodeMutateNoteArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("MutateNote: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Source
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("MutateNote: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // CreateProject calls the CreateProject RPC method.
@@ -532,54 +651,299 @@ func (c *LabsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx
 
 // GenerateDocumentGuides calls the GenerateDocumentGuides RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx context.Context, req *notebooklmv1alpha1.GenerateDocumentGuidesRequest) (*notebooklmv1alpha1.GenerateDocumentGuidesResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GenerateDocumentGuides: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "tr032e",
+		Args: method.EncodeGenerateDocumentGuidesArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateDocumentGuides: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateDocumentGuidesResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateDocumentGuides: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GenerateFreeFormStreamed calls the GenerateFreeFormStreamed RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamed(ctx context.Context, req *notebooklmv1alpha1.GenerateFreeFormStreamedRequest) (*notebooklmv1alpha1.GenerateFreeFormStreamedResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GenerateFreeFormStreamed: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "BD",
+		Args: method.EncodeGenerateFreeFormStreamedArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateFreeFormStreamed: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateFreeFormStreamedResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateFreeFormStreamed: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GenerateNotebookGuide calls the GenerateNotebookGuide RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateNotebookGuide(ctx context.Context, req *notebooklmv1alpha1.GenerateNotebookGuideRequest) (*notebooklmv1alpha1.GenerateNotebookGuideResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GenerateNotebookGuide: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "VfAZjd",
+		Args: method.EncodeGenerateNotebookGuideArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateNotebookGuide: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateNotebookGuideResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateNotebookGuide: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GenerateOutline calls the GenerateOutline RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateOutline(ctx context.Context, req *notebooklmv1alpha1.GenerateOutlineRequest) (*notebooklmv1alpha1.GenerateOutlineResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GenerateOutline: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "lCjAd",
+		Args: method.EncodeGenerateOutlineArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateOutline: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateOutlineResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateOutline: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GenerateReportSuggestions calls the GenerateReportSuggestions RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateReportSuggestions(ctx context.Context, req *notebooklmv1alpha1.GenerateReportSuggestionsRequest) (*notebooklmv1alpha1.GenerateReportSuggestionsResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GenerateReportSuggestions: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "GHsKob",
+		Args: method.EncodeGenerateReportSuggestionsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateReportSuggestions: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateReportSuggestionsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateReportSuggestions: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GenerateSection calls the GenerateSection RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GenerateSection(ctx context.Context, req *notebooklmv1alpha1.GenerateSectionRequest) (*notebooklmv1alpha1.GenerateSectionResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "BeTrYd",
+		Args: method.EncodeGenerateSectionArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateSection: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateSectionResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateSection: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// StartDraft calls the StartDraft RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) StartDraft(ctx context.Context, req *notebooklmv1alpha1.StartDraftRequest) (*notebooklmv1alpha1.StartDraftResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "exXvGf",
+		Args: method.EncodeStartDraftArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("StartDraft: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.StartDraftResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("StartDraft: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// StartSection calls the StartSection RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) StartSection(ctx context.Context, req *notebooklmv1alpha1.StartSectionRequest) (*notebooklmv1alpha1.StartSectionResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "pGC7gf",
+		Args: method.EncodeStartSectionArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("StartSection: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.StartSectionResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("StartSection: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GenerateMagicView calls the GenerateMagicView RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GenerateMagicView(ctx context.Context, req *notebooklmv1alpha1.GenerateMagicViewRequest) (*notebooklmv1alpha1.GenerateMagicViewResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "uK8f7c",
+		Args: method.EncodeGenerateMagicViewArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateMagicView: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateMagicViewResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateMagicView: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GetProjectAnalytics calls the GetProjectAnalytics RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GetProjectAnalytics(ctx context.Context, req *notebooklmv1alpha1.GetProjectAnalyticsRequest) (*notebooklmv1alpha1.ProjectAnalytics, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GetProjectAnalytics: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "AUrzMb",
+		Args: method.EncodeGetProjectAnalyticsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetProjectAnalytics: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ProjectAnalytics
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetProjectAnalytics: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // SubmitFeedback calls the SubmitFeedback RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) SubmitFeedback(ctx context.Context, req *notebooklmv1alpha1.SubmitFeedbackRequest) (*emptypb.Empty, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("SubmitFeedback: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "uNyJKe",
+		Args: method.EncodeSubmitFeedbackArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("SubmitFeedback: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("SubmitFeedback: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GetOrCreateAccount calls the GetOrCreateAccount RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GetOrCreateAccount(ctx context.Context, req *notebooklmv1alpha1.GetOrCreateAccountRequest) (*notebooklmv1alpha1.Account, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GetOrCreateAccount: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "ZwVcOc",
+		Args: method.EncodeGetOrCreateAccountArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetOrCreateAccount: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Account
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetOrCreateAccount: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // MutateAccount calls the MutateAccount RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) MutateAccount(ctx context.Context, req *notebooklmv1alpha1.MutateAccountRequest) (*notebooklmv1alpha1.Account, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("MutateAccount: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "hT54vc",
+		Args: method.EncodeMutateAccountArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("MutateAccount: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Account
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("MutateAccount: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }

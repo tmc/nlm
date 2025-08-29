@@ -8,8 +8,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/rpc"
 )
 
@@ -27,18 +29,69 @@ func NewLabsTailwindSharingServiceClient(authToken, cookies string, opts ...batc
 
 // ShareAudio calls the ShareAudio RPC method.
 func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *notebooklmv1alpha1.ShareAudioRequest) (*notebooklmv1alpha1.ShareAudioResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("ShareAudio: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "RGP97b",
+		Args: method.EncodeShareAudioArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ShareAudio: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ShareAudioResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ShareAudio: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GetProjectDetails calls the GetProjectDetails RPC method.
 func (c *LabsTailwindSharingServiceClient) GetProjectDetails(ctx context.Context, req *notebooklmv1alpha1.GetProjectDetailsRequest) (*notebooklmv1alpha1.ProjectDetails, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GetProjectDetails: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "JFMDGd",
+		Args: method.EncodeGetProjectDetailsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetProjectDetails: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ProjectDetails
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetProjectDetails: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // ShareProject calls the ShareProject RPC method.
 func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req *notebooklmv1alpha1.ShareProjectRequest) (*notebooklmv1alpha1.ShareProjectResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("ShareProject: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "QDyure",
+		Args: method.EncodeShareProjectArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ShareProject: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ShareProjectResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ShareProject: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }

@@ -1,0 +1,119 @@
+# Test dual pathway integration - both legacy and generated client paths
+# This test covers all migrated operations with both UseGeneratedClient=false and UseGeneratedClient=true
+
+# Test project operations with both pathways
+
+# Test 1: List projects - Legacy pathway (UseGeneratedClient=false)
+env NLM_USE_GENERATED_CLIENT=false
+env NLM_AUTH_TOKEN=test-token  
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test list
+# Should fail gracefully - we don't have real server but should show proper error handling
+
+# Test 2: List projects - Generated pathway (UseGeneratedClient=true) 
+env NLM_USE_GENERATED_CLIENT=true
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test list
+# Should fail gracefully - we don't have real server but should show proper error handling
+
+# Test 3: Create project validation - both pathways should behave identically
+env NLM_USE_GENERATED_CLIENT=false
+! exec ./nlm_test create
+stderr 'usage: nlm create <title>'
+
+env NLM_USE_GENERATED_CLIENT=true
+! exec ./nlm_test create  
+stderr 'usage: nlm create <title>'
+
+# Test 4: Source operations validation - both pathways should behave identically
+env NLM_USE_GENERATED_CLIENT=false
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+
+env NLM_USE_GENERATED_CLIENT=true
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+
+# Test 5: Add source validation - both pathways should behave identically  
+env NLM_USE_GENERATED_CLIENT=false
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+
+env NLM_USE_GENERATED_CLIENT=true
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+
+# Test 6: Note operations validation - both pathways should behave identically
+env NLM_USE_GENERATED_CLIENT=false
+! exec ./nlm_test notes
+stderr 'usage: nlm notes <notebook-id>'
+
+env NLM_USE_GENERATED_CLIENT=true
+! exec ./nlm_test notes
+stderr 'usage: nlm notes <notebook-id>'
+
+# Test 7: Create note validation - both pathways should behave identically
+env NLM_USE_GENERATED_CLIENT=false
+! exec ./nlm_test new-note
+stderr 'usage: nlm new-note <notebook-id> <title>'
+
+env NLM_USE_GENERATED_CLIENT=true
+! exec ./nlm_test new-note
+stderr 'usage: nlm new-note <notebook-id> <title>'
+
+# Test 8: Audio operations validation - both pathways should behave identically
+env NLM_USE_GENERATED_CLIENT=false
+! exec ./nlm_test audio-create
+stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+
+env NLM_USE_GENERATED_CLIENT=true
+! exec ./nlm_test audio-create
+stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+
+# Test 9: Audio get validation - both pathways should behave identically
+env NLM_USE_GENERATED_CLIENT=false
+! exec ./nlm_test audio-get
+stderr 'usage: nlm audio-get <notebook-id>'
+
+env NLM_USE_GENERATED_CLIENT=true
+! exec ./nlm_test audio-get
+stderr 'usage: nlm audio-get <notebook-id>'
+
+# Test 10: Debug mode should work with both pathways
+env NLM_USE_GENERATED_CLIENT=false
+env NLM_DEBUG=true
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test list
+# Should show debug output and fail gracefully
+
+env NLM_USE_GENERATED_CLIENT=true  
+env NLM_DEBUG=true
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test list
+# Should show debug output and fail gracefully
+
+# Test 11: Help commands should work regardless of pathway setting
+env NLM_USE_GENERATED_CLIENT=false
+exec ./nlm_test help
+stderr 'Usage: nlm <command>'
+
+env NLM_USE_GENERATED_CLIENT=true
+exec ./nlm_test help  
+stderr 'Usage: nlm <command>'
+
+# Test 12: Auth requirement messages should be consistent across pathways
+env NLM_USE_GENERATED_CLIENT=false
+# Clear auth variables
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+! exec ./nlm_test list
+stderr 'Authentication required'
+
+env NLM_USE_GENERATED_CLIENT=true
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+! exec ./nlm_test list
+stderr 'Authentication required'
