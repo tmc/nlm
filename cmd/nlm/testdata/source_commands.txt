@@ -1,0 +1,357 @@
+# Test all source-related commands with comprehensive validation
+# Tests include: argument validation, authentication requirements, error handling
+
+# === SOURCES COMMAND ===
+# Test sources without arguments (should fail with usage)
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+! stderr 'panic'
+
+# Test sources with too many arguments (should fail with usage)
+! exec ./nlm_test sources notebook123 extra
+stderr 'usage: nlm sources <notebook-id>'
+! stderr 'panic'
+
+# Test sources without authentication (should fail)
+! exec ./nlm_test sources notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test sources with valid authentication but invalid notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test sources invalid-notebook-id
+stderr 'list sources:'
+! stderr 'panic'
+
+# Test sources with empty notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test sources ""
+stderr 'list sources:'
+! stderr 'panic'
+
+# Test sources with special characters in notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test sources 'notebook!@#$%^&*()'
+stderr 'list sources:'
+! stderr 'panic'
+
+# Test sources with whitespace-only notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test sources "   "
+stderr 'usage: nlm sources <notebook-id>'
+! stderr 'panic'
+
+# Test sources with unicode characters in notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test sources 'notebook-你好-مرحبا'
+stderr 'list sources:'
+! stderr 'panic'
+
+# === ADD COMMAND ===
+# Test add without arguments (should fail with usage)
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+! stderr 'panic'
+
+# Test add with only one argument (should fail with usage)
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
+! stderr 'panic'
+
+# Test add with too many arguments (should fail with usage)
+! exec ./nlm_test add notebook123 file.txt extra
+stderr 'usage: nlm add <notebook-id> <file>'
+! stderr 'panic'
+
+# Test add without authentication (should fail)
+! exec ./nlm_test add notebook123 file.txt
+stderr 'extract source ID'
+! stderr 'panic'
+
+# Test add with valid authentication but invalid notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add invalid-notebook-id file.txt
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test add with empty notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add "" file.txt
+stderr 'extract source ID'
+! stderr 'panic'
+
+# Test add with empty file parameter
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 ""
+stderr 'extract source ID'
+! stderr 'panic'
+
+# Test add with non-existent file
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 /nonexistent/file.txt
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test add with URL (valid format)
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 https://example.com/document.pdf
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test add with text content (quoted)
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 "This is some text content to add as a source"
+stderr 'usage: nlm add <notebook-id> <file>'
+! stderr 'panic'
+
+# Test add with text containing special characters
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 'Text with "quotes" and '\''apostrophes'\'' and symbols !@#$%^&*()'
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test add with text containing newlines
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 'Line 1\nLine 2\nLine 3'
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test add with very long text content
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.'
+stderr 'nlm:'
+! stderr 'panic'
+
+# === RM-SOURCE COMMAND ===
+# Test rm-source without arguments (should fail with usage)
+! exec ./nlm_test rm-source
+stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+! stderr 'panic'
+
+# Test rm-source with only one argument (should fail with usage)
+! exec ./nlm_test rm-source notebook123
+stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+! stderr 'panic'
+
+# Test rm-source with too many arguments (should fail with usage)
+! exec ./nlm_test rm-source notebook123 source456 extra
+stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+! stderr 'panic'
+
+# Test rm-source without authentication (should fail)
+! exec ./nlm_test rm-source notebook123 source456
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test rm-source with valid authentication but invalid notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-source invalid-notebook-id source456
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test rm-source with empty notebook ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-source "" source456
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test rm-source with empty source ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-source notebook123 ""
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test rm-source with both empty IDs
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-source "" ""
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test rm-source with invalid source ID format
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-source notebook123 invalid-source-id
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test rm-source with special characters in source ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-source notebook123 'source!@#$%^&*()'
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# === CHECK-SOURCE COMMAND ===
+# Test check-source without arguments (should fail with usage)
+! exec ./nlm_test check-source
+stderr 'usage: nlm check-source <source-id>'
+! stderr 'panic'
+
+# Test check-source with too many arguments (should fail with usage)
+! exec ./nlm_test check-source source123 extra
+stderr 'usage: nlm check-source <source-id>'
+! stderr 'panic'
+
+# Test check-source without authentication (should fail)
+! exec ./nlm_test check-source source123
+stderr 'Checking source source123'
+stderr 'check source:'
+! stderr 'panic'
+
+# Test check-source with valid authentication but invalid source ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test check-source invalid-source-id
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test check-source with empty source ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test check-source ""
+stderr 'Checking source ""'
+stderr 'check source:'
+! stderr 'panic'
+
+# Test check-source with special characters in source ID
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test check-source 'source!@#$%^&*()'
+stderr 'nlm:'
+! stderr 'panic'
+
+# === CROSS-COMMAND VALIDATION ===
+# Test that source commands require authentication even with debug flag
+! exec ./nlm_test -debug sources notebook123
+stderr 'list sources:'
+! stderr 'panic'
+
+# Test that source commands work with chunked flag (should still require auth)
+! exec ./nlm_test -chunked add notebook123 file.txt
+stderr 'add text source: execute rpc: API error 16'
+! stderr 'panic'
+
+# Test that source commands work with combined flags
+! exec ./nlm_test -debug -chunked rm-source notebook123 source456
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test source commands with debug flag to check internal handling
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug sources notebook123
+stderr 'list sources:'
+! stderr 'panic'
+
+# Test add command with debug flag to see processing details
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug add notebook123 "https://example.com/test.pdf"
+stderr 'nlm:'
+! stderr 'panic'
+
+# === INPUT TYPE VALIDATION ===
+# Test add with different types of valid inputs
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 "https://www.google.com"
+stderr 'nlm:'
+! stderr 'panic'
+
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 "https://drive.google.com/file/d/abc123/view"
+stderr 'nlm:'
+! stderr 'panic'
+
+# === SECURITY AND INJECTION TESTS ===
+# Test add with potential injection attempts in text content
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 '"; DROP TABLE sources; --'
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test add with JSON injection attempt
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 '{"malicious": "payload"}'
+stderr 'nlm:'
+! stderr 'panic'
+
+# Test source IDs with potential injection attempts
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-source notebook123 '../../../etc/passwd'
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test check-source '<script>alert("xss")</script>'
+stderr 'nlm:'
+! stderr 'panic'
+
+# === ERROR RECOVERY ===
+# Test that commands don't leave the CLI in a bad state after errors
+! exec ./nlm_test sources invalid-notebook
+stderr 'list sources:'
+exec ./nlm_test help
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+# Test sequential source commands after failures
+! exec ./nlm_test sources notebook123
+stderr 'list sources:'
+! exec ./nlm_test add notebook123 file.txt
+stderr 'extract source ID'
+! exec ./nlm_test rm-source notebook123 source456
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! exec ./nlm_test check-source source123
+stderr 'Checking source source123'
+stderr 'check source:'
+! stderr 'panic'
+
+# Test recovery after argument validation errors
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
+exec ./nlm_test help
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+# Test command execution with mixed valid/invalid sequences
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+! exec ./nlm_test sources notebook123
+stderr 'list sources:'
+! exec ./nlm_test add notebook123 "test content"
+stderr 'nlm:'
+! exec ./nlm_test rm-source notebook123 source456
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# === ENVIRONMENT VARIABLE HANDLING ===
+# Test commands with partial authentication (only token, no cookies)
+env NLM_AUTH_TOKEN=test-token
+! exec ./nlm_test sources notebook123
+stderr 'list sources:'
+! stderr 'panic'
+
+# Test commands with partial authentication (only cookies, no token)
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test add notebook123 file.txt
+stderr 'extract source ID'
+! stderr 'panic'
+
+# Test commands with empty authentication values
+env NLM_AUTH_TOKEN="" NLM_COOKIES=""
+! exec ./nlm_test rm-source notebook123 source456
+stdout 'Are you sure you want to remove source'
+stderr 'operation cancelled'
+! stderr 'panic'
+
+# Test commands with whitespace-only authentication values
+env NLM_AUTH_TOKEN="   " NLM_COOKIES="   "
+! exec ./nlm_test check-source source123
+stderr 'Checking source source123'
+stderr 'check source:'
+! stderr 'panic'

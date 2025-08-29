@@ -1,0 +1,343 @@
+# Test note command functionality
+# This test file covers all note-related commands: notes, new-note, update-note, rm-note
+# Tests validation, authentication requirements, edge cases, and error recovery
+
+# Test notes command - list notes for a notebook
+# Test without arguments (should show usage)
+! exec ./nlm_test notes
+stderr 'usage: nlm notes <notebook-id>'
+! stderr 'panic'
+
+# Test with too many arguments (should show usage)  
+! exec ./nlm_test notes notebook123 extra-arg
+stderr 'usage: nlm notes <notebook-id>'
+! stderr 'panic'
+
+# Test without authentication (should fail with auth required)
+! exec ./nlm_test notes notebook123
+stderr 'Authentication required for.*notes.*Run.*nlm auth.*first'
+! stderr 'panic'
+
+# Test with valid auth but potentially invalid notebook ID (will fail with API error)
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test notes notebook123
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test notes command with debug flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug notes notebook123
+! stderr 'panic'
+
+# Test notes command with chunked flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -chunked notes notebook123
+! stderr 'panic'
+
+# Test notes command with empty notebook ID
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test notes ""
+! stderr 'panic'
+
+# Test notes command with special characters in notebook ID
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test notes "notebook-with-special-chars!@#$%"
+! stderr 'panic'
+
+# Clear environment for next test section
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+
+# Test new-note command - create a new note with title
+# Test without arguments (should show usage)
+! exec ./nlm_test new-note
+stderr 'usage: nlm new-note <notebook-id> <title>'
+! stderr 'panic'
+
+# Test with one argument (should show usage)
+! exec ./nlm_test new-note notebook123
+stderr 'usage: nlm new-note <notebook-id> <title>'
+! stderr 'panic'
+
+# Test with too many arguments (should show usage)
+! exec ./nlm_test new-note notebook123 "My Note Title" extra-arg
+stderr 'usage: nlm new-note <notebook-id> <title>'
+! stderr 'panic'
+
+# Test without authentication (should fail with auth required)
+! exec ./nlm_test new-note notebook123 'My Note Title'
+stderr 'Authentication required for.*new-note.*Run.*nlm auth.*first'
+! stderr 'panic'
+
+# Test with valid auth
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 "My Note Title"
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test new-note with empty title
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 ""
+! stderr 'panic'
+
+# Test new-note with title containing special characters
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 'Title with special chars: !@#$%^&*()_+-=[]{}|'
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test new-note with very long title
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 'This is a very long title that might exceed normal length limits and could potentially cause issues with the API or string handling in the application'
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test new-note with unicode characters
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 'Unicode title: 你好 世界 🌍 émojis'
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test new-note with debug flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug new-note notebook123 'Debug Test Note'
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test new-note with chunked flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -chunked new-note notebook123 'Chunked Test Note'
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Clear environment for next test section
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+
+# Test update-note command - update an existing note
+# Test without arguments (should show usage)
+! exec ./nlm_test update-note
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+# Test with one argument (should show usage)
+! exec ./nlm_test update-note notebook123
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+# Test with two arguments (should show usage)
+! exec ./nlm_test update-note notebook123 note456
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+# Test with three arguments (should show usage)
+! exec ./nlm_test update-note notebook123 note456 content
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+# Test with too many arguments (should show usage)
+! exec ./nlm_test update-note notebook123 note456 content title extra-arg
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+# Test without authentication (should fail with auth required)
+! exec ./nlm_test update-note notebook123 note456 content title
+stderr 'Authentication required for.*update-note.*Run.*nlm auth.*first'
+! stderr 'panic'
+
+# Test with valid auth
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test update-note notebook123 note456 content title
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test update-note with empty content
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test update-note notebook123 note456 "" title
+! stderr 'panic'
+
+# Test update-note with empty title
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test update-note notebook123 note456 content ""
+! stderr 'panic'
+
+# Test update-note with both empty content and title
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test update-note notebook123 note456 "" ""
+! stderr 'panic'
+
+# Test update-note with special characters in content and title
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test update-note notebook123 note456 special-content special-title
+! stderr 'panic'
+
+# Test update-note with very long content
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test update-note notebook123 note456 very-long-content-string long-title
+! stderr 'panic'
+
+# Test update-note with unicode characters
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test update-note notebook123 note456 unicode-content unicode-title
+! stderr 'panic'
+
+# Test update-note with debug flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug update-note notebook123 note456 debug-content debug-title
+! stderr 'panic'
+
+# Test update-note with chunked flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -chunked update-note notebook123 note456 chunked-content chunked-title
+! stderr 'panic'
+
+# Clear environment for next test section
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+
+# Test rm-note command - remove a note
+# Test without arguments (should show usage)
+! exec ./nlm_test rm-note
+stderr 'usage: nlm rm-note <notebook-id> <note-id>'
+! stderr 'panic'
+
+# Test with one argument (should show usage)
+! exec ./nlm_test rm-note notebook123
+stderr 'usage: nlm rm-note <notebook-id> <note-id>'
+! stderr 'panic'
+
+# Test with too many arguments (should show usage)
+! exec ./nlm_test rm-note notebook123 note456 extra-arg
+stderr 'usage: nlm rm-note <notebook-id> <note-id>'
+! stderr 'panic'
+
+# Test without authentication (should fail with auth required)
+! exec ./nlm_test rm-note notebook123 note456
+stderr 'Authentication required for.*rm-note.*Run.*nlm auth.*first'
+! stderr 'panic'
+
+# Test with valid auth
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-note notebook123 note456
+! stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rm-note with empty notebook ID
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-note "" note456
+! stderr 'panic'
+
+# Test rm-note with empty note ID
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-note notebook123 ""
+! stderr 'panic'
+
+# Test rm-note with both empty IDs
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-note "" ""
+! stderr 'panic'
+
+# Test rm-note with special characters in IDs
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test rm-note "notebook-with-special!@#" "note-with-special$%^"
+! stderr 'panic'
+
+# Test rm-note with debug flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug rm-note notebook123 note456
+! stderr 'panic'
+
+# Test rm-note with chunked flag
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -chunked rm-note notebook123 note456
+! stderr 'panic'
+
+# Clear environment for final cleanup
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+
+# Test mixed flag combinations with note commands
+# Test notes with multiple flags
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug -chunked notes notebook123
+! stderr 'panic'
+
+# Test new-note with multiple flags
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug -chunked new-note notebook123 "Multi-flag test"
+! stderr 'panic'
+
+# Test update-note with multiple flags
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug -chunked update-note notebook123 note456 multi-content multi-title
+! stderr 'panic'
+
+# Test rm-note with multiple flags
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test -debug -chunked rm-note notebook123 note456
+! stderr 'panic'
+
+# Final environment cleanup
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+
+# Test error recovery - ensure commands handle malformed input gracefully
+# Test with malformed JSON-like input (edge case)
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 malformed-json-title
+! stderr 'panic'
+
+# Test with newlines in arguments
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 title-with-newlines
+! stderr 'panic'
+
+# Test with tabs in arguments
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 title-with-tabs
+! stderr 'panic'
+
+# Test with backslashes and quotes
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test new-note notebook123 title-with-quotes-and-backslashes
+! stderr 'panic'
+
+# Final cleanup
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=

@@ -1,0 +1,86 @@
+# Test sharing commands validation and behavior
+
+# === ARGUMENT VALIDATION TESTS ===
+
+# Test share command validation - no arguments
+! exec ./nlm_test share
+stderr 'usage: nlm share <notebook-id>'
+stderr 'invalid arguments'
+! stderr 'panic'
+
+# Test share command validation - too many arguments
+! exec ./nlm_test share notebook123 extra-arg
+stderr 'usage: nlm share <notebook-id>'
+stderr 'invalid arguments'
+! stderr 'panic'
+
+# Test share-private command validation - no arguments
+! exec ./nlm_test share-private
+stderr 'usage: nlm share-private <notebook-id>'
+stderr 'invalid arguments'
+! stderr 'panic'
+
+# Test share-private command validation - too many arguments
+! exec ./nlm_test share-private notebook123 extra-arg
+stderr 'usage: nlm share-private <notebook-id>'
+stderr 'invalid arguments'
+! stderr 'panic'
+
+# Test share-details command validation - no arguments
+! exec ./nlm_test share-details
+stderr 'usage: nlm share-details <share-id>'
+stderr 'invalid arguments'
+! stderr 'panic'
+
+# Test share-details command validation - too many arguments
+! exec ./nlm_test share-details share123 extra-arg
+stderr 'usage: nlm share-details <share-id>'
+stderr 'invalid arguments'
+! stderr 'panic'
+
+# === AUTHENTICATION TESTS ===
+
+# Test commands without authentication (should require auth)
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+
+! exec ./nlm_test share test-notebook
+stderr 'Authentication required'
+! stderr 'panic'
+
+! exec ./nlm_test share-private test-notebook
+stderr 'Authentication required'
+! stderr 'panic'
+
+! exec ./nlm_test share-details test-share-id
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test with partial authentication (missing token)
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=test-cookies
+
+! exec ./nlm_test share test-notebook
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test with partial authentication (missing cookies)
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=
+
+! exec ./nlm_test share test-notebook
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === EDGE CASE TESTS ===
+
+# Test with empty string argument (passes validation, fails auth)
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+
+! exec ./nlm_test share ''
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Note: Additional functional tests with mock authentication can be added
+# but may cause timeouts in CI due to network call attempts
