@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -26,10 +27,12 @@ var (
 	debug         bool
 	chromeProfile string
 	mimeType      string
+	chunkedResponse bool  // Control rt=c parameter for chunked vs JSON array response
 )
 
 func init() {
 	flag.BoolVar(&debug, "debug", false, "enable debug output")
+	flag.BoolVar(&chunkedResponse, "chunked", false, "use chunked response format (rt=c)")
 	flag.StringVar(&chromeProfile, "profile", os.Getenv("NLM_BROWSER_PROFILE"), "Chrome profile to use")
 	flag.StringVar(&authToken, "auth", os.Getenv("NLM_AUTH_TOKEN"), "auth token (or set NLM_AUTH_TOKEN)")
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
@@ -75,7 +78,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-guide <id>  Generate notebook guide\n")
 		fmt.Fprintf(os.Stderr, "  generate-outline <id>  Generate content outline\n")
 		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n")
-		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n\n")
+		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n")
+		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n\n")
 
 		fmt.Fprintf(os.Stderr, "Sharing Commands:\n")
 		fmt.Fprintf(os.Stderr, "  share <id>        Share notebook publicly\n")
@@ -219,6 +223,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-chat <notebook-id> <prompt>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "chat":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm chat <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "create-artifact":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm create-artifact <notebook-id> <type>\n")
@@ -277,7 +286,7 @@ func isValidCommand(cmd string) bool {
 		"notes", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share",
 		"create-artifact", "get-artifact", "list-artifacts", "delete-artifact",
-		"generate-guide", "generate-outline", "generate-section", "generate-chat",
+		"generate-guide", "generate-outline", "generate-section", "generate-chat", "chat",
 		"auth", "hb", "share", "share-private", "share-details", "feedback",
 	}
 	
@@ -309,6 +318,23 @@ func run() error {
 	}
 	if cookies == "" {
 		cookies = os.Getenv("NLM_COOKIES")
+	}
+	
+	if debug {
+		fmt.Printf("DEBUG: Auth token loaded: %v\n", authToken != "")
+		fmt.Printf("DEBUG: Cookies loaded: %v\n", cookies != "")
+		if authToken != "" {
+			// Mask token for security - show only first 2 and last 2 chars for tokens > 8 chars
+			var tokenDisplay string
+			if len(authToken) <= 8 {
+				tokenDisplay = strings.Repeat("*", len(authToken))
+			} else {
+				start := authToken[:2]
+				end := authToken[len(authToken)-2:]
+				tokenDisplay = start + strings.Repeat("*", len(authToken)-4) + end
+			}
+			fmt.Printf("DEBUG: Token: %s\n", tokenDisplay)
+		}
 	}
 
 	if flag.NArg() < 1 {
@@ -344,6 +370,23 @@ func run() error {
 	}
 
 	var opts []batchexecute.Option
+	
+	// Add debug option if enabled
+	if debug {
+		opts = append(opts, batchexecute.WithDebug(true))
+	}
+	
+	// Add rt=c parameter if chunked response format is requested
+	if chunkedResponse {
+		opts = append(opts, batchexecute.WithURLParams(map[string]string{
+			"rt": "c",
+		}))
+		if debug {
+			fmt.Fprintf(os.Stderr, "DEBUG: Using chunked response format (rt=c)\n")
+		}
+	} else if debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: Using JSON array response format (no rt parameter)\n")
+	}
 	
 	// Support HTTP recording for testing
 	if recordingDir := os.Getenv("HTTPRR_RECORDING_DIR"); recordingDir != "" {
@@ -446,6 +489,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = generateSection(client, args[0])
 	case "generate-chat":
 		err = generateFreeFormChat(client, args[0], args[1])
+	case "chat":
+		err = interactiveChat(client, args[0])
 
 	// Sharing operations
 	case "share":
@@ -1248,6 +1293,105 @@ func getShareDetails(c *api.Client, shareID string) error {
 		fmt.Printf("Details: %v\n", data)
 	} else {
 		fmt.Printf("No details available for this share ID\n")
+	}
+	
+	return nil
+}
+
+// Interactive chat interface that emulates the web UI chat experience
+func interactiveChat(c *api.Client, notebookID string) error {
+	// Display welcome message
+	fmt.Println("\n📚 NotebookLM Interactive Chat")
+	fmt.Println("================================")
+	fmt.Printf("Notebook: %s\n", notebookID)
+	fmt.Println("\nCommands:")
+	fmt.Println("  /exit or /quit - Exit chat")
+	fmt.Println("  /clear - Clear screen")
+	fmt.Println("  /help - Show this help")
+	fmt.Println("  /multiline - Toggle multiline mode (end with empty line)")
+	fmt.Println("\nType your message and press Enter to send.")
+	
+	scanner := bufio.NewScanner(os.Stdin)
+	multiline := false
+	
+	for {
+		// Show prompt
+		if multiline {
+			fmt.Print("📝 (multiline, empty line to send) > ")
+		} else {
+			fmt.Print("💬 > ")
+		}
+		
+		// Read input
+		var input string
+		if multiline {
+			var lines []string
+			for scanner.Scan() {
+				line := scanner.Text()
+				if line == "" {
+					break // Empty line ends multiline input
+				}
+				lines = append(lines, line)
+				fmt.Print("... > ")
+			}
+			input = strings.Join(lines, "\n")
+		} else {
+			if !scanner.Scan() {
+				break // EOF or error
+			}
+			input = scanner.Text()
+		}
+		
+		// Handle special commands
+		input = strings.TrimSpace(input)
+		if input == "" {
+			continue
+		}
+		
+		switch strings.ToLower(input) {
+		case "/exit", "/quit":
+			fmt.Println("\n👋 Goodbye!")
+			return nil
+		case "/clear":
+			// Clear screen (works on most terminals)
+			fmt.Print("\033[H\033[2J")
+			fmt.Println("📚 NotebookLM Interactive Chat")
+			fmt.Println("================================")
+			fmt.Printf("Notebook: %s\n\n", notebookID)
+			continue
+		case "/help":
+			fmt.Println("\nCommands:")
+			fmt.Println("  /exit or /quit - Exit chat")
+			fmt.Println("  /clear - Clear screen")
+			fmt.Println("  /help - Show this help")
+			fmt.Println("  /multiline - Toggle multiline mode")
+			continue
+		case "/multiline":
+			multiline = !multiline
+			if multiline {
+				fmt.Println("Multiline mode ON (send with empty line)")
+			} else {
+				fmt.Println("Multiline mode OFF")
+			}
+			continue
+		}
+		
+		// For now, use a simulated response since the streaming API isn't fully implemented
+		fmt.Println("\n🤔 Thinking...")
+		
+		// Simulate processing delay
+		time.Sleep(500 * time.Millisecond)
+		
+		// Provide a helpful response about the current state
+		fmt.Print("\n🤖 Assistant: ")
+		fmt.Printf("I received your message: \"%s\"\n", input)
+		fmt.Println("Note: The streaming chat API is not yet fully implemented.")
+		fmt.Println("Once the GenerateFreeFormStreamed RPC ID is defined in the proto,")
+		fmt.Println("this will provide real-time responses from NotebookLM.")
+	}
+	
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read input: %w", err)
 	}
 	
 	return nil

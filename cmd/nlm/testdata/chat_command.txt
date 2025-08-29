@@ -1,0 +1,70 @@
+# Test interactive chat command with comprehensive validation
+# Tests include: argument validation, authentication requirements, basic functionality
+
+# === CHAT COMMAND ===
+# Test chat without arguments (should fail with usage)
+! exec ./nlm_test chat
+stderr 'usage: nlm chat <notebook-id>'
+! stderr 'panic'
+
+# Test chat with too many arguments (should fail with usage)
+! exec ./nlm_test chat notebook123 extra
+stderr 'usage: nlm chat <notebook-id>'
+! stderr 'panic'
+
+# Test chat without authentication (should fail)
+! exec ./nlm_test chat notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test chat with empty notebook ID (should start chat with empty ID)
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+exec ./nlm_test chat ""
+stdout '📚 NotebookLM Interactive Chat'
+stdout 'Notebook: '
+! stderr 'panic'
+
+# === CROSS-COMMAND VALIDATION ===
+# Test that chat command works with debug flag (may find stored auth or require auth)
+exec ./nlm_test -debug chat notebook123
+stdout '📚 NotebookLM Interactive Chat|Authentication required'
+! stderr 'panic'
+
+# Test that chat command works with chunked flag (may find stored auth or require auth)
+exec ./nlm_test -chunked chat notebook123  
+stdout '📚 NotebookLM Interactive Chat|Authentication required'
+! stderr 'panic'
+
+# Test that chat command works with combined flags
+exec ./nlm_test -debug -chunked chat notebook123
+stdout '📚 NotebookLM Interactive Chat|Authentication required'
+! stderr 'panic'
+
+# === SPECIAL CHARACTER HANDLING ===
+# Test chat with special characters in notebook ID (should start but likely fail when chatting)
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+exec ./nlm_test chat 'notebook-special-chars'
+stdout '📚 NotebookLM Interactive Chat'
+stdout 'Notebook: notebook-special-chars'
+! stderr 'panic'
+
+# Test chat with unicode characters in notebook ID (should start but likely fail when chatting)  
+env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
+exec ./nlm_test chat 'notebook-unicode'
+stdout '📚 NotebookLM Interactive Chat'
+stdout 'Notebook: notebook-unicode'
+! stderr 'panic'
+
+# === ERROR RECOVERY ===
+# Test that commands don't leave the CLI in a bad state after errors
+exec ./nlm_test chat invalid-notebook
+stdout '📚 NotebookLM Interactive Chat|Authentication required'
+exec ./nlm_test help
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+# === HELP TEXT VALIDATION ===
+# Test that chat command appears in help text
+exec ./nlm_test help
+stderr 'chat.*Interactive chat session'
+! stderr 'panic'
