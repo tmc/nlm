@@ -352,6 +352,9 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 		switch v := val.(type) {
 		case string:
 			return protoreflect.ValueOfString(v), nil
+		case float64:
+			// Handle numeric values as strings (API might return numbers for some string fields)
+			return protoreflect.ValueOfString(fmt.Sprintf("%v", v)), nil
 		case []interface{}:
 			// Handle nested arrays by recursively looking for a string
 			if len(v) > 0 {

@@ -79,6 +79,45 @@ func TestDecodeResponse(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "Authentication Error Code",
+			input: `277567`,
+			chunked: true,
+			validate: func(t *testing.T, resp []Response) {
+				// Should now parse as a valid response with numeric data
+				// Error detection happens later in the pipeline via IsErrorResponse
+				if len(resp) != 1 {
+					t.Errorf("Expected 1 response for numeric error code, got %d", len(resp))
+					return
+				}
+				if resp[0].ID != "numeric" {
+					t.Errorf("Expected ID numeric, got %s", resp[0].ID)
+				}
+				if string(resp[0].Data) != "277567" {
+					t.Errorf("Expected Data 277567, got %s", string(resp[0].Data))
+				}
+			},
+			err: nil,
+		},
+		{
+			name: "Empty Response with wrb.fr",
+			input: `107
+[["wrb.fr","wXbhsf",null,null,null,[16],"generic"],["di",119],["af.httprm",118,"-6842696168044955425",7]]
+25
+[["e",4,null,null,143]]`,
+			chunked: true,
+			validate: func(t *testing.T, resp []Response) {
+				// This is the actual response we're getting - it has wrb.fr but no data
+				if len(resp) != 1 {
+					t.Errorf("Expected 1 response for wrb.fr, got %d", len(resp))
+					return
+				}
+				if resp[0].ID != "wXbhsf" {
+					t.Errorf("Expected ID wXbhsf, got %s", resp[0].ID)
+				}
+			},
+			err: nil,
+		},
+		{
 			name: "Deeply Nested JSON",
 			input: `250
 [["wrb.fr","nested","[{\"data\":{\"items\":[{\"id\":\"test\",\"metadata\":{\"created\":1234567890,\"modified\":1234567891},\"content\":{\"text\":\"Hello, World!\",\"format\":\"plain\"}}]}}]",null,null,null,"generic"]]`,

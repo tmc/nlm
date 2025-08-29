@@ -115,11 +115,12 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 			"pragma":          "no-cache",
 		},
 		URLParams: map[string]string{
-			"bl":    "boq_labs-tailwind-frontend_20241114.01_p0",
+			// Update to January 2025 build version
+			"bl":    "boq_labs-tailwind-frontend_20250129.00_p0", 
 			"f.sid": "-7121977511756781186",
 			"hl":    "en",
-			// Omit this to get cleaner output.
-			//"rt":    "c",
+			// Omit rt parameter for JSON array format (easier to parse)
+			// "rt":    "c",  // Use "c" for chunked format, omit for JSON array
 		},
 	}
 	return &Client{

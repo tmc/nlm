@@ -119,10 +119,32 @@ func (c *Client) GetProject(projectID string) (*Notebook, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get project: %w", err)
 	}
+	
+	// Check for null response
+	if resp == nil || len(resp) == 0 || string(resp) == "null" {
+		return nil, fmt.Errorf("get project: received null response - notebook may not exist or authentication may have expired")
+	}
+
+	// Debug: print raw response
+	if c.config.Debug {
+		fmt.Printf("DEBUG: GetProject raw response: %s\n", string(resp))
+	}
 
 	var project pb.Project
 	if err := beprotojson.Unmarshal(resp, &project); err != nil {
+		if c.config.Debug {
+			fmt.Printf("DEBUG: Failed to unmarshal project: %v\n", err)
+			fmt.Printf("DEBUG: Response length: %d\n", len(resp))
+			if len(resp) > 200 {
+				fmt.Printf("DEBUG: Response preview: %s...\n", string(resp[:200]))
+			} else {
+				fmt.Printf("DEBUG: Full response: %s\n", string(resp))
+			}
+		}
 		return nil, fmt.Errorf("parse response: %w", err)
+	}
+	if c.config.Debug && project.Sources != nil {
+		fmt.Printf("DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
 	}
 	return &project, nil
 }
