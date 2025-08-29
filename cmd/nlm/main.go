@@ -79,6 +79,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-outline <id>  Generate content outline\n")
 		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n")
 		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n")
+		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
 		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n\n")
 
 		fmt.Fprintf(os.Stderr, "Sharing Commands:\n")
@@ -218,6 +219,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-section <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "generate-magic":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm generate-magic <notebook-id> <source-id> [source-id...]\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "generate-chat":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-chat <notebook-id> <prompt>\n")
@@ -286,7 +292,7 @@ func isValidCommand(cmd string) bool {
 		"notes", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share",
 		"create-artifact", "get-artifact", "list-artifacts", "delete-artifact",
-		"generate-guide", "generate-outline", "generate-section", "generate-chat", "chat",
+		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-chat", "chat",
 		"auth", "hb", "share", "share-private", "share-details", "feedback",
 	}
 	
@@ -487,6 +493,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = generateOutline(client, args[0])
 	case "generate-section":
 		err = generateSection(client, args[0])
+	case "generate-magic":
+		err = generateMagicView(client, args[0], args[1:])
 	case "generate-chat":
 		err = generateFreeFormChat(client, args[0], args[1])
 	case "chat":
@@ -804,6 +812,23 @@ func generateSection(c *api.Client, notebookID string) error {
 		return fmt.Errorf("generate section: %w", err)
 	}
 	fmt.Printf("Section:\n%s\n", section.Content)
+	return nil
+}
+
+func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
+	fmt.Fprintf(os.Stderr, "Generating magic view...\n")
+	magicView, err := c.GenerateMagicView(notebookID, sourceIDs)
+	if err != nil {
+		return fmt.Errorf("generate magic view: %w", err)
+	}
+	
+	fmt.Printf("Magic View: %s\n", magicView.Title)
+	if len(magicView.Items) > 0 {
+		fmt.Printf("\nItems:\n")
+		for i, item := range magicView.Items {
+			fmt.Printf("%d. %s\n", i+1, item.Title)
+		}
+	}
 	return nil
 }
 

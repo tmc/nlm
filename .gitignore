@@ -5,6 +5,15 @@
 # Test binaries
 cmd/nlm/nlm_test
 
-# Coverage files  
+# Coverage files
 coverage.html
 coverage.out
+
+# Browser data (should never be committed)
+Default/
+Local State
+Cookies
+Login Data
+Web Data
+*.db
+*.db-*

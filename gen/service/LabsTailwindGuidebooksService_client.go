@@ -8,8 +8,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -28,42 +30,161 @@ func NewLabsTailwindGuidebooksServiceClient(authToken, cookies string, opts ...b
 
 // DeleteGuidebook calls the DeleteGuidebook RPC method.
 func (c *LabsTailwindGuidebooksServiceClient) DeleteGuidebook(ctx context.Context, req *notebooklmv1alpha1.DeleteGuidebookRequest) (*emptypb.Empty, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("DeleteGuidebook: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "ARGkVc",
+		Args: method.EncodeDeleteGuidebookArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteGuidebook: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("DeleteGuidebook: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GetGuidebook calls the GetGuidebook RPC method.
 func (c *LabsTailwindGuidebooksServiceClient) GetGuidebook(ctx context.Context, req *notebooklmv1alpha1.GetGuidebookRequest) (*notebooklmv1alpha1.Guidebook, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GetGuidebook: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "EYqtU",
+		Args: method.EncodeGetGuidebookArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetGuidebook: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Guidebook
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetGuidebook: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // ListRecentlyViewedGuidebooks calls the ListRecentlyViewedGuidebooks RPC method.
 func (c *LabsTailwindGuidebooksServiceClient) ListRecentlyViewedGuidebooks(ctx context.Context, req *notebooklmv1alpha1.ListRecentlyViewedGuidebooksRequest) (*notebooklmv1alpha1.ListRecentlyViewedGuidebooksResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("ListRecentlyViewedGuidebooks: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "YJBpHc",
+		Args: method.EncodeListRecentlyViewedGuidebooksArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ListRecentlyViewedGuidebooks: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ListRecentlyViewedGuidebooksResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ListRecentlyViewedGuidebooks: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // PublishGuidebook calls the PublishGuidebook RPC method.
 func (c *LabsTailwindGuidebooksServiceClient) PublishGuidebook(ctx context.Context, req *notebooklmv1alpha1.PublishGuidebookRequest) (*notebooklmv1alpha1.PublishGuidebookResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("PublishGuidebook: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "R6smae",
+		Args: method.EncodePublishGuidebookArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("PublishGuidebook: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.PublishGuidebookResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("PublishGuidebook: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GetGuidebookDetails calls the GetGuidebookDetails RPC method.
 func (c *LabsTailwindGuidebooksServiceClient) GetGuidebookDetails(ctx context.Context, req *notebooklmv1alpha1.GetGuidebookDetailsRequest) (*notebooklmv1alpha1.GuidebookDetails, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GetGuidebookDetails: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "LJyzeb",
+		Args: method.EncodeGetGuidebookDetailsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetGuidebookDetails: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GuidebookDetails
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetGuidebookDetails: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // ShareGuidebook calls the ShareGuidebook RPC method.
 func (c *LabsTailwindGuidebooksServiceClient) ShareGuidebook(ctx context.Context, req *notebooklmv1alpha1.ShareGuidebookRequest) (*notebooklmv1alpha1.ShareGuidebookResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("ShareGuidebook: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "OTl0K",
+		Args: method.EncodeShareGuidebookArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ShareGuidebook: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ShareGuidebookResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ShareGuidebook: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GuidebookGenerateAnswer calls the GuidebookGenerateAnswer RPC method.
 func (c *LabsTailwindGuidebooksServiceClient) GuidebookGenerateAnswer(ctx context.Context, req *notebooklmv1alpha1.GuidebookGenerateAnswerRequest) (*notebooklmv1alpha1.GuidebookGenerateAnswerResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GuidebookGenerateAnswer: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "itA0pc",
+		Args: method.EncodeGuidebookGenerateAnswerArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GuidebookGenerateAnswer: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GuidebookGenerateAnswerResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GuidebookGenerateAnswer: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }

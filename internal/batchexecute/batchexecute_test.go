@@ -158,7 +158,7 @@ func TestDecodeResponse(t *testing.T) {
 				{
 					ID:    "izAoDd",
 					Index: 0,
-					Data:  nil,
+					Data:  json.RawMessage("[3]"),
 				},
 			},
 			err: nil,
