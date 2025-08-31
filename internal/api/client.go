@@ -15,11 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/rpc"
 )
 
@@ -33,8 +31,7 @@ type Client struct {
 	sharingService       *service.LabsTailwindSharingServiceClient
 	guidebooksService    *service.LabsTailwindGuidebooksServiceClient
 	config               struct {
-		Debug              bool
-		UseGeneratedClient bool // Use generated service client vs manual RPC calls
+		Debug bool
 	}
 }
 
@@ -60,8 +57,6 @@ func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
 
 	// Get debug setting from environment for consistency
 	client.config.Debug = os.Getenv("NLM_DEBUG") == "true"
-	// Default to generated client pathway, allow opt-out with NLM_USE_GENERATED_CLIENT=false
-	client.config.UseGeneratedClient = os.Getenv("NLM_USE_GENERATED_CLIENT") != "false"
 
 	return client
 }
@@ -69,186 +64,53 @@ func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
 // Project/Notebook operations
 
 func (c *Client) ListRecentlyViewedProjects() ([]*Notebook, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.ListRecentlyViewedProjectsRequest{}
-		
-		response, err := c.orchestrationService.ListRecentlyViewedProjects(context.Background(), req)
-		if err != nil {
-			return nil, fmt.Errorf("list projects (generated): %w", err)
-		}
-		
-		return response.Projects, nil
-	}
+	req := &pb.ListRecentlyViewedProjectsRequest{}
 
-	// Use manual RPC call (original implementation)
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCListRecentlyViewedProjects,
-		Args: []interface{}{nil, 1, nil, []int{2}}, // Match web UI format: [null,1,null,[2]]
-	})
+	response, err := c.orchestrationService.ListRecentlyViewedProjects(context.Background(), req)
 	if err != nil {
-		return nil, fmt.Errorf("list projects (manual): %w", err)
+		return nil, fmt.Errorf("list projects: %w", err)
 	}
 
-	// Parse batchexecute response format
-	var data []interface{}
-	if c.config.Debug {
-		fmt.Printf("DEBUG: Attempting to parse response: %s\n", string(resp))
-	}
-	if err := json.Unmarshal(resp, &data); err == nil {
-		// Check for batchexecute format: [["wrb.fr","rpc_id",null,null,null,[response_code],"generic"],...]
-		if len(data) > 0 {
-			if firstArray, ok := data[0].([]interface{}); ok && len(firstArray) > 5 {
-				// Check if response_code is [16] (empty list)
-				if responseCodeArray, ok := firstArray[5].([]interface{}); ok && len(responseCodeArray) == 1 {
-					if code, ok := responseCodeArray[0].(float64); ok && int(code) == 16 {
-						// Return empty projects list
-						return []*Notebook{}, nil
-					}
-				}
-			}
-		}
-		
-		// Legacy check for simple [16] format
-		if len(data) == 1 {
-			if code, ok := data[0].(float64); ok && int(code) == 16 {
-				// Return empty projects list
-				return []*Notebook{}, nil
-			}
-		}
-	}
-
-	// Try to extract projects using chunked response parser first
-	// This is a more robust approach for handling the chunked response format
-	body := string(resp)
-	// Try to parse the response from the chunked response format
-	p := NewChunkedResponseParser(body).WithDebug(c.config.Debug)
-	projects, err := p.ParseListProjectsResponse()
-	if err != nil {
-		if c.config.Debug {
-			fmt.Printf("DEBUG: Raw response before parsing:\n%s\n", body)
-		}
-
-		// Try to parse using the regular method as a fallback
-		var response pb.ListRecentlyViewedProjectsResponse
-		if err2 := beprotojson.Unmarshal(resp, &response); err2 != nil {
-			// Both methods failed
-			return nil, fmt.Errorf("parse response: %w (chunked parser: %v)", err2, err)
-		}
-		return response.Projects, nil
-	}
-	return projects, nil
+	return response.Projects, nil
 }
 
 func (c *Client) CreateProject(title string, emoji string) (*Notebook, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.CreateProjectRequest{
-			Title: title,
-			Emoji: emoji,
-		}
-		
-		project, err := c.orchestrationService.CreateProject(context.Background(), req)
-		if err != nil {
-			return nil, fmt.Errorf("create project (generated): %w", err)
-		}
-		return project, nil
+	req := &pb.CreateProjectRequest{
+		Title: title,
+		Emoji: emoji,
 	}
 
-	// Use manual RPC call (original implementation)
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCCreateProject,
-		Args: []interface{}{title, emoji},
-	})
+	project, err := c.orchestrationService.CreateProject(context.Background(), req)
 	if err != nil {
-		return nil, fmt.Errorf("create project (manual): %w", err)
+		return nil, fmt.Errorf("create project: %w", err)
 	}
-
-	var project pb.Project
-	if err := beprotojson.Unmarshal(resp, &project); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &project, nil
+	return project, nil
 }
 
 func (c *Client) GetProject(projectID string) (*Notebook, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GetProjectRequest{
-			ProjectId: projectID,
-		}
-		
-		ctx := context.Background()
-		project, err := c.orchestrationService.GetProject(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("get project: %w", err)
-		}
-		
-		if c.config.Debug && project.Sources != nil {
-			fmt.Printf("DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
-		}
-		return project, nil
+	req := &pb.GetProjectRequest{
+		ProjectId: projectID,
 	}
-	
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetProject,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+
+	ctx := context.Background()
+	project, err := c.orchestrationService.GetProject(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get project: %w", err)
 	}
-	
-	// Check for null response
-	if resp == nil || len(resp) == 0 || string(resp) == "null" {
-		return nil, fmt.Errorf("get project: received null response - notebook may not exist or authentication may have expired")
-	}
 
-	// Debug: print raw response
-	if c.config.Debug {
-		fmt.Printf("DEBUG: GetProject raw response: %s\n", string(resp))
-	}
-
-	var project pb.Project
-	if err := beprotojson.Unmarshal(resp, &project); err != nil {
-		if c.config.Debug {
-			fmt.Printf("DEBUG: Failed to unmarshal project: %v\n", err)
-			fmt.Printf("DEBUG: Response length: %d\n", len(resp))
-			if len(resp) > 200 {
-				fmt.Printf("DEBUG: Response preview: %s...\n", string(resp[:200]))
-			} else {
-				fmt.Printf("DEBUG: Full response: %s\n", string(resp))
-			}
-		}
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
 	if c.config.Debug && project.Sources != nil {
 		fmt.Printf("DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
 	}
-	return &project, nil
+	return project, nil
 }
 
 func (c *Client) DeleteProjects(projectIDs []string) error {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.DeleteProjectsRequest{
-			ProjectIds: projectIDs,
-		}
-		
-		ctx := context.Background()
-		_, err := c.orchestrationService.DeleteProjects(ctx, req)
-		if err != nil {
-			return fmt.Errorf("delete projects: %w", err)
-		}
-		return nil
+	req := &pb.DeleteProjectsRequest{
+		ProjectIds: projectIDs,
 	}
-	
-	// Legacy manual RPC path
-	_, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCDeleteProjects,
-		Args: []interface{}{projectIDs},
-	})
+
+	ctx := context.Background()
+	_, err := c.orchestrationService.DeleteProjects(ctx, req)
 	if err != nil {
 		return fmt.Errorf("delete projects: %w", err)
 	}
@@ -256,295 +118,117 @@ func (c *Client) DeleteProjects(projectIDs []string) error {
 }
 
 func (c *Client) MutateProject(projectID string, updates *pb.Project) (*Notebook, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.MutateProjectRequest{
-			ProjectId: projectID,
-			Updates:   updates,
-		}
-		
-		ctx := context.Background()
-		project, err := c.orchestrationService.MutateProject(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("mutate project: %w", err)
-		}
-		return project, nil
+	req := &pb.MutateProjectRequest{
+		ProjectId: projectID,
+		Updates:   updates,
 	}
-	
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCMutateProject,
-		Args:       []interface{}{projectID, updates},
-		NotebookID: projectID,
-	})
+
+	ctx := context.Background()
+	project, err := c.orchestrationService.MutateProject(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("mutate project: %w", err)
 	}
-
-	var project pb.Project
-	if err := beprotojson.Unmarshal(resp, &project); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &project, nil
+	return project, nil
 }
 
 func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.RemoveRecentlyViewedProjectRequest{
-			ProjectId: projectID,
-		}
-		
-		ctx := context.Background()
-		_, err := c.orchestrationService.RemoveRecentlyViewedProject(ctx, req)
-		return err
+	req := &pb.RemoveRecentlyViewedProjectRequest{
+		ProjectId: projectID,
 	}
-	
-	// Legacy manual RPC path
-	_, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCRemoveRecentlyViewed,
-		Args: []interface{}{projectID},
-	})
+
+	ctx := context.Background()
+	_, err := c.orchestrationService.RemoveRecentlyViewedProject(ctx, req)
 	return err
 }
 
 // Source operations
 
 func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Project, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.AddSourceRequest{
-			Sources:   sources,
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		project, err := c.orchestrationService.AddSources(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("add sources: %w", err)
-		}
-		return project, nil
+	req := &pb.AddSourceRequest{
+		Sources:   sources,
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path - convert SourceInput to the old format
-	var legacyArgs []interface{}
-	for _, source := range sources {
-		// Convert SourceInput to legacy format based on source type
-		switch source.SourceType {
-		case pb.SourceType_SOURCE_TYPE_SHARED_NOTE:
-			legacyArgs = append(legacyArgs, []interface{}{
-				nil,
-				[]string{source.Title, source.Content},
-				nil,
-				2, // text source type
-			})
-		case pb.SourceType_SOURCE_TYPE_LOCAL_FILE:
-			legacyArgs = append(legacyArgs, []interface{}{
-				source.Base64Content,
-				source.Filename,
-				source.MimeType,
-				"base64",
-			})
-		case pb.SourceType_SOURCE_TYPE_WEB_PAGE:
-			legacyArgs = append(legacyArgs, []interface{}{
-				nil,
-				nil,
-				[]string{source.Url},
-			})
-		case pb.SourceType_SOURCE_TYPE_YOUTUBE_VIDEO:
-			legacyArgs = append(legacyArgs, []interface{}{
-				nil,
-				nil,
-				nil,
-				source.YoutubeVideoId,
-			})
-		}
-	}
-
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCAddSources,
-		Args:       []interface{}{legacyArgs, projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	project, err := c.orchestrationService.AddSources(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("add sources: %w", err)
 	}
-
-	var result pb.Project
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &result, nil
+	return project, nil
 }
 
 func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.DeleteSourcesRequest{
-			SourceIds: sourceIDs,
-		}
-		ctx := context.Background()
-		_, err := c.orchestrationService.DeleteSources(ctx, req)
-		if err != nil {
-			return fmt.Errorf("delete sources: %w", err)
-		}
-		return nil
+	req := &pb.DeleteSourcesRequest{
+		SourceIds: sourceIDs,
 	}
-
-	// Legacy manual RPC path
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCDeleteSources,
-		Args: []interface{}{
-			[][][]string{{sourceIDs}},
-		},
-		NotebookID: projectID,
-	})
-	return err
+	ctx := context.Background()
+	_, err := c.orchestrationService.DeleteSources(ctx, req)
+	if err != nil {
+		return fmt.Errorf("delete sources: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.MutateSourceRequest{
-			SourceId: sourceID,
-			Updates:  updates,
-		}
-		ctx := context.Background()
-		source, err := c.orchestrationService.MutateSource(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("mutate source: %w", err)
-		}
-		return source, nil
+	req := &pb.MutateSourceRequest{
+		SourceId: sourceID,
+		Updates:  updates,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCMutateSource,
-		Args: []interface{}{sourceID, updates},
-	})
+	ctx := context.Background()
+	source, err := c.orchestrationService.MutateSource(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("mutate source: %w", err)
 	}
-
-	var source pb.Source
-	if err := beprotojson.Unmarshal(resp, &source); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &source, nil
+	return source, nil
 }
 
 func (c *Client) RefreshSource(sourceID string) (*pb.Source, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.RefreshSourceRequest{
-			SourceId: sourceID,
-		}
-		ctx := context.Background()
-		source, err := c.orchestrationService.RefreshSource(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("refresh source: %w", err)
-		}
-		return source, nil
+	req := &pb.RefreshSourceRequest{
+		SourceId: sourceID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCRefreshSource,
-		Args: []interface{}{sourceID},
-	})
+	ctx := context.Background()
+	source, err := c.orchestrationService.RefreshSource(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("refresh source: %w", err)
 	}
-
-	var source pb.Source
-	if err := beprotojson.Unmarshal(resp, &source); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &source, nil
+	return source, nil
 }
 
 func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.LoadSourceRequest{
-			SourceId: sourceID,
-		}
-		ctx := context.Background()
-		source, err := c.orchestrationService.LoadSource(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("load source: %w", err)
-		}
-		return source, nil
+	req := &pb.LoadSourceRequest{
+		SourceId: sourceID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCLoadSource,
-		Args: []interface{}{sourceID},
-	})
+	ctx := context.Background()
+	source, err := c.orchestrationService.LoadSource(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("load source: %w", err)
 	}
-
-	var source pb.Source
-	if err := beprotojson.Unmarshal(resp, &source); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &source, nil
+	return source, nil
 }
 
 func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.CheckSourceFreshnessRequest{
-			SourceId: sourceID,
-		}
-		ctx := context.Background()
-		result, err := c.orchestrationService.CheckSourceFreshness(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("check source freshness: %w", err)
-		}
-		return result, nil
+	req := &pb.CheckSourceFreshnessRequest{
+		SourceId: sourceID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCCheckSourceFreshness,
-		Args: []interface{}{sourceID},
-	})
+	ctx := context.Background()
+	result, err := c.orchestrationService.CheckSourceFreshness(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("check source freshness: %w", err)
 	}
-
-	var result pb.CheckSourceFreshnessResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &result, nil
+	return result, nil
 }
 
 func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) error {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.ActOnSourcesRequest{
-			ProjectId: projectID,
-			Action:    action,
-			SourceIds: sourceIDs,
-		}
-		ctx := context.Background()
-		_, err := c.orchestrationService.ActOnSources(ctx, req)
-		if err != nil {
-			return fmt.Errorf("act on sources: %w", err)
-		}
-		return nil
+	req := &pb.ActOnSourcesRequest{
+		ProjectId: projectID,
+		Action:    action,
+		SourceIds: sourceIDs,
 	}
-
-	// Legacy manual RPC path
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCActOnSources,
-		Args:       []interface{}{projectID, action, sourceIDs},
-		NotebookID: projectID,
-	})
-	return err
+	ctx := context.Background()
+	_, err := c.orchestrationService.ActOnSources(ctx, req)
+	if err != nil {
+		return fmt.Errorf("act on sources: %w", err)
+	}
+	return nil
 }
 
 // Source upload utility methods
@@ -673,8 +357,6 @@ func (c *Client) AddSourceFromBase64(projectID string, content, filename, conten
 
 	sourceID, err := extractSourceID(resp)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, resp)
-		spew.Dump(resp)
 		return "", fmt.Errorf("extract source ID: %w", err)
 	}
 	return sourceID, nil
@@ -754,7 +436,6 @@ func (c *Client) AddYouTubeSource(projectID, videoID string) (string, error) {
 
 	if c.rpc.Config.Debug {
 		fmt.Printf("\nPayload Structure:\n")
-		spew.Dump(payload)
 	}
 
 	resp, err := c.rpc.Do(rpc.Call{
@@ -848,142 +529,60 @@ func extractSourceID(resp json.RawMessage) (string, error) {
 // Note operations
 
 func (c *Client) CreateNote(projectID string, title string, initialContent string) (*Note, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.CreateNoteRequest{
-			ProjectId: projectID,
-			Content:   initialContent,
-			NoteType:  []int32{1}, // note type
-			Title:     title,
-		}
-		ctx := context.Background()
-		note, err := c.orchestrationService.CreateNote(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("create note: %w", err)
-		}
-		// Note is an alias for pb.Source, so we can return it directly
-		return note, nil
+	req := &pb.CreateNoteRequest{
+		ProjectId: projectID,
+		Content:   initialContent,
+		NoteType:  []int32{1}, // note type
+		Title:     title,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCCreateNote,
-		Args: []interface{}{
-			projectID,
-			initialContent,
-			[]int{1}, // note type
-			nil,
-			title,
-		},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	note, err := c.orchestrationService.CreateNote(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create note: %w", err)
 	}
-
-	var note Note
-	if err := beprotojson.Unmarshal(resp, &note); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &note, nil
+	// Note is an alias for pb.Source, so we can return it directly
+	return note, nil
 }
 
 func (c *Client) MutateNote(projectID string, noteID string, content string, title string) (*Note, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.MutateNoteRequest{
-			ProjectId: projectID,
-			NoteId:    noteID,
-			Updates: []*pb.NoteUpdate{{
-				Content: content,
-				Title:   title,
-				Tags:    []string{},
-			}},
-		}
-		ctx := context.Background()
-		note, err := c.orchestrationService.MutateNote(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("mutate note: %w", err)
-		}
-		// Note is an alias for pb.Source, so we can return it directly
-		return note, nil
+	req := &pb.MutateNoteRequest{
+		ProjectId: projectID,
+		NoteId:    noteID,
+		Updates: []*pb.NoteUpdate{{
+			Content: content,
+			Title:   title,
+			Tags:    []string{},
+		}},
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCMutateNote,
-		Args: []interface{}{
-			projectID,
-			noteID,
-			[][][]interface{}{{
-				{content, title, []interface{}{}},
-			}},
-		},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	note, err := c.orchestrationService.MutateNote(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("mutate note: %w", err)
 	}
-
-	var note Note
-	if err := beprotojson.Unmarshal(resp, &note); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &note, nil
+	// Note is an alias for pb.Source, so we can return it directly
+	return note, nil
 }
 
 func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.DeleteNotesRequest{
-			NoteIds: noteIDs,
-		}
-		ctx := context.Background()
-		_, err := c.orchestrationService.DeleteNotes(ctx, req)
-		if err != nil {
-			return fmt.Errorf("delete notes: %w", err)
-		}
-		return nil
+	req := &pb.DeleteNotesRequest{
+		NoteIds: noteIDs,
 	}
-
-	// Legacy manual RPC path
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCDeleteNotes,
-		Args: []interface{}{
-			[][][]string{{noteIDs}},
-		},
-		NotebookID: projectID,
-	})
-	return err
+	ctx := context.Background()
+	_, err := c.orchestrationService.DeleteNotes(ctx, req)
+	if err != nil {
+		return fmt.Errorf("delete notes: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) GetNotes(projectID string) ([]*Note, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GetNotesRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		response, err := c.orchestrationService.GetNotes(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("get notes: %w", err)
-		}
-		return response.Notes, nil
+	req := &pb.GetNotesRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetNotes,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	response, err := c.orchestrationService.GetNotes(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get notes: %w", err)
-	}
-
-	var response pb.GetNotesResponse
-	if err := beprotojson.Unmarshal(resp, &response); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
 	}
 	return response.Notes, nil
 }
@@ -998,177 +597,47 @@ func (c *Client) CreateAudioOverview(projectID string, instructions string) (*Au
 		return nil, fmt.Errorf("instructions required")
 	}
 
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.CreateAudioOverviewRequest{
-			ProjectId:    projectID,
-			AudioType:    0,
-			Instructions: []string{instructions},
-		}
-		ctx := context.Background()
-		audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("create audio overview: %w", err)
-		}
-		// Convert pb.AudioOverview to AudioOverviewResult
-		// Note: pb.AudioOverview has different fields than expected, so we map what's available
-		result := &AudioOverviewResult{
-			ProjectID: projectID,
-			AudioID:   "", // Not available in pb.AudioOverview
-			Title:     "", // Not available in pb.AudioOverview
-			AudioData: audioOverview.Content, // Map Content to AudioData
-			IsReady:   audioOverview.Status != "CREATING", // Infer from Status
-		}
-		return result, nil
+	req := &pb.CreateAudioOverviewRequest{
+		ProjectId:    projectID,
+		AudioType:    0,
+		Instructions: []string{instructions},
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCCreateAudioOverview,
-		Args: []interface{}{
-			projectID,
-			0,
-			[]string{
-				instructions,
-			},
-		},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create audio overview: %w", err)
 	}
-
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse response JSON: %w", err)
-	}
-
+	// Convert pb.AudioOverview to AudioOverviewResult
+	// Note: pb.AudioOverview has different fields than expected, so we map what's available
 	result := &AudioOverviewResult{
 		ProjectID: projectID,
+		AudioID:   "", // Not available in pb.AudioOverview
+		Title:     "", // Not available in pb.AudioOverview
+		AudioData: audioOverview.Content, // Map Content to AudioData
+		IsReady:   audioOverview.Status != "CREATING", // Infer from Status
 	}
-
-	// Handle empty or nil response
-	if len(data) == 0 {
-		return result, nil
-	}
-
-	// Parse the wrb.fr response format
-	// Format: [null,null,[3,"<base64-audio>","<id>","<title>",null,true],null,[false]]
-	if len(data) > 2 {
-		audioData, ok := data[2].([]interface{})
-		if !ok || len(audioData) < 4 {
-			// Creation might be in progress, return result without error
-			return result, nil
-		}
-
-		// Extract audio data (index 1)
-		if audioBase64, ok := audioData[1].(string); ok {
-			result.AudioData = audioBase64
-		}
-
-		// Extract ID (index 2)
-		if id, ok := audioData[2].(string); ok {
-			result.AudioID = id
-		}
-
-		// Extract title (index 3)
-		if title, ok := audioData[3].(string); ok {
-			result.Title = title
-		}
-
-		// Extract ready status (index 5)
-		if len(audioData) > 5 {
-			if ready, ok := audioData[5].(bool); ok {
-				result.IsReady = ready
-			}
-		}
-	}
-
 	return result, nil
 }
 
 func (c *Client) GetAudioOverview(projectID string) (*AudioOverviewResult, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GetAudioOverviewRequest{
-			ProjectId:   projectID,
-			RequestType: 1,
-		}
-		ctx := context.Background()
-		audioOverview, err := c.orchestrationService.GetAudioOverview(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("get audio overview: %w", err)
-		}
-		// Convert pb.AudioOverview to AudioOverviewResult
-		// Note: pb.AudioOverview has different fields than expected, so we map what's available
-		result := &AudioOverviewResult{
-			ProjectID: projectID,
-			AudioID:   "", // Not available in pb.AudioOverview
-			Title:     "", // Not available in pb.AudioOverview
-			AudioData: audioOverview.Content, // Map Content to AudioData
-			IsReady:   audioOverview.Status != "CREATING", // Infer from Status
-		}
-		return result, nil
+	req := &pb.GetAudioOverviewRequest{
+		ProjectId:   projectID,
+		RequestType: 1,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGetAudioOverview,
-		Args: []interface{}{
-			projectID,
-			1,
-		},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	audioOverview, err := c.orchestrationService.GetAudioOverview(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get audio overview: %w", err)
 	}
-
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse response JSON: %w", err)
-	}
-
+	// Convert pb.AudioOverview to AudioOverviewResult
+	// Note: pb.AudioOverview has different fields than expected, so we map what's available
 	result := &AudioOverviewResult{
 		ProjectID: projectID,
+		AudioID:   "", // Not available in pb.AudioOverview
+		Title:     "", // Not available in pb.AudioOverview
+		AudioData: audioOverview.Content, // Map Content to AudioData
+		IsReady:   audioOverview.Status != "CREATING", // Infer from Status
 	}
-
-	// Handle empty or nil response
-	if len(data) == 0 {
-		return result, nil
-	}
-
-	// Parse the wrb.fr response format
-	// Format: [null,null,[3,"<base64-audio>","<id>","<title>",null,true],null,[false]]
-	if len(data) > 2 {
-		audioData, ok := data[2].([]interface{})
-		if !ok || len(audioData) < 4 {
-			return nil, fmt.Errorf("invalid audio data format")
-		}
-
-		// Extract audio data (index 1)
-		if audioBase64, ok := audioData[1].(string); ok {
-			result.AudioData = audioBase64
-		}
-
-		// Extract ID (index 2)
-		if id, ok := audioData[2].(string); ok {
-			result.AudioID = id
-		}
-
-		// Extract title (index 3)
-		if title, ok := audioData[3].(string); ok {
-			result.Title = title
-		}
-
-		// Extract ready status (index 5)
-		if len(audioData) > 5 {
-			if ready, ok := audioData[5].(bool); ok {
-				result.IsReady = ready
-			}
-		}
-	}
-
 	return result, nil
 }
 
@@ -1190,310 +659,128 @@ func (r *AudioOverviewResult) GetAudioBytes() ([]byte, error) {
 }
 
 func (c *Client) DeleteAudioOverview(projectID string) error {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.DeleteAudioOverviewRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		_, err := c.orchestrationService.DeleteAudioOverview(ctx, req)
-		if err != nil {
-			return fmt.Errorf("delete audio overview: %w", err)
-		}
-		return nil
+	req := &pb.DeleteAudioOverviewRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCDeleteAudioOverview,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
-	return err
+	ctx := context.Background()
+	_, err := c.orchestrationService.DeleteAudioOverview(ctx, req)
+	if err != nil {
+		return fmt.Errorf("delete audio overview: %w", err)
+	}
+	return nil
 }
 
 // Generation operations
 
 func (c *Client) GenerateDocumentGuides(projectID string) (*pb.GenerateDocumentGuidesResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GenerateDocumentGuidesRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		guides, err := c.orchestrationService.GenerateDocumentGuides(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("generate document guides: %w", err)
-		}
-		return guides, nil
+	req := &pb.GenerateDocumentGuidesRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateDocumentGuides,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	guides, err := c.orchestrationService.GenerateDocumentGuides(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate document guides: %w", err)
 	}
-
-	var guides pb.GenerateDocumentGuidesResponse
-	if err := beprotojson.Unmarshal(resp, &guides); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &guides, nil
+	return guides, nil
 }
 
 func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGuideResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GenerateNotebookGuideRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		guide, err := c.orchestrationService.GenerateNotebookGuide(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("generate notebook guide: %w", err)
-		}
-		return guide, nil
+	req := &pb.GenerateNotebookGuideRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateNotebookGuide,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	guide, err := c.orchestrationService.GenerateNotebookGuide(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate notebook guide: %w", err)
 	}
-
-	var guide pb.GenerateNotebookGuideResponse
-	if err := beprotojson.Unmarshal(resp, &guide); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &guide, nil
+	return guide, nil
 }
 
 func (c *Client) GenerateMagicView(projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GenerateMagicViewRequest{
-			ProjectId: projectID,
-			SourceIds: sourceIDs,
-		}
-		ctx := context.Background()
-		magicView, err := c.orchestrationService.GenerateMagicView(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("generate magic view: %w", err)
-		}
-		return magicView, nil
+	req := &pb.GenerateMagicViewRequest{
+		ProjectId: projectID,
+		SourceIds: sourceIDs,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         "uK8f7c", // RPC ID for GenerateMagicView
-		Args:       []interface{}{projectID, sourceIDs},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	magicView, err := c.orchestrationService.GenerateMagicView(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate magic view: %w", err)
 	}
-
-	var magicView pb.GenerateMagicViewResponse
-	if err := beprotojson.Unmarshal(resp, &magicView); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &magicView, nil
+	return magicView, nil
 }
 
 func (c *Client) GenerateOutline(projectID string) (*pb.GenerateOutlineResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GenerateOutlineRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		outline, err := c.orchestrationService.GenerateOutline(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("generate outline: %w", err)
-		}
-		return outline, nil
+	req := &pb.GenerateOutlineRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateOutline,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	outline, err := c.orchestrationService.GenerateOutline(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate outline: %w", err)
 	}
-
-	var outline pb.GenerateOutlineResponse
-	if err := beprotojson.Unmarshal(resp, &outline); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &outline, nil
+	return outline, nil
 }
 
 func (c *Client) GenerateSection(projectID string) (*pb.GenerateSectionResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GenerateSectionRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		section, err := c.orchestrationService.GenerateSection(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("generate section: %w", err)
-		}
-		return section, nil
+	req := &pb.GenerateSectionRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateSection,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	section, err := c.orchestrationService.GenerateSection(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate section: %w", err)
 	}
-
-	var section pb.GenerateSectionResponse
-	if err := beprotojson.Unmarshal(resp, &section); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &section, nil
+	return section, nil
 }
 
 func (c *Client) StartDraft(projectID string) (*pb.StartDraftResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.StartDraftRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		draft, err := c.orchestrationService.StartDraft(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("start draft: %w", err)
-		}
-		return draft, nil
+	req := &pb.StartDraftRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCStartDraft,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	draft, err := c.orchestrationService.StartDraft(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("start draft: %w", err)
 	}
-
-	var draft pb.StartDraftResponse
-	if err := beprotojson.Unmarshal(resp, &draft); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &draft, nil
+	return draft, nil
 }
 
 func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.StartSectionRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		section, err := c.orchestrationService.StartSection(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("start section: %w", err)
-		}
-		return section, nil
+	req := &pb.StartSectionRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCStartSection,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	section, err := c.orchestrationService.StartSection(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("start section: %w", err)
 	}
-
-	var section pb.StartSectionResponse
-	if err := beprotojson.Unmarshal(resp, &section); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &section, nil
+	return section, nil
 }
 
 func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GenerateFreeFormStreamedRequest{
-			ProjectId: projectID,
-			Prompt:    prompt,
-			SourceIds: sourceIDs,
-		}
-		ctx := context.Background()
-		response, err := c.orchestrationService.GenerateFreeFormStreamed(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("generate free form streamed: %w", err)
-		}
-		return response, nil
+	req := &pb.GenerateFreeFormStreamedRequest{
+		ProjectId: projectID,
+		Prompt:    prompt,
+		SourceIds: sourceIDs,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateFreeFormStreamed,
-		Args:       []interface{}{projectID, prompt, sourceIDs},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	response, err := c.orchestrationService.GenerateFreeFormStreamed(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate free form streamed: %w", err)
 	}
-
-	var response pb.GenerateFreeFormStreamedResponse
-	if err := beprotojson.Unmarshal(resp, &response); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &response, nil
+	return response, nil
 }
 
 func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReportSuggestionsResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.GenerateReportSuggestionsRequest{
-			ProjectId: projectID,
-		}
-		ctx := context.Background()
-		response, err := c.orchestrationService.GenerateReportSuggestions(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("generate report suggestions: %w", err)
-		}
-		return response, nil
+	req := &pb.GenerateReportSuggestionsRequest{
+		ProjectId: projectID,
 	}
-
-	// Legacy manual RPC path  
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateReportSuggestions,
-		Args:       []interface{}{projectID},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	response, err := c.orchestrationService.GenerateReportSuggestions(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate report suggestions: %w", err)
 	}
-
-	var response pb.GenerateReportSuggestionsResponse
-	if err := beprotojson.Unmarshal(resp, &response); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &response, nil
+	return response, nil
 }
 
 // Sharing operations
@@ -1515,69 +802,27 @@ type ShareAudioResult struct {
 
 // ShareAudio shares an audio overview with optional public access
 func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAudioResult, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.ShareAudioRequest{
-			ShareOptions: []int32{int32(shareOption)},
-			ProjectId:    projectID,
-		}
-		ctx := context.Background()
-		response, err := c.sharingService.ShareAudio(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("share audio: %w", err)
-		}
-		
-		// Convert pb.ShareAudioResponse to ShareAudioResult
-		result := &ShareAudioResult{
-			IsPublic: shareOption == SharePublic,
-		}
-		
-		// Extract share URL and ID from share_info array
-		if len(response.ShareInfo) > 0 {
-			result.ShareURL = response.ShareInfo[0]
-		}
-		if len(response.ShareInfo) > 1 {
-			result.ShareID = response.ShareInfo[1]
-		}
-		
-		return result, nil
+	req := &pb.ShareAudioRequest{
+		ShareOptions: []int32{int32(shareOption)},
+		ProjectId:    projectID,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCShareAudio,
-		Args: []interface{}{
-			[]int{int(shareOption)},
-			projectID,
-		},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	response, err := c.sharingService.ShareAudio(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("share audio: %w", err)
 	}
 
-	// Parse the raw response
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-
+	// Convert pb.ShareAudioResponse to ShareAudioResult
 	result := &ShareAudioResult{
 		IsPublic: shareOption == SharePublic,
 	}
 
-	// Extract share URL and ID from response
-	if len(data) > 0 {
-		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
-			if shareURL, ok := shareData[0].(string); ok {
-				result.ShareURL = shareURL
-			}
-			if len(shareData) > 1 {
-				if shareID, ok := shareData[1].(string); ok {
-					result.ShareID = shareID
-				}
-			}
-		}
+	// Extract share URL and ID from share_info array
+	if len(response.ShareInfo) > 0 {
+		result.ShareURL = response.ShareInfo[0]
+	}
+	if len(response.ShareInfo) > 1 {
+		result.ShareID = response.ShareInfo[1]
 	}
 
 	return result, nil
@@ -1585,38 +830,16 @@ func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAu
 
 // ShareProject shares a project with specified settings
 func (c *Client) ShareProject(projectID string, settings *pb.ShareSettings) (*pb.ShareProjectResponse, error) {
-	if c.config.UseGeneratedClient {
-		// Use generated service client
-		req := &pb.ShareProjectRequest{
-			ProjectId: projectID,
-			Settings:  settings,
-		}
-		ctx := context.Background()
-		response, err := c.sharingService.ShareProject(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("share project: %w", err)
-		}
-		return response, nil
+	req := &pb.ShareProjectRequest{
+		ProjectId: projectID,
+		Settings:  settings,
 	}
-
-	// Legacy manual RPC path
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCShareProject,
-		Args: []interface{}{
-			projectID,
-			settings,
-		},
-		NotebookID: projectID,
-	})
+	ctx := context.Background()
+	response, err := c.sharingService.ShareProject(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("share project: %w", err)
 	}
-
-	var response pb.ShareProjectResponse
-	if err := beprotojson.Unmarshal(resp, &response); err != nil {
-		return nil, fmt.Errorf("parse response: %w", err)
-	}
-	return &response, nil
+	return response, nil
 }
 
 // Helper functions to identify and extract YouTube video IDs
