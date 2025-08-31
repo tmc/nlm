@@ -59,7 +59,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Note Commands:\n")
 		fmt.Fprintf(os.Stderr, "  notes <id>        List notes in notebook\n")
 		fmt.Fprintf(os.Stderr, "  new-note <id> <title>  Create new note\n")
-		fmt.Fprintf(os.Stderr, "  edit-note <id> <note-id> <content>  Edit note\n")
+		fmt.Fprintf(os.Stderr, "  update-note <id> <note-id> <content> <title>  Edit note\n")
 		fmt.Fprintf(os.Stderr, "  rm-note <note-id>  Remove note\n\n")
 
 		fmt.Fprintf(os.Stderr, "Audio Commands:\n")
@@ -773,16 +773,6 @@ func listNotes(c *api.Client, notebookID string) error {
 		)
 	}
 	return w.Flush()
-}
-
-func editNote(c *api.Client, notebookID, noteID, content string) error {
-	fmt.Fprintf(os.Stderr, "Updating note %s...\n", noteID)
-	note, err := c.MutateNote(notebookID, noteID, content, "") // Empty title means keep existing
-	if err != nil {
-		return fmt.Errorf("update note: %w", err)
-	}
-	fmt.Printf("✅ Updated note: %s\n", note.Title)
-	return nil
 }
 
 // Audio operations
