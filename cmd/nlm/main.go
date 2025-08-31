@@ -82,6 +82,22 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
 		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n\n")
 
+		fmt.Fprintf(os.Stderr, "Content Transformation Commands:\n")
+		fmt.Fprintf(os.Stderr, "  rephrase <id> <source-ids...>     Rephrase content from sources\n")
+		fmt.Fprintf(os.Stderr, "  expand <id> <source-ids...>       Expand on content from sources\n")
+		fmt.Fprintf(os.Stderr, "  summarize <id> <source-ids...>    Summarize content from sources\n")
+		fmt.Fprintf(os.Stderr, "  critique <id> <source-ids...>     Provide critique of content\n")
+		fmt.Fprintf(os.Stderr, "  brainstorm <id> <source-ids...>   Brainstorm ideas from sources\n")
+		fmt.Fprintf(os.Stderr, "  verify <id> <source-ids...>       Verify facts in sources\n")
+		fmt.Fprintf(os.Stderr, "  explain <id> <source-ids...>      Explain concepts from sources\n")
+		fmt.Fprintf(os.Stderr, "  outline <id> <source-ids...>      Create outline from sources\n")
+		fmt.Fprintf(os.Stderr, "  study-guide <id> <source-ids...>  Generate study guide\n")
+		fmt.Fprintf(os.Stderr, "  faq <id> <source-ids...>          Generate FAQ from sources\n")
+		fmt.Fprintf(os.Stderr, "  briefing-doc <id> <source-ids...> Create briefing document\n")
+		fmt.Fprintf(os.Stderr, "  mindmap <id> <source-ids...>      Generate interactive mindmap\n")
+		fmt.Fprintf(os.Stderr, "  timeline <id> <source-ids...>     Create timeline from sources\n")
+		fmt.Fprintf(os.Stderr, "  toc <id> <source-ids...>          Generate table of contents\n\n")
+
 		fmt.Fprintf(os.Stderr, "Sharing Commands:\n")
 		fmt.Fprintf(os.Stderr, "  share <id>        Share notebook publicly\n")
 		fmt.Fprintf(os.Stderr, "  share-private <id>  Share notebook privately\n")
@@ -224,6 +240,16 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-magic <notebook-id> <source-id> [source-id...]\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "generate-mindmap":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm generate-mindmap <notebook-id> <source-id> [source-id...]\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <source-id> [source-id...]\n", cmd)
+			return fmt.Errorf("invalid arguments")
+		}
 	case "generate-chat":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-chat <notebook-id> <prompt>\n")
@@ -269,6 +295,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm check-source <source-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "refresh-source":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm refresh-source <source-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "notes":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm notes <notebook-id>\n")
@@ -292,7 +323,8 @@ func isValidCommand(cmd string) bool {
 		"notes", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share",
 		"create-artifact", "get-artifact", "list-artifacts", "delete-artifact",
-		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-chat", "chat",
+		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat",
+		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"auth", "hb", "share", "share-private", "share-details", "feedback",
 	}
 	
@@ -495,6 +527,36 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = generateSection(client, args[0])
 	case "generate-magic":
 		err = generateMagicView(client, args[0], args[1:])
+	case "generate-mindmap":
+		err = generateMindmap(client, args[0], args[1:])
+	case "rephrase":
+		err = actOnSources(client, args[0], "rephrase", args[1:])
+	case "expand":
+		err = actOnSources(client, args[0], "expand", args[1:])
+	case "summarize":
+		err = actOnSources(client, args[0], "summarize", args[1:])
+	case "critique":
+		err = actOnSources(client, args[0], "critique", args[1:])
+	case "brainstorm":
+		err = actOnSources(client, args[0], "brainstorm", args[1:])
+	case "verify":
+		err = actOnSources(client, args[0], "verify", args[1:])
+	case "explain":
+		err = actOnSources(client, args[0], "explain", args[1:])
+	case "outline":
+		err = actOnSources(client, args[0], "outline", args[1:])
+	case "study-guide":
+		err = actOnSources(client, args[0], "study_guide", args[1:])
+	case "faq":
+		err = actOnSources(client, args[0], "faq", args[1:])
+	case "briefing-doc":
+		err = actOnSources(client, args[0], "briefing_doc", args[1:])
+	case "mindmap":
+		err = actOnSources(client, args[0], "interactive_mindmap", args[1:])
+	case "timeline":
+		err = actOnSources(client, args[0], "timeline", args[1:])
+	case "toc":
+		err = actOnSources(client, args[0], "table_of_contents", args[1:])
 	case "generate-chat":
 		err = generateFreeFormChat(client, args[0], args[1])
 	case "chat":
@@ -829,6 +891,47 @@ func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) err
 			fmt.Printf("%d. %s\n", i+1, item.Title)
 		}
 	}
+	return nil
+}
+
+func generateMindmap(c *api.Client, notebookID string, sourceIDs []string) error {
+	fmt.Fprintf(os.Stderr, "Generating interactive mindmap...\n")
+	err := c.ActOnSources(notebookID, "interactive_mindmap", sourceIDs)
+	if err != nil {
+		return fmt.Errorf("generate mindmap: %w", err)
+	}
+	fmt.Printf("Interactive mindmap generated successfully.\n")
+	return nil
+}
+
+func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []string) error {
+	actionName := map[string]string{
+		"rephrase":              "Rephrasing",
+		"expand":                "Expanding",
+		"summarize":             "Summarizing", 
+		"critique":              "Critiquing",
+		"brainstorm":            "Brainstorming",
+		"verify":                "Verifying",
+		"explain":               "Explaining",
+		"outline":               "Creating outline",
+		"study_guide":           "Generating study guide",
+		"faq":                   "Generating FAQ",
+		"briefing_doc":          "Creating briefing document",
+		"interactive_mindmap":   "Generating interactive mindmap",
+		"timeline":              "Creating timeline",
+		"table_of_contents":     "Generating table of contents",
+	}[action]
+	
+	if actionName == "" {
+		actionName = "Processing"
+	}
+	
+	fmt.Fprintf(os.Stderr, "%s content from sources...\n", actionName)
+	err := c.ActOnSources(notebookID, action, sourceIDs)
+	if err != nil {
+		return fmt.Errorf("%s: %w", strings.ToLower(actionName), err)
+	}
+	fmt.Printf("Content %s successfully.\n", strings.ToLower(actionName))
 	return nil
 }
 
