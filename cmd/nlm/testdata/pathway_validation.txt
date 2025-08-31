@@ -1,0 +1,188 @@
+# Pathway Validation Tests
+# This test file validates that both legacy and generated pathways produce identical results
+# It uses environment variables to control which pathway is tested
+
+# === SETUP ===
+# Build the test binary
+exec go build -o nlm_pathway_test .
+
+# === TEST BOTH PATHWAYS FOR LIST COMMAND ===
+
+# Test 1: Legacy pathway for list
+env NLM_PATHWAY_MODE=legacy
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_pathway_test list
+stderr 'list projects'
+cp stderr legacy_list.txt
+
+# Test 2: Generated pathway for list  
+env NLM_PATHWAY_MODE=generated
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_pathway_test list
+stderr 'list projects'
+cp stderr generated_list.txt
+
+# Test 3: Validation mode (runs both and compares)
+env NLM_PATHWAY_MODE=validation
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_pathway_test list
+stderr 'list projects'
+
+# === TEST CREATE COMMAND ===
+
+# Test 4: Legacy pathway for create
+env NLM_PATHWAY_MODE=legacy
+! exec ./nlm_pathway_test create
+stderr 'usage: nlm create <title>'
+
+# Test 5: Generated pathway for create
+env NLM_PATHWAY_MODE=generated
+! exec ./nlm_pathway_test create
+stderr 'usage: nlm create <title>'
+
+# Test 6: Both pathways with valid arguments
+env NLM_PATHWAY_MODE=legacy
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_pathway_test create "Test Project Legacy"
+stderr 'create project'
+cp stderr legacy_create.txt
+
+env NLM_PATHWAY_MODE=generated
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_pathway_test create "Test Project Generated"
+stderr 'create project'
+cp stderr generated_create.txt
+
+# === TEST SOURCE OPERATIONS ===
+
+# Test 7: Add source - legacy pathway
+env NLM_PATHWAY_MODE=legacy
+! exec ./nlm_pathway_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+
+# Test 8: Add source - generated pathway
+env NLM_PATHWAY_MODE=generated
+! exec ./nlm_pathway_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+
+# Test 9: Sources list - validation mode
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test sources
+stderr 'usage: nlm sources <notebook-id>'
+
+# === TEST FEATURE FLAGS ===
+
+# Test 10: Selective feature flag - use generated for list only
+env NLM_PATHWAY_MODE=legacy
+env NLM_USE_GENERATED_LIST=true
+env NLM_USE_GENERATED_CREATE=false
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_pathway_test list
+stderr 'list projects'
+
+# Test 11: Rollout percentage
+env NLM_PATHWAY_MODE=generated
+env NLM_ROLLOUT_PERCENTAGE=50
+! exec ./nlm_pathway_test list
+stderr 'list projects'
+
+# === TEST NOTE OPERATIONS ===
+
+# Test 12: Notes - both pathways
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test notes
+stderr 'usage: nlm notes <notebook-id>'
+
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test new-note
+stderr 'usage: nlm new-note <notebook-id> <title>'
+
+# === TEST GENERATION COMMANDS ===
+
+# Test 13: Generation - validation mode
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test generate-guide
+stderr 'usage: nlm generate-guide <notebook-id>'
+
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test generate-outline
+stderr 'usage: nlm generate-outline <notebook-id>'
+
+# === TEST ACT ON SOURCES ===
+
+# Test 14: ActOnSources commands - validation mode
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test summarize
+stderr 'usage: nlm summarize <notebook-id> <source-id>'
+
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test expand
+stderr 'usage: nlm expand <notebook-id> <source-id>'
+
+# === TEST PERFORMANCE MODE ===
+
+# Test 15: Performance tracking mode
+env NLM_PATHWAY_MODE=performance
+env NLM_TRACK_METRICS=true
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_pathway_test list
+stderr 'list projects'
+
+# === TEST ERROR HANDLING ===
+
+# Test 16: Validation timeout handling
+env NLM_PATHWAY_MODE=validation
+env NLM_VALIDATION_TIMEOUT=1ms
+! exec ./nlm_pathway_test list
+stderr 'timeout\|list projects'
+
+# Test 17: Fail on mismatch
+env NLM_PATHWAY_MODE=validation
+env NLM_FAIL_ON_MISMATCH=true
+! exec ./nlm_pathway_test list
+stderr 'mismatch\|list projects'
+
+# === TEST ARTIFACT COMMANDS ===
+
+# Test 18: Artifacts - both pathways
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test create-artifact
+stderr 'usage: nlm create-artifact <notebook-id> <type>'
+
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test list-artifacts
+stderr 'usage: nlm list-artifacts <notebook-id>'
+
+# === TEST SHARING COMMANDS ===
+
+# Test 19: Sharing - validation mode
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test share
+stderr 'usage: nlm share <notebook-id>'
+
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test share-private
+stderr 'usage: nlm share-private <notebook-id>'
+
+# === TEST AUDIO COMMANDS ===
+
+# Test 20: Audio - both pathways
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test audio-create
+stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+
+env NLM_PATHWAY_MODE=validation
+! exec ./nlm_pathway_test audio-get
+stderr 'usage: nlm audio-get <notebook-id>'
+
+# === CLEANUP ===
+rm -f nlm_pathway_test
+rm -f legacy_*.txt
+rm -f generated_*.txt
