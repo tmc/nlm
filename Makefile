@@ -1,18 +1,18 @@
-.PHONY: all build test clean beproto generate
+.PHONY: all build test clean install
 
 all: build
 
 build:
 	go build -o nlm ./cmd/nlm
 
-beproto:
-	go build -o beproto ./internal/cmd/beproto
+install:
+	go install ./cmd/nlm
 
 test:
 	go test ./...
 
 clean:
-	rm -f nlm beproto
+	rm -f nlm
 
 generate:
 	cd proto && go tool buf generate
