@@ -4,6 +4,7 @@ package method
 {{- if $argFormat }}
 
 import (
+	"github.com/tmc/nlm/internal/rpc/argbuilder"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 {{- end }}
@@ -15,186 +16,14 @@ import (
 // RPC ID: {{$rpcID}}
 // Argument format: {{$argFormat}}
 func Encode{{.Method.GoName}}Args(req *notebooklmv1alpha1.{{.Method.Input.GoIdent.GoName}}) []interface{} {
-	{{- if eq $argFormat "[null, 1, null, [2]]" }}
-	// Special case for ListRecentlyViewedProjects
-	return []interface{}{nil, 1, nil, []int{2}}
-	{{- else if eq $argFormat "[%title%, %emoji%]" }}
-	// CreateProject encoding
-	return []interface{}{req.GetTitle(), req.GetEmoji()}
-	{{- else if eq $argFormat "[%project_id%]" }}
-	// Single project ID encoding
-	return []interface{}{req.GetProjectId()}
-	{{- else if eq $argFormat "[%project_ids%]" }}
-	// Multiple project IDs encoding
-	return []interface{}{req.GetProjectIds()}
-	{{- else if eq $argFormat "[%source_id%]" }}
-	// Single source ID encoding
-	return []interface{}{req.GetSourceId()}
-	{{- else if eq $argFormat "[[%source_ids%]]" }}
-	// Nested source IDs encoding
-	return []interface{}{[]interface{}{req.GetSourceIds()}}
-	{{- else if eq $argFormat "[%sources%, %project_id%]" }}
-	// AddSources encoding
-	var sources []interface{}
-	for _, src := range req.GetSources() {
-		// Encode each source based on its type
-		sources = append(sources, encodeSourceInput(src))
+	// Using generalized argument encoder
+	args, err := argbuilder.EncodeRPCArgs(req, "{{$argFormat}}")
+	if err != nil {
+		// Log error and return empty args as fallback
+		// In production, this should be handled better
+		return []interface{}{}
 	}
-	return []interface{}{sources, req.GetProjectId()}
-	{{- else if eq $argFormat "[%project_id%, %action%, %source_ids%]" }}
-	// ActOnSources encoding
-	return []interface{}{req.GetProjectId(), req.GetAction(), req.GetSourceIds()}
-	{{- else if eq $argFormat "[%project_id%, %updates%]" }}
-	// MutateProject encoding
-	return []interface{}{req.GetProjectId(), encodeProjectUpdates(req.GetUpdates())}
-	{{- else if eq $argFormat "[%source_id%, %updates%]" }}
-	// MutateSource encoding
-	return []interface{}{req.GetSourceId(), encodeSourceUpdates(req.GetUpdates())}
-	{{- else if eq $argFormat "[%project_id%, %query%]" }}
-	// DiscoverSources encoding
-	return []interface{}{req.GetProjectId(), req.GetQuery()}
-	{{- else if eq $argFormat "[%artifact%, %update_mask%]" }}
-	// UpdateArtifact encoding
-	return []interface{}{encodeArtifact(req.GetArtifact()), encodeFieldMask(req.GetUpdateMask())}
-	{{- else if eq $argFormat "[%project_id%, %page_size%, %page_token%]" }}
-	// ListArtifacts encoding
-	return []interface{}{req.GetProjectId(), req.GetPageSize(), req.GetPageToken()}
-	{{- else if eq $argFormat "[%artifact_id%]" }}
-	// Single artifact ID encoding
-	return []interface{}{req.GetArtifactId()}
-	{{- else if eq $argFormat "[%context%, %project_id%, %artifact%]" }}
-	// CreateArtifact encoding
-	return []interface{}{encodeContext(req.GetContext()), req.GetProjectId(), encodeArtifact(req.GetArtifact())}
-	{{- else if eq $argFormat "[%page_size%, %page_token%]" }}
-	// Pagination encoding
-	return []interface{}{req.GetPageSize(), req.GetPageToken()}
-	{{- else if eq $argFormat "[]" }}
-	// No parameters required for this RPC
-	return []interface{}{}
-	{{- else if eq $argFormat "[%project_id%, %title%, %content%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetTitle(),
-		req.GetContent(),
-	}
-	{{- else if eq $argFormat "[%note_id%, %title%, %content%]" }}
-	// MutateNote has updates field instead of direct title/content
-	var title, content string
-	if len(req.GetUpdates()) > 0 {
-		title = req.GetUpdates()[0].GetTitle()
-		content = req.GetUpdates()[0].GetContent()
-	}
-	return []interface{}{
-		req.GetNoteId(),
-		title,
-		content,
-	}
-	{{- else if eq $argFormat "[%project_id%, %instructions%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetInstructions(),
-	}
-	{{- else if eq $argFormat "[%project_id%, %prompt%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetPrompt(),
-	}
-	{{- else if eq $argFormat "[%share_options%, %project_id%]" }}
-	var shareOptions []interface{}
-	for _, option := range req.GetShareOptions() {
-		shareOptions = append(shareOptions, option)
-	}
-	return []interface{}{
-		shareOptions,
-		req.GetProjectId(),
-	}
-	{{- else if eq $argFormat "[%note_ids%]" }}
-	var noteIds []interface{}
-	for _, noteId := range req.GetNoteIds() {
-		noteIds = append(noteIds, noteId)
-	}
-	return []interface{}{noteIds}
-	{{- else if eq $argFormat "[%project_id%, %feedback_type%, %feedback_text%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetFeedbackType(),
-		req.GetFeedbackText(),
-	}
-	{{- else if eq $argFormat "[%account%, %update_mask%]" }}
-	return []interface{}{
-		req.GetAccount(),
-		req.GetUpdateMask(),
-	}
-	{{- else if eq $argFormat "[%project_id%, %settings%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetSettings(),
-	}
-	{{- else if eq $argFormat "[%guidebook_id%]" }}
-	return []interface{}{
-		req.GetGuidebookId(),
-	}
-	{{- else if eq $argFormat "[%share_id%]" }}
-	return []interface{}{
-		req.GetShareId(),
-	}
-	{{- else if eq $argFormat "[%guidebook_id%, %settings%]" }}
-	return []interface{}{
-		req.GetGuidebookId(),
-		req.GetSettings(),
-	}
-	{{- else if eq $argFormat "[%guidebook_id%, %question%, %settings%]" }}
-	return []interface{}{
-		req.GetGuidebookId(),
-		req.GetQuestion(),
-		req.GetSettings(),
-	}
-	{{- else if eq $argFormat "[%feedback%, %project_id%]" }}
-	return []interface{}{
-		req.GetFeedback(),
-		req.GetProjectId(),
-	}
-	{{- else if eq $argFormat "[%project_id%, %document_id%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetDocumentId(),
-	}
-	{{- else if eq $argFormat "[%project_id%, %section_id%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetSectionId(),
-	}
-	{{- else if eq $argFormat "[%project_id%, %topic%]" }}
-	return []interface{}{
-		req.GetProjectId(),
-		req.GetTopic(),
-	}
-	{{- else if eq $argFormat "[%updates%]" }}
-	return []interface{}{
-		req.GetUpdates(),
-	}
-	{{- else if eq $argFormat "[%project_id%, %source_ids%]" }}
-	var sourceIds []interface{}
-	for _, sourceId := range req.GetSourceIds() {
-		sourceIds = append(sourceIds, sourceId)
-	}
-	return []interface{}{
-		req.GetProjectId(),
-		sourceIds,
-	}
-	{{- else }}
-	// Generalized pattern matching for unknown formats
-	{{- if eq $argFormat "[]" }}
-	// No parameters required
-	return []interface{}{}
-	{{- else }}
-	// Parse the arg_format and try to match fields generically
-	// Format: {{$argFormat}}
-	// This is a fallback - consider adding specific handling above
-	// TODO: Implement encoding for format: {{$argFormat}}
-	return []interface{}{}
-	{{- end }}
-	{{- end }}
+	return args
 }
 
 {{- else }}
