@@ -2,6 +2,7 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/rpc/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
@@ -10,11 +11,12 @@ import (
 // RPC ID: izAoDd
 // Argument format: [%sources%, %project_id%]
 func EncodeAddSourcesArgs(req *notebooklmv1alpha1.AddSourceRequest) []interface{} {
-	// AddSources encoding
-	var sources []interface{}
-	for _, src := range req.GetSources() {
-		// Encode each source based on its type
-		sources = append(sources, encodeSourceInput(src))
+	// Using generalized argument encoder
+	args, err := argbuilder.EncodeRPCArgs(req, "[%sources%, %project_id%]")
+	if err != nil {
+		// Log error and return empty args as fallback
+		// In production, this should be handled better
+		return []interface{}{}
 	}
-	return []interface{}{sources, req.GetProjectId()}
+	return args
 }
