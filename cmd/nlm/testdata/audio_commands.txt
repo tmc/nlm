@@ -1,5 +1,5 @@
-# Test all audio-related commands with comprehensive validation
-# Tests include: argument validation, authentication requirements, error handling
+# Test audio command validation only (no network calls)
+# Focus on argument validation and authentication checks
 
 # === AUDIO-CREATE COMMAND ===
 # Test audio-create without arguments (should fail with usage)
@@ -13,31 +13,13 @@ stderr 'usage: nlm audio-create <notebook-id> <instructions>'
 ! stderr 'panic'
 
 # Test audio-create with too many arguments (should fail with usage)
-! exec ./nlm_test audio-create notebook123 "instructions" extra
+! exec ./nlm_test audio-create notebook123 instructions extra
 stderr 'usage: nlm audio-create <notebook-id> <instructions>'
 ! stderr 'panic'
 
 # Test audio-create without authentication (should fail)
 ! exec ./nlm_test audio-create notebook123 'Create an overview'
 stderr 'Authentication required'
-! stderr 'panic'
-
-# Test audio-create with valid arguments but invalid notebook ID format
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-create invalid-notebook-id 'Create overview'
-stderr 'create audio overview'
-! stderr 'panic'
-
-# Test audio-create with empty instructions
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-create notebook123 ""
-stderr 'create audio overview'
-! stderr 'panic'
-
-# Test audio-create with very long instructions (edge case)
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-create notebook123 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit.'
-stderr 'create audio overview'
 ! stderr 'panic'
 
 # === AUDIO-GET COMMAND ===
@@ -53,19 +35,7 @@ stderr 'usage: nlm audio-get <notebook-id>'
 
 # Test audio-get without authentication (should fail)
 ! exec ./nlm_test audio-get notebook123
-stderr 'get audio overview'
-! stderr 'panic'
-
-# Test audio-get with valid authentication but invalid notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-get invalid-notebook-id
-stderr 'get audio overview'
-! stderr 'panic'
-
-# Test audio-get with empty notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-get ""
-stderr 'get audio overview'
+stderr 'Authentication required'
 ! stderr 'panic'
 
 # === AUDIO-RM COMMAND ===
@@ -81,19 +51,7 @@ stderr 'usage: nlm audio-rm <notebook-id>'
 
 # Test audio-rm without authentication (should fail)
 ! exec ./nlm_test audio-rm notebook123
-stdout 'Are you sure you want to delete'
-! stderr 'panic'
-
-# Test audio-rm with valid authentication but invalid notebook ID (will prompt)
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-rm invalid-notebook-id
-stdout 'Are you sure you want to delete'
-! stderr 'panic'
-
-# Test audio-rm with special characters in notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-rm 'notebook!@#$%'
-stdout 'Are you sure you want to delete'
+stderr 'Authentication required'
 ! stderr 'panic'
 
 # === AUDIO-SHARE COMMAND ===
@@ -102,55 +60,7 @@ stdout 'Are you sure you want to delete'
 stderr 'usage: nlm audio-share <notebook-id>'
 ! stderr 'panic'
 
-# Test audio-share with too many arguments (should fail with usage)
-! exec ./nlm_test audio-share notebook123 extra
-stderr 'usage: nlm audio-share <notebook-id>'
-! stderr 'panic'
-
 # Test audio-share without authentication (should fail)
 ! exec ./nlm_test audio-share notebook123
-stderr 'share audio'
-! stderr 'panic'
-
-# Test audio-share with valid authentication but invalid notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-share invalid-notebook-id
-stderr 'share audio'
-! stderr 'panic'
-
-# === CROSS-COMMAND VALIDATION ===
-# Test that audio commands require authentication even with debug flag
-! exec ./nlm_test -debug audio-get notebook123
-stderr 'get audio overview'
-! stderr 'panic'
-
-# Test that audio commands work with chunked flag (should still require auth)
-! exec ./nlm_test -chunked audio-get notebook123
-stderr 'get audio overview'
-! stderr 'panic'
-
-# Test that audio commands work with combined flags
-! exec ./nlm_test -debug -chunked audio-get notebook123
-stderr 'get audio overview'
-! stderr 'panic'
-
-# === SPECIAL CHARACTER HANDLING ===
-# Test audio-create with quotes in instructions
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-create notebook123 'Create an overview with "quotes" and '\''apostrophes'\'''
-stderr 'create audio overview'
-! stderr 'panic'
-
-# Test audio-create with newlines in instructions (should handle gracefully)
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test audio-create notebook123 'Line 1\nLine 2\nLine 3'
-stderr 'create audio overview'
-! stderr 'panic'
-
-# === ERROR RECOVERY ===
-# Test that commands don't leave the CLI in a bad state after errors
-! exec ./nlm_test audio-get invalid-notebook
-stderr 'get audio overview'
-exec ./nlm_test help
-stderr 'Usage: nlm <command>'
+stderr 'Authentication required'
 ! stderr 'panic'

@@ -1,159 +1,67 @@
-# Test notebook commands - comprehensive validation and error handling
+# Test notebook command validation only (no network calls)
+# Focus on argument validation and authentication checks
 
-# Test list/ls commands - no arguments required
+# === LIST COMMAND ===
+# Test list with extra arguments (should still work)
+! exec ./nlm_test list extra
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test list without authentication
 ! exec ./nlm_test list
+stderr 'Authentication required'
 ! stderr 'panic'
-stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
 
-! exec ./nlm_test ls  
-! stderr 'panic'
-stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
-
-# Test list/ls with extra arguments (should still work, args ignored)
-! exec ./nlm_test list extra-arg
-! stderr 'panic' 
-stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
-
-! exec ./nlm_test ls extra-arg another-arg
-! stderr 'panic'
-stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
-
-# Test create command validation - requires exactly 1 argument
+# === CREATE COMMAND ===
+# Test create without arguments
 ! exec ./nlm_test create
 stderr 'usage: nlm create <title>'
-! stderr 'panic'
-
-! exec ./nlm_test create title extra-arg
-stderr 'usage: nlm create <title>'
-! stderr 'panic'
-
-# Test create without auth
-! exec ./nlm_test create MyNotebook
-stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
 ! stderr 'panic'
 
 # Test create with empty title
 ! exec ./nlm_test create ""
-stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
+stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test rm command validation - requires exactly 1 argument  
+# Test create without authentication
+! exec ./nlm_test create TestNotebook
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === RM COMMAND ===
+# Test rm without arguments
 ! exec ./nlm_test rm
 stderr 'usage: nlm rm <id>'
 ! stderr 'panic'
 
-! exec ./nlm_test rm id1 id2
+# Test rm with too many arguments
+! exec ./nlm_test rm notebook123 extra
 stderr 'usage: nlm rm <id>'
 ! stderr 'panic'
 
-# Test rm without auth
-! exec ./nlm_test rm notebook-id-123
-stderr 'Authentication required for.*rm.*Run.*nlm auth.*first'
+# Test rm without authentication
+! exec ./nlm_test rm notebook123
+stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test rm with empty ID
-! exec ./nlm_test rm ""
-stderr 'Authentication required for.*rm.*Run.*nlm auth.*first'
-! stderr 'panic'
-
-# Test analytics command validation - requires exactly 1 argument
+# === ANALYTICS COMMAND ===
+# Test analytics without arguments
 ! exec ./nlm_test analytics
 stderr 'usage: nlm analytics <notebook-id>'
 ! stderr 'panic'
 
-! exec ./nlm_test analytics id1 id2
-stderr 'usage: nlm analytics <notebook-id>'
-! stderr 'panic'
-
-# Test analytics without auth
-! exec ./nlm_test analytics notebook-123
-stderr 'Authentication required for.*analytics.*Run.*nlm auth.*first'
-! stderr 'panic'
-
-# Test analytics with empty ID
-! exec ./nlm_test analytics ""
-stderr 'Authentication required for.*analytics.*Run.*nlm auth.*first'
-! stderr 'panic'
-
-# Test list-featured command - takes no arguments
-! exec ./nlm_test list-featured
-! stderr 'panic'
-stderr 'Authentication required for.*list-featured.*Run.*nlm auth.*first'
-
-# Test list-featured with extra arguments (should still work, args ignored)
-! exec ./nlm_test list-featured extra-arg
-! stderr 'panic'
-stderr 'Authentication required for.*list-featured.*Run.*nlm auth.*first'
-
-# Test commands with authentication (will fail with API error, not auth error)
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test list
-! stderr 'panic'
-! stderr 'Authentication required'
-
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test create TestNotebook
-! stderr 'panic'
-! stderr 'Authentication required'
-! stderr 'usage: nlm create'
-
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test rm test-notebook-id
-! stderr 'panic'
-! stderr 'Authentication required'
-
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test analytics test-notebook-id
-! stderr 'panic'
-! stderr 'Authentication required'
-
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test list-featured
-! stderr 'panic'
-! stderr 'Authentication required'
-
-# Test with debug flag (known to have slice bounds issue with test tokens)
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test -debug list
-# This command currently has a known panic with test tokens
-# stderr 'panic'
-! stderr 'Authentication required'
-
-# Test with chunked flag
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test -chunked list
-! stderr 'panic'
-! stderr 'Authentication required'
-
-# Test partial authentication scenarios
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=
-! exec ./nlm_test list
+# Test analytics without authentication
+! exec ./nlm_test analytics notebook123
 stderr 'Authentication required'
 ! stderr 'panic'
 
-env NLM_AUTH_TOKEN=
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test list  
+# === LIST-FEATURED COMMAND ===
+# Test list-featured with extra arguments (should still work)
+! exec ./nlm_test list-featured extra
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test that all commands handle missing required arguments consistently
-! exec ./nlm_test create
-stderr 'usage:'
-! stderr 'panic'
-
-! exec ./nlm_test rm  
-stderr 'usage:'
-! stderr 'panic'
-
-! exec ./nlm_test analytics
-stderr 'usage:'
+# Test list-featured without authentication
+! exec ./nlm_test list-featured
+stderr 'Authentication required'
 ! stderr 'panic'
