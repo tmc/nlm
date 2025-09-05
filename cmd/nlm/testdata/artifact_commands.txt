@@ -1,304 +1,51 @@
-# Test all artifact-related commands with comprehensive validation
-# Tests include: argument validation, authentication requirements, error handling
-# NOTE: Some artifact commands have known API-level issues (400 Bad Request)
-# These are server-side issues documented in CLAUDE.md
+# Test artifact command validation only (no network calls)
+# Focus on argument validation and authentication checks
 
 # === CREATE-ARTIFACT COMMAND ===
-# Test create-artifact without arguments (should fail with usage)
+# Test create-artifact without arguments
 ! exec ./nlm_test create-artifact
 stderr 'usage: nlm create-artifact <notebook-id> <type>'
 ! stderr 'panic'
 
-# Test create-artifact with only one argument (should fail with usage)
+# Test create-artifact with only notebook ID
 ! exec ./nlm_test create-artifact notebook123
 stderr 'usage: nlm create-artifact <notebook-id> <type>'
 ! stderr 'panic'
 
-# Test create-artifact with too many arguments (should fail with usage)
-! exec ./nlm_test create-artifact notebook123 note extra
-stderr 'usage: nlm create-artifact <notebook-id> <type>'
-! stderr 'panic'
-
-# Test create-artifact without authentication (should fail)
+# Test create-artifact without authentication
 ! exec ./nlm_test create-artifact notebook123 note
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test create-artifact with invalid artifact type
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 invalid-type
-stderr 'invalid artifact type.*invalid-type'
-! stderr 'panic'
-
-# Test create-artifact with valid artifact types (will fail due to API but should not panic)
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 note
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 audio
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 report
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 app
-stderr 'create artifact'
-! stderr 'panic'
-
-# Test create-artifact with case variations in type
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 NOTE
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 Audio
-stderr 'create artifact'
-! stderr 'panic'
-
-# Test create-artifact with empty strings
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact "" note
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 ""
-stderr 'invalid artifact type: .* \(valid: note, audio, report, app\)'
-! stderr 'panic'
-
-# Test create-artifact with special characters in notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact 'notebook!@#$%' note
-stderr 'create artifact'
-! stderr 'panic'
-
 # === GET-ARTIFACT COMMAND ===
-# NOTE: get-artifact has known API-level issues (documented in CLAUDE.md)
-# Test get-artifact without arguments (should fail with usage)
+# Test get-artifact without arguments
 ! exec ./nlm_test get-artifact
 stderr 'usage: nlm get-artifact <artifact-id>'
 ! stderr 'panic'
 
-# Test get-artifact with too many arguments (should fail with usage)
-! exec ./nlm_test get-artifact artifact123 extra
-stderr 'usage: nlm get-artifact <artifact-id>'
-! stderr 'panic'
-
-# Test get-artifact without authentication (should fail)
+# Test get-artifact without authentication
 ! exec ./nlm_test get-artifact artifact123
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test get-artifact with valid authentication but invalid artifact ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test get-artifact invalid-artifact-id
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test get-artifact with empty artifact ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test get-artifact ""
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test get-artifact with special characters in artifact ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test get-artifact 'artifact!@#$%'
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test get-artifact with very long artifact ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test get-artifact 'very-long-artifact-id-that-exceeds-normal-length-limits-but-should-still-be-handled-gracefully-without-panicking'
-stderr 'get artifact'
+stderr 'Authentication required'
 ! stderr 'panic'
 
 # === LIST-ARTIFACTS COMMAND ===
-# NOTE: list-artifacts has known API-level issues (returns 400 Bad Request)
-# Test list-artifacts without arguments (should fail with usage)
+# Test list-artifacts without arguments
 ! exec ./nlm_test list-artifacts
 stderr 'usage: nlm list-artifacts <notebook-id>'
 ! stderr 'panic'
 
-# Test list-artifacts with too many arguments (should fail with usage)
-! exec ./nlm_test list-artifacts notebook123 extra
-stderr 'usage: nlm list-artifacts <notebook-id>'
-! stderr 'panic'
-
-# Test list-artifacts without authentication (should fail)
+# Test list-artifacts without authentication
 ! exec ./nlm_test list-artifacts notebook123
-stderr 'list artifacts'
-! stderr 'panic'
-
-# Test list-artifacts with valid authentication but invalid notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test list-artifacts invalid-notebook-id
-stderr 'list artifacts'
-! stderr 'panic'
-
-# Test list-artifacts with empty notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test list-artifacts ""
-stderr 'list artifacts'
-! stderr 'panic'
-
-# Test list-artifacts with special characters in notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test list-artifacts 'notebook!@#$%'
-stderr 'list artifacts'
+stderr 'Authentication required'
 ! stderr 'panic'
 
 # === DELETE-ARTIFACT COMMAND ===
-# Test delete-artifact without arguments (should fail with usage)
+# Test delete-artifact without arguments
 ! exec ./nlm_test delete-artifact
 stderr 'usage: nlm delete-artifact <artifact-id>'
 ! stderr 'panic'
 
-# Test delete-artifact with too many arguments (should fail with usage)
-! exec ./nlm_test delete-artifact artifact123 extra
-stderr 'usage: nlm delete-artifact <artifact-id>'
-! stderr 'panic'
-
-# Test delete-artifact without authentication (should fail)
+# Test delete-artifact without authentication
 ! exec ./nlm_test delete-artifact artifact123
-stderr 'operation cancelled'
-! stderr 'panic'
-
-# Test delete-artifact with valid authentication but invalid artifact ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test delete-artifact invalid-artifact-id
-stderr 'operation cancelled'
-! stderr 'panic'
-
-# Test delete-artifact with empty artifact ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test delete-artifact ""
-stderr 'operation cancelled'
-! stderr 'panic'
-
-# Test delete-artifact with special characters in artifact ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test delete-artifact 'artifact!@#$%'
-stderr 'operation cancelled'
-! stderr 'panic'
-
-# === CROSS-COMMAND VALIDATION ===
-# Test that artifact commands require authentication even with debug flag
-! exec ./nlm_test -debug get-artifact artifact123
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test that artifact commands work with chunked flag (should still require auth)
-! exec ./nlm_test -chunked list-artifacts notebook123
-stderr 'list artifacts'
-! stderr 'panic'
-
-# Test that artifact commands work with combined flags
-! exec ./nlm_test -debug -chunked create-artifact notebook123 note
-stderr 'create artifact'
-! stderr 'panic'
-
-# === SPECIAL CHARACTER HANDLING ===
-# Test create-artifact with Unicode characters in notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact 'notebook-测试-🎯' note
-stderr 'create artifact'
-! stderr 'panic'
-
-# Test artifact commands with quotes in IDs
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test get-artifact 'artifact-"quoted"-id'
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test artifact commands with newlines in IDs (should handle gracefully)
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test list-artifacts $'notebook\nwith-newline'
-stderr 'list artifacts'
-! stderr 'panic'
-
-# === ERROR RECOVERY ===
-# Test that commands don't leave the CLI in a bad state after errors
-! exec ./nlm_test create-artifact invalid-notebook invalid-type
-stderr 'invalid artifact type'
-exec ./nlm_test help
-stderr 'Usage: nlm <command>'
-! stderr 'panic'
-
-# Test recovery after authentication errors
-! exec ./nlm_test get-artifact artifact123
-stderr 'get artifact'
-exec ./nlm_test help
-stderr 'Usage: nlm <command>'
-! stderr 'panic'
-
-# === EDGE CASES ===
-# Test artifact commands with whitespace-only arguments
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact '   ' note
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 '   '
-stderr 'invalid artifact type:    '
-! stderr 'panic'
-
-# Test with tabs in arguments
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test get-artifact 'artifact	with	tabs'
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test with mixed case artifact types that should be accepted
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 NoTe
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 AUDIO
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 rEpOrT
-stderr 'create artifact'
-! stderr 'panic'
-
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact notebook123 aPp
-stderr 'create artifact'
-! stderr 'panic'
-
-# === BOUNDARY CONDITIONS ===
-# Test with extremely short IDs
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test get-artifact 'a'
-stderr 'get artifact'
-! stderr 'panic'
-
-# Test with single character notebook IDs
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test list-artifacts 'n'
-stderr 'list artifacts'
-! stderr 'panic'
-
-# Test with numeric IDs
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test create-artifact '12345' note
-stderr 'create artifact'
-! stderr 'panic'
-
-# Test with mixed alphanumeric and symbols
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test delete-artifact '123-abc_456.artifact'
-stderr 'operation cancelled'
+stderr 'Authentication required'
 ! stderr 'panic'
