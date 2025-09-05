@@ -1,4 +1,4 @@
-# Test network resilience with retry logic
+# Test network resilience - validation only (no network calls)
 
 # Test 1: Commands without authentication should show auth errors (no network calls)
 ! exec ./nlm_test list
@@ -14,20 +14,8 @@ env NLM_AUTH_TOKEN=
 ! exec ./nlm_test create test-notebook
 stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
 
-# Test 3: Commands with both auth token and cookies will attempt network calls
-# Invalid tokens will cause API errors, but the client should handle them gracefully
-env NLM_AUTH_TOKEN=invalid-token
-env NLM_COOKIES=invalid-cookies
-! exec ./nlm_test list
-# Should show parse/API error, not crash - this tests error handling resilience
-stderr 'API error|Authentication|execute rpc'
-
-# Test 4: Debug mode should show network activity details
-env NLM_DEBUG=true
-env NLM_AUTH_TOKEN=test-debug-token
-env NLM_COOKIES=test-debug-cookies
-! exec ./nlm_test -debug list
-# Debug output shows request/response activity and error handling
-stderr 'debug mode enabled'
-stdout 'Auth token loaded: true'
-stdout 'Cookies loaded: true'
+# Test 3: Unset auth values should require auth
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+! exec ./nlm_test sources notebook123
+stderr 'Authentication required'

@@ -1,40 +1,18 @@
-# Test input handling for add command
+# Test input handling validation only (no network calls)
+# Focus on argument validation and error messages
 
-# Test empty input handling  
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test add notebook123 ''
-stderr 'input required.*file, URL'
+# Test add with single argument (missing file)
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
 
-# Test stdin input handling - skip this test for now since stdin command is not available
-# env NLM_AUTH_TOKEN=test-token
-# env NLM_COOKIES=test-cookies
-# ! exec ./nlm_test add notebook123 -
-# stderr 'Reading from stdin'
+# Test add without authentication should fail before network
+! exec ./nlm_test add notebook123 test.txt
+stderr 'Authentication required'
 
-# Test URL input (this will fail at API level but should show correct message)
-# Note: This test makes a real network call which is OK in recording mode
-# but will fail when offline. The important part is that it shows the correct
-# initial message before attempting the network call.
-env NLM_AUTH_TOKEN=test-token  
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test add notebook123 https://example.com
-stdout 'Adding source from URL'
+# Test add with single argument
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
 
-# Test file input - skip for now since it requires file setup
-# File input testing would need proper setup
-
-# Test file input with MIME type - when file doesn't exist, treated as text content
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test -mime application/json add notebook123 temp/test.txt
-stdout 'Adding text content as source'
-
-# Test text content input (fallback when file doesn't exist)
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-! exec ./nlm_test add notebook123 'Some text content'
-stdout 'Adding text content as source'
-
-# Clean up
-exec rm -rf temp input.txt
+# Test add without any arguments
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'
