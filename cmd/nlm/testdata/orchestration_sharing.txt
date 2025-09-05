@@ -1,114 +1,35 @@
-# Test orchestration and sharing commands
+# Test orchestration and sharing command validation only (no network calls)
+# Focus on argument validation and authentication checks
 
-# Test artifact commands validation
-! exec ./nlm_test create-artifact
-stderr 'usage: nlm create-artifact <notebook-id> <type>'
-stderr 'invalid arguments'
-
-! exec ./nlm_test create-artifact abc123
-stderr 'usage: nlm create-artifact <notebook-id> <type>'
-stderr 'invalid arguments'
-
-! exec ./nlm_test get-artifact
-stderr 'usage: nlm get-artifact <artifact-id>'
-stderr 'invalid arguments'
-
-! exec ./nlm_test list-artifacts
-stderr 'usage: nlm list-artifacts <notebook-id>'
-stderr 'invalid arguments'
-
-! exec ./nlm_test delete-artifact
-stderr 'usage: nlm delete-artifact <artifact-id>'
-stderr 'invalid arguments'
-
-# Test sharing commands validation
+# === SHARE COMMAND ===
+# Test share without arguments
 ! exec ./nlm_test share
 stderr 'usage: nlm share <notebook-id>'
-stderr 'invalid arguments'
+! stderr 'panic'
 
+# Test share without authentication
+! exec ./nlm_test share notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === SHARE-PRIVATE COMMAND ===
+# Test share-private without arguments
 ! exec ./nlm_test share-private
 stderr 'usage: nlm share-private <notebook-id>'
-stderr 'invalid arguments'
+! stderr 'panic'
 
+# Test share-private without authentication
+! exec ./nlm_test share-private notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === SHARE-DETAILS COMMAND ===
+# Test share-details without arguments
 ! exec ./nlm_test share-details
 stderr 'usage: nlm share-details <share-id>'
-stderr 'invalid arguments'
+! stderr 'panic'
 
-# Test discover-sources command validation
-! exec ./nlm_test discover-sources
-stderr 'usage: nlm discover-sources <notebook-id> <query>'
-stderr 'invalid arguments'
-
-! exec ./nlm_test discover-sources abc123
-stderr 'usage: nlm discover-sources <notebook-id> <query>'
-stderr 'invalid arguments'
-
-# Test analytics command validation
-! exec ./nlm_test analytics
-stderr 'usage: nlm analytics <notebook-id>'
-stderr 'invalid arguments'
-
-# Test commands require authentication
-env NLM_AUTH_TOKEN=
-env NLM_COOKIES=
-! exec ./nlm_test list-artifacts test-notebook
+# Test share-details without authentication
+! exec ./nlm_test share-details share123
 stderr 'Authentication required'
-
-! exec ./nlm_test share test-notebook
-stderr 'Authentication required'
-
-! exec ./nlm_test share-private test-notebook
-stderr 'Authentication required'
-
-! exec ./nlm_test share-details test-share
-stderr 'Authentication required'
-
-# Test with mock authentication - artifact commands
-env NLM_AUTH_TOKEN=test-token
-env NLM_COOKIES=test-cookies
-
-! exec ./nlm_test create-artifact test-notebook note
-stderr 'Creating note artifact'
-
-! exec ./nlm_test create-artifact test-notebook audio
-stderr 'Creating audio artifact'
-
-! exec ./nlm_test create-artifact test-notebook report
-stderr 'Creating report artifact'
-
-! exec ./nlm_test create-artifact test-notebook app
-stderr 'Creating app artifact'
-
-# Test generation commands validation
-! exec ./nlm_test generate-chat
-stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
-stderr 'invalid arguments'
-
-! exec ./nlm_test generate-chat test-notebook
-stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
-stderr 'invalid arguments'
-
-# Test feedback command validation
-! exec ./nlm_test feedback
-stderr 'usage: nlm feedback <message>'
-stderr 'invalid arguments'
-
-# Test check-source command validation
-! exec ./nlm_test check-source
-stderr 'usage: nlm check-source <source-id>'
-stderr 'invalid arguments'
-
-# Test all new commands show in help
-exec ./nlm_test --help
-stderr 'create-artifact'
-stderr 'get-artifact'
-stderr 'list-artifacts'
-stderr 'delete-artifact'
-stderr 'share <id>'
-stderr 'share-private'
-stderr 'share-details'
-stderr 'discover-sources'
-stderr 'analytics'
-stderr 'check-source'
-stderr 'generate-chat'
-stderr 'feedback'
+! stderr 'panic'

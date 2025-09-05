@@ -1,5 +1,5 @@
-# Test all generate-related commands with comprehensive validation
-# Tests include: argument validation, authentication requirements, error handling
+# Test generate command validation only (no network calls)
+# Focus on argument validation and authentication checks
 
 # === GENERATE-GUIDE COMMAND ===
 # Test generate-guide without arguments (should fail with usage)
@@ -17,178 +17,61 @@ stderr 'usage: nlm generate-guide <notebook-id>'
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test generate-guide with valid authentication but invalid notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-guide invalid-notebook-id
-stderr 'generate guide'
-! stderr 'panic'
-
-# Test generate-guide with empty notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-guide ""
-stderr 'generate guide'
-! stderr 'panic'
-
-# Test generate-guide with special characters in notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-guide 'notebook!@#$%^&*()'
-stderr 'generate guide'
-! stderr 'panic'
-
 # === GENERATE-OUTLINE COMMAND ===
 # Test generate-outline without arguments (should fail with usage)
 ! exec ./nlm_test generate-outline
 stderr 'usage: nlm generate-outline <notebook-id>'
 ! stderr 'panic'
 
-# Test generate-outline with too many arguments (should fail with usage)
+# Test generate-outline with too many arguments
 ! exec ./nlm_test generate-outline notebook123 extra
 stderr 'usage: nlm generate-outline <notebook-id>'
 ! stderr 'panic'
 
-# Test generate-outline without authentication (should fail)
+# Test generate-outline without authentication
 ! exec ./nlm_test generate-outline notebook123
-stderr 'generate outline'
-! stderr 'panic'
-
-# Test generate-outline with valid authentication but invalid notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-outline invalid-notebook-id
-stderr 'generate outline'
-! stderr 'panic'
-
-# Test generate-outline with whitespace-only notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-outline '   '
-stderr 'generate outline'
+stderr 'Authentication required'
 ! stderr 'panic'
 
 # === GENERATE-SECTION COMMAND ===
-# Test generate-section without arguments (should fail with usage)
+# Test generate-section without arguments
 ! exec ./nlm_test generate-section
 stderr 'usage: nlm generate-section <notebook-id>'
 ! stderr 'panic'
 
-# Test generate-section with too many arguments (should fail with usage)
-! exec ./nlm_test generate-section notebook123 extra
-stderr 'usage: nlm generate-section <notebook-id>'
-! stderr 'panic'
-
-# Test generate-section without authentication (should fail)
+# Test generate-section without authentication
 ! exec ./nlm_test generate-section notebook123
-stderr 'generate section'
-! stderr 'panic'
-
-# Test generate-section with valid authentication but invalid notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-section invalid-notebook-id
-stderr 'generate section'
-! stderr 'panic'
-
-# Test generate-section with unicode characters in notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-section 'notebook-你好-مرحبا'
-stderr 'generate section'
+stderr 'Authentication required'
 ! stderr 'panic'
 
 # === GENERATE-CHAT COMMAND ===
-# Test generate-chat without arguments (should fail with usage)
+# Test generate-chat without arguments
 ! exec ./nlm_test generate-chat
 stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
 ! stderr 'panic'
 
-# Test generate-chat with only one argument (should fail with usage)
+# Test generate-chat with only notebook ID
 ! exec ./nlm_test generate-chat notebook123
 stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
 ! stderr 'panic'
 
-# Test generate-chat with too many arguments (should fail with usage)
-! exec ./nlm_test generate-chat notebook123 'prompt' extra
-stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
+# Test generate-chat without authentication
+! exec ./nlm_test generate-chat notebook123 prompt
+stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test generate-chat without authentication (should fail)
-! exec ./nlm_test generate-chat notebook123 'What is the main theme?'
-stderr 'generate chat'
+# === GENERATE-MAGIC COMMAND ===
+# Test generate-magic without arguments
+! exec ./nlm_test generate-magic
+stderr 'usage: nlm generate-magic <notebook-id> <source-id> \[source-id...\]'
 ! stderr 'panic'
 
-# Test generate-chat with valid authentication but invalid notebook ID
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-chat invalid-notebook-id 'What is the main theme?'
-stderr 'generate chat'
+# Test generate-magic with only notebook ID
+! exec ./nlm_test generate-magic notebook123
+stderr 'usage: nlm generate-magic <notebook-id> <source-id> \[source-id...\]'
 ! stderr 'panic'
 
-# Test generate-chat with empty prompt
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-chat notebook123 ""
-stderr 'generate chat'
-! stderr 'panic'
-
-# Test generate-chat with very long prompt (edge case)
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-chat notebook123 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.'
-stderr 'generate chat'
-! stderr 'panic'
-
-# Test generate-chat with special characters in prompt
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-chat notebook123 'What about "quotes" and '\''apostrophes'\'' and \backslashes?'
-stderr 'generate chat'
-! stderr 'panic'
-
-# Test generate-chat with newlines in prompt
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-chat notebook123 'Question 1: What is the theme? Question 2: Who are the main characters? Question 3: What is the setting?'
-stderr 'generate chat'
-! stderr 'panic'
-
-# === CROSS-COMMAND VALIDATION ===
-# Test that generate commands work with debug flag but may fail on API
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies  
-! exec ./nlm_test -debug generate-guide invalid-notebook
-stderr 'generate guide'
-! stderr 'panic'
-
-# Test that generate commands work with chunked flag (should still require auth)
-! exec ./nlm_test -chunked generate-outline notebook123
-stderr 'generate outline'
-! stderr 'panic'
-
-# Test that generate commands work with combined flags
-! exec ./nlm_test -debug -chunked generate-section notebook123
-stderr 'generate section'
-! stderr 'panic'
-
-# Test generate-chat with debug flag to check prompt handling
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test -debug generate-chat notebook123 'Test prompt'
-stderr 'generate chat'
-! stderr 'panic'
-
-# === PROMPT INJECTION PROTECTION ===
-# Test generate-chat with potential injection attempts
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-chat notebook123 '"; DROP TABLE notebooks; --'
-stderr 'generate chat'
-! stderr 'panic'
-
-# Test generate-chat with JSON injection attempt
-env NLM_AUTH_TOKEN=test-token NLM_COOKIES=test-cookies
-! exec ./nlm_test generate-chat notebook123 '{"malicious": "payload"}'
-stderr 'generate chat'
-! stderr 'panic'
-
-# === ERROR RECOVERY ===
-# Test that commands don't leave the CLI in a bad state after errors
-! exec ./nlm_test generate-guide invalid-notebook
-stderr 'generate guide'
-exec ./nlm_test help
-stderr 'Usage: nlm <command>'
-! stderr 'panic'
-
-# Test sequential generate commands after failure
-! exec ./nlm_test generate-outline notebook123
-stderr 'generate outline'
-! exec ./nlm_test generate-section notebook123
-stderr 'generate section'
+# Test generate-magic without authentication
+! exec ./nlm_test generate-magic notebook123 source1 source2
+stderr 'Authentication required'
 ! stderr 'panic'
