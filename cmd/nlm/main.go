@@ -105,6 +105,7 @@ func init() {
 
 		fmt.Fprintf(os.Stderr, "Other Commands:\n")
 		fmt.Fprintf(os.Stderr, "  auth [profile]    Setup authentication\n")
+		fmt.Fprintf(os.Stderr, "  refresh           Refresh authentication credentials\n")
 		fmt.Fprintf(os.Stderr, "  feedback <msg>    Submit feedback\n")
 		fmt.Fprintf(os.Stderr, "  hb                Send heartbeat\n\n")
 	}
@@ -220,6 +221,9 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm share-details <share-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "refresh":
+		// refresh command optionally takes -debug flag
+		// Don't validate here, let the command handle its own flags
 	case "generate-guide":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-guide <notebook-id>\n")
@@ -325,7 +329,7 @@ func isValidCommand(cmd string) bool {
 		"create-artifact", "get-artifact", "list-artifacts", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
-		"auth", "hb", "share", "share-private", "share-details", "feedback",
+		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
 	}
 	
 	for _, valid := range validCommands {
@@ -343,6 +347,10 @@ func isAuthCommand(cmd string) bool {
 	}
 	// Auth command doesn't need prior auth
 	if cmd == "auth" {
+		return false
+	}
+	// Refresh command manages its own auth
+	if cmd == "refresh" {
 		return false
 	}
 	return true
@@ -405,6 +413,17 @@ func run() error {
 	if cmd == "help" || cmd == "-h" || cmd == "--help" {
 		flag.Usage()
 		os.Exit(0)
+	}
+
+	// Handle auth command
+	if cmd == "auth" {
+		_, _, err := handleAuth(args, debug)
+		return err
+	}
+
+	// Handle refresh command
+	if cmd == "refresh" {
+		return refreshCredentials(debug)
 	}
 
 	var opts []batchexecute.Option
@@ -573,9 +592,6 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	// Other operations
 	case "feedback":
 		err = submitFeedback(client, args[0])
-	case "auth":
-		_, _, err = handleAuth(args, debug)
-
 	case "hb":
 		err = heartbeat(client)
 	default:
