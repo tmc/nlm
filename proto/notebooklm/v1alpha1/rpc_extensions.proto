@@ -25,6 +25,20 @@ extend google.protobuf.MethodOptions {
   
   // Custom response parser hint
   string response_parser = 51003;
+  
+  // gRPC-style endpoint path (for newer APIs)
+  // Example: "/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
+  string grpc_endpoint = 51004;
+  
+  // Whether this RPC requires all source IDs to be included
+  bool requires_sources = 51005;
+  
+  // Custom request format for gRPC-style endpoints
+  // Can use special tokens like:
+  //   "%all_sources%" - array of all source IDs from the notebook
+  //   "%prompt%" - the user's prompt/query
+  // Example: "[[%all_sources%], %prompt%, null, [2]]"
+  string grpc_arg_format = 51006;
 }
 
 // Custom options for message fields to define encoding behavior

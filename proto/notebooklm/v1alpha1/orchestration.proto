@@ -381,6 +381,11 @@ service LabsTailwindOrchestrationService {
         option (arg_format) = "[%project_id%]";
     }
     rpc GenerateFreeFormStreamed(GenerateFreeFormStreamedRequest) returns (stream GenerateFreeFormStreamedResponse) {
+        // This now uses gRPC-style endpoint instead of batchexecute
+        option (grpc_endpoint) = "/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed";
+        option (requires_sources) = true;
+        option (grpc_arg_format) = "[[%all_sources%], %prompt%, null, [2]]";
+        // Keeping old format for backwards compatibility
         option (rpc_id) = "BD";
         option (arg_format) = "[%project_id%, %prompt%]";
     }
