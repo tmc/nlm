@@ -62,6 +62,15 @@ func TestEncodeRPCArgs(t *testing.T) {
 			argFormat: "[%project_id%, %action%, %source_ids%]",
 			want:      []interface{}{"proj456", "delete", []string{"s1", "s2"}},
 		},
+		{
+			name: "chat command - GenerateFreeFormStreamed",
+			msg: &notebooklm.GenerateFreeFormStreamedRequest{
+				ProjectId: "notebook123",
+				Prompt:    "test prompt",
+			},
+			argFormat: "[%project_id%, %prompt%]",
+			want:      []interface{}{"notebook123", "test prompt"},
+		},
 	}
 
 	for _, tt := range tests {
