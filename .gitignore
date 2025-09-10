@@ -2,8 +2,12 @@
 
 **/.claude/settings.local.json
 
-# Test binaries
-cmd/nlm/nlm_test
+# Binaries (files only, not directories)
+/nlm
+/nlm_test  
+/nlm_new
+/cmd/nlm/nlm
+/cmd/nlm/nlm_test
 
 # Coverage files
 coverage.html
