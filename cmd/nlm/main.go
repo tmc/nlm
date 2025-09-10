@@ -16,6 +16,7 @@ import (
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/api"
+	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/rpc"
 )
@@ -130,6 +131,9 @@ func main() {
 
 	// Load stored environment variables
 	loadStoredEnv()
+
+	// Start auto-refresh manager if credentials exist
+	startAutoRefreshIfEnabled()
 
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "nlm: %v\n", err)
@@ -1529,4 +1533,47 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	}
 	
 	return nil
+}
+
+// startAutoRefreshIfEnabled starts the auto-refresh manager if credentials exist
+func startAutoRefreshIfEnabled() {
+	// Check if NLM_AUTO_REFRESH is disabled
+	if os.Getenv("NLM_AUTO_REFRESH") == "false" {
+		return
+	}
+	
+	// Check if we have stored credentials
+	token, err := auth.GetStoredToken()
+	if err != nil {
+		// No stored credentials, skip auto-refresh
+		return
+	}
+	
+	// Parse token to check if it's valid
+	_, expiryTime, err := auth.ParseAuthToken(token)
+	if err != nil {
+		// Invalid token format, skip auto-refresh
+		return
+	}
+	
+	// Check if token is already expired
+	if time.Until(expiryTime) < 0 {
+		if debug {
+			fmt.Fprintf(os.Stderr, "nlm: stored token expired, skipping auto-refresh\n")
+		}
+		return
+	}
+	
+	// Create and start token manager
+	tokenManager := auth.NewTokenManager(debug || os.Getenv("NLM_DEBUG") == "true")
+	if err := tokenManager.StartAutoRefreshManager(); err != nil {
+		if debug {
+			fmt.Fprintf(os.Stderr, "nlm: failed to start auto-refresh: %v\n", err)
+		}
+		return
+	}
+	
+	if debug {
+		fmt.Fprintf(os.Stderr, "nlm: auto-refresh enabled (token expires in %v)\n", time.Until(expiryTime).Round(time.Minute))
+	}
 }

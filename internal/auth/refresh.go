@@ -9,8 +9,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -265,4 +269,206 @@ func StartAutoRefresh(cookies string, gsessionID string, config AutoRefreshConfi
 	go client.RefreshLoop(gsessionID, config.Interval)
 	
 	return nil
+}
+
+// TokenManager handles automatic token refresh based on expiration
+type TokenManager struct {
+	mu           sync.RWMutex
+	stopChan     chan struct{}
+	running      bool
+	debug        bool
+	refreshAhead time.Duration // How far ahead of expiry to refresh (e.g., 5 minutes)
+}
+
+// NewTokenManager creates a new token manager
+func NewTokenManager(debug bool) *TokenManager {
+	return &TokenManager{
+		debug:        debug,
+		refreshAhead: 5 * time.Minute, // Refresh 5 minutes before expiry
+		stopChan:     make(chan struct{}),
+	}
+}
+
+// ParseAuthToken parses the auth token to extract expiration time
+// Token format: "token:timestamp" where timestamp is Unix milliseconds
+func ParseAuthToken(token string) (string, time.Time, error) {
+	parts := strings.Split(token, ":")
+	if len(parts) != 2 {
+		return "", time.Time{}, fmt.Errorf("invalid token format")
+	}
+	
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("invalid timestamp: %w", err)
+	}
+	
+	// Convert milliseconds to time.Time
+	// Tokens typically expire after 1 hour
+	expiryTime := time.Unix(timestamp/1000, (timestamp%1000)*1e6).Add(1 * time.Hour)
+	
+	return parts[0], expiryTime, nil
+}
+
+// GetStoredToken reads the stored auth token from disk
+func GetStoredToken() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	
+	envFile := filepath.Join(homeDir, ".nlm", "env")
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		return "", err
+	}
+	
+	// Parse the env file for NLM_AUTH_TOKEN
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "NLM_AUTH_TOKEN=") {
+			token := strings.TrimPrefix(line, "NLM_AUTH_TOKEN=")
+			// Remove quotes if present
+			token = strings.Trim(token, `"`)
+			return token, nil
+		}
+	}
+	
+	return "", fmt.Errorf("auth token not found in env file")
+}
+
+// GetStoredCookies reads the stored cookies from disk
+func GetStoredCookies() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	
+	envFile := filepath.Join(homeDir, ".nlm", "env")
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		return "", err
+	}
+	
+	// Parse the env file for NLM_COOKIES
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "NLM_COOKIES=") {
+			cookies := strings.TrimPrefix(line, "NLM_COOKIES=")
+			// Remove quotes if present
+			cookies = strings.Trim(cookies, `"`)
+			return cookies, nil
+		}
+	}
+	
+	return "", fmt.Errorf("cookies not found in env file")
+}
+
+// StartAutoRefreshManager starts the automatic token refresh manager
+func (tm *TokenManager) StartAutoRefreshManager() error {
+	tm.mu.Lock()
+	if tm.running {
+		tm.mu.Unlock()
+		return fmt.Errorf("auto-refresh manager already running")
+	}
+	tm.running = true
+	tm.mu.Unlock()
+	
+	go tm.monitorTokenExpiry()
+	
+	if tm.debug {
+		fmt.Fprintf(os.Stderr, "Auto-refresh manager started\n")
+	}
+	
+	return nil
+}
+
+// monitorTokenExpiry monitors token expiration and refreshes when needed
+func (tm *TokenManager) monitorTokenExpiry() {
+	ticker := time.NewTicker(1 * time.Minute) // Check every minute
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-ticker.C:
+			if err := tm.checkAndRefresh(); err != nil {
+				if tm.debug {
+					fmt.Fprintf(os.Stderr, "Auto-refresh check failed: %v\n", err)
+				}
+			}
+		case <-tm.stopChan:
+			if tm.debug {
+				fmt.Fprintf(os.Stderr, "Auto-refresh manager stopped\n")
+			}
+			return
+		}
+	}
+}
+
+// checkAndRefresh checks if token needs refresh and performs it if necessary
+func (tm *TokenManager) checkAndRefresh() error {
+	// Get current token
+	token, err := GetStoredToken()
+	if err != nil {
+		return fmt.Errorf("failed to get stored token: %w", err)
+	}
+	
+	// Parse token to get expiry time
+	_, expiryTime, err := ParseAuthToken(token)
+	if err != nil {
+		return fmt.Errorf("failed to parse token: %w", err)
+	}
+	
+	// Check if we need to refresh
+	timeUntilExpiry := time.Until(expiryTime)
+	if timeUntilExpiry > tm.refreshAhead {
+		if tm.debug {
+			fmt.Fprintf(os.Stderr, "Token still valid for %v, no refresh needed\n", timeUntilExpiry)
+		}
+		return nil
+	}
+	
+	if tm.debug {
+		fmt.Fprintf(os.Stderr, "Token expiring in %v, refreshing now...\n", timeUntilExpiry)
+	}
+	
+	// Get cookies for refresh
+	cookies, err := GetStoredCookies()
+	if err != nil {
+		return fmt.Errorf("failed to get stored cookies: %w", err)
+	}
+	
+	// Create refresh client
+	refreshClient, err := NewRefreshClient(cookies)
+	if err != nil {
+		return fmt.Errorf("failed to create refresh client: %w", err)
+	}
+	
+	if tm.debug {
+		refreshClient.SetDebug(true)
+	}
+	
+	// Use hardcoded gsessionID for now (TODO: extract dynamically)
+	gsessionID := "LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg"
+	
+	// Perform refresh
+	if err := refreshClient.RefreshCredentials(gsessionID); err != nil {
+		return fmt.Errorf("failed to refresh credentials: %w", err)
+	}
+	
+	if tm.debug {
+		fmt.Fprintf(os.Stderr, "Credentials refreshed successfully\n")
+	}
+	
+	return nil
+}
+
+// Stop stops the auto-refresh manager
+func (tm *TokenManager) Stop() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	
+	if tm.running {
+		close(tm.stopChan)
+		tm.running = false
+	}
 }
