@@ -55,6 +55,14 @@ func (o UnmarshalOptions) Unmarshal(b []byte, m proto.Message) error {
 func (o UnmarshalOptions) populateMessage(arr []interface{}, m proto.Message) error {
 	msg := m.ProtoReflect()
 	fields := msg.Descriptor().Fields()
+	msgName := string(msg.Descriptor().FullName())
+
+	// Special handling for Project message: unwrap extra nesting from GetProject API
+	if msgName == "notebooklm.v1alpha1.Project" && len(arr) == 1 {
+		if innerArr, ok := arr[0].([]interface{}); ok {
+			arr = innerArr
+		}
+	}
 
 	for i, value := range arr {
 		if value == nil {
