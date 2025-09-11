@@ -292,6 +292,23 @@ func listSources(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list sources: %w", err)
 	}
 
+	// Check if project data is empty (likely due to auth issues)
+	if p.ProjectId == "" && p.Title == "" && len(p.Sources) == 0 {
+		return fmt.Errorf("unable to retrieve project data - authentication may have expired. Try running 'nlm auth' to re-authenticate")
+	}
+
+	// Debug: print project details
+	if debug {
+		fmt.Fprintf(os.Stderr, "=== Project Debug ===\n")
+		fmt.Fprintf(os.Stderr, "Project ID: %s\n", p.ProjectId)
+		fmt.Fprintf(os.Stderr, "Project Title: %s\n", p.Title)
+		fmt.Fprintf(os.Stderr, "Sources count: %d\n", len(p.Sources))
+		for i, src := range p.Sources {
+			fmt.Fprintf(os.Stderr, "Source %d: %+v\n", i, src)
+		}
+		fmt.Fprintf(os.Stderr, "=====================\n")
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
 	for _, src := range p.Sources {
