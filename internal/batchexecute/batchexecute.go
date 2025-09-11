@@ -188,7 +188,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	return &responses[0], nil
 }
 
-var debug = true
+var debug = false
 
 // decodeResponse decodes the batchexecute response
 func decodeResponse(raw string) ([]Response, error) {
@@ -196,13 +196,25 @@ func decodeResponse(raw string) ([]Response, error) {
 	if raw == "" {
 		return nil, fmt.Errorf("empty response after trimming prefix")
 	}
-	var responses [][]interface{}
+	var responses interface{}
 	if err := json.NewDecoder(strings.NewReader(raw)).Decode(&responses); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
+	
+	// Convert to [][]interface{} if it's an array
+	var responseArray [][]interface{}
+	if respSlice, ok := responses.([]interface{}); ok {
+		for _, item := range respSlice {
+			if itemSlice, ok := item.([]interface{}); ok {
+				responseArray = append(responseArray, itemSlice)
+			}
+		}
+	} else {
+		return nil, fmt.Errorf("unexpected response format: %T", responses)
+	}
 
 	var result []Response
-	for _, rpcData := range responses {
+	for _, rpcData := range responseArray {
 		if len(rpcData) < 7 {
 			continue
 		}
@@ -293,23 +305,50 @@ func decodeChunkedResponse(raw string) ([]Response, error) {
 				len(chunk), string(chunk[:min(50, len(chunk))]))
 		}
 
-		// First try to parse as regular JSON
+		// Check if JSON is complete and handle truncated chunks
+		var testBatch [][]interface{}
+		if err := json.Unmarshal(chunk, &testBatch); err != nil {
+			// Try to read more data until we get valid JSON or hit EOF
+			extraData := make([]byte, 0)
+			buf := make([]byte, 1024)
+			
+			for attempts := 0; attempts < 10; attempts++ {
+				n, err := reader.Read(buf)
+				if err == io.EOF || err != nil || n == 0 {
+					break
+				}
+				extraData = append(extraData, buf[:n]...)
+				
+				// Try parsing with extra data
+				fullChunk := append(chunk, extraData...)
+				if err := json.Unmarshal(fullChunk, &testBatch); err == nil {
+					chunk = fullChunk
+					break
+				}
+			}
+			
+			// If we read extra data, find the first complete JSON object
+			if len(extraData) > 0 {
+				fullData := append(chunk, extraData...)
+				
+				// Use JSON decoder to find first complete object boundary
+				decoder := json.NewDecoder(strings.NewReader(string(fullData)))
+				var firstJSON [][]interface{}
+				if err := decoder.Decode(&firstJSON); err == nil {
+					// Use only the first complete JSON object
+					consumed := decoder.InputOffset()
+					chunk = fullData[:consumed]
+				} else {
+					// If still can't parse, use all data
+					chunk = fullData
+				}
+			}
+		}
+
+		// Parse the (now complete) chunk as JSON
 		var rpcBatch [][]interface{}
 		if err := json.Unmarshal(chunk, &rpcBatch); err != nil {
-			// If that fails, try unescaping the JSON string first
-			unescaped, err := strconv.Unquote("\"" + string(chunk) + "\"")
-			if err != nil {
-				if debug {
-					fmt.Printf("Failed to unescape chunk: %v\n", err)
-				}
-				return nil, fmt.Errorf("failed to parse chunk: %w", err)
-			}
-			if err := json.Unmarshal([]byte(unescaped), &rpcBatch); err != nil {
-				if debug {
-					fmt.Printf("Failed to parse unescaped chunk: %v\n", err)
-				}
-				return nil, fmt.Errorf("failed to parse chunk: %w", err)
-			}
+			return nil, fmt.Errorf("failed to parse chunk: %w", err)
 		}
 
 		// Process each RPC response in the batch
@@ -333,37 +372,14 @@ func decodeChunkedResponse(raw string) ([]Response, error) {
 				ID: id,
 			}
 
-			// Handle data - parse the nested JSON string
+			// Handle data - use string directly to avoid double escaping
 			if rpcData[2] != nil {
 				if dataStr, ok := rpcData[2].(string); ok {
-					// Try to parse the data string
-					var data interface{}
-					if err := json.Unmarshal([]byte(dataStr), &data); err != nil {
-						// If direct parsing fails, try unescaping first
-						unescaped, err := strconv.Unquote("\"" + dataStr + "\"")
-						if err != nil {
-							if debug {
-								fmt.Printf("Failed to unescape data: %v\n", err)
-							}
-							continue
-						}
-						if err := json.Unmarshal([]byte(unescaped), &data); err != nil {
-							if debug {
-								fmt.Printf("Failed to parse unescaped data: %v\n", err)
-							}
-							continue
-						}
-					}
-					// Re-encode to get properly formatted JSON
-					rawData, err := json.Marshal(data)
-					if err != nil {
-						if debug {
-							fmt.Printf("Failed to re-encode response data: %v\n", err)
-						}
-						continue
-					}
-					resp.Data = rawData
+					resp.Data = json.RawMessage(dataStr)
 				}
+			} else {
+				// Set empty array as default for null data
+				resp.Data = json.RawMessage("[]")
 			}
 
 			// Handle index
