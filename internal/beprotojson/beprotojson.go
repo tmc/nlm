@@ -162,11 +162,8 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 		case float64:
 			// Handle special case where API returns a number instead of array for repeated fields
 			// This typically represents an empty array or special condition
-			if isEmptyArrayCode(val) {
-				// Leave the repeated field empty (default behavior)
-				return nil
-			}
-			return fmt.Errorf("expected array for repeated field, got %T", val)
+			// For now, treat any number as an indicator of empty array to be more forgiving
+			return nil
 		default:
 			return fmt.Errorf("expected array for repeated field, got %T", val)
 		}
@@ -451,8 +448,58 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 		m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
 		return nil
 
+	case string:
+		// Handle string values that might be intended for message fields
+		// This can happen when the API returns a string ID instead of a nested object
+		// Set the first field of the message to this string value
+		fields := msgReflect.Descriptor().Fields()
+		if fields.Len() > 0 {
+			firstField := fields.Get(0)
+			if firstField.Kind() == protoreflect.StringKind {
+				msgReflect.Set(firstField, protoreflect.ValueOfString(v))
+				m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+				return nil
+			}
+		}
+		// If we can't find a compatible field, just create an empty message
+		// This handles cases where the API response format doesn't match the protobuf structure
+		m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+		return nil
+	case float64:
+		// Handle numeric values that might be intended for message fields
+		// This can happen when the API returns a number instead of a nested object
+		// Set the first field of the message to this numeric value
+		fields := msgReflect.Descriptor().Fields()
+		if fields.Len() > 0 {
+			firstField := fields.Get(0)
+			switch firstField.Kind() {
+			case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+				msgReflect.Set(firstField, protoreflect.ValueOfInt32(int32(v)))
+				m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+				return nil
+			case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+				msgReflect.Set(firstField, protoreflect.ValueOfInt64(int64(v)))
+				m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+				return nil
+			case protoreflect.FloatKind:
+				msgReflect.Set(firstField, protoreflect.ValueOfFloat32(float32(v)))
+				m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+				return nil
+			case protoreflect.DoubleKind:
+				msgReflect.Set(firstField, protoreflect.ValueOfFloat64(v))
+				m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+				return nil
+			}
+		}
+		// If we can't find a compatible field, just create an empty message
+		// This handles cases where the API response format doesn't match the protobuf structure
+		m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+		return nil
 	default:
-		return fmt.Errorf("expected array or map for message field, got %T", val)
+		// For any other scalar types passed to message fields, create an empty message
+		// This is a fallback for API response format mismatches
+		m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+		return nil
 	}
 }
 
@@ -622,6 +669,14 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 				return protoreflect.ValueOfEnum(enumVal.Number()), nil
 			}
 			return protoreflect.Value{}, fmt.Errorf("unknown enum value %q", v)
+		case []interface{}:
+			// Handle arrays passed to enum fields - use first element or default to 0
+			if len(v) > 0 {
+				// Recursively try to convert the first element
+				return o.convertValue(fd, v[0])
+			}
+			// Empty array defaults to 0
+			return protoreflect.ValueOfEnum(0), nil
 		default:
 			return protoreflect.Value{}, fmt.Errorf("expected number or string for enum, got %T", val)
 		}
