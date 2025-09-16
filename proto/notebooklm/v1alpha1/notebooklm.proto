@@ -58,12 +58,14 @@ message SourceMetadata {
     google.protobuf.Timestamp last_modified_time = 3;
     // google.internal.labs.tailwind.common.v1.RevisionData revision_data = 4;
     SourceType source_type = 5;
+    SourceSettings.SourceStatus status = 7;
 }
 
 
 enum SourceType {
     SOURCE_TYPE_UNSPECIFIED = 0;
     SOURCE_TYPE_UNKNOWN = 1;
+    SOURCE_TYPE_TEXT = 2;
     SOURCE_TYPE_GOOGLE_DOCS = 3;
     SOURCE_TYPE_GOOGLE_SLIDES = 4;
     SOURCE_TYPE_GOOGLE_SHEETS = 5;

@@ -26,6 +26,7 @@ const (
 	LabsTailwindOrchestrationService_CreateArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateArtifact"
 	LabsTailwindOrchestrationService_GetArtifact_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetArtifact"
 	LabsTailwindOrchestrationService_UpdateArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpdateArtifact"
+	LabsTailwindOrchestrationService_RenameArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RenameArtifact"
 	LabsTailwindOrchestrationService_DeleteArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteArtifact"
 	LabsTailwindOrchestrationService_ListArtifacts_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListArtifacts"
 	LabsTailwindOrchestrationService_ActOnSources_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ActOnSources"
@@ -73,6 +74,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	CreateArtifact(ctx context.Context, in *CreateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	GetArtifact(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	UpdateArtifact(ctx context.Context, in *UpdateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
+	RenameArtifact(ctx context.Context, in *RenameArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	DeleteArtifact(ctx context.Context, in *DeleteArtifactRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListArtifacts(ctx context.Context, in *ListArtifactsRequest, opts ...grpc.CallOption) (*ListArtifactsResponse, error)
 	// Source operations
@@ -148,6 +150,15 @@ func (c *labsTailwindOrchestrationServiceClient) GetArtifact(ctx context.Context
 func (c *labsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Context, in *UpdateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
 	out := new(Artifact)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_UpdateArtifact_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Context, in *RenameArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_RenameArtifact_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -518,6 +529,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error)
 	GetArtifact(context.Context, *GetArtifactRequest) (*Artifact, error)
 	UpdateArtifact(context.Context, *UpdateArtifactRequest) (*Artifact, error)
+	RenameArtifact(context.Context, *RenameArtifactRequest) (*Artifact, error)
 	DeleteArtifact(context.Context, *DeleteArtifactRequest) (*emptypb.Empty, error)
 	ListArtifacts(context.Context, *ListArtifactsRequest) (*ListArtifactsResponse, error)
 	// Source operations
@@ -577,6 +589,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GetArtifact(context.C
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) UpdateArtifact(context.Context, *UpdateArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateArtifact not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) RenameArtifact(context.Context, *RenameArtifactRequest) (*Artifact, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RenameArtifact not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteArtifact(context.Context, *DeleteArtifactRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteArtifact not implemented")
@@ -753,6 +768,24 @@ func _LabsTailwindOrchestrationService_UpdateArtifact_Handler(srv interface{}, c
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LabsTailwindOrchestrationServiceServer).UpdateArtifact(ctx, req.(*UpdateArtifactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_RenameArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenameArtifactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).RenameArtifact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_RenameArtifact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).RenameArtifact(ctx, req.(*RenameArtifactRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1444,6 +1477,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateArtifact",
 			Handler:    _LabsTailwindOrchestrationService_UpdateArtifact_Handler,
+		},
+		{
+			MethodName: "RenameArtifact",
+			Handler:    _LabsTailwindOrchestrationService_RenameArtifact_Handler,
 		},
 		{
 			MethodName: "DeleteArtifact",

@@ -97,6 +97,29 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Cont
 	return &result, nil
 }
 
+// RenameArtifact calls the RenameArtifact RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Context, req *notebooklmv1alpha1.RenameArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "rc3d8d",
+		Args: []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("RenameArtifact: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Artifact
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("RenameArtifact: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // DeleteArtifact calls the DeleteArtifact RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Context, req *notebooklmv1alpha1.DeleteArtifactRequest) (*emptypb.Empty, error) {
 	// Build the RPC call

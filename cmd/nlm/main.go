@@ -34,6 +34,9 @@ var (
 
 func init() {
 	flag.BoolVar(&debug, "debug", false, "enable debug output")
+	flag.BoolVar(&debugDumpPayload, "debug-dump-payload", false, "dump raw JSON payload and exit (unix-friendly)")
+	flag.BoolVar(&debugParsing, "debug-parsing", false, "show detailed protobuf parsing information")
+	flag.BoolVar(&debugFieldMapping, "debug-field-mapping", false, "show how JSON array positions map to protobuf fields")
 	flag.BoolVar(&chunkedResponse, "chunked", false, "use chunked response format (rt=c)")
 	flag.BoolVar(&useDirectRPC, "direct-rpc", false, "use direct RPC calls for audio/video (bypasses orchestration service)")
 	flag.StringVar(&chromeProfile, "profile", os.Getenv("NLM_BROWSER_PROFILE"), "Chrome profile to use")
@@ -81,7 +84,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Artifact Commands:\n")
 		fmt.Fprintf(os.Stderr, "  create-artifact <id> <type>  Create artifact (note|audio|report|app)\n")
 		fmt.Fprintf(os.Stderr, "  get-artifact <artifact-id>  Get artifact details\n")
-		fmt.Fprintf(os.Stderr, "  list-artifacts <id>  List artifacts in notebook\n")
+		fmt.Fprintf(os.Stderr, "  artifacts <id>       List artifacts in notebook\n")
+		fmt.Fprintf(os.Stderr, "  list-artifacts <id>  List artifacts in notebook (alias)\n")
 		fmt.Fprintf(os.Stderr, "  rename-artifact <artifact-id> <new-title>  Rename artifact\n")
 		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
 
@@ -313,9 +317,13 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm get-artifact <artifact-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "list-artifacts":
+	case "list-artifacts", "artifacts":
 		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm list-artifacts <notebook-id>\n")
+			if cmd == "artifacts" {
+				fmt.Fprintf(os.Stderr, "usage: nlm artifacts <notebook-id>\n")
+			} else {
+				fmt.Fprintf(os.Stderr, "usage: nlm list-artifacts <notebook-id>\n")
+			}
 			return fmt.Errorf("invalid arguments")
 		}
 	case "rename-artifact":
@@ -370,7 +378,7 @@ func isValidCommand(cmd string) bool {
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
 		"notes", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download",
-		"create-artifact", "get-artifact", "list-artifacts", "rename-artifact", "delete-artifact",
+		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
@@ -693,7 +701,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = createArtifact(client, args[0], args[1])
 	case "get-artifact":
 		err = getArtifact(client, args[0])
-	case "list-artifacts":
+	case "list-artifacts", "artifacts":
 		err = listArtifacts(client, args[0])
 	case "rename-artifact":
 		err = renameArtifact(client, args[0], args[1])
@@ -829,8 +837,8 @@ func listSources(c *api.Client, notebookID string) error {
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
 	for _, src := range p.Sources {
 		status := "enabled"
-		if src.Settings != nil {
-			status = src.Settings.Status.String()
+		if src.Metadata != nil {
+			status = src.Metadata.Status.String()
 		}
 
 		lastUpdated := "unknown"
@@ -838,10 +846,15 @@ func listSources(c *api.Client, notebookID string) error {
 			lastUpdated = src.Metadata.LastModifiedTime.AsTime().Format(time.RFC3339)
 		}
 
+		sourceType := "unknown"
+		if src.Metadata != nil {
+			sourceType = src.Metadata.GetSourceType().String()
+		}
+
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			src.SourceId.GetSourceId(),
 			strings.TrimSpace(src.Title),
-			src.Metadata.GetSourceType(),
+			sourceType,
 			status,
 			lastUpdated,
 		)
@@ -1722,10 +1735,16 @@ func interactiveChat(c *api.Client, notebookID string) error {
 
 		// Provide a helpful response about the current state
 		fmt.Print("\n🤖 Assistant: ")
-		fmt.Printf("I received your message: \"%s\"\n", input)
-		fmt.Println("Note: The streaming chat API is not yet fully implemented.")
-		fmt.Println("Once the GenerateFreeFormStreamed RPC ID is defined in the proto,")
-		fmt.Println("this will provide real-time responses from NotebookLM.")
+
+		// For now, display the response chunk (streaming will be improved)
+		chunk := resp.GetChunk()
+		if chunk != "" {
+			fmt.Print(chunk)
+		} else {
+			fmt.Print("Response received (no content)")
+		}
+
+		fmt.Println() // New line after response
 	}
 
 	if err := scanner.Err(); err != nil {
