@@ -1,0 +1,235 @@
+# Test content transformation commands with comprehensive validation
+# Tests include: argument validation, authentication requirements, source ID handling
+
+# === REPHRASE COMMAND ===
+# Test rephrase without arguments (should fail with usage)
+! exec ./nlm_test rephrase
+stderr 'usage: nlm rephrase'
+! stderr 'panic'
+
+# Test rephrase with only notebook ID (should fail with usage)
+! exec ./nlm_test rephrase notebook123
+stderr 'usage: nlm rephrase'
+! stderr 'panic'
+
+# Test rephrase without authentication (should fail)
+! exec ./nlm_test rephrase notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === EXPAND COMMAND ===
+# Test expand without arguments (should fail with usage)
+! exec ./nlm_test expand
+stderr 'usage: nlm expand'
+! stderr 'panic'
+
+# Test expand with only notebook ID (should fail with usage)
+! exec ./nlm_test expand notebook123
+stderr 'usage: nlm expand'
+! stderr 'panic'
+
+# Test expand without authentication (should fail)
+! exec ./nlm_test expand notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === SUMMARIZE COMMAND ===
+# Test summarize without arguments (should fail with usage)
+! exec ./nlm_test summarize
+stderr 'usage: nlm summarize'
+! stderr 'panic'
+
+# Test summarize with multiple sources (should pass validation)
+! exec ./nlm_test summarize notebook123 source456 source789
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === CRITIQUE COMMAND ===
+# Test critique without arguments (should fail with usage)
+! exec ./nlm_test critique
+stderr 'usage: nlm critique'
+! stderr 'panic'
+
+# Test critique without authentication (should fail)
+! exec ./nlm_test critique notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === BRAINSTORM COMMAND ===
+# Test brainstorm without arguments (should fail with usage)
+! exec ./nlm_test brainstorm
+stderr 'usage: nlm brainstorm'
+! stderr 'panic'
+
+# Test brainstorm without authentication (should fail)
+! exec ./nlm_test brainstorm notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === VERIFY COMMAND ===
+# Test verify without arguments (should fail with usage)
+! exec ./nlm_test verify
+stderr 'usage: nlm verify'
+! stderr 'panic'
+
+# Test verify without authentication (should fail)
+! exec ./nlm_test verify notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === EXPLAIN COMMAND ===
+# Test explain without arguments (should fail with usage)
+! exec ./nlm_test explain
+stderr 'usage: nlm explain'
+! stderr 'panic'
+
+# Test explain without authentication (should fail)
+! exec ./nlm_test explain notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === OUTLINE COMMAND ===
+# Test outline without arguments (should fail with usage)
+! exec ./nlm_test outline
+stderr 'usage: nlm outline'
+! stderr 'panic'
+
+# Test outline without authentication (should fail)
+! exec ./nlm_test outline notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === STUDY-GUIDE COMMAND ===
+# Test study-guide without arguments (should fail with usage)
+! exec ./nlm_test study-guide
+stderr 'usage: nlm study-guide'
+! stderr 'panic'
+
+# Test study-guide without authentication (should fail)
+! exec ./nlm_test study-guide notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === FAQ COMMAND ===
+# Test faq without arguments (should fail with usage)
+! exec ./nlm_test faq
+stderr 'usage: nlm faq'
+! stderr 'panic'
+
+# Test faq without authentication (should fail)
+! exec ./nlm_test faq notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === BRIEFING-DOC COMMAND ===
+# Test briefing-doc without arguments (should fail with usage)
+! exec ./nlm_test briefing-doc
+stderr 'usage: nlm briefing-doc'
+! stderr 'panic'
+
+# Test briefing-doc without authentication (should fail)
+! exec ./nlm_test briefing-doc notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === MINDMAP COMMAND ===
+# Test mindmap without arguments (should fail with usage)
+! exec ./nlm_test mindmap
+stderr 'usage: nlm mindmap'
+! stderr 'panic'
+
+# Test mindmap without authentication (should fail)
+! exec ./nlm_test mindmap notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === TIMELINE COMMAND ===
+# Test timeline without arguments (should fail with usage)
+! exec ./nlm_test timeline
+stderr 'usage: nlm timeline'
+! stderr 'panic'
+
+# Test timeline without authentication (should fail)
+! exec ./nlm_test timeline notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === TOC COMMAND ===
+# Test toc without arguments (should fail with usage)
+! exec ./nlm_test toc
+stderr 'usage: nlm toc'
+! stderr 'panic'
+
+# Test toc without authentication (should fail)
+! exec ./nlm_test toc notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === GENERATE-CHAT COMMAND ===
+# Test generate-chat without arguments (should fail with usage)
+! exec ./nlm_test generate-chat
+stderr 'usage: nlm generate-chat'
+! stderr 'panic'
+
+# Test generate-chat with only notebook ID (should fail with usage)
+! exec ./nlm_test generate-chat notebook123
+stderr 'usage: nlm generate-chat'
+! stderr 'panic'
+
+# Test generate-chat with too many arguments (should fail with usage)
+! exec ./nlm_test generate-chat notebook123 "hello world" extra
+stderr 'usage: nlm generate-chat'
+! stderr 'panic'
+
+# Test generate-chat without authentication (should fail)
+! exec ./nlm_test generate-chat notebook123 hello
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === MULTIPLE SOURCE IDS VALIDATION ===
+# Test commands with multiple source IDs (should pass validation)
+! exec ./nlm_test rephrase notebook123 source1 source2 source3
+stderr 'Authentication required'
+! stderr 'panic'
+
+! exec ./nlm_test summarize notebook123 source1 source2 source3 source4
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === SPECIAL CHARACTER HANDLING ===
+# Test commands with special characters in IDs
+! exec ./nlm_test rephrase 'notebook-with-dashes' 'source-with-dashes'
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === CROSS-COMMAND VALIDATION ===
+# Test that content transformation commands work with debug flag
+! exec ./nlm_test -debug rephrase notebook123 source456
+stderr 'Authentication required|nlm: debug mode enabled'
+! stderr 'panic'
+
+# Test that commands work with chunked flag
+! exec ./nlm_test -chunked summarize notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === HELP TEXT VALIDATION ===
+# Test that content transformation commands appear in help text
+exec ./nlm_test help
+stderr 'Content Transformation Commands'
+stderr 'rephrase.*Rephrase content from sources'
+stderr 'expand.*Expand on content from sources'
+stderr 'summarize.*Summarize content from sources'
+stderr 'critique.*Provide critique of content'
+stderr 'brainstorm.*Brainstorm ideas from sources'
+stderr 'verify.*Verify facts in sources'
+stderr 'explain.*Explain concepts from sources'
+stderr 'outline.*Create outline from sources'
+stderr 'study-guide.*Generate study guide'
+stderr 'faq.*Generate FAQ from sources'
+stderr 'briefing-doc.*Create briefing document'
+stderr 'mindmap.*Generate interactive mindmap'
+stderr 'timeline.*Create timeline from sources'
+stderr 'toc.*Generate table of contents'
+stderr 'generate-chat.*Free-form chat generation'
+! stderr 'panic'

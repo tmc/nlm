@@ -331,6 +331,12 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		return nil, apiError
 	}
 
+	// Debug dump payload if requested
+	if c.config.DebugDumpPayload {
+		fmt.Print(string(firstResponse.Data))
+		return nil, fmt.Errorf("payload dumped")
+	}
+
 	return firstResponse, nil
 }
 
@@ -465,6 +471,12 @@ func WithDebug(debug bool) Option {
 				fmt.Fprintf(os.Stderr, "DEBUG: "+format+"\n", args...)
 			}
 		}
+	}
+}
+
+func WithDebugDumpPayload(debugDumpPayload bool) Option {
+	return func(c *Client) {
+		c.config.DebugDumpPayload = debugDumpPayload
 	}
 }
 
