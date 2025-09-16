@@ -1,5 +1,5 @@
 httprr trace v1
-658 3562
+658 3594
 POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=wXbhsf&source-path=%2F HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
@@ -15,7 +15,7 @@ Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
 at=&f.req=%5B%5B%5B%22wXbhsf%22%2C%22%5Bnull%2C1%2Cnull%2C%5B2%5D%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
-Content-Length: 1225
+Content-Length: 1263
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
 Cache-Control: no-cache, no-store, max-age=0, must-revalidate
@@ -24,17 +24,17 @@ Content-Security-Policy: require-trusted-types-for 'script';report-uri /_/LabsTa
 Content-Type: application/json; charset=utf-8
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Resource-Policy: same-site
-Date: Sun, 14 Sep 2025 21:56:48 GMT
+Date: Tue, 16 Sep 2025 22:52:12 GMT
 Expires: Mon, 01 Jan 1990 00:00:00 GMT
 Permissions-Policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
 Pragma: no-cache
 Server: ESF
-Set-Cookie: SIDCC=AKEyXzWF0WFz2n3shaCsoSC-aCFZ-2UOAGz6FnE25sX4MeLniarigDsDLl3UL06d71EO84IgwMY; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzXPFYzqz568jhwj69sbhOdOlvaphrn5N1KhYCz-XcW6la7P5nL_n4RLQe9p5l4_TZ1EGnJr; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzWoF4v3WIcbAK72rRVkjjsd1sT5N37Em0JSsvytXVDraVM6mxM-QvLdf25s05_n1QmK4VTA; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
-Set-Cookie: SIDCC=AKEyXzWOKFVcWZagvY8jJ_CSUAosJPrb6kHzcMxqllCqJEqGzMH1gUIYkZ1cMiUpBC9eDRA-OTU; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzXQbMR3swP3fwaxv5yS_VwUcfAHm8LTek2glqEmx8Di2fHH5CXVwln-B7DTmCR_oouODH-u; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzXX6yqDwnJu9JlL9fSmz18Ow5NGQxgzBvHba6y_rOi5cwBTLPglAGhPZIaACWsJ7ENlv26V; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzXKkuE9uMsNOR8q0p7soe5kX_V2v6JAmogxkji3W1rjiiDmxtscE6TFC5FMf9xne58sopM; expires=Wed, 16-Sep-2026 22:52:12 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzVReo-6GPyPmM-KqWKzBRI7mbErDuepcc8Pi7iOyfO6gKq2DNQUisUuDitkLvjT_k7Flw; expires=Wed, 16-Sep-2026 22:52:12 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzWtR0FnoGanh2Lc_7IhDk5yQLtBctY1QVei40CxkID-9jdB1nTIv4NOZSvmWGCNDVy-rxA; expires=Wed, 16-Sep-2026 22:52:12 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzXQrWNXA_N7fEO-NxFVkoJNWoJpPHJfdOAUA8yUfnBO6M8B58SvmckxGSvW1usyXpXzGss; expires=Wed, 16-Sep-2026 22:52:12 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzVabmZhEKwwGYfbb9A62yTPUKV06_rooNiOKImOvOiW2dqjSTBwamgDOWoW6N8b4bsbfQ; expires=Wed, 16-Sep-2026 22:52:12 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzX4CizzkYpUynZQQ6v9CSgko_LsWclvJwii3S5vPY4wIJFOtlUYf0tCmpR_PxzTU4IYKMc; expires=Wed, 16-Sep-2026 22:52:12 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
 Vary: Sec-Fetch-Dest, Sec-Fetch-Mode, Sec-Fetch-Site
 X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
@@ -42,7 +42,7 @@ X-Xss-Protection: 0
 
 )]}'
 
-[["wrb.fr","wXbhsf","[[[\"Airbnb's Journey to Service-Oriented Architecture: Lessons Learned\",[[[\"48a4a082-c41d-4f28-9ced-036ed2d2dd9a\"],\"Airbnb at Scale: From Monolith to Microservices\",[null,7561,[1740437527,646921000],[\"d7120f3d-b15f-482d-a93e-a1743ff20943\",[1740437527,102478000]],9,[\"https://www.youtube.com/watch?v\\u003dPIw1WF1UXNc\",\"PIw1WF1UXNc\",\"InfoQ\"]],[null,2]],[[\"77f4f3f9-6268-4462-97da-253a0986f3e4\"],\"Automated Source Generation Demonstration\",[null,8,[1757886986,736987000],[\"b5de45e1-36f0-4b18-849d-1d41b025c140\",[1757886986,105674000]],4,null,1],[null,2]],[[\"82070fc3-aaf1-44f9-95d5-ff39b6dd4228\"],\"Automated Source Generation Demonstration\",[null,8,[1757883523,789260000],[\"aae9d9de-1296-450d-9501-38db142983a4\",[1757883523,219725000]],4,null,1],[null,2]],[[\"abc50a55-e390-4825-a847-a683f7563bbe\"],\"Example Domain\",[null,29,[1757883535,340570000],[\"b1778062-facd-457f-9661-485c84c3c759\",[1757883534,886974000]],5,null,1,[\"https://example.com\"]],[null,2]],[[\"cf540d18-7832-425f-bb7a-27e0f42a3f19\"],\"Example Domain\",[null,29,[1757886998,728745000],[\"db8613c0-2a48-45f3-a615-a9ba8cea0d93\",[1757886998,220679000]],5,null,1,[\"https://example.com\"]],[null,2]]]]]]]681 2647
+[["wrb.fr","wXbhsf","[[[\"Go Concurrency Demo - Text Version\",[[[\"283ede9c-72b4-430e-9ed5-b430fe65468f\"],\"Go Concurrency: A Developer's Guide\",[null,215,[1757923682,454907000],[\"cd03179b-ae7e-4c85-9f32-22896b477c6c\",[1757923682,37990000]],4,null,1],[null,2]],[[\"f8e97dff-3eb8-4207-9290-c58b52422d14\"],\"Go Concurrency: Concepts and Patterns\",[null,157,[1757923249,299726000],[\"d1eba276-e885-435c-a9c9-29ff94eb8475\",[1757923248,727012000]],4,null,1],[null,2]],[[\"0f416050-4dd9-43a3-835e-7eee8c84c917\"],\"Go is kewl\",[[\"1_4K4AFhPxocTVQSmmqGubr2Jx1f0lQBemsZHaCrEoI4\",\"\"],null,[1758004920,643294000],[\"8727f9c5-9e6e-4145-beab-b654df9eed99\",[1758004924,204569000]],2],[null,2]]],\"da90c179-fc1a-468c-84ce-4623e8305c12\",\"📙\",null,[1,false,true,null,null,[1758007316,190704000],1,false,[1757923189,228793000],null,null,null,false,true,1,false],null,null,null,[true,true,true],[6,500,300,500000]],[\"Test Audio Generation\",[[[\"42f66fd6-cc7e-4da6-9a9e-3e633913f1ab\"],\"The Essence of Go Programming\",[null,901,[1757959875,955243000],[\"5045a930-c2bb-4935-b6ea-5faac900a0fb\",[1757959875,612082000]],4,null,1],[null,2]],[[\"d7236810-f298-4119-a289-2b8a98170fbd\"],\"The Essence of Go Programming\",[null,901,[1757962165,479989000]]]]]]]]681 2439
 POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=VUsiyb&source-path=%2F HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
@@ -57,8 +57,8 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%2288edc218-8956-4d73-8674-e1d95efae3b3%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
-Content-Length: 313
+at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%220f416050-4dd9-43a3-835e-7eee8c84c917%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+Content-Length: 111
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
 Cache-Control: no-cache, no-store, max-age=0, must-revalidate
@@ -67,17 +67,17 @@ Content-Security-Policy: require-trusted-types-for 'script';report-uri /_/LabsTa
 Content-Type: application/json; charset=utf-8
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Resource-Policy: same-site
-Date: Sun, 14 Sep 2025 21:56:49 GMT
+Date: Tue, 16 Sep 2025 22:52:13 GMT
 Expires: Mon, 01 Jan 1990 00:00:00 GMT
 Permissions-Policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
 Pragma: no-cache
 Server: ESF
-Set-Cookie: SIDCC=AKEyXzX-kKC729s4WnKMCM6goSeCleQAhuM_VQeHmEJ6V8oVbcmR1AmUC8fg5RglzOi4hfUcZek; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzVQyjz-Dlgw5uG_zQW9YzgYGJtP1vrXxy8NiNoOvTRsJFEq9Oww3yET6phE34H6d4_tvGGa; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzW1LNPgDnQmnEz5FLTYQibkUOU6ZudPkSz2AKaa9T1dYgI4ryR0WQ-p238Ox3SyGJxzVDOn; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
-Set-Cookie: SIDCC=AKEyXzXQTcbYFpQiZJnw5HlGSiMO1gCtC8BpmGsIuObs9Ubnka4HWC0BTyZ5BIrwfZnJSp3JAG0; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzXIJiPL0RKMKsKGssAkrp_CD5BSSZyGbKpFXcWFQdw2VPw0oCpIMBgLZWmJn7a24qCZ-GQJ; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzWmikClyzHkqRv3OTZIKN9-eyx8WKeCNvMPbph17bPGvSQ7JBqYNCGo5c4vguIzr2Lw11xt; expires=Mon, 14-Sep-2026 21:56:49 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzWbr-2ua7KDaWvi0hSKoEIakhXdPYj_fbnVWhkhyW8cWVNfc5VI5XJS0HJonn8UeKBcHLc; expires=Wed, 16-Sep-2026 22:52:13 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzUFco1D0gRUeE77vd2QuZQI7-pSMh5JAgZqhL6Y5Gc7Z52J3-hNRhvicrFfzpOxsgBMmg; expires=Wed, 16-Sep-2026 22:52:13 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzX9Q-dz15wILAb-bG5TIy8Y7ge9E4M20sE8uYTeMIw-Afs9cfk3Fmarl1KN97IWODTl1Ms; expires=Wed, 16-Sep-2026 22:52:13 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzUj8yTlJyot1HcG6KguegT_XKbhmFPLh5lCp3O7Z1qM-NHvWzJf6275vY6tjQ7HuskDAhs; expires=Wed, 16-Sep-2026 22:52:13 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzUhNcXnws9AF80DtiH_fJ_WMOhJJ1Hp6C4jNEG51vXwpho9IGotSmB8YbF-jWR3uTuHjg; expires=Wed, 16-Sep-2026 22:52:13 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzWVsDZVUCWrIl8nkP6ccSGl2Wv53Vjb34aNXURTbIOD07kYYjNWdsDGm7vLqIKQxe9zxs4; expires=Wed, 16-Sep-2026 22:52:13 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
 Vary: Sec-Fetch-Dest, Sec-Fetch-Mode, Sec-Fetch-Site
 X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
@@ -85,4 +85,4 @@ X-Xss-Protection: 0
 
 )]}'
 
-[["wrb.fr","VUsiyb","[null,null,[3,null,\"5f9641dc-b9a4-4048-90fb-9897c3ce1d13\",\"Airbnb's Journey to Service-Oriented Architecture: Lessons Learned\",[\"Audience is an experienced software architect\"],true,1],null,[false]]",null,null,null,"generic"],["di",154],["af.httprm",154,"[TIMESTAMP]526316",41]]
+[["wrb.fr","VUsiyb",null,null,null,[3],"generic"],["di",135],["af.httprm",135,"-[TIMESTAMP]668859",29]]

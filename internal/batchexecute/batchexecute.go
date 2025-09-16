@@ -539,6 +539,9 @@ type Config struct {
 	MaxRetries    int           // Maximum number of retry attempts (default: 3)
 	RetryDelay    time.Duration // Initial delay between retries (default: 1s)
 	RetryMaxDelay time.Duration // Maximum delay between retries (default: 10s)
+
+	// Debug payload dumping
+	DebugDumpPayload bool // If true, dumps raw payload and exits
 }
 
 // Client handles batchexecute operations

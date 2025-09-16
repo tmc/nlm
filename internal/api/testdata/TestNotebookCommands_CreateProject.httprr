@@ -1,5 +1,5 @@
 httprr trace v1
-698 2599
+698 2592
 POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=CCqFvf&source-path=%2F HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
@@ -15,7 +15,7 @@ Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
 at=&f.req=%5B%5B%5B%22CCqFvf%22%2C%22%5B%5C%22Test+Project+for+Recording%5C%22%2C%5C%22%F0%9F%93%9D%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
-Content-Length: 265
+Content-Length: 264
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
 Cache-Control: no-cache, no-store, max-age=0, must-revalidate
@@ -24,17 +24,17 @@ Content-Security-Policy: require-trusted-types-for 'script';report-uri /_/LabsTa
 Content-Type: application/json; charset=utf-8
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Resource-Policy: same-site
-Date: Sun, 14 Sep 2025 21:56:29 GMT
+Date: Tue, 16 Sep 2025 22:51:51 GMT
 Expires: Mon, 01 Jan 1990 00:00:00 GMT
 Permissions-Policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
 Pragma: no-cache
 Server: ESF
-Set-Cookie: SIDCC=AKEyXzX6dNiQm-xk4zJvFz1mdcSi4bCBZjR1OLBiYyP-CvYE7btbDZr85x74fwyU5R_11R_gQzs; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzWGOxBLWa5vjGNfLtD-SnKbEDpLobLwJmGhPeqlEl5cBTd3U08C4VdSMcpYpDpYvfa6XdVI; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzVUm0vMOpOaX328UJ2wXO6yf2zIP1XIHK7rT1UPYU0BJVG98TuZnyJGKrdt2h0wWMPtZFtr; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
-Set-Cookie: SIDCC=AKEyXzVtgKc3N4T4NcSynkSeLnU89AwwSunJT5aX3wipVvSQfLGDJicyBbzkc8Ak8iLHYtwqiZM; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzXiKVg0nXgCmPw8tqUQE69E3FqqXu_to2oUA8aaGfWRUXZ9jFKff8E9r6wxiw6AObhTsb3S; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzUxwcPoUBEygfJAVhBCNy8_YNFLqktnogaPvalWvevXcJ3nkXBLVn62hzJVhIvlVVMEaaGC; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzUOc2ep7_V8BuT_uj-wBpqrJKrJyEPvLFPAsUrADbCYAZ9XhJTB89CyRa7mRpnNKD0mcVc; expires=Wed, 16-Sep-2026 22:51:51 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzVy9svTDB64C-ErBpjr1al528BjBZBCSPfEbUu0wnry8zSWQkEhGyKXe4qpdPpOLN7mlg; expires=Wed, 16-Sep-2026 22:51:51 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzUw-VfaM41WBe2iq1ekhTx7RPJBZH-Lk6Mvt6icmuqkDjpKFw6z8ndV9UKua9ug49jgG6Q; expires=Wed, 16-Sep-2026 22:51:51 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzWphm1ebdrhcwJiVk1jNZSrXUsKigKoEY6cDqIffDJwV8scH-nx0WunSSflPz5v9-172GA; expires=Wed, 16-Sep-2026 22:51:51 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzVdI59sGkMAPV-D3lHlsGxBLlhvYXqsIpU63Uro_SEj_ADRWsGryOXlJKwV0EbePcvB5g; expires=Wed, 16-Sep-2026 22:51:51 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzWFfxbPKQtTP6jewdQ9h4mHpsDoe2s_U-w6Ym82b76ERNMkzwZYF9djRBlHDrCZJDochnM; expires=Wed, 16-Sep-2026 22:51:51 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
 Vary: Sec-Fetch-Dest, Sec-Fetch-Mode, Sec-Fetch-Site
 X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
@@ -42,7 +42,7 @@ X-Xss-Protection: 0
 
 )]}'
 
-[["wrb.fr","CCqFvf","[\"Test Project for Recording\",null,\"573ed467-a5f0-4641-9e27-d121c91ba8fd\",\"📝\",null,[1,false,true,null,null,null,1,null,null,null,null,null,false]]",null,null,null,"generic"],["di",564],["af.httprm",563,"-[TIMESTAMP]682835",41]]687 2446
+[["wrb.fr","CCqFvf","[\"Test Project for Recording\",null,\"e57be23d-346d-414c-933c-6b9f3078202c\",\"📝\",null,[1,false,true,null,null,null,1,null,null,null,null,null,false]]",null,null,null,"generic"],["di",519],["af.httprm",519,"[TIMESTAMP]913401",30]]687 2440
 POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=WWINqb&source-path=%2F HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
@@ -57,7 +57,7 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22WWINqb%22%2C%22%5B%5B%5C%22573ed467-a5f0-4641-9e27-d121c91ba8fd%5C%22%5D%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+at=&f.req=%5B%5B%5B%22WWINqb%22%2C%22%5B%5B%5C%22e57be23d-346d-414c-933c-6b9f3078202c%5C%22%5D%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
 Content-Length: 112
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -67,17 +67,17 @@ Content-Security-Policy: require-trusted-types-for 'script';report-uri /_/LabsTa
 Content-Type: application/json; charset=utf-8
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Resource-Policy: same-site
-Date: Sun, 14 Sep 2025 21:56:30 GMT
+Date: Tue, 16 Sep 2025 22:51:53 GMT
 Expires: Mon, 01 Jan 1990 00:00:00 GMT
 Permissions-Policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
 Pragma: no-cache
 Server: ESF
-Set-Cookie: SIDCC=AKEyXzXY1QJGqfyfZ4Albe-DvQbII1cW_06bKvA9j-EZFPPudyOP_e8RZAh6aPQcxjhc4bZoEjU; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzV26sIywi-iQ8SDXAQo8nDWg4GFV2FSLnvco0Km9f7Yt_BP2cOfOV9CNCH95LBFpT84vPmg; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzXN1_fYXefupMCoHdGAJuqIlxhKLAPWJRvDsdLZUy_TL_nuBZchqpWXZM52g-b7UQkyhICM; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
-Set-Cookie: SIDCC=AKEyXzXnigPx0sTWzmVASYrVv6VPH8HDPJL0RAdI3K4ZWW-U6h1eFNmEfoAAVUbg7rQcLOBQSYs; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; priority=high
-Set-Cookie: __Secure-1PSIDCC=AKEyXzX2dhKI5c1R57a_4xb4EI4GMIrJV0wxY_l-8vPjO9glvTX1uyhgDH9pwo1cYmlxlz2B4p6d; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
-Set-Cookie: __Secure-3PSIDCC=AKEyXzWbU0K-mPjwIg1dvsECOzSUDilcvVHPcGUoy8WVCNks_lhsT8Lf-sqINT-bHyYqa4kb_QCO; expires=Mon, 14-Sep-2026 21:56:30 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzVWan7PoxOlrgfEzKCBgJ8x4kWNbepLOuKplecG8TOXqvsMpzCwMVGS-qNlbo4HoGWsv-8; expires=Wed, 16-Sep-2026 22:51:53 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzW_5DyTNyyq8CXvUPoR5cSFlcF5W7YA0bMi5J7OdL5xaQ_2AGmoDPW5VYxQcfLgtM0Jdg; expires=Wed, 16-Sep-2026 22:51:53 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzWw0-QxAySpF4w96xdc0iciLUhjYtm8KYcrFNHdGeqMT7vu96T38KmS4Smar-cipaAdhz4; expires=Wed, 16-Sep-2026 22:51:53 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzWHt7oJlw1TkdRlCM2QX0bo33yPTHlc7zUg7ovdCP5RjxuA2K7cDFJ3O12FuD3wPe59t1c; expires=Wed, 16-Sep-2026 22:51:53 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzUttEllQpz5bvvKc1dSIA_7m1Th1DUli1K7FsUTOyA2zJ4MPr5rSvZpY8AORVEyvw8A4Q; expires=Wed, 16-Sep-2026 22:51:53 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzW1FGlVpuU_DT0SfgFPzdjAvCRYUvPC8_6fn18Bm4B-Gs05E6mEmfI5fCVp9eTY_0GUc8c; expires=Wed, 16-Sep-2026 22:51:53 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
 Vary: Sec-Fetch-Dest, Sec-Fetch-Mode, Sec-Fetch-Site
 X-Content-Type-Options: nosniff
 X-Frame-Options: SAMEORIGIN
@@ -85,4 +85,4 @@ X-Xss-Protection: 0
 
 )]}'
 
-[["wrb.fr","WWINqb","[]",null,null,null,"generic"],["di",490],["af.httprm",489,"-[TIMESTAMP]147292",40]]
+[["wrb.fr","WWINqb","[]",null,null,null,"generic"],["di",591],["af.httprm",590,"-[TIMESTAMP]799392",30]]
