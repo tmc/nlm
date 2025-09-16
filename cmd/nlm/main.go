@@ -1492,25 +1492,20 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 
 // Generation operations
 func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.GenerateFreeFormStreamedRequest{
-		ProjectId: projectID,
-		Prompt:    prompt,
-	}
-
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
-	stream, err := orchClient.GenerateFreeFormStreamed(context.Background(), req)
+	// Use the API client's GenerateFreeFormStreamed method
+	response, err := c.GenerateFreeFormStreamed(projectID, prompt, nil)
 	if err != nil {
 		return fmt.Errorf("generate chat: %w", err)
 	}
 
-	// For now, just return the first response
-	// In a full implementation, this would stream the responses
-	fmt.Printf("Response: %s\n", "Free-form generation not fully implemented yet")
-	_ = stream
+	// Display the response
+	if response != nil && response.Chunk != "" {
+		fmt.Println(response.Chunk)
+	} else {
+		fmt.Println("(No response received)")
+	}
 
 	return nil
 }
@@ -1730,18 +1725,23 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			continue
 		}
 
-		// For now, use a simulated response since the streaming API isn't fully implemented
+		// Send the message to the API
 		fmt.Println("\n🤔 Thinking...")
 
-		// Simulate processing delay
-		time.Sleep(500 * time.Millisecond)
+		// Call the GenerateFreeFormStreamed API
+		response, err := c.GenerateFreeFormStreamed(notebookID, input, nil)
+		if err != nil {
+			fmt.Printf("\n❌ Error: %v\n", err)
+			continue
+		}
 
-		// Provide a helpful response about the current state
+		// Display the response
 		fmt.Print("\n🤖 Assistant: ")
-
-		// For now, display a placeholder response (streaming will be improved)
-		// TODO: Implement actual chat API call here
-		fmt.Print("I understand your message: \"" + input + "\". The chat functionality is being implemented.")
+		if response != nil && response.Chunk != "" {
+			fmt.Print(response.Chunk)
+		} else {
+			fmt.Print("(No response received)")
+		}
 
 		fmt.Println() // New line after response
 	}
