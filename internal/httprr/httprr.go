@@ -535,7 +535,7 @@ func (w testWriter) Write(p []byte) (n int, err error) {
 // OpenForTest creates a RecordReplay for the given test.
 // The primary API for most test cases. Creates a recorder/replayer for the given test.
 //
-// - Recording mode: Creates testdata/TestName.httprr 
+// - Recording mode: Creates testdata/TestName.httprr
 // - Replay mode: Loads existing recording
 // - File naming: Derived automatically from t.Name()
 // - Directory: Always uses testdata/ subdirectory

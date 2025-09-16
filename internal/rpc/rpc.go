@@ -39,15 +39,18 @@ const (
 	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
 	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
 
+	// NotebookLM service - Video operations
+	RPCCreateVideoOverview = "R7cb6c" // CreateVideoOverview
+
 	// NotebookLM service - Generation operations
-	RPCGenerateDocumentGuides     = "tr032e" // GenerateDocumentGuides
-	RPCGenerateNotebookGuide      = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline            = "lCjAd"  // GenerateOutline
-	RPCGenerateSection            = "BeTrYd" // GenerateSection
-	RPCStartDraft                 = "exXvGf" // StartDraft
-	RPCStartSection               = "pGC7gf" // StartSection
-	RPCGenerateFreeFormStreamed   = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
-	RPCGenerateReportSuggestions  = "GHsKob" // GenerateReportSuggestions
+	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
+	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
+	RPCGenerateOutline           = "lCjAd"  // GenerateOutline
+	RPCGenerateSection           = "BeTrYd" // GenerateSection
+	RPCStartDraft                = "exXvGf" // StartDraft
+	RPCStartSection              = "pGC7gf" // StartSection
+	RPCGenerateFreeFormStreamed  = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
+	RPCGenerateReportSuggestions = "GHsKob" // GenerateReportSuggestions
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -75,8 +78,9 @@ const (
 	RPCCreateArtifact = "xpWGLf" // CreateArtifact
 	RPCGetArtifact    = "BnLyuf" // GetArtifact
 	RPCUpdateArtifact = "DJezBc" // UpdateArtifact
+	RPCRenameArtifact = "rc3d8d" // RenameArtifact - for title updates
 	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact
-	RPCListArtifacts  = "LfTXoe" // ListArtifacts
+	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
 
 	// LabsTailwindOrchestrationService - Additional operations
 	RPCListFeaturedProjects = "nS9Qlc" // ListFeaturedProjects
@@ -116,7 +120,7 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 		},
 		URLParams: map[string]string{
 			// Update to January 2025 build version
-			"bl":    "boq_labs-tailwind-frontend_20250129.00_p0", 
+			"bl":    "boq_labs-tailwind-frontend_20250129.00_p0",
 			"f.sid": "-7121977511756781186",
 			"hl":    "en",
 			// Omit rt parameter for JSON array format (easier to parse)

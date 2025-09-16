@@ -304,38 +304,38 @@ func refreshCredentials(debugFlag bool) error {
 			break
 		}
 	}
-	
+
 	// Load stored credentials
 	loadStoredEnv()
-	
+
 	cookies := os.Getenv("NLM_COOKIES")
 	if cookies == "" {
 		return fmt.Errorf("no stored credentials found. Run 'nlm auth' first")
 	}
-	
+
 	// Create refresh client
 	refreshClient, err := auth.NewRefreshClient(cookies)
 	if err != nil {
 		return fmt.Errorf("failed to create refresh client: %w", err)
 	}
-	
+
 	if debug {
 		refreshClient.SetDebug(true)
 		fmt.Fprintf(os.Stderr, "nlm: refreshing credentials...\n")
 	}
-	
+
 	// For now, use a hardcoded gsessionid from the user's example
 	// TODO: Extract this dynamically from the NotebookLM page
 	gsessionID := "LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg"
 	if debug {
 		fmt.Fprintf(os.Stderr, "nlm: using gsessionid: %s\n", gsessionID)
 	}
-	
+
 	// Perform refresh
 	if err := refreshClient.RefreshCredentials(gsessionID); err != nil {
 		return fmt.Errorf("failed to refresh credentials: %w", err)
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "nlm: credentials refreshed successfully\n")
 	return nil
 }

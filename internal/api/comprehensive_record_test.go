@@ -15,7 +15,7 @@ import (
 func TestNotebookCommands_ListProjects(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -38,7 +38,7 @@ func TestNotebookCommands_ListProjects(t *testing.T) {
 func TestNotebookCommands_CreateProject(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -65,7 +65,7 @@ func TestNotebookCommands_CreateProject(t *testing.T) {
 func TestNotebookCommands_DeleteProject(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -92,7 +92,7 @@ func TestNotebookCommands_DeleteProject(t *testing.T) {
 func TestSourceCommands_ListSources(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -122,7 +122,7 @@ func TestSourceCommands_ListSources(t *testing.T) {
 func TestSourceCommands_AddTextSource(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -159,7 +159,7 @@ func TestSourceCommands_AddTextSource(t *testing.T) {
 func TestSourceCommands_AddURLSource(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -196,7 +196,7 @@ func TestSourceCommands_AddURLSource(t *testing.T) {
 func TestSourceCommands_DeleteSource(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -214,7 +214,7 @@ func TestSourceCommands_DeleteSource(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	
+
 	// First add a source to delete
 	sourceID, err := client.AddSourceFromText(projectID, "This is a test source that will be deleted for httprr recording.", "Test Source for Delete Recording")
 	if err != nil {
@@ -234,7 +234,7 @@ func TestSourceCommands_DeleteSource(t *testing.T) {
 func TestSourceCommands_RenameSource(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -252,7 +252,7 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	
+
 	// First add a source to rename
 	sourceID, err := client.AddSourceFromText(projectID, "This is a test source that will be renamed for httprr recording.", "Original Source Name")
 	if err != nil {
@@ -280,7 +280,7 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 func TestAudioCommands_CreateAudioOverview(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -299,7 +299,7 @@ func TestAudioCommands_CreateAudioOverview(t *testing.T) {
 
 	projectID := projects[0].ProjectId
 	instructions := "Create a brief overview suitable for recording API tests"
-	
+
 	result, err := client.CreateAudioOverview(projectID, instructions)
 	if err != nil {
 		t.Fatalf("Failed to create audio overview: %v", err)
@@ -312,7 +312,7 @@ func TestAudioCommands_CreateAudioOverview(t *testing.T) {
 func TestAudioCommands_GetAudioOverview(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -330,7 +330,7 @@ func TestAudioCommands_GetAudioOverview(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	
+
 	result, err := client.GetAudioOverview(projectID)
 	if err != nil {
 		// This might fail if no audio overview exists, which is expected
@@ -348,7 +348,7 @@ func TestAudioCommands_GetAudioOverview(t *testing.T) {
 func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -366,7 +366,7 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	
+
 	guide, err := client.GenerateNotebookGuide(projectID)
 	if err != nil {
 		t.Fatalf("Failed to generate notebook guide: %v", err)
@@ -379,7 +379,7 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 func TestGenerationCommands_GenerateOutline(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -397,7 +397,7 @@ func TestGenerationCommands_GenerateOutline(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	
+
 	outline, err := client.GenerateOutline(projectID)
 	if err != nil {
 		t.Fatalf("Failed to generate outline: %v", err)
@@ -410,7 +410,7 @@ func TestGenerationCommands_GenerateOutline(t *testing.T) {
 func TestMiscCommands_Heartbeat(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-	
+
 	_ = New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
@@ -421,4 +421,52 @@ func TestMiscCommands_Heartbeat(t *testing.T) {
 	// The heartbeat method might not exist or might be a no-op
 	// This is just to record any potential network activity
 	t.Logf("Heartbeat test completed (no-op)")
+}
+
+func TestVideoCommands_CreateVideoOverview(t *testing.T) {
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	client := New(
+		os.Getenv("NLM_AUTH_TOKEN"),
+		os.Getenv("NLM_COOKIES"),
+		batchexecute.WithHTTPClient(httpClient),
+		batchexecute.WithDebug(false),
+	)
+
+	// First, we need a project to create video for
+	t.Log("Listing projects to find available project...")
+	projects, err := client.ListRecentlyViewedProjects()
+	if err != nil {
+		t.Fatalf("Failed to list projects: %v", err)
+	}
+
+	if len(projects) == 0 {
+		t.Skip("No projects found for video overview creation")
+	}
+
+	projectID := projects[0].ProjectId
+	t.Logf("Using project: %s", projectID)
+
+	t.Log("Creating video overview...")
+	result, err := client.CreateVideoOverview(projectID, "Create a comprehensive video overview of this notebook")
+	if err != nil {
+		// Video creation might not be available yet, or might require special permissions
+		// Log the error but don't fail the test if it's a service availability issue
+		if strings.Contains(err.Error(), "Service unavailable") || strings.Contains(err.Error(), "API error 3") {
+			t.Logf("Video overview creation not available: %v", err)
+			t.Skip("Video overview creation service not available")
+		}
+		t.Fatalf("Failed to create video overview: %v", err)
+	}
+
+	t.Logf("Video overview creation result:")
+	t.Logf("  Project ID: %s", result.ProjectID)
+	t.Logf("  Video ID: %s", result.VideoID)
+	t.Logf("  Title: %s", result.Title)
+	t.Logf("  Is Ready: %v", result.IsReady)
+
+	if result.VideoData != "" {
+		t.Logf("  Video Data: %s", result.VideoData[:min(100, len(result.VideoData))]+"...")
+	}
 }

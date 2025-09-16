@@ -39,7 +39,7 @@ func NewRefreshClient(cookies string) (*RefreshClient, error) {
 	if sapisid == "" {
 		return nil, fmt.Errorf("SAPISID not found in cookies")
 	}
-	
+
 	return &RefreshClient{
 		cookies:    cookies,
 		sapisid:    sapisid,
@@ -60,13 +60,13 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 	if gsessionID != "" {
 		params.Set("gsessionid", gsessionID)
 	}
-	
+
 	fullURL := SignalerAPIURL + "?" + params.Encode()
-	
+
 	// Generate SAPISIDHASH for authorization
 	timestamp := time.Now().Unix()
 	authHash := r.generateSAPISIDHASH(timestamp)
-	
+
 	// Create request body
 	// The body appears to be a session identifier
 	requestBody := []string{"tZf5V3ry"} // This might need to be dynamic
@@ -74,13 +74,13 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
-	
+
 	// Create the HTTP request
 	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	// Set headers
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
@@ -91,43 +91,43 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 	req.Header.Set("Referer", "https://notebooklm.google.com/")
 	req.Header.Set("X-Goog-AuthUser", "0")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36")
-	
+
 	if r.debug {
 		fmt.Printf("=== Credential Refresh Request ===\n")
 		fmt.Printf("URL: %s\n", fullURL)
 		fmt.Printf("Authorization: SAPISIDHASH %d_%s\n", timestamp, authHash)
 		fmt.Printf("Body: %s\n", string(bodyJSON))
 	}
-	
+
 	// Send the request
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send refresh request: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// Read the response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
-	
+
 	if r.debug {
 		fmt.Printf("=== Credential Refresh Response ===\n")
 		fmt.Printf("Status: %s\n", resp.Status)
 		fmt.Printf("Body: %s\n", string(body))
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("refresh failed with status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	// Parse response to check for success
 	// The response format needs to be determined from actual API responses
 	if r.debug {
 		fmt.Println("Credentials refreshed successfully")
 	}
-	
+
 	return nil
 }
 
@@ -136,7 +136,7 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 func (r *RefreshClient) generateSAPISIDHASH(timestamp int64) string {
 	origin := "https://notebooklm.google.com"
 	data := fmt.Sprintf("%d %s %s", timestamp, r.sapisid, origin)
-	
+
 	hash := sha1.New()
 	hash.Write([]byte(data))
 	return fmt.Sprintf("%x", hash.Sum(nil))
@@ -174,30 +174,30 @@ func ExtractGSessionID(cookies string) (string, error) {
 			return nil
 		},
 	}
-	
+
 	// Create request to NotebookLM
 	req, err := http.NewRequest("GET", "https://notebooklm.google.com/", nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
-	
+
 	// Set headers
 	req.Header.Set("Cookie", cookies)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36")
-	
+
 	// Send request
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("fetch page: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", fmt.Errorf("read response: %w", err)
 	}
-	
+
 	// Look for gsessionid in the page
 	// Pattern: "gsessionid":"<value>"
 	pattern := regexp.MustCompile(`"gsessionid"\s*:\s*"([^"]+)"`)
@@ -205,14 +205,14 @@ func ExtractGSessionID(cookies string) (string, error) {
 	if len(matches) > 1 {
 		return string(matches[1]), nil
 	}
-	
+
 	// Alternative pattern: gsessionid='<value>'
 	pattern2 := regexp.MustCompile(`gsessionid\s*=\s*['"]([^'"]+)['"]`)
 	matches2 := pattern2.FindSubmatch(body)
 	if len(matches2) > 1 {
 		return string(matches2[1]), nil
 	}
-	
+
 	// If not found, return error
 	return "", fmt.Errorf("gsessionid not found in page")
 }
@@ -221,7 +221,7 @@ func ExtractGSessionID(cookies string) (string, error) {
 func (r *RefreshClient) RefreshLoop(gsessionID string, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		if err := r.RefreshCredentials(gsessionID); err != nil {
 			if r.debug {
@@ -252,22 +252,22 @@ func StartAutoRefresh(cookies string, gsessionID string, config AutoRefreshConfi
 	if !config.Enabled {
 		return nil
 	}
-	
+
 	client, err := NewRefreshClient(cookies)
 	if err != nil {
 		return fmt.Errorf("failed to create refresh client: %w", err)
 	}
-	
+
 	client.debug = config.Debug
-	
+
 	// Do an initial refresh to verify it works
 	if err := client.RefreshCredentials(gsessionID); err != nil {
 		return fmt.Errorf("initial refresh failed: %w", err)
 	}
-	
+
 	// Start the refresh loop in a goroutine
 	go client.RefreshLoop(gsessionID, config.Interval)
-	
+
 	return nil
 }
 
@@ -296,16 +296,16 @@ func ParseAuthToken(token string) (string, time.Time, error) {
 	if len(parts) != 2 {
 		return "", time.Time{}, fmt.Errorf("invalid token format")
 	}
-	
+
 	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("invalid timestamp: %w", err)
 	}
-	
+
 	// Convert milliseconds to time.Time
 	// Tokens typically expire after 1 hour
 	expiryTime := time.Unix(timestamp/1000, (timestamp%1000)*1e6).Add(1 * time.Hour)
-	
+
 	return parts[0], expiryTime, nil
 }
 
@@ -315,13 +315,13 @@ func GetStoredToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	envFile := filepath.Join(homeDir, ".nlm", "env")
 	data, err := os.ReadFile(envFile)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Parse the env file for NLM_AUTH_TOKEN
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -332,7 +332,7 @@ func GetStoredToken() (string, error) {
 			return token, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("auth token not found in env file")
 }
 
@@ -342,13 +342,13 @@ func GetStoredCookies() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	envFile := filepath.Join(homeDir, ".nlm", "env")
 	data, err := os.ReadFile(envFile)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Parse the env file for NLM_COOKIES
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -359,7 +359,7 @@ func GetStoredCookies() (string, error) {
 			return cookies, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("cookies not found in env file")
 }
 
@@ -372,13 +372,13 @@ func (tm *TokenManager) StartAutoRefreshManager() error {
 	}
 	tm.running = true
 	tm.mu.Unlock()
-	
+
 	go tm.monitorTokenExpiry()
-	
+
 	if tm.debug {
 		fmt.Fprintf(os.Stderr, "Auto-refresh manager started\n")
 	}
-	
+
 	return nil
 }
 
@@ -386,7 +386,7 @@ func (tm *TokenManager) StartAutoRefreshManager() error {
 func (tm *TokenManager) monitorTokenExpiry() {
 	ticker := time.NewTicker(1 * time.Minute) // Check every minute
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -411,13 +411,13 @@ func (tm *TokenManager) checkAndRefresh() error {
 	if err != nil {
 		return fmt.Errorf("failed to get stored token: %w", err)
 	}
-	
+
 	// Parse token to get expiry time
 	_, expiryTime, err := ParseAuthToken(token)
 	if err != nil {
 		return fmt.Errorf("failed to parse token: %w", err)
 	}
-	
+
 	// Check if we need to refresh
 	timeUntilExpiry := time.Until(expiryTime)
 	if timeUntilExpiry > tm.refreshAhead {
@@ -426,39 +426,39 @@ func (tm *TokenManager) checkAndRefresh() error {
 		}
 		return nil
 	}
-	
+
 	if tm.debug {
 		fmt.Fprintf(os.Stderr, "Token expiring in %v, refreshing now...\n", timeUntilExpiry)
 	}
-	
+
 	// Get cookies for refresh
 	cookies, err := GetStoredCookies()
 	if err != nil {
 		return fmt.Errorf("failed to get stored cookies: %w", err)
 	}
-	
+
 	// Create refresh client
 	refreshClient, err := NewRefreshClient(cookies)
 	if err != nil {
 		return fmt.Errorf("failed to create refresh client: %w", err)
 	}
-	
+
 	if tm.debug {
 		refreshClient.SetDebug(true)
 	}
-	
+
 	// Use hardcoded gsessionID for now (TODO: extract dynamically)
 	gsessionID := "LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg"
-	
+
 	// Perform refresh
 	if err := refreshClient.RefreshCredentials(gsessionID); err != nil {
 		return fmt.Errorf("failed to refresh credentials: %w", err)
 	}
-	
+
 	if tm.debug {
 		fmt.Fprintf(os.Stderr, "Credentials refreshed successfully\n")
 	}
-	
+
 	return nil
 }
 
@@ -466,7 +466,7 @@ func (tm *TokenManager) checkAndRefresh() error {
 func (tm *TokenManager) Stop() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
-	
+
 	if tm.running {
 		close(tm.stopChan)
 		tm.running = false

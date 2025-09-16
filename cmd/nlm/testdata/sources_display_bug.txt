@@ -1,0 +1,22 @@
+# Test for sources display bug - sources should be displayed in the table
+# This test demonstrates the issue where sources are fetched but not displayed
+
+# Test sources with authentication but without network (should fail with auth required)
+! exec ./nlm_test sources 7eb1d238-7d15-4a26-a072-944157d7eab7
+stderr 'Authentication required'
+
+# Test with mock authentication environment
+env NLM_AUTH_TOKEN=mock-token-123
+env NLM_COOKIES=mock-cookies
+
+# Even with auth tokens, the command will try to make a real network call
+# For now, we can only test validation behavior
+# The actual display bug needs to be tested with mocked HTTP responses or integration tests
+
+# Test that sources command validates arguments correctly
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+
+# Test with too many arguments
+! exec ./nlm_test sources notebook-id extra-arg
+stderr 'usage: nlm sources <notebook-id>'

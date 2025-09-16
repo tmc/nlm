@@ -1,4 +1,4 @@
-# Test audio command validation only (no network calls)
+# Test audio and video command validation only (no network calls)
 # Focus on argument validation and authentication checks
 
 # === AUDIO-CREATE COMMAND ===
@@ -62,5 +62,26 @@ stderr 'usage: nlm audio-share <notebook-id>'
 
 # Test audio-share without authentication (should fail)
 ! exec ./nlm_test audio-share notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === VIDEO-CREATE COMMAND ===
+# Test video-create without arguments (should fail with usage)
+! exec ./nlm_test video-create
+stderr 'usage: nlm video-create <notebook-id> <instructions>'
+! stderr 'panic'
+
+# Test video-create with only one argument (should fail with usage)
+! exec ./nlm_test video-create notebook123
+stderr 'usage: nlm video-create <notebook-id> <instructions>'
+! stderr 'panic'
+
+# Test video-create with too many arguments (should fail with usage)
+! exec ./nlm_test video-create notebook123 instructions extra
+stderr 'usage: nlm video-create <notebook-id> <instructions>'
+! stderr 'panic'
+
+# Test video-create without authentication (should fail)
+! exec ./nlm_test video-create notebook123 'Create a video overview'
 stderr 'Authentication required'
 ! stderr 'panic'

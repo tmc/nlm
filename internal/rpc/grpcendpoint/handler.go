@@ -2,7 +2,6 @@
 package grpcendpoint
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,10 +36,10 @@ type Request struct {
 // Execute sends a gRPC-style request to NotebookLM
 func (c *Client) Execute(req Request) ([]byte, error) {
 	baseURL := "https://notebooklm.google.com/_/LabsTailwindUi/data"
-	
+
 	// Build the full URL with the endpoint
 	fullURL := baseURL + req.Endpoint
-	
+
 	// Add query parameters
 	params := url.Values{}
 	params.Set("bl", "boq_labs-tailwind-frontend_20250903.07_p0")
@@ -48,26 +47,26 @@ func (c *Client) Execute(req Request) ([]byte, error) {
 	params.Set("hl", "en")
 	params.Set("_reqid", fmt.Sprintf("%d", generateRequestID()))
 	params.Set("rt", "c")
-	
+
 	fullURL = fullURL + "?" + params.Encode()
-	
+
 	// Encode the request body
 	bodyJSON, err := json.Marshal(req.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request body: %w", err)
 	}
-	
+
 	// Create form data
 	formData := url.Values{}
 	formData.Set("f.req", string(bodyJSON))
 	formData.Set("at", c.authToken)
-	
+
 	// Create the HTTP request
 	httpReq, err := http.NewRequest("POST", fullURL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	// Set headers
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
 	httpReq.Header.Set("Cookie", c.cookies)
@@ -76,36 +75,36 @@ func (c *Client) Execute(req Request) ([]byte, error) {
 	httpReq.Header.Set("X-Same-Domain", "1")
 	httpReq.Header.Set("Accept", "*/*")
 	httpReq.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	
+
 	if c.debug {
 		fmt.Printf("=== gRPC Request ===\n")
 		fmt.Printf("URL: %s\n", fullURL)
 		fmt.Printf("Body: %s\n", formData.Encode())
 	}
-	
+
 	// Send the request
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	// Read the response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
-	
+
 	if c.debug {
 		fmt.Printf("=== gRPC Response ===\n")
 		fmt.Printf("Status: %s\n", resp.Status)
 		fmt.Printf("Body: %s\n", string(body))
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	return body, nil
 }
 
@@ -113,7 +112,7 @@ func (c *Client) Execute(req Request) ([]byte, error) {
 func (c *Client) Stream(req Request, handler func(chunk []byte) error) error {
 	baseURL := "https://notebooklm.google.com/_/LabsTailwindUi/data"
 	fullURL := baseURL + req.Endpoint
-	
+
 	// Add query parameters
 	params := url.Values{}
 	params.Set("bl", "boq_labs-tailwind-frontend_20250903.07_p0")
@@ -121,45 +120,45 @@ func (c *Client) Stream(req Request, handler func(chunk []byte) error) error {
 	params.Set("hl", "en")
 	params.Set("_reqid", fmt.Sprintf("%d", generateRequestID()))
 	params.Set("rt", "c")
-	
+
 	fullURL = fullURL + "?" + params.Encode()
-	
+
 	// Encode the request body
 	bodyJSON, err := json.Marshal(req.Body)
 	if err != nil {
 		return fmt.Errorf("failed to encode request body: %w", err)
 	}
-	
+
 	// Create form data
 	formData := url.Values{}
 	formData.Set("f.req", string(bodyJSON))
 	formData.Set("at", c.authToken)
-	
+
 	// Create the HTTP request
 	httpReq, err := http.NewRequest("POST", fullURL, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	// Set headers
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
 	httpReq.Header.Set("Cookie", c.cookies)
 	httpReq.Header.Set("Origin", "https://notebooklm.google.com")
 	httpReq.Header.Set("Referer", "https://notebooklm.google.com/")
 	httpReq.Header.Set("X-Same-Domain", "1")
-	
+
 	// Send the request
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
 	}
-	
+
 	// Read the streaming response
 	buf := make([]byte, 4096)
 	for {
@@ -176,7 +175,7 @@ func (c *Client) Stream(req Request, handler func(chunk []byte) error) error {
 			return fmt.Errorf("read error: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -195,7 +194,7 @@ func BuildChatRequest(sourceIDs []string, prompt string) interface{} {
 	for i, id := range sourceIDs {
 		sources[i] = []string{id}
 	}
-	
+
 	// Return the formatted request
 	// Format: [null, "[[sources], prompt, null, [2]]"]
 	innerArray := []interface{}{
@@ -204,10 +203,10 @@ func BuildChatRequest(sourceIDs []string, prompt string) interface{} {
 		nil,
 		[]int{2},
 	}
-	
+
 	// Marshal the inner array to JSON string
 	innerJSON, _ := json.Marshal(innerArray)
-	
+
 	return []interface{}{
 		nil,
 		string(innerJSON),

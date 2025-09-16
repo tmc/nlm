@@ -79,8 +79,8 @@ func TestDecodeResponse(t *testing.T) {
 			err: nil,
 		},
 		{
-			name: "Authentication Error Code",
-			input: `277567`,
+			name:    "Authentication Error Code",
+			input:   `277567`,
 			chunked: true,
 			validate: func(t *testing.T, resp []Response) {
 				// Should now parse as a valid response with numeric data

@@ -19,10 +19,8 @@ import (
 // to files for inspection. This is not an automated test but a helper
 // for debugging HTTP issues.
 func TestHTTPRecorder(t *testing.T) {
-	// Skip in normal testing
-	if os.Getenv("RECORD_HTTP") != "true" {
-		t.Skip("Skipping HTTP recorder test. Set RECORD_HTTP=true to run.")
-	}
+	// This test is mainly for debugging HTTP issues manually
+	t.Skip("Manual debugging test - enable by commenting out this skip")
 
 	// Create a temporary directory for storing request/response data
 	recordDir := filepath.Join(os.TempDir(), "nlm-http-records")
@@ -149,10 +147,8 @@ func TestHTTPRecorder(t *testing.T) {
 
 // TestDirectRequest sends direct HTTP requests to troubleshoot the ListProjects API
 func TestDirectRequest(t *testing.T) {
-	// Skip in normal testing
-	if os.Getenv("TEST_DIRECT_REQUEST") != "true" {
-		t.Skip("Skipping direct request test. Set TEST_DIRECT_REQUEST=true to run.")
-	}
+	// This test is mainly for manual debugging
+	t.Skip("Manual debugging test - enable by commenting out this skip")
 
 	// Get credentials from environment
 	authToken := os.Getenv("NLM_AUTH_TOKEN")
