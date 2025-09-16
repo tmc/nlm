@@ -15,6 +15,19 @@ import (
 	"golang.org/x/term"
 )
 
+// maskProfileName masks sensitive profile names in debug output
+func maskProfileName(profile string) string {
+	if profile == "" {
+		return ""
+	}
+	if len(profile) > 8 {
+		return profile[:4] + "****" + profile[len(profile)-4:]
+	} else if len(profile) > 2 {
+		return profile[:2] + "****"
+	}
+	return "****"
+}
+
 // AuthOptions contains the CLI options for the auth command
 type AuthOptions struct {
 	TryAllProfiles bool
@@ -174,7 +187,9 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 	if opts.TryAllProfiles {
 		fmt.Fprintf(os.Stderr, "nlm: trying all browser profiles to find one with valid authentication...\n")
 	} else {
-		fmt.Fprintf(os.Stderr, "nlm: launching browser to login... (profile:%v)\n", opts.ProfileName)
+		// Mask potentially sensitive profile name
+		maskedProfile := maskProfileName(opts.ProfileName)
+		fmt.Fprintf(os.Stderr, "nlm: launching browser to login... (profile:%v)\n", maskedProfile)
 	}
 
 	// Use the debug flag from options if set, otherwise use the global debug flag
