@@ -74,25 +74,25 @@ func TestGetErrorCode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errorCode, exists := GetErrorCode(tt.code)
-			
+
 			if exists != tt.exists {
 				t.Errorf("GetErrorCode(%d) exists = %v, want %v", tt.code, exists, tt.exists)
 			}
-			
+
 			if tt.exists {
 				if errorCode == nil {
 					t.Errorf("GetErrorCode(%d) returned nil errorCode but exists = true", tt.code)
 					return
 				}
-				
+
 				if errorCode.Type != tt.wantType {
 					t.Errorf("GetErrorCode(%d).Type = %v, want %v", tt.code, errorCode.Type, tt.wantType)
 				}
-				
+
 				if errorCode.Message != tt.wantMsg {
 					t.Errorf("GetErrorCode(%d).Message = %q, want %q", tt.code, errorCode.Message, tt.wantMsg)
 				}
-				
+
 				if errorCode.Code != tt.code {
 					t.Errorf("GetErrorCode(%d).Code = %d, want %d", tt.code, errorCode.Code, tt.code)
 				}
@@ -221,21 +221,21 @@ func TestIsErrorResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			apiError, isError := IsErrorResponse(tt.response)
-			
+
 			if isError != tt.wantError {
 				t.Errorf("IsErrorResponse() isError = %v, want %v", isError, tt.wantError)
 			}
-			
+
 			if tt.wantError {
 				if apiError == nil {
 					t.Errorf("IsErrorResponse() returned nil apiError but isError = true")
 					return
 				}
-				
+
 				if apiError.Message != tt.wantErrorMsg {
 					t.Errorf("IsErrorResponse() apiError.Message = %q, want %q", apiError.Message, tt.wantErrorMsg)
 				}
-				
+
 				if tt.wantCode != 0 {
 					if apiError.ErrorCode == nil {
 						t.Errorf("IsErrorResponse() apiError.ErrorCode = nil, want code %d", tt.wantCode)
@@ -250,59 +250,59 @@ func TestIsErrorResponse(t *testing.T) {
 
 func TestParseAPIError(t *testing.T) {
 	tests := []struct {
-		name         string
-		rawResponse  string
-		httpStatus   int
-		wantErrorMsg string
-		wantCode     int
+		name          string
+		rawResponse   string
+		httpStatus    int
+		wantErrorMsg  string
+		wantCode      int
 		wantRetryable bool
 	}{
 		{
-			name:         "Numeric error code 277566",
-			rawResponse:  "277566",
-			httpStatus:   200,
-			wantErrorMsg: "Authentication required",
-			wantCode:     277566,
+			name:          "Numeric error code 277566",
+			rawResponse:   "277566",
+			httpStatus:    200,
+			wantErrorMsg:  "Authentication required",
+			wantCode:      277566,
 			wantRetryable: false,
 		},
 		{
-			name:         "JSON array with error code",
-			rawResponse:  "[324934]",
-			httpStatus:   200,
-			wantErrorMsg: "Rate limit exceeded",
-			wantCode:     324934,
+			name:          "JSON array with error code",
+			rawResponse:   "[324934]",
+			httpStatus:    200,
+			wantErrorMsg:  "Rate limit exceeded",
+			wantCode:      324934,
 			wantRetryable: true,
 		},
 		{
-			name:         "HTTP 429 error",
-			rawResponse:  "Too Many Requests",
-			httpStatus:   429,
-			wantErrorMsg: "Too Many Requests",
-			wantCode:     429,
+			name:          "HTTP 429 error",
+			rawResponse:   "Too Many Requests",
+			httpStatus:    429,
+			wantErrorMsg:  "Too Many Requests",
+			wantCode:      429,
 			wantRetryable: true,
 		},
 		{
-			name:         "HTTP 500 error",
-			rawResponse:  "Internal Server Error",
-			httpStatus:   500,
-			wantErrorMsg: "Internal Server Error",
-			wantCode:     500,
+			name:          "HTTP 500 error",
+			rawResponse:   "Internal Server Error",
+			httpStatus:    500,
+			wantErrorMsg:  "Internal Server Error",
+			wantCode:      500,
 			wantRetryable: true,
 		},
 		{
-			name:         "Unknown numeric error",
-			rawResponse:  "123456",
-			httpStatus:   200,
-			wantErrorMsg: "Unknown API error",
-			wantCode:     0,
+			name:          "Unknown numeric error",
+			rawResponse:   "123456",
+			httpStatus:    200,
+			wantErrorMsg:  "Unknown API error",
+			wantCode:      0,
 			wantRetryable: false,
 		},
 		{
-			name:         "Generic error",
-			rawResponse:  "Something went wrong",
-			httpStatus:   200,
-			wantErrorMsg: "Unknown API error",
-			wantCode:     0,
+			name:          "Generic error",
+			rawResponse:   "Something went wrong",
+			httpStatus:    200,
+			wantErrorMsg:  "Unknown API error",
+			wantCode:      0,
 			wantRetryable: false,
 		},
 	}
@@ -310,16 +310,16 @@ func TestParseAPIError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			apiError := ParseAPIError(tt.rawResponse, tt.httpStatus)
-			
+
 			if apiError == nil {
 				t.Errorf("ParseAPIError() returned nil")
 				return
 			}
-			
+
 			if apiError.Message != tt.wantErrorMsg {
 				t.Errorf("ParseAPIError() Message = %q, want %q", apiError.Message, tt.wantErrorMsg)
 			}
-			
+
 			if tt.wantCode != 0 {
 				if apiError.ErrorCode == nil {
 					t.Errorf("ParseAPIError() ErrorCode = nil, want code %d", tt.wantCode)
@@ -327,15 +327,15 @@ func TestParseAPIError(t *testing.T) {
 					t.Errorf("ParseAPIError() ErrorCode.Code = %d, want %d", apiError.ErrorCode.Code, tt.wantCode)
 				}
 			}
-			
+
 			if apiError.IsRetryable() != tt.wantRetryable {
 				t.Errorf("ParseAPIError() IsRetryable() = %v, want %v", apiError.IsRetryable(), tt.wantRetryable)
 			}
-			
+
 			if apiError.HTTPStatus != tt.httpStatus {
 				t.Errorf("ParseAPIError() HTTPStatus = %d, want %d", apiError.HTTPStatus, tt.httpStatus)
 			}
-			
+
 			if apiError.RawResponse != tt.rawResponse {
 				t.Errorf("ParseAPIError() RawResponse = %q, want %q", apiError.RawResponse, tt.rawResponse)
 			}
@@ -420,7 +420,7 @@ func TestErrorType_String(t *testing.T) {
 func TestAddErrorCode(t *testing.T) {
 	// Save original state
 	originalCodes := ListErrorCodes()
-	
+
 	// Test adding a custom error code
 	customCode := 999999
 	customError := ErrorCode{
@@ -430,23 +430,23 @@ func TestAddErrorCode(t *testing.T) {
 		Description: "This is a test error code",
 		Retryable:   true,
 	}
-	
+
 	AddErrorCode(customCode, customError)
-	
+
 	// Verify it was added
 	retrievedError, exists := GetErrorCode(customCode)
 	if !exists {
 		t.Errorf("AddErrorCode() failed to add custom error code %d", customCode)
 	}
-	
+
 	if retrievedError.Message != customError.Message {
 		t.Errorf("AddErrorCode() Message = %q, want %q", retrievedError.Message, customError.Message)
 	}
-	
+
 	if retrievedError.Type != customError.Type {
 		t.Errorf("AddErrorCode() Type = %v, want %v", retrievedError.Type, customError.Type)
 	}
-	
+
 	// Clean up - restore original state
 	errorCodeDictionary = make(map[int]ErrorCode)
 	for code, errorCode := range originalCodes {
@@ -456,20 +456,20 @@ func TestAddErrorCode(t *testing.T) {
 
 func TestListErrorCodes(t *testing.T) {
 	codes := ListErrorCodes()
-	
+
 	// Check that we have the expected error codes
 	expectedCodes := []int{277566, 277567, 80620, 324934, 143, 4, 429, 500, 502, 503, 504}
-	
+
 	for _, expectedCode := range expectedCodes {
 		if _, exists := codes[expectedCode]; !exists {
 			t.Errorf("ListErrorCodes() missing expected error code %d", expectedCode)
 		}
 	}
-	
+
 	// Verify that modifying the returned map doesn't affect the original
 	originalCount := len(codes)
 	codes[999999] = ErrorCode{Code: 999999, Message: "Test"}
-	
+
 	newCodes := ListErrorCodes()
 	if len(newCodes) != originalCount {
 		t.Errorf("ListErrorCodes() returned map is not a copy, modifications affected original")

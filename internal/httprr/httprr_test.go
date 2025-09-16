@@ -59,30 +59,28 @@ func TestOpenForTest(t *testing.T) {
 }
 
 func TestSkipIfNoCredentialsOrRecording(t *testing.T) {
-	// This test should not skip because we're not setting the env var
-	// and we're not checking for recordings
-	originalEnv := os.Getenv("TEST_API_KEY")
+	// Test the helper functions for credential checking
+	testEnvVar := "HTTPRR_TEST_CREDENTIAL"
+
+	// Save original value
+	originalEnv := os.Getenv(testEnvVar)
 	defer func() {
 		if originalEnv != "" {
-			os.Setenv("TEST_API_KEY", originalEnv)
+			os.Setenv(testEnvVar, originalEnv)
 		} else {
-			os.Unsetenv("TEST_API_KEY")
+			os.Unsetenv(testEnvVar)
 		}
 	}()
 
-	// Unset the env var
-	os.Unsetenv("TEST_API_KEY")
-
-	// This should not cause a skip in a real test because hasExistingRecording
-	// will return false but we're not in a separate test function
-	// So we'll test the helper functions directly
-
-	if hasRequiredCredentials([]string{"TEST_API_KEY"}) {
+	// Test when env var is not set
+	os.Unsetenv(testEnvVar)
+	if hasRequiredCredentials([]string{testEnvVar}) {
 		t.Error("hasRequiredCredentials should return false when env var is not set")
 	}
 
-	os.Setenv("TEST_API_KEY", "test-value")
-	if !hasRequiredCredentials([]string{"TEST_API_KEY"}) {
+	// Test when env var is set
+	os.Setenv(testEnvVar, "test-value")
+	if !hasRequiredCredentials([]string{testEnvVar}) {
 		t.Error("hasRequiredCredentials should return true when env var is set")
 	}
 }
@@ -192,13 +190,23 @@ func TestRecordingFunction(t *testing.T) {
 }
 
 func TestRecordingTransportLegacy(t *testing.T) {
-	// Skip in normal testing
-	if os.Getenv("TEST_HTTPRR") != "true" {
-		t.Skip("Skipping httprr test. Set TEST_HTTPRR=true to run.")
+	// Create testdata directory if it doesn't exist
+	if err := os.MkdirAll("testdata", 0755); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll("testdata")
+
+	// Create a minimal httprr file for testing
+	testFile := "testdata/test.httprr"
+	request := "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
+	response := "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\ntest"
+	httprContent := fmt.Sprintf("httprr trace v1\n%d %d\n%s%s", len(request), len(response), request, response)
+	if err := os.WriteFile(testFile, []byte(httprContent), 0644); err != nil {
+		t.Fatal(err)
 	}
 
 	// Test creating a recording client
-	client, err := NewRecordingClient("testdata/test.httprr", nil)
+	client, err := NewRecordingClient(testFile, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

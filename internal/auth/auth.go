@@ -94,7 +94,7 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 		if err != nil {
 			continue
 		}
-		
+
 		// Copy the entire profile directory to temp location
 		if err := ba.copyProfileDataFromPath(profile.Path); err != nil {
 			if ba.debug {
@@ -550,7 +550,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 	if err != nil {
 		return "", "", fmt.Errorf("scan profiles: %w", err)
 	}
-	
+
 	// Find the profile that matches the requested name
 	var selectedProfile *ProfileInfo
 	for _, p := range profiles {
@@ -559,7 +559,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 			break
 		}
 	}
-	
+
 	// If no exact match, use the first profile (most recently used)
 	if selectedProfile == nil && len(profiles) > 0 {
 		selectedProfile = &profiles[0]
@@ -568,18 +568,18 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				o.ProfileName, selectedProfile.Name, selectedProfile.Browser)
 		}
 	}
-	
+
 	if selectedProfile == nil {
 		return "", "", fmt.Errorf("no valid profiles found")
 	}
-	
+
 	// Create a temporary directory and copy profile data to preserve encryption keys
 	tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
 	if err != nil {
 		return "", "", fmt.Errorf("create temp dir: %w", err)
 	}
 	ba.tempDir = tempDir
-	
+
 	// Copy the profile data
 	if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
 		return "", "", fmt.Errorf("copy profile: %w", err)

@@ -92,6 +92,11 @@ message UpdateArtifactRequest {
     google.protobuf.FieldMask update_mask = 2;
 }
 
+message RenameArtifactRequest {
+    string artifact_id = 1;
+    string new_title = 2;
+}
+
 message DeleteArtifactRequest {
     string artifact_id = 1;
 }
@@ -268,6 +273,10 @@ service LabsTailwindOrchestrationService {
     rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact) {
         option (rpc_id) = "DJezBc";
         option (arg_format) = "[%artifact%, %update_mask%]";
+    }
+    rpc RenameArtifact(RenameArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "rc3d8d";
+        // Complex nested format with quotes - implement manually for now
     }
     rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "WxBZtb";

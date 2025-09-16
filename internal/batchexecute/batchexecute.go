@@ -72,12 +72,12 @@ func maskSensitiveValue(value string) string {
 	}
 }
 
-// maskCookieValues masks cookie values in cookie header for debug output  
+// maskCookieValues masks cookie values in cookie header for debug output
 func maskCookieValues(cookies string) string {
 	// Split cookies by semicolon
 	parts := strings.Split(cookies, ";")
 	var masked []string
-	
+
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if name, value, found := strings.Cut(part, "="); found {
@@ -87,7 +87,7 @@ func maskCookieValues(cookies string) string {
 			masked = append(masked, part) // Keep parts without = as-is
 		}
 	}
-	
+
 	return strings.Join(masked, "; ")
 }
 
@@ -156,7 +156,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		token := c.config.AuthToken
 		var tokenDisplay string
 		if len(token) <= 8 {
-			// For very short tokens, mask completely  
+			// For very short tokens, mask completely
 			tokenDisplay = strings.Repeat("*", len(token))
 		} else if len(token) <= 16 {
 			// For short tokens, show first 2 and last 2 chars
@@ -170,7 +170,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			tokenDisplay = start + strings.Repeat("*", len(token)-6) + end
 		}
 		fmt.Printf("\nAuth Token: %s\n", tokenDisplay)
-		
+
 		// Mask auth token in request body display
 		maskedForm := url.Values{}
 		for k, v := range form {
@@ -215,7 +215,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	// Execute request with retry logic
 	var resp *http.Response
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
 		if attempt > 0 {
 			// Calculate retry delay with exponential backoff
@@ -224,19 +224,19 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			if delay > c.config.RetryMaxDelay {
 				delay = c.config.RetryMaxDelay
 			}
-			
+
 			if c.config.Debug {
 				fmt.Printf("\nRetrying request (attempt %d/%d) after %v...\n", attempt, c.config.MaxRetries, delay)
 			}
 			time.Sleep(delay)
 		}
-		
+
 		// Clone the request for each attempt
 		reqClone := req.Clone(req.Context())
 		if req.Body != nil {
 			reqClone.Body = io.NopCloser(strings.NewReader(form.Encode()))
 		}
-		
+
 		resp, err = c.httpClient.Do(reqClone)
 		if err != nil {
 			lastErr = err
@@ -250,25 +250,25 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			} else {
 				lastErr = fmt.Errorf("execute request: %w", err)
 			}
-			
+
 			// Check if error is retryable
 			if isRetryableError(err) && attempt < c.config.MaxRetries {
 				continue
 			}
 			return nil, lastErr
 		}
-		
+
 		// Check if response status is retryable
 		if isRetryableStatus(resp.StatusCode) && attempt < c.config.MaxRetries {
 			resp.Body.Close()
 			lastErr = fmt.Errorf("server returned status %d", resp.StatusCode)
 			continue
 		}
-		
+
 		// Success or non-retryable error
 		break
 	}
-	
+
 	if resp == nil {
 		return nil, fmt.Errorf("all retry attempts failed: %w", lastErr)
 	}
@@ -390,7 +390,7 @@ func decodeResponse(raw string) ([]Response, error) {
 		// Intelligently parse response data from multiple possible positions
 		// Format: ["wrb.fr", "rpcId", response_data, null, null, actual_data, "generic"]
 		var responseData interface{}
-		
+
 		// Try position 2 first (traditional location)
 		if rpcData[2] != nil {
 			if dataStr, ok := rpcData[2].(string); ok {
@@ -401,12 +401,12 @@ func decodeResponse(raw string) ([]Response, error) {
 				responseData = rpcData[2]
 			}
 		}
-		
+
 		// If position 2 is null/empty, try position 5 (actual data)
 		if responseData == nil && len(rpcData) > 5 && rpcData[5] != nil {
 			responseData = rpcData[5]
 		}
-		
+
 		// Convert responseData to JSON if it's not already a string
 		if responseData != nil && resp.Data == nil {
 			if dataBytes, err := json.Marshal(responseData); err == nil {
@@ -522,7 +522,7 @@ type Config struct {
 	URLParams map[string]string
 	Debug     bool
 	UseHTTP   bool
-	
+
 	// Retry configuration
 	MaxRetries    int           // Maximum number of retry attempts (default: 3)
 	RetryDelay    time.Duration // Initial delay between retries (default: 1s)
@@ -549,7 +549,7 @@ func NewClient(config Config, opts ...Option) *Client {
 	if config.RetryMaxDelay == 0 {
 		config.RetryMaxDelay = 10 * time.Second
 	}
-	
+
 	c := &Client{
 		config:     config,
 		httpClient: http.DefaultClient,
@@ -629,9 +629,9 @@ func isRetryableError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := err.Error()
-	
+
 	// Network-related errors that are retryable
 	retryablePatterns := []string{
 		"connection refused",
@@ -644,13 +644,13 @@ func isRetryableError(err error) bool {
 		"network is unreachable",
 		"temporary failure",
 	}
-	
+
 	for _, pattern := range retryablePatterns {
 		if strings.Contains(errStr, pattern) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

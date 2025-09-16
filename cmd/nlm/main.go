@@ -23,17 +23,19 @@ import (
 
 // Global flags
 var (
-	authToken     string
-	cookies       string
-	debug         bool
-	chromeProfile string
-	mimeType      string
-	chunkedResponse bool  // Control rt=c parameter for chunked vs JSON array response
+	authToken       string
+	cookies         string
+	debug           bool
+	chromeProfile   string
+	mimeType        string
+	chunkedResponse bool // Control rt=c parameter for chunked vs JSON array response
+	useDirectRPC    bool // Use direct RPC calls instead of orchestration service
 )
 
 func init() {
 	flag.BoolVar(&debug, "debug", false, "enable debug output")
 	flag.BoolVar(&chunkedResponse, "chunked", false, "use chunked response format (rt=c)")
+	flag.BoolVar(&useDirectRPC, "direct-rpc", false, "use direct RPC calls for audio/video (bypasses orchestration service)")
 	flag.StringVar(&chromeProfile, "profile", os.Getenv("NLM_BROWSER_PROFILE"), "Chrome profile to use")
 	flag.StringVar(&authToken, "auth", os.Getenv("NLM_AUTH_TOKEN"), "auth token (or set NLM_AUTH_TOKEN)")
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
@@ -64,15 +66,23 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  rm-note <note-id>  Remove note\n\n")
 
 		fmt.Fprintf(os.Stderr, "Audio Commands:\n")
+		fmt.Fprintf(os.Stderr, "  audio-list <id>   List all audio overviews for a notebook with status\n")
 		fmt.Fprintf(os.Stderr, "  audio-create <id> <instructions>  Create audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-get <id>    Get audio overview\n")
+		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (requires --direct-rpc)\n")
 		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n\n")
+
+		fmt.Fprintf(os.Stderr, "Video Commands:\n")
+		fmt.Fprintf(os.Stderr, "  video-list <id>   List all video overviews for a notebook with status\n")
+		fmt.Fprintf(os.Stderr, "  video-create <id> <instructions>  Create video overview\n")
+		fmt.Fprintf(os.Stderr, "  video-download <id> [filename]  Download video file (requires --direct-rpc)\n\n")
 
 		fmt.Fprintf(os.Stderr, "Artifact Commands:\n")
 		fmt.Fprintf(os.Stderr, "  create-artifact <id> <type>  Create artifact (note|audio|report|app)\n")
 		fmt.Fprintf(os.Stderr, "  get-artifact <artifact-id>  Get artifact details\n")
 		fmt.Fprintf(os.Stderr, "  list-artifacts <id>  List artifacts in notebook\n")
+		fmt.Fprintf(os.Stderr, "  rename-artifact <artifact-id> <new-title>  Rename artifact\n")
 		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
 
 		fmt.Fprintf(os.Stderr, "Generation Commands:\n")
@@ -190,6 +200,26 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm rm-note <notebook-id> <note-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "audio-list":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm audio-list <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "audio-download":
+		if len(args) < 1 || len(args) > 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm audio-download <notebook-id> [filename]\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "video-list":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm video-list <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "video-download":
+		if len(args) < 1 || len(args) > 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm video-download <notebook-id> [filename]\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "audio-create":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm audio-create <notebook-id> <instructions>\n")
@@ -208,6 +238,11 @@ func validateArgs(cmd string, args []string) error {
 	case "audio-share":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm audio-share <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "video-create":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm video-create <notebook-id> <instructions>\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "share":
@@ -283,6 +318,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm list-artifacts <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "rename-artifact":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm rename-artifact <artifact-id> <new-title>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "delete-artifact":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm delete-artifact <artifact-id>\n")
@@ -329,13 +369,13 @@ func isValidCommand(cmd string) bool {
 		"list", "ls", "create", "rm", "analytics", "list-featured",
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
 		"notes", "new-note", "update-note", "rm-note",
-		"audio-create", "audio-get", "audio-rm", "audio-share",
-		"create-artifact", "get-artifact", "list-artifacts", "delete-artifact",
+		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download",
+		"create-artifact", "get-artifact", "list-artifacts", "rename-artifact", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
 	}
-	
+
 	for _, valid := range validCommands {
 		if cmd == valid {
 			return true
@@ -369,7 +409,7 @@ func run() error {
 	if cookies == "" {
 		cookies = os.Getenv("NLM_COOKIES")
 	}
-	
+
 	if debug {
 		fmt.Printf("DEBUG: Auth token loaded: %v\n", authToken != "")
 		fmt.Printf("DEBUG: Cookies loaded: %v\n", cookies != "")
@@ -394,7 +434,6 @@ func run() error {
 
 	cmd := flag.Arg(0)
 	args := flag.Args()[1:]
-	
 
 	// Check if command is valid first
 	if !isValidCommand(cmd) {
@@ -431,12 +470,12 @@ func run() error {
 	}
 
 	var opts []batchexecute.Option
-	
+
 	// Add debug option if enabled
 	if debug {
 		opts = append(opts, batchexecute.WithDebug(true))
 	}
-	
+
 	// Add rt=c parameter if chunked response format is requested
 	if chunkedResponse {
 		opts = append(opts, batchexecute.WithURLParams(map[string]string{
@@ -448,7 +487,7 @@ func run() error {
 	} else if debug {
 		fmt.Fprintf(os.Stderr, "DEBUG: Using JSON array response format (no rt parameter)\n")
 	}
-	
+
 	// Support HTTP recording for testing
 	if recordingDir := os.Getenv("HTTPRR_RECORDING_DIR"); recordingDir != "" {
 		// In recording mode, we would set up HTTP client options
@@ -457,25 +496,125 @@ func run() error {
 			fmt.Fprintf(os.Stderr, "DEBUG: HTTP recording enabled with directory: %s\n", recordingDir)
 		}
 	}
-	
+
 	for i := 0; i < 3; i++ {
-		if i > 1 {
-			fmt.Fprintln(os.Stderr, "nlm: attempting again to obtain login information")
+		if i > 0 {
+			if i == 1 {
+				fmt.Fprintln(os.Stderr, "nlm: authentication expired, refreshing credentials...")
+			} else {
+				fmt.Fprintln(os.Stderr, "nlm: retrying authentication...")
+			}
 			debug = true
 		}
 
-		if err := runCmd(api.New(authToken, cookies, opts...), cmd, args...); err == nil {
+		client := api.New(authToken, cookies, opts...)
+		// Set direct RPC flag if specified
+		if useDirectRPC {
+			client.SetUseDirectRPC(true)
+			if debug {
+				fmt.Fprintf(os.Stderr, "nlm: using direct RPC for audio/video operations\n")
+			}
+		}
+		cmdErr := runCmd(client, cmd, args...)
+		if cmdErr == nil {
+			if i > 0 {
+				fmt.Fprintln(os.Stderr, "nlm: authentication refreshed successfully")
+			}
 			return nil
-		} else if !errors.Is(err, batchexecute.ErrUnauthorized) {
-			return err
+		} else if !isAuthenticationError(cmdErr) {
+			return cmdErr
 		}
 
-		var err error
-		if authToken, cookies, err = handleAuth(nil, debug); err != nil {
-			fmt.Fprintf(os.Stderr, "  -> %v\n", err)
+		// Authentication error detected, try to refresh
+		if debug {
+			fmt.Fprintf(os.Stderr, "nlm: detected authentication error: %v\n", cmdErr)
+		}
+
+		var authErr error
+		if authToken, cookies, authErr = handleAuth(nil, debug); authErr != nil {
+			fmt.Fprintf(os.Stderr, "nlm: authentication refresh failed: %v\n", authErr)
+			if i == 2 { // Last attempt
+				return fmt.Errorf("authentication failed after 3 attempts: %w", authErr)
+			}
+		} else {
+			// Save the refreshed credentials
+			if saveErr := saveCredentials(authToken, cookies); saveErr != nil && debug {
+				fmt.Fprintf(os.Stderr, "nlm: warning: failed to save credentials: %v\n", saveErr)
+			}
 		}
 	}
-	return fmt.Errorf("nlm: failed after 3 attempts")
+	return fmt.Errorf("nlm: authentication failed after 3 attempts")
+}
+
+// isAuthenticationError checks if an error is related to authentication
+func isAuthenticationError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Check for batchexecute unauthorized error
+	if errors.Is(err, batchexecute.ErrUnauthorized) {
+		return true
+	}
+
+	// Check for common authentication error messages
+	errorStr := strings.ToLower(err.Error())
+	authKeywords := []string{
+		"unauthenticated",
+		"authentication",
+		"unauthorized",
+		"api error 16", // Google API authentication error
+		"error 16",
+		"status: 401",
+		"status: 403",
+		"session.*invalid",
+		"session.*expired",
+		"login.*required",
+		"auth.*required",
+		"invalid.*credentials",
+		"token.*expired",
+		"cookie.*invalid",
+	}
+
+	for _, keyword := range authKeywords {
+		if strings.Contains(errorStr, keyword) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// saveCredentials saves authentication credentials to environment file
+func saveCredentials(authToken, cookies string) error {
+	// Get home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get home directory: %w", err)
+	}
+
+	// Create .nlm directory if it doesn't exist
+	nlmDir := filepath.Join(home, ".nlm")
+	if err := os.MkdirAll(nlmDir, 0755); err != nil {
+		return fmt.Errorf("create nlm directory: %w", err)
+	}
+
+	// Write environment file
+	envFile := filepath.Join(nlmDir, "env")
+	content := fmt.Sprintf(`NLM_COOKIES=%q
+NLM_AUTH_TOKEN=%q
+NLM_BROWSER_PROFILE=%q
+`,
+		cookies,
+		authToken,
+		chromeProfile,
+	)
+
+	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
+		return fmt.Errorf("write env file: %w", err)
+	}
+
+	return nil
 }
 
 func runCmd(client *api.Client, cmd string, args ...string) error {
@@ -530,6 +669,24 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = deleteAudioOverview(client, args[0])
 	case "audio-share":
 		err = shareAudioOverview(client, args[0])
+	case "audio-list":
+		err = listAudioOverviews(client, args[0])
+	case "audio-download":
+		filename := ""
+		if len(args) > 1 {
+			filename = args[1]
+		}
+		err = downloadAudioOverview(client, args[0], filename)
+	case "video-create":
+		err = createVideoOverview(client, args[0], args[1])
+	case "video-list":
+		err = listVideoOverviews(client, args[0])
+	case "video-download":
+		filename := ""
+		if len(args) > 1 {
+			filename = args[1]
+		}
+		err = downloadVideoOverview(client, args[0], filename)
 
 	// Artifact operations
 	case "create-artifact":
@@ -538,6 +695,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = getArtifact(client, args[0])
 	case "list-artifacts":
 		err = listArtifacts(client, args[0])
+	case "rename-artifact":
+		err = renameArtifact(client, args[0], args[1])
 	case "delete-artifact":
 		err = deleteArtifact(client, args[0])
 
@@ -592,7 +751,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = shareNotebookPrivate(client, args[0])
 	case "share-details":
 		err = getShareDetails(client, args[0])
-	
+
 	// Other operations
 	case "feedback":
 		err = submitFeedback(client, args[0])
@@ -612,11 +771,28 @@ func list(c *api.Client) error {
 	if err != nil {
 		return err
 	}
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+
+	// Display total count
+	total := len(notebooks)
+	fmt.Printf("Total notebooks: %d (showing first 10)\n\n", total)
+
+	// Limit to first 10 entries
+	limit := 10
+	if len(notebooks) < limit {
+		limit = len(notebooks)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tLAST UPDATED")
-	for _, nb := range notebooks {
+	for i := 0; i < limit; i++ {
+		nb := notebooks[i]
+		title := strings.TrimSpace(nb.Emoji) + " " + nb.Title
+		// Truncate title to 80 characters
+		if len(title) > 80 {
+			title = title[:77] + "..."
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
-			nb.ProjectId, strings.TrimSpace(nb.Emoji)+" "+nb.Title,
+			nb.ProjectId, title,
 			nb.GetMetadata().GetCreateTime().AsTime().Format(time.RFC3339),
 		)
 	}
@@ -649,7 +825,7 @@ func listSources(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list sources: %w", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
 	for _, src := range p.Sources {
 		status := "enabled"
@@ -775,7 +951,6 @@ func removeNote(c *api.Client, notebookID, noteID string) error {
 	return nil
 }
 
-
 // Note operations
 func listNotes(c *api.Client, notebookID string) error {
 	notes, err := c.GetNotes(notebookID)
@@ -783,7 +958,7 @@ func listNotes(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list notes: %w", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tLAST MODIFIED")
 	for _, note := range notes {
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
@@ -893,7 +1068,7 @@ func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) err
 	if err != nil {
 		return fmt.Errorf("generate magic view: %w", err)
 	}
-	
+
 	fmt.Printf("Magic View: %s\n", magicView.Title)
 	if len(magicView.Items) > 0 {
 		fmt.Printf("\nItems:\n")
@@ -916,26 +1091,26 @@ func generateMindmap(c *api.Client, notebookID string, sourceIDs []string) error
 
 func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []string) error {
 	actionName := map[string]string{
-		"rephrase":              "Rephrasing",
-		"expand":                "Expanding",
-		"summarize":             "Summarizing", 
-		"critique":              "Critiquing",
-		"brainstorm":            "Brainstorming",
-		"verify":                "Verifying",
-		"explain":               "Explaining",
-		"outline":               "Creating outline",
-		"study_guide":           "Generating study guide",
-		"faq":                   "Generating FAQ",
-		"briefing_doc":          "Creating briefing document",
-		"interactive_mindmap":   "Generating interactive mindmap",
-		"timeline":              "Creating timeline",
-		"table_of_contents":     "Generating table of contents",
+		"rephrase":            "Rephrasing",
+		"expand":              "Expanding",
+		"summarize":           "Summarizing",
+		"critique":            "Critiquing",
+		"brainstorm":          "Brainstorming",
+		"verify":              "Verifying",
+		"explain":             "Explaining",
+		"outline":             "Creating outline",
+		"study_guide":         "Generating study guide",
+		"faq":                 "Generating FAQ",
+		"briefing_doc":        "Creating briefing document",
+		"interactive_mindmap": "Generating interactive mindmap",
+		"timeline":            "Creating timeline",
+		"table_of_contents":   "Generating table of contents",
 	}[action]
-	
+
 	if actionName == "" {
 		actionName = "Processing"
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "%s content from sources...\n", actionName)
 	err := c.ActOnSources(notebookID, action, sourceIDs)
 	if err != nil {
@@ -1010,16 +1185,16 @@ func heartbeat(c *api.Client) error {
 func getAnalytics(c *api.Client, projectID string) error {
 	// Create orchestration service client using the same auth as the main client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.GetProjectAnalyticsRequest{
 		ProjectId: projectID,
 	}
-	
+
 	analytics, err := orchClient.GetProjectAnalytics(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("get analytics: %w", err)
 	}
-	
+
 	fmt.Printf("Project Analytics for %s:\n", projectID)
 	fmt.Printf("  Sources: %d\n", analytics.SourceCount)
 	fmt.Printf("  Notes: %d\n", analytics.NoteCount)
@@ -1027,33 +1202,33 @@ func getAnalytics(c *api.Client, projectID string) error {
 	if analytics.LastAccessed != nil {
 		fmt.Printf("  Last Accessed: %s\n", analytics.LastAccessed.AsTime().Format(time.RFC3339))
 	}
-	
+
 	return nil
 }
 
 func listFeaturedProjects(c *api.Client) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.ListFeaturedProjectsRequest{
 		PageSize: 20,
 	}
-	
+
 	resp, err := orchClient.ListFeaturedProjects(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("list featured projects: %w", err)
 	}
-	
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tDESCRIPTION")
-	
+
 	for _, project := range resp.Projects {
 		description := ""
 		if len(project.Sources) > 0 {
 			description = fmt.Sprintf("%d sources", len(project.Sources))
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
-			project.ProjectId, 
+			project.ProjectId,
 			strings.TrimSpace(project.Emoji)+" "+project.Title,
 			description)
 	}
@@ -1064,17 +1239,17 @@ func listFeaturedProjects(c *api.Client) error {
 func refreshSource(c *api.Client, sourceID string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.RefreshSourceRequest{
 		SourceId: sourceID,
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "Refreshing source %s...\n", sourceID)
 	source, err := orchClient.RefreshSource(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("refresh source: %w", err)
 	}
-	
+
 	fmt.Printf("✅ Refreshed source: %s\n", source.Title)
 	return nil
 }
@@ -1082,60 +1257,60 @@ func refreshSource(c *api.Client, sourceID string) error {
 func checkSourceFreshness(c *api.Client, sourceID string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.CheckSourceFreshnessRequest{
 		SourceId: sourceID,
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "Checking source %s...\n", sourceID)
 	resp, err := orchClient.CheckSourceFreshness(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("check source: %w", err)
 	}
-	
+
 	if resp.IsFresh {
 		fmt.Printf("Source is up to date")
 	} else {
 		fmt.Printf("Source needs refresh")
 	}
-	
+
 	if resp.LastChecked != nil {
 		fmt.Printf(" (last checked: %s)", resp.LastChecked.AsTime().Format(time.RFC3339))
 	}
 	fmt.Println()
-	
+
 	return nil
 }
 
 func discoverSources(c *api.Client, projectID, query string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.DiscoverSourcesRequest{
 		ProjectId: projectID,
 		Query:     query,
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "Discovering sources for query: %s\n", query)
 	resp, err := orchClient.DiscoverSources(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("discover sources: %w", err)
 	}
-	
+
 	if len(resp.Sources) == 0 {
 		fmt.Println("No sources found for the query.")
 		return nil
 	}
-	
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tRELEVANCE")
-	
+
 	for _, source := range resp.Sources {
 		relevance := "Unknown"
 		if source.Metadata != nil {
 			relevance = source.Metadata.GetSourceType().String()
 		}
-		
+
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			source.SourceId.GetSourceId(),
 			strings.TrimSpace(source.Title),
@@ -1149,7 +1324,7 @@ func discoverSources(c *api.Client, projectID, query string) error {
 func createArtifact(c *api.Client, projectID, artifactType string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	// Parse artifact type
 	var aType pb.ArtifactType
 	switch strings.ToLower(artifactType) {
@@ -1164,7 +1339,7 @@ func createArtifact(c *api.Client, projectID, artifactType string) error {
 	default:
 		return fmt.Errorf("invalid artifact type: %s (valid: note, audio, report, app)", artifactType)
 	}
-	
+
 	req := &pb.CreateArtifactRequest{
 		ProjectId: projectID,
 		Artifact: &pb.Artifact{
@@ -1173,74 +1348,84 @@ func createArtifact(c *api.Client, projectID, artifactType string) error {
 			State:     pb.ArtifactState_ARTIFACT_STATE_CREATING,
 		},
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "Creating %s artifact in project %s...\n", artifactType, projectID)
 	artifact, err := orchClient.CreateArtifact(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("create artifact: %w", err)
 	}
-	
+
 	fmt.Printf("✅ Created artifact: %s\n", artifact.ArtifactId)
 	fmt.Printf("  Type: %s\n", artifact.Type.String())
 	fmt.Printf("  State: %s\n", artifact.State.String())
-	
+
 	return nil
 }
 
 func getArtifact(c *api.Client, artifactID string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.GetArtifactRequest{
 		ArtifactId: artifactID,
 	}
-	
+
 	artifact, err := orchClient.GetArtifact(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("get artifact: %w", err)
 	}
-	
+
 	fmt.Printf("Artifact Details:\n")
 	fmt.Printf("  ID: %s\n", artifact.ArtifactId)
 	fmt.Printf("  Project: %s\n", artifact.ProjectId)
 	fmt.Printf("  Type: %s\n", artifact.Type.String())
 	fmt.Printf("  State: %s\n", artifact.State.String())
-	
+
 	if len(artifact.Sources) > 0 {
 		fmt.Printf("  Sources (%d):\n", len(artifact.Sources))
 		for _, src := range artifact.Sources {
 			fmt.Printf("    - %s\n", src.SourceId.GetSourceId())
 		}
 	}
-	
+
 	return nil
 }
 
 func listArtifacts(c *api.Client, projectID string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
-	req := &pb.ListArtifactsRequest{
-		ProjectId: projectID,
-		PageSize:  50,
+	// The orchestration service returns 400 Bad Request for list-artifacts
+	// Use direct RPC instead
+	if debug {
+		fmt.Fprintf(os.Stderr, "Using direct RPC for list-artifacts\n")
 	}
-	
-	resp, err := orchClient.ListArtifacts(context.Background(), req)
+
+	artifacts, err := c.ListArtifacts(projectID)
 	if err != nil {
 		return fmt.Errorf("list artifacts: %w", err)
 	}
-	
-	if len(resp.Artifacts) == 0 {
+
+	return displayArtifacts(artifacts)
+}
+
+// listArtifactsDirectRPC uses direct RPC to list artifacts
+func listArtifactsDirectRPC(c *api.Client, projectID string) ([]*pb.Artifact, error) {
+	// Use the client's RPC capabilities
+	return c.ListArtifacts(projectID)
+}
+
+// displayArtifacts shows artifacts in a formatted table
+func displayArtifacts(artifacts []*pb.Artifact) error {
+
+	if len(artifacts) == 0 {
 		fmt.Println("No artifacts found in project.")
 		return nil
 	}
-	
-	w := tabwriter.NewWriter(os.Stdout, 0, 4, 4, ' ', 0)
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTYPE\tSTATE\tSOURCES")
-	
-	for _, artifact := range resp.Artifacts {
+
+	for _, artifact := range artifacts {
 		sourceCount := fmt.Sprintf("%d", len(artifact.Sources))
-		
+
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			artifact.ArtifactId,
 			artifact.Type.String(),
@@ -1250,6 +1435,21 @@ func listArtifacts(c *api.Client, projectID string) error {
 	return w.Flush()
 }
 
+func renameArtifact(c *api.Client, artifactID, newTitle string) error {
+	fmt.Printf("Renaming artifact %s to '%s'...\n", artifactID, newTitle)
+
+	artifact, err := c.RenameArtifact(artifactID, newTitle)
+	if err != nil {
+		return fmt.Errorf("rename artifact: %w", err)
+	}
+
+	fmt.Printf("✅ Artifact renamed successfully\n")
+	fmt.Printf("ID: %s\n", artifact.ArtifactId)
+	fmt.Printf("New Title: %s\n", newTitle)
+
+	return nil
+}
+
 func deleteArtifact(c *api.Client, artifactID string) error {
 	fmt.Printf("Are you sure you want to delete artifact %s? [y/N] ", artifactID)
 	var response string
@@ -1257,19 +1457,19 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 	if !strings.HasPrefix(strings.ToLower(response), "y") {
 		return fmt.Errorf("operation cancelled")
 	}
-	
+
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.DeleteArtifactRequest{
 		ArtifactId: artifactID,
 	}
-	
+
 	_, err := orchClient.DeleteArtifact(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("delete artifact: %w", err)
 	}
-	
+
 	fmt.Printf("✅ Deleted artifact: %s\n", artifactID)
 	return nil
 }
@@ -1278,56 +1478,56 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.GenerateFreeFormStreamedRequest{
 		ProjectId: projectID,
 		Prompt:    prompt,
 	}
-	
+
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
-	
+
 	stream, err := orchClient.GenerateFreeFormStreamed(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("generate chat: %w", err)
 	}
-	
+
 	// For now, just return the first response
 	// In a full implementation, this would stream the responses
 	fmt.Printf("Response: %s\n", "Free-form generation not fully implemented yet")
 	_ = stream
-	
+
 	return nil
 }
 
 // Utility functions for commented-out operations
 func shareNotebook(c *api.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating public share link...\n")
-	
+
 	// Create RPC client directly for sharing project
 	rpcClient := rpc.New(authToken, cookies)
 	call := rpc.Call{
-		ID:   "QDyure", // ShareProject RPC ID
+		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
 			notebookID,
 			map[string]interface{}{
-				"is_public": true,
-				"allow_comments": true,
+				"is_public":       true,
+				"allow_comments":  true,
 				"allow_downloads": false,
 			},
 		},
 	}
-	
+
 	resp, err := rpcClient.Do(call)
 	if err != nil {
 		return fmt.Errorf("share project: %w", err)
 	}
-	
+
 	// Parse response to extract share URL
 	var data []interface{}
 	if err := json.Unmarshal(resp, &data); err != nil {
 		return fmt.Errorf("parse response: %w", err)
 	}
-	
+
 	if len(data) > 0 {
 		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
 			if shareURL, ok := shareData[0].(string); ok {
@@ -1336,7 +1536,7 @@ func shareNotebook(c *api.Client, notebookID string) error {
 			}
 		}
 	}
-	
+
 	fmt.Printf("Project shared successfully (URL format not recognized)\n")
 	return nil
 }
@@ -1344,49 +1544,49 @@ func shareNotebook(c *api.Client, notebookID string) error {
 func submitFeedback(c *api.Client, message string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	
+
 	req := &pb.SubmitFeedbackRequest{
 		FeedbackType: "general",
 		FeedbackText: message,
 	}
-	
+
 	_, err := orchClient.SubmitFeedback(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("submit feedback: %w", err)
 	}
-	
+
 	fmt.Printf("✅ Feedback submitted\n")
 	return nil
 }
 
 func shareNotebookPrivate(c *api.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating private share link...\n")
-	
+
 	// Create RPC client directly for sharing project
 	rpcClient := rpc.New(authToken, cookies)
 	call := rpc.Call{
-		ID:   "QDyure", // ShareProject RPC ID
+		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
 			notebookID,
 			map[string]interface{}{
-				"is_public": false,
-				"allow_comments": false,
+				"is_public":       false,
+				"allow_comments":  false,
 				"allow_downloads": false,
 			},
 		},
 	}
-	
+
 	resp, err := rpcClient.Do(call)
 	if err != nil {
 		return fmt.Errorf("share project privately: %w", err)
 	}
-	
+
 	// Parse response to extract share URL
 	var data []interface{}
 	if err := json.Unmarshal(resp, &data); err != nil {
 		return fmt.Errorf("parse response: %w", err)
 	}
-	
+
 	if len(data) > 0 {
 		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
 			if shareURL, ok := shareData[0].(string); ok {
@@ -1395,36 +1595,36 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 			}
 		}
 	}
-	
+
 	fmt.Printf("Project shared privately (URL format not recognized)\n")
 	return nil
 }
 
 func getShareDetails(c *api.Client, shareID string) error {
 	fmt.Fprintf(os.Stderr, "Getting share details...\n")
-	
+
 	// Create RPC client directly for getting project details
 	rpcClient := rpc.New(authToken, cookies)
 	call := rpc.Call{
 		ID:   "JFMDGd", // GetProjectDetails RPC ID
 		Args: []interface{}{shareID},
 	}
-	
+
 	resp, err := rpcClient.Do(call)
 	if err != nil {
 		return fmt.Errorf("get project details: %w", err)
 	}
-	
+
 	// Parse response to extract project details
 	var data []interface{}
 	if err := json.Unmarshal(resp, &data); err != nil {
 		return fmt.Errorf("parse response: %w", err)
 	}
-	
+
 	// Display project details in a readable format
 	fmt.Printf("Share Details:\n")
 	fmt.Printf("Share ID: %s\n", shareID)
-	
+
 	if len(data) > 0 {
 		// Try to parse the project details from the response
 		// The exact format depends on the API response structure
@@ -1432,7 +1632,7 @@ func getShareDetails(c *api.Client, shareID string) error {
 	} else {
 		fmt.Printf("No details available for this share ID\n")
 	}
-	
+
 	return nil
 }
 
@@ -1448,10 +1648,10 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	fmt.Println("  /help - Show this help")
 	fmt.Println("  /multiline - Toggle multiline mode (end with empty line)")
 	fmt.Println("\nType your message and press Enter to send.")
-	
+
 	scanner := bufio.NewScanner(os.Stdin)
 	multiline := false
-	
+
 	for {
 		// Show prompt
 		if multiline {
@@ -1459,7 +1659,7 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		} else {
 			fmt.Print("💬 > ")
 		}
-		
+
 		// Read input
 		var input string
 		if multiline {
@@ -1479,13 +1679,13 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			}
 			input = scanner.Text()
 		}
-		
+
 		// Handle special commands
 		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
 		}
-		
+
 		switch strings.ToLower(input) {
 		case "/exit", "/quit":
 			fmt.Println("\n👋 Goodbye!")
@@ -1513,13 +1713,13 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			}
 			continue
 		}
-		
+
 		// For now, use a simulated response since the streaming API isn't fully implemented
 		fmt.Println("\n🤔 Thinking...")
-		
+
 		// Simulate processing delay
 		time.Sleep(500 * time.Millisecond)
-		
+
 		// Provide a helpful response about the current state
 		fmt.Print("\n🤖 Assistant: ")
 		fmt.Printf("I received your message: \"%s\"\n", input)
@@ -1527,11 +1727,11 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		fmt.Println("Once the GenerateFreeFormStreamed RPC ID is defined in the proto,")
 		fmt.Println("this will provide real-time responses from NotebookLM.")
 	}
-	
+
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("read input: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -1541,21 +1741,21 @@ func startAutoRefreshIfEnabled() {
 	if os.Getenv("NLM_AUTO_REFRESH") == "false" {
 		return
 	}
-	
+
 	// Check if we have stored credentials
 	token, err := auth.GetStoredToken()
 	if err != nil {
 		// No stored credentials, skip auto-refresh
 		return
 	}
-	
+
 	// Parse token to check if it's valid
 	_, expiryTime, err := auth.ParseAuthToken(token)
 	if err != nil {
 		// Invalid token format, skip auto-refresh
 		return
 	}
-	
+
 	// Check if token is already expired
 	if time.Until(expiryTime) < 0 {
 		if debug {
@@ -1563,7 +1763,7 @@ func startAutoRefreshIfEnabled() {
 		}
 		return
 	}
-	
+
 	// Create and start token manager
 	tokenManager := auth.NewTokenManager(debug || os.Getenv("NLM_DEBUG") == "true")
 	if err := tokenManager.StartAutoRefreshManager(); err != nil {
@@ -1572,8 +1772,167 @@ func startAutoRefreshIfEnabled() {
 		}
 		return
 	}
-	
+
 	if debug {
 		fmt.Fprintf(os.Stderr, "nlm: auto-refresh enabled (token expires in %v)\n", time.Until(expiryTime).Round(time.Minute))
 	}
+}
+
+func createVideoOverview(c *api.Client, projectID string, instructions string) error {
+	fmt.Printf("Creating video overview for notebook %s...\n", projectID)
+	fmt.Printf("Instructions: %s\n", instructions)
+
+	result, err := c.CreateVideoOverview(projectID, instructions)
+	if err != nil {
+		return fmt.Errorf("create video overview: %w", err)
+	}
+
+	if !result.IsReady {
+		fmt.Println("✅ Video overview creation started. Video generation may take several minutes.")
+		fmt.Printf("  Project ID: %s\n", result.ProjectID)
+		return nil
+	}
+
+	// If the result is immediately ready (unlikely but possible)
+	fmt.Printf("✅ Video Overview created:\n")
+	fmt.Printf("  Title: %s\n", result.Title)
+	fmt.Printf("  Video ID: %s\n", result.VideoID)
+
+	if result.VideoData != "" {
+		fmt.Printf("  Video URL: %s\n", result.VideoData)
+	}
+
+	return nil
+}
+
+func listAudioOverviews(c *api.Client, notebookID string) error {
+	fmt.Printf("Listing audio overviews for notebook %s...\n", notebookID)
+
+	audioOverviews, err := c.ListAudioOverviews(notebookID)
+	if err != nil {
+		return fmt.Errorf("list audio overviews: %w", err)
+	}
+
+	if len(audioOverviews) == 0 {
+		fmt.Println("No audio overviews found.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	fmt.Fprintln(w, "PROJECT\tTITLE\tSTATUS")
+	for _, audio := range audioOverviews {
+		status := "pending"
+		if audio.IsReady {
+			status = "ready"
+		}
+		title := audio.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n",
+			audio.ProjectID,
+			title,
+			status,
+		)
+	}
+	return w.Flush()
+}
+
+func listVideoOverviews(c *api.Client, notebookID string) error {
+	fmt.Printf("Listing video overviews for notebook %s...\n", notebookID)
+
+	videoOverviews, err := c.ListVideoOverviews(notebookID)
+	if err != nil {
+		return fmt.Errorf("list video overviews: %w", err)
+	}
+
+	if len(videoOverviews) == 0 {
+		fmt.Println("No video overviews found.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	fmt.Fprintln(w, "VIDEO_ID\tTITLE\tSTATUS")
+	for _, video := range videoOverviews {
+		status := "pending"
+		if video.IsReady {
+			status = "ready"
+		}
+		title := video.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n",
+			video.VideoID,
+			title,
+			status,
+		)
+	}
+	return w.Flush()
+}
+
+func downloadAudioOverview(c *api.Client, notebookID string, filename string) error {
+	fmt.Printf("Downloading audio overview for notebook %s...\n", notebookID)
+
+	// Generate default filename if not provided
+	if filename == "" {
+		filename = fmt.Sprintf("audio_overview_%s.wav", notebookID)
+	}
+
+	// Download the audio
+	audioResult, err := c.DownloadAudioOverview(notebookID)
+	if err != nil {
+		return fmt.Errorf("download audio overview: %w", err)
+	}
+
+	// Save to file
+	if err := audioResult.SaveAudioToFile(filename); err != nil {
+		return fmt.Errorf("save audio file: %w", err)
+	}
+
+	fmt.Printf("✅ Audio saved to: %s\n", filename)
+
+	// Show file info
+	if stat, err := os.Stat(filename); err == nil {
+		fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
+	}
+
+	return nil
+}
+
+func downloadVideoOverview(c *api.Client, notebookID string, filename string) error {
+	fmt.Printf("Downloading video overview for notebook %s...\n", notebookID)
+
+	// Generate default filename if not provided
+	if filename == "" {
+		filename = fmt.Sprintf("video_overview_%s.mp4", notebookID)
+	}
+
+	// Download the video
+	videoResult, err := c.DownloadVideoOverview(notebookID)
+	if err != nil {
+		return fmt.Errorf("download video overview: %w", err)
+	}
+
+	// Check if we got a video URL
+	if videoResult.VideoData != "" && (strings.HasPrefix(videoResult.VideoData, "http://") || strings.HasPrefix(videoResult.VideoData, "https://")) {
+		// Use authenticated download for URLs
+		if err := c.DownloadVideoWithAuth(videoResult.VideoData, filename); err != nil {
+			return fmt.Errorf("download video with auth: %w", err)
+		}
+	} else {
+		// Try to save base64 data or handle other formats
+		if err := videoResult.SaveVideoToFile(filename); err != nil {
+			return fmt.Errorf("save video file: %w", err)
+		}
+	}
+
+	fmt.Printf("✅ Video saved to: %s\n", filename)
+
+	// Show file info
+	if stat, err := os.Stat(filename); err == nil {
+		fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
+	}
+
+	return nil
 }

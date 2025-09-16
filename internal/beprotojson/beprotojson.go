@@ -51,6 +51,15 @@ func (o UnmarshalOptions) Unmarshal(b []byte, m proto.Message) error {
 		return fmt.Errorf("beprotojson: invalid JSON array: %w", err)
 	}
 
+	// Handle double-wrapped arrays (common in batchexecute responses)
+	// If the array has only one element and that element is also an array,
+	// unwrap it once
+	if len(arr) == 1 {
+		if innerArr, ok := arr[0].([]interface{}); ok {
+			arr = innerArr
+		}
+	}
+
 	return o.populateMessage(arr, m)
 }
 
@@ -106,6 +115,35 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 			return nil
 		}
 		return fmt.Errorf("expected array for repeated field, got %T", val)
+	}
+
+	// Special handling for nested arrays (like sources field)
+	// Check if this is a double-nested array where each item is itself an array
+	if len(arr) > 0 {
+		if _, isNestedArray := arr[0].([]interface{}); isNestedArray && fd.Message() != nil {
+			// This is likely a repeated message field with nested array structure
+			// Each item in arr should be an array representing a message
+			for _, item := range arr {
+				if itemArr, ok := item.([]interface{}); ok {
+					// Create a new message instance
+					msgType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName())
+					if err != nil {
+						return fmt.Errorf("failed to find message type %q: %v", fd.Message().FullName(), err)
+					}
+					msg := msgType.New().Interface()
+
+					// Populate the message from the array
+					if err := o.populateMessage(itemArr, msg); err != nil {
+						return fmt.Errorf("failed to populate message: %w", err)
+					}
+
+					// Add to the list
+					list := m.Mutable(fd).List()
+					list.Append(protoreflect.ValueOfMessage(msg.ProtoReflect()))
+				}
+			}
+			return nil
+		}
 	}
 
 	list := m.Mutable(fd).List()

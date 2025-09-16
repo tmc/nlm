@@ -128,9 +128,9 @@ func TestEncodeShareSettings(t *testing.T) {
 		{
 			name: "Public share with comments",
 			input: &notebooklmv1alpha1.ShareSettings{
-				IsPublic:        true,
-				AllowComments:   true,
-				AllowDownloads:  false,
+				IsPublic:       true,
+				AllowComments:  true,
+				AllowDownloads: false,
 			},
 			expected: map[string]interface{}{
 				"is_public":       true,
