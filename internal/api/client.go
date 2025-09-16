@@ -1768,6 +1768,25 @@ func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error
 }
 
 func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
+	// If no source IDs provided, get all sources from the project
+	if len(sourceIDs) == 0 {
+		project, err := c.GetProject(projectID)
+		if err != nil {
+			return nil, fmt.Errorf("get project for sources: %w", err)
+		}
+
+		// Extract all source IDs from the project
+		for _, source := range project.Sources {
+			if source.SourceId != nil {
+				sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+			}
+		}
+
+		if c.config.Debug {
+			fmt.Printf("DEBUG: Using %d sources for chat\n", len(sourceIDs))
+		}
+	}
+
 	req := &pb.GenerateFreeFormStreamedRequest{
 		ProjectId: projectID,
 		Prompt:    prompt,
