@@ -33,10 +33,22 @@ type UnmarshalOptions struct {
 
 	// AllowPartial indicates whether to allow partial messages during parsing.
 	AllowPartial bool
+
+	// DebugParsing enables detailed parsing debug output showing field mappings
+	DebugParsing bool
+
+	// DebugFieldMapping shows how JSON array positions map to protobuf fields
+	DebugFieldMapping bool
 }
 
 var defaultUnmarshalOptions = UnmarshalOptions{
 	DiscardUnknown: true,
+}
+
+// SetGlobalDebugOptions sets debug options for all beprotojson unmarshaling
+func SetGlobalDebugOptions(debugParsing, debugFieldMapping bool) {
+	defaultUnmarshalOptions.DebugParsing = debugParsing
+	defaultUnmarshalOptions.DebugFieldMapping = debugFieldMapping
 }
 
 // Unmarshal reads the given batchexecute JSON data into the given proto.Message.
@@ -67,17 +79,48 @@ func (o UnmarshalOptions) populateMessage(arr []interface{}, m proto.Message) er
 	msg := m.ProtoReflect()
 	fields := msg.Descriptor().Fields()
 
+	if o.DebugParsing {
+		fmt.Printf("\n=== BEPROTOJSON PARSING ===\n")
+		fmt.Printf("Message Type: %s\n", msg.Descriptor().FullName())
+		fmt.Printf("Array Length: %d\n", len(arr))
+		fmt.Printf("Available Fields: %d\n", fields.Len())
+	}
+
+	if o.DebugFieldMapping {
+		fmt.Printf("\n=== FIELD MAPPING ===\n")
+		for i := 0; i < fields.Len(); i++ {
+			field := fields.Get(i)
+			fmt.Printf("Field #%d: %s (%s)\n", field.Number(), field.Name(), field.Kind())
+		}
+		fmt.Printf("\n=== ARRAY MAPPING ===\n")
+	}
+
 	for i, value := range arr {
+		if o.DebugFieldMapping {
+			fmt.Printf("Position %d: ", i)
+		}
+
 		if value == nil {
+			if o.DebugFieldMapping {
+				fmt.Printf("null (skipped)\n")
+			}
 			continue
 		}
 
 		field := fields.ByNumber(protoreflect.FieldNumber(i + 1))
 		if field == nil {
+			if o.DebugFieldMapping {
+				fmt.Printf("NO FIELD (position %d) -> value: %v\n", i+1, value)
+			}
 			if !o.DiscardUnknown {
 				return fmt.Errorf("beprotojson: no field for position %d", i+1)
 			}
 			continue
+		}
+
+		if o.DebugFieldMapping {
+			fmt.Printf("maps to field #%d %s (%s) -> value: %v\n",
+				field.Number(), field.Name(), field.Kind(), value)
 		}
 
 		if err := o.setField(msg, field, value); err != nil {
@@ -108,20 +151,34 @@ func (o UnmarshalOptions) setField(m protoreflect.Message, fd protoreflect.Field
 func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protoreflect.FieldDescriptor, val interface{}) error {
 	arr, ok := val.([]interface{})
 	if !ok {
-		// Handle special case where API returns a number instead of array for repeated fields
-		// This typically represents an empty array or special condition
-		if isEmptyArrayCode(val) {
-			// Leave the repeated field empty (default behavior)
+		// Handle special cases where API returns non-array values for repeated fields
+		switch val.(type) {
+		case nil:
+			// Null value - leave the repeated field empty
 			return nil
+		case bool:
+			// Boolean value - could indicate empty/disabled state, leave empty
+			return nil
+		case float64:
+			// Handle special case where API returns a number instead of array for repeated fields
+			// This typically represents an empty array or special condition
+			if isEmptyArrayCode(val) {
+				// Leave the repeated field empty (default behavior)
+				return nil
+			}
+			return fmt.Errorf("expected array for repeated field, got %T", val)
+		default:
+			return fmt.Errorf("expected array for repeated field, got %T", val)
 		}
-		return fmt.Errorf("expected array for repeated field, got %T", val)
 	}
 
-	// Special handling for nested arrays (like sources field)
-	// Check if this is a double-nested array where each item is itself an array
-	if len(arr) > 0 {
-		if _, isNestedArray := arr[0].([]interface{}); isNestedArray && fd.Message() != nil {
-			// This is likely a repeated message field with nested array structure
+	// Special handling for repeated message fields
+	if len(arr) > 0 && fd.Message() != nil {
+		list := m.Mutable(fd).List()
+
+		// Check if this is a double-nested array (like sources field)
+		if _, isNestedArray := arr[0].([]interface{}); isNestedArray {
+			// Pattern: [[[item1_data], [item2_data], ...]]
 			// Each item in arr should be an array representing a message
 			for _, item := range arr {
 				if itemArr, ok := item.([]interface{}); ok {
@@ -137,8 +194,28 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 						return fmt.Errorf("failed to populate message: %w", err)
 					}
 
-					// Add to the list
-					list := m.Mutable(fd).List()
+					list.Append(protoreflect.ValueOfMessage(msg.ProtoReflect()))
+				}
+			}
+			return nil
+		} else {
+			// Pattern: [[item1_data, item2_data, item3_data, ...]]
+			// The entire arr represents a list of messages, treating each as a message
+			// This is for cases like ListRecentlyViewedProjects where projects are directly in sequence
+			msgType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName())
+			if err != nil {
+				return fmt.Errorf("failed to find message type %q: %v", fd.Message().FullName(), err)
+			}
+
+			// Group consecutive elements that belong to the same message
+			// For now, let's try parsing each individual element as a message
+			for _, item := range arr {
+				if itemArr, ok := item.([]interface{}); ok {
+					// Each item is an array representing a Project message
+					msg := msgType.New().Interface()
+					if err := o.populateMessage(itemArr, msg); err != nil {
+						return fmt.Errorf("failed to populate message: %w", err)
+					}
 					list.Append(protoreflect.ValueOfMessage(msg.ProtoReflect()))
 				}
 			}
@@ -297,6 +374,10 @@ func cleanTrailingDigits(data string) string {
 }
 
 func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflect.FieldDescriptor, val interface{}) error {
+	if o.DebugParsing {
+		fmt.Printf("  -> Parsing nested message: %s\n", fd.Message().FullName())
+	}
+
 	msgType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName())
 	if err != nil {
 		return fmt.Errorf("failed to find message type %q: %v", fd.Message().FullName(), err)
@@ -313,20 +394,36 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 			return nil
 		}
 
+		if o.DebugFieldMapping {
+			fmt.Printf("    Nested message %s has %d array elements\n",
+				fd.Message().FullName(), len(v))
+		}
+
 		// Populate fields from array
 		fields := msgReflect.Descriptor().Fields()
 		for i := 0; i < len(v); i++ {
 			if v[i] == nil {
+				if o.DebugFieldMapping {
+					fmt.Printf("    Position %d: null (skipped)\n", i)
+				}
 				continue
 			}
 
 			fieldNum := protoreflect.FieldNumber(i + 1)
 			field := fields.ByNumber(fieldNum)
 			if field == nil {
+				if o.DebugFieldMapping {
+					fmt.Printf("    Position %d: NO FIELD -> value: %v\n", i, v[i])
+				}
 				if !o.DiscardUnknown {
 					return fmt.Errorf("no field for position %d", i+1)
 				}
 				continue
+			}
+
+			if o.DebugFieldMapping {
+				fmt.Printf("    Position %d: maps to field #%d %s (%s) -> value: %v\n",
+					i, field.Number(), field.Name(), field.Kind(), v[i])
 			}
 
 			// For wrapper types, handle the value directly
@@ -393,6 +490,12 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 		case float64:
 			// Handle numeric values as strings (API might return numbers for some string fields)
 			return protoreflect.ValueOfString(fmt.Sprintf("%v", v)), nil
+		case bool:
+			// Handle boolean values as strings
+			return protoreflect.ValueOfString(fmt.Sprintf("%v", v)), nil
+		case nil:
+			// Handle null values as empty strings
+			return protoreflect.ValueOfString(""), nil
 		case []interface{}:
 			// Handle nested arrays by recursively looking for a string
 			if len(v) > 0 {
@@ -483,6 +586,24 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 		switch v := val.(type) {
 		case bool:
 			return protoreflect.ValueOfBool(v), nil
+		case float64:
+			// Convert numbers to booleans (0 = false, non-zero = true)
+			return protoreflect.ValueOfBool(v != 0), nil
+		case int64:
+			return protoreflect.ValueOfBool(v != 0), nil
+		case string:
+			// Convert string booleans
+			switch v {
+			case "true", "True", "TRUE", "1":
+				return protoreflect.ValueOfBool(true), nil
+			case "false", "False", "FALSE", "0":
+				return protoreflect.ValueOfBool(false), nil
+			default:
+				return protoreflect.Value{}, fmt.Errorf("cannot convert string %q to bool", v)
+			}
+		case nil:
+			// Null values become false
+			return protoreflect.ValueOfBool(false), nil
 		default:
 			return protoreflect.Value{}, fmt.Errorf("expected bool, got %T", val)
 		}

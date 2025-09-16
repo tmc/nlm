@@ -1,0 +1,245 @@
+# Test rename-artifact command validation (no network calls)
+# Focus on argument validation and authentication checks
+
+# === BASIC COMMAND VALIDATION ===
+# Test rename-artifact without arguments
+! exec ./nlm_test rename-artifact
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# Test rename-artifact with only one argument (missing new title)
+! exec ./nlm_test rename-artifact artifact123
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# Test rename-artifact with empty string as first argument (should pass validation then fail auth)
+! exec ./nlm_test rename-artifact "" "new title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with empty string as second argument (should pass validation then fail auth)
+! exec ./nlm_test rename-artifact artifact123 ""
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with too many arguments
+! exec ./nlm_test rename-artifact artifact123 "new title" extra-arg
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# Test rename-artifact with four arguments
+! exec ./nlm_test rename-artifact artifact123 "new title" extra1 extra2
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# === AUTHENTICATION REQUIREMENTS ===
+# Test rename-artifact without authentication
+! exec ./nlm_test rename-artifact artifact123 "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with valid artifact ID format but no auth
+! exec ./nlm_test rename-artifact abcd1234-5678-90ef-ghij-klmnopqrstuv "Updated Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === COMMAND RECOGNITION ===
+# Test that rename-artifact is recognized as a valid command
+# (vs showing general usage help for invalid commands)
+! exec ./nlm_test rename-artifact
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'Usage: nlm <command>'
+
+# === FLAG INTERACTION ===
+# Test rename-artifact with debug flag (should still require proper arguments)
+! exec ./nlm_test -debug rename-artifact
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# Test rename-artifact with debug flag and only artifact ID
+! exec ./nlm_test -debug rename-artifact artifact123
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# Test rename-artifact with various flags but missing arguments
+! exec ./nlm_test -auth test-token rename-artifact
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# Test rename-artifact with cookies flag but missing arguments
+! exec ./nlm_test -cookies test-cookies rename-artifact artifact123
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# === INVALID COMMAND VARIATIONS ===
+# Test similar but invalid command names
+! exec ./nlm_test rename-artifacts
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test renameartifact
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test rename_artifact
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test rename-art
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+# === SPECIAL CHARACTERS IN ARTIFACT ID ===
+# Test rename-artifact with special characters (should pass validation but fail auth)
+! exec ./nlm_test rename-artifact artifact-123_test "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with dots in artifact ID (should pass validation but fail auth)
+! exec ./nlm_test rename-artifact artifact.123.test "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with UUID-like artifact ID (should pass validation but fail auth)
+! exec ./nlm_test rename-artifact 12345678-1234-5678-9abc-123456789def "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === TITLE EDGE CASES ===
+# Test rename-artifact with quoted title containing spaces
+! exec ./nlm_test rename-artifact artifact123 "Title with spaces"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with title containing special characters
+! exec ./nlm_test rename-artifact artifact123 "Title with @#$% special chars!"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with very long title
+! exec ./nlm_test rename-artifact artifact123 "This is a very long title that might test the limits of what the system can handle and should still be processed correctly by the argument validation"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with title containing quotes
+! exec ./nlm_test rename-artifact artifact123 'Title with "embedded quotes"'
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with title containing newlines (should be handled as single argument)
+! exec ./nlm_test rename-artifact artifact123 "Title with
+newline"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === HELP INTEGRATION ===
+# Test that help shows rename-artifact command
+exec ./nlm_test help
+stderr 'rename-artifact <artifact-id> <new-title>  Rename artifact'
+! stderr 'panic'
+
+# Test that -h shows rename-artifact command
+exec ./nlm_test -h
+stderr 'rename-artifact <artifact-id> <new-title>  Rename artifact'
+! stderr 'panic'
+
+# === CASE SENSITIVITY ===
+# Test case variations (should be invalid)
+! exec ./nlm_test RENAME-ARTIFACT artifact123 "New Title"
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test Rename-Artifact artifact123 "New Title"
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test rename-Artifact artifact123 "New Title"
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+# === EDGE CASES ===
+# Test with very long artifact ID (should pass validation but fail auth)
+! exec ./nlm_test rename-artifact this-is-a-very-long-artifact-id-that-might-cause-issues-but-should-still-be-validated-properly "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test with numeric artifact ID (should pass validation but fail auth)
+! exec ./nlm_test rename-artifact 123456789 "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test with single character artifact ID (should pass validation but fail auth)
+! exec ./nlm_test rename-artifact a "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test with single character title (should pass validation but fail auth)
+! exec ./nlm_test rename-artifact artifact123 "A"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === UNICODE AND INTERNATIONAL CHARACTERS ===
+# Test rename-artifact with Unicode characters in title
+! exec ./nlm_test rename-artifact artifact123 "Título en español"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with emoji in title
+! exec ./nlm_test rename-artifact artifact123 "📚 My Notebook"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with Chinese characters in title
+! exec ./nlm_test rename-artifact artifact123 "中文标题"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === ARGUMENT PARSING EDGE CASES ===
+# Test rename-artifact with title that looks like a flag
+! exec ./nlm_test rename-artifact artifact123 "--debug"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with title that looks like another command
+! exec ./nlm_test rename-artifact artifact123 "list-artifacts"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with artifact ID that looks like a flag
+! exec ./nlm_test rename-artifact --artifact123 "New Title"
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# === CONCURRENT FLAG USAGE ===
+# Test rename-artifact with multiple flags (should still require proper arguments)
+! exec ./nlm_test -debug -auth test-token rename-artifact
+stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
+! stderr 'panic'
+
+# Test rename-artifact with chunked flag (should pass validation but fail auth)
+! exec ./nlm_test -chunked rename-artifact artifact123 "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test rename-artifact with direct-rpc flag (should pass validation but fail auth)
+! exec ./nlm_test -direct-rpc rename-artifact artifact123 "New Title"
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === INTERACTION WITH OTHER ARTIFACT COMMANDS ===
+# Verify rename-artifact doesn't interfere with other artifact commands
+! exec ./nlm_test get-artifact
+stderr 'usage: nlm get-artifact <artifact-id>'
+! stderr 'panic'
+
+! exec ./nlm_test delete-artifact
+stderr 'usage: nlm delete-artifact <artifact-id>'
+! stderr 'panic'
+
+! exec ./nlm_test create-artifact
+stderr 'usage: nlm create-artifact <notebook-id> <type>'
+! stderr 'panic'
+
+! exec ./nlm_test list-artifacts
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'panic'
