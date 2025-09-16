@@ -23,13 +23,16 @@ import (
 
 // Global flags
 var (
-	authToken       string
-	cookies         string
-	debug           bool
-	chromeProfile   string
-	mimeType        string
-	chunkedResponse bool // Control rt=c parameter for chunked vs JSON array response
-	useDirectRPC    bool // Use direct RPC calls instead of orchestration service
+	authToken         string
+	cookies           string
+	debug             bool
+	debugDumpPayload  bool
+	debugParsing      bool
+	debugFieldMapping bool
+	chromeProfile     string
+	mimeType          string
+	chunkedResponse   bool // Control rt=c parameter for chunked vs JSON array response
+	useDirectRPC      bool // Use direct RPC calls instead of orchestration service
 )
 
 func init() {
@@ -1736,13 +1739,9 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		// Provide a helpful response about the current state
 		fmt.Print("\n🤖 Assistant: ")
 
-		// For now, display the response chunk (streaming will be improved)
-		chunk := resp.GetChunk()
-		if chunk != "" {
-			fmt.Print(chunk)
-		} else {
-			fmt.Print("Response received (no content)")
-		}
+		// For now, display a placeholder response (streaming will be improved)
+		// TODO: Implement actual chat API call here
+		fmt.Print("I understand your message: \"" + input + "\". The chat functionality is being implemented.")
 
 		fmt.Println() // New line after response
 	}
