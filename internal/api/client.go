@@ -1768,22 +1768,33 @@ func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error
 }
 
 func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
-	// If no source IDs provided, get all sources from the project
-	if len(sourceIDs) == 0 {
-		project, err := c.GetProject(projectID)
+	// Check if we should skip sources (useful for testing or when project is inaccessible)
+	skipSources := os.Getenv("NLM_SKIP_SOURCES") == "true"
+
+	// If no source IDs provided and not skipping, try to get all sources from the project
+	if len(sourceIDs) == 0 && !skipSources {
+		// Create a timeout context for getting project
+		getProjectCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		project, err := c.GetProjectWithContext(getProjectCtx, projectID)
 		if err != nil {
-			return nil, fmt.Errorf("get project for sources: %w", err)
-		}
-
-		// Extract all source IDs from the project
-		for _, source := range project.Sources {
-			if source.SourceId != nil {
-				sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+			// If getting project fails, try without sources as fallback
+			if c.config.Debug {
+				fmt.Printf("DEBUG: Failed to get project sources, continuing without: %v\n", err)
 			}
-		}
+			// Continue without sources rather than failing completely
+		} else {
+			// Extract all source IDs from the project
+			for _, source := range project.Sources {
+				if source.SourceId != nil {
+					sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+				}
+			}
 
-		if c.config.Debug {
-			fmt.Printf("DEBUG: Using %d sources for chat\n", len(sourceIDs))
+			if c.config.Debug {
+				fmt.Printf("DEBUG: Using %d sources for chat\n", len(sourceIDs))
+			}
 		}
 	}
 
@@ -1792,12 +1803,33 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 		Prompt:    prompt,
 		SourceIds: sourceIDs,
 	}
-	ctx := context.Background()
+
+	// Use a timeout context for the chat request
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	response, err := c.orchestrationService.GenerateFreeFormStreamed(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate free form streamed: %w", err)
 	}
 	return response, nil
+}
+
+// GetProjectWithContext is like GetProject but accepts a context for cancellation
+func (c *Client) GetProjectWithContext(ctx context.Context, projectID string) (*Notebook, error) {
+	req := &pb.GetProjectRequest{
+		ProjectId: projectID,
+	}
+
+	project, err := c.orchestrationService.GetProject(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("get project: %w", err)
+	}
+
+	if c.config.Debug && project.Sources != nil {
+		fmt.Printf("DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
+	}
+	return project, nil
 }
 
 func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReportSuggestionsResponse, error) {
