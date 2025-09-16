@@ -54,9 +54,9 @@ type TokenType int
 
 const (
 	TokenField   TokenType = iota // %field_name%
-	TokenNull                      // null
-	TokenLiteral                   // literal value like 1, 2, "string"
-	TokenArray                     // [...] nested array
+	TokenNull                     // null
+	TokenLiteral                  // literal value like 1, 2, "string"
+	TokenArray                    // [...] nested array
 )
 
 // parseFormat parses an arg_format string into tokens
@@ -72,7 +72,7 @@ func (e *ArgumentEncoder) parseFormat(format string) ([]Token, error) {
 
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		
+
 		// Check for field reference %field_name%
 		if matches := fieldPattern.FindStringSubmatch(part); len(matches) > 1 {
 			tokens = append(tokens, Token{Type: TokenField, Value: matches[1]})
@@ -165,7 +165,7 @@ func (e *ArgumentEncoder) buildArgs(msg protoreflect.Message, tokens []Token) ([
 			if err != nil {
 				return nil, err
 			}
-			// For nested arrays like [[%field%]], wrap the result 
+			// For nested arrays like [[%field%]], wrap the result
 			// If there's only one element in innerArgs, wrap it in an array
 			if len(innerArgs) == 1 {
 				args = append(args, []interface{}{innerArgs[0]})
@@ -181,7 +181,7 @@ func (e *ArgumentEncoder) buildArgs(msg protoreflect.Message, tokens []Token) ([
 // getFieldValue extracts a field value from a protobuf message
 func (e *ArgumentEncoder) getFieldValue(msg protoreflect.Message, fieldName string) (interface{}, error) {
 	descriptor := msg.Descriptor()
-	
+
 	// Cache field descriptors for performance
 	msgName := string(descriptor.FullName())
 	if e.fieldCache[msgName] == nil {

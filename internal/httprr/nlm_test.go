@@ -88,15 +88,20 @@ func TestScrubNLMCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Check that all sensitive headers were redacted
+	// Check that all sensitive headers were removed/cleared
 	sensitiveHeaders := []string{
-		"Authorization", "Cookie", "X-Goog-AuthUser", "X-Client-Data", "X-Goog-Visitor-Id",
+		"Authorization", "X-Goog-AuthUser", "X-Client-Data", "X-Goog-Visitor-Id",
 	}
 
 	for _, header := range sensitiveHeaders {
-		if value := req.Header.Get(header); value != "[REDACTED]" {
-			t.Errorf("Header %s was not redacted: %q", header, value)
+		if value := req.Header.Get(header); value != "" {
+			t.Errorf("Header %s was not removed: %q", header, value)
 		}
+	}
+
+	// Cookie should be set to empty string for consistent replay
+	if value := req.Header.Get("Cookie"); value != "" {
+		t.Errorf("Cookie header should be empty, got: %q", value)
 	}
 }
 

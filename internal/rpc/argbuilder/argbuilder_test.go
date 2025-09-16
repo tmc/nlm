@@ -31,8 +31,8 @@ func TestEncodeRPCArgs(t *testing.T) {
 			want:      []interface{}{"Test Project", "📚"},
 		},
 		{
-			name: "with null",
-			msg:  &notebooklm.ListRecentlyViewedProjectsRequest{},
+			name:      "with null",
+			msg:       &notebooklm.ListRecentlyViewedProjectsRequest{},
 			argFormat: "[null, 1, null, [2]]",
 			want:      []interface{}{nil, 1, nil, []interface{}{2}},
 		},

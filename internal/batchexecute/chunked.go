@@ -19,7 +19,7 @@ import (
 func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	// First, strip the prefix if present
 	br := bufio.NewReader(r)
-	
+
 	// The response format is )]}'\n\n or )]}'\n
 	// We need to consume the entire prefix including newlines
 	prefix, err := br.Peek(6) // Peek enough to see )]}'\n
@@ -30,7 +30,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 			return nil, fmt.Errorf("peek response prefix: %w", err)
 		}
 	}
-	
+
 	// Debug: print what we see
 	if len(prefix) > 0 {
 		fmt.Printf("DEBUG: Response starts with: %q\n", prefix)
@@ -44,7 +44,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 			return nil, fmt.Errorf("read prefix line: %w", err)
 		}
 		fmt.Printf("DEBUG: Discarded prefix line: %q\n", line)
-		
+
 		// Check if there's an additional empty line and consume it
 		nextByte, err := br.Peek(1)
 		if err == nil && len(nextByte) > 0 && nextByte[0] == '\n' {
@@ -71,7 +71,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		allLines = append(allLines, line)
-		
+
 		// Only debug small lines to avoid flooding
 		if len(line) < 200 {
 			fmt.Printf("DEBUG: Processing line: %q\n", line)
@@ -297,7 +297,7 @@ func processChunks(chunks []string) ([]Response, error) {
 	for i, chunk := range chunks {
 		fmt.Printf("DEBUG: Chunk %d: %q\n", i, chunk)
 	}
-	
+
 	if len(chunks) == 0 {
 		return nil, fmt.Errorf("no chunks found")
 	}

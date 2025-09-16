@@ -79,7 +79,7 @@ func TestCLICommands(t *testing.T) {
 			if goroot := os.Getenv("GOROOT"); goroot != "" {
 				env = append(env, "GOROOT="+goroot)
 			}
-			
+
 			state, err := script.NewState(context.Background(), ".", env)
 			if err != nil {
 				t.Fatalf("failed to create script state: %v", err)

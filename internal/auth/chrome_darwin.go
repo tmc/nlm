@@ -82,7 +82,7 @@ func getBrowserPathForProfile(browserName string) string {
 			return filepath.Join(path, "Contents/MacOS/Google Chrome Canary")
 		}
 	}
-	
+
 	// Fallback to any Chrome-based browser
 	return getChromePath()
 }

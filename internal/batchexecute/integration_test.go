@@ -107,11 +107,11 @@ func TestErrorHandlingIntegration(t *testing.T) {
 					if apiErr.Message != tt.expectedErrMsg {
 						t.Errorf("APIError.Message = %q, want %q", apiErr.Message, tt.expectedErrMsg)
 					}
-					
+
 					if tt.expectedCode != 0 && (apiErr.ErrorCode == nil || apiErr.ErrorCode.Code != tt.expectedCode) {
 						t.Errorf("APIError.ErrorCode.Code = %v, want %d", apiErr.ErrorCode, tt.expectedCode)
 					}
-					
+
 					if apiErr.IsRetryable() != tt.isRetryable {
 						t.Errorf("APIError.IsRetryable() = %v, want %v", apiErr.IsRetryable(), tt.isRetryable)
 					}
@@ -123,7 +123,7 @@ func TestErrorHandlingIntegration(t *testing.T) {
 					t.Errorf("Expected no error but got: %v", err)
 					return
 				}
-				
+
 				if response == nil {
 					t.Errorf("Expected response but got nil")
 				}
@@ -226,7 +226,7 @@ func TestHTTPStatusErrorHandling(t *testing.T) {
 func TestCustomErrorCodeExtension(t *testing.T) {
 	// Save original state
 	originalCodes := ListErrorCodes()
-	
+
 	// Add a custom error code
 	customCode := 999999
 	customError := ErrorCode{
@@ -236,9 +236,9 @@ func TestCustomErrorCodeExtension(t *testing.T) {
 		Description: "A custom error for testing extensibility",
 		Retryable:   true,
 	}
-	
+
 	AddErrorCode(customCode, customError)
-	
+
 	// Test that the custom error code works in the pipeline
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -264,7 +264,7 @@ func TestCustomErrorCodeExtension(t *testing.T) {
 	}
 
 	_, err := client.Do(rpc)
-	
+
 	if err == nil {
 		t.Errorf("Expected error but got none")
 		return
@@ -275,18 +275,18 @@ func TestCustomErrorCodeExtension(t *testing.T) {
 		if apiErr.ErrorCode == nil || apiErr.ErrorCode.Code != customCode {
 			t.Errorf("APIError.ErrorCode.Code = %v, want %d", apiErr.ErrorCode, customCode)
 		}
-		
+
 		if apiErr.Message != customError.Message {
 			t.Errorf("APIError.Message = %q, want %q", apiErr.Message, customError.Message)
 		}
-		
+
 		if !apiErr.IsRetryable() {
 			t.Errorf("APIError.IsRetryable() = false, want true")
 		}
 	} else {
 		t.Errorf("Expected APIError but got %T: %v", err, err)
 	}
-	
+
 	// Clean up - restore original state
 	errorCodeDictionary = make(map[int]ErrorCode)
 	for code, errorCode := range originalCodes {

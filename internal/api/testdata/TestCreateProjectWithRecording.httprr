@@ -1,0 +1,88 @@
+httprr trace v1
+719 2619
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=CCqFvf&source-path=%2F HTTP/1.1
+Host: notebooklm.google.com
+User-Agent: Go-http-client/1.1
+Content-Length: 164
+Accept: */*
+Accept-Language: en-US,en;q=0.9
+Cache-Control: no-cache
+Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+Cookie: [REDACTED]
+Origin: https://notebooklm.google.com
+Pragma: no-cache
+Referer: https://notebooklm.google.com/
+X-Same-Domain: 1
+
+at=&f.req=%5B%5B%5B%22CCqFvf%22%2C%22%5B%5C%22Sample+Project+-+TestCreateProjectWithRecording%5C%22%2C%5C%22%F0%9F%93%9D%5C%22%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+Content-Length: 285
+Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
+Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Disposition: attachment; filename="response.bin"; filename*=UTF-8''response.bin
+Content-Security-Policy: require-trusted-types-for 'script';report-uri /_/LabsTailwindUi/cspreport
+Content-Type: application/json; charset=utf-8
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-site
+Date: Sun, 14 Sep 2025 21:56:23 GMT
+Expires: Mon, 01 Jan 1990 00:00:00 GMT
+Permissions-Policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
+Pragma: no-cache
+Server: ESF
+Set-Cookie: SIDCC=AKEyXzUABjLZUdD62lDTtAKlLM7ELFRHW9j6uH2QXUFVbuhfhvXgVgQrUBpvJqgyZ2iWeXqouVw; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzUveJIcY3_ZfVFfo1Uw9cMzPxS04h04n8HbZwHieAuQDd5KuaYWt_ktWsAE--S-McRvvQ6W; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzWHjC7zknJFup76X4z5kBrhxW590vtuigdu03t6RhZlusz7gzfZnz-bsQoAr6KcbwTi7yMK; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzUDW26fwTucLZTD1vji8gpl-Q1IIvVBKRVvyanInt-I0p0yCt9muk9m9bLl5qS1bUxBJi4; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzWsdxUJWyKFy6bDkGHBHznCVhiohe-NDxtaw8JfucRR1HgfMJnmAnUjd5aKfttfreXvFDy9; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzVZcfCurjXk9sDyU9hUe4vPPxDptfo4pPS1irObxPvudzLn5o64cmFpNXEQGG4pJVFuG9im; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Vary: Sec-Fetch-Dest, Sec-Fetch-Mode, Sec-Fetch-Site
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+X-Xss-Protection: 0
+
+)]}'
+
+[["wrb.fr","CCqFvf","[\"Sample Project - TestCreateProjectWithRecording\",null,\"1f851652-75e5-47fa-a493-f013280381f8\",\"📝\",null,[1,false,true,null,null,null,1,null,null,null,null,null,false]]",null,null,null,"generic"],["di",517],["af.httprm",517,"[TIMESTAMP]141632",33]]687 2446
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=WWINqb&source-path=%2F HTTP/1.1
+Host: notebooklm.google.com
+User-Agent: Go-http-client/1.1
+Content-Length: 132
+Accept: */*
+Accept-Language: en-US,en;q=0.9
+Cache-Control: no-cache
+Content-Type: application/x-www-form-urlencoded;charset=UTF-8
+Cookie: [REDACTED]
+Origin: https://notebooklm.google.com
+Pragma: no-cache
+Referer: https://notebooklm.google.com/
+X-Same-Domain: 1
+
+at=&f.req=%5B%5B%5B%22WWINqb%22%2C%22%5B%5B%5C%221f851652-75e5-47fa-a493-f013280381f8%5C%22%5D%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+Content-Length: 112
+Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
+Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Content-Disposition: attachment; filename="response.bin"; filename*=UTF-8''response.bin
+Content-Security-Policy: require-trusted-types-for 'script';report-uri /_/LabsTailwindUi/cspreport
+Content-Type: application/json; charset=utf-8
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Resource-Policy: same-site
+Date: Sun, 14 Sep 2025 21:56:24 GMT
+Expires: Mon, 01 Jan 1990 00:00:00 GMT
+Permissions-Policy: ch-ua-arch=*, ch-ua-bitness=*, ch-ua-full-version=*, ch-ua-full-version-list=*, ch-ua-model=*, ch-ua-wow64=*, ch-ua-form-factors=*, ch-ua-platform=*, ch-ua-platform-version=*
+Pragma: no-cache
+Server: ESF
+Set-Cookie: SIDCC=AKEyXzXpKH8RJJalfuVJss7ZkmzuABMwQmVgfBT7bHiQF5ti9nBt7eQOx_1azjQiRC03Kxig878; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzUq__4IqPuGifOlar6z9Nsc5kLSKNF9I3XsRam9xBi7wUztoHvzXTnoAGB3depZjvdHgiEt; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzWPZVloBuR3npq2E-MOcQo9bGIxAqXX3CVVJsBS2fXojn3Af3NJcuOF0CRBl4sojGaCrYNw; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Set-Cookie: SIDCC=AKEyXzVYQWN13BjOm58QKOlGDKRhY0KZcC8tgiE8QeWCD20DRRizDMJRIKJ7FauEgrISclUgOoM; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; priority=high
+Set-Cookie: __Secure-1PSIDCC=AKEyXzUnrMq6vswCZ9N7Y446AitkT8wCxy3a1RHNZlmJTPZYUYAQQQLoNLKnixh59lolwfOrgALB; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high
+Set-Cookie: __Secure-3PSIDCC=AKEyXzUQg5zmOAl2-oLBNSPM_-kw1pYvN-gFqmc5Fc_0gl--yh0j3gvW7airGpbObgLKnComW9qQ; expires=Mon, 14-Sep-2026 21:56:24 GMT; path=/; domain=.google.com; Secure; HttpOnly; priority=high; SameSite=none
+Vary: Sec-Fetch-Dest, Sec-Fetch-Mode, Sec-Fetch-Site
+X-Content-Type-Options: nosniff
+X-Frame-Options: SAMEORIGIN
+X-Xss-Protection: 0
+
+)]}'
+
+[["wrb.fr","WWINqb","[]",null,null,null,"generic"],["di",533],["af.httprm",532,"-[TIMESTAMP]445016",32]]
