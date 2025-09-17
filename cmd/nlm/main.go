@@ -36,6 +36,21 @@ var (
 	skipSources       bool // Skip fetching sources for chat (useful when project is inaccessible)
 )
 
+// ChatSession represents a persistent chat conversation
+type ChatSession struct {
+	NotebookID string        `json:"notebook_id"`
+	Messages   []ChatMessage `json:"messages"`
+	CreatedAt  time.Time     `json:"created_at"`
+	UpdatedAt  time.Time     `json:"updated_at"`
+}
+
+// ChatMessage represents a single message in the conversation
+type ChatMessage struct {
+	Role      string    `json:"role"`      // "user" or "assistant"
+	Content   string    `json:"content"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
 func init() {
 	flag.BoolVar(&debug, "debug", false, "enable debug output")
 	flag.BoolVar(&debugDumpPayload, "debug-dump-payload", false, "dump raw JSON payload and exit (unix-friendly)")
@@ -100,7 +115,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n")
 		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n")
 		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
-		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n\n")
+		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n")
+		fmt.Fprintf(os.Stderr, "  chat-list               List all saved chat sessions\n\n")
 
 		fmt.Fprintf(os.Stderr, "Content Transformation Commands:\n")
 		fmt.Fprintf(os.Stderr, "  rephrase <id> <source-ids...>     Rephrase content from sources\n")
@@ -320,6 +336,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm chat <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "chat-list":
+		if len(args) != 0 {
+			fmt.Fprintf(os.Stderr, "usage: nlm chat-list\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "create-artifact":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm create-artifact <notebook-id> <type>\n")
@@ -392,7 +413,7 @@ func isValidCommand(cmd string) bool {
 		"notes", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
-		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat",
+		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
 	}
@@ -418,12 +439,14 @@ func isAuthCommand(cmd string) bool {
 	if cmd == "refresh" {
 		return false
 	}
+	// Chat-list just lists local sessions, no auth needed
+	if cmd == "chat-list" {
+		return false
+	}
 	return true
 }
 
 func run() error {
-	loadStoredEnv()
-
 	if authToken == "" {
 		authToken = os.Getenv("NLM_AUTH_TOKEN")
 	}
@@ -764,6 +787,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = generateFreeFormChat(client, args[0], args[1])
 	case "chat":
 		err = interactiveChat(client, args[0])
+	case "chat-list":
+		err = listChatSessions()
 
 	// Sharing operations
 	case "share":
@@ -1657,15 +1682,238 @@ func getShareDetails(c *api.Client, shareID string) error {
 	return nil
 }
 
-// Interactive chat interface that emulates the web UI chat experience
+// Chat helper functions
+func getChatSessionPath(notebookID string) string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), fmt.Sprintf("nlm-chat-%s.json", notebookID))
+	}
+
+	nlmDir := filepath.Join(homeDir, ".nlm")
+	os.MkdirAll(nlmDir, 0700) // Ensure directory exists
+	return filepath.Join(nlmDir, fmt.Sprintf("chat-%s.json", notebookID))
+}
+
+func loadChatSession(notebookID string) (*ChatSession, error) {
+	path := getChatSessionPath(notebookID)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var session ChatSession
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, err
+	}
+
+	return &session, nil
+}
+
+func saveChatSession(session *ChatSession) error {
+	path := getChatSessionPath(session.NotebookID)
+
+	data, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0600)
+}
+
+func listChatSessions() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	nlmDir := filepath.Join(homeDir, ".nlm")
+	entries, err := os.ReadDir(nlmDir)
+	if err != nil {
+		fmt.Println("No chat sessions found.")
+		return nil
+	}
+
+	var sessions []ChatSession
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "chat-") && strings.HasSuffix(entry.Name(), ".json") {
+			sessionPath := filepath.Join(nlmDir, entry.Name())
+			data, err := os.ReadFile(sessionPath)
+			if err != nil {
+				continue
+			}
+
+			var session ChatSession
+			if err := json.Unmarshal(data, &session); err != nil {
+				continue
+			}
+
+			sessions = append(sessions, session)
+		}
+	}
+
+	if len(sessions) == 0 {
+		fmt.Println("No chat sessions found.")
+		return nil
+	}
+
+	fmt.Printf("📚 Chat Sessions (%d total)\n", len(sessions))
+	fmt.Println("=" + strings.Repeat("=", 40))
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "NOTEBOOK\tMESSAGES\tLAST UPDATED\tCREATED")
+	fmt.Fprintln(w, "--------\t--------\t------------\t-------")
+
+	for _, session := range sessions {
+		lastUpdated := session.UpdatedAt.Format("Jan 2 15:04")
+		created := session.CreatedAt.Format("Jan 2 15:04")
+		fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
+			session.NotebookID,
+			len(session.Messages),
+			lastUpdated,
+			created)
+	}
+
+	return w.Flush()
+}
+
+func showRecentHistory(session *ChatSession, maxMessages int) {
+	messages := session.Messages
+	start := 0
+	if len(messages) > maxMessages {
+		start = len(messages) - maxMessages
+	}
+
+	for _, msg := range messages[start:] {
+		timestamp := msg.Timestamp.Format("15:04")
+		if msg.Role == "user" {
+			fmt.Printf("[%s] 👤 You: %s\n", timestamp, msg.Content)
+		} else {
+			fmt.Printf("[%s] 🤖 Assistant: %s\n", timestamp, msg.Content)
+		}
+	}
+}
+
+func buildContextualPrompt(session *ChatSession, currentInput string) string {
+	// Build context from recent messages (last 4 messages for context)
+	const maxContextMessages = 4
+	messages := session.Messages
+	contextStart := 0
+	if len(messages) > maxContextMessages {
+		contextStart = len(messages) - maxContextMessages
+	}
+
+	var contextParts []string
+	for _, msg := range messages[contextStart:] {
+		if msg.Role == "user" {
+			contextParts = append(contextParts, fmt.Sprintf("User: %s", msg.Content))
+		} else {
+			contextParts = append(contextParts, fmt.Sprintf("Assistant: %s", msg.Content))
+		}
+	}
+
+	// Add current input
+	contextParts = append(contextParts, fmt.Sprintf("User: %s", currentInput))
+
+	// If we have context, prepend it
+	if len(contextParts) > 1 {
+		return fmt.Sprintf("Previous conversation:\n%s\n\nPlease respond to the latest message, considering the conversation context.",
+			strings.Join(contextParts, "\n"))
+	}
+
+	return currentInput
+}
+
+func generateStreamedResponse(c *api.Client, notebookID, prompt string) (string, error) {
+	var fullResponse strings.Builder
+	fmt.Print("\n🤖 Assistant: ")
+
+	// Use the new streaming callback API
+	err := c.GenerateFreeFormStreamedWithCallback(notebookID, prompt, nil, func(chunk string) bool {
+		// Print each chunk as it arrives for real-time streaming effect
+		fmt.Print(chunk)
+		fullResponse.WriteString(chunk)
+		return true // Continue streaming
+	})
+
+	fmt.Println() // Add newline after streaming is complete
+
+	if err != nil {
+		return "", err
+	}
+
+	responseText := strings.TrimSpace(fullResponse.String())
+	if responseText == "" {
+		return "", fmt.Errorf("no response received")
+	}
+
+	return responseText, nil
+}
+
+// typewriterEffect removed - now using real streaming
+
+func getFallbackResponse(input, notebookID string) string {
+	lowerInput := strings.ToLower(input)
+
+	// Greeting responses
+	if strings.Contains(lowerInput, "hello") || strings.Contains(lowerInput, "hi") || strings.Contains(lowerInput, "hey") {
+		return "Hello! I'm here to help you explore and understand your notebook content. What would you like to know?"
+	}
+
+	// Content questions
+	if strings.Contains(lowerInput, "what") || strings.Contains(lowerInput, "explain") || strings.Contains(lowerInput, "tell me") {
+		return "I'm having trouble connecting to the chat service right now. You might want to try using specific commands like 'nlm generate-guide " + notebookID + "' or 'nlm generate-outline " + notebookID + "' for detailed content analysis."
+	}
+
+	// Summary requests
+	if strings.Contains(lowerInput, "summary") || strings.Contains(lowerInput, "summarize") {
+		return "For a summary of your notebook, try running 'nlm generate-guide " + notebookID + "' which will provide a comprehensive overview of your content."
+	}
+
+	// Questions about sources
+	if strings.Contains(lowerInput, "source") || strings.Contains(lowerInput, "document") {
+		return "To see the sources in your notebook, try 'nlm sources " + notebookID + "'. If you want to analyze specific sources, you can use commands like 'nlm summarize'."
+	}
+
+	// Help requests
+	if strings.Contains(lowerInput, "help") || strings.Contains(lowerInput, "how") {
+		return "I can help you explore your notebook! Try asking me about your content, or use '/help' to see chat commands. For more functionality, check 'nlm help' for all available commands."
+	}
+
+	// Default response
+	return "I'm unable to process your request right now due to connectivity issues. The chat service may be temporarily unavailable. You can try using other nlm commands or rephrase your question."
+}
+
+// Interactive chat interface with history and streaming support
 func interactiveChat(c *api.Client, notebookID string) error {
+	// Load or create chat session
+	session, err := loadChatSession(notebookID)
+	if err != nil {
+		// Create new session if loading fails
+		session = &ChatSession{
+			NotebookID: notebookID,
+			Messages:   []ChatMessage{},
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}
+	}
+
 	// Display welcome message
 	fmt.Println("\n📚 NotebookLM Interactive Chat")
 	fmt.Println("================================")
 	fmt.Printf("Notebook: %s\n", notebookID)
+
+	if len(session.Messages) > 0 {
+		fmt.Printf("Chat history: %d messages (started %s)\n",
+			len(session.Messages),
+			session.CreatedAt.Format("Jan 2 15:04"))
+	}
+
 	fmt.Println("\nCommands:")
 	fmt.Println("  /exit or /quit - Exit chat")
 	fmt.Println("  /clear - Clear screen")
+	fmt.Println("  /history - Show recent chat history")
+	fmt.Println("  /reset - Clear chat history")
+	fmt.Println("  /save - Save current session")
 	fmt.Println("  /help - Show this help")
 	fmt.Println("  /multiline - Toggle multiline mode (end with empty line)")
 	fmt.Println("\nType your message and press Enter to send.")
@@ -1673,12 +1921,20 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	scanner := bufio.NewScanner(os.Stdin)
 	multiline := false
 
+	// Show recent history if it exists
+	if len(session.Messages) > 0 {
+		fmt.Println("\n--- Recent Chat History ---")
+		showRecentHistory(session, 3)
+		fmt.Println("---------------------------")
+	}
+
 	for {
-		// Show prompt
+		// Show prompt with context indicator
+		historyCount := len(session.Messages)
 		if multiline {
-			fmt.Print("📝 (multiline, empty line to send) > ")
+			fmt.Printf("📝 [%d msgs] (multiline, empty line to send) > ", historyCount)
 		} else {
-			fmt.Print("💬 > ")
+			fmt.Printf("💬 [%d msgs] > ", historyCount)
 		}
 
 		// Read input
@@ -1709,19 +1965,49 @@ func interactiveChat(c *api.Client, notebookID string) error {
 
 		switch strings.ToLower(input) {
 		case "/exit", "/quit":
-			fmt.Println("\n👋 Goodbye!")
+			fmt.Println("\n👋 Saving session and goodbye!")
+			if err := saveChatSession(session); err != nil {
+				fmt.Printf("Warning: Failed to save session: %v\n", err)
+			}
 			return nil
 		case "/clear":
 			// Clear screen (works on most terminals)
 			fmt.Print("\033[H\033[2J")
 			fmt.Println("📚 NotebookLM Interactive Chat")
 			fmt.Println("================================")
-			fmt.Printf("Notebook: %s\n\n", notebookID)
+			fmt.Printf("Notebook: %s\n", notebookID)
+			fmt.Printf("Chat history: %d messages\n\n", len(session.Messages))
+			continue
+		case "/history":
+			fmt.Println("\n--- Chat History ---")
+			showRecentHistory(session, 10)
+			fmt.Println("-------------------")
+			continue
+		case "/reset":
+			fmt.Print("Are you sure you want to clear chat history? [y/N] ")
+			if scanner.Scan() {
+				confirm := strings.ToLower(strings.TrimSpace(scanner.Text()))
+				if confirm == "y" || confirm == "yes" {
+					session.Messages = []ChatMessage{}
+					session.UpdatedAt = time.Now()
+					fmt.Println("Chat history cleared.")
+				}
+			}
+			continue
+		case "/save":
+			if err := saveChatSession(session); err != nil {
+				fmt.Printf("Error saving session: %v\n", err)
+			} else {
+				fmt.Println("Session saved successfully.")
+			}
 			continue
 		case "/help":
 			fmt.Println("\nCommands:")
 			fmt.Println("  /exit or /quit - Exit chat")
 			fmt.Println("  /clear - Clear screen")
+			fmt.Println("  /history - Show recent chat history")
+			fmt.Println("  /reset - Clear chat history")
+			fmt.Println("  /save - Save current session")
 			fmt.Println("  /help - Show this help")
 			fmt.Println("  /multiline - Toggle multiline mode")
 			continue
@@ -1735,55 +2021,66 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			continue
 		}
 
-		// Send the message to the API
+		// Add user message to history
+		userMsg := ChatMessage{
+			Role:      "user",
+			Content:   input,
+			Timestamp: time.Now(),
+		}
+		session.Messages = append(session.Messages, userMsg)
+
+		// Send the message with context to the API
 		fmt.Println("\n🤔 Thinking...")
 
-		// Try the GenerateFreeFormStreamed API with a short timeout
-		response, err := c.GenerateFreeFormStreamed(notebookID, input, nil)
+		// Build context from recent messages for better responses
+		contextualPrompt := buildContextualPrompt(session, input)
+
+		// Try the GenerateFreeFormStreamed API with streaming
+		response, err := generateStreamedResponse(c, notebookID, contextualPrompt)
 		if err != nil {
-			// If streaming fails, try a simpler approach
 			fmt.Printf("\n⚠️ Chat API error: %v\n", err)
 
-			// Try using the notebook guide as a fallback for simple responses
-			if strings.Contains(strings.ToLower(input), "hello") ||
-			   strings.Contains(strings.ToLower(input), "hi") ||
-			   strings.Contains(strings.ToLower(input), "hey") {
-				fmt.Print("\n🤖 Assistant: Hello! I'm here to help you explore and understand your notebook content. What would you like to know?\n")
-				continue
+			// Try intelligent fallbacks based on input
+			fallbackResponse := getFallbackResponse(input, notebookID)
+			fmt.Printf("\n🤖 Assistant: %s\n", fallbackResponse)
+
+			// Add fallback response to history
+			assistantMsg := ChatMessage{
+				Role:      "assistant",
+				Content:   fallbackResponse,
+				Timestamp: time.Now(),
 			}
-
-			// For content questions, try to generate a guide or outline as fallback
-			if strings.Contains(strings.ToLower(input), "what") ||
-			   strings.Contains(strings.ToLower(input), "explain") ||
-			   strings.Contains(strings.ToLower(input), "tell me") {
-				fmt.Print("\n🤖 Assistant: I'm having trouble connecting to the chat service. ")
-				fmt.Print("Try using specific commands like 'generate-guide' or 'generate-outline' for your notebook.\n")
-				continue
-			}
-
-			fmt.Print("\n🤖 Assistant: I'm unable to process your request right now. The chat service may be temporarily unavailable.\n")
-			continue
-		}
-
-		// Display the response
-		fmt.Print("\n🤖 Assistant: ")
-		if response != nil && response.Chunk != "" {
-			// Process the response chunk - it might contain formatting
-			responseText := response.Chunk
-
-			// Clean up any excessive whitespace
-			responseText = strings.TrimSpace(responseText)
-
-			fmt.Print(responseText)
+			session.Messages = append(session.Messages, assistantMsg)
 		} else {
-			fmt.Print("I received your message but got an empty response. Please try rephrasing your question.")
+			// Add successful response to history
+			assistantMsg := ChatMessage{
+				Role:      "assistant",
+				Content:   response,
+				Timestamp: time.Now(),
+			}
+			session.Messages = append(session.Messages, assistantMsg)
 		}
 
-		fmt.Println() // New line after response
+		// Update session timestamp
+		session.UpdatedAt = time.Now()
+
+		// Auto-save every few messages
+		if len(session.Messages)%6 == 0 { // Save every 3 exchanges
+			if err := saveChatSession(session); err != nil && debug {
+				fmt.Printf("Debug: Auto-save failed: %v\n", err)
+			}
+		}
+
+		fmt.Println() // Add a blank line for readability
 	}
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("read input: %w", err)
+	}
+
+	// Save session before exiting
+	if err := saveChatSession(session); err != nil && debug {
+		fmt.Printf("Debug: Failed to save session on exit: %v\n", err)
 	}
 
 	return nil
