@@ -2,13 +2,11 @@ package api
 
 import (
 	"bufio"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/httprr"
 )
 
 // loadNLMCredentials loads credentials from ~/.nlm/env file if environment variables are not set
@@ -65,34 +63,15 @@ func loadNLMCredentials() (authToken, cookies string) {
 // TestListProjectsWithRecording validates ListRecentlyViewedProjects functionality
 // including proper project list handling and truncation behavior.
 func TestListProjectsWithRecording(t *testing.T) {
-	// Use the enhanced httprr's graceful skipping
-	httprr.SkipIfNoNLMCredentialsOrRecording(t)
-
-	// Create HTTP client with request/response handling
-	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-
-	// Load credentials from environment or ~/.nlm/env file
-	authToken, cookies := loadNLMCredentials()
-
-	// Log credential status for debugging
-	if authToken == "" {
-		t.Logf("No auth token loaded")
-	} else {
-		t.Logf("Auth token loaded: %s...%s (length: %d)",
-			authToken[:10], authToken[len(authToken)-10:], len(authToken))
-	}
-	if cookies == "" {
-		t.Logf("No cookies loaded")
-	} else {
-		t.Logf("Cookies loaded (length: %d)", len(cookies))
+	// Skip test if no credentials are available
+	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
+		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
 	}
 
-	// Create API client with loaded credentials
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false), // Reduce noise
+		os.Getenv("NLM_AUTH_TOKEN"),
+		os.Getenv("NLM_COOKIES"),
+		batchexecute.WithDebug(false),
 	)
 
 	// Call the API method
@@ -150,17 +129,16 @@ func TestListProjectsWithRecording(t *testing.T) {
 
 // TestCreateProjectWithRecording validates CreateProject functionality
 func TestCreateProjectWithRecording(t *testing.T) {
-	// Skip if credentials unavailable
-	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	// Skip test if no credentials are available
+	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
+		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	}
 
-	// Create HTTP client with request/response handling
-	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
 
-	// Create API client
+	// Use environment credentials for both recording and replay
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
-		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(true),
 	)
 
@@ -183,17 +161,16 @@ func TestCreateProjectWithRecording(t *testing.T) {
 
 // TestAddSourceFromTextWithRecording validates adding text sources functionality
 func TestAddSourceFromTextWithRecording(t *testing.T) {
-	// Skip if credentials unavailable
-	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	// Skip test if no credentials are available
+	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
+		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	}
 
-	// Create HTTP client with request/response handling
-	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
 
-	// Create API client
+	// Use environment credentials for both recording and replay
 	client := New(
 		os.Getenv("NLM_AUTH_TOKEN"),
 		os.Getenv("NLM_COOKIES"),
-		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(true),
 	)
 
