@@ -18,6 +18,7 @@ import (
 	"github.com/tmc/nlm/internal/api"
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/rpc"
 )
 
@@ -173,6 +174,11 @@ func main() {
 		if debug {
 			fmt.Fprintf(os.Stderr, "nlm: skipping source fetching for chat\n")
 		}
+	}
+
+	// Set beprotojson debug options if requested
+	if debugParsing || debugFieldMapping {
+		beprotojson.SetGlobalDebugOptions(debugParsing, debugFieldMapping)
 	}
 
 	// Start auto-refresh manager if credentials exist

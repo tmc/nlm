@@ -617,9 +617,14 @@ func (c *LabsTailwindOrchestrationServiceClient) ListRecentlyViewedProjects(ctx 
 		return nil, fmt.Errorf("ListRecentlyViewedProjects: %w", err)
 	}
 
+	// The response is an array of projects directly, but we need to wrap it
+	// in a response message that has 'projects' as field 1
+	// Create a wrapped response: [projects_array]
+	wrappedResp := fmt.Sprintf("[%s]", string(resp))
+
 	// Decode the response
 	var result notebooklmv1alpha1.ListRecentlyViewedProjectsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := beprotojson.Unmarshal([]byte(wrappedResp), &result); err != nil {
 		return nil, fmt.Errorf("ListRecentlyViewedProjects: unmarshal response: %w", err)
 	}
 
