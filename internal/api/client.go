@@ -1815,6 +1815,79 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 	return response, nil
 }
 
+// GenerateFreeFormStreamedWithCallback streams the response and calls the callback for each chunk
+func (c *Client) GenerateFreeFormStreamedWithCallback(projectID string, prompt string, sourceIDs []string, callback func(chunk string) bool) error {
+	// Check if we should skip sources (useful for testing or when project is inaccessible)
+	skipSources := os.Getenv("NLM_SKIP_SOURCES") == "true"
+
+	// If no source IDs provided and not skipping, try to get all sources from the project
+	if len(sourceIDs) == 0 && !skipSources {
+		// Create a timeout context for getting project
+		getProjectCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		project, err := c.GetProjectWithContext(getProjectCtx, projectID)
+		if err != nil {
+			// If getting project fails, try without sources as fallback
+			if c.config.Debug {
+				fmt.Printf("DEBUG: Failed to get project sources, continuing without: %v\n", err)
+			}
+			// Continue without sources rather than failing completely
+		} else {
+			// Extract all source IDs from the project
+			for _, source := range project.Sources {
+				if source.SourceId != nil {
+					sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+				}
+			}
+
+			if c.config.Debug {
+				fmt.Printf("DEBUG: Using %d sources for chat\n", len(sourceIDs))
+			}
+		}
+	}
+
+	req := &pb.GenerateFreeFormStreamedRequest{
+		ProjectId: projectID,
+		Prompt:    prompt,
+		SourceIds: sourceIDs,
+	}
+
+	// For now, we'll simulate streaming by calling the regular API and breaking the response into chunks
+	// In a real implementation, this would use server-sent events or similar streaming protocol
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	response, err := c.orchestrationService.GenerateFreeFormStreamed(ctx, req)
+	if err != nil {
+		return fmt.Errorf("generate free form streamed: %w", err)
+	}
+
+	if response != nil && response.Chunk != "" {
+		// Simulate streaming by sending words gradually
+		words := strings.Fields(response.Chunk)
+		for i, word := range words {
+			// Create a chunk with a few words at a time
+			var chunk string
+			if i == 0 {
+				chunk = word
+			} else {
+				chunk = " " + word
+			}
+
+			// Call the callback with the chunk
+			if !callback(chunk) {
+				break // Stop if callback returns false
+			}
+
+			// Add a small delay to simulate streaming
+			time.Sleep(75 * time.Millisecond)
+		}
+	}
+
+	return nil
+}
+
 // GetProjectWithContext is like GetProject but accepts a context for cancellation
 func (c *Client) GetProjectWithContext(ctx context.Context, projectID string) (*Notebook, error) {
 	req := &pb.GetProjectRequest{
