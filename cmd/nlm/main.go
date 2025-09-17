@@ -835,16 +835,24 @@ func list(c *api.Client) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-	fmt.Fprintln(w, "ID\tTITLE\tLAST UPDATED")
+	fmt.Fprintln(w, "ID\tTITLE\tSOURCES\tLAST UPDATED")
 	for i := 0; i < limit; i++ {
 		nb := notebooks[i]
-		title := strings.TrimSpace(nb.Emoji) + " " + nb.Title
-		// Truncate title to 80 characters
-		if len(title) > 80 {
-			title = title[:77] + "..."
+		// Use backspace to compensate for emoji width
+		emoji := strings.TrimSpace(nb.Emoji)
+		var title string
+		if emoji != "" {
+			title = emoji + " \b" + nb.Title // Backspace after space to undo emoji extra width
+		} else {
+			title = nb.Title
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
-			nb.ProjectId, title,
+		// Truncate title to account for display width with emojis
+		if len(title) > 45 {
+			title = title[:42] + "..."
+		}
+		sourceCount := len(nb.Sources)
+		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
+			nb.ProjectId, title, sourceCount,
 			nb.GetMetadata().GetCreateTime().AsTime().Format(time.RFC3339),
 		)
 	}
