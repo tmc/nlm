@@ -11,56 +11,7 @@ import (
 	"github.com/tmc/nlm/internal/httprr"
 )
 
-// loadNLMCredentials loads credentials from ~/.nlm/env file if environment variables are not set
-func loadNLMCredentials() (authToken, cookies string) {
-	// First check environment variables
-	authToken = os.Getenv("NLM_AUTH_TOKEN")
-	cookies = os.Getenv("NLM_COOKIES")
-
-	if authToken != "" && cookies != "" {
-		return authToken, cookies
-	}
-
-	// Don't load from file if environment variables were explicitly set to empty
-	// This allows for intentional skipping of tests
-	if os.Getenv("NLM_AUTH_TOKEN") == "" && os.Getenv("NLM_COOKIES") == "" {
-		// Check if environment variables were explicitly set (even to empty)
-		if _, exists := os.LookupEnv("NLM_AUTH_TOKEN"); exists {
-			if _, exists := os.LookupEnv("NLM_COOKIES"); exists {
-				return "", "" // Both were explicitly set to empty
-			}
-		}
-	}
-
-	// Try to read from ~/.nlm/env file
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", ""
-	}
-
-	envFile := homeDir + "/.nlm/env"
-	file, err := os.Open(envFile)
-	if err != nil {
-		return "", ""
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.HasPrefix(line, "NLM_AUTH_TOKEN=") {
-			if authToken == "" { // Only set if not already set by env var
-				authToken = strings.Trim(strings.TrimPrefix(line, "NLM_AUTH_TOKEN="), `"`)
-			}
-		} else if strings.HasPrefix(line, "NLM_COOKIES=") {
-			if cookies == "" { // Only set if not already set by env var
-				cookies = strings.Trim(strings.TrimPrefix(line, "NLM_COOKIES="), `"`)
-			}
-		}
-	}
-
-	return authToken, cookies
-}
+// loadNLMCredentials is now defined in test_helpers.go to avoid duplication
 
 // TestListProjectsWithRecording validates ListRecentlyViewedProjects functionality
 // including proper project list handling and truncation behavior.
