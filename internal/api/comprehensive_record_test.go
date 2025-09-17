@@ -13,14 +13,23 @@ import (
 
 // TestNotebookCommands_ListProjects tests the list projects command
 func TestNotebookCommands_ListProjects(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -37,14 +46,23 @@ func TestNotebookCommands_ListProjects(t *testing.T) {
 
 // TestNotebookCommands_CreateProject records the create project command
 func TestNotebookCommands_CreateProject(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -65,14 +83,23 @@ func TestNotebookCommands_CreateProject(t *testing.T) {
 
 // TestNotebookCommands_DeleteProject records the delete project command
 func TestNotebookCommands_DeleteProject(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -93,14 +120,23 @@ func TestNotebookCommands_DeleteProject(t *testing.T) {
 
 // TestSourceCommands_ListSources records the list sources command
 func TestSourceCommands_ListSources(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -124,14 +160,23 @@ func TestSourceCommands_ListSources(t *testing.T) {
 
 // TestSourceCommands_AddTextSource records adding a text source
 func TestSourceCommands_AddTextSource(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -162,14 +207,23 @@ func TestSourceCommands_AddTextSource(t *testing.T) {
 
 // TestSourceCommands_AddURLSource records adding a URL source
 func TestSourceCommands_AddURLSource(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -200,14 +254,23 @@ func TestSourceCommands_AddURLSource(t *testing.T) {
 
 // TestSourceCommands_DeleteSource records the delete source command
 func TestSourceCommands_DeleteSource(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -239,14 +302,23 @@ func TestSourceCommands_DeleteSource(t *testing.T) {
 
 // TestSourceCommands_RenameSource records the rename source command
 func TestSourceCommands_RenameSource(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -286,14 +358,23 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 
 // TestAudioCommands_CreateAudioOverview records the create audio overview command
 func TestAudioCommands_CreateAudioOverview(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -319,14 +400,23 @@ func TestAudioCommands_CreateAudioOverview(t *testing.T) {
 
 // TestAudioCommands_GetAudioOverview records the get audio overview command
 func TestAudioCommands_GetAudioOverview(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -356,14 +446,23 @@ func TestAudioCommands_GetAudioOverview(t *testing.T) {
 
 // TestGenerationCommands_GenerateNotebookGuide records the generate guide command
 func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -388,14 +487,23 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 
 // TestGenerationCommands_GenerateOutline records the generate outline command
 func TestGenerationCommands_GenerateOutline(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
@@ -423,9 +531,19 @@ func TestMiscCommands_Heartbeat(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
 
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
+	}
+
 	_ = New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
 		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
@@ -436,14 +554,23 @@ func TestMiscCommands_Heartbeat(t *testing.T) {
 }
 
 func TestVideoCommands_CreateVideoOverview(t *testing.T) {
-	// Skip test if no credentials are available
-	if os.Getenv("NLM_AUTH_TOKEN") == "" || os.Getenv("NLM_COOKIES") == "" {
-		t.Skip("NLM_AUTH_TOKEN and NLM_COOKIES environment variables required for this test")
+	httprr.SkipIfNoNLMCredentialsOrRecording(t)
+	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
+
+	// Use test credentials that get scrubbed by httprr
+	authToken := "test-auth-token"
+	cookies := "test-cookies"
+	if os.Getenv("NLM_AUTH_TOKEN") != "" {
+		authToken = os.Getenv("NLM_AUTH_TOKEN")
+	}
+	if os.Getenv("NLM_COOKIES") != "" {
+		cookies = os.Getenv("NLM_COOKIES")
 	}
 
 	client := New(
-		os.Getenv("NLM_AUTH_TOKEN"),
-		os.Getenv("NLM_COOKIES"),
+		authToken,
+		cookies,
+		batchexecute.WithHTTPClient(httpClient),
 		batchexecute.WithDebug(false),
 	)
 
