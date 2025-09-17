@@ -549,6 +549,12 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 				switch first := v[0].(type) {
 				case string:
 					return protoreflect.ValueOfString(first), nil
+				case float64:
+					// Handle numbers in arrays as strings
+					return protoreflect.ValueOfString(fmt.Sprintf("%v", first)), nil
+				case bool:
+					// Handle booleans in arrays as strings
+					return protoreflect.ValueOfString(fmt.Sprintf("%v", first)), nil
 				case []interface{}:
 					// Recursively unwrap arrays until we find a string
 					if converted, err := o.convertValue(fd, first); err == nil {

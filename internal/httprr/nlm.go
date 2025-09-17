@@ -20,6 +20,7 @@ func OpenForNLMTest(t *testing.T, rt http.RoundTripper) (*RecordReplay, error) {
 	}
 
 	// Add NLM-specific request scrubbers
+	rr.ScrubReq(scrubNLMCredentials)       // Remove credentials for consistent matching
 	rr.ScrubReq(scrubNLMRequestID)         // Normalize request IDs for consistent matching
 	rr.ScrubReq(scrubNLMAuthTokenFromBody) // Remove auth tokens from body for replay
 	// rr.ScrubReq(scrubNLMTimestamps) // Keep commented until needed
