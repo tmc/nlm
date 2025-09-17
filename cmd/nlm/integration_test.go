@@ -1,24 +1,14 @@
 package main
 
 import (
-	"os"
 	"testing"
 )
 
-// TestMainFunction tests the main function indirectly by testing flag parsing
+// TestMainFunction is deprecated - use scripttest framework instead
+// The scripttest files in testdata/ provide better coverage of the CLI
+// For example: testdata/comprehensive_auth.txt tests command parsing
 func TestMainFunction(t *testing.T) {
-	// Store original os.Args
-	oldArgs := os.Args
-	defer func() { os.Args = oldArgs }()
-
-	// Test with no arguments (should trigger usage)
-	os.Args = []string{"nlm"}
-
-	// This would normally call os.Exit(1), so we can't directly test main()
-	// But we can test the flag init function is working
-	if !testing.Short() {
-		t.Skip("Skipping main function test - would call os.Exit")
-	}
+	t.Skip("Deprecated - use scripttest framework (see TestCLICommands and TestComprehensiveScripts)")
 }
 
 // TestAuthCommand tests isAuthCommand function

@@ -1,6 +1,7 @@
 package beprotojson
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -22,8 +23,118 @@ func Marshal(m proto.Message) ([]byte, error) {
 
 // Marshal writes the given proto.Message in batchexecute JSON format using options in MarshalOptions.
 func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
-	// TODO: implement
-	return nil, fmt.Errorf("not implemented")
+	if m == nil {
+		return []byte("null"), nil
+	}
+
+	// Get message descriptor
+	md := m.ProtoReflect()
+	fields := md.Descriptor().Fields()
+
+	// Find max field number to size our array
+	maxFieldNum := 0
+	for i := 0; i < fields.Len(); i++ {
+		if num := int(fields.Get(i).Number()); num > maxFieldNum {
+			maxFieldNum = num
+		}
+	}
+
+	// Build array representation - batchexecute uses positional arrays
+	result := make([]interface{}, maxFieldNum)
+
+	// Iterate through all fields
+	for i := 0; i < fields.Len(); i++ {
+		field := fields.Get(i)
+		fieldNum := int(field.Number()) - 1 // Convert to 0-indexed
+
+		if md.Has(field) {
+			value := md.Get(field)
+			result[fieldNum] = o.marshalValue(field, value)
+		} else {
+			// Set appropriate defaults for unset fields
+			if field.IsList() {
+				result[fieldNum] = []interface{}{}
+			} else if field.Kind() == protoreflect.MessageKind {
+				result[fieldNum] = []interface{}{}
+			}
+		}
+	}
+
+	return json.Marshal(result)
+}
+
+// marshalValue converts a protobuf value to its batchexecute JSON representation
+func (o MarshalOptions) marshalValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) interface{} {
+	if fd.IsList() {
+		list := v.List()
+		result := make([]interface{}, list.Len())
+		for i := 0; i < list.Len(); i++ {
+			result[i] = o.marshalSingleValue(fd, list.Get(i))
+		}
+		return result
+	}
+	return o.marshalSingleValue(fd, v)
+}
+
+// marshalSingleValue converts a single protobuf value
+func (o MarshalOptions) marshalSingleValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) interface{} {
+	switch fd.Kind() {
+	case protoreflect.BoolKind:
+		if v.Bool() {
+			return 1
+		}
+		return 0
+	case protoreflect.Int32Kind, protoreflect.Int64Kind,
+		protoreflect.Sint32Kind, protoreflect.Sint64Kind,
+		protoreflect.Sfixed32Kind, protoreflect.Sfixed64Kind:
+		return v.Int()
+	case protoreflect.Uint32Kind, protoreflect.Uint64Kind,
+		protoreflect.Fixed32Kind, protoreflect.Fixed64Kind:
+		return v.Uint()
+	case protoreflect.FloatKind, protoreflect.DoubleKind:
+		return v.Float()
+	case protoreflect.StringKind:
+		return v.String()
+	case protoreflect.BytesKind:
+		return base64.StdEncoding.EncodeToString(v.Bytes())
+	case protoreflect.EnumKind:
+		return int(v.Enum())
+	case protoreflect.MessageKind:
+		msg := v.Message()
+		if !msg.IsValid() {
+			return nil
+		}
+		// Handle well-known types specially
+		switch msg.Descriptor().FullName() {
+		case "google.protobuf.StringValue":
+			if msg.Has(msg.Descriptor().Fields().ByNumber(1)) {
+				return msg.Get(msg.Descriptor().Fields().ByNumber(1)).String()
+			}
+		case "google.protobuf.Int32Value":
+			if msg.Has(msg.Descriptor().Fields().ByNumber(1)) {
+				return int(msg.Get(msg.Descriptor().Fields().ByNumber(1)).Int())
+			}
+		case "google.protobuf.Timestamp":
+			var seconds, nanos int64
+			if f := msg.Descriptor().Fields().ByNumber(1); msg.Has(f) {
+				seconds = msg.Get(f).Int()
+			}
+			if f := msg.Descriptor().Fields().ByNumber(2); msg.Has(f) {
+				nanos = msg.Get(f).Int()
+			}
+			return []interface{}{seconds, nanos}
+		default:
+			// Recursively marshal nested message
+			if nestedBytes, err := o.Marshal(msg.Interface()); err == nil {
+				var result interface{}
+				if err := json.Unmarshal(nestedBytes, &result); err == nil {
+					return result
+				}
+			}
+			return []interface{}{}
+		}
+	}
+	return nil
 }
 
 // UnmarshalOptions is a configurable JSON format parser.

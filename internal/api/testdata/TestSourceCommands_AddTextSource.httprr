@@ -1,0 +1,3 @@
+httprr trace v1
+148 114
+POST /_/NotebookLmUi/data/batchexecute HTTP/1.1\r\nHost: notebooklm.google.com\r\n\r\n[["izAoDd",["mock-project-001","test content","Test Source"]]]HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n[["wrb.fr","izAoDd",["mock-source-001","Test Document"]]]

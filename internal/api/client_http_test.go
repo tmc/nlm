@@ -1,26 +1,14 @@
 package api
 
 import (
-	"bytes"
-	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
-
-	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/rpc"
 )
 
-// TestHTTPRecorder creates a proxy server that records all HTTP traffic
-// to files for inspection. This is not an automated test but a helper
-// for debugging HTTP issues.
+// TestHTTPRecorder is deprecated - use DebugHTTPRecorder helper instead
+// Run with: NLM_DEBUG=true go test -run TestHTTPRecorder ./internal/api
 func TestHTTPRecorder(t *testing.T) {
-	// This test is mainly for debugging HTTP issues manually
-	t.Skip("Manual debugging test - enable by commenting out this skip")
+	// Delegate to the new helper function
+	DebugHTTPRecorder(t)
 
 	// Create a temporary directory for storing request/response data
 	recordDir := filepath.Join(os.TempDir(), "nlm-http-records")
@@ -114,75 +102,16 @@ func TestHTTPRecorder(t *testing.T) {
 	os.Setenv("HTTPS_PROXY", proxy.URL)
 	t.Logf("Proxy server started at: %s", proxy.URL)
 
-	// Get credentials from environment
-	authToken := os.Getenv("NLM_AUTH_TOKEN")
-	cookies := os.Getenv("NLM_COOKIES")
-	if authToken == "" || cookies == "" {
-		t.Fatalf("Missing credentials. Set NLM_AUTH_TOKEN and NLM_COOKIES environment variables.")
-	}
-
-	// Create client with debug mode enabled
-	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithDebug(true),
-	)
-
-	// Try to list projects
-	t.Log("Listing projects...")
-	projects, err := client.ListRecentlyViewedProjects()
-	if err != nil {
-		t.Logf("Error listing projects: %v", err)
-		// Continue to record the error response
-	} else {
-		t.Logf("Found %d projects", len(projects))
-		for i, p := range projects {
-			t.Logf("Project %d: %s (%s)", i, p.Title, p.ProjectId)
-		}
-	}
-
-	// Test passed if we recorded the HTTP traffic
-	t.Logf("HTTP traffic recorded to: %s", recordDir)
+	// The actual implementation has been moved to test_helpers.go
+	// This stub remains for backward compatibility
 }
 
-// TestDirectRequest sends direct HTTP requests to troubleshoot the ListProjects API
+// TestDirectRequest is deprecated - use DebugDirectRequest helper instead
+// Run with: NLM_DEBUG=true go test -run TestDirectRequest ./internal/api
 func TestDirectRequest(t *testing.T) {
-	// This test is mainly for manual debugging
-	t.Skip("Manual debugging test - enable by commenting out this skip")
+	// Delegate to the new helper function
+	DebugDirectRequest(t)
 
-	// Get credentials from environment
-	authToken := os.Getenv("NLM_AUTH_TOKEN")
-	cookies := os.Getenv("NLM_COOKIES")
-	if authToken == "" || cookies == "" {
-		t.Fatalf("Missing credentials. Set NLM_AUTH_TOKEN and NLM_COOKIES environment variables.")
-	}
-
-	// Create an RPC client directly
-	rpcClient := rpc.New(authToken, cookies, batchexecute.WithDebug(true))
-
-	// Try to list projects
-	t.Log("Listing projects...")
-	resp, err := rpcClient.Do(rpc.Call{
-		ID:   rpc.RPCListRecentlyViewedProjects,
-		Args: []interface{}{nil, 1},
-	})
-
-	if err != nil {
-		t.Fatalf("Failed to list projects: %v", err)
-	}
-
-	// Save the raw response to a file
-	responseDir := filepath.Join(os.TempDir(), "nlm-direct-response")
-	err = os.MkdirAll(responseDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create response directory: %v", err)
-	}
-
-	responseFile := filepath.Join(responseDir, "list_projects_raw.json")
-	err = os.WriteFile(responseFile, resp, 0644)
-	if err != nil {
-		t.Fatalf("Failed to write response: %v", err)
-	}
-
-	t.Logf("Saved raw response to: %s", responseFile)
+	// The actual implementation has been moved to test_helpers.go
+	// This stub remains for backward compatibility
 }
