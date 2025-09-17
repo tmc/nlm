@@ -297,7 +297,9 @@ func loadStoredEnv() {
 		}
 
 		key = strings.TrimSpace(key)
-		if os.Getenv(key) != "" {
+		// Check if environment variable is explicitly set (including empty string)
+		// This respects test environment isolation where env vars are cleared
+		if _, isSet := os.LookupEnv(key); isSet {
 			continue
 		}
 
