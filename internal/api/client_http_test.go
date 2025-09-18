@@ -1,7 +1,15 @@
 package api
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 // TestHTTPRecorder is deprecated - use DebugHTTPRecorder helper instead
