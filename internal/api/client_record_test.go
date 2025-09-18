@@ -1,10 +1,8 @@
 package api
 
 import (
-	"bufio"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
