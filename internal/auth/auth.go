@@ -938,6 +938,31 @@ func copyDirectoryRecursiveWithCount(src, dst string, debug bool, fileCount, dir
 	return nil
 }
 
+// gracefulShutdown performs a graceful browser shutdown to avoid crash detection
+func (ba *BrowserAuth) gracefulShutdown(ctx context.Context) error {
+	// First try to close all tabs gracefully using JavaScript
+	err := chromedp.Run(ctx,
+		chromedp.Evaluate(`
+			// Try to close the window gracefully
+			if (window.close) {
+				window.close();
+			}
+			// Set a flag that we're closing normally
+			window.localStorage.setItem('normal_shutdown', 'true');
+		`, nil),
+	)
+
+	// Give the browser a moment to process the close
+	time.Sleep(100 * time.Millisecond)
+
+	// Now cancel the context which will close the browser
+	if ba.cancel != nil {
+		ba.cancel()
+	}
+
+	return err
+}
+
 func (ba *BrowserAuth) extractAuthData(ctx context.Context) (token, cookies string, err error) {
 	targetURL := "https://notebooklm.google.com"
 	return ba.extractAuthDataForURL(ctx, targetURL)
@@ -1100,9 +1125,16 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 					}
 				}
 
-				// Authentication successful - return immediately
+				// Authentication successful - perform graceful shutdown
 				if ba.debug {
 					fmt.Printf("✓ Authentication successful!\n")
+				}
+
+				// Gracefully close the browser to avoid crash detection
+				if err := ba.gracefulShutdown(ctx); err != nil {
+					if ba.debug {
+						fmt.Printf("Warning: graceful shutdown failed: %v\n", err)
+					}
 				}
 
 				return token, cookies, nil
