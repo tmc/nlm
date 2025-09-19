@@ -1007,6 +1007,13 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 		}
 	}
 
+	// If keep-open is set, give user time to manually authenticate BEFORE checking
+	if ba.keepOpenSeconds > 0 {
+		fmt.Printf("\n⏳ Browser opened. You have %d seconds to manually log in if needed...\n", ba.keepOpenSeconds)
+		fmt.Printf("  If already logged in, just wait for automatic authentication.\n\n")
+		time.Sleep(time.Duration(ba.keepOpenSeconds) * time.Second)
+	}
+
 	// First check if we're already on a login page, which would indicate authentication failure
 	var currentURL string
 	if err := chromedp.Run(ctx, chromedp.Location(&currentURL)); err == nil {
@@ -1020,35 +1027,11 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 			strings.Contains(currentURL, "signin") ||
 			strings.Contains(currentURL, "login") {
 			if ba.debug {
-				fmt.Printf("Immediately redirected to auth page: %s\n", currentURL)
-			}
-
-			// Keep browser open if requested, allowing user to manually authenticate
-			if ba.keepOpenSeconds > 0 {
-				fmt.Printf("\n⏳ Not authenticated. Keeping browser open for %d seconds for manual login...\n", ba.keepOpenSeconds)
-				fmt.Printf("  Please complete authentication in the browser, then the tool will retry.\n\n")
-				time.Sleep(time.Duration(ba.keepOpenSeconds) * time.Second)
-
-				// After waiting, try to get auth data again
-				var retryURL string
-				if err := chromedp.Run(ctx, chromedp.Location(&retryURL)); err == nil {
-					// Check if we're still on auth page after the delay
-					if !strings.Contains(retryURL, "accounts.google.com") &&
-						!strings.Contains(retryURL, "signin") &&
-						!strings.Contains(retryURL, "login") {
-						if ba.debug {
-							fmt.Printf("After keep-open delay, now on: %s\n", retryURL)
-						}
-						// Continue with normal auth flow since we're no longer on auth page
-						goto continueAuth
-					}
-				}
+				fmt.Printf("Redirected to auth page: %s\n", currentURL)
 			}
 
 			return "", "", fmt.Errorf("redirected to authentication page - not logged in")
 		}
-
-	continueAuth:
 	}
 
 	// Create timeout context for polling - increased timeout for better success with Brave
@@ -1066,21 +1049,6 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 		case <-pollCtx.Done():
 			var finalURL string
 			_ = chromedp.Run(ctx, chromedp.Location(&finalURL))
-
-			// Keep browser open if requested, allowing user to manually authenticate
-			if ba.keepOpenSeconds > 0 {
-				fmt.Printf("\n⏳ Authentication timeout. Keeping browser open for %d seconds for manual login...\n", ba.keepOpenSeconds)
-				fmt.Printf("  Please complete authentication in the browser, then the tool will retry.\n\n")
-				time.Sleep(time.Duration(ba.keepOpenSeconds) * time.Second)
-
-				// After waiting, try one more time to get auth data
-				if retryToken, retryCookies, retryErr := ba.tryExtractAuth(ctx); retryErr == nil {
-					if ba.debug {
-						fmt.Printf("Successfully authenticated after keep-open delay\n")
-					}
-					return retryToken, retryCookies, nil
-				}
-			}
 
 			return "", "", fmt.Errorf("auth data not found after timeout (URL: %s)", finalURL)
 
