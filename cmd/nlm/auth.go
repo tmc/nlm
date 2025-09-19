@@ -30,12 +30,13 @@ func maskProfileName(profile string) string {
 
 // AuthOptions contains the CLI options for the auth command
 type AuthOptions struct {
-	TryAllProfiles bool
-	ProfileName    string
-	TargetURL      string
-	CheckNotebooks bool
-	Debug          bool
-	Help           bool
+	TryAllProfiles  bool
+	ProfileName     string
+	TargetURL       string
+	CheckNotebooks  bool
+	Debug           bool
+	Help            bool
+	KeepOpenSeconds int
 }
 
 func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
@@ -60,6 +61,8 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 	authFlags.BoolVar(&opts.Debug, "d", debug, "Enable debug output (shorthand)")
 	authFlags.BoolVar(&opts.Help, "help", false, "Show help for auth command")
 	authFlags.BoolVar(&opts.Help, "h", false, "Show help for auth command (shorthand)")
+	authFlags.IntVar(&opts.KeepOpenSeconds, "keep-open", 0, "Keep browser open for N seconds after successful auth")
+	authFlags.IntVar(&opts.KeepOpenSeconds, "k", 0, "Keep browser open for N seconds after successful auth (shorthand)")
 
 	// Set custom usage
 	authFlags.Usage = func() {
@@ -70,6 +73,7 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 		authFlags.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExample: nlm auth login -all -notebooks\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth login -profile Work\n")
+		fmt.Fprintf(os.Stderr, "Example: nlm auth login -keep-open 10\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth -all\n")
 	}
 
@@ -214,6 +218,10 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 
 	if opts.CheckNotebooks {
 		authOpts = append(authOpts, auth.WithCheckNotebooks())
+	}
+
+	if opts.KeepOpenSeconds > 0 {
+		authOpts = append(authOpts, auth.WithKeepOpenSeconds(opts.KeepOpenSeconds))
 	}
 
 	// Get auth data
