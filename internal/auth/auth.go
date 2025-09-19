@@ -714,19 +714,39 @@ func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
 		return fmt.Errorf("create profile dir: %w", err)
 	}
 
-	// Copy entire profile directory recursively to preserve all session data
+	// Copy only essential files for authentication (not entire profile)
+	essentialFiles := []string{
+		"Cookies",           // Authentication cookies
+		"Cookies-journal",   // Cookie database journal
+		"Login Data",        // Saved login information
+		"Login Data-journal", // Login database journal
+		"Web Data",          // Form data and autofill
+		"Web Data-journal",  // Web data journal
+		"Preferences",       // Browser preferences
+		"Secure Preferences", // Secure browser settings
+	}
+
+	copiedCount := 0
+	for _, file := range essentialFiles {
+		srcPath := filepath.Join(sourceDir, file)
+		dstPath := filepath.Join(defaultDir, file)
+
+		// Check if source file exists
+		if _, err := os.Stat(srcPath); os.IsNotExist(err) {
+			continue // Skip if file doesn't exist
+		}
+
+		if err := copyFile(srcPath, dstPath); err != nil {
+			if ba.debug {
+				fmt.Printf("Warning: Failed to copy %s: %v\n", file, err)
+			}
+			continue
+		}
+		copiedCount++
+	}
+
 	if ba.debug {
-		fmt.Printf("Copying profile data for complete session preservation...\n")
-	}
-
-	fileCount := 0
-	dirCount := 0
-	if err := copyDirectoryRecursiveWithCount(sourceDir, defaultDir, ba.debug, &fileCount, &dirCount); err != nil {
-		return fmt.Errorf("copy profile directory: %w", err)
-	}
-
-	if ba.debug && (fileCount > 0 || dirCount > 0) {
-		fmt.Printf("Profile copy complete: %d files, %d directories\n", fileCount, dirCount)
+		fmt.Printf("Copied %d essential files for authentication\n", copiedCount)
 	}
 
 	// Create minimal Local State file
