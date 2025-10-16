@@ -1,0 +1,24 @@
+# Test video-download command validation
+# The video-download command downloads video file (requires --direct-rpc flag)
+# Requires: <notebook-id> [filename]
+
+# === VIDEO-DOWNLOAD COMMAND ===
+# Test video-download without arguments (should fail with usage)
+! exec ./nlm_test video-download
+stderr 'usage: nlm video-download <notebook-id> \[filename\]'
+! stderr 'panic'
+
+# Test video-download with valid single argument (should require auth)
+! exec ./nlm_test video-download notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test video-download with both arguments (should require auth)
+! exec ./nlm_test video-download notebook123 output.mp4
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test video-download with too many arguments (should fail with usage)
+! exec ./nlm_test video-download notebook123 output.mp4 extra
+stderr 'usage: nlm video-download <notebook-id> \[filename\]'
+! stderr 'panic'
