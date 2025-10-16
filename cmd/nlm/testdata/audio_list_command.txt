@@ -1,0 +1,19 @@
+# Test audio-list command validation
+# The audio-list command lists all audio overviews for a notebook with status
+# Requires: <notebook-id>
+
+# === AUDIO-LIST COMMAND ===
+# Test audio-list without arguments (should fail with usage)
+! exec ./nlm_test audio-list
+stderr 'usage: nlm audio-list <notebook-id>'
+! stderr 'panic'
+
+# Test audio-list with too many arguments (should fail with usage)
+! exec ./nlm_test audio-list notebook123 extra
+stderr 'usage: nlm audio-list <notebook-id>'
+! stderr 'panic'
+
+# Test audio-list without authentication (should fail)
+! exec ./nlm_test audio-list notebook123
+stderr 'Authentication required'
+! stderr 'panic'
