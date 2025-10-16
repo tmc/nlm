@@ -1,0 +1,24 @@
+# Test audio-download command validation
+# The audio-download command downloads audio file (requires --direct-rpc flag)
+# Requires: <notebook-id> [filename]
+
+# === AUDIO-DOWNLOAD COMMAND ===
+# Test audio-download without arguments (should fail with usage)
+! exec ./nlm_test audio-download
+stderr 'usage: nlm audio-download <notebook-id> \[filename\]'
+! stderr 'panic'
+
+# Test audio-download with valid single argument (should require auth)
+! exec ./nlm_test audio-download notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test audio-download with both arguments (should require auth)
+! exec ./nlm_test audio-download notebook123 output.wav
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test audio-download with too many arguments (should fail with usage)
+! exec ./nlm_test audio-download notebook123 output.wav extra
+stderr 'usage: nlm audio-download <notebook-id> \[filename\]'
+! stderr 'panic'
