@@ -276,7 +276,8 @@ service LabsTailwindOrchestrationService {
     }
     rpc RenameArtifact(RenameArtifactRequest) returns (Artifact) {
         option (rpc_id) = "rc3d8d";
-        // Complex nested format with quotes - implement manually for now
+        // Manual encoder in gen/method/LabsTailwindOrchestrationService_RenameArtifact_encoder.go
+        // Format: [[artifactID, newTitle], [["title"]]]
     }
     rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "WxBZtb";
