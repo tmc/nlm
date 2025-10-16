@@ -3,14 +3,21 @@ package main
 import (
 	"bufio"
 	"context"
+	"flag"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/tmc/nlm/internal/httprr"
 	"rsc.io/script"
 	"rsc.io/script/scripttest"
+)
+
+var (
+	exportTxtar = flag.Bool("export-txtar", false, "export httprr recordings to txtar format after tests")
 )
 
 func TestMain(m *testing.M) {
@@ -93,7 +100,46 @@ func TestCLICommands(t *testing.T) {
 
 			reader := bufio.NewReader(strings.NewReader(string(content)))
 			scripttest.Run(t, engine, state, file.Name(), reader)
+
+			// Export httprr recordings to txtar if requested
+			if *exportTxtar {
+				exportHTTPRecordingsToTxtar(t, file.Name())
+			}
 		})
+	}
+}
+
+// exportHTTPRecordingsToTxtar exports any httprr recordings to txtar format
+func exportHTTPRecordingsToTxtar(t *testing.T, testName string) {
+	t.Helper()
+
+	// Look for httprr files in internal/api/testdata
+	apiTestdataDir := "../../internal/api/testdata"
+	entries, err := os.ReadDir(apiTestdataDir)
+	if err != nil {
+		// Directory might not exist, that's OK
+		return
+	}
+
+	for _, entry := range entries {
+		if !strings.HasSuffix(entry.Name(), ".httprr") {
+			continue
+		}
+
+		httprFile := filepath.Join(apiTestdataDir, entry.Name())
+		txtarFile := strings.TrimSuffix(httprFile, ".httprr") + ".txtar"
+
+		// Create a RecordReplay instance just for export
+		rr := &httprr.RecordReplay{}
+		rr.SetFile(httprFile)
+
+		// Export to txtar (without secrets by default)
+		if err := rr.ExportToTxtar(txtarFile, false); err != nil {
+			t.Logf("Warning: failed to export %s to txtar: %v", httprFile, err)
+			continue
+		}
+
+		t.Logf("Exported HTTP recording: %s -> %s", httprFile, txtarFile)
 	}
 }
 
