@@ -325,7 +325,7 @@ service LabsTailwindOrchestrationService {
     // Audio operations
     rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview) {
         option (rpc_id) = "AHyHrd";
-        option (arg_format) = "[%project_id%, %instructions%]";
+        option (arg_format) = "[%project_id%, %audio_type%, %instructions%]";
     }
     rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
         option (rpc_id) = "VUsiyb";
