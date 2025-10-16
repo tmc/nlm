@@ -1,0 +1,19 @@
+# Test video-list command validation
+# The video-list command lists all video overviews for a notebook with status
+# Requires: <notebook-id>
+
+# === VIDEO-LIST COMMAND ===
+# Test video-list without arguments (should fail with usage)
+! exec ./nlm_test video-list
+stderr 'usage: nlm video-list <notebook-id>'
+! stderr 'panic'
+
+# Test video-list with too many arguments (should fail with usage)
+! exec ./nlm_test video-list notebook123 extra
+stderr 'usage: nlm video-list <notebook-id>'
+! stderr 'panic'
+
+# Test video-list without authentication (should fail)
+! exec ./nlm_test video-list notebook123
+stderr 'Authentication required'
+! stderr 'panic'
