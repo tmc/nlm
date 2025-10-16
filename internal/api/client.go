@@ -1424,8 +1424,9 @@ func (r *VideoOverviewResult) downloadVideoFromURL(url, filename string) error {
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
 
-	// TODO: Add authentication cookies from the nlm client
-	// This would require access to the client's authentication state
+	// Note: This method is deprecated for authenticated downloads.
+	// Use client.DownloadVideoWithAuth() instead for proper authentication.
+	// This basic download method may fail for private videos that require cookies.
 
 	resp, err := client.Do(req)
 	if err != nil {
