@@ -1,0 +1,21 @@
+# Test refresh command validation
+# The refresh command refreshes authentication credentials
+# Requires: no arguments (it manages its own auth)
+# Note: This command does NOT require prior authentication (it refreshes credentials)
+
+# === REFRESH COMMAND ===
+# Test refresh with no arguments (should not require prior auth)
+# It will fail without stored credentials, but should give helpful error
+! exec ./nlm_test refresh
+stderr 'no stored credentials'
+! stderr 'panic'
+! stderr 'Authentication required for'
+
+# Test refresh accepts optional -debug flag
+! exec ./nlm_test -debug refresh
+stderr 'no stored credentials'
+! stderr 'panic'
+! stderr 'Authentication required for'
+
+# Note: The refresh command manages its own authentication and does not
+# require prior auth credentials. It fails gracefully without stored credentials.
