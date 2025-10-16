@@ -447,8 +447,17 @@ func (tm *TokenManager) checkAndRefresh() error {
 		refreshClient.SetDebug(true)
 	}
 
-	// Use hardcoded gsessionID for now (TODO: extract dynamically)
-	gsessionID := "LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg"
+	// Extract gsessionID dynamically from NotebookLM page
+	gsessionID, err := ExtractGSessionID(cookies)
+	if err != nil {
+		if tm.debug {
+			fmt.Fprintf(os.Stderr, "Warning: failed to extract gsessionID: %v, attempting refresh without it\n", err)
+		}
+		// Try refresh without gsessionID as fallback
+		gsessionID = ""
+	} else if tm.debug {
+		fmt.Fprintf(os.Stderr, "Extracted gsessionID: %s\n", gsessionID[:20]+"...")
+	}
 
 	// Perform refresh
 	if err := refreshClient.RefreshCredentials(gsessionID); err != nil {
