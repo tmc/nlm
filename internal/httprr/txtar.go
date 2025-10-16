@@ -174,3 +174,9 @@ func (rr *RecordReplay) EnableTxtarExport(includeSecrets bool) {
 	// This will be called when recording is closed
 	// For now, users should manually call ExportToTxtar after recording
 }
+
+// SetFile sets the file path for this RecordReplay instance.
+// This is useful when creating a RecordReplay just for exporting.
+func (rr *RecordReplay) SetFile(file string) {
+	rr.file = file
+}
