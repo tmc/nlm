@@ -9,7 +9,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	// TODO: separate from anything nlm related
+	// These tests verify beprotojson works with actual NotebookLM protocol buffer types
+	// For generic tests without nlm dependencies, see beprotojson_basic_test.go
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
