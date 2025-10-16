@@ -102,7 +102,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Cont
 	// Build the RPC call
 	call := rpc.Call{
 		ID:   "rc3d8d",
-		Args: method.EncodeRenameArtifactArgs(req),
+		Args: []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
