@@ -1,0 +1,19 @@
+# Test artifacts command validation
+# The artifacts command lists all artifacts in a notebook
+# Requires: <notebook-id>
+
+# === ARTIFACTS COMMAND ===
+# Test artifacts without arguments (should fail with usage)
+! exec ./nlm_test artifacts
+stderr 'usage: nlm artifacts <notebook-id>'
+! stderr 'panic'
+
+# Test artifacts with too many arguments (should fail with usage)
+! exec ./nlm_test artifacts notebook123 extra
+stderr 'usage: nlm artifacts <notebook-id>'
+! stderr 'panic'
+
+# Test artifacts without authentication (should fail)
+! exec ./nlm_test artifacts notebook123
+stderr 'Authentication required'
+! stderr 'panic'
