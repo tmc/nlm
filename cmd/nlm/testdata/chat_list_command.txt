@@ -1,0 +1,15 @@
+# Test chat-list command validation
+# The chat-list command lists all saved chat sessions
+# Requires: no arguments (it lists local sessions)
+# Note: This command does NOT require authentication (it only reads local files)
+
+# === CHAT-LIST COMMAND ===
+# Test chat-list with no arguments (should succeed without auth)
+exec ./nlm_test chat-list
+! stderr 'panic'
+! stderr 'Authentication required'
+
+# Test chat-list with too many arguments (should fail with usage)
+! exec ./nlm_test chat-list extra
+stderr 'usage: nlm chat-list'
+! stderr 'panic'
