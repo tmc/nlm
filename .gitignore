@@ -4,10 +4,11 @@
 
 # Binaries (files only, not directories)
 /nlm
-/nlm_test  
+/nlm_test
 /nlm_new
 /cmd/nlm/nlm
 /cmd/nlm/nlm_test
+*.test
 
 # Coverage files
 coverage.html
