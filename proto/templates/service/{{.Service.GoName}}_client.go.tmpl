@@ -36,7 +36,7 @@ import (
 	{{- if $hasNonEmptyResponse }}
 	"github.com/tmc/nlm/internal/beprotojson"
 	{{- end }}
-	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	{{- if $hasEmptyResponse }}
 	"google.golang.org/protobuf/types/known/emptypb"
 	{{- end }}

@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
 func main() {

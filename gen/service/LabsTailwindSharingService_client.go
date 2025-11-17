@@ -12,7 +12,7 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
 // LabsTailwindSharingServiceClient is a generated client for the LabsTailwindSharingService service.

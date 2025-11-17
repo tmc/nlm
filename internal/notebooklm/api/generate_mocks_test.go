@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tmc/nlm/internal/api/testdata"
+	"github.com/tmc/nlm/internal/notebooklm/api/testdata"
 )
 
 // TestGenerateMockHTTPRRFiles generates all the httprr recording files

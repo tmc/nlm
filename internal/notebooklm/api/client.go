@@ -19,7 +19,7 @@ import (
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
 type Notebook = pb.Project
