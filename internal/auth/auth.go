@@ -1239,3 +1239,99 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 
 	return token, cookies, nil
 }
+
+// DownloadWithBrowser downloads a file using the browser with profile authentication
+// This is useful for downloading files from Google CDN that require session cookies
+func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName string) ([]byte, error) {
+	// Find the profile to use
+	profiles, err := ba.scanProfiles()
+	if err != nil {
+		return nil, fmt.Errorf("scan profiles: %w", err)
+	}
+
+	var selectedProfile *ProfileInfo
+	for _, p := range profiles {
+		if p.Name == profileName || profileName == "" {
+			selectedProfile = &p
+			break
+		}
+	}
+
+	if selectedProfile == nil && len(profiles) > 0 {
+		selectedProfile = &profiles[0] // Use most recently used
+	}
+
+	if selectedProfile == nil {
+		return nil, fmt.Errorf("no valid profiles found")
+	}
+
+	// Create temp dir and copy profile
+	tempDir, err := os.MkdirTemp("", "nlm-download-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	ba.tempDir = tempDir
+	defer ba.cleanup()
+
+	if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
+		return nil, fmt.Errorf("copy profile: %w", err)
+	}
+
+	// Set up chromedp
+	opts := []chromedp.ExecAllocatorOption{
+		chromedp.NoFirstRun,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.UserDataDir(ba.tempDir),
+		chromedp.Flag("headless", true),
+		chromedp.ExecPath(getBrowserPathForProfile(selectedProfile.Browser)),
+	}
+
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer allocCancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	// Use CDP Network domain to capture the response
+	var responseBody []byte
+	var responseReceived bool
+
+	chromedp.ListenTarget(ctx, func(ev interface{}) {
+		switch ev := ev.(type) {
+		case *network.EventResponseReceived:
+			if ev.Response.URL == urlToDownload {
+				responseReceived = true
+			}
+		case *network.EventLoadingFinished:
+			if responseReceived {
+				// Get the response body
+				go func() {
+					body, err := network.GetResponseBody(ev.RequestID).Do(ctx)
+					if err == nil {
+						responseBody = body
+					}
+				}()
+			}
+		}
+	})
+
+	// Enable network and navigate to URL
+	if err := chromedp.Run(ctx,
+		network.Enable(),
+		chromedp.Navigate(urlToDownload),
+	); err != nil {
+		return nil, fmt.Errorf("navigate to URL: %w", err)
+	}
+
+	// Wait for response or timeout
+	time.Sleep(2 * time.Second)
+
+	if len(responseBody) == 0 {
+		return nil, fmt.Errorf("failed to download: no response body captured")
+	}
+
+	return responseBody, nil
+}
