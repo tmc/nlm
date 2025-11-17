@@ -28,6 +28,7 @@ const (
 	LabsTailwindOrchestrationService_RenameArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RenameArtifact"
 	LabsTailwindOrchestrationService_DeleteArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteArtifact"
 	LabsTailwindOrchestrationService_ListArtifacts_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListArtifacts"
+	LabsTailwindOrchestrationService_QueryArtifacts_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/QueryArtifacts"
 	LabsTailwindOrchestrationService_ActOnSources_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ActOnSources"
 	LabsTailwindOrchestrationService_AddSources_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/AddSources"
 	LabsTailwindOrchestrationService_CheckSourceFreshness_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CheckSourceFreshness"
@@ -39,6 +40,7 @@ const (
 	LabsTailwindOrchestrationService_CreateAudioOverview_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateAudioOverview"
 	LabsTailwindOrchestrationService_GetAudioOverview_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetAudioOverview"
 	LabsTailwindOrchestrationService_DeleteAudioOverview_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteAudioOverview"
+	LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateVideoOverview"
 	LabsTailwindOrchestrationService_CreateNote_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateNote"
 	LabsTailwindOrchestrationService_DeleteNotes_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteNotes"
 	LabsTailwindOrchestrationService_GetNotes_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetNotes"
@@ -76,6 +78,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	RenameArtifact(ctx context.Context, in *RenameArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	DeleteArtifact(ctx context.Context, in *DeleteArtifactRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListArtifacts(ctx context.Context, in *ListArtifactsRequest, opts ...grpc.CallOption) (*ListArtifactsResponse, error)
+	QueryArtifacts(ctx context.Context, in *QueryArtifactsRequest, opts ...grpc.CallOption) (*QueryArtifactsResponse, error)
 	// Source operations
 	ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*Project, error)
@@ -89,6 +92,8 @@ type LabsTailwindOrchestrationServiceClient interface {
 	CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error)
 	GetAudioOverview(ctx context.Context, in *GetAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error)
 	DeleteAudioOverview(ctx context.Context, in *DeleteAudioOverviewRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
+	CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*VideoOverview, error)
 	// Note operations
 	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Source, error)
 	DeleteNotes(ctx context.Context, in *DeleteNotesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -176,6 +181,15 @@ func (c *labsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Cont
 func (c *labsTailwindOrchestrationServiceClient) ListArtifacts(ctx context.Context, in *ListArtifactsRequest, opts ...grpc.CallOption) (*ListArtifactsResponse, error) {
 	out := new(ListArtifactsResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ListArtifacts_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Context, in *QueryArtifactsRequest, opts ...grpc.CallOption) (*QueryArtifactsResponse, error) {
+	out := new(QueryArtifactsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_QueryArtifacts_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +289,15 @@ func (c *labsTailwindOrchestrationServiceClient) GetAudioOverview(ctx context.Co
 func (c *labsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context.Context, in *DeleteAudioOverviewRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_DeleteAudioOverview_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*VideoOverview, error) {
+	out := new(VideoOverview)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -531,6 +554,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	RenameArtifact(context.Context, *RenameArtifactRequest) (*Artifact, error)
 	DeleteArtifact(context.Context, *DeleteArtifactRequest) (*emptypb.Empty, error)
 	ListArtifacts(context.Context, *ListArtifactsRequest) (*ListArtifactsResponse, error)
+	QueryArtifacts(context.Context, *QueryArtifactsRequest) (*QueryArtifactsResponse, error)
 	// Source operations
 	ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error)
 	AddSources(context.Context, *AddSourceRequest) (*Project, error)
@@ -544,6 +568,8 @@ type LabsTailwindOrchestrationServiceServer interface {
 	CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*AudioOverview, error)
 	GetAudioOverview(context.Context, *GetAudioOverviewRequest) (*AudioOverview, error)
 	DeleteAudioOverview(context.Context, *DeleteAudioOverviewRequest) (*emptypb.Empty, error)
+	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
+	CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error)
 	// Note operations
 	CreateNote(context.Context, *CreateNoteRequest) (*Source, error)
 	DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error)
@@ -598,6 +624,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteArtifact(contex
 func (UnimplementedLabsTailwindOrchestrationServiceServer) ListArtifacts(context.Context, *ListArtifactsRequest) (*ListArtifactsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListArtifacts not implemented")
 }
+func (UnimplementedLabsTailwindOrchestrationServiceServer) QueryArtifacts(context.Context, *QueryArtifactsRequest) (*QueryArtifactsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueryArtifacts not implemented")
+}
 func (UnimplementedLabsTailwindOrchestrationServiceServer) ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActOnSources not implemented")
 }
@@ -630,6 +659,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GetAudioOverview(cont
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteAudioOverview(context.Context, *DeleteAudioOverviewRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAudioOverview not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateVideoOverview not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*Source, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNote not implemented")
@@ -821,6 +853,24 @@ func _LabsTailwindOrchestrationService_ListArtifacts_Handler(srv interface{}, ct
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LabsTailwindOrchestrationServiceServer).ListArtifacts(ctx, req.(*ListArtifactsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_QueryArtifacts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryArtifactsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).QueryArtifacts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_QueryArtifacts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).QueryArtifacts(ctx, req.(*QueryArtifactsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1019,6 +1069,24 @@ func _LabsTailwindOrchestrationService_DeleteAudioOverview_Handler(srv interface
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LabsTailwindOrchestrationServiceServer).DeleteAudioOverview(ctx, req.(*DeleteAudioOverviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_CreateVideoOverview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateVideoOverviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateVideoOverview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateVideoOverview(ctx, req.(*CreateVideoOverviewRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1490,6 +1558,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LabsTailwindOrchestrationService_ListArtifacts_Handler,
 		},
 		{
+			MethodName: "QueryArtifacts",
+			Handler:    _LabsTailwindOrchestrationService_QueryArtifacts_Handler,
+		},
+		{
 			MethodName: "ActOnSources",
 			Handler:    _LabsTailwindOrchestrationService_ActOnSources_Handler,
 		},
@@ -1532,6 +1604,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteAudioOverview",
 			Handler:    _LabsTailwindOrchestrationService_DeleteAudioOverview_Handler,
+		},
+		{
+			MethodName: "CreateVideoOverview",
+			Handler:    _LabsTailwindOrchestrationService_CreateVideoOverview_Handler,
 		},
 		{
 			MethodName: "CreateNote",
