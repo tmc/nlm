@@ -166,6 +166,29 @@ func (c *LabsTailwindOrchestrationServiceClient) ListArtifacts(ctx context.Conte
 	return &result, nil
 }
 
+// QueryArtifacts calls the QueryArtifacts RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Context, req *notebooklmv1alpha1.QueryArtifactsRequest) (*notebooklmv1alpha1.QueryArtifactsResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "gArtLc",
+		Args: method.EncodeQueryArtifactsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("QueryArtifacts: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.QueryArtifactsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("QueryArtifacts: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // ActOnSources calls the ActOnSources RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Context, req *notebooklmv1alpha1.ActOnSourcesRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
@@ -354,8 +377,8 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewRequest) (*notebooklmv1alpha1.AudioOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "AHyHrd",
-		Args: method.EncodeCreateAudioOverviewArgs(req),
+		ID:   "R7cb6c",
+		Args: []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
@@ -414,6 +437,29 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 	var result emptypb.Empty
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteAudioOverview: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CreateVideoOverview calls the CreateVideoOverview RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, req *notebooklmv1alpha1.CreateVideoOverviewRequest) (*notebooklmv1alpha1.VideoOverview, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:   "R7cb6c",
+		Args: []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CreateVideoOverview: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.VideoOverview
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CreateVideoOverview: unmarshal response: %w", err)
 	}
 
 	return &result, nil
