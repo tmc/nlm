@@ -30,14 +30,16 @@ message Artifact {
     AudioOverview audio_overview = 8;
     Report tailored_report = 9;
     App app = 10;
+    VideoOverview video_overview = 11;  // Video overview artifact
 }
 
 enum ArtifactType {
     ARTIFACT_TYPE_UNSPECIFIED = 0;
     ARTIFACT_TYPE_NOTE = 1;
     ARTIFACT_TYPE_AUDIO_OVERVIEW = 2;
-    ARTIFACT_TYPE_REPORT = 3;
-    ARTIFACT_TYPE_APP = 4;
+    ARTIFACT_TYPE_VIDEO_OVERVIEW = 3;  // Video overview (confirmed from /tmp/notebooklm3.har)
+    ARTIFACT_TYPE_REPORT = 4;
+    ARTIFACT_TYPE_APP = 5;
 }
 
 enum ArtifactState {
@@ -112,16 +114,71 @@ message ListArtifactsResponse {
     string next_page_token = 2;
 }
 
+message QueryArtifactsRequest {
+    repeated int32 artifact_types = 1;
+    string project_id = 2;
+    string filter = 3;
+}
+
+message QueryArtifactsResponse {
+    repeated Artifact artifacts = 1;
+}
+
 message ActOnSourcesRequest {
     string project_id = 1;
     string action = 2;
     repeated string source_ids = 3;
 }
 
+// Audio style types (confirmed from sqTeoe RPC in HAR analysis)
+enum AudioType {
+    AUDIO_TYPE_UNSPECIFIED = 0;
+    AUDIO_TYPE_DEEP_DIVE = 1;      // "A lively conversation between two hosts, unpacking and connecting topics"
+    AUDIO_TYPE_BRIEF = 2;          // "A bite-sized overview to help you grasp the core ideas quickly"
+    AUDIO_TYPE_CRITIQUE = 3;       // "An expert review offering constructive feedback"
+    AUDIO_TYPE_DEBATE = 4;         // "A thoughtful debate illuminating different perspectives"
+}
+
+// Audio length options (confirmed from /tmp/notebooklm2.har analysis)
+enum AudioLength {
+    AUDIO_LENGTH_UNSPECIFIED = 0;
+    AUDIO_LENGTH_SHORT = 1;        // Shorter audio overview
+    AUDIO_LENGTH_DEFAULT = 2;      // ~10-15 minutes
+    AUDIO_LENGTH_LONG = 3;         // ~15-20 minutes (longer)
+}
+
+// Video style options (confirmed from /tmp/notebooklm3.har analysis)
+enum VideoStyle {
+    VIDEO_STYLE_UNSPECIFIED = 0;
+    VIDEO_STYLE_AUTOSELECT = 1;    // Let system choose the best style
+    VIDEO_STYLE_CLASSIC = 2;       // Classic presentation style
+    VIDEO_STYLE_WHITEBOARD = 3;    // Whiteboard-style presentation
+}
+
+// Guide type for GenerateNotebookGuide (confirmed from /tmp/notebooklm3.har analysis)
+enum GuideType {
+    GUIDE_TYPE_UNSPECIFIED = 0;
+    GUIDE_TYPE_OUTLINE = 1;        // Text outline
+    GUIDE_TYPE_MIND_MAP = 2;       // Mind map visualization
+}
+
 message CreateAudioOverviewRequest {
     string project_id = 1;
-    int32 audio_type = 2;
-    repeated string instructions = 3;
+    AudioType audio_type = 2;
+    repeated string source_ids = 3;
+    string custom_instructions = 4;
+    AudioLength length = 5;
+    string language = 6;  // e.g. "en"
+}
+
+// Video overview request (uses same R7cb6c RPC as audio, but with mode=3 parameter)
+message CreateVideoOverviewRequest {
+    string project_id = 1;
+    AudioType audio_type = 2;      // Content style (only BRIEF=2 observed so far)
+    repeated string source_ids = 3;
+    string custom_instructions = 4;
+    VideoStyle video_style = 5;    // Visual presentation style
+    string language = 6;           // e.g. "en"
 }
 
 message GetAudioOverviewRequest {
@@ -287,7 +344,11 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "LfTXoe";
         option (arg_format) = "[%project_id%, %page_size%, %page_token%]";
     }
-    
+    rpc QueryArtifacts(QueryArtifactsRequest) returns (QueryArtifactsResponse) {
+        option (rpc_id) = "gArtLc";
+        option (arg_format) = "[%artifact_types%, %project_id%, %filter%]";
+    }
+
     // Source operations
     rpc ActOnSources(ActOnSourcesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "yyryJe";
@@ -324,8 +385,11 @@ service LabsTailwindOrchestrationService {
     
     // Audio operations
     rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview) {
-        option (rpc_id) = "AHyHrd";
-        option (arg_format) = "[%project_id%, %audio_type%, %instructions%]";
+        option (rpc_id) = "R7cb6c";
+        // Format discovered from HAR analysis:
+        // [[audio_type], project_id, [null, null, 1, [[[source_ids]]], null, null,
+        //   [null, [custom_instructions, length, null, [[[source_ids]]], language, true, 1]]]]
+        // Using custom encoder for this complex structure
     }
     rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
         option (rpc_id) = "VUsiyb";
@@ -334,6 +398,15 @@ service LabsTailwindOrchestrationService {
     rpc DeleteAudioOverview(DeleteAudioOverviewRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "sJDbic";
         option (arg_format) = "[%project_id%]";
+    }
+
+    // Video operations (uses same R7cb6c RPC as audio but with mode=3)
+    rpc CreateVideoOverview(CreateVideoOverviewRequest) returns (VideoOverview) {
+        option (rpc_id) = "R7cb6c";
+        // Format discovered from HAR analysis:
+        // [[audio_type], project_id, [null, null, 3, [[[source_ids]]], null, null, null, null,
+        //   [null, null, [[[source_ids]], language, custom_instructions, null, 1, video_style]]]]
+        // Using custom encoder for this complex structure
     }
     
     // Note operations
@@ -511,6 +584,7 @@ message GenerateDocumentGuidesRequest {
 
 message GenerateNotebookGuideRequest {
     string project_id = 1;
+    GuideType guide_type = 2;  // Type of guide to generate (2 = mind map)
 }
 
 message GenerateOutlineRequest {

@@ -128,6 +128,19 @@ message AudioOverview {
   string status = 1;
   string content = 2;
   string instructions = 3;
+  string audio_id = 4;
+  string audio_url = 5;
+  string title = 6;
+}
+
+message VideoOverview {
+  string status = 1;
+  string content = 2;
+  string instructions = 3;
+  string video_id = 4;
+  string video_url = 5;
+  string title = 6;
+  int32 style = 7;  // Video style (1=autoselect, 2=classic, 3=whiteboard)
 }
 
 message GenerateDocumentGuidesResponse {
