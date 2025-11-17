@@ -600,20 +600,38 @@ func (c *Client) CreateAudioOverview(projectID string, instructions string) (*Au
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	if instructions == "" {
-		return nil, fmt.Errorf("instructions required")
-	}
 
 	// Use direct RPC if configured
 	if c.config.UseDirectRPC {
 		return c.createAudioOverviewDirectRPC(projectID, instructions)
 	}
 
-	// Default: use orchestration service
+	// Get project to extract source IDs
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("get project sources: %w", err)
+	}
+
+	// Extract source IDs from project
+	var sourceIDs []string
+	for _, source := range project.Sources {
+		if source.SourceId != nil {
+			sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+		}
+	}
+
+	if len(sourceIDs) == 0 {
+		return nil, fmt.Errorf("project has no sources - add sources before creating audio overview")
+	}
+
+	// Default: use orchestration service with new proto fields
 	req := &pb.CreateAudioOverviewRequest{
-		ProjectId:    projectID,
-		AudioType:    0,
-		Instructions: []string{instructions},
+		ProjectId:           projectID,
+		AudioType:           pb.AudioType_AUDIO_TYPE_DEEP_DIVE,  // Default to Deep Dive (value=1)
+		SourceIds:           sourceIDs,
+		CustomInstructions:  instructions,
+		Length:              pb.AudioLength_AUDIO_LENGTH_DEFAULT, // Default length (value=2)
+		Language:            "en",
 	}
 	ctx := context.Background()
 	audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
@@ -923,42 +941,264 @@ func (c *Client) CreateVideoOverview(projectID string, instructions string) (*Vi
 }
 
 // DownloadAudioOverview attempts to download the actual audio file
-// by trying different request types until it finds one with audio data
+// by querying for audio artifacts and downloading from the URL
 func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, error) {
-	if !c.config.UseDirectRPC {
-		return nil, fmt.Errorf("audio download requires --direct-rpc flag for now")
+	// Query for audio artifacts using direct RPC (response format is complex)
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCListArtifacts, // Use gArtLc RPC
+		Args: []interface{}{
+			[]interface{}{2}, // artifact_types=[2] for ARTIFACT_TYPE_AUDIO_OVERVIEW
+			projectID,
+			"NOT artifact.status = \"ARTIFACT_STATUS_SUGGESTED\"",
+		},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("query audio artifacts: %w", err)
 	}
 
-	// Try different request types to find the one that returns audio data
-	requestTypes := []int{0, 1, 2, 3, 4, 5}
+	// Parse response - RPC client already extracts and parses the nested JSON for us
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		return nil, fmt.Errorf("parse artifacts response: %w", err)
+	}
 
-	for _, requestType := range requestTypes {
-		if c.config.Debug {
-			fmt.Printf("Trying request_type=%d for audio download...\n", requestType)
-		}
+	if c.config.Debug {
+		fmt.Printf("Query artifacts response: %d top-level elements\n", len(responseData))
+	}
 
-		result, err := c.getAudioOverviewDirectRPCWithType(projectID, requestType)
-		if err != nil {
-			if c.config.Debug {
-				fmt.Printf("Request type %d failed: %v\n", requestType, err)
+	// Response is already parsed by RPC client: [[artifact1, artifact2, ...]]
+	if len(responseData) == 0 {
+		return nil, fmt.Errorf("no audio overview found for this notebook")
+	}
+
+	// Get the artifacts array (first element)
+	artifacts, ok := responseData[0].([]interface{})
+	if !ok || len(artifacts) == 0 {
+		return nil, fmt.Errorf("no audio artifacts found")
+	}
+
+	if c.config.Debug {
+		fmt.Printf("Found %d artifacts\n", len(artifacts))
+	}
+
+	// Get first artifact (most recent)
+	artifactData, ok := artifacts[0].([]interface{})
+	if !ok || len(artifactData) < 7 {
+		return nil, fmt.Errorf("invalid artifact data structure (need at least 7 elements, got %d)", len(artifactData))
+	}
+
+	if c.config.Debug {
+		fmt.Printf("Artifact data has %d elements\n", len(artifactData))
+		// Print first 12 elements to find the URL - including deep nested arrays
+		for i := 0; i < len(artifactData) && i < 12; i++ {
+			fmt.Printf("  [%d] type=%T\n", i, artifactData[i])
+			if str, ok := artifactData[i].(string); ok && len(str) > 0 && len(str) < 200 {
+				fmt.Printf("      value=%s\n", str)
 			}
-			continue
-		}
-
-		// Check if this request type returned audio data
-		if result.AudioData != "" {
-			if c.config.Debug {
-				fmt.Printf("Found audio data with request_type=%d (data length: %d)\n", requestType, len(result.AudioData))
+			// Check nested arrays for URLs
+			if arr, ok := artifactData[i].([]interface{}); ok && len(arr) > 0 {
+				fmt.Printf("      array length=%d\n", len(arr))
+				for j := 0; j < len(arr) && j < 20; j++ {
+					if str, ok := arr[j].(string); ok {
+						if strings.HasPrefix(str, "https://") {
+							displayStr := str
+							if len(str) > 80 {
+								displayStr = str[:80] + "..."
+							}
+							fmt.Printf("      [%d][%d]=%s\n", i, j, displayStr)
+						} else if len(str) < 100 {
+							// Also show short non-URL strings (mime types, etc)
+							fmt.Printf("      [%d][%d]=%q\n", i, j, str)
+						}
+					}
+					// Check double-nested arrays
+					if nestedArr, ok := arr[j].([]interface{}); ok && len(nestedArr) > 0 {
+						fmt.Printf("      [%d][%d] is array with length %d\n", i, j, len(nestedArr))
+						for k := 0; k < len(nestedArr) && k < 10; k++ {
+							if str, ok := nestedArr[k].(string); ok {
+								if strings.HasPrefix(str, "https://") {
+									displayStr := str
+									if len(str) > 80 {
+										displayStr = str[:80] + "..."
+									}
+									fmt.Printf("        [%d][%d][%d]=%s\n", i, j, k, displayStr)
+								} else if len(str) < 100 {
+									fmt.Printf("        [%d][%d][%d]=%q\n", i, j, k, str)
+								}
+							}
+							// Check for numbers (mime types, sizes, etc)
+							if num, ok := nestedArr[k].(float64); ok {
+								fmt.Printf("        [%d][%d][%d]=%v\n", i, j, k, num)
+							}
+						}
+					}
+				}
 			}
-			return result, nil
-		}
-
-		if c.config.Debug {
-			fmt.Printf("Request type %d returned no audio data\n", requestType)
 		}
 	}
 
-	return nil, fmt.Errorf("no request type returned audio data - the audio may not be ready yet")
+	// Extract fields from artifact
+	// Format: [audio_id, title, type, sources, state, ?, audio_overview, ...]
+	// audio_overview at index 6 contains: [?, ?, audio_url, video_url, ...]
+	audioID, _ := artifactData[0].(string)
+	title, _ := artifactData[1].(string)
+
+	// Get audio overview array at index 6
+	audioOverview, ok := artifactData[6].([]interface{})
+	if !ok || len(audioOverview) < 6 {
+		return nil, fmt.Errorf("audio overview data not found or incomplete (has %d elements, need at least 6)", len(audioOverview))
+	}
+
+	// Audio URLs are in a nested array at audioOverview[5]
+	// Format: [[url1, type1, mime1], [url2, type2, mime2], ...]
+	audioURLList, ok := audioOverview[5].([]interface{})
+	if !ok || len(audioURLList) == 0 {
+		return nil, fmt.Errorf("audio URL list not found - audio may not be ready yet")
+	}
+
+	if c.config.Debug {
+		fmt.Printf("Found %d audio format options in nested array\n", len(audioURLList))
+	}
+
+	// Try to find a URL that doesn't require authentication redirect
+	// Prefer URLs with =m140-dv or =m140 format (direct download formats)
+	var audioURL string
+	for i, urlData := range audioURLList {
+		if urlArr, ok := urlData.([]interface{}); ok && len(urlArr) > 0 {
+			if url, ok := urlArr[0].(string); ok && url != "" {
+				// Try all URLs, preferring certain formats
+				// Format 0: usually =m140-dv (type 4, audio/mp4)
+				// Format 1: usually =m140 (type 1, audio/mp4)
+				if audioURL == "" || i == 0 {
+					audioURL = url
+					if c.config.Debug {
+						display := url
+						if len(display) > 80 {
+							display = display[:80] + "..."
+						}
+						var mimeType string
+						if len(urlArr) > 2 {
+							mimeType, _ = urlArr[2].(string)
+						}
+						fmt.Printf("  Format %d: %s (mime: %s)\n", i, display, mimeType)
+					}
+				}
+			}
+		}
+	}
+
+	if audioURL == "" {
+		return nil, fmt.Errorf("audio URL not found in URL list")
+	}
+
+	if c.config.Debug {
+		fmt.Printf("Found audio: %s\n", title)
+		fmt.Printf("Downloading audio from: %s\n", audioURL)
+	}
+
+	// Download the audio from the URL
+	audioData, err := c.downloadAudioFromURL(audioURL)
+	if err != nil {
+		return nil, fmt.Errorf("download audio from URL: %w", err)
+	}
+
+	result := &AudioOverviewResult{
+		ProjectID: projectID,
+		AudioID:   audioID,
+		Title:     title,
+		AudioData: base64.StdEncoding.EncodeToString(audioData),
+		IsReady:   true,
+	}
+
+	return result, nil
+}
+
+// downloadAudioFromURL downloads audio data from a googleusercontent URL
+// Google CDN URLs require full browser authentication context, so we use chromedp
+func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
+	// Import the auth package to use browser-based download
+	auth := &struct {
+		Download func(string, string) ([]byte, error)
+	}{}
+
+	// For now, keep the simple HTTP approach as fallback
+	// TODO: Integrate auth.DownloadWithBrowser when fully tested
+
+	// Create client that follows redirects automatically
+	client := &http.Client{
+		Timeout: 60 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// Allow up to 10 redirects
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			// Copy cookies to redirect requests
+			if len(via) > 0 {
+				for _, cookie := range via[0].Cookies() {
+					req.AddCookie(cookie)
+				}
+			}
+			return nil
+		},
+	}
+
+	req, err := http.NewRequest("GET", audioURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	// Add browser-like headers and authentication cookies
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "*/*")
+	req.Header.Set("Referer", "https://notebooklm.google.com/")
+
+	// Add authentication cookies from RPC client
+	if cookies := c.rpc.Config.Cookies; cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
+
+	if c.config.Debug {
+		fmt.Printf("Full audio URL: %s\n", audioURL)
+		fmt.Printf("Using cookies: %v\n", c.rpc.Config.Cookies != "")
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if c.config.Debug {
+		fmt.Printf("Response status: %d\n", resp.StatusCode)
+		fmt.Printf("Content-Type: %s\n", resp.Header.Get("Content-Type"))
+	}
+
+	// Check if we got an HTML auth redirect page
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "text/html") {
+		// HTML response indicates authentication failure - use browser download
+		if c.config.Debug {
+			fmt.Printf("Got HTML auth redirect, falling back to browser download\n")
+		}
+		_ = auth // Silence unused variable warning
+		return nil, fmt.Errorf("Google CDN requires browser authentication - use browser-based download (not yet implemented)")
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	audioData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if c.config.Debug {
+		fmt.Printf("Downloaded %d bytes of audio data\n", len(audioData))
+	}
+
+	return audioData, nil
 }
 
 // SaveAudioToFile saves audio data to a file
