@@ -12,7 +12,7 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"github.com/tmc/nlm/internal/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -22,9 +22,18 @@ type LabsTailwindOrchestrationServiceClient struct {
 }
 
 // NewLabsTailwindOrchestrationServiceClient creates a new client for the LabsTailwindOrchestrationService service.
+// Source: notebooklm/v1alpha1/orchestration.proto IsJules: false Host: notebooklm.google.com App: LabsTailwindUi
 func NewLabsTailwindOrchestrationServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindOrchestrationServiceClient {
+	config := rpc.ServiceConfig{
+		Host: "notebooklm.google.com",
+		App:  "LabsTailwindUi",
+		URLParams: map[string]string{
+			"hl": "en",
+			"bl": "boq_labs-tailwind-frontend_20250129.00_p0",
+		},
+	}
 	return &LabsTailwindOrchestrationServiceClient{
-		rpcClient: rpc.New(authToken, cookies, opts...),
+		rpcClient: rpc.NewWithConfig(authToken, cookies, config, opts...),
 	}
 }
 
