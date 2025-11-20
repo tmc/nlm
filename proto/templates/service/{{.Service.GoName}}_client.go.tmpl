@@ -8,6 +8,16 @@ package service
 {{- $hasMethodWithRpcId := false }}
 {{- $hasEmptyResponse := false }}
 {{- $hasNonEmptyResponse := false }}
+{{- $isJules := eq .Service.GoName "SweBotService" }}
+{{- $serviceHost := "" }}
+{{- $serviceApp := "" }}
+{{- if $isJules }}
+{{- $serviceHost = "jules.google.com" }}
+{{- $serviceApp = "Swebot" }}
+{{- else }}
+{{- $serviceHost = "notebooklm.google.com" }}
+{{- $serviceApp = "LabsTailwindUi" }}
+{{- end }}
 {{- range .Service.Methods }}
   {{- $rpcID := methodExtension . "notebooklm.v1alpha1.rpc_id" }}
   {{- $argFormat := methodExtension . "notebooklm.v1alpha1.arg_format" }}
@@ -31,7 +41,11 @@ import (
 	
 	"github.com/tmc/nlm/gen/method"
 	{{- end }}
+	{{- if eq $serviceApp "Swebot" }}
+	julesv1alpha1 "github.com/tmc/nlm/gen/jules/v1alpha1"
+	{{- else }}
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	{{- end }}
 	"github.com/tmc/nlm/internal/batchexecute"
 	{{- if $hasNonEmptyResponse }}
 	"github.com/tmc/nlm/internal/beprotojson"
@@ -43,7 +57,6 @@ import (
 )
 
 {{- $service := .Service }}
-{{- $serviceOptions := .Service.Desc.Options }}
 
 // {{.Service.GoName}}Client is a generated client for the {{.Service.GoName}} service.
 type {{.Service.GoName}}Client struct {
@@ -51,9 +64,23 @@ type {{.Service.GoName}}Client struct {
 }
 
 // New{{.Service.GoName}}Client creates a new client for the {{.Service.GoName}} service.
+// Source: {{.File.Desc.Path}} IsJules: {{$isJules}} Host: {{$serviceHost}} App: {{$serviceApp}}
 func New{{.Service.GoName}}Client(authToken, cookies string, opts ...batchexecute.Option) *{{.Service.GoName}}Client {
+	config := rpc.ServiceConfig{
+		Host: "{{$serviceHost}}",
+		App:  "{{$serviceApp}}",
+		URLParams: map[string]string{
+			"hl": "en",
+			{{- if eq $serviceApp "Swebot" }}
+			"bl":          "boq_labs-language-aida-swebot-uiserver_20251117.12_p5",
+			"source-path": "/session",
+			{{- else if eq $serviceApp "LabsTailwindUi" }}
+			"bl": "boq_labs-tailwind-frontend_20250129.00_p0",
+			{{- end }}
+		},
+	}
 	return &{{.Service.GoName}}Client{
-		rpcClient: rpc.New(authToken, cookies, opts...),
+		rpcClient: rpc.NewWithConfig(authToken, cookies, config, opts...),
 	}
 }
 
@@ -63,8 +90,15 @@ func New{{.Service.GoName}}Client(authToken, cookies string, opts ...batchexecut
 {{- $argFormat := methodExtension . "notebooklm.v1alpha1.arg_format" }}
 {{- $chunkedResponse := methodExtension . "notebooklm.v1alpha1.chunked_response" }}
 
+{{- $pkgName := "" }}
+{{- if eq $serviceApp "Swebot" }}
+{{- $pkgName = "julesv1alpha1" }}
+{{- else }}
+{{- $pkgName = "notebooklmv1alpha1" }}
+{{- end }}
+
 // {{.GoName}} calls the {{.GoName}} RPC method.
-func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *notebooklmv1alpha1.{{.Input.GoIdent.GoName}}) (*{{if eq .Output.GoIdent.GoName "Empty"}}emptypb.Empty{{else}}notebooklmv1alpha1.{{.Output.GoIdent.GoName}}{{end}}, error) {
+func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *{{$pkgName}}.{{.Input.GoIdent.GoName}}) (*{{if eq .Output.GoIdent.GoName "Empty"}}emptypb.Empty{{else}}{{$pkgName}}.{{.Output.GoIdent.GoName}}{{end}}, error) {
 	{{- if $rpcID }}
 	// Build the RPC call
 	call := rpc.Call{
@@ -86,7 +120,7 @@ func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *notebo
 	{{- if eq .Output.GoIdent.GoName "Empty" }}
 	var result emptypb.Empty
 	{{- else }}
-	var result notebooklmv1alpha1.{{.Output.GoIdent.GoName}}
+	var result {{$pkgName}}.{{.Output.GoIdent.GoName}}
 	{{- end }}
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("{{.GoName}}: unmarshal response: %w", err)

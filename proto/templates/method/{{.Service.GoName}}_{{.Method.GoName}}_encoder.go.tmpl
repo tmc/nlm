@@ -1,11 +1,21 @@
 {{- $rpcID := methodExtension .Method "notebooklm.v1alpha1.rpc_id" }}
 {{- $argFormat := methodExtension .Method "notebooklm.v1alpha1.arg_format" }}
+{{- $isJules := eq .Service.GoName "SweBotService" }}
+{{- $pkgName := "" }}
+{{- $pkgPath := "" }}
+{{- if $isJules }}
+{{- $pkgName = "julesv1alpha1" }}
+{{- $pkgPath = "jules/v1alpha1" }}
+{{- else }}
+{{- $pkgName = "notebooklmv1alpha1" }}
+{{- $pkgPath = "notebooklm/v1alpha1" }}
+{{- end }}
 package method
 {{- if $argFormat }}
 
 import (
-	"github.com/tmc/nlm/internal/notebooklm/rpc/argbuilder"
-	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/rpc/argbuilder"
+	{{$pkgName}} "github.com/tmc/nlm/gen/{{$pkgPath}}"
 )
 {{- end }}
 {{- if $rpcID }}
@@ -15,7 +25,7 @@ import (
 // Encode{{.Method.GoName}}Args encodes arguments for {{.Service.GoName}}.{{.Method.GoName}}
 // RPC ID: {{$rpcID}}
 // Argument format: {{$argFormat}}
-func Encode{{.Method.GoName}}Args(req *notebooklmv1alpha1.{{.Method.Input.GoIdent.GoName}}) []interface{} {
+func Encode{{.Method.GoName}}Args(req *{{$pkgName}}.{{.Method.Input.GoIdent.GoName}}) []interface{} {
 	// Using generalized argument encoder
 	args, err := argbuilder.EncodeRPCArgs(req, "{{$argFormat}}")
 	if err != nil {
