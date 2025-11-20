@@ -12,7 +12,7 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"github.com/tmc/nlm/internal/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -22,9 +22,18 @@ type LabsTailwindGuidebooksServiceClient struct {
 }
 
 // NewLabsTailwindGuidebooksServiceClient creates a new client for the LabsTailwindGuidebooksService service.
+// Source: notebooklm/v1alpha1/sharing.proto IsJules: false Host: notebooklm.google.com App: LabsTailwindUi
 func NewLabsTailwindGuidebooksServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindGuidebooksServiceClient {
+	config := rpc.ServiceConfig{
+		Host: "notebooklm.google.com",
+		App:  "LabsTailwindUi",
+		URLParams: map[string]string{
+			"hl": "en",
+			"bl": "boq_labs-tailwind-frontend_20250129.00_p0",
+		},
+	}
 	return &LabsTailwindGuidebooksServiceClient{
-		rpcClient: rpc.New(authToken, cookies, opts...),
+		rpcClient: rpc.NewWithConfig(authToken, cookies, config, opts...),
 	}
 }
 
