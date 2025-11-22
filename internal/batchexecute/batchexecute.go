@@ -424,6 +424,11 @@ func decodeResponse(raw string) ([]Response, error) {
 			responseData = rpcData[5]
 		}
 
+		// Try position 10 for data (seen in Jules output)
+		if responseData == nil && len(rpcData) > 10 && rpcData[10] != nil {
+			responseData = rpcData[10]
+		}
+
 		// Convert responseData to JSON if it's not already a string
 		if responseData != nil && resp.Data == nil {
 			if dataBytes, err := json.Marshal(responseData); err == nil {
@@ -610,9 +615,10 @@ type ReqIDGenerator struct {
 
 // NewReqIDGenerator creates a new request ID generator
 func NewReqIDGenerator() *ReqIDGenerator {
-	// Generate random 4-digit number (1000-9999)
+	// Generate random number closer to what browser sends (e.g. 1504645725)
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	base := r.Intn(9000) + 1000
+	// Use a base that looks like a partial timestamp (1.5B + random)
+	base := 1500000000 + r.Intn(100000000)
 
 	return &ReqIDGenerator{
 		base:     base,
