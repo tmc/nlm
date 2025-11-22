@@ -147,9 +147,11 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		return nil, fmt.Errorf("marshal request body: %w", err)
 	}
 
-	form := url.Values{}
-	form.Set("f.req", string(reqBody))
-	form.Set("at", c.config.AuthToken)
+	// Build form body manually to match exact browser format:
+	// f.req first, then at, with trailing &
+	formBody := fmt.Sprintf("f.req=%s&at=%s&",
+		url.QueryEscape(string(reqBody)),
+		url.QueryEscape(c.config.AuthToken))
 
 	if c.config.Debug {
 		// Safely display auth token with conservative masking
@@ -172,22 +174,31 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		fmt.Printf("\nAuth Token: %s\n", tokenDisplay)
 
 		// Mask auth token in request body display
-		maskedForm := url.Values{}
-		for k, v := range form {
-			if k == "at" && len(v) > 0 {
-				// Mask the auth token value
-				maskedValue := maskSensitiveValue(v[0])
-				maskedForm.Set(k, maskedValue)
-			} else {
-				maskedForm[k] = v
-			}
-		}
-		fmt.Printf("\nRequest Body:\n%s\n", maskedForm.Encode())
+		maskedBody := fmt.Sprintf("f.req=%s&at=%s&",
+			url.QueryEscape(string(reqBody)),
+			url.QueryEscape(maskSensitiveValue(c.config.AuthToken)))
+		fmt.Printf("\nRequest Body:\n%s\n", maskedBody)
 		fmt.Printf("\nDecoded Request Body:\n%s\n", string(reqBody))
 	}
 
+	// Dump verbatim request if requested (no masking)
+	if c.config.DebugDumpRequest {
+		fmt.Printf("\n=== VERBATIM REQUEST DUMP ===\n")
+		fmt.Printf("Method: POST\n")
+		fmt.Printf("URL: %s\n\n", u.String())
+		fmt.Printf("Headers:\n")
+		fmt.Printf("Content-Type: application/x-www-form-urlencoded;charset=UTF-8\n")
+		for k, v := range c.config.Headers {
+			fmt.Printf("%s: %s\n", k, v)
+		}
+		fmt.Printf("Cookie: %s\n\n", c.config.Cookies)
+		fmt.Printf("Body:\n%s\n", formBody)
+		fmt.Printf("\nDecoded f.req:\n%s\n", string(reqBody))
+		fmt.Printf("=== END REQUEST DUMP ===\n\n")
+	}
+
 	// Create request
-	req, err := http.NewRequest("POST", u.String(), strings.NewReader(form.Encode()))
+	req, err := http.NewRequest("POST", u.String(), strings.NewReader(formBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -234,7 +245,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		// Clone the request for each attempt
 		reqClone := req.Clone(req.Context())
 		if req.Body != nil {
-			reqClone.Body = io.NopCloser(strings.NewReader(form.Encode()))
+			reqClone.Body = io.NopCloser(strings.NewReader(formBody))
 		}
 
 		resp, err = c.httpClient.Do(reqClone)
@@ -480,6 +491,12 @@ func WithDebugDumpPayload(debugDumpPayload bool) Option {
 	}
 }
 
+func WithDebugDumpRequest(debugDumpRequest bool) Option {
+	return func(c *Client) {
+		c.config.DebugDumpRequest = debugDumpRequest
+	}
+}
+
 // WithTimeout sets the HTTP client timeout
 func WithTimeout(timeout time.Duration) Option {
 	return func(c *Client) {
@@ -542,6 +559,9 @@ type Config struct {
 
 	// Debug payload dumping
 	DebugDumpPayload bool // If true, dumps raw payload and exits
+
+	// Debug request dumping
+	DebugDumpRequest bool // If true, dumps verbatim outgoing request
 }
 
 // Client handles batchexecute operations
