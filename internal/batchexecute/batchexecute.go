@@ -1,6 +1,7 @@
 package batchexecute
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,6 +90,29 @@ func maskCookieValues(cookies string) string {
 	}
 
 	return strings.Join(masked, "; ")
+}
+
+// extractSAPISID extracts the SAPISID value from a cookie string
+func extractSAPISID(cookies string) string {
+	parts := strings.Split(cookies, ";")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "SAPISID=[REDACTED] {
+			return strings.TrimPrefix(part, "SAPISID=[REDACTED]
+		}
+	}
+	return ""
+}
+
+// generateSAPISIDHASH generates the authorization hash for Google APIs
+// Format: SHA1(timestamp + " " + SAPISID + " " + origin)
+func generateSAPISIDHASH(sapisid string, origin string) string {
+	timestamp := time.Now().Unix()
+	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, origin)
+
+	hash := sha1.New()
+	hash.Write([]byte(data))
+	return fmt.Sprintf("SAPISIDHASH %d_%x", timestamp, hash.Sum(nil))
 }
 
 func buildRPCData(rpc RPC) []interface{} {
@@ -209,6 +233,19 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("cookie", c.config.Cookies)
+
+	// Add Authorization header with SAPISID hash if available
+	if sapisid := extractSAPISID(c.config.Cookies); sapisid != "" {
+		origin := fmt.Sprintf("https://%s", c.config.Host)
+		authHeader := generateSAPISIDHASH(sapisid, origin)
+		req.Header.Set("authorization", authHeader)
+		if c.config.Debug {
+			// Mask the hash for security in debug output
+			parts := strings.SplitN(authHeader, "_", 2)
+			maskedAuth := parts[0] + "_" + maskSensitiveValue(parts[1])
+			fmt.Printf("\nAuthorization: %s\n", maskedAuth)
+		}
+	}
 
 	if c.config.Debug {
 		fmt.Printf("\nRequest Headers:\n")
