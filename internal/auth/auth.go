@@ -23,7 +23,21 @@ type BrowserAuth struct {
 	chromeCmd       *exec.Cmd
 	cancel          context.CancelFunc
 	useExec         bool
-	keepOpenSeconds int // Keep browser open for N seconds after auth
+	keepOpenSeconds int    // Keep browser open for N seconds after auth
+	sessionID       string // Captured session ID for Jules API
+	blParam         string // Build label parameter for Jules API
+	sourcePath      string // Source path parameter for Jules API
+	rtParam         string // RT parameter for Jules API
+}
+
+// AuthData holds authentication information extracted from the browser
+type AuthData struct {
+	Token      string
+	Cookies    string
+	SessionID  string
+	BLParam    string // Build label parameter for Jules API
+	SourcePath string // Source path parameter for Jules API
+	RTParam    string // RT parameter for Jules API
 }
 
 func New(debug bool) *BrowserAuth {
@@ -31,6 +45,35 @@ func New(debug bool) *BrowserAuth {
 		debug:   debug,
 		useExec: false,
 	}
+}
+
+// GetAuthData returns all authentication data including session ID and Jules parameters
+func (ba *BrowserAuth) GetAuthData(opts ...Option) (*AuthData, error) {
+	token, cookies, err := ba.GetAuth(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &AuthData{
+		Token:      token,
+		Cookies:    cookies,
+		SessionID:  ba.sessionID,
+		BLParam:    ba.blParam,
+		SourcePath: ba.sourcePath,
+		RTParam:    ba.rtParam,
+	}, nil
+}
+
+// KeepAlive prevents the browser from being cleaned up automatically.
+// Call this before returning from auth if you want to keep the browser session alive.
+// You must call Cleanup() manually when done.
+func (ba *BrowserAuth) KeepAlive() {
+	// Clear the cancel function so cleanup() doesn't close the browser
+	ba.cancel = nil
+}
+
+// Cleanup manually cleans up browser resources
+func (ba *BrowserAuth) Cleanup() {
+	ba.cleanup()
 }
 
 type Options struct {
@@ -660,7 +703,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		}))
 	}
 
-	return ba.extractAuthData(ctx)
+	return ba.extractAuthDataForURL(ctx, o.TargetURL)
 }
 
 // copyProfileData first resolves the profile name to a path and then calls copyProfileDataFromPath
@@ -1193,10 +1236,23 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 		return "", "", fmt.Errorf("token not found or invalid")
 	}
 
+	// Extract session ID and Jules-specific parameters (for Jules API)
+	var sessionID, blParam, cookieURL string
+
+	// Get current URL to determine which domain's cookies to fetch
+	if err := chromedp.Run(ctx, chromedp.Location(&cookieURL)); err == nil && cookieURL != "" {
+		// Use current URL for cookies
+	} else {
+		// Fallback to NotebookLM
+		cookieURL = "https://notebooklm.google.com"
+	}
+
 	err = chromedp.Run(ctx,
 		chromedp.Evaluate(`WIZ_global_data.SNlM0e`, &token),
+		chromedp.Evaluate(`WIZ_global_data.FdrFJe || ""`, &sessionID),
+		chromedp.Evaluate(`WIZ_global_data.cfb2h || ""`, &blParam),
 		chromedp.ActionFunc(func(ctx context.Context) error {
-			cks, err := network.GetCookies().WithUrls([]string{"https://notebooklm.google.com"}).Do(ctx)
+			cks, err := network.GetCookies().WithUrls([]string{cookieURL}).Do(ctx)
 			if err != nil {
 				return fmt.Errorf("get cookies: %w", err)
 			}
@@ -1209,6 +1265,21 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 			return nil
 		}),
 	)
+
+	// Store extracted values in struct for later retrieval
+	ba.sessionID = sessionID
+	ba.blParam = blParam
+	ba.sourcePath = "/session" // Default source path for Jules
+	ba.rtParam = "c"            // Default rt parameter
+
+	if ba.debug {
+		if sessionID != "" {
+			fmt.Printf("Extracted session ID: %s\n", sessionID)
+		}
+		if blParam != "" {
+			fmt.Printf("Extracted BL parameter: %s\n", blParam)
+		}
+	}
 	if err != nil {
 		return "", "", fmt.Errorf("extract auth data: %w", err)
 	}
