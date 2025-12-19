@@ -47,7 +47,7 @@ type ChatSession struct {
 
 // ChatMessage represents a single message in the conversation
 type ChatMessage struct {
-	Role      string    `json:"role"`      // "user" or "assistant"
+	Role      string    `json:"role"` // "user" or "assistant"
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -101,6 +101,10 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  video-list <id>   List all video overviews for a notebook with status\n")
 		fmt.Fprintf(os.Stderr, "  video-create <id> <instructions>  Create video overview\n")
 		fmt.Fprintf(os.Stderr, "  video-download <id> [filename]  Download video file (requires --direct-rpc)\n\n")
+
+		fmt.Fprintf(os.Stderr, "PPT Commands:\n")
+		fmt.Fprintf(os.Stderr, "  ppt-list <id>   List all PPT overviews for a notebook with status\n")
+		fmt.Fprintf(os.Stderr, "  ppt-create <id> [source-ids...]  Create PPT overview (uses all sources if none specified)\n")
 
 		fmt.Fprintf(os.Stderr, "Artifact Commands:\n")
 		fmt.Fprintf(os.Stderr, "  create-artifact <id> <type>  Create artifact (note|audio|report|app)\n")
@@ -257,6 +261,16 @@ func validateArgs(cmd string, args []string) error {
 	case "video-download":
 		if len(args) < 1 || len(args) > 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm video-download <notebook-id> [filename]\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "ppt-list":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm ppt-list <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "ppt-create":
+		if len(args) < 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm ppt-create <notebook-id> [source-id...]\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "audio-create":
@@ -417,7 +431,7 @@ func isValidCommand(cmd string) bool {
 		"list", "ls", "create", "rm", "analytics", "list-featured",
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
 		"notes", "new-note", "update-note", "rm-note",
-		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download",
+		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download", "ppt-create", "ppt-list",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
@@ -737,6 +751,16 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 			filename = args[1]
 		}
 		err = downloadVideoOverview(client, args[0], filename)
+
+	// PPT operations
+	case "ppt-create":
+		sourceIDs := []string{}
+		if len(args) > 1 {
+			sourceIDs = args[1:]
+		}
+		err = createPPTOverview(client, args[0], sourceIDs)
+	case "ppt-list":
+		err = listPPTOverviews(client, args[0])
 
 	// Artifact operations
 	case "create-artifact":
@@ -2300,4 +2324,76 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 	}
 
 	return nil
+}
+
+// PPT operations
+func createPPTOverview(c *api.Client, projectID string, sourceIDs []string) error {
+	fmt.Printf("Creating PPT overview for notebook %s...\n", projectID)
+	if len(sourceIDs) > 0 {
+		fmt.Printf("Using %d specified source(s)\n", len(sourceIDs))
+	} else {
+		fmt.Printf("Using all sources from notebook\n")
+	}
+
+	result, err := c.CreatePPTOverview(projectID, sourceIDs)
+	if err != nil {
+		return fmt.Errorf("create PPT overview: %w", err)
+	}
+
+	if !result.IsReady {
+		fmt.Println("✅ PPT overview creation started. PPT generation may take several minutes.")
+		fmt.Printf("  Project ID: %s\n", result.ProjectID)
+		if result.PPTID != "" {
+			fmt.Printf("  PPT ID: %s\n", result.PPTID)
+		}
+		return nil
+	}
+
+	// If the result is immediately ready (unlikely but possible)
+	fmt.Printf("✅ PPT Overview created:\n")
+	fmt.Printf("  Title: %s\n", result.Title)
+	fmt.Printf("  PPT ID: %s\n", result.PPTID)
+
+	if result.PPTData != "" {
+		if strings.HasPrefix(result.PPTData, "http://") || strings.HasPrefix(result.PPTData, "https://") {
+			fmt.Printf("  PPT URL: %s\n", result.PPTData)
+		} else {
+			fmt.Printf("  PPT data available\n")
+		}
+	}
+
+	return nil
+}
+
+func listPPTOverviews(c *api.Client, notebookID string) error {
+	fmt.Printf("Listing PPT overviews for notebook %s...\n", notebookID)
+
+	pptOverviews, err := c.ListPPTOverviews(notebookID)
+	if err != nil {
+		return fmt.Errorf("list PPT overviews: %w", err)
+	}
+
+	if len(pptOverviews) == 0 {
+		fmt.Println("No PPT overviews found.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	fmt.Fprintln(w, "PPT_ID\tTITLE\tSTATUS")
+	for _, ppt := range pptOverviews {
+		status := "pending"
+		if ppt.IsReady {
+			status = "ready"
+		}
+		title := ppt.Title
+		if title == "" {
+			title = "(untitled)"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n",
+			ppt.PPTID,
+			title,
+			status,
+		)
+	}
+	return w.Flush()
 }

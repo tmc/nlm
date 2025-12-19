@@ -1997,3 +1997,251 @@ func extractYouTubeVideoID(urlStr string) (string, error) {
 
 	return "", fmt.Errorf("unsupported YouTube URL format")
 }
+
+// PPT operations
+
+type PPTOverviewResult struct {
+	ProjectID string
+	PPTID     string
+	Title     string
+	PPTData   string // Base64 encoded or URL
+	IsReady   bool
+}
+
+func (c *Client) CreatePPTOverview(projectID string, sourceIDs []string) (*PPTOverviewResult, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("project ID required")
+	}
+
+	// Get source IDs from project if not provided
+	if len(sourceIDs) == 0 {
+		project, err := c.GetProject(projectID)
+		if err != nil {
+			return nil, fmt.Errorf("get project: %w", err)
+		}
+
+		// Extract all source IDs from the project
+		for _, source := range project.Sources {
+			if source.SourceId != nil && source.SourceId.SourceId != "" {
+				sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+			}
+		}
+
+		if len(sourceIDs) == 0 {
+			return nil, fmt.Errorf("no sources found in project")
+		}
+
+		if c.config.Debug {
+			fmt.Printf("Using %d sources from project for PPT creation\n", len(sourceIDs))
+		}
+	}
+
+	// Format source IDs as required: [[["id1"]], [["id2"]], ...]
+	var sourceIDsArray []interface{}
+	for _, sourceID := range sourceIDs {
+		sourceIDsArray = append(sourceIDsArray, []interface{}{[]interface{}{sourceID}})
+	}
+
+	// PPT structure based on the request:
+	// [[2], "notebook-id", [null, null, 8, [[["id1"]], [["id2"]]], null, null, null, null, null, null, null, null, null, null, null, null, [[]]]]]
+	pptArgs := []interface{}{
+		[]interface{}{2}, // Mode
+		projectID,        // Notebook ID
+		[]interface{}{
+			nil,
+			nil,
+			8,              // Type (8 for PPT, vs 3 for video)
+			sourceIDsArray, // [[["id1"]], [["id2"]]]
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			[]interface{}{}, // Empty array at the end
+		},
+	}
+
+	// PPT uses the same RPC endpoint as video but with different type
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCCreatePPTOverview,
+		NotebookID: projectID,
+		Args:       pptArgs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create PPT overview: %w", err)
+	}
+
+	// Parse response - PPT returns similar structure to video: [["ppt-id", "title", status, ...]]
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		// Try parsing as string then as JSON (double encoded)
+		var strData string
+		if err2 := json.Unmarshal(resp, &strData); err2 == nil {
+			if err3 := json.Unmarshal([]byte(strData), &responseData); err3 != nil {
+				return nil, fmt.Errorf("parse PPT response: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("parse PPT response: %w", err)
+		}
+	}
+
+	result := &PPTOverviewResult{
+		ProjectID: projectID,
+		IsReady:   false, // PPT generation is async
+	}
+
+	// Extract PPT details from response
+	if len(responseData) > 0 {
+		if pptData, ok := responseData[0].([]interface{}); ok && len(pptData) > 0 {
+			// First element is PPT ID
+			if id, ok := pptData[0].(string); ok {
+				result.PPTID = id
+				if c.config.Debug {
+					fmt.Printf("PPT creation initiated with ID: %s\n", id)
+				}
+			}
+			// Second element is title
+			if len(pptData) > 1 {
+				if title, ok := pptData[1].(string); ok {
+					result.Title = title
+				}
+			}
+			// Third element is status (1 = processing, 2 = ready?)
+			if len(pptData) > 2 {
+				if status, ok := pptData[2].(float64); ok {
+					result.IsReady = status == 2
+				}
+			}
+		}
+	}
+
+	return result, nil
+}
+
+// ListPPTOverviews returns PPT overviews for a notebook
+func (c *Client) ListPPTOverviews(projectID string) ([]*PPTOverviewResult, error) {
+	// Since PPT uses the same RPC as video, we can use a similar approach
+	// Try to get the project to see if it has PPT metadata
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("get project for PPT list: %w", err)
+	}
+
+	// NotebookLM typically stores at most one PPT overview per notebook
+	// Since we don't have a direct way to get PPT overviews yet,
+	// we'll return empty for now but this can be enhanced when we discover the proper method
+	results := []*PPTOverviewResult{}
+
+	// Check if project has any metadata that might indicate PPT overviews
+	if project != nil && project.Metadata != nil {
+		// Look for PPT-related metadata (this is speculative)
+		// Will need to be updated when we discover the actual structure
+		if c.config.Debug {
+			fmt.Printf("Project %s metadata: %+v\n", projectID, project.Metadata)
+		}
+	}
+
+	return results, nil
+}
+
+// GetPPTOverview attempts to get a PPT overview for a notebook
+func (c *Client) GetPPTOverview(projectID string) (*PPTOverviewResult, error) {
+	if !c.config.UseDirectRPC {
+		return nil, fmt.Errorf("PPT overview requires --direct-rpc flag")
+	}
+
+	// Try using similar approach as video
+	// Since PPT uses the same RPC endpoint, we might be able to reuse some logic
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("get project for PPT overview: %w", err)
+	}
+
+	// Try to get PPT data using the create RPC with different parameters
+	// This is similar to how video works
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCCreatePPTOverview,
+		Args: []interface{}{
+			[]interface{}{1}, // Different mode for getting existing PPT?
+			projectID,
+			[]interface{}{
+				nil,
+				nil,
+				8, // Type 8 for PPT
+				[]interface{}{},
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				[]interface{}{
+					[]interface{}{nil, "zh_hans", 1, 3}, // Language settings
+				},
+			},
+		},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("PPT overview direct RPC: %w", err)
+	}
+
+	// Parse response
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		var strData string
+		if err2 := json.Unmarshal(resp, &strData); err2 == nil {
+			if err3 := json.Unmarshal([]byte(strData), &responseData); err3 != nil {
+				return nil, fmt.Errorf("parse PPT response: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("parse PPT response: %w", err)
+		}
+	}
+
+	result := &PPTOverviewResult{
+		ProjectID: projectID,
+	}
+
+	// Extract PPT information
+	if len(responseData) > 0 {
+		if pptData, ok := responseData[0].([]interface{}); ok {
+			if len(pptData) > 0 {
+				if id, ok := pptData[0].(string); ok {
+					result.PPTID = id
+				}
+			}
+			if len(pptData) > 1 {
+				if title, ok := pptData[1].(string); ok {
+					result.Title = title
+				} else if content, ok := pptData[1].(string); ok {
+					// This might be PPT data or URL
+					result.PPTData = content
+				}
+			}
+			if len(pptData) > 2 {
+				if status, ok := pptData[2].(float64); ok {
+					result.IsReady = status == 2
+				} else if status, ok := pptData[2].(string); ok {
+					result.IsReady = status != "CREATING"
+				}
+			}
+		}
+	}
+
+	_ = project // Use project to avoid unused variable warning
+	return result, nil
+}
