@@ -57,3 +57,26 @@ func getChromePath() string {
 	}
 	return ""
 }
+
+func getBrowserPathForProfile(browserName string) string {
+    home, _ := os.UserHomeDir()
+    switch browserName {
+    case "Chrome", "Google Chrome":
+        return filepath.Join(home, ".config", "google-chrome")
+    case "Chromium":
+        return filepath.Join(home, ".config", "chromium")
+    case "Brave":
+        return filepath.Join(home, ".config", "BraveSoftware", "Brave-Browser")
+    default:
+        return filepath.Join(home, ".config", "chromium")
+    }
+}
+
+func getCanaryProfilePath() string {
+    return ""
+}
+
+func getBraveProfilePath() string {
+    home, _ := os.UserHomeDir()
+    return filepath.Join(home, ".config", "BraveSoftware", "Brave-Browser")
+}
