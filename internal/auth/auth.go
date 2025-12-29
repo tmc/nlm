@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"os/exec"
@@ -115,7 +116,7 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 			userDataDir = tempDir
 
 			// Copy the entire profile directory to temp location
-			if err := ba.copyProfileDataFromPath(profile.Path); err != nil {
+			if err := ba.copyProfileDataFromPath(profile.Path, false); err != nil {
 				if ba.debug {
 					fmt.Printf("Error copying profile %s: %v\n", profile.Name, err)
 				}
@@ -484,7 +485,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					defer os.RemoveAll(tempDir)
 
 					// Copy profile data
-					err = tempAuth.copyProfileDataFromPath(p.Path)
+					err = tempAuth.copyProfileDataFromPath(p.Path, false)
 					if err != nil {
 						fmt.Println(" Error: could not copy profile data")
 						updatedProfiles = append(updatedProfiles, p)
@@ -623,7 +624,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 	ba.tempDir = tempDir
 
 	// Copy the profile data
-	if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
+	if err := ba.copyProfileDataFromPath(selectedProfile.Path, false); err != nil {
 		return "", "", fmt.Errorf("copy profile: %w", err)
 	}
 
@@ -699,11 +700,12 @@ func (ba *BrowserAuth) copyProfileData(profileName string) error {
 		}
 	}
 
-	return ba.copyProfileDataFromPath(sourceDir)
+	return ba.copyProfileDataFromPath(sourceDir, false)
 }
 
 // copyProfileDataFromPath copies profile data from a specific path
-func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
+// copyProfileDataFromPath copies profile data from a specific path
+func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string, isTruth bool) error {
 	if ba.debug {
 		fmt.Printf("Copying profile data from: %s\n", sourceDir)
 	}
@@ -716,13 +718,13 @@ func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
 
 	// Copy only essential files for authentication (not entire profile)
 	essentialFiles := []string{
-		"Cookies",           // Authentication cookies
-		"Cookies-journal",   // Cookie database journal
-		"Login Data",        // Saved login information
+		"Cookies",            // Authentication cookies
+		"Cookies-journal",    // Cookie database journal
+		"Login Data",         // Saved login information
 		"Login Data-journal", // Login database journal
-		"Web Data",          // Form data and autofill
-		"Web Data-journal",  // Web data journal
-		"Preferences",       // Browser preferences
+		"Web Data",           // Form data and autofill
+		"Web Data-journal",   // Web data journal
+		"Preferences",        // Browser preferences
 		"Secure Preferences", // Secure browser settings
 	}
 
@@ -749,10 +751,19 @@ func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
 		fmt.Printf("Copied %d essential files for authentication\n", copiedCount)
 	}
 
-	// Create minimal Local State file
-	localState := `{"os_crypt":{"encrypted_key":""}}`
-	if err := os.WriteFile(filepath.Join(ba.tempDir, "Local State"), []byte(localState), 0644); err != nil {
-		return fmt.Errorf("write local state: %w", err)
+	if isTruth {
+		srcLocalState := filepath.Join(filepath.Dir(sourceDir), "Local State")
+		dstLocalState := filepath.Join(ba.tempDir, "Local State")
+
+		if err := copyFile(srcLocalState, dstLocalState); err != nil {
+			return fmt.Errorf("copy actual local state: %w", err)
+		}
+	} else {
+		// Create minimal Local State file
+		localState := `{"os_crypt":{"encrypted_key":""}}`
+		if err := os.WriteFile(filepath.Join(ba.tempDir, "Local State"), []byte(localState), 0644); err != nil {
+			return fmt.Errorf("write local state: %w", err)
+		}
 	}
 
 	return nil
@@ -1238,4 +1249,169 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	}
 
 	return token, cookies, nil
+}
+
+// DownloadFileWithBrowser downloads a file using browser with authentication
+// This method uses the browser's download functionality to download files that require authentication
+func (ba *BrowserAuth) DownloadFileWithAuth(downloadURL, savePath string) error {
+	// Get the most recently used profile
+	profiles, err := ba.scanProfilesForDomain("google.com")
+	if err != nil {
+		return fmt.Errorf("scan profiles: %w", err)
+	}
+
+	if len(profiles) == 0 {
+		return fmt.Errorf("no valid profiles found")
+	}
+
+	selectedProfile := &profiles[0]
+
+	// Create a temporary directory for browser profile
+	tempDir, err := os.MkdirTemp("", "nlm-download-*")
+	if err != nil {
+		return fmt.Errorf("create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	ba.tempDir = tempDir
+	defer ba.cleanup()
+
+	// Copy the profile data
+	if err := ba.copyProfileDataFromPath(selectedProfile.Path, true); err != nil {
+		return fmt.Errorf("copy profile: %w", err)
+	}
+
+	// Create download directory
+	downloadDir := filepath.Join(tempDir, "downloads")
+	if err := os.MkdirAll(downloadDir, 0755); err != nil {
+		return fmt.Errorf("create download dir: %w", err)
+	}
+
+	// Set up Chrome with download support
+	chromeOpts := []chromedp.ExecAllocatorOption{
+		chromedp.NoFirstRun,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.UserDataDir(ba.tempDir),
+		chromedp.Flag("headless", !ba.debug),
+		chromedp.Flag("disable-default-apps", true),
+		chromedp.Flag("exclude-switches", "enable-automation"),
+		chromedp.Flag("disable-blink-features", "AutomationControlled"),
+		chromedp.Flag("disable-features", "IsolateOrigins,site-per-process"),
+		chromedp.Flag("window-size", "1280,800"),
+		chromedp.ExecPath(getChromePath()),
+		chromedp.UserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"),
+	}
+
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), chromeOpts...)
+	ba.cancel = allocCancel
+	defer allocCancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	ctx, cancel = context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	if ba.debug {
+		ctx, _ = chromedp.NewContext(ctx, chromedp.WithLogf(func(format string, args ...interface{}) {
+			fmt.Printf("ChromeDP: "+format+"\n", args...)
+		}))
+	}
+
+	var netCookies []*network.Cookie
+	if err := chromedp.Run(ctx,
+		// 等待账号信息加载完成
+		chromedp.Sleep(15*time.Second),
+		// 刷新cookie
+		chromedp.Navigate("https://accounts.google.com/CheckCookie?continue=https://www.google.com/"),
+
+		// 获取accounts.google.com/CheckCookie校验过的cookie
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			cookies, err := network.GetCookies().
+				WithUrls([]string{"https://google.com", "https://usercontent.google.com"}).
+				Do(ctx)
+
+			if err != nil {
+				return fmt.Errorf("get google cookie failed, err: %w", err)
+			}
+
+			netCookies = cookies
+			return nil
+		}),
+	); err != nil {
+		if ba.debug {
+			fmt.Printf("Navigation warning: %v (file may be downloading)\n", err)
+		}
+	}
+
+	jar, _ := cookiejar.New(nil)
+	var cookies []*http.Cookie
+	for _, c := range netCookies {
+		cookies = append(cookies, &http.Cookie{
+			Name:   c.Name,
+			Value:  c.Value,
+			Domain: c.Domain,
+			Path:   c.Path,
+			Secure: c.Secure,
+		})
+	}
+
+	// 将 Cookies 注入到 Jar 中
+	// 注意：CookieJar 需要根据 URL 匹配 Cookie。
+	// Google 的核心 Cookie 通常是 .google.com 域，所以我们需要设置进去
+	u, _ := url.Parse(downloadURL)
+	rootURL, _ := url.Parse("https://google.com")
+
+	jar.SetCookies(rootURL, cookies)
+	jar.SetCookies(u, cookies)
+
+	client := http.DefaultClient
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("stopped after 10 redirects")
+		}
+		return nil
+	}
+	client.Jar = jar
+
+	req, err := http.NewRequest("GET", downloadURL, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("http download failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// 读取一点 body 看看错误信息（如果是 403/401 说明 Cookie 没生效）
+		bodySample, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("download failed with status %s: %s", resp.Status, string(bodySample))
+	}
+
+	targetDir := filepath.Dir(savePath)
+	if err = os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("create target dir: %w", err)
+	}
+
+	outFile, err := os.Create(savePath)
+	if err != nil {
+		return fmt.Errorf("create output file: %w", err)
+	}
+	defer outFile.Close()
+
+	written, err := io.Copy(outFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("write file: %w", err)
+	}
+
+	if ba.debug {
+		fmt.Printf("File downloaded successfully: %s (%.2f MB)\n", savePath, float64(written)/(1024*1024))
+	}
+
+	return nil
 }

@@ -268,6 +268,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm ppt-list <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "ppt-download":
+		if len(args) < 1 || len(args) > 3 {
+			fmt.Fprintf(os.Stderr, "usage: nlm ppt-download <notebook-id> [filename]\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "ppt-create":
 		if len(args) < 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm ppt-create <notebook-id> [source-id...]\n")
@@ -431,7 +436,7 @@ func isValidCommand(cmd string) bool {
 		"list", "ls", "create", "rm", "analytics", "list-featured",
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
 		"notes", "new-note", "update-note", "rm-note",
-		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download", "ppt-create", "ppt-list",
+		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download", "ppt-create", "ppt-list", "ppt-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
@@ -761,7 +766,12 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = createPPTOverview(client, args[0], sourceIDs)
 	case "ppt-list":
 		err = listPPTOverviews(client, args[0])
-
+	case "ppt-download":
+		filename := ""
+		if len(args) > 2 {
+			filename = args[2]
+		}
+		err = downloadPPTOverview(client, args[0], args[1], filename)
 	// Artifact operations
 	case "create-artifact":
 		err = createArtifact(client, args[0], args[1])
@@ -2378,7 +2388,10 @@ func listPPTOverviews(c *api.Client, notebookID string) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	// 初始化 tabwriter，设置合适的最小列宽和间距
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+
+	// 1. 在表头增加 DOWNLOAD_URL
 	fmt.Fprintln(w, "PPT_ID\tTITLE\tSTATUS")
 	for _, ppt := range pptOverviews {
 		status := "pending"
@@ -2389,11 +2402,90 @@ func listPPTOverviews(c *api.Client, notebookID string) error {
 		if title == "" {
 			title = "(untitled)"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
+
+		// // 2. 获取下载链接，如果为空则显示横线或 N/A
+		// downloadURL := ppt.PPTData
+		// if downloadURL == "" {
+		// 	downloadURL = "-"
+		// }
+
+		// 3. 在 Fprintf 中增加对应的格式化占位符
+		fmt.Fprintf(w, "%s\t%s\t%s\t\n",
 			ppt.PPTID,
 			title,
 			status,
+			// downloadURL,
 		)
 	}
 	return w.Flush()
+}
+
+func downloadPPTOverview(c *api.Client, notebookID string, pptID string, filename string) error {
+	fmt.Printf("Fetching PPT overviews for notebook %s...\n", notebookID)
+
+	// 获取该笔记本下所有的 PPT 列表
+	results, err := c.ListPPTOverviews(notebookID)
+	if err != nil {
+		return fmt.Errorf("list PPT overviews: %w", err)
+	}
+
+	if len(results) == 0 {
+		return fmt.Errorf("no PPT overviews found for notebook %s", notebookID)
+	}
+
+	// 确定需要下载的任务列表
+	var tasks []*api.PPTOverviewResult
+	if pptID != "" {
+		// 如果指定了 PPTID，进行过滤
+		for _, r := range results {
+			if r.PPTID == pptID {
+				tasks = append(tasks, r)
+				break
+			}
+		}
+		if len(tasks) == 0 {
+			return fmt.Errorf("PPT with ID %s not found", pptID)
+		}
+	} else {
+		// 如果没有指定 PPTID，下载全部
+		tasks = results
+		fmt.Printf("No PPT ID specified, downloading all %d PPT(s)...\n", len(tasks))
+	}
+
+	// 执行下载逻辑
+	for _, ppt := range tasks {
+		// 处理文件名
+		targetFile := filename
+		if targetFile == "" || len(tasks) > 1 {
+			// 如果是下载多个，或者没指定文件名，则根据 ppt.Title 生成文件名
+			targetFile = fmt.Sprintf("%s.pdf", ppt.Title)
+		}
+
+		fmt.Printf("Downloading PPT: %s (ID: %s)...\n", ppt.Title, ppt.PPTID)
+
+		// 检查下载链接
+		if ppt.PPTData != "" && (strings.HasPrefix(ppt.PPTData, "http://") || strings.HasPrefix(ppt.PPTData, "https://")) {
+			// 使用认证下载
+			if err := c.DownloadPPTWithAuth(ppt.PPTData, targetFile); err != nil {
+				fmt.Printf("❌ Failed to download %s: %v\n", ppt.PPTID, err)
+				continue
+			}
+		} else {
+			// 尝试保存 base64 数据
+			if err := ppt.SavePPTToFile(targetFile); err != nil {
+				fmt.Printf("❌ Failed to save %s: %v\n", ppt.PPTID, err)
+				continue
+			}
+		}
+
+		fmt.Printf("✅ %s Saved to: %s", ppt.Title, targetFile)
+		// 显示文件大小
+		if stat, err := os.Stat(targetFile); err == nil {
+			fmt.Printf(" (%.2f MB)\n", float64(stat.Size())/(1024*1024))
+		} else {
+			fmt.Println()
+		}
+	}
+
+	return nil
 }

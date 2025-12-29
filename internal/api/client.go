@@ -18,6 +18,7 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
+	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/rpc"
 )
@@ -2127,76 +2128,22 @@ func (c *Client) CreatePPTOverview(projectID string, sourceIDs []string) (*PPTOv
 
 // ListPPTOverviews returns PPT overviews for a notebook
 func (c *Client) ListPPTOverviews(projectID string) ([]*PPTOverviewResult, error) {
-	// Since PPT uses the same RPC as video, we can use a similar approach
-	// Try to get the project to see if it has PPT metadata
-	project, err := c.GetProject(projectID)
-	if err != nil {
-		return nil, fmt.Errorf("get project for PPT list: %w", err)
-	}
-
-	// NotebookLM typically stores at most one PPT overview per notebook
-	// Since we don't have a direct way to get PPT overviews yet,
-	// we'll return empty for now but this can be enhanced when we discover the proper method
-	results := []*PPTOverviewResult{}
-
-	// Check if project has any metadata that might indicate PPT overviews
-	if project != nil && project.Metadata != nil {
-		// Look for PPT-related metadata (this is speculative)
-		// Will need to be updated when we discover the actual structure
-		if c.config.Debug {
-			fmt.Printf("Project %s metadata: %+v\n", projectID, project.Metadata)
-		}
-	}
-
-	return results, nil
-}
-
-// GetPPTOverview attempts to get a PPT overview for a notebook
-func (c *Client) GetPPTOverview(projectID string) (*PPTOverviewResult, error) {
 	if !c.config.UseDirectRPC {
-		return nil, fmt.Errorf("PPT overview requires --direct-rpc flag")
+		return nil, fmt.Errorf("PPT list requires --direct-rpc flag")
 	}
 
-	// Try using similar approach as video
-	// Since PPT uses the same RPC endpoint, we might be able to reuse some logic
-	project, err := c.GetProject(projectID)
-	if err != nil {
-		return nil, fmt.Errorf("get project for PPT overview: %w", err)
-	}
-
-	// Try to get PPT data using the create RPC with different parameters
-	// This is similar to how video works
+	// Use ListArtifacts RPC to get all artifacts, then filter for PPT (type 8)
 	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCCreatePPTOverview,
+		ID: rpc.RPCListArtifacts,
 		Args: []interface{}{
-			[]interface{}{1}, // Different mode for getting existing PPT?
+			[]interface{}{2}, // Mode
 			projectID,
-			[]interface{}{
-				nil,
-				nil,
-				8, // Type 8 for PPT
-				[]interface{}{},
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				nil,
-				[]interface{}{
-					[]interface{}{nil, "zh_hans", 1, 3}, // Language settings
-				},
-			},
+			"NOT artifact.status = \"ARTIFACT_STATUS_SUGGESTED\"", // Filter
 		},
 		NotebookID: projectID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("PPT overview direct RPC: %w", err)
+		return nil, fmt.Errorf("list artifacts for PPT: %w", err)
 	}
 
 	// Parse response
@@ -2205,43 +2152,141 @@ func (c *Client) GetPPTOverview(projectID string) (*PPTOverviewResult, error) {
 		var strData string
 		if err2 := json.Unmarshal(resp, &strData); err2 == nil {
 			if err3 := json.Unmarshal([]byte(strData), &responseData); err3 != nil {
-				return nil, fmt.Errorf("parse PPT response: %w", err)
+				return nil, fmt.Errorf("parse artifacts response: %w", err)
 			}
 		} else {
-			return nil, fmt.Errorf("parse PPT response: %w", err)
+			return nil, fmt.Errorf("parse artifacts response: %w", err)
 		}
 	}
 
-	result := &PPTOverviewResult{
-		ProjectID: projectID,
+	results := []*PPTOverviewResult{}
+
+	// Helper function to recursively search for download URL
+	var findDownloadURL func(interface{}) string
+	findDownloadURL = func(item interface{}) string {
+		switch v := item.(type) {
+		case string:
+			if strings.HasPrefix(v, "https://contribution.usercontent.google.com/download") {
+				return v
+			}
+		case []interface{}:
+			for _, subItem := range v {
+				if url := findDownloadURL(subItem); url != "" {
+					return url
+				}
+			}
+		case map[string]interface{}:
+			for _, val := range v {
+				if url := findDownloadURL(val); url != "" {
+					return url
+				}
+			}
+		}
+		return ""
 	}
 
-	// Extract PPT information
 	if len(responseData) > 0 {
-		if pptData, ok := responseData[0].([]interface{}); ok {
-			if len(pptData) > 0 {
-				if id, ok := pptData[0].(string); ok {
-					result.PPTID = id
-				}
-			}
-			if len(pptData) > 1 {
-				if title, ok := pptData[1].(string); ok {
-					result.Title = title
-				} else if content, ok := pptData[1].(string); ok {
-					// This might be PPT data or URL
-					result.PPTData = content
-				}
-			}
-			if len(pptData) > 2 {
-				if status, ok := pptData[2].(float64); ok {
-					result.IsReady = status == 2
-				} else if status, ok := pptData[2].(string); ok {
-					result.IsReady = status != "CREATING"
+		if artifactsArray, ok := responseData[0].([]interface{}); ok {
+			for _, artifactItem := range artifactsArray {
+				if artifact, ok := artifactItem.([]interface{}); ok && len(artifact) >= 3 {
+					// Check artifact type (index 2)
+					artifactType, ok := artifact[2].(float64)
+					if !ok {
+						continue
+					}
+
+					// Type 8 is PPT
+					if int(artifactType) == 8 {
+						result := &PPTOverviewResult{
+							ProjectID: projectID,
+							IsReady:   false,
+						}
+
+						// Extract artifact ID (index 0)
+						if id, ok := artifact[0].(string); ok {
+							result.PPTID = id
+						}
+
+						// Extract title (index 1)
+						if title, ok := artifact[1].(string); ok {
+							result.Title = title
+						}
+
+						// Check status (index 4)
+						if len(artifact) > 4 {
+							if status, ok := artifact[4].(float64); ok {
+								if int(status) == 3 {
+									result.IsReady = true
+								}
+							}
+						}
+
+						// Search for download URL - typically near the end of the array
+						downloadURL := ""
+						for i := len(artifact) - 1; i >= 0; i-- {
+							if urlStr, ok := artifact[i].(string); ok {
+								if strings.HasPrefix(urlStr, "https://contribution.usercontent.google.com/download") {
+									downloadURL = urlStr
+									break
+								}
+							}
+						}
+
+						// If not found in direct positions, search recursively
+						if downloadURL == "" {
+							downloadURL = findDownloadURL(artifact)
+						}
+
+						if downloadURL != "" {
+							result.PPTData = downloadURL
+							result.IsReady = true
+						}
+
+						results = append(results, result)
+					}
 				}
 			}
 		}
 	}
 
-	_ = project // Use project to avoid unused variable warning
-	return result, nil
+	return results, nil
+}
+
+// SavePPTToFile saves PPT data to a file
+// NOTE: For URL downloads, use client.DownloadPPTWithAuth() for proper authentication
+func (r *PPTOverviewResult) SavePPTToFile(filename string) error {
+	if r.PPTData == "" {
+		return fmt.Errorf("no PPT data to save")
+	}
+
+	// Check if PPTData is a URL or base64 data
+	if strings.HasPrefix(r.PPTData, "http://") || strings.HasPrefix(r.PPTData, "https://") {
+		return fmt.Errorf("PPT data is a URL, use DownloadPPTWithAuth() instead")
+	}
+
+	// Try to decode as base64
+	pptBytes, err := base64.StdEncoding.DecodeString(r.PPTData)
+	if err != nil {
+		// If not base64, treat as raw data
+		pptBytes = []byte(r.PPTData)
+	}
+
+	if err := os.WriteFile(filename, pptBytes, 0644); err != nil {
+		return fmt.Errorf("write PPT file: %w", err)
+	}
+
+	return nil
+}
+
+// DownloadPPTWithAuth downloads a PPT using browser with authentication
+func (c *Client) DownloadPPTWithAuth(pptURL, filename string) error {
+	u, err := url.Parse(pptURL)
+	if err != nil {
+		return fmt.Errorf("parse PPT download_url: %w", err)
+	}
+	u.RawQuery = u.Query().Encode()
+
+	// Use browser to download the file with authentication
+	ba := auth.New(c.config.Debug)
+	return ba.DownloadFileWithAuth(u.String(), filename)
 }
