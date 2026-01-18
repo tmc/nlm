@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Client handles gRPC-style endpoint requests
@@ -188,25 +189,37 @@ func generateRequestID() int {
 }
 
 // BuildChatRequest builds a request for the GenerateFreeFormStreamed endpoint
+// Matches the format used by notebooklm-py library
 func BuildChatRequest(sourceIDs []string, prompt string) interface{} {
-	// Build the array of source IDs
-	sources := make([][]string, len(sourceIDs))
+	// Build the array of source IDs with TRIPLE nesting: [[[sid1]], [[sid2]]]
+	sources := make([][][]string, len(sourceIDs))
 	for i, id := range sourceIDs {
-		sources[i] = []string{id}
+		sources[i] = [][]string{{id}}
 	}
 
-	// Return the formatted request
-	// Format: [null, "[[sources], prompt, null, [2]]"]
+	// Generate a conversation ID (UUID format)
+	conversationID := fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		time.Now().UnixNano()&0xffffffff,
+		time.Now().UnixNano()&0xffff,
+		0x4000|int(time.Now().UnixNano()&0x0fff),
+		0x8000|int(time.Now().UnixNano()&0x3fff),
+		time.Now().UnixNano()&0xffffffffffff,
+	)
+
+	// Format from notebooklm-py:
+	// params = [sources_array, question, conversation_history, [2, None, [1]], conversation_id]
 	innerArray := []interface{}{
 		sources,
 		prompt,
-		nil,
-		[]int{2},
+		nil,                             // conversation_history (null for new conversation)
+		[]interface{}{2, nil, []int{1}}, // [2, None, [1]]
+		conversationID,
 	}
 
 	// Marshal the inner array to JSON string
 	innerJSON, _ := json.Marshal(innerArray)
 
+	// Format: [null, "JSON_PARAMS"]
 	return []interface{}{
 		nil,
 		string(innerJSON),

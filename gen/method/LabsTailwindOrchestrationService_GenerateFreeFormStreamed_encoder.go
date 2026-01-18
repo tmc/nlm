@@ -9,10 +9,10 @@ import (
 
 // EncodeGenerateFreeFormStreamedArgs encodes arguments for LabsTailwindOrchestrationService.GenerateFreeFormStreamed
 // RPC ID: BD
-// Argument format: [[%all_sources%], %prompt%, null, [2]] when sources present
+// Argument format: [%project_id%, [[%all_sources%]], %prompt%, null, [2]] when sources present
 // Fallback format: [%project_id%, %prompt%] when no sources
 func EncodeGenerateFreeFormStreamedArgs(req *notebooklmv1alpha1.GenerateFreeFormStreamedRequest) []interface{} {
-	// If sources are provided, use the gRPC format with sources
+	// If sources are provided, use the format with project_id and sources
 	if len(req.SourceIds) > 0 {
 		// Build source array
 		sourceArray := make([]interface{}, len(req.SourceIds))
@@ -20,9 +20,10 @@ func EncodeGenerateFreeFormStreamedArgs(req *notebooklmv1alpha1.GenerateFreeForm
 			sourceArray[i] = []interface{}{sourceId}
 		}
 
-		// Use gRPC format: [[%all_sources%], %prompt%, null, [2]]
+		// Format: [project_id, [[sources]], prompt, null, [2]]
 		return []interface{}{
-			[]interface{}{sourceArray},
+			req.ProjectId,
+			sourceArray,
 			req.Prompt,
 			nil,
 			[]interface{}{2},

@@ -20,6 +20,7 @@ import (
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/rpc/grpcendpoint"
 )
 
 type Notebook = pb.Project
@@ -1798,21 +1799,38 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 		}
 	}
 
-	req := &pb.GenerateFreeFormStreamedRequest{
-		ProjectId: projectID,
-		Prompt:    prompt,
-		SourceIds: sourceIDs,
+	// Get auth token and cookies from the RPC client
+	authToken := os.Getenv("NLM_AUTH_TOKEN")
+	cookies := os.Getenv("NLM_COOKIES")
+
+	// Use gRPC endpoint for chat (not batchexecute)
+	grpcClient := grpcendpoint.NewClient(authToken, cookies)
+	if c.config.Debug {
+		fmt.Printf("DEBUG: Using gRPC endpoint for chat with %d sources\n", len(sourceIDs))
 	}
 
-	// Use a timeout context for the chat request
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// Build the chat request
+	req := grpcendpoint.Request{
+		Endpoint: "/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed",
+		Body:     grpcendpoint.BuildChatRequest(sourceIDs, prompt),
+	}
 
-	response, err := c.orchestrationService.GenerateFreeFormStreamed(ctx, req)
+	resp, err := grpcClient.Execute(req)
 	if err != nil {
 		return nil, fmt.Errorf("generate free form streamed: %w", err)
 	}
-	return response, nil
+
+	// Parse the response - extract the text content
+	responseText := string(resp)
+	if c.config.Debug {
+		fmt.Printf("DEBUG: Raw chat response: %s\n", responseText)
+	}
+
+	// Return the response wrapped in the protobuf structure
+	return &pb.GenerateFreeFormStreamedResponse{
+		Chunk:   responseText,
+		IsFinal: true,
+	}, nil
 }
 
 // GenerateFreeFormStreamedWithCallback streams the response and calls the callback for each chunk
