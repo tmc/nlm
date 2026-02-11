@@ -15,10 +15,10 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
-	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
+	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
@@ -35,6 +35,7 @@ var (
 	chunkedResponse   bool // Control rt=c parameter for chunked vs JSON array response
 	useDirectRPC      bool // Use direct RPC calls instead of orchestration service
 	skipSources       bool // Skip fetching sources for chat (useful when project is inaccessible)
+	yes               bool // Skip confirmation prompts
 )
 
 // ChatSession represents a persistent chat conversation
@@ -47,7 +48,7 @@ type ChatSession struct {
 
 // ChatMessage represents a single message in the conversation
 type ChatMessage struct {
-	Role      string    `json:"role"`      // "user" or "assistant"
+	Role      string    `json:"role"` // "user" or "assistant"
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -60,6 +61,8 @@ func init() {
 	flag.BoolVar(&chunkedResponse, "chunked", false, "use chunked response format (rt=c)")
 	flag.BoolVar(&useDirectRPC, "direct-rpc", false, "use direct RPC calls for audio/video (bypasses orchestration service)")
 	flag.BoolVar(&skipSources, "skip-sources", false, "skip fetching sources for chat (useful for testing)")
+	flag.BoolVar(&yes, "yes", false, "skip confirmation prompts")
+	flag.BoolVar(&yes, "y", false, "skip confirmation prompts")
 	flag.StringVar(&chromeProfile, "profile", os.Getenv("NLM_BROWSER_PROFILE"), "Chrome profile to use")
 	flag.StringVar(&authToken, "auth", os.Getenv("NLM_AUTH_TOKEN"), "auth token (or set NLM_AUTH_TOKEN)")
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
@@ -817,6 +820,17 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	return err
 }
 
+// confirmAction prompts the user for confirmation unless --yes is set.
+func confirmAction(prompt string) bool {
+	if yes {
+		return true
+	}
+	fmt.Printf("%s [y/N] ", prompt)
+	var response string
+	fmt.Scanln(&response)
+	return strings.HasPrefix(strings.ToLower(response), "y")
+}
+
 // Notebook operations
 func list(c *api.Client) error {
 	notebooks, err := c.ListRecentlyViewedProjects()
@@ -869,10 +883,7 @@ func create(c *api.Client, title string) error {
 }
 
 func remove(c *api.Client, id string) error {
-	fmt.Printf("Are you sure you want to delete notebook %s? [y/N] ", id)
-	var response string
-	fmt.Scanln(&response)
-	if !strings.HasPrefix(strings.ToLower(response), "y") {
+	if !confirmAction(fmt.Sprintf("Are you sure you want to delete notebook %s?", id)) {
 		return fmt.Errorf("operation cancelled")
 	}
 	return c.DeleteProjects([]string{id})
@@ -956,10 +967,7 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 }
 
 func removeSource(c *api.Client, notebookID, sourceID string) error {
-	fmt.Printf("Are you sure you want to remove source %s? [y/N] ", sourceID)
-	var response string
-	fmt.Scanln(&response)
-	if !strings.HasPrefix(strings.ToLower(response), "y") {
+	if !confirmAction(fmt.Sprintf("Are you sure you want to remove source %s?", sourceID)) {
 		return fmt.Errorf("operation cancelled")
 	}
 
@@ -1002,10 +1010,7 @@ func updateNote(c *api.Client, notebookID, noteID, content, title string) error 
 }
 
 func removeNote(c *api.Client, notebookID, noteID string) error {
-	fmt.Printf("Are you sure you want to remove note %s? [y/N] ", noteID)
-	var response string
-	fmt.Scanln(&response)
-	if !strings.HasPrefix(strings.ToLower(response), "y") {
+	if !confirmAction(fmt.Sprintf("Are you sure you want to remove note %s?", noteID)) {
 		return fmt.Errorf("operation cancelled")
 	}
 
@@ -1072,10 +1077,7 @@ func getAudioOverview(c *api.Client, projectID string) error {
 }
 
 func deleteAudioOverview(c *api.Client, notebookID string) error {
-	fmt.Printf("Are you sure you want to delete the audio overview? [y/N] ")
-	var response string
-	fmt.Scanln(&response)
-	if !strings.HasPrefix(strings.ToLower(response), "y") {
+	if !confirmAction("Are you sure you want to delete the audio overview?") {
 		return fmt.Errorf("operation cancelled")
 	}
 
@@ -1516,10 +1518,7 @@ func renameArtifact(c *api.Client, artifactID, newTitle string) error {
 }
 
 func deleteArtifact(c *api.Client, artifactID string) error {
-	fmt.Printf("Are you sure you want to delete artifact %s? [y/N] ", artifactID)
-	var response string
-	fmt.Scanln(&response)
-	if !strings.HasPrefix(strings.ToLower(response), "y") {
+	if !confirmAction(fmt.Sprintf("Are you sure you want to delete artifact %s?", artifactID)) {
 		return fmt.Errorf("operation cancelled")
 	}
 
@@ -1998,14 +1997,10 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			fmt.Println("-------------------")
 			continue
 		case "/reset":
-			fmt.Print("Are you sure you want to clear chat history? [y/N] ")
-			if scanner.Scan() {
-				confirm := strings.ToLower(strings.TrimSpace(scanner.Text()))
-				if confirm == "y" || confirm == "yes" {
-					session.Messages = []ChatMessage{}
-					session.UpdatedAt = time.Now()
-					fmt.Println("Chat history cleared.")
-				}
+			if confirmAction("Are you sure you want to clear chat history?") {
+				session.Messages = []ChatMessage{}
+				session.UpdatedAt = time.Now()
+				fmt.Println("Chat history cleared.")
 			}
 			continue
 		case "/save":

@@ -4,6 +4,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -301,15 +303,14 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 	if strings.HasPrefix(detectedType, "text/") ||
 		detectedType == "application/json" ||
 		strings.HasSuffix(filename, ".json") {
-		// Add debug output about JSON handling for any environment
 		if strings.HasSuffix(filename, ".json") || detectedType == "application/json" {
 			fmt.Fprintf(os.Stderr, "Handling JSON file as text: %s (MIME: %s)\n", filename, detectedType)
 		}
 		return c.AddSourceFromText(projectID, string(content), filename)
 	}
 
-	encoded := base64.StdEncoding.EncodeToString(content)
-	return c.AddSourceFromBase64(projectID, encoded, filename, detectedType)
+	// Use resumable upload for binary files (PDF, etc.)
+	return c.uploadFileSource(projectID, filepath.Base(filename), content)
 }
 
 func (c *Client) AddSourceFromText(projectID string, content, title string) (string, error) {
@@ -367,6 +368,225 @@ func (c *Client) AddSourceFromBase64(projectID string, content, filename, conten
 		return "", fmt.Errorf("extract source ID: %w", err)
 	}
 	return sourceID, nil
+}
+
+// uploadFileSource uploads a binary file using Google's Resumable Upload Protocol,
+// then registers the uploaded file as a source in the notebook.
+//
+// The protocol has three steps:
+//  1. Start upload: POST to /upload/_/ with metadata, get back an upload URL
+//  2. Upload bytes: POST raw file bytes to the upload URL
+//  3. Register source: RPC o4cbdc to associate the uploaded file with the notebook
+func (c *Client) uploadFileSource(projectID, filename string, content []byte) (string, error) {
+	sourceID := uuid.New().String()
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: uploading file %q (%d bytes) via resumable upload\n", filename, len(content))
+		fmt.Fprintf(os.Stderr, "DEBUG: generated source ID: %s\n", sourceID)
+	}
+
+	// Step 1: Start the resumable upload session
+	uploadURL, err := c.startResumableUpload(projectID, filename, sourceID, len(content))
+	if err != nil {
+		return "", fmt.Errorf("start upload: %w", err)
+	}
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: got upload URL: %s\n", uploadURL)
+	}
+
+	// Step 2: Upload the file bytes
+	if err := c.uploadFileBytes(uploadURL, content); err != nil {
+		return "", fmt.Errorf("upload file bytes: %w", err)
+	}
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: file bytes uploaded successfully\n")
+	}
+
+	// Step 3: Register the uploaded file as a source via RPC
+	registeredID, err := c.registerFileSource(projectID, filename, sourceID)
+	if err != nil {
+		return "", fmt.Errorf("register file source: %w", err)
+	}
+
+	// Step 4: Process the source (generate document guides)
+	if err := c.processFileSource(registeredID); err != nil {
+		if c.config.Debug {
+			fmt.Fprintf(os.Stderr, "DEBUG: process source warning: %v\n", err)
+		}
+		// Non-fatal: source is registered but processing may happen async
+	}
+
+	return registeredID, nil
+}
+
+// startResumableUpload initiates a resumable upload session and returns the upload URL.
+func (c *Client) startResumableUpload(projectID, filename, sourceID string, contentLength int) (string, error) {
+	// Build metadata payload: base64-encoded JSON
+	metadata := map[string]string{
+		"PROJECT_ID":  projectID,
+		"SOURCE_NAME": filename,
+		"SOURCE_ID":   sourceID,
+	}
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return "", fmt.Errorf("marshal metadata: %w", err)
+	}
+	metadataB64 := base64.StdEncoding.EncodeToString(metadataJSON)
+
+	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=0"
+	req, err := http.NewRequest("POST", uploadInitURL, strings.NewReader(metadataB64))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+
+	// Set required headers for resumable upload initiation
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+	req.Header.Set("X-Goog-Upload-Command", "start")
+	req.Header.Set("X-Goog-Upload-Protocol", "resumable")
+	req.Header.Set("X-Goog-Upload-Header-Content-Length", fmt.Sprintf("%d", contentLength))
+	req.Header.Set("X-Goog-Upload-Header-Content-Type", "application/octet-stream")
+
+	c.setAuthHeaders(req)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("upload init request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("upload init failed (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// The upload URL is returned in the X-Goog-Upload-URL header
+	uploadURL := resp.Header.Get("X-Goog-Upload-Url")
+	if uploadURL == "" {
+		// Try lowercase
+		uploadURL = resp.Header.Get("x-goog-upload-url")
+	}
+	if uploadURL == "" {
+		return "", fmt.Errorf("no upload URL in response headers")
+	}
+
+	return uploadURL, nil
+}
+
+// uploadFileBytes uploads the raw file bytes to the resumable upload URL.
+func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
+	req, err := http.NewRequest("POST", uploadURL, bytes.NewReader(content))
+	if err != nil {
+		return fmt.Errorf("create upload request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("X-Goog-Upload-Command", "upload, finalize")
+	req.Header.Set("X-Goog-Upload-Offset", "0")
+
+	c.setAuthHeaders(req)
+
+	client := &http.Client{Timeout: 5 * time.Minute}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("upload request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// registerFileSource registers an uploaded file as a notebook source via RPC.
+func (c *Client) registerFileSource(projectID, filename, sourceID string) (string, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCAddFileSource,
+		NotebookID: projectID,
+		Args: []interface{}{
+			[]interface{}{
+				[]interface{}{filename},
+			},
+			projectID,
+			[]interface{}{2}, // source type: file upload
+			[]interface{}{
+				1, nil, nil, nil, nil, nil,
+				[]interface{}{1},
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("register file source RPC: %w", err)
+	}
+
+	registeredID, err := extractSourceID(resp)
+	if err != nil {
+		// If we can't extract an ID from the response, use the one we generated
+		if c.config.Debug {
+			fmt.Fprintf(os.Stderr, "DEBUG: could not extract source ID from register response, using generated ID\n")
+			fmt.Fprintf(os.Stderr, "DEBUG: register response: %s\n", string(resp))
+		}
+		return sourceID, nil
+	}
+	return registeredID, nil
+}
+
+// processFileSource triggers document guide generation for a newly uploaded source.
+func (c *Client) processFileSource(sourceID string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCGenerateDocumentGuides,
+		Args: []interface{}{
+			[]interface{}{
+				[]interface{}{
+					[]interface{}{sourceID},
+				},
+			},
+		},
+	})
+	return err
+}
+
+// setAuthHeaders adds authentication headers to an HTTP request.
+func (c *Client) setAuthHeaders(req *http.Request) {
+	cookies := c.rpc.Config.Cookies
+	if cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
+
+	// Add SAPISIDHASH authorization
+	if sapisid := extractSAPISID(cookies); sapisid != "" {
+		origin := "https://notebooklm.google.com"
+		req.Header.Set("Authorization", generateSAPISIDHASH(sapisid, origin))
+	}
+
+	req.Header.Set("Origin", "https://notebooklm.google.com")
+	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("X-Same-Domain", "1")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
+}
+
+// extractSAPISID extracts the SAPISID cookie value from a cookie string.
+func extractSAPISID(cookies string) string {
+	for _, part := range strings.Split(cookies, ";") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "SAPISID=[REDACTED] {
+			return strings.TrimPrefix(part, "SAPISID=[REDACTED]
+		}
+	}
+	return ""
+}
+
+// generateSAPISIDHASH generates the SAPISIDHASH authorization header value.
+func generateSAPISIDHASH(sapisid, origin string) string {
+	timestamp := time.Now().Unix()
+	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, origin)
+	hash := sha1.Sum([]byte(data))
+	return fmt.Sprintf("SAPISIDHASH %d_%x", timestamp, hash)
 }
 
 func (c *Client) AddSourceFromFile(projectID string, filepath string, contentType ...string) (string, error) {
@@ -626,12 +846,12 @@ func (c *Client) CreateAudioOverview(projectID string, instructions string) (*Au
 
 	// Default: use orchestration service with new proto fields
 	req := &pb.CreateAudioOverviewRequest{
-		ProjectId:           projectID,
-		AudioType:           pb.AudioType_AUDIO_TYPE_DEEP_DIVE,  // Default to Deep Dive (value=1)
-		SourceIds:           sourceIDs,
-		CustomInstructions:  instructions,
-		Length:              pb.AudioLength_AUDIO_LENGTH_DEFAULT, // Default length (value=2)
-		Language:            "en",
+		ProjectId:          projectID,
+		AudioType:          pb.AudioType_AUDIO_TYPE_DEEP_DIVE, // Default to Deep Dive (value=1)
+		SourceIds:          sourceIDs,
+		CustomInstructions: instructions,
+		Length:             pb.AudioLength_AUDIO_LENGTH_DEFAULT, // Default length (value=2)
+		Language:           "en",
 	}
 	ctx := context.Background()
 	audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
