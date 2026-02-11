@@ -20,6 +20,7 @@ const (
 
 	// NotebookLM service - Source operations
 	RPCAddSources           = "izAoDd" // AddSources
+	RPCAddFileSource        = "o4cbdc" // AddFileSource (register uploaded file)
 	RPCDeleteSources        = "tGMBJ"  // DeleteSources
 	RPCMutateSource         = "b7Wfje" // MutateSource
 	RPCRefreshSource        = "FLmJqe" // RefreshSource
