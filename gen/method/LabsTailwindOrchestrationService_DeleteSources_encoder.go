@@ -2,21 +2,23 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/rpc/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
 
 // EncodeDeleteSourcesArgs encodes arguments for LabsTailwindOrchestrationService.DeleteSources
 // RPC ID: tGMBJ
-// Argument format: [[%source_ids%]]
+//
+// Wire format: [[["source-id-1"], ["source-id-2"]], [2]]
+//   Field 1: repeated SourceRevision messages (each wraps source ID in sub-message)
+//   Field 2: ProjectContext {field 1: 2}
 func EncodeDeleteSourcesArgs(req *notebooklmv1alpha1.DeleteSourcesRequest) []interface{} {
-	// Using generalized argument encoder
-	args, err := argbuilder.EncodeRPCArgs(req, "[[%source_ids%]]")
-	if err != nil {
-		// Log error and return empty args as fallback
-		// In production, this should be handled better
-		return []interface{}{}
+	// Build repeated SourceRevision messages: [["id1"], ["id2"]]
+	var sourceRevisions []interface{}
+	for _, id := range req.GetSourceIds() {
+		sourceRevisions = append(sourceRevisions, []interface{}{id})
 	}
-	return args
+	// ProjectContext: [2]
+	projectContext := []interface{}{2}
+	return []interface{}{sourceRevisions, projectContext}
 }
