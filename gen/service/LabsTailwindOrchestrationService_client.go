@@ -639,7 +639,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProject(ctx context.Context,
 func (c *LabsTailwindOrchestrationServiceClient) ListFeaturedProjects(ctx context.Context, req *notebooklmv1alpha1.ListFeaturedProjectsRequest) (*notebooklmv1alpha1.ListFeaturedProjectsResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "nS9Qlc",
+		ID:   "ub2Bae",
 		Args: method.EncodeListFeaturedProjectsArgs(req),
 	}
 
