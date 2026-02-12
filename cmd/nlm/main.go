@@ -1648,15 +1648,17 @@ func shareNotebook(c *api.Client, notebookID string) error {
 
 	// Create RPC client directly for sharing project
 	rpcClient := rpc.New(authToken, cookies)
+	// Wire format from JS analysis (mAb function):
+	//   field 1: repeated YM [{field 1: projectId, field 3: Uzb{field 1: true} (link sharing)}]
+	//   field 2: bool (M3 flag)
+	//   field 4: ProjectContext [2]
 	call := rpc.Call{
 		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
-			notebookID,
-			map[string]interface{}{
-				"is_public":       true,
-				"allow_comments":  true,
-				"allow_downloads": false,
-			},
+			[]interface{}{[]interface{}{notebookID, nil, []interface{}{true}}}, // field 1: [YM{projId, null, Uzb{true}}]
+			true,              // field 2: M3 flag
+			nil,               // field 3: gap
+			[]interface{}{2},  // field 4: ProjectContext
 		},
 	}
 
@@ -1707,15 +1709,17 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 
 	// Create RPC client directly for sharing project
 	rpcClient := rpc.New(authToken, cookies)
+	// Wire format from JS analysis (mAb function):
+	//   field 1: repeated YM [{field 1: projectId, field 3: Uzb{field 1: false} (link sharing off)}]
+	//   field 2: bool (M3 flag)
+	//   field 4: ProjectContext [2]
 	call := rpc.Call{
 		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
-			notebookID,
-			map[string]interface{}{
-				"is_public":       false,
-				"allow_comments":  false,
-				"allow_downloads": false,
-			},
+			[]interface{}{[]interface{}{notebookID, nil, []interface{}{false}}}, // field 1: [YM{projId, null, Uzb{false}}]
+			true,              // field 2: M3 flag
+			nil,               // field 3: gap
+			[]interface{}{2},  // field 4: ProjectContext
 		},
 	}
 

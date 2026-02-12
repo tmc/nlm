@@ -382,12 +382,13 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 	return &result, nil
 }
 
-// CreateAudioOverview calls the CreateAudioOverview RPC method.
+// CreateAudioOverview calls the CreateArtifact RPC to create an audio overview.
+// Audio overviews are artifacts created via R7cb6c (CreateArtifact).
 func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewRequest) (*notebooklmv1alpha1.AudioOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "R7cb6c",
-		Args: []interface{}{}, // TODO: implement argument encoding
+		ID:   "R7cb6c", // CreateArtifact RPC — audio overviews are a type of artifact
+		Args: method.EncodeCreateAudioOverviewArgs(req),
 	}
 
 	// Execute the RPC
