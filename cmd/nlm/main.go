@@ -13,6 +13,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/google/uuid"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/auth"
@@ -40,10 +41,11 @@ var (
 
 // ChatSession represents a persistent chat conversation
 type ChatSession struct {
-	NotebookID string        `json:"notebook_id"`
-	Messages   []ChatMessage `json:"messages"`
-	CreatedAt  time.Time     `json:"created_at"`
-	UpdatedAt  time.Time     `json:"updated_at"`
+	NotebookID     string        `json:"notebook_id"`
+	ConversationID string        `json:"conversation_id,omitempty"`
+	Messages       []ChatMessage `json:"messages"`
+	CreatedAt      time.Time     `json:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at"`
 }
 
 // ChatMessage represents a single message in the conversation
@@ -120,7 +122,9 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n")
 		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
 		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n")
-		fmt.Fprintf(os.Stderr, "  chat-list               List all saved chat sessions\n\n")
+		fmt.Fprintf(os.Stderr, "  chat-list               List all saved chat sessions\n")
+		fmt.Fprintf(os.Stderr, "  delete-chat <id>        Delete server-side chat history\n")
+		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n\n")
 
 		fmt.Fprintf(os.Stderr, "Content Transformation Commands:\n")
 		fmt.Fprintf(os.Stderr, "  rephrase <id> <source-ids...>     Rephrase content from sources\n")
@@ -350,6 +354,16 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm chat-list\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "delete-chat":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm delete-chat <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "chat-config":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm chat-config <notebook-id> <setting> [value]\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "create-artifact":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm create-artifact <notebook-id> <type>\n")
@@ -561,6 +575,9 @@ func run() error {
 		}
 
 		client := api.New(authToken, cookies, opts...)
+		if debug {
+			client.SetDebug(true)
+		}
 		// Set direct RPC flag if specified
 		if useDirectRPC {
 			client.SetUseDirectRPC(true)
@@ -798,6 +815,10 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = interactiveChat(client, args[0])
 	case "chat-list":
 		err = listChatSessions()
+	case "delete-chat":
+		err = deleteChatHistory(client, args[0])
+	case "chat-config":
+		err = setChatConfig(client, args)
 
 	// Sharing operations
 	case "share":
@@ -1558,6 +1579,68 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	return nil
 }
 
+func deleteChatHistory(c *api.Client, notebookID string) error {
+	if !confirmAction(fmt.Sprintf("Delete all chat history for notebook %s?", notebookID)) {
+		return fmt.Errorf("operation cancelled")
+	}
+	if err := c.DeleteChatHistory(notebookID); err != nil {
+		return fmt.Errorf("delete chat history: %w", err)
+	}
+	fmt.Println("Chat history deleted.")
+	return nil
+}
+
+func setChatConfig(c *api.Client, args []string) error {
+	if len(args) < 2 {
+		fmt.Fprintf(os.Stderr, "usage: nlm chat-config <notebook-id> <setting> [value]\n")
+		fmt.Fprintf(os.Stderr, "\nSettings:\n")
+		fmt.Fprintf(os.Stderr, "  goal default              Reset to default conversational style\n")
+		fmt.Fprintf(os.Stderr, "  goal custom \"<prompt>\"    Set custom system prompt\n")
+		fmt.Fprintf(os.Stderr, "  length default            Reset to default response length\n")
+		fmt.Fprintf(os.Stderr, "  length longer             Set longer responses\n")
+		fmt.Fprintf(os.Stderr, "  length shorter            Set shorter responses\n")
+		return fmt.Errorf("invalid arguments")
+	}
+
+	notebookID := args[0]
+	setting := args[1]
+
+	switch setting {
+	case "goal":
+		if len(args) < 3 {
+			return fmt.Errorf("usage: nlm chat-config <id> goal <default|custom \"prompt\">")
+		}
+		switch args[2] {
+		case "default":
+			return c.SetChatConfig(notebookID, api.ChatGoalDefault, "", api.ResponseLengthDefault)
+		case "custom":
+			if len(args) < 4 {
+				return fmt.Errorf("usage: nlm chat-config <id> goal custom \"your prompt\"")
+			}
+			prompt := strings.Join(args[3:], " ")
+			return c.SetChatConfig(notebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault)
+		default:
+			return fmt.Errorf("unknown goal: %s (use 'default' or 'custom')", args[2])
+		}
+	case "length":
+		if len(args) < 3 {
+			return fmt.Errorf("usage: nlm chat-config <id> length <default|longer|shorter>")
+		}
+		switch args[2] {
+		case "default":
+			return c.SetChatConfig(notebookID, 0, "", api.ResponseLengthDefault)
+		case "longer":
+			return c.SetChatConfig(notebookID, 0, "", api.ResponseLengthLonger)
+		case "shorter":
+			return c.SetChatConfig(notebookID, 0, "", api.ResponseLengthShorter)
+		default:
+			return fmt.Errorf("unknown length: %s (use 'default', 'longer', or 'shorter')", args[2])
+		}
+	default:
+		return fmt.Errorf("unknown setting: %s (use 'goal' or 'length')", setting)
+	}
+}
+
 // Utility functions for commented-out operations
 func shareNotebook(c *api.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating public share link...\n")
@@ -1806,63 +1889,32 @@ func showRecentHistory(session *ChatSession, maxMessages int) {
 	}
 }
 
-func buildContextualPrompt(session *ChatSession, currentInput string) string {
-	// Build context from recent messages (last 4 messages for context)
-	const maxContextMessages = 4
-	messages := session.Messages
-	contextStart := 0
-	if len(messages) > maxContextMessages {
-		contextStart = len(messages) - maxContextMessages
+// buildWireHistory converts a ChatSession's messages into the wire format expected
+// by the NotebookLM chat API. Messages are ordered newest-first, with each entry
+// being [content, null, role] where role 1=user, 2=assistant.
+func buildWireHistory(session *ChatSession) []api.ChatMessage {
+	msgs := session.Messages
+	// Exclude the last message (it's the current user prompt, sent separately)
+	if len(msgs) > 1 {
+		msgs = msgs[:len(msgs)-1]
+	} else {
+		return nil
 	}
 
-	var contextParts []string
-	for _, msg := range messages[contextStart:] {
-		if msg.Role == "user" {
-			contextParts = append(contextParts, fmt.Sprintf("User: %s", msg.Content))
-		} else {
-			contextParts = append(contextParts, fmt.Sprintf("Assistant: %s", msg.Content))
+	// Build in reverse chronological order (newest first)
+	var history []api.ChatMessage
+	for i := len(msgs) - 1; i >= 0; i-- {
+		role := 1 // user
+		if msgs[i].Role == "assistant" {
+			role = 2
 		}
+		history = append(history, api.ChatMessage{
+			Content: msgs[i].Content,
+			Role:    role,
+		})
 	}
-
-	// Add current input
-	contextParts = append(contextParts, fmt.Sprintf("User: %s", currentInput))
-
-	// If we have context, prepend it
-	if len(contextParts) > 1 {
-		return fmt.Sprintf("Previous conversation:\n%s\n\nPlease respond to the latest message, considering the conversation context.",
-			strings.Join(contextParts, "\n"))
-	}
-
-	return currentInput
+	return history
 }
-
-func generateStreamedResponse(c *api.Client, notebookID, prompt string) (string, error) {
-	var fullResponse strings.Builder
-	fmt.Print("\n🤖 Assistant: ")
-
-	// Use the new streaming callback API
-	err := c.GenerateFreeFormStreamedWithCallback(notebookID, prompt, nil, func(chunk string) bool {
-		// Print each chunk as it arrives for real-time streaming effect
-		fmt.Print(chunk)
-		fullResponse.WriteString(chunk)
-		return true // Continue streaming
-	})
-
-	fmt.Println() // Add newline after streaming is complete
-
-	if err != nil {
-		return "", err
-	}
-
-	responseText := strings.TrimSpace(fullResponse.String())
-	if responseText == "" {
-		return "", fmt.Errorf("no response received")
-	}
-
-	return responseText, nil
-}
-
-// typewriterEffect removed - now using real streaming
 
 func getFallbackResponse(input, notebookID string) string {
 	lowerInput := strings.ToLower(input)
@@ -1903,11 +1955,16 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	if err != nil {
 		// Create new session if loading fails
 		session = &ChatSession{
-			NotebookID: notebookID,
-			Messages:   []ChatMessage{},
-			CreatedAt:  time.Now(),
-			UpdatedAt:  time.Now(),
+			NotebookID:     notebookID,
+			ConversationID: uuid.New().String(),
+			Messages:       []ChatMessage{},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
 		}
+	}
+	// Ensure conversation ID exists (for sessions loaded from older format)
+	if session.ConversationID == "" {
+		session.ConversationID = uuid.New().String()
 	}
 
 	// Display welcome message
@@ -2030,7 +2087,7 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			continue
 		}
 
-		// Add user message to history
+		// Add user message to local history
 		userMsg := ChatMessage{
 			Role:      "user",
 			Content:   input,
@@ -2038,37 +2095,54 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		}
 		session.Messages = append(session.Messages, userMsg)
 
-		// Send the message with context to the API
 		fmt.Println("\n🤔 Thinking...")
 
-		// Build context from recent messages for better responses
-		contextualPrompt := buildContextualPrompt(session, input)
+		// Build wire history from session (newest first, as the protocol expects)
+		wireHistory := buildWireHistory(session)
 
-		// Try the GenerateFreeFormStreamed API with streaming
-		response, err := generateStreamedResponse(c, notebookID, contextualPrompt)
-		if err != nil {
-			fmt.Printf("\n⚠️ Chat API error: %v\n", err)
-
-			// Try intelligent fallbacks based on input
-			fallbackResponse := getFallbackResponse(input, notebookID)
-			fmt.Printf("\n🤖 Assistant: %s\n", fallbackResponse)
-
-			// Add fallback response to history
-			assistantMsg := ChatMessage{
-				Role:      "assistant",
-				Content:   fallbackResponse,
-				Timestamp: time.Now(),
-			}
-			session.Messages = append(session.Messages, assistantMsg)
-		} else {
-			// Add successful response to history
-			assistantMsg := ChatMessage{
-				Role:      "assistant",
-				Content:   response,
-				Timestamp: time.Now(),
-			}
-			session.Messages = append(session.Messages, assistantMsg)
+		// Send chat request with full history
+		chatReq := api.ChatRequest{
+			ProjectID:      notebookID,
+			Prompt:         input,
+			ConversationID: session.ConversationID,
+			History:        wireHistory,
+			SeqNum:         len(session.Messages)/2 + 1,
 		}
+
+		fmt.Print("\n🤖 Assistant: ")
+		var fullResponse strings.Builder
+		err := c.GenerateFreeFormStreamedWithCallback(notebookID, input, nil, func(chunk string) bool {
+			fmt.Print(chunk)
+			fullResponse.WriteString(chunk)
+			return true
+		})
+
+		// Fallback: use ChatWithHistory for non-streaming
+		if err != nil {
+			response, chatErr := c.ChatWithHistory(chatReq)
+			if chatErr != nil {
+				fmt.Printf("\n⚠️ Chat API error: %v\n", err)
+				fallbackResponse := getFallbackResponse(input, notebookID)
+				fmt.Printf("🤖 Assistant: %s\n", fallbackResponse)
+				session.Messages = append(session.Messages, ChatMessage{
+					Role: "assistant", Content: fallbackResponse, Timestamp: time.Now(),
+				})
+			} else {
+				fmt.Print(response)
+				session.Messages = append(session.Messages, ChatMessage{
+					Role: "assistant", Content: response, Timestamp: time.Now(),
+				})
+			}
+		} else {
+			response := strings.TrimSpace(fullResponse.String())
+			if response != "" {
+				session.Messages = append(session.Messages, ChatMessage{
+					Role: "assistant", Content: response, Timestamp: time.Now(),
+				})
+			}
+		}
+		fmt.Println()
+		_ = chatReq // used in fallback path
 
 		// Update session timestamp
 		session.UpdatedAt = time.Now()

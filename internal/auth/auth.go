@@ -759,13 +759,13 @@ func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
 
 	// Copy only essential files for authentication (not entire profile)
 	essentialFiles := []string{
-		"Cookies",           // Authentication cookies
-		"Cookies-journal",   // Cookie database journal
-		"Login Data",        // Saved login information
+		"Cookies",            // Authentication cookies
+		"Cookies-journal",    // Cookie database journal
+		"Login Data",         // Saved login information
 		"Login Data-journal", // Login database journal
-		"Web Data",          // Form data and autofill
-		"Web Data-journal",  // Web data journal
-		"Preferences",       // Browser preferences
+		"Web Data",           // Form data and autofill
+		"Web Data-journal",   // Web data journal
+		"Preferences",        // Browser preferences
 		"Secure Preferences", // Secure browser settings
 	}
 
@@ -1270,7 +1270,7 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	ba.sessionID = sessionID
 	ba.blParam = blParam
 	ba.sourcePath = "/session" // Default source path for Jules
-	ba.rtParam = "c"            // Default rt parameter
+	ba.rtParam = "c"           // Default rt parameter
 
 	if ba.debug {
 		if sessionID != "" {

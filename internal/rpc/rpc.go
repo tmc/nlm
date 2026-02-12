@@ -10,9 +10,9 @@ import (
 
 // ServiceConfig defines configuration for a specific BatchExecute service
 type ServiceConfig struct {
-	Host       string            // e.g., "notebooklm.google.com" or "jules.google.com"
-	App        string            // e.g., "LabsTailwindUi" or "Swebot"
-	URLParams  map[string]string // Optional service-specific URL parameters
+	Host      string            // e.g., "notebooklm.google.com" or "jules.google.com"
+	App       string            // e.g., "LabsTailwindUi" or "Swebot"
+	URLParams map[string]string // Optional service-specific URL parameters
 }
 
 // Call represents a generic RPC call
@@ -45,18 +45,18 @@ func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, optio
 		AuthToken: authToken,
 		Cookies:   cookies,
 		Headers: map[string]string{
-			"content-type":    "application/x-www-form-urlencoded;charset=UTF-8",
-			"origin":          fmt.Sprintf("https://%s", serviceConfig.Host),
-			"referer":         fmt.Sprintf("https://%s/", serviceConfig.Host),
-			"x-same-domain":   "1",
-			"accept":          "*/*",
-			"accept-language": "en-US,en;q=0.6",
-			"cache-control":   "no-cache",
-			"pragma":          "no-cache",
-			"priority":        "u=1, i",
-			"sec-ch-ua":       `"Chromium";v="142", "Brave";v="142", "Not_A Brand";v="99"`,
-			"sec-ch-ua-arch":  `"arm"`,
-			"sec-ch-ua-bitness": `"64"`,
+			"content-type":                "application/x-www-form-urlencoded;charset=UTF-8",
+			"origin":                      fmt.Sprintf("https://%s", serviceConfig.Host),
+			"referer":                     fmt.Sprintf("https://%s/", serviceConfig.Host),
+			"x-same-domain":               "1",
+			"accept":                      "*/*",
+			"accept-language":             "en-US,en;q=0.6",
+			"cache-control":               "no-cache",
+			"pragma":                      "no-cache",
+			"priority":                    "u=1, i",
+			"sec-ch-ua":                   `"Chromium";v="142", "Brave";v="142", "Not_A Brand";v="99"`,
+			"sec-ch-ua-arch":              `"arm"`,
+			"sec-ch-ua-bitness":           `"64"`,
 			"sec-ch-ua-full-version-list": `"Chromium";v="142.0.0.0", "Brave";v="142.0.0.0", "Not_A Brand";v="99.0.0.0"`,
 			"sec-ch-ua-mobile":            "?0",
 			"sec-ch-ua-model":             `""`,
