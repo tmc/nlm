@@ -59,7 +59,7 @@ func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
 		guidebooksService:    service.NewLabsTailwindGuidebooksServiceClient(authToken, cookies, opts...),
 	}
 
-	// Get debug setting from environment for consistency
+	// Debug is set via SetDebug or NLM_DEBUG env
 	client.config.Debug = os.Getenv("NLM_DEBUG") == "true"
 
 	return client
@@ -68,6 +68,10 @@ func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
 // SetUseDirectRPC configures whether to use direct RPC calls
 func (c *Client) SetUseDirectRPC(use bool) {
 	c.config.UseDirectRPC = use
+}
+
+func (c *Client) SetDebug(debug bool) {
+	c.config.Debug = debug
 }
 
 // Project/Notebook operations
@@ -2228,124 +2232,489 @@ func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error
 	return section, nil
 }
 
+// ChatMessage represents a message in chat history for the wire protocol.
+type ChatMessage struct {
+	Content string // Message text
+	Role    int    // 1 = user, 2 = assistant
+}
+
+// ChatRequest contains parameters for a chat request.
+type ChatRequest struct {
+	ProjectID      string
+	Prompt         string
+	SourceIDs      []string
+	ConversationID string        // Persists across messages in a conversation
+	History        []ChatMessage // Previous messages, newest first
+	SeqNum         int           // Request sequence number within conversation
+}
+
+// chatEndpoint is the gRPC-Web endpoint for GenerateFreeFormStreamed.
+// Chat does NOT use batchexecute — it uses a dedicated gRPC-Web endpoint.
+const chatEndpoint = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
+
 func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
-	// Check if we should skip sources (useful for testing or when project is inaccessible)
-	skipSources := os.Getenv("NLM_SKIP_SOURCES") == "true"
-
-	// If no source IDs provided and not skipping, try to get all sources from the project
-	if len(sourceIDs) == 0 && !skipSources {
-		// Create a timeout context for getting project
-		getProjectCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		project, err := c.GetProjectWithContext(getProjectCtx, projectID)
-		if err != nil {
-			// If getting project fails, try without sources as fallback
-			if c.config.Debug {
-				fmt.Printf("DEBUG: Failed to get project sources, continuing without: %v\n", err)
-			}
-			// Continue without sources rather than failing completely
-		} else {
-			// Extract all source IDs from the project
-			for _, source := range project.Sources {
-				if source.SourceId != nil {
-					sourceIDs = append(sourceIDs, source.SourceId.SourceId)
-				}
-			}
-
-			if c.config.Debug {
-				fmt.Printf("DEBUG: Using %d sources for chat\n", len(sourceIDs))
-			}
-		}
-	}
-
-	req := &pb.GenerateFreeFormStreamedRequest{
-		ProjectId: projectID,
+	resp, err := c.doChat(ChatRequest{
+		ProjectID: projectID,
 		Prompt:    prompt,
-		SourceIds: sourceIDs,
-	}
-
-	// Use a timeout context for the chat request
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	response, err := c.orchestrationService.GenerateFreeFormStreamed(ctx, req)
+		SourceIDs: sourceIDs,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("generate free form streamed: %w", err)
 	}
-	return response, nil
+	return &pb.GenerateFreeFormStreamedResponse{Chunk: resp}, nil
 }
 
-// GenerateFreeFormStreamedWithCallback streams the response and calls the callback for each chunk
+// GenerateFreeFormStreamedWithCallback streams the response and calls the callback for each chunk.
 func (c *Client) GenerateFreeFormStreamedWithCallback(projectID string, prompt string, sourceIDs []string, callback func(chunk string) bool) error {
-	// Check if we should skip sources (useful for testing or when project is inaccessible)
-	skipSources := os.Getenv("NLM_SKIP_SOURCES") == "true"
+	return c.doChatStreamed(ChatRequest{
+		ProjectID: projectID,
+		Prompt:    prompt,
+		SourceIDs: sourceIDs,
+	}, callback)
+}
 
-	// If no source IDs provided and not skipping, try to get all sources from the project
-	if len(sourceIDs) == 0 && !skipSources {
-		// Create a timeout context for getting project
-		getProjectCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+// ChatWithHistory sends a chat message with full conversation history.
+func (c *Client) ChatWithHistory(req ChatRequest) (string, error) {
+	return c.doChat(req)
+}
 
-		project, err := c.GetProjectWithContext(getProjectCtx, projectID)
-		if err != nil {
-			// If getting project fails, try without sources as fallback
-			if c.config.Debug {
-				fmt.Printf("DEBUG: Failed to get project sources, continuing without: %v\n", err)
+// resolveSourceIDs fills in source IDs from the project if not provided.
+func (c *Client) resolveSourceIDs(projectID string, sourceIDs []string) []string {
+	if len(sourceIDs) > 0 || os.Getenv("NLM_SKIP_SOURCES") == "true" {
+		return sourceIDs
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	project, err := c.GetProjectWithContext(ctx, projectID)
+	if err != nil {
+		if c.config.Debug {
+			fmt.Fprintf(os.Stderr, "DEBUG: failed to get project sources: %v\n", err)
+		}
+		return sourceIDs
+	}
+	for _, source := range project.Sources {
+		if source.SourceId != nil {
+			sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+		}
+	}
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: using %d sources for chat\n", len(sourceIDs))
+	}
+	return sourceIDs
+}
+
+// buildChatArgs builds the inner JSON args for a chat request.
+// Wire format: [[[[source_ids]]],prompt,history,[2,null,[1],[1]],conv_id,null,null,notebook_id,seq_num]
+func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
+	req.SourceIDs = c.resolveSourceIDs(req.ProjectID, req.SourceIDs)
+
+	if req.ConversationID == "" {
+		req.ConversationID = uuid.New().String()
+	}
+	if req.SeqNum == 0 {
+		req.SeqNum = 1
+	}
+
+	// Build source IDs array: [[["id1"], ["id2"]]]
+	var sourceIDArrays []interface{}
+	for _, id := range req.SourceIDs {
+		sourceIDArrays = append(sourceIDArrays, []interface{}{id})
+	}
+	sources := []interface{}{sourceIDArrays}
+
+	// Build history: [[response, null, 2], [query, null, 1], ...]
+	var history interface{}
+	if len(req.History) > 0 {
+		var historyEntries []interface{}
+		for _, msg := range req.History {
+			historyEntries = append(historyEntries, []interface{}{msg.Content, nil, msg.Role})
+		}
+		history = historyEntries
+	}
+
+	args := []interface{}{
+		sources,
+		req.Prompt,
+		history,
+		[]interface{}{2, nil, []interface{}{1}, []interface{}{1}},
+		req.ConversationID,
+		nil,
+		nil,
+		req.ProjectID,
+		req.SeqNum,
+	}
+
+	argsJSON, err := json.Marshal(args)
+	if err != nil {
+		return "", fmt.Errorf("marshal chat args: %w", err)
+	}
+	return string(argsJSON), nil
+}
+
+// buildChatRequestBody builds the full HTTP form body for a chat request.
+func (c *Client) buildChatRequestBody(req ChatRequest) (string, error) {
+	innerJSON, err := c.buildChatArgs(req)
+	if err != nil {
+		return "", err
+	}
+
+	// Outer envelope: [null, "<inner-json-double-encoded>"]
+	outerJSON, err := json.Marshal([]interface{}{nil, innerJSON})
+	if err != nil {
+		return "", fmt.Errorf("marshal chat envelope: %w", err)
+	}
+
+	// Form body: f.req=<url-encoded-outer>&at=<auth-token>&
+	authToken := c.rpc.Config.AuthToken
+	body := fmt.Sprintf("f.req=%s&at=%s&",
+		url.QueryEscape(string(outerJSON)),
+		url.QueryEscape(authToken))
+
+	return body, nil
+}
+
+// buildChatURL constructs the full chat endpoint URL with query parameters.
+func (c *Client) buildChatURL(notebookID string) string {
+	u := fmt.Sprintf("https://%s%s", c.rpc.Config.Host, chatEndpoint)
+
+	q := url.Values{}
+	for k, v := range c.rpc.Config.URLParams {
+		q.Set(k, v)
+	}
+	q.Set("rt", "c") // Chunked response format
+	q.Set("_reqid", fmt.Sprintf("%d", time.Now().UnixMilli()%1000000))
+
+	return u + "?" + q.Encode()
+}
+
+// doChat sends a chat request and returns the full response text.
+func (c *Client) doChat(req ChatRequest) (string, error) {
+	var result strings.Builder
+	err := c.doChatStreamed(req, func(chunk string) bool {
+		result.WriteString(chunk)
+		return true
+	})
+	if err != nil {
+		return "", err
+	}
+	return result.String(), nil
+}
+
+// doChatStreamed sends a chat request and streams response chunks via callback.
+func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) bool) error {
+	body, err := c.buildChatRequestBody(req)
+	if err != nil {
+		return err
+	}
+
+	chatURL := c.buildChatURL(req.ProjectID)
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: chat URL: %s\n", chatURL)
+		fmt.Fprintf(os.Stderr, "DEBUG: chat body length: %d\n", len(body))
+		// Show the f.req value for debugging
+		if idx := strings.Index(body, "f.req="); idx >= 0 {
+			freqEnd := strings.Index(body[idx:], "&")
+			if freqEnd > 0 {
+				decoded, _ := url.QueryUnescape(body[idx+6 : idx+freqEnd])
+				fmt.Fprintf(os.Stderr, "DEBUG: chat f.req: %s\n", decoded)
 			}
-			// Continue without sources rather than failing completely
-		} else {
-			// Extract all source IDs from the project
-			for _, source := range project.Sources {
-				if source.SourceId != nil {
-					sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+		}
+	}
+
+	httpReq, err := http.NewRequest("POST", chatURL, strings.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create chat request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+	c.setAuthHeaders(httpReq)
+	// Required header for chat endpoint (observed in HAR capture)
+	httpReq.Header.Set("x-goog-ext-353267353-jspb", "[null,null,null,282611]")
+
+	client := &http.Client{Timeout: 120 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("chat request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: chat response status: %s\n", resp.Status)
+		for k, v := range resp.Header {
+			fmt.Fprintf(os.Stderr, "DEBUG: chat response header %s: %v\n", k, v)
+		}
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("chat request failed: %d %s: %s", resp.StatusCode, resp.Status, string(respBody)[:min(500, len(respBody))])
+	}
+
+	// Parse chunked response format: )]}'\n followed by length-prefixed chunks
+	return c.parseChatResponse(resp.Body, callback)
+}
+
+// parseChatResponse reads the Google chunked response format and extracts text.
+// Format: )]}'\n then repeated: <length>\n<json-chunk>\n
+func (c *Client) parseChatResponse(r io.Reader, callback func(chunk string) bool) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("read chat response: %w", err)
+	}
+
+	body := string(data)
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: chat response length: %d\n", len(body))
+	}
+
+	// Strip )]}' prefix
+	if strings.HasPrefix(body, ")]}'") {
+		body = body[4:]
+	}
+	body = strings.TrimLeft(body, "\n")
+
+	// Extract text from wrb.fr chunks
+	// Each chunk is: <length>\n<json-array>\n
+	// The json-array contains: ["wrb.fr", "service.Method", "<inner-json>", ...]
+	var lastText string
+	for len(body) > 0 {
+		body = strings.TrimLeft(body, "\n ")
+
+		// Read length
+		nlIdx := strings.Index(body, "\n")
+		if nlIdx < 0 {
+			break
+		}
+		body = body[nlIdx+1:]
+
+		// Find the JSON array in this chunk
+		// Look for wrb.fr entries
+		startIdx := strings.Index(body, "[\"wrb.fr\"")
+		if startIdx < 0 {
+			// Try other envelope types like ["e", ...] and skip
+			nextNL := strings.Index(body, "\n")
+			if nextNL >= 0 {
+				body = body[nextNL+1:]
+			} else {
+				break
+			}
+			continue
+		}
+
+		// Find the balanced end of this JSON array
+		chunkJSON := extractJSONArray(body[startIdx:])
+		if chunkJSON == "" {
+			break
+		}
+
+		// Parse the wrb.fr envelope: ["wrb.fr", "method", "<inner-json>", ...]
+		var envelope []interface{}
+		if err := json.Unmarshal([]byte(chunkJSON), &envelope); err != nil {
+			// Skip unparseable chunks
+			nextNL := strings.Index(body, "\n")
+			if nextNL >= 0 {
+				body = body[nextNL+1:]
+			} else {
+				break
+			}
+			continue
+		}
+
+		if len(envelope) >= 3 {
+			if innerStr, ok := envelope[2].(string); ok && innerStr != "" {
+				text := extractChatText(innerStr)
+				if text != "" && text != lastText {
+					if !callback(text) {
+						return nil
+					}
+					lastText = text
 				}
 			}
+		}
 
-			if c.config.Debug {
-				fmt.Printf("DEBUG: Using %d sources for chat\n", len(sourceIDs))
-			}
+		// Advance past this chunk
+		endIdx := startIdx + len(chunkJSON)
+		if endIdx < len(body) {
+			body = body[endIdx:]
+		} else {
+			break
 		}
 	}
 
-	req := &pb.GenerateFreeFormStreamedRequest{
-		ProjectId: projectID,
-		Prompt:    prompt,
-		SourceIds: sourceIDs,
+	return nil
+}
+
+// extractJSONArray extracts a balanced JSON array from the start of a string.
+func extractJSONArray(s string) string {
+	if len(s) == 0 || s[0] != '[' {
+		return ""
+	}
+	depth := 0
+	inString := false
+	escaped := false
+	for i, ch := range s {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		if ch == '[' {
+			depth++
+		} else if ch == ']' {
+			depth--
+			if depth == 0 {
+				return s[:i+1]
+			}
+		}
+	}
+	return ""
+}
+
+// extractChatText extracts the readable text from the inner JSON of a chat response chunk.
+// The inner JSON has varying structure but the main text is typically at position [0][0].
+func extractChatText(innerJSON string) string {
+	var data interface{}
+	if err := json.Unmarshal([]byte(innerJSON), &data); err != nil {
+		return ""
 	}
 
-	// For now, we'll simulate streaming by calling the regular API and breaking the response into chunks
-	// In a real implementation, this would use server-sent events or similar streaming protocol
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	// The response structure contains the full response text (not deltas).
+	// Navigate: [0] -> [0] to find the text string
+	arr, ok := data.([]interface{})
+	if !ok || len(arr) == 0 {
+		return ""
+	}
 
-	response, err := c.orchestrationService.GenerateFreeFormStreamed(ctx, req)
+	// Try [0][0] - the main text content
+	if inner, ok := arr[0].([]interface{}); ok && len(inner) > 0 {
+		if text, ok := inner[0].(string); ok {
+			return text
+		}
+	}
+
+	return ""
+}
+
+// DeleteChatHistory deletes all chat history for a notebook.
+func (c *Client) DeleteChatHistory(projectID string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCDeleteChatHistory,
+		NotebookID: projectID,
+		Args: []interface{}{
+			nil,
+			nil,
+			projectID,
+		},
+	})
 	if err != nil {
-		return fmt.Errorf("generate free form streamed: %w", err)
+		return fmt.Errorf("delete chat history: %w", err)
+	}
+	return nil
+}
+
+// GetConversations returns conversation IDs for a notebook.
+func (c *Client) GetConversations(projectID string) ([]string, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGetConversations,
+		NotebookID: projectID,
+		Args: []interface{}{
+			[]interface{}{},
+			nil,
+			projectID,
+			20,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get conversations: %w", err)
 	}
 
-	if response != nil && response.Chunk != "" {
-		// Simulate streaming by sending words gradually
-		words := strings.Fields(response.Chunk)
-		for i, word := range words {
-			// Create a chunk with a few words at a time
-			var chunk string
-			if i == 0 {
-				chunk = word
-			} else {
-				chunk = " " + word
-			}
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return nil, fmt.Errorf("parse conversations: %w", err)
+	}
 
-			// Call the callback with the chunk
-			if !callback(chunk) {
-				break // Stop if callback returns false
+	var convIDs []string
+	// Response format: [[[conv_id1], [conv_id2]]]
+	if len(data) > 0 {
+		if outer, ok := data[0].([]interface{}); ok {
+			for _, item := range outer {
+				if arr, ok := item.([]interface{}); ok && len(arr) > 0 {
+					if id, ok := arr[0].(string); ok {
+						convIDs = append(convIDs, id)
+					}
+				}
 			}
-
-			// Add a small delay to simulate streaming
-			time.Sleep(75 * time.Millisecond)
 		}
 	}
+	return convIDs, nil
+}
 
+// ChatGoal represents a conversational goal setting.
+type ChatGoal int
+
+const (
+	ChatGoalDefault       ChatGoal = 3 // Default conversational style
+	ChatGoalLearningGuide ChatGoal = 1 // Learning Guide mode (not yet confirmed)
+	ChatGoalCustom        ChatGoal = 2 // Custom with user-provided prompt
+)
+
+// ResponseLength represents a response length setting.
+type ResponseLength int
+
+const (
+	ResponseLengthDefault ResponseLength = 0 // Default (empty array)
+	ResponseLengthLonger  ResponseLength = 4 // Longer responses
+	ResponseLengthShorter ResponseLength = 3 // Shorter responses (inferred)
+)
+
+// SetChatConfig updates the chat configuration for a notebook via MutateProject.
+// goalConfig: [goal_type] or [goal_type, "custom_prompt"]
+// responseLengthConfig: [] for default, [4] for longer, [3] for shorter
+func (c *Client) SetChatConfig(projectID string, goal ChatGoal, customPrompt string, responseLength ResponseLength) error {
+	var goalConfig interface{}
+	if goal == ChatGoalCustom && customPrompt != "" {
+		goalConfig = []interface{}{int(goal), customPrompt}
+	} else if goal != 0 {
+		goalConfig = []interface{}{int(goal)}
+	} else {
+		goalConfig = []interface{}{}
+	}
+
+	var lengthConfig interface{}
+	if responseLength != ResponseLengthDefault {
+		lengthConfig = []interface{}{int(responseLength)}
+	} else {
+		lengthConfig = []interface{}{}
+	}
+
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateProject,
+		NotebookID: projectID,
+		Args: []interface{}{
+			projectID,
+			[]interface{}{
+				[]interface{}{
+					nil, nil, nil, nil, nil, nil, nil,
+					[]interface{}{goalConfig, lengthConfig},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("set chat config: %w", err)
+	}
 	return nil
 }
 

@@ -174,6 +174,61 @@ func (o UnmarshalOptions) Unmarshal(b []byte, m proto.Message) error {
 		return fmt.Errorf("beprotojson: invalid JSON array: %w", err)
 	}
 
+	// Handle response format detection.
+	// Batchexecute responses come in two main formats:
+	//
+	// 1. Positional field array: [field1_val, field2_val, ...]
+	//    Maps directly to proto field numbers: position 0 → field #1, etc.
+	//
+	// 2. Flat repeated array: [[item1], [item2], ...]
+	//    When the message has a single repeated field and the top-level array
+	//    contains multiple sub-arrays, the entire array is the repeated field value.
+	//
+	// Detect case 2: if the message has only one field, it's a repeated message field,
+	// and all top-level elements are arrays, wrap into a positional array so that
+	// position 0 maps to field #1.
+	msg := m.ProtoReflect()
+	fields := msg.Descriptor().Fields()
+
+	// Handle response format detection for repeated-only messages.
+	//
+	// Batchexecute responses for messages with a single repeated message field
+	// can come in two formats:
+	//
+	// 1. Positional: [[[item1], [item2], ...]]
+	//    Outer [] = message, position 0 = field #1 (the repeated field)
+	//
+	// 2. Flat: [[item1], [item2], ...]
+	//    No message wrapper — items are directly at the top level
+	//
+	// Both need the items to end up as the value for field #1.
+	// The old unwrap logic would incorrectly strip the positional wrapper in
+	// case 1, treating each item as a field position instead of a list element.
+	if fields.Len() == 1 {
+		fd := fields.Get(0)
+		if fd.IsList() && fd.Message() != nil {
+			if len(arr) == 1 {
+				// Case 1: [[[item1], [item2], ...]]
+				// Already in positional format — don't unwrap.
+				// Fall through to populateMessage which handles it correctly.
+			} else if len(arr) > 1 {
+				// Case 2: [[item1], [item2], ...]
+				// Flat format — wrap into positional format.
+				allArrays := true
+				for _, v := range arr {
+					if _, ok := v.([]interface{}); !ok {
+						allArrays = false
+						break
+					}
+				}
+				if allArrays {
+					arr = []interface{}{arr}
+				}
+			}
+			return o.populateMessage(arr, m)
+		}
+	}
+
 	// Handle double-wrapped arrays (common in batchexecute responses)
 	// If the array has only one element and that element is also an array,
 	// unwrap it once

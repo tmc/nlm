@@ -103,10 +103,10 @@ func GenerateMockHTTPRRFiles(testdataDir string) error {
 // GenerateHTTPRRFile creates a single httprr recording file
 func GenerateHTTPRRFile(dir, testName string, projects []MockProject, sources []MockSource) error {
 	filePath := filepath.Join(dir, testName+".httprr")
-	
+
 	// Create mock HTTP request/response based on test type
 	var request, response string
-	
+
 	switch testName {
 	case "TestListProjectsWithRecording", "TestNotebookCommands_ListProjects":
 		request = createListProjectsRequest()
@@ -129,7 +129,7 @@ func GenerateHTTPRRFile(dir, testName string, projects []MockProject, sources []
 	// Write httprr format file
 	content := fmt.Sprintf("httprr trace v1\n%d %d\n%s%s",
 		len(request), len(response), request, response)
-	
+
 	return os.WriteFile(filePath, []byte(content), 0644)
 }
 

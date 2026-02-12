@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -43,6 +44,16 @@ const (
 	// NotebookLM service - Video operations
 	RPCCreateVideoOverview = "R7cb6c" // CreateVideoOverview
 
+	// NotebookLM service - Chat operations
+	// NOTE: GenerateFreeFormStreamed does NOT use batchexecute. It uses a gRPC-Web
+	// endpoint at /_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed
+	// The "BD" ID was incorrectly assumed; kept only for reference.
+	RPCGenerateFreeFormStreamed = "BD"     // DEPRECATED: chat uses gRPC-Web, not batchexecute
+	RPCGetConversations        = "hPTbtc" // GetConversations - list conversation IDs for a notebook
+	RPCGetConversationHistory  = "khqZz"  // GetConversationHistory - retrieve chat messages
+	RPCDeleteChatHistory       = "e3bVqc" // DeleteChatHistory - delete all chat history for a notebook
+	RPCRateConversationTurn    = "J7Gthc" // RateConversationTurn - mark conversation turn (thumbs up/down?)
+
 	// NotebookLM service - Generation operations
 	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
 	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
@@ -50,8 +61,8 @@ const (
 	RPCGenerateSection           = "BeTrYd" // GenerateSection
 	RPCStartDraft                = "exXvGf" // StartDraft
 	RPCStartSection              = "pGC7gf" // StartSection
-	RPCGenerateFreeFormStreamed  = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
 	RPCGenerateReportSuggestions = "GHsKob" // GenerateReportSuggestions
+	RPCGetAudioFormats           = "sqTeoe" // GetAudioFormats - returns available audio overview types
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -60,6 +71,7 @@ const (
 	// NotebookLM service - Analytics operations
 	RPCGetProjectAnalytics = "AUrzMb" // GetProjectAnalytics
 	RPCSubmitFeedback      = "uNyJKe" // SubmitFeedback
+	RPCLogEvent            = "ozz5Z"  // LogEvent - analytics/telemetry
 
 	// NotebookLMSharing service operations
 	RPCShareAudio        = "RGP97b" // ShareAudio
@@ -102,8 +114,17 @@ type Client struct {
 }
 
 // New creates a new NotebookLM RPC client
-// New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
+	// Use session-specific parameters from env if available (set during auth)
+	blParam := os.Getenv("NLM_BL_PARAM")
+	if blParam == "" {
+		blParam = "boq_labs-tailwind-frontend_20260210.19_p0"
+	}
+	sessionID := os.Getenv("NLM_SESSION_ID")
+	if sessionID == "" {
+		sessionID = "-3785608638908410209"
+	}
+
 	config := batchexecute.Config{
 		Host:      "notebooklm.google.com",
 		App:       "LabsTailwindUi",
@@ -120,12 +141,9 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 			"pragma":          "no-cache",
 		},
 		URLParams: map[string]string{
-			// Update to January 2025 build version
-			"bl":    "boq_labs-tailwind-frontend_20250129.00_p0",
-			"f.sid": "-7121977511756781186",
+			"bl":    blParam,
+			"f.sid": sessionID,
 			"hl":    "en",
-			// Omit rt parameter for JSON array format (easier to parse)
-			// "rt":    "c",  // Use "c" for chunked format, omit for JSON array
 		},
 	}
 	return &Client{

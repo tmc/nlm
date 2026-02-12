@@ -224,13 +224,13 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 		authOpts = append(authOpts, auth.WithKeepOpenSeconds(opts.KeepOpenSeconds))
 	}
 
-	// Get auth data
-	token, cookies, err := a.GetAuth(authOpts...)
+	// Get auth data (use GetAuthData to capture session ID and BL param)
+	authData, err := a.GetAuthData(authOpts...)
 	if err != nil {
 		return "", "", fmt.Errorf("browser auth failed: %w", err)
 	}
 
-	return persistAuthToDisk(cookies, token, opts.ProfileName)
+	return persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam)
 }
 
 func detectAuthInfo(cmd string) (string, string, error) {
@@ -249,11 +249,11 @@ func detectAuthInfo(cmd string) (string, string, error) {
 		return "", "", fmt.Errorf("no auth token found")
 	}
 	authToken := atMatch[1]
-	persistAuthToDisk(cookies, authToken, "")
+	persistAuthToDisk(cookies, authToken, "", "", "")
 	return authToken, cookies, nil
 }
 
-func persistAuthToDisk(cookies, authToken, profileName string) (string, string, error) {
+func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam string) (string, string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", "", fmt.Errorf("get home dir: %w", err)
@@ -267,10 +267,12 @@ func persistAuthToDisk(cookies, authToken, profileName string) (string, string, 
 
 	// Create or update env file
 	envFile := filepath.Join(nlmDir, "env")
-	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\n",
+	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\n",
 		cookies,
 		authToken,
 		profileName,
+		sessionID,
+		blParam,
 	)
 
 	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {

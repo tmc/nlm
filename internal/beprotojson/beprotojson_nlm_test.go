@@ -201,6 +201,46 @@ func TestUnmarshalOptions(t *testing.T) {
 	}
 }
 
+func TestUnmarshalListResponse(t *testing.T) {
+	tests := []struct {
+		name  string
+		json  string
+		count int
+	}{
+		{
+			name:  "multiple projects",
+			json:  `[["Project A", [], "id-a", "📚"], ["Project B", [], "id-b", "🤖"]]`,
+			count: 2,
+		},
+		{
+			name:  "five projects with metadata",
+			json:  `[["NB1", [], "id1", "📚", null, [1, false, true]], ["NB2", [], "id2", "🤖"], ["NB3", [], "id3", "📔"], ["NB4", [], "id4", "💻"], ["NB5", [], "id5", "🧠"]]`,
+			count: 5,
+		},
+		{
+			name:  "wrapped array (positional format)",
+			json:  `[[["Project A", [], "id-a", "📚"], ["Project B", [], "id-b", "🤖"]]]`,
+			count: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := &pb.ListRecentlyViewedProjectsResponse{}
+			err := Unmarshal([]byte(tt.json), got)
+			if err != nil {
+				t.Fatalf("Unmarshal() error = %v", err)
+			}
+			if len(got.Projects) != tt.count {
+				t.Fatalf("expected %d projects, got %d", tt.count, len(got.Projects))
+			}
+			if got.Projects[0].Title != "NB1" && got.Projects[0].Title != "Project A" {
+				t.Errorf("projects[0].Title = %q, unexpected", got.Projects[0].Title)
+			}
+		})
+	}
+}
+
 // TestRoundTrip tests marshaling and unmarshaling
 func TestRoundTrip(t *testing.T) {
 	t.Skip("Marshal not implemented yet")

@@ -29,7 +29,7 @@ func NewLabsTailwindOrchestrationServiceClient(authToken, cookies string, opts .
 		App:  "LabsTailwindUi",
 		URLParams: map[string]string{
 			"hl": "en",
-			"bl": "boq_labs-tailwind-frontend_20250129.00_p0",
+			"bl": "boq_labs-tailwind-frontend_20260210.19_p0",
 		},
 	}
 	return &LabsTailwindOrchestrationServiceClient{
