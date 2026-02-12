@@ -446,13 +446,30 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 	}
 
 	// Set required headers for resumable upload initiation
+	// Per HAR capture: no X-Goog-Upload-Header-Content-Type is sent
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
 	req.Header.Set("X-Goog-Upload-Command", "start")
 	req.Header.Set("X-Goog-Upload-Protocol", "resumable")
 	req.Header.Set("X-Goog-Upload-Header-Content-Length", fmt.Sprintf("%d", contentLength))
-	req.Header.Set("X-Goog-Upload-Header-Content-Type", "application/octet-stream")
+	req.Header.Set("X-Goog-AuthUser", "0")
 
-	c.setAuthHeaders(req)
+	// Upload uses cookies only — no Authorization, Origin, or X-Same-Domain headers
+	if cookies := c.rpc.Config.Cookies; cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
+	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: upload init URL: %s\n", uploadInitURL)
+		fmt.Fprintf(os.Stderr, "DEBUG: upload init body: %s\n", metadataB64)
+		fmt.Fprintf(os.Stderr, "DEBUG: upload init decoded: %s\n", string(metadataJSON))
+		for k, v := range req.Header {
+			if k != "Cookie" { // Don't dump cookies
+				fmt.Fprintf(os.Stderr, "DEBUG: upload init header %s: %v\n", k, v)
+			}
+		}
+	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -460,6 +477,13 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 		return "", fmt.Errorf("upload init request: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if c.config.Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: upload init response status: %s\n", resp.Status)
+		for k, v := range resp.Header {
+			fmt.Fprintf(os.Stderr, "DEBUG: upload init response header %s: %v\n", k, v)
+		}
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -486,11 +510,18 @@ func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
 		return fmt.Errorf("create upload request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/octet-stream")
+	// Per HAR: Content-Type is form-urlencoded even for binary data
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
 	req.Header.Set("X-Goog-Upload-Command", "upload, finalize")
 	req.Header.Set("X-Goog-Upload-Offset", "0")
+	req.Header.Set("X-Goog-AuthUser", "0")
 
-	c.setAuthHeaders(req)
+	// Upload uses cookies only — no Authorization header
+	if cookies := c.rpc.Config.Cookies; cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
+	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
 
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Do(req)
@@ -519,7 +550,7 @@ func (c *Client) registerFileSource(projectID, filename, sourceID string) (strin
 			projectID,
 			[]interface{}{2}, // source type: file upload
 			[]interface{}{
-				1, nil, nil, nil, nil, nil,
+				1, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 				[]interface{}{1},
 			},
 		},
