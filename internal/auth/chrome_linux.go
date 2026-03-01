@@ -9,29 +9,31 @@ import (
 	"strings"
 )
 
+// linuxBrowsers defines the priority order for Chromium-based browser detection on Linux.
+var linuxBrowsers = []struct {
+	binaries []string
+	name     string
+}{
+	{[]string{"google-chrome", "google-chrome-stable"}, "Google Chrome"},
+	{[]string{"chromium", "chromium-browser"}, "Chromium"},
+	{[]string{"google-chrome-unstable"}, "Chrome Canary"},
+	{[]string{"microsoft-edge-stable", "microsoft-edge"}, "Microsoft Edge"},
+	{[]string{"brave-browser", "brave"}, "Brave"},
+}
+
 func detectChrome(debug bool) Browser {
-	// Try standard Chrome first
-	if path, err := exec.LookPath("google-chrome"); err == nil {
-		version := getChromeVersion(path)
-		return Browser{
-			Type:    BrowserChrome,
-			Path:    path,
-			Name:    "Google Chrome",
-			Version: version,
+	for _, b := range linuxBrowsers {
+		for _, bin := range b.binaries {
+			if path, err := exec.LookPath(bin); err == nil {
+				return Browser{
+					Type:    BrowserChrome,
+					Path:    path,
+					Name:    b.name,
+					Version: getChromeVersion(path),
+				}
+			}
 		}
 	}
-
-	// Try Chromium as fallback
-	if path, err := exec.LookPath("chromium"); err == nil {
-		version := getChromeVersion(path)
-		return Browser{
-			Type:    BrowserChrome,
-			Path:    path,
-			Name:    "Chromium",
-			Version: version,
-		}
-	}
-
 	return Browser{Type: BrowserUnknown}
 }
 
@@ -46,14 +48,63 @@ func getChromeVersion(path string) string {
 
 func getProfilePath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "google-chrome")
+	chromePath := filepath.Join(home, ".config", "google-chrome")
+	if _, err := os.Stat(chromePath); os.IsNotExist(err) {
+		if brave := getBraveProfilePath(); dirExists(brave) {
+			return brave
+		}
+	}
+	return chromePath
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 func getChromePath() string {
-	for _, name := range []string{"google-chrome", "chrome", "chromium"} {
+	candidates := []string{
+		"google-chrome", "google-chrome-stable", "chrome",
+		"chromium", "chromium-browser",
+		"microsoft-edge-stable", "microsoft-edge",
+		"brave-browser", "brave",
+	}
+	for _, name := range candidates {
 		if path, err := exec.LookPath(name); err == nil {
 			return path
 		}
 	}
 	return ""
+}
+
+func getBrowserPathForProfile(browserName string) string {
+	switch browserName {
+	case "Brave":
+		for _, bin := range []string{"brave-browser", "brave"} {
+			if path, err := exec.LookPath(bin); err == nil {
+				return path
+			}
+		}
+	case "Chrome Canary":
+		if path, err := exec.LookPath("google-chrome-unstable"); err == nil {
+			return path
+		}
+	case "Microsoft Edge":
+		for _, bin := range []string{"microsoft-edge-stable", "microsoft-edge"} {
+			if path, err := exec.LookPath(bin); err == nil {
+				return path
+			}
+		}
+	}
+	return getChromePath()
+}
+
+func getCanaryProfilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "google-chrome-unstable")
+}
+
+func getBraveProfilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".config", "BraveSoftware", "Brave-Browser")
 }
