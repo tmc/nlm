@@ -17,8 +17,9 @@ type ServiceConfig struct {
 
 // Call represents a generic RPC call
 type Call struct {
-	ID   string        // RPC endpoint ID
-	Args []interface{} // Arguments for the call
+	ID         string        // RPC endpoint ID
+	Args       []interface{} // Arguments for the call
+	NotebookID string        // Optional notebook/project ID for source-path
 }
 
 // Client handles BatchExecute RPC communication for any service
@@ -83,15 +84,27 @@ func (c *Client) Do(call Call) (json.RawMessage, error) {
 	if c.Config.Debug {
 		fmt.Printf("\n=== RPC Call ===\n")
 		fmt.Printf("ID: %s\n", call.ID)
+		if call.NotebookID != "" {
+			fmt.Printf("NotebookID: %s\n", call.NotebookID)
+		}
 		fmt.Printf("Args:\n")
 		spew.Dump(call.Args)
 	}
 
+	// Build per-request URL parameters
+	urlParams := make(map[string]string)
+	if call.NotebookID != "" {
+		urlParams["source-path"] = "/notebook/" + call.NotebookID
+	} else {
+		urlParams["source-path"] = "/"
+	}
+
 	// Create the RPC struct for batchexecute
 	rpc := batchexecute.RPC{
-		ID:    call.ID,
-		Args:  call.Args,
-		Index: "generic",
+		ID:        call.ID,
+		Args:      call.Args,
+		Index:     "generic",
+		URLParams: urlParams,
 	}
 
 	// Execute the batchexecute request
