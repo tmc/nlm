@@ -37,6 +37,7 @@ type AuthOptions struct {
 	Debug           bool
 	Help            bool
 	KeepOpenSeconds int
+	RemoteCDPURL    string
 }
 
 func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
@@ -63,6 +64,8 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 	authFlags.BoolVar(&opts.Help, "h", false, "Show help for auth command (shorthand)")
 	authFlags.IntVar(&opts.KeepOpenSeconds, "keep-open", 0, "Keep browser open for N seconds after successful auth")
 	authFlags.IntVar(&opts.KeepOpenSeconds, "k", 0, "Keep browser open for N seconds after successful auth (shorthand)")
+	authFlags.StringVar(&opts.RemoteCDPURL, "cdp-url", "", "Remote CDP WebSocket URL (e.g. ws://localhost:9222)")
+	authFlags.StringVar(&opts.RemoteCDPURL, "c", "", "Remote CDP WebSocket URL (shorthand)")
 
 	// Set custom usage
 	authFlags.Usage = func() {
@@ -74,6 +77,7 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 		fmt.Fprintf(os.Stderr, "\nExample: nlm auth login -all -notebooks\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth login -profile Work\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth login -keep-open 10\n")
+		fmt.Fprintf(os.Stderr, "Example: nlm auth -cdp-url ws://localhost:9222\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth -all\n")
 	}
 
@@ -111,6 +115,13 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 		opts.ProfileName = "Default"
 		if v := os.Getenv("NLM_BROWSER_PROFILE"); v != "" {
 			opts.ProfileName = v
+		}
+	}
+
+	// Support NLM_CDP_URL env var as fallback for --cdp-url flag
+	if opts.RemoteCDPURL == "" {
+		if v := os.Getenv("NLM_CDP_URL"); v != "" {
+			opts.RemoteCDPURL = v
 		}
 	}
 
@@ -188,7 +199,9 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 	}
 
 	// Show what we're going to do based on options
-	if opts.TryAllProfiles {
+	if opts.RemoteCDPURL != "" {
+		fmt.Fprintf(os.Stderr, "nlm: connecting to remote CDP session at %s\n", opts.RemoteCDPURL)
+	} else if opts.TryAllProfiles {
 		fmt.Fprintf(os.Stderr, "nlm: trying all browser profiles to find one with valid authentication...\n")
 	} else {
 		// Mask potentially sensitive profile name
@@ -222,6 +235,10 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 
 	if opts.KeepOpenSeconds > 0 {
 		authOpts = append(authOpts, auth.WithKeepOpenSeconds(opts.KeepOpenSeconds))
+	}
+
+	if opts.RemoteCDPURL != "" {
+		authOpts = append(authOpts, auth.WithRemoteCDPURL(opts.RemoteCDPURL))
 	}
 
 	// Get auth data (use GetAuthData to capture session ID and BL param)

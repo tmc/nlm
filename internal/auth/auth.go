@@ -23,6 +23,7 @@ type BrowserAuth struct {
 	chromeCmd       *exec.Cmd
 	cancel          context.CancelFunc
 	useExec         bool
+	isRemote        bool   // Connected to remote CDP session (skip shutdown)
 	keepOpenSeconds int    // Keep browser open for N seconds after auth
 	sessionID       string // Captured session ID for Jules API
 	blParam         string // Build label parameter for Jules API
@@ -83,7 +84,8 @@ type Options struct {
 	TargetURL         string
 	PreferredBrowsers []string
 	CheckNotebooks    bool
-	KeepOpenSeconds   int // Keep browser open for N seconds after auth
+	KeepOpenSeconds   int    // Keep browser open for N seconds after auth
+	RemoteCDPURL      string // Remote CDP WebSocket URL (e.g. "ws://localhost:9222")
 }
 
 type Option func(*Options)
@@ -97,6 +99,28 @@ func WithPreferredBrowsers(browsers []string) Option {
 }
 func WithCheckNotebooks() Option             { return func(o *Options) { o.CheckNotebooks = true } }
 func WithKeepOpenSeconds(seconds int) Option { return func(o *Options) { o.KeepOpenSeconds = seconds } }
+func WithRemoteCDPURL(url string) Option     { return func(o *Options) { o.RemoteCDPURL = url } }
+
+// authViaRemoteCDP connects to an existing CDP session and extracts auth data.
+func (ba *BrowserAuth) authViaRemoteCDP(remoteCDPURL, targetURL string) (token, cookies string, err error) {
+	ba.isRemote = true
+
+	if ba.debug {
+		fmt.Fprintf(os.Stderr, "Connecting to remote CDP at %s\n", remoteCDPURL)
+	}
+
+	allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), remoteCDPURL)
+	defer allocCancel()
+
+	ctx, ctxCancel := chromedp.NewContext(allocCtx)
+	defer ctxCancel()
+
+	if ba.debug {
+		fmt.Fprintf(os.Stderr, "Connected. Navigating to %s\n", targetURL)
+	}
+
+	return ba.extractAuthDataForURL(ctx, targetURL)
+}
 
 // tryMultipleProfiles attempts to authenticate using each profile until one succeeds
 func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies string, err error) {
@@ -462,6 +486,11 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 
 	// Store keep-open setting in the struct
 	ba.keepOpenSeconds = o.KeepOpenSeconds
+
+	// If a remote CDP URL is provided, connect to it directly
+	if o.RemoteCDPURL != "" {
+		return ba.authViaRemoteCDP(o.RemoteCDPURL, o.TargetURL)
+	}
 
 	defer ba.cleanup()
 
@@ -1163,10 +1192,12 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 					fmt.Printf("✓ Authentication successful!\n")
 				}
 
-				// Gracefully close the browser to avoid crash detection
-				if err := ba.gracefulShutdown(ctx); err != nil {
-					if ba.debug {
-						fmt.Printf("Warning: graceful shutdown failed: %v\n", err)
+				// Gracefully close the browser to avoid crash detection (skip for remote CDP sessions)
+				if !ba.isRemote {
+					if err := ba.gracefulShutdown(ctx); err != nil {
+						if ba.debug {
+							fmt.Printf("Warning: graceful shutdown failed: %v\n", err)
+						}
 					}
 				}
 
