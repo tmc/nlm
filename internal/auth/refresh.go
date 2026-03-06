@@ -21,7 +21,6 @@ import (
 const (
 	// Google Signaler API for credential refresh
 	SignalerAPIURL = "https://signaler-pa.clients6.google.com/punctual/v1/refreshCreds"
-	SignalerAPIKey = "[REDACTED_GOOGLE_API_KEY]"
 )
 
 // RefreshClient handles credential refreshing
@@ -54,9 +53,14 @@ func (r *RefreshClient) SetDebug(debug bool) {
 
 // RefreshCredentials refreshes the authentication credentials
 func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
+	signalerAPIKey := os.Getenv("NLM_SIGNALER_API_KEY")
+	if signalerAPIKey == "" {
+		return fmt.Errorf("missing NLM_SIGNALER_API_KEY")
+	}
+
 	// Build the URL with parameters
 	params := url.Values{}
-	params.Set("key", SignalerAPIKey)
+	params.Set("key", signalerAPIKey)
 	if gsessionID != "" {
 		params.Set("gsessionid", gsessionID)
 	}

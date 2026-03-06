@@ -413,7 +413,9 @@ func countNotebooks(token, cookies string) (int, error) {
 
 	// Add headers
 	req.Header.Add("Cookie", cookies)
-	req.Header.Add("x-goog-api-key", "[REDACTED_GOOGLE_API_KEY]")
+	if apiKey := os.Getenv("NLM_GOOG_API_KEY"); apiKey != "" {
+		req.Header.Add("x-goog-api-key", apiKey)
+	}
 	req.Header.Add("x-goog-authuser", "0")
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
