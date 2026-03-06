@@ -1,0 +1,77 @@
+# Test generate command validation only (no network calls)
+# Focus on argument validation and authentication checks
+
+# === GENERATE-GUIDE COMMAND ===
+# Test generate-guide without arguments (should fail with usage)
+! exec ./nlm_test generate-guide
+stderr 'usage: nlm generate-guide <notebook-id>'
+! stderr 'panic'
+
+# Test generate-guide with too many arguments (should fail with usage)
+! exec ./nlm_test generate-guide notebook123 extra
+stderr 'usage: nlm generate-guide <notebook-id>'
+! stderr 'panic'
+
+# Test generate-guide without authentication (should fail)
+! exec ./nlm_test generate-guide notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === GENERATE-OUTLINE COMMAND ===
+# Test generate-outline without arguments (should fail with usage)
+! exec ./nlm_test generate-outline
+stderr 'usage: nlm generate-outline <notebook-id>'
+! stderr 'panic'
+
+# Test generate-outline with too many arguments
+! exec ./nlm_test generate-outline notebook123 extra
+stderr 'usage: nlm generate-outline <notebook-id>'
+! stderr 'panic'
+
+# Test generate-outline without authentication
+! exec ./nlm_test generate-outline notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === GENERATE-SECTION COMMAND ===
+# Test generate-section without arguments
+! exec ./nlm_test generate-section
+stderr 'usage: nlm generate-section <notebook-id>'
+! stderr 'panic'
+
+# Test generate-section without authentication
+! exec ./nlm_test generate-section notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === GENERATE-CHAT COMMAND ===
+# Test generate-chat without arguments
+! exec ./nlm_test generate-chat
+stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
+! stderr 'panic'
+
+# Test generate-chat with only notebook ID
+! exec ./nlm_test generate-chat notebook123
+stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
+! stderr 'panic'
+
+# Test generate-chat without authentication
+! exec ./nlm_test generate-chat notebook123 prompt
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === GENERATE-MAGIC COMMAND ===
+# Test generate-magic without arguments
+! exec ./nlm_test generate-magic
+stderr 'usage: nlm generate-magic <notebook-id> <source-id> \[source-id...\]'
+! stderr 'panic'
+
+# Test generate-magic with only notebook ID
+! exec ./nlm_test generate-magic notebook123
+stderr 'usage: nlm generate-magic <notebook-id> <source-id> \[source-id...\]'
+! stderr 'panic'
+
+# Test generate-magic without authentication
+! exec ./nlm_test generate-magic notebook123 source1 source2
+stderr 'Authentication required'
+! stderr 'panic'

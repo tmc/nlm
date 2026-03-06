@@ -1,0 +1,35 @@
+# Test orchestration and sharing command validation only (no network calls)
+# Focus on argument validation and authentication checks
+
+# === SHARE COMMAND ===
+# Test share without arguments
+! exec ./nlm_test share
+stderr 'usage: nlm share <notebook-id>'
+! stderr 'panic'
+
+# Test share without authentication
+! exec ./nlm_test share notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === SHARE-PRIVATE COMMAND ===
+# Test share-private without arguments
+! exec ./nlm_test share-private
+stderr 'usage: nlm share-private <notebook-id>'
+! stderr 'panic'
+
+# Test share-private without authentication
+! exec ./nlm_test share-private notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === SHARE-DETAILS COMMAND ===
+# Test share-details without arguments
+! exec ./nlm_test share-details
+stderr 'usage: nlm share-details <share-id>'
+! stderr 'panic'
+
+# Test share-details without authentication
+! exec ./nlm_test share-details share123
+stderr 'Authentication required'
+! stderr 'panic'
