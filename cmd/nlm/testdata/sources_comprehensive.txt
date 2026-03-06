@@ -1,0 +1,26 @@
+# Comprehensive test for sources command functionality
+# Tests various edge cases and scenarios
+
+# Test sources command requires notebook ID argument
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+
+# Test sources command with too many arguments
+! exec ./nlm_test sources notebook-id extra-arg
+stderr 'usage: nlm sources <notebook-id>'
+
+# Test sources command with invalid notebook ID format
+! exec ./nlm_test sources invalid-id-format
+stderr 'Authentication required'
+
+# Test sources command with non-existent notebook ID
+! exec ./nlm_test sources 00000000-0000-0000-0000-000000000000
+stderr 'Authentication required'
+
+# Mock authentication environment for validation tests
+env NLM_AUTH_TOKEN=mock-token-123
+env NLM_COOKIES=mock-cookies
+
+# Test that sources command validates arguments correctly with mock auth
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
