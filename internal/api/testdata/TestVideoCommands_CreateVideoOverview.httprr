@@ -1,0 +1,3 @@
+httprr trace v1
+132 91
+POST /_/NotebookLmUi/data/batchexecute HTTP/1.1\r\nHost: notebooklm.google.com\r\n\r\n[["TestVideoCommands_CreateVideoOverview",[]]]HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n[["wrb.fr","generic",["success"]]]

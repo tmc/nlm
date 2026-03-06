@@ -1,0 +1,104 @@
+# Test source command validation only (no network calls)
+# Focus on argument validation and authentication checks
+
+# === SOURCES COMMAND ===
+# Test sources without arguments (should fail with usage)
+! exec ./nlm_test sources
+stderr 'usage: nlm sources <notebook-id>'
+! stderr 'panic'
+
+# Test sources with too many arguments
+! exec ./nlm_test sources notebook123 extra
+stderr 'usage: nlm sources <notebook-id>'
+! stderr 'panic'
+
+# Test sources without authentication
+! exec ./nlm_test sources notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === ADD COMMAND ===
+# Test add without arguments
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+! stderr 'panic'
+
+# Test add with only notebook ID
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
+! stderr 'panic'
+
+# Test add without authentication
+! exec ./nlm_test add notebook123 test.txt
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === RM-SOURCE COMMAND ===
+# Test rm-source without arguments
+! exec ./nlm_test rm-source
+stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+! stderr 'panic'
+
+# Test rm-source with only one argument
+! exec ./nlm_test rm-source notebook123
+stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+! stderr 'panic'
+
+# Test rm-source without authentication
+! exec ./nlm_test rm-source notebook123 source456
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === RENAME-SOURCE COMMAND ===
+# Test rename-source without arguments
+! exec ./nlm_test rename-source
+stderr 'usage: nlm rename-source <source-id> <new-name>'
+! stderr 'panic'
+
+# Test rename-source with only one argument
+! exec ./nlm_test rename-source source123
+stderr 'usage: nlm rename-source <source-id> <new-name>'
+! stderr 'panic'
+
+# Test rename-source without authentication
+! exec ./nlm_test rename-source source123 NewName
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === REFRESH-SOURCE COMMAND ===
+# Test refresh-source without arguments
+! exec ./nlm_test refresh-source
+stderr 'usage: nlm refresh-source <source-id>'
+! stderr 'panic'
+
+# Test refresh-source without authentication
+! exec ./nlm_test refresh-source source123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === CHECK-SOURCE COMMAND ===
+# Test check-source without arguments
+! exec ./nlm_test check-source
+stderr 'usage: nlm check-source <source-id>'
+! stderr 'panic'
+
+# Test check-source without authentication
+! exec ./nlm_test check-source source123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === DISCOVER-SOURCES COMMAND ===
+# Test discover-sources without arguments
+! exec ./nlm_test discover-sources
+stderr 'usage: nlm discover-sources <notebook-id> <query>'
+! stderr 'panic'
+
+# Test discover-sources with only notebook ID
+! exec ./nlm_test discover-sources notebook123
+stderr 'usage: nlm discover-sources <notebook-id> <query>'
+! stderr 'panic'
+
+# Test discover-sources without authentication
+! exec ./nlm_test discover-sources notebook123 query
+stderr 'Authentication required'
+! stderr 'panic'

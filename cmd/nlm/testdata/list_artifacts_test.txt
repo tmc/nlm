@@ -1,0 +1,119 @@
+# Test list-artifacts command validation (no network calls)
+# Focus on argument validation and authentication checks
+
+# === BASIC COMMAND VALIDATION ===
+# Test list-artifacts without arguments
+! exec ./nlm_test list-artifacts
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'panic'
+
+# Test list-artifacts with empty string as argument (passes validation, fails auth)
+! exec ./nlm_test list-artifacts ""
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test list-artifacts with too many arguments
+! exec ./nlm_test list-artifacts notebook123 extra-arg
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'panic'
+
+# Test list-artifacts with three arguments
+! exec ./nlm_test list-artifacts notebook123 extra1 extra2
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'panic'
+
+# === AUTHENTICATION REQUIREMENTS ===
+# Test list-artifacts without authentication
+! exec ./nlm_test list-artifacts notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test list-artifacts with valid notebook ID format but no auth
+! exec ./nlm_test list-artifacts abcd1234-5678-90ef-ghij-klmnopqrstuv
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === COMMAND RECOGNITION ===
+# Test that list-artifacts is recognized as a valid command
+# (vs showing general usage help for invalid commands)
+! exec ./nlm_test list-artifacts
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'Usage: nlm <command>'
+
+# === FLAG INTERACTION ===
+# Test list-artifacts with debug flag (should still require notebook-id)
+! exec ./nlm_test -debug list-artifacts
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'panic'
+
+# Test list-artifacts with various flags but missing notebook-id
+! exec ./nlm_test -auth test-token list-artifacts
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'panic'
+
+# Test list-artifacts with cookies flag but missing notebook-id
+! exec ./nlm_test -cookies test-cookies list-artifacts
+stderr 'usage: nlm list-artifacts <notebook-id>'
+! stderr 'panic'
+
+# === INVALID COMMAND VARIATIONS ===
+# Test similar but invalid command names
+! exec ./nlm_test list-artifact
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test listart
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test list_artifacts
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+# === SPECIAL CHARACTERS IN NOTEBOOK ID ===
+# Test list-artifacts with special characters (should pass validation but fail auth)
+! exec ./nlm_test list-artifacts notebook-123_test
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test list-artifacts with dots in notebook ID (should pass validation but fail auth)
+! exec ./nlm_test list-artifacts notebook.123.test
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === HELP INTEGRATION ===
+# Test that help shows list-artifacts command
+exec ./nlm_test help
+stderr 'list-artifacts <id>  List artifacts in notebook'
+! stderr 'panic'
+
+# Test that -h shows list-artifacts command
+exec ./nlm_test -h
+stderr 'list-artifacts <id>  List artifacts in notebook'
+! stderr 'panic'
+
+# === CASE SENSITIVITY ===
+# Test case variations (should be invalid)
+! exec ./nlm_test LIST-ARTIFACTS notebook123
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+! exec ./nlm_test List-Artifacts notebook123
+stderr 'Usage: nlm <command>'
+! stderr 'panic'
+
+# === EDGE CASES ===
+# Test with very long notebook ID (should pass validation but fail auth)
+! exec ./nlm_test list-artifacts this-is-a-very-long-notebook-id-that-might-cause-issues-but-should-still-be-validated-properly
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test with numeric notebook ID (should pass validation but fail auth)
+! exec ./nlm_test list-artifacts 123456789
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test with single character notebook ID (should pass validation but fail auth)
+! exec ./nlm_test list-artifacts a
+stderr 'Authentication required'
+! stderr 'panic'
