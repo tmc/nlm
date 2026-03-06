@@ -7,6 +7,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
@@ -23,12 +24,22 @@ type LabsTailwindSharingServiceClient struct {
 // NewLabsTailwindSharingServiceClient creates a new client for the LabsTailwindSharingService service.
 // Source: notebooklm/v1alpha1/sharing.proto IsJules: false Host: notebooklm.google.com App: LabsTailwindUi
 func NewLabsTailwindSharingServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindSharingServiceClient {
+	blParam := os.Getenv("NLM_BL_PARAM")
+	if blParam == "" {
+		blParam = "boq_labs-tailwind-frontend_20260210.19_p0"
+	}
+	sessionID := os.Getenv("NLM_SESSION_ID")
+	if sessionID == "" {
+		sessionID = "-3785608638908410209"
+	}
 	config := rpc.ServiceConfig{
 		Host: "notebooklm.google.com",
 		App:  "LabsTailwindUi",
 		URLParams: map[string]string{
-			"hl": "en",
-			"bl": "boq_labs-tailwind-frontend_20260210.19_p0",
+			"hl":    "en",
+			"bl":    blParam,
+			"f.sid": sessionID,
+			"rt":    "c",
 		},
 	}
 	return &LabsTailwindSharingServiceClient{
@@ -40,8 +51,9 @@ func NewLabsTailwindSharingServiceClient(authToken, cookies string, opts ...batc
 func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *notebooklmv1alpha1.ShareAudioRequest) (*notebooklmv1alpha1.ShareAudioResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "RGP97b",
-		Args: method.EncodeShareAudioArgs(req),
+		ID:         "RGP97b",
+		Args:       method.EncodeShareAudioArgs(req),
+		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -86,8 +98,9 @@ func (c *LabsTailwindSharingServiceClient) GetProjectDetails(ctx context.Context
 func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req *notebooklmv1alpha1.ShareProjectRequest) (*notebooklmv1alpha1.ShareProjectResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "QDyure",
-		Args: method.EncodeShareProjectArgs(req),
+		ID:         "QDyure",
+		Args:       method.EncodeShareProjectArgs(req),
+		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC

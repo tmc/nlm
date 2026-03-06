@@ -7,6 +7,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
@@ -24,12 +25,22 @@ type LabsTailwindGuidebooksServiceClient struct {
 // NewLabsTailwindGuidebooksServiceClient creates a new client for the LabsTailwindGuidebooksService service.
 // Source: notebooklm/v1alpha1/sharing.proto IsJules: false Host: notebooklm.google.com App: LabsTailwindUi
 func NewLabsTailwindGuidebooksServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindGuidebooksServiceClient {
+	blParam := os.Getenv("NLM_BL_PARAM")
+	if blParam == "" {
+		blParam = "boq_labs-tailwind-frontend_20260210.19_p0"
+	}
+	sessionID := os.Getenv("NLM_SESSION_ID")
+	if sessionID == "" {
+		sessionID = "-3785608638908410209"
+	}
 	config := rpc.ServiceConfig{
 		Host: "notebooklm.google.com",
 		App:  "LabsTailwindUi",
 		URLParams: map[string]string{
-			"hl": "en",
-			"bl": "boq_labs-tailwind-frontend_20260210.19_p0",
+			"hl":    "en",
+			"bl":    blParam,
+			"f.sid": sessionID,
+			"rt":    "c",
 		},
 	}
 	return &LabsTailwindGuidebooksServiceClient{

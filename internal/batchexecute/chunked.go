@@ -327,20 +327,6 @@ func processChunks(chunks []string) ([]Response, error) {
 
 	// Process each chunk
 	for _, chunk := range chunks {
-		// Try to fix any common escaping issues before parsing
-		chunk = strings.ReplaceAll(chunk, "\\\"", "\"")
-
-		// Remove any outer quotes if present
-		trimmed := strings.TrimSpace(chunk)
-		if (strings.HasPrefix(trimmed, "\"") && strings.HasSuffix(trimmed, "\"")) ||
-			(strings.HasPrefix(trimmed, "'") && strings.HasSuffix(trimmed, "'")) {
-			// This is a quoted string that might contain escaped JSON
-			unquoted, err := strconv.Unquote(chunk)
-			if err == nil {
-				chunk = unquoted
-			}
-		}
-
 		// Try to parse as a JSON array
 		var data [][]interface{}
 		if err := json.Unmarshal([]byte(chunk), &data); err != nil {
@@ -350,7 +336,7 @@ func processChunks(chunks []string) ([]Response, error) {
 				// If it still fails, check if it contains wrb.fr and try to manually extract
 				if strings.Contains(chunk, "wrb.fr") {
 					// Manually construct a response
-					fmt.Printf("Attempting to manually extract wrb.fr response from: %s\n", chunk)
+					// fmt.Printf("Attempting to manually extract wrb.fr response from: %s\n", chunk)
 					if resp := extractWRBResponse(chunk); resp != nil {
 						allResponses = append(allResponses, *resp)
 						continue
@@ -404,20 +390,21 @@ func extractResponses(data [][]interface{}) ([]Response, error) {
 			ID: id,
 		}
 
-		// Extract the response data
+		// Extract the response data from position 2 (standard) or position 5 (error/fallback)
 		if rpcData[2] != nil {
 			switch data := rpcData[2].(type) {
 			case string:
 				resp.Data = json.RawMessage(data)
 			default:
-				// If it's not a string, try to marshal it
 				if rawData, err := json.Marshal(data); err == nil {
 					resp.Data = rawData
 				}
 			}
-		} else {
-			// Data is null - this usually indicates an authentication issue or inaccessible resource
-			fmt.Printf("WARNING: Received null data for RPC %s - possible authentication issue\n", id)
+		} else if len(rpcData) > 5 && rpcData[5] != nil {
+			// Position 5 contains error codes or fallback data (e.g., [16] for UNAUTHENTICATED)
+			if rawData, err := json.Marshal(rpcData[5]); err == nil {
+				resp.Data = rawData
+			}
 		}
 
 		// Extract the response index

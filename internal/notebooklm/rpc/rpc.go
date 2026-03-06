@@ -144,6 +144,7 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 			"bl":    blParam,
 			"f.sid": sessionID,
 			"hl":    "en",
+			"rt":    "c",
 		},
 	}
 	return &Client{
