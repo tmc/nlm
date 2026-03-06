@@ -97,10 +97,16 @@ func run() error {
 	args := flag.Args()[1:]
 
 	var opts []batchexecute.Option
+	if debug {
+		opts = append(opts, batchexecute.WithDebug(true))
+	}
+	
 	for i := 0; i < 3; i++ {
 		if i > 1 {
 			fmt.Fprintln(os.Stderr, "nlm: attempting again to obtain login information")
 			debug = true
+			// Update opts to include debug when retrying auth
+			opts = []batchexecute.Option{batchexecute.WithDebug(true)}
 		}
 
 		if err := runCmd(api.New(authToken, cookies, opts...), cmd, args...); err == nil {
