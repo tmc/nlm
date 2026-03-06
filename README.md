@@ -48,6 +48,7 @@ Generation Commands:
 
 Other Commands:
   auth              Setup authentication
+  batch <commands>  Execute multiple commands in batch
 ```
 
 <details>
@@ -112,7 +113,74 @@ First, authenticate with your Google account:
 nlm auth
 ```
 
-This will launch Chrome to authenticate with your Google account. The authentication tokens will be saved in `.env` file.
+This will launch your default Chromium-based browser to authenticate with your Google account. The authentication tokens will be saved in `~/.nlm/env` file.
+
+### Browser Support
+
+The tool supports multiple browsers:
+- **Google Chrome** (default)
+- **Chrome Canary**
+- **Brave Browser**
+- **Chromium**
+- **Microsoft Edge**
+
+### Brave Browser Authentication
+
+If you use Brave Browser, the tool will automatically detect and use it:
+
+```bash
+# The tool will automatically find and use Brave profiles
+nlm auth
+
+# Force authentication with all available profiles (including Brave)
+nlm auth --all
+
+# Check which profiles have NotebookLM access
+nlm auth --notebooks
+
+# Use a specific Brave profile
+nlm auth --profile "Profile 1"
+```
+
+### Profile Management
+
+The authentication system automatically scans for browser profiles and prioritizes them based on:
+- Profiles that already have NotebookLM cookies
+- Most recently used profiles
+- Profiles with existing notebooks
+
+To see available profiles:
+```bash
+nlm auth --all --notebooks
+```
+
+### Advanced Authentication Options
+
+```bash
+# Try all available browser profiles
+nlm auth --all
+
+# Use a specific browser profile
+nlm auth --profile "Work Profile"
+
+# Use a specific Google account index (multi-account in the same Profile)
+nlm auth --authuser 1
+nlm auth -au 1
+
+# Check notebook access for profiles
+nlm auth --notebooks
+
+# Enable debug output to see authentication process
+nlm auth --debug
+```
+
+### Environment Variables
+
+- `NLM_AUTH_TOKEN`: Authentication token (stored in ~/.nlm/env)
+- `NLM_COOKIES`: Authentication cookies (stored in ~/.nlm/env)
+- `NLM_BROWSER_PROFILE`: Chrome/Brave profile to use (default: "Default")
+
+These are typically managed by the `auth` command, but can be manually configured if needed.
 
 ## Usage 💻
 
@@ -147,11 +215,18 @@ nlm add <notebook-id> document.pdf
 # Add source from stdin
 echo "Some text" | nlm add <notebook-id> -
 
+# Add content from stdin with specific MIME type
+cat data.xml | nlm add <notebook-id> - -mime="text/xml"
+cat data.json | nlm add <notebook-id> - -mime="application/json"
+
 # Rename a source
 nlm rename-source <source-id> "New Title"
 
 # Remove a source
 nlm rm-source <notebook-id> <source-id>
+
+# Add a YouTube video as a source
+nlm add <notebook-id> https://www.youtube.com/watch?v=dQw4w9WgXcQ
 ```
 
 ### Note Operations
@@ -186,6 +261,17 @@ nlm audio-share <notebook-id>
 nlm audio-share <notebook-id> --public
 ```
 
+### Batch Mode
+
+Execute multiple commands in a single request for better performance:
+
+```bash
+# Create a notebook and add multiple sources in one batch request
+nlm batch "create 'My Research Notebook'" "add NOTEBOOK_ID https://example.com/article" "add NOTEBOOK_ID research.pdf"
+```
+
+The batch mode reduces latency by sending multiple commands in a single network request.
+
 ## Examples 📋
 
 Create a notebook and add some content:
@@ -196,6 +282,7 @@ notebook_id=$(nlm create "Research Notes" | grep -o 'notebook [^ ]*' | cut -d' '
 # Add some sources
 nlm add $notebook_id https://example.com/research-paper
 nlm add $notebook_id research-data.pdf
+nlm add $notebook_id https://www.youtube.com/watch?v=dQw4w9WgXcQ
 
 # Create an audio overview
 nlm audio-create $notebook_id "summarize in a professional tone"
@@ -218,9 +305,46 @@ nlm -debug list
 
 - `NLM_AUTH_TOKEN`: Authentication token (stored in ~/.nlm/env)
 - `NLM_COOKIES`: Authentication cookies (stored in ~/.nlm/env)
-- `NLM_BROWSER_PROFILE`: Chrome profile to use for authentication (default: "Default")
+- `NLM_BROWSER_PROFILE`: Chrome/Brave profile to use for authentication (default: "Default")
 
 These are typically managed by the `auth` command, but can be manually configured if needed.
+
+## Troubleshooting 🔧
+
+If you encounter issues with authentication, API errors, or file uploads, please see the [Troubleshooting Guide](TROUBLESHOOTING.md) for detailed solutions to common problems.
+
+## Recent Improvements 🚀
+
+### 1. Enhanced MIME Type Detection
+
+We've improved the way files are uploaded to NotebookLM with more accurate MIME type detection:
+- Multi-stage detection process using content analysis and file extensions
+- Better handling of text versus binary content
+- Improved error handling and diagnostics
+- Manual MIME type specification with new `-mime` flag for precise control
+
+### 2. YouTube Source Support
+
+You can now easily add YouTube videos as sources to your notebooks:
+- Automatic detection of various YouTube URL formats
+- Support for standard youtube.com links and shortened youtu.be URLs
+- Proper extraction and processing of video content
+
+### 3. Improved Batch Execute Handling
+
+The batch mode has been enhanced for better performance and reliability:
+- Chunked response handling for larger responses
+- More robust authentication flow
+- Better error handling and recovery
+- Improved request ID generation for API stability
+
+### 4. File Upload Enhancements
+
+File upload capabilities have been refined:
+- Support for more file formats
+- Better handling of large files
+- Enhanced error reporting and diagnostics
+- New `-mime` flag for explicitly specifying content type for any file or stdin input
 
 ## Contributing 🤝
 

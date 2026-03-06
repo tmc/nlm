@@ -3,6 +3,11 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"regexp"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -26,6 +31,7 @@ const (
 	RPCLoadSource           = "hizoJc" // LoadSource
 	RPCCheckSourceFreshness = "yR9Yof" // CheckSourceFreshness
 	RPCActOnSources         = "yyryJe" // ActOnSources
+	RPCDiscoverSources      = "qXyaNe" // DiscoverSources
 
 	// NotebookLM service - Note operations
 	RPCCreateNote  = "CYK0Xb" // CreateNote
@@ -38,13 +44,18 @@ const (
 	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
 	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
 
+	// NotebookLM service - Video operations
+	RPCCreateVideoOverview = "R7cb6c" // CreateVideoOverview
+
 	// NotebookLM service - Generation operations
-	RPCGenerateDocumentGuides = "tr032e" // GenerateDocumentGuides
-	RPCGenerateNotebookGuide  = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline        = "lCjAd"  // GenerateOutline
-	RPCGenerateSection        = "BeTrYd" // GenerateSection
-	RPCStartDraft             = "exXvGf" // StartDraft
-	RPCStartSection           = "pGC7gf" // StartSection
+	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
+	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
+	RPCGenerateOutline           = "lCjAd"  // GenerateOutline
+	RPCGenerateSection           = "BeTrYd" // GenerateSection
+	RPCStartDraft                = "exXvGf" // StartDraft
+	RPCStartSection              = "pGC7gf" // StartSection
+	RPCGenerateFreeFormStreamed  = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
+	RPCGenerateReportSuggestions = "GHsKob" // GenerateReportSuggestions
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -67,6 +78,24 @@ const (
 	RPCGetGuidebookDetails          = "LJyzeb" // GetGuidebookDetails
 	RPCShareGuidebook               = "OTl0K"  // ShareGuidebook
 	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
+
+	// LabsTailwindOrchestrationService - Artifact operations
+	RPCCreateArtifact = "xpWGLf" // CreateArtifact
+	RPCGetArtifact    = "BnLyuf" // GetArtifact
+	RPCUpdateArtifact = "DJezBc" // UpdateArtifact
+	RPCRenameArtifact = "rc3d8d" // RenameArtifact - for title updates
+	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact
+	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
+
+	// LabsTailwindOrchestrationService - Additional operations
+	RPCListFeaturedProjects = "nS9Qlc" // ListFeaturedProjects
+	RPCReportContent        = "rJKx8e" // ReportContent
+)
+
+var (
+	blRegex   = regexp.MustCompile(`boq_labs-tailwind-frontend_[0-9.]+_p[0-9]+`)
+	fsidRegex = regexp.MustCompile(`["']f\.sid["']\s*[:=]\s*["']?(-?\d+)["']?`)
+	hlRegex   = regexp.MustCompile(`["']hl["']\s*[:=]\s*["']?([a-zA-Z-]+)["']?`)
 )
 
 // Call represents a NotebookLM RPC call
@@ -85,6 +114,39 @@ type Client struct {
 // New creates a new NotebookLM RPC client
 // New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
+	bl := os.Getenv("NLM_BL")
+	fsid := os.Getenv("NLM_F_SID")
+	hl := os.Getenv("NLM_HL")
+	authUser := os.Getenv("NLM_AUTHUSER")
+	if authUser == "" {
+		authUser = "0"
+	}
+
+	if bl == "" || fsid == "" || hl == "" {
+		discoveredBL, discoveredFSID, discoveredHL, err := discoverBatchExecuteParams(cookies, authUser)
+		if err == nil {
+			if bl == "" {
+				bl = discoveredBL
+			}
+			if fsid == "" {
+				fsid = discoveredFSID
+			}
+			if hl == "" {
+				hl = discoveredHL
+			}
+		}
+	}
+
+	if bl == "" {
+		bl = "boq_labs-tailwind-frontend_20260127.09_p1"
+	}
+	if fsid == "" {
+		fsid = "3894541541181659848"
+	}
+	if hl == "" {
+		hl = "en"
+	}
+
 	config := batchexecute.Config{
 		Host:      "notebooklm.google.com",
 		App:       "LabsTailwindUi",
@@ -92,26 +154,92 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 		Cookies:   cookies,
 		Headers: map[string]string{
 			"content-type":    "application/x-www-form-urlencoded;charset=UTF-8",
-			"origin":          "https://notebooklm.google.com",
+			"origin":          "https://notebooklm.google.com/",
 			"referer":         "https://notebooklm.google.com/",
 			"x-same-domain":   "1",
+			"x-goog-authuser": authUser,
 			"accept":          "*/*",
 			"accept-language": "en-US,en;q=0.9",
 			"cache-control":   "no-cache",
 			"pragma":          "no-cache",
 		},
 		URLParams: map[string]string{
-			"bl":    "boq_labs-tailwind-frontend_20241114.01_p0",
-			"f.sid": "-7121977511756781186",
-			"hl":    "en",
-			// Omit this to get cleaner output.
-			//"rt":    "c",
+			"bl":       bl,
+			"f.sid":    fsid,
+			"hl":       hl,
+			"authuser": authUser,
+			// Omit rt parameter for JSON array format (easier to parse)
+			// "rt":    "c",  // Use "c" for chunked format, omit for JSON array
 		},
 	}
 	return &Client{
 		Config: config,
 		client: batchexecute.NewClient(config, options...),
 	}
+}
+
+func discoverBatchExecuteParams(cookies, authUser string) (string, string, string, error) {
+	html, err := fetchNotebookLMHTML(cookies, authUser)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	bl, fsid, hl := extractBatchExecuteParams(html)
+	if bl == "" || fsid == "" {
+		return bl, fsid, hl, fmt.Errorf("discover batchexecute params: missing bl or f.sid")
+	}
+	if hl == "" {
+		hl = "en"
+	}
+	return bl, fsid, hl, nil
+}
+
+func fetchNotebookLMHTML(cookies, authUser string) (string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	url := "https://notebooklm.google.com/"
+	if authUser != "" {
+		url = url + "?authuser=" + authUser
+	}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("create discovery request: %w", err)
+	}
+	if cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
+	if authUser != "" {
+		req.Header.Set("X-Goog-AuthUser", authUser)
+	}
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetch notebooklm html: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("fetch notebooklm html: status %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read notebooklm html: %w", err)
+	}
+	return string(body), nil
+}
+
+func extractBatchExecuteParams(html string) (string, string, string) {
+	bl := blRegex.FindString(html)
+	fsid := ""
+	if matches := fsidRegex.FindStringSubmatch(html); len(matches) > 1 {
+		fsid = matches[1]
+	}
+	hl := ""
+	if matches := hlRegex.FindStringSubmatch(html); len(matches) > 1 {
+		hl = matches[1]
+	}
+	return bl, fsid, hl
 }
 
 // Do executes a NotebookLM RPC call
