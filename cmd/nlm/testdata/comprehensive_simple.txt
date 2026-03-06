@@ -1,0 +1,23 @@
+# Simplified comprehensive test without env commands
+
+# Test 1: Help command - should work without auth
+exec ./nlm_test help
+stderr 'Usage: nlm <command>'
+stderr 'Notebook Commands'
+
+# Test 2: Invalid command handling
+! exec ./nlm_test invalid-command
+stderr 'Usage: nlm'
+
+# Test 3: Argument validation
+! exec ./nlm_test notes
+stderr 'usage: nlm notes <notebook-id>'
+
+# Test 4: Create without args
+! exec ./nlm_test create
+stderr 'usage: nlm create <title>'
+
+# Test 5: Help flag
+exec ./nlm_test -h
+stderr 'Usage: nlm <command>'
+stderr 'Notebook Commands'

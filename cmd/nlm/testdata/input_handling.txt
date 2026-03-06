@@ -1,0 +1,18 @@
+# Test input handling validation only (no network calls)
+# Focus on argument validation and error messages
+
+# Test add with single argument (missing file)
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
+
+# Test add without authentication should fail before network
+! exec ./nlm_test add notebook123 test.txt
+stderr 'Authentication required'
+
+# Test add with single argument
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <file>'
+
+# Test add without any arguments
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'

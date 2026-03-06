@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type BrowserPriority struct {
@@ -36,12 +37,54 @@ func getChromePath() string {
 		}
 	}
 
-	// Try finding Chrome via mdfind
-	if path := findBrowserViaMDFind("com.google.Chrome"); path != "" {
-		return filepath.Join(path, "Contents/MacOS/Google Chrome")
+	// Try finding browsers via mdfind
+	browserPaths := map[string]string{
+		"com.google.Chrome": "Contents/MacOS/Google Chrome",
+		"com.brave.Browser": "Contents/MacOS/Brave Browser",
+	}
+
+	for bundleID, execPath := range browserPaths {
+		if path := findBrowserViaMDFind(bundleID); path != "" {
+			return filepath.Join(path, execPath)
+		}
 	}
 
 	return ""
+}
+
+// getBrowserPathForProfile returns the appropriate browser executable for a given browser type
+func getBrowserPathForProfile(browserName string) string {
+	switch browserName {
+	case "Brave":
+		// Try Brave paths first
+		bravePaths := []string{
+			"/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+		}
+		for _, path := range bravePaths {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+		// Try finding via mdfind
+		if path := findBrowserViaMDFind("com.brave.Browser"); path != "" {
+			return filepath.Join(path, "Contents/MacOS/Brave Browser")
+		}
+	case "Chrome Canary":
+		canaryPaths := []string{
+			"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+		}
+		for _, path := range canaryPaths {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+		if path := findBrowserViaMDFind("com.google.Chrome.canary"); path != "" {
+			return filepath.Join(path, "Contents/MacOS/Google Chrome Canary")
+		}
+	}
+
+	// Fallback to any Chrome-based browser
+	return getChromePath()
 }
 
 func detectChrome(debug bool) Browser {
@@ -87,6 +130,9 @@ func detectChrome(debug bool) Browser {
 				Version: version,
 			}
 		}
+		if debug {
+			fmt.Printf("No %s found via mdfind\n", browser.Name)
+		}
 	}
 
 	if debug {
@@ -101,10 +147,34 @@ func findBrowserViaMDFind(bundleID string) string {
 	if err == nil && len(out) > 0 {
 		paths := strings.Split(strings.TrimSpace(string(out)), "\n")
 		if len(paths) > 0 {
+			// If there are multiple instances, prioritize by most recently modified
+			if len(paths) > 1 {
+				return getMostRecentPath(paths)
+			}
 			return paths[0]
 		}
 	}
 	return ""
+}
+
+func getMostRecentPath(paths []string) string {
+	var mostRecent string
+	var mostRecentTime time.Time
+
+	for _, path := range paths {
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+
+		modTime := info.ModTime()
+		if mostRecent == "" || modTime.After(mostRecentTime) {
+			mostRecent = path
+			mostRecentTime = modTime
+		}
+	}
+
+	return mostRecent
 }
 
 func getChromeVersion(path string) string {
@@ -123,7 +193,28 @@ func removeQuarantine(path string) error {
 
 func getProfilePath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Library", "Application Support", "Google", "Chrome")
+	chromePath := filepath.Join(home, "Library", "Application Support", "Google", "Chrome")
+
+	// Check if Chrome directory exists, if not, try Brave
+	if _, err := os.Stat(chromePath); os.IsNotExist(err) {
+		// Try Brave instead
+		bravePath := getBraveProfilePath()
+		if _, err := os.Stat(bravePath); err == nil {
+			return bravePath
+		}
+	}
+
+	return chromePath
+}
+
+func getCanaryProfilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Library", "Application Support", "Google", "Chrome Canary")
+}
+
+func getBraveProfilePath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, "Library", "Application Support", "BraveSoftware", "Brave-Browser")
 }
 
 func checkBrowserInstallation() string {
