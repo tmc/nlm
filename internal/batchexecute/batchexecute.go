@@ -97,8 +97,8 @@ func extractSAPISID(cookies string) string {
 	parts := strings.Split(cookies, ";")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "SAPISID=[REDACTED] {
-			return strings.TrimPrefix(part, "SAPISID=[REDACTED]
+		if strings.HasPrefix(part, "SAPISID=") {
+			return strings.TrimPrefix(part, "SAPISID=")
 		}
 	}
 	return ""

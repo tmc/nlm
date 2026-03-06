@@ -34,16 +34,16 @@ func TestGenerateSAPISIDHASH(t *testing.T) {
 }
 
 func TestExtractCookieValue(t *testing.T) {
-	cookies := "HSID=[REDACTED]; SSID=[REDACTED]; SAPISID=[REDACTED]; OTHER=value"
+	cookies := "HSID=fake_hsid_value; SSID=fake_ssid_value; SAPISID=fake_sapisid_value; OTHER=value"
 
 	tests := []struct {
 		name   string
 		cookie string
 		want   string
 	}{
-		{"Extract SAPISID", "SAPISID", "ehxTF4-jACAOIp6k/Ax2l7oysalHiZneAB"},
-		{"Extract HSID", "HSID", "ALqRa_fZCerZVJzYF"},
-		{"Extract SSID", "SSID", "Asj5yorYk-Zr-smiU"},
+		{"Extract SAPISID", "SAPISID", "fake_sapisid_value"},
+		{"Extract HSID", "HSID", "fake_hsid_value"},
+		{"Extract SSID", "SSID", "fake_ssid_value"},
 		{"Non-existent cookie", "NOTFOUND", ""},
 	}
 

@@ -609,8 +609,8 @@ func (c *Client) setAuthHeaders(req *http.Request) {
 func extractSAPISID(cookies string) string {
 	for _, part := range strings.Split(cookies, ";") {
 		part = strings.TrimSpace(part)
-		if strings.HasPrefix(part, "SAPISID=[REDACTED] {
-			return strings.TrimPrefix(part, "SAPISID=[REDACTED]
+		if strings.HasPrefix(part, "SAPISID=") {
+			return strings.TrimPrefix(part, "SAPISID=")
 		}
 	}
 	return ""
