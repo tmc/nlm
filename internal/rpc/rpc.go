@@ -3,10 +3,160 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"sync"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tmc/nlm/internal/batchexecute"
 )
+
+// Default API parameters - used as fallback if extraction fails
+const (
+	DefaultBuildVersion = "boq_labs-tailwind-frontend_20251120.08_p0"
+	DefaultSessionID    = "-8913782897795119716"
+)
+
+// APIParams holds dynamically extracted API parameters
+type APIParams struct {
+	BuildVersion string // bl parameter
+	SessionID    string // f.sid parameter
+}
+
+var (
+	cachedParams *APIParams
+	paramsMutex  sync.Mutex
+)
+
+// GetAPIParams returns API parameters, either from cache, env vars, or by fetching from NotebookLM
+func GetAPIParams(cookies string) *APIParams {
+	paramsMutex.Lock()
+	defer paramsMutex.Unlock()
+
+	// Return cached if available
+	if cachedParams != nil {
+		return cachedParams
+	}
+
+	// Check environment variables first
+	bl := os.Getenv("NLM_BUILD_VERSION")
+	sid := os.Getenv("NLM_SESSION_ID")
+
+	if bl != "" && sid != "" {
+		cachedParams = &APIParams{BuildVersion: bl, SessionID: sid}
+		return cachedParams
+	}
+
+	// Try to fetch from NotebookLM page
+	if cookies != "" {
+		if params := fetchAPIParamsFromPage(cookies); params != nil {
+			cachedParams = params
+			return cachedParams
+		}
+	}
+
+	// Fallback to defaults
+	cachedParams = &APIParams{
+		BuildVersion: DefaultBuildVersion,
+		SessionID:    DefaultSessionID,
+	}
+	return cachedParams
+}
+
+// fetchAPIParamsFromPage extracts bl and f.sid from the NotebookLM HTML page
+func fetchAPIParamsFromPage(cookies string) *APIParams {
+	req, err := http.NewRequest("GET", "https://notebooklm.google.com/", nil)
+	if err != nil {
+		return nil
+	}
+
+	req.Header.Set("Cookie", cookies)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+
+	html := string(body)
+	params := &APIParams{}
+
+	// Extract build version (bl) - pattern: "cfb2h":"boq_labs-tailwind-frontend_..."
+	blRegex := regexp.MustCompile(`"cfb2h":"(boq_labs-tailwind-frontend_[^"]+)"`)
+	if matches := blRegex.FindStringSubmatch(html); len(matches) > 1 {
+		params.BuildVersion = matches[1]
+	}
+
+	// Extract session ID (f.sid) - pattern: "FdrFJe":"-1234567890"
+	sidRegex := regexp.MustCompile(`"FdrFJe":"(-?\d+)"`)
+	if matches := sidRegex.FindStringSubmatch(html); len(matches) > 1 {
+		params.SessionID = matches[1]
+	}
+
+	// Also try alternative patterns if primary ones fail
+	if params.BuildVersion == "" {
+		// Try: bl=boq_labs... in script
+		blAltRegex := regexp.MustCompile(`bl['":\s=]+['"]?(boq_labs-tailwind-frontend_[^'"&\s]+)`)
+		if matches := blAltRegex.FindStringSubmatch(html); len(matches) > 1 {
+			params.BuildVersion = matches[1]
+		}
+	}
+
+	if params.SessionID == "" {
+		// Try: f.sid= pattern
+		sidAltRegex := regexp.MustCompile(`f\.sid['":\s=]+['"]?(-?\d+)`)
+		if matches := sidAltRegex.FindStringSubmatch(html); len(matches) > 1 {
+			params.SessionID = matches[1]
+		}
+	}
+
+	// Only return if we got at least one value
+	if params.BuildVersion != "" || params.SessionID != "" {
+		// Fill in defaults for missing values
+		if params.BuildVersion == "" {
+			params.BuildVersion = DefaultBuildVersion
+		}
+		if params.SessionID == "" {
+			params.SessionID = DefaultSessionID
+		}
+		if os.Getenv("NLM_DEBUG") != "" {
+			fmt.Printf("DEBUG: Extracted API params - bl: %s, f.sid: %s\n",
+				params.BuildVersion[:min(50, len(params.BuildVersion))], params.SessionID)
+		}
+		return params
+	}
+
+	return nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// ClearAPIParamsCache clears the cached API parameters (useful for refresh)
+func ClearAPIParamsCache() {
+	paramsMutex.Lock()
+	defer paramsMutex.Unlock()
+	cachedParams = nil
+}
+
+// Helper to check if a string contains NotebookLM-related content
+func isNotebookLMPage(html string) bool {
+	return strings.Contains(html, "notebooklm") || strings.Contains(html, "LabsTailwind")
+}
 
 // RPC endpoint IDs for NotebookLM services
 const (
@@ -17,6 +167,7 @@ const (
 	RPCDeleteProjects             = "WWINqb" // DeleteProjects
 	RPCMutateProject              = "s0tc2d" // MutateProject
 	RPCRemoveRecentlyViewed       = "fejl7e" // RemoveRecentlyViewedProject
+	RPCRegisterBinarySource       = "o4cbdc" // RegisterBinarySource (for file upload)
 
 	// NotebookLM service - Source operations
 	RPCAddSources           = "izAoDd" // AddSources
@@ -26,6 +177,7 @@ const (
 	RPCLoadSource           = "hizoJc" // LoadSource
 	RPCCheckSourceFreshness = "yR9Yof" // CheckSourceFreshness
 	RPCActOnSources         = "yyryJe" // ActOnSources
+	RPCDiscoverSources      = "qXyaNe" // DiscoverSources
 
 	// NotebookLM service - Note operations
 	RPCCreateNote  = "CYK0Xb" // CreateNote
@@ -38,13 +190,18 @@ const (
 	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
 	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
 
+	// NotebookLM service - Video operations
+	RPCCreateVideoOverview = "R7cb6c" // CreateVideoOverview
+
 	// NotebookLM service - Generation operations
-	RPCGenerateDocumentGuides = "tr032e" // GenerateDocumentGuides
-	RPCGenerateNotebookGuide  = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline        = "lCjAd"  // GenerateOutline
-	RPCGenerateSection        = "BeTrYd" // GenerateSection
-	RPCStartDraft             = "exXvGf" // StartDraft
-	RPCStartSection           = "pGC7gf" // StartSection
+	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
+	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
+	RPCGenerateOutline           = "lCjAd"  // GenerateOutline
+	RPCGenerateSection           = "BeTrYd" // GenerateSection
+	RPCStartDraft                = "exXvGf" // StartDraft
+	RPCStartSection              = "pGC7gf" // StartSection
+	RPCGenerateFreeFormStreamed  = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
+	RPCGenerateReportSuggestions = "GHsKob" // GenerateReportSuggestions
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -67,6 +224,18 @@ const (
 	RPCGetGuidebookDetails          = "LJyzeb" // GetGuidebookDetails
 	RPCShareGuidebook               = "OTl0K"  // ShareGuidebook
 	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
+
+	// LabsTailwindOrchestrationService - Artifact operations
+	RPCCreateArtifact = "xpWGLf" // CreateArtifact
+	RPCGetArtifact    = "BnLyuf" // GetArtifact
+	RPCUpdateArtifact = "DJezBc" // UpdateArtifact
+	RPCRenameArtifact = "rc3d8d" // RenameArtifact - for title updates
+	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact
+	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
+
+	// LabsTailwindOrchestrationService - Additional operations
+	RPCListFeaturedProjects = "nS9Qlc" // ListFeaturedProjects
+	RPCReportContent        = "rJKx8e" // ReportContent
 )
 
 // Call represents a NotebookLM RPC call
@@ -83,8 +252,10 @@ type Client struct {
 }
 
 // New creates a new NotebookLM RPC client
-// New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
+	// Get API parameters dynamically (from env, page extraction, or defaults)
+	params := GetAPIParams(cookies)
+
 	config := batchexecute.Config{
 		Host:      "notebooklm.google.com",
 		App:       "LabsTailwindUi",
@@ -101,11 +272,9 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 			"pragma":          "no-cache",
 		},
 		URLParams: map[string]string{
-			"bl":    "boq_labs-tailwind-frontend_20241114.01_p0",
-			"f.sid": "-7121977511756781186",
+			"bl":    params.BuildVersion,
+			"f.sid": params.SessionID,
 			"hl":    "en",
-			// Omit this to get cleaner output.
-			//"rt":    "c",
 		},
 	}
 	return &Client{

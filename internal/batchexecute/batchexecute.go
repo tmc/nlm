@@ -1,7 +1,6 @@
 package batchexecute
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +17,67 @@ import (
 
 // ErrUnauthorized represent an unauthorized request.
 var ErrUnauthorized = errors.New("unauthorized")
+
+// sanitizeJSON fixes invalid escape sequences in JSON strings.
+func sanitizeJSON(input string) string {
+	// Fix invalid escape sequences inside JSON strings
+	// We need to be careful to only fix escapes inside quoted strings
+	var result strings.Builder
+	inString := false
+	i := 0
+
+	for i < len(input) {
+		c := input[i]
+
+		if c == '"' && (i == 0 || input[i-1] != '\\') {
+			inString = !inString
+			result.WriteByte(c)
+			i++
+			continue
+		}
+
+		if inString && c == '\\' && i+1 < len(input) {
+			next := input[i+1]
+			// Check if this is a valid JSON escape sequence
+			switch next {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't':
+				// Valid escape - keep as is
+				result.WriteByte(c)
+				result.WriteByte(next)
+				i += 2
+			case 'u':
+				// Unicode escape - check if followed by 4 hex digits
+				if i+5 < len(input) {
+					hex := input[i+2 : i+6]
+					valid := true
+					for _, h := range hex {
+						if !((h >= '0' && h <= '9') || (h >= 'a' && h <= 'f') || (h >= 'A' && h <= 'F')) {
+							valid = false
+							break
+						}
+					}
+					if valid {
+						result.WriteString(input[i : i+6])
+						i += 6
+						continue
+					}
+				}
+				// Invalid unicode escape - escape the backslash
+				result.WriteString("\\\\")
+				i++
+			default:
+				// Invalid escape sequence - escape the backslash
+				result.WriteString("\\\\")
+				i++
+			}
+		} else {
+			result.WriteByte(c)
+			i++
+		}
+	}
+
+	return result.String()
+}
 
 // RPC represents a single RPC call
 type RPC struct {
@@ -58,6 +118,40 @@ func (c *Client) Do(rpc RPC) (*Response, error) {
 	return c.Execute([]RPC{rpc})
 }
 
+// maskSensitiveValue masks sensitive values like tokens for debug output
+func maskSensitiveValue(value string) string {
+	if len(value) <= 8 {
+		return strings.Repeat("*", len(value))
+	} else if len(value) <= 16 {
+		start := value[:2]
+		end := value[len(value)-2:]
+		return start + strings.Repeat("*", len(value)-4) + end
+	} else {
+		start := value[:3]
+		end := value[len(value)-3:]
+		return start + strings.Repeat("*", len(value)-6) + end
+	}
+}
+
+// maskCookieValues masks cookie values in cookie header for debug output
+func maskCookieValues(cookies string) string {
+	// Split cookies by semicolon
+	parts := strings.Split(cookies, ";")
+	var masked []string
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if name, value, found := strings.Cut(part, "="); found {
+			maskedValue := maskSensitiveValue(value)
+			masked = append(masked, name+"="+maskedValue)
+		} else {
+			masked = append(masked, part) // Keep parts without = as-is
+		}
+	}
+
+	return strings.Join(masked, "; ")
+}
+
 func buildRPCData(rpc RPC) []interface{} {
 	// Convert args to JSON string
 	argsJSON, _ := json.Marshal(rpc.Args)
@@ -84,7 +178,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	q := u.Query()
 	q.Set("rpcids", strings.Join([]string{rpcs[0].ID}, ","))
 
-	// Add all URL parameters
+	// Add all URL parameters (including rt parameter if set)
 	for k, v := range c.config.URLParams {
 		q.Set(k, v)
 	}
@@ -93,8 +187,8 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			q.Set(k, v)
 		}
 	}
-	// Add rt=c parameter for chunked responses
-	q.Set("rt", "c")
+	// Note: rt parameter is now controlled via URLParams from client configuration
+	// If not set, we'll get JSON array format (easier to parse)
 	q.Set("_reqid", c.reqid.Next())
 	u.RawQuery = q.Encode()
 
@@ -119,7 +213,37 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	form.Set("at", c.config.AuthToken)
 
 	if c.config.Debug {
-		fmt.Printf("\nRequest Body:\n%s\n", form.Encode())
+		// Safely display auth token with conservative masking
+		token := c.config.AuthToken
+		var tokenDisplay string
+		if len(token) <= 8 {
+			// For very short tokens, mask completely
+			tokenDisplay = strings.Repeat("*", len(token))
+		} else if len(token) <= 16 {
+			// For short tokens, show first 2 and last 2 chars
+			start := token[:2]
+			end := token[len(token)-2:]
+			tokenDisplay = start + strings.Repeat("*", len(token)-4) + end
+		} else {
+			// For long tokens, show first 3 and last 3 chars
+			start := token[:3]
+			end := token[len(token)-3:]
+			tokenDisplay = start + strings.Repeat("*", len(token)-6) + end
+		}
+		fmt.Printf("\nAuth Token: %s\n", tokenDisplay)
+
+		// Mask auth token in request body display
+		maskedForm := url.Values{}
+		for k, v := range form {
+			if k == "at" && len(v) > 0 {
+				// Mask the auth token value
+				maskedValue := maskSensitiveValue(v[0])
+				maskedForm.Set(k, maskedValue)
+			} else {
+				maskedForm[k] = v
+			}
+		}
+		fmt.Printf("\nRequest Body:\n%s\n", maskedForm.Encode())
 		fmt.Printf("\nDecoded Request Body:\n%s\n", string(reqBody))
 	}
 
@@ -139,14 +263,75 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	if c.config.Debug {
 		fmt.Printf("\nRequest Headers:\n")
 		for k, v := range req.Header {
-			fmt.Printf("%s: %v\n", k, v)
+			if strings.ToLower(k) == "cookie" && len(v) > 0 {
+				// Mask cookie values for security
+				maskedCookies := maskCookieValues(v[0])
+				fmt.Printf("%s: [%s]\n", k, maskedCookies)
+			} else {
+				fmt.Printf("%s: %v\n", k, v)
+			}
 		}
 	}
 
-	// Execute request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("execute request: %w", err)
+	// Execute request with retry logic
+	var resp *http.Response
+	var lastErr error
+
+	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
+		if attempt > 0 {
+			// Calculate retry delay with exponential backoff
+			multiplier := 1 << uint(attempt-1)
+			delay := time.Duration(float64(c.config.RetryDelay) * float64(multiplier))
+			if delay > c.config.RetryMaxDelay {
+				delay = c.config.RetryMaxDelay
+			}
+
+			if c.config.Debug {
+				fmt.Printf("\nRetrying request (attempt %d/%d) after %v...\n", attempt, c.config.MaxRetries, delay)
+			}
+			time.Sleep(delay)
+		}
+
+		// Clone the request for each attempt
+		reqClone := req.Clone(req.Context())
+		if req.Body != nil {
+			reqClone.Body = io.NopCloser(strings.NewReader(form.Encode()))
+		}
+
+		resp, err = c.httpClient.Do(reqClone)
+		if err != nil {
+			lastErr = err
+			// Check for common network errors and provide more helpful messages
+			if strings.Contains(err.Error(), "dial tcp") {
+				if strings.Contains(err.Error(), "i/o timeout") {
+					lastErr = fmt.Errorf("connection timeout - check your network connection and try again: %w", err)
+				} else if strings.Contains(err.Error(), "connect: bad file descriptor") {
+					lastErr = fmt.Errorf("network connection error - try restarting your network connection: %w", err)
+				}
+			} else {
+				lastErr = fmt.Errorf("execute request: %w", err)
+			}
+
+			// Check if error is retryable
+			if isRetryableError(err) && attempt < c.config.MaxRetries {
+				continue
+			}
+			return nil, lastErr
+		}
+
+		// Check if response status is retryable
+		if isRetryableStatus(resp.StatusCode) && attempt < c.config.MaxRetries {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("server returned status %d", resp.StatusCode)
+			continue
+		}
+
+		// Success or non-retryable error
+		break
+	}
+
+	if resp == nil {
+		return nil, fmt.Errorf("all retry attempts failed: %w", lastErr)
 	}
 	defer resp.Body.Close()
 
@@ -157,6 +342,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 
 	if c.config.Debug {
 		fmt.Printf("\nResponse Status: %s\n", resp.Status)
+		fmt.Printf("Raw Response Body:\n%q\n", string(body))
 		fmt.Printf("Response Body:\n%s\n", string(body))
 	}
 
@@ -168,37 +354,92 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 		}
 	}
 
-	// Parse chunked response
-	responses, err := decodeChunkedResponse(string(body))
+	// Try to parse the response
+	responses, err := decodeResponse(string(body))
 	if err != nil {
 		if c.config.Debug {
-			fmt.Printf("Failed to decode chunked response: %v\n", err)
+			fmt.Printf("Failed to decode response: %v\n", err)
+			fmt.Printf("Raw response: %s\n", string(body))
 		}
-		// Fallback to regular response parsing
-		responses, err = decodeResponse(string(body))
-		if err != nil {
-			return nil, fmt.Errorf("decode response: %w", err)
+
+		// Special handling for certain responses
+		if strings.Contains(string(body), "\"error\"") {
+			// It contains an error field, let's try to extract it
+			var errorResp struct {
+				Error string `json:"error"`
+			}
+			if jerr := json.Unmarshal(body, &errorResp); jerr == nil && errorResp.Error != "" {
+				return nil, fmt.Errorf("server error: %s", errorResp.Error)
+			}
 		}
+
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
 	if len(responses) == 0 {
+		if c.config.Debug {
+			fmt.Printf("No valid responses found in: %s\n", string(body))
+		}
 		return nil, fmt.Errorf("no valid responses found")
 	}
 
-	return &responses[0], nil
-}
+	// Check the first response for API errors
+	firstResponse := &responses[0]
+	if apiError, isError := IsErrorResponse(firstResponse); isError {
+		if c.config.Debug {
+			fmt.Printf("Detected API error: %s\n", apiError.Error())
+		}
+		return nil, apiError
+	}
 
-var debug = true
+	// Debug dump payload if requested
+	if c.config.DebugDumpPayload {
+		fmt.Print(string(firstResponse.Data))
+		return nil, fmt.Errorf("payload dumped")
+	}
+
+	return firstResponse, nil
+}
 
 // decodeResponse decodes the batchexecute response
 func decodeResponse(raw string) ([]Response, error) {
-	raw = strings.TrimPrefix(raw, ")]}'")
+	raw = strings.TrimSpace(strings.TrimPrefix(raw, ")]}'"))
 	if raw == "" {
 		return nil, fmt.Errorf("empty response after trimming prefix")
 	}
+
+	// Sanitize JSON to fix invalid escape sequences in server responses
+	raw = sanitizeJSON(raw)
+
+	// Try to parse as a chunked response first
+	if isDigit(rune(raw[0])) {
+		reader := strings.NewReader(raw)
+		return decodeChunkedResponse(reader)
+	}
+
+	// Try to parse as a regular response
 	var responses [][]interface{}
 	if err := json.NewDecoder(strings.NewReader(raw)).Decode(&responses); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		// Check if this might be a numeric response (happens with API errors)
+		trimmedRaw := strings.TrimSpace(raw)
+		if code, parseErr := strconv.Atoi(trimmedRaw); parseErr == nil {
+			// This is a numeric response, potentially an error code
+			return []Response{
+				{
+					ID:   "numeric",
+					Data: json.RawMessage(fmt.Sprintf("%d", code)),
+				},
+			}, nil
+		}
+
+		// Try to parse as a single array
+		var singleArray []interface{}
+		if err := json.NewDecoder(strings.NewReader(raw)).Decode(&singleArray); err == nil {
+			// Convert it to our expected format
+			responses = [][]interface{}{singleArray}
+		} else {
+			return nil, fmt.Errorf("decode response: %w", err)
+		}
 	}
 
 	var result []Response
@@ -216,9 +457,30 @@ func decodeResponse(raw string) ([]Response, error) {
 			ID: id,
 		}
 
+		// Intelligently parse response data from multiple possible positions
+		// Format: ["wrb.fr", "rpcId", response_data, null, null, actual_data, "generic"]
+		var responseData interface{}
+
+		// Try position 2 first (traditional location)
 		if rpcData[2] != nil {
 			if dataStr, ok := rpcData[2].(string); ok {
 				resp.Data = json.RawMessage(dataStr)
+				responseData = dataStr
+			} else {
+				// If position 2 is not a string, use it directly
+				responseData = rpcData[2]
+			}
+		}
+
+		// If position 2 is null/empty, try position 5 (actual data)
+		if responseData == nil && len(rpcData) > 5 && rpcData[5] != nil {
+			responseData = rpcData[5]
+		}
+
+		// Convert responseData to JSON if it's not already a string
+		if responseData != nil && resp.Data == nil {
+			if dataBytes, err := json.Marshal(responseData); err == nil {
+				resp.Data = json.RawMessage(dataBytes)
 			}
 		}
 
@@ -239,202 +501,12 @@ func decodeResponse(raw string) ([]Response, error) {
 }
 
 // decodeChunkedResponse decodes the batchexecute response
-func decodeChunkedResponse(raw string) ([]Response, error) {
-	raw = strings.TrimSpace(strings.TrimPrefix(raw, ")]}'"))
-	if raw == "" {
-		return nil, fmt.Errorf("empty response after trimming prefix")
-	}
-
-	var responses []Response
-	reader := bufio.NewReader(strings.NewReader(raw))
-
-	for {
-		// Read the length line
-		lengthLine, err := reader.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("read length: %w", err)
-		}
-
-		// Skip empty lines
-		lengthStr := strings.TrimSpace(lengthLine)
-		if lengthStr == "" {
-			continue
-		}
-
-		totalLength, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			if debug {
-				fmt.Printf("Invalid length string: %q\n", lengthStr)
-			}
-			return nil, fmt.Errorf("invalid chunk length: invalid syntax")
-		}
-
-		if debug {
-			fmt.Printf("Found chunk length: %d from string: %q\n",
-				totalLength, lengthStr)
-		}
-
-		// Read exactly totalLength bytes for the chunk
-		chunk := make([]byte, totalLength)
-		n, err := io.ReadFull(reader, chunk)
-		if err != nil {
-			if debug {
-				fmt.Printf("Failed to read chunk: got %d bytes, wanted %d: %v\n",
-					n, totalLength, err)
-			}
-			return nil, fmt.Errorf("read chunk: %w", err)
-		}
-
-		if debug {
-			fmt.Printf("Read chunk (%d bytes): %q\n",
-				len(chunk), string(chunk[:min(50, len(chunk))]))
-		}
-
-		// First try to parse as regular JSON
-		var rpcBatch [][]interface{}
-		if err := json.Unmarshal(chunk, &rpcBatch); err != nil {
-			// If that fails, try unescaping the JSON string first
-			unescaped, err := strconv.Unquote("\"" + string(chunk) + "\"")
-			if err != nil {
-				if debug {
-					fmt.Printf("Failed to unescape chunk: %v\n", err)
-				}
-				return nil, fmt.Errorf("failed to parse chunk: %w", err)
-			}
-			if err := json.Unmarshal([]byte(unescaped), &rpcBatch); err != nil {
-				if debug {
-					fmt.Printf("Failed to parse unescaped chunk: %v\n", err)
-				}
-				return nil, fmt.Errorf("failed to parse chunk: %w", err)
-			}
-		}
-
-		// Process each RPC response in the batch
-		for _, rpcData := range rpcBatch {
-			if len(rpcData) < 7 {
-				if debug {
-					fmt.Printf("Skipping short RPC data: %v\n", rpcData)
-				}
-				continue
-			}
-			rpcType, ok := rpcData[0].(string)
-			if !ok || rpcType != "wrb.fr" {
-				if debug {
-					fmt.Printf("Skipping non-wrb.fr RPC: %v\n", rpcData[0])
-				}
-				continue
-			}
-
-			id, _ := rpcData[1].(string)
-			resp := Response{
-				ID: id,
-			}
-
-			// Handle data - parse the nested JSON string
-			if rpcData[2] != nil {
-				if dataStr, ok := rpcData[2].(string); ok {
-					// Try to parse the data string
-					var data interface{}
-					if err := json.Unmarshal([]byte(dataStr), &data); err != nil {
-						// If direct parsing fails, try unescaping first
-						unescaped, err := strconv.Unquote("\"" + dataStr + "\"")
-						if err != nil {
-							if debug {
-								fmt.Printf("Failed to unescape data: %v\n", err)
-							}
-							continue
-						}
-						if err := json.Unmarshal([]byte(unescaped), &data); err != nil {
-							if debug {
-								fmt.Printf("Failed to parse unescaped data: %v\n", err)
-							}
-							continue
-						}
-					}
-					// Re-encode to get properly formatted JSON
-					rawData, err := json.Marshal(data)
-					if err != nil {
-						if debug {
-							fmt.Printf("Failed to re-encode response data: %v\n", err)
-						}
-						continue
-					}
-					resp.Data = rawData
-				}
-			}
-
-			// Handle index
-			if rpcData[6] == "generic" {
-				resp.Index = 0
-			} else if indexStr, ok := rpcData[6].(string); ok {
-				resp.Index, _ = strconv.Atoi(indexStr)
-			}
-
-			responses = append(responses, resp)
-		}
-	}
-
-	if len(responses) == 0 {
-		return nil, fmt.Errorf("no valid responses found")
-	}
-
-	return responses, nil
+func decodeChunkedResponse(r io.Reader) ([]Response, error) {
+	return parseChunkedResponse(r)
 }
 
-func handleChunk(chunk []byte, responses *[]Response) error {
-	if debug {
-		fmt.Printf("Processing chunk (%d bytes): %q\n", len(chunk),
-			string(chunk[:min(100, len(chunk))]))
-	}
-
-	// Parse the chunk
-	var rpcBatch [][]interface{}
-	if err := json.Unmarshal(chunk, &rpcBatch); err != nil {
-		return fmt.Errorf("parse chunk: %w", err)
-	}
-
-	// Process each RPC response in the batch
-	for _, rpcData := range rpcBatch {
-		if len(rpcData) < 7 {
-			if debug {
-				fmt.Printf("Skipping short RPC data: %v\n", rpcData)
-			}
-			continue
-		}
-		rpcType, ok := rpcData[0].(string)
-		if !ok || rpcType != "wrb.fr" {
-			if debug {
-				fmt.Printf("Skipping non-wrb.fr RPC: %v\n", rpcData[0])
-			}
-			continue
-		}
-
-		id, _ := rpcData[1].(string)
-		resp := Response{
-			ID: id,
-		}
-
-		// Handle data
-		if rpcData[2] != nil {
-			if dataStr, ok := rpcData[2].(string); ok {
-				resp.Data = json.RawMessage(dataStr)
-			}
-		}
-
-		// Handle index
-		if rpcData[6] == "generic" {
-			resp.Index = 0
-		} else if indexStr, ok := rpcData[6].(string); ok {
-			resp.Index, _ = strconv.Atoi(indexStr)
-		}
-
-		*responses = append(*responses, resp)
-	}
-
-	return nil
+func isDigit(c rune) bool {
+	return c >= '0' && c <= '9'
 }
 
 func min(a, b int) int {
@@ -463,6 +535,12 @@ func WithDebug(debug bool) Option {
 				fmt.Fprintf(os.Stderr, "DEBUG: "+format+"\n", args...)
 			}
 		}
+	}
+}
+
+func WithDebugDumpPayload(debugDumpPayload bool) Option {
+	return func(c *Client) {
+		c.config.DebugDumpPayload = debugDumpPayload
 	}
 }
 
@@ -520,6 +598,14 @@ type Config struct {
 	URLParams map[string]string
 	Debug     bool
 	UseHTTP   bool
+
+	// Retry configuration
+	MaxRetries    int           // Maximum number of retry attempts (default: 3)
+	RetryDelay    time.Duration // Initial delay between retries (default: 1s)
+	RetryMaxDelay time.Duration // Maximum delay between retries (default: 10s)
+
+	// Debug payload dumping
+	DebugDumpPayload bool // If true, dumps raw payload and exits
 }
 
 // Client handles batchexecute operations
@@ -532,6 +618,17 @@ type Client struct {
 
 // NewClient creates a new batchexecute client
 func NewClient(config Config, opts ...Option) *Client {
+	// Set default retry configuration if not specified
+	if config.MaxRetries == 0 {
+		config.MaxRetries = 3
+	}
+	if config.RetryDelay == 0 {
+		config.RetryDelay = 1 * time.Second
+	}
+	if config.RetryMaxDelay == 0 {
+		config.RetryMaxDelay = 10 * time.Second
+	}
+
 	c := &Client{
 		config:     config,
 		httpClient: http.DefaultClient,
@@ -582,4 +679,70 @@ func (g *ReqIDGenerator) Reset() {
 	g.mu.Lock()
 	g.sequence = 0
 	g.mu.Unlock()
+}
+
+// readUntil reads from the reader until the delimiter is found
+func readUntil(r io.Reader, delim byte) (string, error) {
+	var result strings.Builder
+	buf := make([]byte, 1)
+	for {
+		n, err := r.Read(buf)
+		if err != nil {
+			if err == io.EOF && result.Len() > 0 {
+				return result.String(), nil
+			}
+			return "", err
+		}
+		if n == 0 {
+			continue
+		}
+		if buf[0] == delim {
+			return result.String(), nil
+		}
+		result.WriteByte(buf[0])
+	}
+}
+
+// isRetryableError checks if an error is retryable
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := err.Error()
+
+	// Network-related errors that are retryable
+	retryablePatterns := []string{
+		"connection refused",
+		"connection reset",
+		"i/o timeout",
+		"TLS handshake timeout",
+		"EOF",
+		"broken pipe",
+		"no such host",
+		"network is unreachable",
+		"temporary failure",
+	}
+
+	for _, pattern := range retryablePatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isRetryableStatus checks if an HTTP status code is retryable
+func isRetryableStatus(statusCode int) bool {
+	switch statusCode {
+	case http.StatusTooManyRequests,
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
 }

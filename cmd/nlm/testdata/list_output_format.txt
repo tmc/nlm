@@ -1,0 +1,28 @@
+# Test 'nlm ls' output format including source counts
+# This test validates that notebook listings include source counts
+
+# Test list command without authentication (basic validation)
+! exec ./nlm_test ls
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test list command with valid credentials (mock API response)
+# This test expects the output to include source counts
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+! exec ./nlm_test ls
+stderr 'API error|Authentication|execute rpc'
+# When API calls fail, we shouldn't see the formatted output
+
+# Test with mock successful API call (when implementation is ready)
+# Expected output format should include:
+# - Header line with total count
+# - Column headers including SOURCES
+# - Each notebook row should show source count
+#
+# Expected format:
+# Total notebooks: X (showing first Y)
+#
+# ID                                   TITLE                                      SOURCES LAST UPDATED
+# 12345678-1234-5678-9abc-def012345678 📙 Sample Notebook                        3       2025-09-17T01:58:50Z
+# 87654321-4321-8765-cba9-fed210987654 📙 Another Notebook                       0       2025-09-17T01:57:28Z

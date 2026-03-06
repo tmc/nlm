@@ -1,0 +1,74 @@
+# Test note command validation only (no network calls)
+# Focus on argument validation and authentication checks
+
+# === NOTES COMMAND ===
+# Test notes without arguments
+! exec ./nlm_test notes
+stderr 'usage: nlm notes <notebook-id>'
+! stderr 'panic'
+
+# Test notes with too many arguments
+! exec ./nlm_test notes notebook123 extra
+stderr 'usage: nlm notes <notebook-id>'
+! stderr 'panic'
+
+# Test notes without authentication
+! exec ./nlm_test notes notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === NEW-NOTE COMMAND ===
+# Test new-note without arguments
+! exec ./nlm_test new-note
+stderr 'usage: nlm new-note <notebook-id> <title>'
+! stderr 'panic'
+
+# Test new-note with only notebook ID
+! exec ./nlm_test new-note notebook123
+stderr 'usage: nlm new-note <notebook-id> <title>'
+! stderr 'panic'
+
+# Test new-note without authentication
+! exec ./nlm_test new-note notebook123 NoteTitle
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === UPDATE-NOTE COMMAND ===
+# Test update-note without arguments
+! exec ./nlm_test update-note
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+# Test update-note with insufficient arguments
+! exec ./nlm_test update-note notebook123
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+! exec ./nlm_test update-note notebook123 note456
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+! exec ./nlm_test update-note notebook123 note456 "content"
+stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+! stderr 'panic'
+
+# Test update-note without authentication
+! exec ./nlm_test update-note notebook123 note456 content title
+stderr 'Authentication required'
+! stderr 'panic'
+
+# === RM-NOTE COMMAND ===
+# Test rm-note without arguments
+! exec ./nlm_test rm-note
+stderr 'usage: nlm rm-note <notebook-id> <note-id>'
+! stderr 'panic'
+
+# Test rm-note with only one argument
+! exec ./nlm_test rm-note notebook123
+stderr 'usage: nlm rm-note <notebook-id> <note-id>'
+! stderr 'panic'
+
+# Test rm-note without authentication
+! exec ./nlm_test rm-note notebook123 note123
+stderr 'Authentication required'
+! stderr 'panic'
