@@ -1,0 +1,537 @@
+// Orchestration service definitions discovered from JavaScript analysis
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/empty.proto";
+import "notebooklm/v1alpha1/rpc_extensions.proto";
+import "notebooklm/v1alpha1/notebooklm.proto";
+
+package notebooklm.v1alpha1;
+
+option go_package = "github.com/tmc/nlm/gen/notebooklm/v1alpha1;notebooklm";
+
+// Additional messages for orchestration
+
+message Context {
+    // Context information, structure inferred from usage
+    string project_id = 1;
+    repeated string source_ids = 2;
+}
+
+message Artifact {
+    string artifact_id = 1;
+    string project_id = 2;
+    ArtifactType type = 3;
+    repeated ArtifactSource sources = 4;
+    ArtifactState state = 5;
+    Source note = 7;  // Note is a special type of Source
+    AudioOverview audio_overview = 8;
+    Report tailored_report = 9;
+    App app = 10;
+}
+
+enum ArtifactType {
+    ARTIFACT_TYPE_UNSPECIFIED = 0;
+    ARTIFACT_TYPE_NOTE = 1;
+    ARTIFACT_TYPE_AUDIO_OVERVIEW = 2;
+    ARTIFACT_TYPE_REPORT = 3;
+    ARTIFACT_TYPE_APP = 4;
+}
+
+enum ArtifactState {
+    ARTIFACT_STATE_UNSPECIFIED = 0;
+    ARTIFACT_STATE_CREATING = 1;
+    ARTIFACT_STATE_READY = 2;
+    ARTIFACT_STATE_FAILED = 3;
+}
+
+message ArtifactSource {
+    SourceId source_id = 1;
+    repeated TextFragment text_fragments = 2;
+}
+
+message TextFragment {
+    string text = 1;
+    int32 start_offset = 2;
+    int32 end_offset = 3;
+}
+
+message Report {
+    string title = 1;
+    string content = 2;
+    repeated Section sections = 3;
+}
+
+message Section {
+    string title = 1;
+    string content = 2;
+}
+
+message App {
+    string app_id = 1;
+    string name = 2;
+    string description = 3;
+}
+
+// Request/Response messages for LabsTailwindOrchestrationService
+
+message CreateArtifactRequest {
+    Context context = 1;
+    string project_id = 2;
+    Artifact artifact = 3;
+}
+
+message GetArtifactRequest {
+    string artifact_id = 1;
+}
+
+message UpdateArtifactRequest {
+    Artifact artifact = 1;
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message RenameArtifactRequest {
+    string artifact_id = 1;
+    string new_title = 2;
+}
+
+message DeleteArtifactRequest {
+    string artifact_id = 1;
+}
+
+message ListArtifactsRequest {
+    string project_id = 1;
+    int32 page_size = 2;
+    string page_token = 3;
+}
+
+message ListArtifactsResponse {
+    repeated Artifact artifacts = 1;
+    string next_page_token = 2;
+}
+
+message ActOnSourcesRequest {
+    string project_id = 1;
+    string action = 2;
+    repeated string source_ids = 3;
+}
+
+message CreateAudioOverviewRequest {
+    string project_id = 1;
+    int32 audio_type = 2;
+    repeated string instructions = 3;
+}
+
+message GetAudioOverviewRequest {
+    string project_id = 1;
+    int32 request_type = 2;
+}
+
+message DeleteAudioOverviewRequest {
+    string project_id = 1;
+}
+
+message DiscoverSourcesRequest {
+    string project_id = 1;
+    string query = 2;
+}
+
+message DiscoverSourcesResponse {
+    repeated Source sources = 1;
+}
+
+message GenerateFreeFormStreamedRequest {
+    string project_id = 1;
+    string prompt = 2;
+    repeated string source_ids = 3;
+}
+
+message GenerateFreeFormStreamedResponse {
+    string chunk = 1;
+    bool is_final = 2;
+}
+
+message GenerateReportSuggestionsRequest {
+    string project_id = 1;
+}
+
+message GenerateReportSuggestionsResponse {
+    repeated string suggestions = 1;
+}
+
+
+message GetProjectAnalyticsRequest {
+    string project_id = 1;
+}
+
+message ProjectAnalytics {
+    int32 source_count = 1;
+    int32 note_count = 2;
+    int32 audio_overview_count = 3;
+    google.protobuf.Timestamp last_accessed = 4;
+}
+
+message ListFeaturedProjectsRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+}
+
+message ListFeaturedProjectsResponse {
+    repeated Project projects = 1;
+    string next_page_token = 2;
+}
+
+// Update existing request messages to match Gemini's findings
+message AddSourceRequest {
+    repeated SourceInput sources = 1;
+    string project_id = 2;
+}
+
+message SourceInput {
+    // For text sources
+    string title = 1;
+    string content = 2;
+    
+    // For file upload
+    string base64_content = 3;
+    string filename = 4;
+    string mime_type = 5;
+    
+    // For URL sources
+    string url = 6;
+    
+    // For YouTube
+    string youtube_video_id = 7;
+    
+    SourceType source_type = 8;
+}
+
+message CreateNoteRequest {
+    string project_id = 1;
+    string content = 2;
+    repeated int32 note_type = 3;
+    string title = 5;
+}
+
+message DeleteNotesRequest {
+    repeated string note_ids = 1;
+}
+
+message GetNotesRequest {
+    string project_id = 1;
+}
+
+message MutateNoteRequest {
+    string project_id = 1;
+    string note_id = 2;
+    repeated NoteUpdate updates = 3;
+}
+
+message NoteUpdate {
+    string content = 1;
+    string title = 2;
+    repeated string tags = 3;
+}
+
+// Account management
+message GetOrCreateAccountRequest {
+    // Empty for now, uses auth token
+}
+
+message MutateAccountRequest {
+    Account account = 1;
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message Account {
+    string account_id = 1;
+    string email = 2;
+    AccountSettings settings = 3;
+}
+
+message AccountSettings {
+    bool email_notifications = 1;
+    string default_project_emoji = 2;
+}
+
+// Service definition
+service LabsTailwindOrchestrationService {
+    option (batchexecute_app) = "LabsTailwindUi";
+    option (batchexecute_host) = "notebooklm.google.com";
+    
+    // Artifact operations
+    rpc CreateArtifact(CreateArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "xpWGLf";
+        option (arg_format) = "[%context%, %project_id%, %artifact%]";
+    }
+    rpc GetArtifact(GetArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "BnLyuf";
+        option (arg_format) = "[%artifact_id%]";
+    }
+    rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "DJezBc";
+        option (arg_format) = "[%artifact%, %update_mask%]";
+    }
+    rpc RenameArtifact(RenameArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "rc3d8d";
+        // Complex nested format with quotes - implement manually for now
+    }
+    rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "WxBZtb";
+        option (arg_format) = "[%artifact_id%]";
+    }
+    rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse) {
+        option (rpc_id) = "LfTXoe";
+        option (arg_format) = "[%project_id%, %page_size%, %page_token%]";
+    }
+    
+    // Source operations
+    rpc ActOnSources(ActOnSourcesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "yyryJe";
+        option (arg_format) = "[%project_id%, %action%, %source_ids%]";
+    }
+    rpc AddSources(AddSourceRequest) returns (Project) {
+        option (rpc_id) = "izAoDd";
+        option (arg_format) = "[%sources%, %project_id%]";
+    }
+    rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse) {
+        option (rpc_id) = "yR9Yof";
+        option (arg_format) = "[%source_id%]";
+    }
+    // DeleteSources requires NotebookID in source-path URL param and each source_id
+    // wrapped in its own array: [[[source_id1], [source_id2], ...]]
+    rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "tGMBJ";
+        option (arg_format) = "[[[%source_ids%]]]"; // Each source_id in separate array
+    }
+    rpc DiscoverSources(DiscoverSourcesRequest) returns (DiscoverSourcesResponse) {
+        option (rpc_id) = "qXyaNe";
+        option (arg_format) = "[%project_id%, %query%]";
+    }
+    rpc LoadSource(LoadSourceRequest) returns (Source) {
+        option (rpc_id) = "hizoJc";
+        option (arg_format) = "[%source_id%]";
+    }
+    rpc MutateSource(MutateSourceRequest) returns (Source) {
+        option (rpc_id) = "b7Wfje";
+        option (arg_format) = "[%source_id%, %updates%]";
+    }
+    rpc RefreshSource(RefreshSourceRequest) returns (Source) {
+        option (rpc_id) = "FLmJqe";
+        option (arg_format) = "[%source_id%]";
+    }
+    
+    // Audio operations
+    rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview) {
+        option (rpc_id) = "AHyHrd";
+        option (arg_format) = "[%project_id%, %instructions%]";
+    }
+    rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
+        option (rpc_id) = "VUsiyb";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc DeleteAudioOverview(DeleteAudioOverviewRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "sJDbic";
+        option (arg_format) = "[%project_id%]";
+    }
+    
+    // Note operations
+    rpc CreateNote(CreateNoteRequest) returns (Source) {
+        option (rpc_id) = "CYK0Xb";
+        option (arg_format) = "[%project_id%, %title%, %content%]";
+    }
+    rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "AH0mwd";
+        option (arg_format) = "[%note_ids%]";
+    }
+    rpc GetNotes(GetNotesRequest) returns (GetNotesResponse) {
+        option (rpc_id) = "cFji9";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc MutateNote(MutateNoteRequest) returns (Source) {
+        option (rpc_id) = "cYAfTb";
+        option (arg_format) = "[%note_id%, %title%, %content%]";
+    }
+    
+    // Project operations
+    rpc CreateProject(CreateProjectRequest) returns (Project) {
+        option (rpc_id) = "CCqFvf";
+        option (arg_format) = "[%title%, %emoji%]";
+    }
+    rpc DeleteProjects(DeleteProjectsRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "WWINqb";
+        option (arg_format) = "[%project_ids%]";
+    }
+    rpc GetProject(GetProjectRequest) returns (Project) {
+        option (rpc_id) = "rLM1Ne";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc ListFeaturedProjects(ListFeaturedProjectsRequest) returns (ListFeaturedProjectsResponse) {
+        option (rpc_id) = "nS9Qlc";
+        option (arg_format) = "[%page_size%, %page_token%]";
+    }
+    rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse) {
+        option (rpc_id) = "wXbhsf";
+        option (arg_format) = "[null, 1, null, [2]]";
+        option (chunked_response) = true;
+    }
+    rpc MutateProject(MutateProjectRequest) returns (Project) {
+        option (rpc_id) = "s0tc2d";
+        option (arg_format) = "[%project_id%, %updates%]";
+    }
+    rpc RemoveRecentlyViewedProject(RemoveRecentlyViewedProjectRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "fejl7e";
+        option (arg_format) = "[%project_id%]";
+    }
+    
+    // Generation operations
+    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
+        option (rpc_id) = "tr032e";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateFreeFormStreamed(GenerateFreeFormStreamedRequest) returns (stream GenerateFreeFormStreamedResponse) {
+        // This now uses gRPC-style endpoint instead of batchexecute
+        option (grpc_endpoint) = "/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed";
+        option (requires_sources) = true;
+        option (grpc_arg_format) = "[[%all_sources%], %prompt%, null, [2]]";
+        // Keeping old format for backwards compatibility
+        option (rpc_id) = "BD";
+        option (arg_format) = "[%project_id%, %prompt%]";
+    }
+    rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {
+        option (rpc_id) = "VfAZjd";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateOutline(GenerateOutlineRequest) returns (GenerateOutlineResponse) {
+        option (rpc_id) = "lCjAd";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse) {
+        option (rpc_id) = "GHsKob";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateSection(GenerateSectionRequest) returns (GenerateSectionResponse) {
+        option (rpc_id) = "BeTrYd";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc StartDraft(StartDraftRequest) returns (StartDraftResponse) {
+        option (rpc_id) = "exXvGf";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc StartSection(StartSectionRequest) returns (StartSectionResponse) {
+        option (rpc_id) = "pGC7gf";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc GenerateMagicView(GenerateMagicViewRequest) returns (GenerateMagicViewResponse) {
+        option (rpc_id) = "uK8f7c";
+        option (arg_format) = "[%project_id%, %source_ids%]";
+    }
+    
+    // Analytics and feedback
+    rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics) {
+        option (rpc_id) = "AUrzMb";
+        option (arg_format) = "[%project_id%]";
+    }
+    rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "uNyJKe";
+        option (arg_format) = "[%project_id%, %feedback_type%, %feedback_text%]";
+    }
+    
+    // Account operations
+    rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account) {
+        option (rpc_id) = "ZwVcOc";
+        option (arg_format) = "[]";
+    }
+    rpc MutateAccount(MutateAccountRequest) returns (Account) {
+        option (rpc_id) = "hT54vc";
+        option (arg_format) = "[%account%, %update_mask%]";
+    }
+}
+
+// Placeholder messages that need to be defined
+message CreateProjectRequest {
+    string title = 1;
+    string emoji = 2;
+}
+
+message DeleteProjectsRequest {
+    repeated string project_ids = 1;
+}
+
+message DeleteSourcesRequest {
+    repeated string source_ids = 1;
+}
+
+message GetProjectRequest {
+    string project_id = 1;
+}
+
+message ListRecentlyViewedProjectsRequest {
+    google.protobuf.Int32Value limit = 1;
+    google.protobuf.Int32Value offset = 2;
+    google.protobuf.Int32Value filter = 3;
+    repeated int32 options = 4;
+}
+
+message MutateProjectRequest {
+    string project_id = 1;
+    Project updates = 2;
+}
+
+message MutateSourceRequest {
+    string source_id = 1;
+    Source updates = 2;
+}
+
+message RemoveRecentlyViewedProjectRequest {
+    string project_id = 1;
+}
+
+message CheckSourceFreshnessRequest {
+    string source_id = 1;
+}
+
+message CheckSourceFreshnessResponse {
+    bool is_fresh = 1;
+    google.protobuf.Timestamp last_checked = 2;
+}
+
+message LoadSourceRequest {
+    string source_id = 1;
+}
+
+message RefreshSourceRequest {
+    string source_id = 1;
+}
+
+message GenerateDocumentGuidesRequest {
+    string project_id = 1;
+}
+
+message GenerateNotebookGuideRequest {
+    string project_id = 1;
+}
+
+message GenerateOutlineRequest {
+    string project_id = 1;
+}
+
+message GenerateSectionRequest {
+    string project_id = 1;
+}
+
+message StartDraftRequest {
+    string project_id = 1;
+}
+
+message StartSectionRequest {
+    string project_id = 1;
+}
+
+message SubmitFeedbackRequest {
+    string project_id = 1;
+    string feedback_type = 2;
+    string feedback_text = 3;
+}

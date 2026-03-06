@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -26,6 +27,7 @@ const (
 	RPCLoadSource           = "hizoJc" // LoadSource
 	RPCCheckSourceFreshness = "yR9Yof" // CheckSourceFreshness
 	RPCActOnSources         = "yyryJe" // ActOnSources
+	RPCDiscoverSources      = "qXyaNe" // DiscoverSources
 
 	// NotebookLM service - Note operations
 	RPCCreateNote  = "CYK0Xb" // CreateNote
@@ -38,13 +40,24 @@ const (
 	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
 	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
 
+	// NotebookLM service - Video operations
+	RPCCreateVideoOverview = "R7cb6c" // CreateVideoOverview
+
 	// NotebookLM service - Generation operations
-	RPCGenerateDocumentGuides = "tr032e" // GenerateDocumentGuides
-	RPCGenerateNotebookGuide  = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline        = "lCjAd"  // GenerateOutline
-	RPCGenerateSection        = "BeTrYd" // GenerateSection
-	RPCStartDraft             = "exXvGf" // StartDraft
-	RPCStartSection           = "pGC7gf" // StartSection
+	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
+	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
+	RPCGenerateOutline           = "lCjAd"  // GenerateOutline
+	RPCGenerateSection           = "BeTrYd" // GenerateSection
+	RPCStartDraft                = "exXvGf" // StartDraft
+	RPCStartSection              = "pGC7gf" // StartSection
+	RPCGenerateFreeFormStreamed  = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
+	RPCGenerateReportSuggestions = "GHsKob" // GenerateReportSuggestions
+
+	// NotebookLM service - Research operations
+	RPCStartFastResearch     = "Ljjv0c" // StartFastResearch
+	RPCStartDeepResearch     = "QA9ei"  // StartDeepResearch
+	RPCPollResearchResults   = "e3bVqc" // PollResearchResults
+	RPCImportResearchSources = "LBwxtb" // ImportResearchSources
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -67,6 +80,18 @@ const (
 	RPCGetGuidebookDetails          = "LJyzeb" // GetGuidebookDetails
 	RPCShareGuidebook               = "OTl0K"  // ShareGuidebook
 	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
+
+	// LabsTailwindOrchestrationService - Artifact operations
+	RPCCreateArtifact = "xpWGLf" // CreateArtifact
+	RPCGetArtifact    = "BnLyuf" // GetArtifact
+	RPCUpdateArtifact = "DJezBc" // UpdateArtifact
+	RPCRenameArtifact = "rc3d8d" // RenameArtifact - for title updates
+	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact
+	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
+
+	// LabsTailwindOrchestrationService - Additional operations
+	RPCListFeaturedProjects = "nS9Qlc" // ListFeaturedProjects
+	RPCReportContent        = "rJKx8e" // ReportContent
 )
 
 // Call represents a NotebookLM RPC call
@@ -83,13 +108,15 @@ type Client struct {
 }
 
 // New creates a new NotebookLM RPC client
-// New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
+	debugEnabled := os.Getenv("NLM_DEBUG") == "true"
+
 	config := batchexecute.Config{
 		Host:      "notebooklm.google.com",
 		App:       "LabsTailwindUi",
 		AuthToken: authToken,
 		Cookies:   cookies,
+		Debug:     debugEnabled,
 		Headers: map[string]string{
 			"content-type":    "application/x-www-form-urlencoded;charset=UTF-8",
 			"origin":          "https://notebooklm.google.com",
@@ -101,11 +128,11 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 			"pragma":          "no-cache",
 		},
 		URLParams: map[string]string{
-			"bl":    "boq_labs-tailwind-frontend_20241114.01_p0",
+			// Match browser build version for compatibility
+			"bl":    "boq_labs-tailwind-frontend_20260129.10_p0",
 			"f.sid": "-7121977511756781186",
 			"hl":    "en",
-			// Omit this to get cleaner output.
-			//"rt":    "c",
+			"rt":    "c", // Use chunked format like browser
 		},
 	}
 	return &Client{
@@ -117,10 +144,10 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 // Do executes a NotebookLM RPC call
 func (c *Client) Do(call Call) (json.RawMessage, error) {
 	if c.Config.Debug {
-		fmt.Printf("\n=== RPC Call ===\n")
-		fmt.Printf("ID: %s\n", call.ID)
-		fmt.Printf("NotebookID: %s\n", call.NotebookID)
-		fmt.Printf("Args:\n")
+		fmt.Fprintf(os.Stderr,"\n=== RPC Call ===\n")
+		fmt.Fprintf(os.Stderr,"ID: %s\n", call.ID)
+		fmt.Fprintf(os.Stderr,"NotebookID: %s\n", call.NotebookID)
+		fmt.Fprintf(os.Stderr,"Args:\n")
 		spew.Dump(call.Args)
 	}
 
@@ -144,7 +171,7 @@ func (c *Client) Do(call Call) (json.RawMessage, error) {
 	}
 
 	if c.Config.Debug {
-		fmt.Printf("\nRPC Request:\n")
+		fmt.Fprintf(os.Stderr,"\nRPC Request:\n")
 		spew.Dump(rpc)
 	}
 
@@ -154,7 +181,7 @@ func (c *Client) Do(call Call) (json.RawMessage, error) {
 	}
 
 	if c.Config.Debug {
-		fmt.Printf("\nRPC Response:\n")
+		fmt.Fprintf(os.Stderr,"\nRPC Response:\n")
 		spew.Dump(resp)
 	}
 

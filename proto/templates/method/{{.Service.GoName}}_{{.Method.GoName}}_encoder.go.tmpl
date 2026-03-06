@@ -1,0 +1,35 @@
+{{- $rpcID := methodExtension .Method "notebooklm.v1alpha1.rpc_id" }}
+{{- $argFormat := methodExtension .Method "notebooklm.v1alpha1.arg_format" }}
+package method
+{{- if $argFormat }}
+
+import (
+	"github.com/tmc/nlm/internal/rpc/argbuilder"
+	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+)
+{{- end }}
+{{- if $rpcID }}
+{{- if $argFormat }}
+// GENERATION_BEHAVIOR: append
+
+// Encode{{.Method.GoName}}Args encodes arguments for {{.Service.GoName}}.{{.Method.GoName}}
+// RPC ID: {{$rpcID}}
+// Argument format: {{$argFormat}}
+func Encode{{.Method.GoName}}Args(req *notebooklmv1alpha1.{{.Method.Input.GoIdent.GoName}}) []interface{} {
+	// Using generalized argument encoder
+	args, err := argbuilder.EncodeRPCArgs(req, "{{$argFormat}}")
+	if err != nil {
+		// Log error and return empty args as fallback
+		// In production, this should be handled better
+		return []interface{}{}
+	}
+	return args
+}
+
+{{- else }}
+// GENERATION_BEHAVIOR: append
+
+// TODO: Add arg_format to {{.Service.GoName}}.{{.Method.GoName}} in proto file
+// RPC ID: {{$rpcID}}
+{{- end }}
+{{- end }}
