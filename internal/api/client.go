@@ -77,10 +77,38 @@ func (c *Client) GetProject(projectID string) (*Notebook, error) {
 		return nil, fmt.Errorf("get project: %w", err)
 	}
 
+	// Debug: Print raw response before unmarshaling
+	if c.rpc.Config.Debug {
+		fmt.Fprintf(os.Stderr, "=== GetProject Raw Response ===\n")
+		fmt.Fprintf(os.Stderr, "Response length: %d bytes\n", len(resp))
+		previewLen := 500
+		if len(resp) < previewLen {
+			previewLen = len(resp)
+		}
+		fmt.Fprintf(os.Stderr, "Response preview: %s\n", string(resp[:previewLen]))
+		fmt.Fprintf(os.Stderr, "================================\n")
+	}
+
+	// Sources nesting issue is now fixed in beprotojson package
+
 	var project pb.Project
 	if err := beprotojson.Unmarshal(resp, &project); err != nil {
 		return nil, fmt.Errorf("parse response: %w", err)
 	}
+
+	// Debug: Print parsed project after unmarshaling
+	if c.rpc.Config.Debug {
+		fmt.Fprintf(os.Stderr, "=== GetProject Parsed Result ===\n")
+		fmt.Fprintf(os.Stderr, "Project ID: '%s'\n", project.ProjectId)
+		fmt.Fprintf(os.Stderr, "Project Title: '%s'\n", project.Title)
+		fmt.Fprintf(os.Stderr, "Project Emoji: '%s'\n", project.Emoji)
+		fmt.Fprintf(os.Stderr, "Sources count: %d\n", len(project.Sources))
+		if len(project.Sources) > 0 {
+			fmt.Fprintf(os.Stderr, "First source: %+v\n", project.Sources[0])
+		}
+		fmt.Fprintf(os.Stderr, "=================================\n")
+	}
+
 	return &project, nil
 }
 
