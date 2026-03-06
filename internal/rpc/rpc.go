@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -19,13 +20,14 @@ const (
 	RPCRemoveRecentlyViewed       = "fejl7e" // RemoveRecentlyViewedProject
 
 	// NotebookLM service - Source operations
-	RPCAddSources           = "izAoDd" // AddSources
+	RPCAddSources           = "o4cbdc" // AddSources
 	RPCDeleteSources        = "tGMBJ"  // DeleteSources
 	RPCMutateSource         = "b7Wfje" // MutateSource
 	RPCRefreshSource        = "FLmJqe" // RefreshSource
 	RPCLoadSource           = "hizoJc" // LoadSource
 	RPCCheckSourceFreshness = "yR9Yof" // CheckSourceFreshness
 	RPCActOnSources         = "yyryJe" // ActOnSources
+	RPCDiscoverSources      = "qXyaNe" // DiscoverSources
 
 	// NotebookLM service - Note operations
 	RPCCreateNote  = "CYK0Xb" // CreateNote
@@ -38,13 +40,18 @@ const (
 	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
 	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
 
+	// NotebookLM service - Video operations
+	RPCCreateVideoOverview = "R7cb6c" // CreateVideoOverview
+
 	// NotebookLM service - Generation operations
-	RPCGenerateDocumentGuides = "tr032e" // GenerateDocumentGuides
-	RPCGenerateNotebookGuide  = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline        = "lCjAd"  // GenerateOutline
-	RPCGenerateSection        = "BeTrYd" // GenerateSection
-	RPCStartDraft             = "exXvGf" // StartDraft
-	RPCStartSection           = "pGC7gf" // StartSection
+	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
+	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
+	RPCGenerateOutline           = "lCjAd"  // GenerateOutline
+	RPCGenerateSection           = "BeTrYd" // GenerateSection
+	RPCStartDraft                = "exXvGf" // StartDraft
+	RPCStartSection              = "pGC7gf" // StartSection
+	RPCGenerateFreeFormStreamed  = "BD"     // GenerateFreeFormStreamed (from Gemini's analysis)
+	RPCGenerateReportSuggestions = "GHsKob" // GenerateReportSuggestions
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -67,6 +74,18 @@ const (
 	RPCGetGuidebookDetails          = "LJyzeb" // GetGuidebookDetails
 	RPCShareGuidebook               = "OTl0K"  // ShareGuidebook
 	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
+
+	// LabsTailwindOrchestrationService - Artifact operations
+	RPCCreateArtifact = "xpWGLf" // CreateArtifact
+	RPCGetArtifact    = "BnLyuf" // GetArtifact
+	RPCUpdateArtifact = "DJezBc" // UpdateArtifact
+	RPCRenameArtifact = "rc3d8d" // RenameArtifact - for title updates
+	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact
+	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
+
+	// LabsTailwindOrchestrationService - Additional operations
+	RPCListFeaturedProjects = "nS9Qlc" // ListFeaturedProjects
+	RPCReportContent        = "rJKx8e" // ReportContent
 )
 
 // Call represents a NotebookLM RPC call
@@ -85,6 +104,18 @@ type Client struct {
 // New creates a new NotebookLM RPC client
 // New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
+	bl := os.Getenv("NLM_BL")
+	if bl == "" {
+		bl = "boq_labs-tailwind-frontend_20260127.09_p1"
+	}
+	fsid := os.Getenv("NLM_F_SID")
+	if fsid == "" {
+		fsid = "3894541541181659848"
+	}
+	hl := os.Getenv("NLM_HL")
+	if hl == "" {
+		hl = "en"
+	}
 	config := batchexecute.Config{
 		Host:      "notebooklm.google.com",
 		App:       "LabsTailwindUi",
@@ -101,16 +132,17 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 			"pragma":          "no-cache",
 		},
 		URLParams: map[string]string{
-			"bl":    "boq_labs-tailwind-frontend_20241114.01_p0",
-			"f.sid": "-7121977511756781186",
-			"hl":    "en",
-			// Omit this to get cleaner output.
-			//"rt":    "c",
+			"bl":    bl,
+			"f.sid": fsid,
+			"hl":    hl,
+			// Omit rt parameter for JSON array format (easier to parse)
+			// "rt":    "c",  // Use "c" for chunked format, omit for JSON array
 		},
 	}
+	bc := batchexecute.NewClient(config, options...)
 	return &Client{
-		Config: config,
-		client: batchexecute.NewClient(config, options...),
+		Config: bc.Config(),
+		client: bc,
 	}
 }
 
