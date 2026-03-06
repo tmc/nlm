@@ -1,0 +1,52 @@
+# Test network failure scenarios and graceful error handling
+# This test suite validates CLI behavior under various network conditions
+# NOTE: This version avoids real network calls that can hang
+
+# === SECTION 1: Commands that work without network ===
+# These commands should always work regardless of network state
+
+# Test help works offline
+exec ./nlm_test help
+stderr 'Usage: nlm <command>'
+! stderr 'network'
+! stderr 'timeout'
+
+exec ./nlm_test -h  
+stderr 'Usage: nlm <command>'
+! stderr 'network'
+! stderr 'timeout'
+
+# Test validation errors don't require network
+! exec ./nlm_test create
+stderr 'usage: nlm create <title>'
+! stderr 'network'
+! stderr 'timeout'
+
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <file>'
+! stderr 'network'
+! stderr 'timeout'
+
+# === SECTION 2: Unauthenticated commands fail fast ===
+# Without auth, commands should show auth error before attempting network
+
+! exec ./nlm_test list
+stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+! stderr 'network'
+! stderr 'timeout'
+
+! exec ./nlm_test create test-notebook
+stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
+! stderr 'network'
+! stderr 'timeout'
+
+# === SECTION 3: Test with invalid auth (quick failures) ===
+# With invalid tokens, commands should fail quickly with API errors
+# These should NOT hang as they fail fast on authentication
+
+env NLM_AUTH_TOKEN=invalid-token
+env NLM_COOKIES=invalid-cookies
+! exec ./nlm_test list
+stderr 'API error|Authentication|Unauthenticated|execute rpc'
+! stderr 'panic'
+! stderr 'runtime error'

@@ -67,3 +67,51 @@ func getChromePath() string {
 
 	return ""
 }
+
+// getBrowserPathForProfile returns the appropriate browser executable for a given browser type
+func getBrowserPathForProfile(browserName string) string {
+	switch browserName {
+	case "Brave":
+		// Try Brave paths
+		bravePaths := []string{
+			filepath.Join(os.Getenv("PROGRAMFILES"), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+			filepath.Join(os.Getenv("PROGRAMFILES(X86)"), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+			filepath.Join(os.Getenv("LOCALAPPDATA"), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+		}
+		for _, path := range bravePaths {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+	case "Chrome Canary":
+		canaryPaths := []string{
+			filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome SxS", "Application", "chrome.exe"),
+		}
+		for _, path := range canaryPaths {
+			if _, err := os.Stat(path); err == nil {
+				return path
+			}
+		}
+	}
+
+	// Fallback to any Chrome-based browser
+	return getChromePath()
+}
+
+func getCanaryProfilePath() string {
+	localAppData := os.Getenv("LOCALAPPDATA")
+	if localAppData == "" {
+		home, _ := os.UserHomeDir()
+		localAppData = filepath.Join(home, "AppData", "Local")
+	}
+	return filepath.Join(localAppData, "Google", "Chrome SxS", "User Data")
+}
+
+func getBraveProfilePath() string {
+	localAppData := os.Getenv("LOCALAPPDATA")
+	if localAppData == "" {
+		home, _ := os.UserHomeDir()
+		localAppData = filepath.Join(home, "AppData", "Local")
+	}
+	return filepath.Join(localAppData, "BraveSoftware", "Brave-Browser", "User Data")
+}
