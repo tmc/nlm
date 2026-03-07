@@ -1662,14 +1662,21 @@ func shareNotebook(c *api.Client, notebookID string) error {
 	// Create RPC client directly for sharing project
 	rpcClient := rpc.New(authToken, cookies)
 	call := rpc.Call{
-		ID: "QDyure", // ShareProject RPC ID
+		ID:         "QDyure", // ShareProject RPC ID
+		NotebookID: notebookID,
 		Args: []interface{}{
-			notebookID,
-			map[string]interface{}{
-				"is_public":       true,
-				"allow_comments":  true,
-				"allow_downloads": false,
+			// Outer array wrapping the settings entry
+			[]interface{}{
+				[]interface{}{
+					notebookID,
+					nil,
+					[]interface{}{1, 0}, // visibility: 1 = public
+					[]interface{}{0, ""},
+				},
 			},
+			1,
+			nil,
+			[]interface{}{2},
 		},
 	}
 
@@ -1678,22 +1685,10 @@ func shareNotebook(c *api.Client, notebookID string) error {
 		return fmt.Errorf("share project: %w", err)
 	}
 
-	// Parse response to extract share URL
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse response: %w", err)
-	}
-
-	if len(data) > 0 {
-		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
-			if shareURL, ok := shareData[0].(string); ok {
-				fmt.Printf("Share URL: %s\n", shareURL)
-				return nil
-			}
-		}
-	}
-
-	fmt.Printf("Project shared successfully (URL format not recognized)\n")
+	// Success response is "[]" (empty array)
+	fmt.Fprintf(os.Stderr, "Project shared publicly.\n")
+	fmt.Printf("https://notebooklm.google.com/notebook/%s\n", notebookID)
+	_ = resp
 	return nil
 }
 
@@ -1716,19 +1711,26 @@ func submitFeedback(c *api.Client, message string) error {
 }
 
 func shareNotebookPrivate(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Generating private share link...\n")
+	fmt.Fprintf(os.Stderr, "Setting notebook to private (restricted)...\n")
 
 	// Create RPC client directly for sharing project
 	rpcClient := rpc.New(authToken, cookies)
 	call := rpc.Call{
-		ID: "QDyure", // ShareProject RPC ID
+		ID:         "QDyure", // ShareProject RPC ID
+		NotebookID: notebookID,
 		Args: []interface{}{
-			notebookID,
-			map[string]interface{}{
-				"is_public":       false,
-				"allow_comments":  false,
-				"allow_downloads": false,
+			// Outer array wrapping the settings entry
+			[]interface{}{
+				[]interface{}{
+					notebookID,
+					nil,
+					[]interface{}{0, 0}, // visibility: 0 = private/restricted
+					[]interface{}{0, ""},
+				},
 			},
+			1,
+			nil,
+			[]interface{}{2},
 		},
 	}
 
@@ -1737,22 +1739,9 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 		return fmt.Errorf("share project privately: %w", err)
 	}
 
-	// Parse response to extract share URL
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse response: %w", err)
-	}
-
-	if len(data) > 0 {
-		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
-			if shareURL, ok := shareData[0].(string); ok {
-				fmt.Printf("Private Share URL: %s\n", shareURL)
-				return nil
-			}
-		}
-	}
-
-	fmt.Printf("Project shared privately (URL format not recognized)\n")
+	fmt.Fprintf(os.Stderr, "Project set to private (restricted access).\n")
+	fmt.Printf("https://notebooklm.google.com/notebook/%s\n", notebookID)
+	_ = resp
 	return nil
 }
 

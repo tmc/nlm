@@ -129,7 +129,7 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 		},
 		URLParams: map[string]string{
 			// Match browser build version for compatibility
-			"bl":    "boq_labs-tailwind-frontend_20260129.10_p0",
+			"bl":    "boq_labs-tailwind-frontend_20260305.10_p0",
 			"f.sid": "-7121977511756781186",
 			"hl":    "en",
 			"rt":    "c", // Use chunked format like browser
