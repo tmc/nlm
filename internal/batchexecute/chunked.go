@@ -9,6 +9,12 @@ import (
 	"strings"
 )
 
+func debugf(format string, args ...interface{}) {
+	if packageDebug {
+		fmt.Printf("DEBUG: "+format+"\n", args...)
+	}
+}
+
 // parseChunkedResponse parses a chunked response from the batchexecute API.
 // The response format is:
 // <chunk-length>
@@ -31,9 +37,8 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 		}
 	}
 
-	// Debug: print what we see
 	if len(prefix) > 0 {
-		fmt.Printf("DEBUG: Response starts with: %q\n", prefix)
+		debugf("Response starts with: %q", prefix)
 	}
 
 	// Check for and discard the )]}' prefix with newlines
@@ -43,13 +48,13 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 		if err != nil && err != io.EOF {
 			return nil, fmt.Errorf("read prefix line: %w", err)
 		}
-		fmt.Printf("DEBUG: Discarded prefix line: %q\n", line)
+		debugf("Discarded prefix line: %q", line)
 
 		// Check if there's an additional empty line and consume it
 		nextByte, err := br.Peek(1)
 		if err == nil && len(nextByte) > 0 && nextByte[0] == '\n' {
 			br.ReadByte() // Consume the extra newline
-			fmt.Printf("DEBUG: Discarded extra newline after prefix\n")
+			debugf("Discarded extra newline after prefix")
 		}
 	}
 
@@ -72,16 +77,15 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 		line := scanner.Text()
 		allLines = append(allLines, line)
 
-		// Only debug small lines to avoid flooding
 		if len(line) < 200 {
-			fmt.Printf("DEBUG: Processing line: %q\n", line)
+			debugf("Processing line: %q", line)
 		} else {
-			fmt.Printf("DEBUG: Processing large line (%d bytes)\n", len(line))
+			debugf("Processing large line (%d bytes)", len(line))
 		}
 
 		// Skip empty lines only if not collecting
 		if !collecting && strings.TrimSpace(line) == "" {
-			fmt.Printf("DEBUG: Skipping empty line\n")
+			debugf("Skipping empty line")
 			continue
 		}
 
@@ -106,7 +110,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 			chunkSize = size
 			collecting = true
 			chunkData.Reset()
-			fmt.Printf("DEBUG: Expecting chunk of %d bytes\n", chunkSize)
+			debugf("Expecting chunk of %d bytes", chunkSize)
 			continue
 		}
 
@@ -118,7 +122,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 
 		// If we've collected enough data, add the chunk and reset
 		if chunkData.Len() >= chunkSize {
-			fmt.Printf("DEBUG: Collected full chunk (%d bytes)\n", chunkData.Len())
+			debugf("Collected full chunk (%d bytes)", chunkData.Len())
 			chunks = append(chunks, chunkData.String())
 			collecting = false
 		}
@@ -127,7 +131,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	// Check if we have any partial chunk data remaining
 	if collecting && chunkData.Len() > 0 {
 		// We have partial data, add it as a chunk
-		fmt.Printf("DEBUG: Adding partial chunk (%d of %d bytes)\n", chunkData.Len(), chunkSize)
+		debugf("Adding partial chunk (%d of %d bytes)", chunkData.Len(), chunkSize)
 		chunks = append(chunks, chunkData.String())
 	} else if collecting && chunkData.Len() == 0 {
 		// We were expecting data but got none
@@ -135,12 +139,12 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 		if chunkSize < 1000 {
 			// Small number, might be an error code
 			possibleError := strconv.Itoa(chunkSize)
-			fmt.Printf("DEBUG: Expected %d bytes but got 0, treating %s as potential error response\n", chunkSize, possibleError)
+			debugf("Expected %d bytes but got 0, treating %s as potential error response", chunkSize, possibleError)
 			chunks = append(chunks, possibleError)
 		} else {
 			// Large number, probably a real chunk size but we didn't get the data
 			// This might be a parsing issue with the scanner
-			fmt.Printf("DEBUG: Expected large chunk (%d bytes) but got 0, scanner may have hit limit\n", chunkSize)
+			debugf("Expected large chunk (%d bytes) but got 0, scanner may have hit limit", chunkSize)
 			// Try to use all lines as the chunk data
 			if len(allLines) > 1 {
 				// Skip the first line (chunk size) and use the rest
@@ -293,9 +297,9 @@ func isNumeric(s string) bool {
 }
 
 func processChunks(chunks []string) ([]Response, error) {
-	fmt.Printf("DEBUG: processChunks called with %d chunks\n", len(chunks))
+	debugf("processChunks called with %d chunks", len(chunks))
 	for i, chunk := range chunks {
-		fmt.Printf("DEBUG: Chunk %d: %q\n", i, chunk)
+		debugf("Chunk %d: %q", i, chunk)
 	}
 
 	if len(chunks) == 0 {

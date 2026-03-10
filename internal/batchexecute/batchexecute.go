@@ -529,11 +529,20 @@ func WithHTTPClient(client *http.Client) Option {
 	}
 }
 
+// packageDebug controls debug output for package-level functions (e.g. parseChunkedResponse)
+// that don't have access to a Client instance. Set via WithDebug or NLM_DEBUG env var.
+var packageDebug bool
+
+func init() {
+	packageDebug = os.Getenv("NLM_DEBUG") == "true" || os.Getenv("NLM_DEBUG") == "1"
+}
+
 // WithDebug enables debug output
 func WithDebug(debug bool) Option {
 	return func(c *Client) {
 		c.config.Debug = debug
 		if debug {
+			packageDebug = true
 			c.debug = func(format string, args ...interface{}) {
 				fmt.Fprintf(os.Stderr, "DEBUG: "+format+"\n", args...)
 			}
