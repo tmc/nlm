@@ -855,54 +855,9 @@ func (c *Client) CreateAudioOverview(projectID string, instructions string) (*Au
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-
-	// Use direct RPC if configured
-	if c.config.UseDirectRPC {
-		return c.createAudioOverviewDirectRPC(projectID, instructions)
-	}
-
-	// Get project to extract source IDs
-	project, err := c.GetProject(projectID)
-	if err != nil {
-		return nil, fmt.Errorf("get project sources: %w", err)
-	}
-
-	// Extract source IDs from project
-	var sourceIDs []string
-	for _, source := range project.Sources {
-		if source.SourceId != nil {
-			sourceIDs = append(sourceIDs, source.SourceId.SourceId)
-		}
-	}
-
-	if len(sourceIDs) == 0 {
-		return nil, fmt.Errorf("project has no sources - add sources before creating audio overview")
-	}
-
-	// Default: use orchestration service with new proto fields
-	req := &pb.CreateAudioOverviewRequest{
-		ProjectId:          projectID,
-		AudioType:          pb.AudioType_AUDIO_TYPE_DEEP_DIVE, // Default to Deep Dive (value=1)
-		SourceIds:          sourceIDs,
-		CustomInstructions: instructions,
-		Length:             pb.AudioLength_AUDIO_LENGTH_DEFAULT, // Default length (value=2)
-		Language:           "en",
-	}
-	ctx := context.Background()
-	audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("create audio overview: %w", err)
-	}
-	// Convert pb.AudioOverview to AudioOverviewResult
-	// Note: pb.AudioOverview has different fields than expected, so we map what's available
-	result := &AudioOverviewResult{
-		ProjectID: projectID,
-		AudioID:   "",                                 // Not available in pb.AudioOverview
-		Title:     "",                                 // Not available in pb.AudioOverview
-		AudioData: audioOverview.Content,              // Map Content to AudioData
-		IsReady:   audioOverview.Status != "CREATING", // Infer from Status
-	}
-	return result, nil
+	// Always use direct RPC (AHyHrd) — the orchestration service path uses
+	// the wrong RPC ID (R7cb6c/CreateArtifact) and returns "Unavailable".
+	return c.createAudioOverviewDirectRPC(projectID, instructions)
 }
 
 // createAudioOverviewDirectRPC uses direct RPC calls (original implementation)
@@ -968,30 +923,10 @@ func (c *Client) createAudioOverviewDirectRPC(projectID string, instructions str
 }
 
 func (c *Client) GetAudioOverview(projectID string) (*AudioOverviewResult, error) {
-	// Try direct RPC first if enabled, as it provides more complete data
-	if c.config.UseDirectRPC {
-		return c.getAudioOverviewDirectRPC(projectID)
-	}
-
-	req := &pb.GetAudioOverviewRequest{
-		ProjectId:   projectID,
-		RequestType: 1,
-	}
-	ctx := context.Background()
-	audioOverview, err := c.orchestrationService.GetAudioOverview(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("get audio overview: %w", err)
-	}
-	// Convert pb.AudioOverview to AudioOverviewResult
-	// Note: pb.AudioOverview has different fields than expected, so we map what's available
-	result := &AudioOverviewResult{
-		ProjectID: projectID,
-		AudioID:   "",                                 // Not available in pb.AudioOverview
-		Title:     "",                                 // Not available in pb.AudioOverview
-		AudioData: audioOverview.Content,              // Map Content to AudioData
-		IsReady:   audioOverview.Status != "CREATING", // Infer from Status
-	}
-	return result, nil
+	// Always use direct RPC (VUsiyb with request_type) — the orchestration
+	// service encoder omits request_type and beprotojson may fail to parse
+	// the response into pb.AudioOverview.
+	return c.getAudioOverviewDirectRPC(projectID)
 }
 
 // getAudioOverviewDirectRPC uses direct RPC to get audio overview
@@ -1476,23 +1411,15 @@ func (r *AudioOverviewResult) SaveAudioToFile(filename string) error {
 
 // ListAudioOverviews returns audio overviews for a notebook
 func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, error) {
-	// Try to get the audio overview for the project
-	// NotebookLM typically has at most one audio overview per notebook
 	audioOverview, err := c.GetAudioOverview(projectID)
 	if err != nil {
-		// Check if it's a not found error vs other errors
+		// "not found" means no audio exists, not an error
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
-			// No audio overview exists
 			return []*AudioOverviewResult{}, nil
 		}
-		// For other errors, still return empty list but log if debug
-		if c.config.Debug {
-			fmt.Printf("Error getting audio overview: %v\n", err)
-		}
-		return []*AudioOverviewResult{}, nil
+		return nil, fmt.Errorf("list audio overviews: %w", err)
 	}
 
-	// Return the overview if it has content or is marked as ready
 	if audioOverview != nil && (audioOverview.AudioData != "" || audioOverview.IsReady || audioOverview.AudioID != "") {
 		return []*AudioOverviewResult{audioOverview}, nil
 	}
