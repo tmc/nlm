@@ -119,7 +119,7 @@ func TestDecodeResponse(t *testing.T) {
 		},
 		{
 			name: "Deeply Nested JSON",
-			input: `250
+			input: `218
 [["wrb.fr","nested","[{\"data\":{\"items\":[{\"id\":\"test\",\"metadata\":{\"created\":1234567890,\"modified\":1234567891},\"content\":{\"text\":\"Hello, World!\",\"format\":\"plain\"}}]}}]",null,null,null,"generic"]]`,
 			chunked: true,
 			validate: func(t *testing.T, resp []Response) {
@@ -128,25 +128,29 @@ func TestDecodeResponse(t *testing.T) {
 					return
 				}
 
-				// Verify the nested structure can be parsed
+				// Verify the nested structure can be parsed.
+				// Response data is an array wrapping an object: [{"data":{...}}]
+				var arr []json.RawMessage
+				if err := json.Unmarshal(resp[0].Data, &arr); err != nil {
+					t.Errorf("Failed to parse outer array: %v", err)
+					return
+				}
+				if len(arr) == 0 {
+					t.Errorf("Expected non-empty array")
+					return
+				}
 				var data struct {
 					Data struct {
 						Items []struct {
-							ID       string `json:"id"`
-							Metadata struct {
-								Created  int64 `json:"created"`
-								Modified int64 `json:"modified"`
-							} `json:"metadata"`
-							Content struct {
-								Text   string `json:"text"`
-								Format string `json:"format"`
-							} `json:"content"`
+							ID string `json:"id"`
 						} `json:"items"`
 					} `json:"data"`
 				}
-
-				if err := json.Unmarshal(resp[0].Data, &data); err != nil {
+				if err := json.Unmarshal(arr[0], &data); err != nil {
 					t.Errorf("Failed to parse nested data: %v", err)
+				}
+				if len(data.Data.Items) != 1 || data.Data.Items[0].ID != "test" {
+					t.Errorf("Unexpected parsed data: %+v", data)
 				}
 			},
 			err: nil,
@@ -282,6 +286,48 @@ func TestStringToRawMessage(t *testing.T) {
 			got := stringToRawMessage(tt.input)
 			if json.Valid(got) != tt.wantValid {
 				t.Errorf("stringToRawMessage(%q) valid=%v, want %v; got %q", tt.input, json.Valid(got), tt.wantValid, got)
+			}
+		})
+	}
+}
+
+func TestStringToRawMessageUnescaping(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantJSON string // expected JSON output
+	}{
+		{
+			name:     "already valid array",
+			input:    `[null,"source-id","title"]`,
+			wantJSON: `[null,"source-id","title"]`,
+		},
+		{
+			name:     "escaped backslash-quotes (double-encoded)",
+			input:    `[null,\"source-id\",\"title\"]`,
+			wantJSON: `[null,"source-id","title"]`,
+		},
+		{
+			name:     "JSON string wrapping array",
+			input:    `"[null,\"source-id\",\"title\"]"`,
+			wantJSON: `[null,"source-id","title"]`,
+		},
+		{
+			name:     "nested escaped response",
+			input:    `[null,null,[3,null,\"fec1780c\",\"nbname2\",null,true],null,[false]]`,
+			wantJSON: `[null,null,[3,null,"fec1780c","nbname2",null,true],null,[false]]`,
+		},
+		{
+			name:     "plain JSON string stays as string",
+			input:    `"hello"`,
+			wantJSON: `"hello"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stringToRawMessage(tt.input)
+			if string(got) != tt.wantJSON {
+				t.Errorf("stringToRawMessage(%q)\n  got:  %s\n  want: %s", tt.input, got, tt.wantJSON)
 			}
 		})
 	}

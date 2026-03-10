@@ -492,12 +492,38 @@ func decodeResponse(raw string) ([]Response, error) {
 // stringToRawMessage converts a decoded string value to json.RawMessage.
 // In the batchexecute protocol, position 2 is often a JSON-encoded string
 // containing the actual response data. After the outer JSON decode, the string
-// may or may not be valid JSON itself. If it is valid JSON, use it directly.
-// If not (e.g. contains unescaped backslashes from double-encoding), marshal
-// it as a JSON string value so downstream parsers can handle it.
+// may or may not be valid JSON itself.
+//
+// The server sometimes double- or triple-encodes JSON responses, so we may
+// need to repeatedly unescape to recover the actual JSON structure.
 func stringToRawMessage(s string) json.RawMessage {
-	if json.Valid([]byte(s)) {
-		return json.RawMessage(s)
+	current := s
+	for range 3 {
+		if json.Valid([]byte(current)) {
+			// Valid JSON. If it's a JSON string wrapping another JSON value
+			// (array or object), unwrap it. Otherwise return as-is.
+			if len(current) >= 2 && current[0] == '"' {
+				var inner string
+				if err := json.Unmarshal([]byte(current), &inner); err == nil {
+					trimmed := strings.TrimSpace(inner)
+					if len(trimmed) > 0 && (trimmed[0] == '[' || trimmed[0] == '{') {
+						current = inner
+						continue
+					}
+				}
+			}
+			return json.RawMessage(current)
+		}
+		// Not valid JSON — try to unescape JSON escape sequences.
+		var unescaped string
+		if err := json.Unmarshal([]byte(`"`+current+`"`), &unescaped); err == nil {
+			current = unescaped
+			continue
+		}
+		break
+	}
+	if json.Valid([]byte(current)) {
+		return json.RawMessage(current)
 	}
 	b, _ := json.Marshal(s)
 	return json.RawMessage(b)

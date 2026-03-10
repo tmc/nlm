@@ -87,8 +87,8 @@ func TestExecuteWithRetry(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`)]}'
-123
-[[["wrb.fr","test","{\"result\":\"success\"}",null,null,null,"generic"]]]
+71
+[["wrb.fr","test","{\"result\":\"success\"}",null,null,null,"generic"]]
 `))
 		}))
 		defer server.Close()
@@ -121,8 +121,8 @@ func TestExecuteWithRetry(t *testing.T) {
 			}
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`)]}'
-123
-[[["wrb.fr","test","{\"result\":\"success\"}",null,null,null,"generic"]]]
+71
+[["wrb.fr","test","{\"result\":\"success\"}",null,null,null,"generic"]]
 `))
 		}))
 		defer server.Close()
