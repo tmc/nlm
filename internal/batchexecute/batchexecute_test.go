@@ -187,6 +187,36 @@ func TestDecodeResponse(t *testing.T) {
 			expected: nil,
 			err:      fmt.Errorf("no valid responses found"),
 		},
+		{
+			name:  "Double-Escaped String in Position 2",
+			input: `[["wrb.fr","b7Wfje","not valid json \\ backslash",null,null,null,"generic"]]`,
+			validate: func(t *testing.T, resp []Response) {
+				if len(resp) != 1 {
+					t.Fatalf("expected 1 response, got %d", len(resp))
+				}
+				// The invalid JSON string should be marshaled into a valid JSON string value
+				if !json.Valid(resp[0].Data) {
+					t.Errorf("resp.Data is not valid JSON: %q", resp[0].Data)
+				}
+			},
+		},
+		{
+			name:  "Valid JSON String in Position 2",
+			input: `[["wrb.fr","izAoDd","[\"source-id\",\"title\"]",null,null,null,"generic"]]`,
+			validate: func(t *testing.T, resp []Response) {
+				if len(resp) != 1 {
+					t.Fatalf("expected 1 response, got %d", len(resp))
+				}
+				if !json.Valid(resp[0].Data) {
+					t.Errorf("resp.Data is not valid JSON: %q", resp[0].Data)
+				}
+				// Should be used directly as JSON array
+				var arr []interface{}
+				if err := json.Unmarshal(resp[0].Data, &arr); err != nil {
+					t.Errorf("expected JSON array, got parse error: %v", err)
+				}
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -229,6 +259,29 @@ func TestDecodeResponse(t *testing.T) {
 			// If there are expected responses, compare them
 			if err == nil && tc.expected != nil && !cmp.Equal(actual, tc.expected) {
 				t.Errorf("Response mismatch (-want +got):\n%s", cmp.Diff(tc.expected, actual))
+			}
+		})
+	}
+}
+
+func TestStringToRawMessage(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantValid bool
+	}{
+		{"valid JSON array", `["a","b"]`, true},
+		{"valid JSON object", `{"key":"val"}`, true},
+		{"valid JSON string", `"hello"`, true},
+		{"invalid backslash", `not json \ here`, true},
+		{"double-escaped quotes", `"value with \"quotes\""`, true},
+		{"bare backslash-n", "line1\nline2", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stringToRawMessage(tt.input)
+			if json.Valid(got) != tt.wantValid {
+				t.Errorf("stringToRawMessage(%q) valid=%v, want %v; got %q", tt.input, json.Valid(got), tt.wantValid, got)
 			}
 		})
 	}

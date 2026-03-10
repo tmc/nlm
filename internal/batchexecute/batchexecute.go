@@ -448,7 +448,7 @@ func decodeResponse(raw string) ([]Response, error) {
 		// Try position 2 first (traditional location)
 		if rpcData[2] != nil {
 			if dataStr, ok := rpcData[2].(string); ok {
-				resp.Data = json.RawMessage(dataStr)
+				resp.Data = stringToRawMessage(dataStr)
 				responseData = dataStr
 			} else {
 				// If position 2 is not a string, use it directly
@@ -487,6 +487,20 @@ func decodeResponse(raw string) ([]Response, error) {
 	}
 
 	return result, nil
+}
+
+// stringToRawMessage converts a decoded string value to json.RawMessage.
+// In the batchexecute protocol, position 2 is often a JSON-encoded string
+// containing the actual response data. After the outer JSON decode, the string
+// may or may not be valid JSON itself. If it is valid JSON, use it directly.
+// If not (e.g. contains unescaped backslashes from double-encoding), marshal
+// it as a JSON string value so downstream parsers can handle it.
+func stringToRawMessage(s string) json.RawMessage {
+	if json.Valid([]byte(s)) {
+		return json.RawMessage(s)
+	}
+	b, _ := json.Marshal(s)
+	return json.RawMessage(b)
 }
 
 // decodeChunkedResponse decodes the batchexecute response
