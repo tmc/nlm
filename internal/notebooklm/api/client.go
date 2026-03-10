@@ -2335,44 +2335,22 @@ func (c *Client) resolveSourceIDs(projectID string, sourceIDs []string) []string
 }
 
 // buildChatArgs builds the inner JSON args for a chat request.
-// Wire format: [[[[source_ids]]],prompt,history,[2,null,[1],[1]],conv_id,null,null,notebook_id,seq_num]
+// Wire format matches grpc_arg_format: [[sources], prompt, null, [2]]
+// where sources is an array of [source_id] arrays.
 func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 	req.SourceIDs = c.resolveSourceIDs(req.ProjectID, req.SourceIDs)
 
-	if req.ConversationID == "" {
-		req.ConversationID = uuid.New().String()
-	}
-	if req.SeqNum == 0 {
-		req.SeqNum = 1
-	}
-
-	// Build source IDs array: [[["id1"], ["id2"]]]
-	var sourceIDArrays []interface{}
+	// Build source IDs array: [["id1"], ["id2"]]
+	sources := make([]interface{}, 0, len(req.SourceIDs))
 	for _, id := range req.SourceIDs {
-		sourceIDArrays = append(sourceIDArrays, []interface{}{id})
-	}
-	sources := []interface{}{sourceIDArrays}
-
-	// Build history: [[response, null, 2], [query, null, 1], ...]
-	var history interface{}
-	if len(req.History) > 0 {
-		var historyEntries []interface{}
-		for _, msg := range req.History {
-			historyEntries = append(historyEntries, []interface{}{msg.Content, nil, msg.Role})
-		}
-		history = historyEntries
+		sources = append(sources, []string{id})
 	}
 
 	args := []interface{}{
 		sources,
 		req.Prompt,
-		history,
-		[]interface{}{2, nil, []interface{}{1}, []interface{}{1}},
-		req.ConversationID,
 		nil,
-		nil,
-		req.ProjectID,
-		req.SeqNum,
+		[]int{2},
 	}
 
 	argsJSON, err := json.Marshal(args)
@@ -2383,14 +2361,19 @@ func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 }
 
 // buildChatRequestBody builds the full HTTP form body for a chat request.
+// The gRPC-Web endpoint expects: f.req=[null,"<inner-json-string>"]
+// where the inner JSON array is encoded as a JSON string (double-encoded).
 func (c *Client) buildChatRequestBody(req ChatRequest) (string, error) {
 	innerJSON, err := c.buildChatArgs(req)
 	if err != nil {
 		return "", err
 	}
 
-	// Outer envelope: [null, "<inner-json-double-encoded>"]
-	outerJSON, err := json.Marshal([]interface{}{nil, innerJSON})
+	// Outer envelope: [null, "<inner-json-as-string>"]
+	// The inner JSON is double-encoded: it becomes a JSON string value
+	// inside the outer array, matching the grpcendpoint.BuildChatRequest format.
+	outer := []interface{}{nil, innerJSON}
+	outerJSON, err := json.Marshal(outer)
 	if err != nil {
 		return "", fmt.Errorf("marshal chat envelope: %w", err)
 	}
@@ -2414,6 +2397,9 @@ func (c *Client) buildChatURL(notebookID string) string {
 	}
 	q.Set("rt", "c") // Chunked response format
 	q.Set("_reqid", fmt.Sprintf("%d", time.Now().UnixMilli()%1000000))
+	if notebookID != "" {
+		q.Set("source-path", "/notebook/"+notebookID)
+	}
 
 	return u + "?" + q.Encode()
 }
