@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -125,7 +126,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n")
 		fmt.Fprintf(os.Stderr, "  chat-list               List all saved chat sessions\n")
 		fmt.Fprintf(os.Stderr, "  delete-chat <id>        Delete server-side chat history\n")
-		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n\n")
+		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n")
+		fmt.Fprintf(os.Stderr, "  set-instructions <id> <text|file|->  Set notebook chat instructions\n\n")
 
 		fmt.Fprintf(os.Stderr, "Content Transformation Commands:\n")
 		fmt.Fprintf(os.Stderr, "  rephrase <id> <source-ids...>     Rephrase content from sources\n")
@@ -365,6 +367,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm chat-config <notebook-id> <setting> [value]\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "set-instructions":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm set-instructions <notebook-id> <text|file|->\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "create-artifact":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm create-artifact <notebook-id> <type>\n")
@@ -437,7 +444,7 @@ func isValidCommand(cmd string) bool {
 		"notes", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
-		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config",
+		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
 	}
@@ -820,6 +827,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = deleteChatHistory(client, args[0])
 	case "chat-config":
 		err = setChatConfig(client, args)
+	case "set-instructions":
+		err = setInstructions(client, args)
 
 	// Sharing operations
 	case "share":
@@ -1640,6 +1649,53 @@ func setChatConfig(c *api.Client, args []string) error {
 	default:
 		return fmt.Errorf("unknown setting: %s (use 'goal' or 'length')", setting)
 	}
+}
+
+func setInstructions(c *api.Client, args []string) error {
+	if len(args) < 2 {
+		fmt.Fprintf(os.Stderr, "usage: nlm set-instructions <notebook-id> <text|file|->\n")
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  nlm set-instructions <id> \"You are a helpful assistant...\"\n")
+		fmt.Fprintf(os.Stderr, "  nlm set-instructions <id> instructions.md\n")
+		fmt.Fprintf(os.Stderr, "  cat instructions.md | nlm set-instructions <id> -\n")
+		return fmt.Errorf("invalid arguments")
+	}
+
+	notebookID := args[0]
+	input := args[1]
+
+	var instructions string
+	switch {
+	case input == "-":
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
+		instructions = strings.TrimSpace(string(data))
+	case fileExists(input):
+		data, err := os.ReadFile(input)
+		if err != nil {
+			return fmt.Errorf("read file: %w", err)
+		}
+		instructions = strings.TrimSpace(string(data))
+	default:
+		instructions = strings.Join(args[1:], " ")
+	}
+
+	if instructions == "" {
+		return fmt.Errorf("instructions cannot be empty")
+	}
+
+	if err := c.SetInstructions(notebookID, instructions); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "Instructions set for notebook %s\n", notebookID)
+	return nil
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // Utility functions for commented-out operations

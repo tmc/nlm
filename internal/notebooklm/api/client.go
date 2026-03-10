@@ -2749,6 +2749,11 @@ func (c *Client) SetChatConfig(projectID string, goal ChatGoal, customPrompt str
 	return nil
 }
 
+// SetInstructions sets the notebook chat instructions (system prompt) via MutateProject.
+func (c *Client) SetInstructions(projectID string, instructions string) error {
+	return c.SetChatConfig(projectID, ChatGoalCustom, instructions, ResponseLengthDefault)
+}
+
 // GetProjectWithContext is like GetProject but accepts a context for cancellation
 func (c *Client) GetProjectWithContext(ctx context.Context, projectID string) (*Notebook, error) {
 	req := &pb.GetProjectRequest{
