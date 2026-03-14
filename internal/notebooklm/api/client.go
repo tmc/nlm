@@ -1098,29 +1098,39 @@ func (c *Client) CreateVideoOverview(projectID string, instructions string) (*Vi
 		return nil, fmt.Errorf("instructions required")
 	}
 
-	// Video requires source IDs - try to get them from the notebook
-	// For testing, we can also accept a hardcoded source ID
-	var sourceIDs []interface{}
-
-	// Try to get sources from the project
-	// For now, use hardcoded test source ID if available
-	testSourceID := "d7236810-f298-4119-a289-2b8a98170fbd"
-	if testSourceID != "" {
-		sourceIDs = []interface{}{[]interface{}{testSourceID}}
-	} else {
-		sourceIDs = []interface{}{[]interface{}{}} // Empty nested array
+	// Video requires source IDs - fetch them from the notebook
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("get project sources for video: %w", err)
 	}
 
+	// Build source ID arrays in the format NotebookLM expects.
+	// Single source format (confirmed working): [[["source-id"]]]
+	// For now, use only the first source until multi-source format is confirmed.
+	var firstSourceID string
+	if project != nil {
+		for _, src := range project.Sources {
+			if src.SourceId != nil && src.SourceId.SourceId != "" {
+				firstSourceID = src.SourceId.SourceId
+				break
+			}
+		}
+	}
+	if firstSourceID == "" {
+		return nil, fmt.Errorf("no sources found in notebook - add sources before creating a video")
+	}
+	wrappedSources := []interface{}{[]interface{}{[]interface{}{firstSourceID}}}
+
 	// Use the complex structure from the curl command
-	// Structure: [[2], "notebook-id", [null, null, 3, [[[source-id]]], null, null, null, null, [null, null, [[[source-id]], "en", "instructions"]]]]
+	// Structure: [[2], "notebook-id", [null, null, 3, [[["source-id"]]], null, null, null, null, [null, null, [[["source-id"]], "en", "instructions"]]]]
 	videoArgs := []interface{}{
 		[]interface{}{2}, // Mode
 		projectID,        // Notebook ID
 		[]interface{}{
 			nil,
 			nil,
-			3,                        // Type or version
-			[]interface{}{sourceIDs}, // Source IDs array
+			3,               // Type or version
+			wrappedSources,  // Source IDs: [[["id1"]], [["id2"]], ...]
 			nil,
 			nil,
 			nil,
@@ -1129,9 +1139,9 @@ func (c *Client) CreateVideoOverview(projectID string, instructions string) (*Vi
 				nil,
 				nil,
 				[]interface{}{
-					sourceIDs,    // Source IDs again
-					"en",         // Language
-					instructions, // The actual instructions
+					wrappedSources, // Source IDs again
+					"en",           // Language
+					instructions,   // The actual instructions
 				},
 			},
 		},
@@ -1574,14 +1584,15 @@ func (c *Client) getVideoOverviewAlternative(projectID string) (*VideoOverviewRe
 	return nil, fmt.Errorf("no method found to retrieve video overview data")
 }
 
-// tryVideoOverviewDirectRPC attempts to use GetAudioOverview RPC but for video
+// tryVideoOverviewDirectRPC attempts to get video overview using the video RPC with get mode
 func (c *Client) tryVideoOverviewDirectRPC(projectID string) (*VideoOverviewResult, error) {
-	// Try using the audio RPC with different parameters that might work for video
+	// Use the video RPC (R7cb6c) with mode [1] (get) instead of [2] (create)
+	// to retrieve existing video data
 	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGetAudioOverview, // Reuse audio RPC
+		ID: rpc.RPCCreateVideoOverview, // Same RPC, different mode
 		Args: []interface{}{
+			[]interface{}{1}, // Mode 1 = get (vs 2 = create)
 			projectID,
-			2, // Different request type for video?
 		},
 		NotebookID: projectID,
 	})
