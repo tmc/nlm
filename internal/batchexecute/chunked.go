@@ -110,14 +110,20 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 			continue
 		}
 
-		// If we're collecting a chunk, add this line to the current chunk
+		// If we're collecting a chunk, add this line to the current chunk.
+		// The declared chunk size includes the trailing \n (or \r\n) that
+		// bufio.Scanner strips, so the actual text content is typically
+		// chunkSize-1 or chunkSize-2 bytes.  When the first data line is
+		// close to chunkSize we must NOT keep reading, or we'll swallow
+		// the next chunk's size marker as data.
 		if chunkData.Len() > 0 {
 			chunkData.WriteString("\n")
 		}
 		chunkData.WriteString(line)
 
-		// If we've collected enough data, add the chunk and reset
-		if chunkData.Len() >= chunkSize {
+		// Accept the chunk if we're within 2 bytes of the declared size
+		// (accounting for stripped \n or \r\n).
+		if chunkData.Len() >= chunkSize-2 {
 			fmt.Printf("DEBUG: Collected full chunk (%d bytes)\n", chunkData.Len())
 			chunks = append(chunks, chunkData.String())
 			collecting = false
