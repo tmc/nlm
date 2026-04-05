@@ -36,7 +36,8 @@ var (
 	chunkedResponse   bool // Control rt=c parameter for chunked vs JSON array response
 	useDirectRPC      bool // Use direct RPC calls instead of orchestration service
 	skipSources       bool // Skip fetching sources for chat (useful when project is inaccessible)
-	yes               bool // Skip confirmation prompts
+	yes               bool   // Skip confirmation prompts
+	sourceName        string // Custom name for added sources
 )
 
 // ChatSession represents a persistent chat conversation
@@ -70,6 +71,8 @@ func init() {
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
 	flag.StringVar(&mimeType, "mime", "", "specify MIME type for content (e.g. 'application/pdf', 'text/plain')")
 	flag.StringVar(&mimeType, "mime-type", "", "specify MIME type for content (alias for -mime)")
+	flag.StringVar(&sourceName, "name", "", "custom name for added source")
+	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
@@ -952,11 +955,15 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	switch input {
 	case "-": // stdin
 		fmt.Fprintln(os.Stderr, "Reading from stdin...")
+		name := "Pasted Text"
+		if sourceName != "" {
+			name = sourceName
+		}
 		if mimeType != "" {
 			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", mimeType)
-			return c.AddSourceFromReader(notebookID, os.Stdin, "Pasted Text", mimeType)
+			return c.AddSourceFromReader(notebookID, os.Stdin, name, mimeType)
 		}
-		return c.AddSourceFromReader(notebookID, os.Stdin, "Pasted Text")
+		return c.AddSourceFromReader(notebookID, os.Stdin, name)
 	case "": // empty input
 		return "", fmt.Errorf("input required (file, URL, or '-' for stdin)")
 	}
@@ -970,22 +977,38 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	// Try as local file
 	if _, err := os.Stat(input); err == nil {
 		fmt.Printf("Adding source from file: %s\n", input)
+		name := filepath.Base(input)
+		if sourceName != "" {
+			name = sourceName
+		}
 		if mimeType != "" {
 			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", mimeType)
-			// Read the file and use AddSourceFromReader with the specified MIME type
 			file, err := os.Open(input)
 			if err != nil {
 				return "", fmt.Errorf("open file: %w", err)
 			}
 			defer file.Close()
-			return c.AddSourceFromReader(notebookID, file, filepath.Base(input), mimeType)
+			return c.AddSourceFromReader(notebookID, file, name, mimeType)
+		}
+		if sourceName != "" {
+			// Use AddSourceFromReader to pass the custom name
+			file, err := os.Open(input)
+			if err != nil {
+				return "", fmt.Errorf("open file: %w", err)
+			}
+			defer file.Close()
+			return c.AddSourceFromReader(notebookID, file, name)
 		}
 		return c.AddSourceFromFile(notebookID, input)
 	}
 
 	// If it's not a URL or file, treat as direct text content
 	fmt.Println("Adding text content as source...")
-	return c.AddSourceFromText(notebookID, input, "Text Source")
+	textName := "Text Source"
+	if sourceName != "" {
+		textName = sourceName
+	}
+	return c.AddSourceFromText(notebookID, input, textName)
 }
 
 func removeSource(c *api.Client, notebookID, sourceID string) error {
