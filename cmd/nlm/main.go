@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,7 +95,7 @@ func init() {
 
 		fmt.Fprintf(os.Stderr, "Note Commands:\n")
 		fmt.Fprintf(os.Stderr, "  notes <id>        List notes in notebook\n")
-		fmt.Fprintf(os.Stderr, "  new-note <id> <title>  Create new note\n")
+		fmt.Fprintf(os.Stderr, "  new-note <id> <title> [content]  Create new note (content via arg or stdin)\n")
 		fmt.Fprintf(os.Stderr, "  update-note <id> <note-id> <content> <title>  Edit note\n")
 		fmt.Fprintf(os.Stderr, "  rm-note <note-id>  Remove note\n\n")
 
@@ -236,8 +237,9 @@ func validateArgs(cmd string, args []string) error {
 			return fmt.Errorf("invalid arguments")
 		}
 	case "new-note":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm new-note <notebook-id> <title>\n")
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm new-note <notebook-id> <title> [content]\n")
+			fmt.Fprintf(os.Stderr, "  content can also be piped via stdin\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "update-note":
@@ -728,7 +730,17 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "notes":
 		err = listNotes(client, args[0])
 	case "new-note":
-		err = createNote(client, args[0], args[1])
+		noteContent := ""
+		if len(args) > 2 {
+			noteContent = args[2]
+		} else if fi, stErr := os.Stdin.Stat(); stErr == nil && fi.Mode()&os.ModeCharDevice == 0 {
+			data, readErr := io.ReadAll(os.Stdin)
+			if readErr != nil {
+				return readErr
+			}
+			noteContent = string(data)
+		}
+		err = createNote(client, args[0], args[1], noteContent)
 	case "update-note":
 		err = updateNote(client, args[0], args[1], args[2], args[3])
 	case "rm-note":
@@ -1036,9 +1048,9 @@ func renameSource(c *api.Client, sourceID, newName string) error {
 }
 
 // Note operations
-func createNote(c *api.Client, notebookID, title string) error {
+func createNote(c *api.Client, notebookID, title, content string) error {
 	fmt.Printf("Creating note in notebook %s...\n", notebookID)
-	if _, err := c.CreateNote(notebookID, title, ""); err != nil {
+	if _, err := c.CreateNote(notebookID, title, content); err != nil {
 		return fmt.Errorf("create note: %w", err)
 	}
 	fmt.Printf("✅ Created note: %s\n", title)
