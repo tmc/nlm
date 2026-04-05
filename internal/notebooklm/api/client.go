@@ -732,6 +732,11 @@ func extractSourceID(resp json.RawMessage) (string, error) {
 
 	var data []interface{}
 	if err := json.Unmarshal(resp, &data); err != nil {
+		// JSON parsing failed — likely due to double-escaped batchexecute response.
+		// Fall back to scanning raw bytes for a UUID pattern.
+		if id := findUUIDInBytes(resp); id != "" {
+			return id, nil
+		}
 		return "", fmt.Errorf("parse response JSON: %w", err)
 	}
 
@@ -785,7 +790,41 @@ func extractSourceID(resp json.RawMessage) (string, error) {
 		}
 	}
 
+	// Last resort: scan raw bytes for UUID
+	if id := findUUIDInBytes(resp); id != "" {
+		return id, nil
+	}
+
 	return "", fmt.Errorf("could not find source ID in response structure: %v", data)
+}
+
+// findUUIDInBytes scans raw bytes for a UUID v4 pattern (8-4-4-4-12 hex).
+// Used as a fallback when JSON parsing fails due to double-escaped responses.
+func findUUIDInBytes(b []byte) string {
+	s := string(b)
+	for i := 0; i <= len(s)-36; i++ {
+		candidate := s[i : i+36]
+		if isUUID(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func isUUID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, c := range s {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if c != '-' {
+				return false
+			}
+		} else if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 // Note operations
