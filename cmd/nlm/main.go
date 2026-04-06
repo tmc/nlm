@@ -1168,25 +1168,72 @@ func removeNote(c *api.Client, notebookID, noteID string) error {
 
 // Note operations
 func listNotes(c *api.Client, notebookID string) error {
-	notes, err := c.GetNotes(notebookID)
+	// GetNotes returns Note objects, not Source. The wire format is:
+	//   [note_id, content_text, metadata_array, null, title, rich_text, [2]]
+	// Use raw RPC to extract fields by position since the proto type doesn't match.
+	rpcClient := rpc.New(authToken, cookies)
+	resp, err := rpcClient.Do(rpc.Call{
+		ID:         "cFji9", // GetNotes
+		NotebookID: notebookID,
+		Args:       []interface{}{notebookID, nil, nil, []interface{}{2}},
+	})
 	if err != nil {
 		return fmt.Errorf("list notes: %w", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-	fmt.Fprintln(w, "ID\tTITLE\tLAST MODIFIED")
-	for _, note := range notes {
-		lastMod := ""
-		if m := note.GetMetadata(); m != nil && m.LastModifiedTime != nil {
-			lastMod = m.LastModifiedTime.AsTime().Format(time.RFC3339)
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return fmt.Errorf("parse notes response: %w", err)
+	}
+
+	if debug {
+		raw, _ := json.MarshalIndent(data, "", "  ")
+		fmt.Fprintf(os.Stderr, "DEBUG: notes response: %s\n", raw)
+	}
+
+	// Response structure: [notesArray, [lastModTimestamp]]
+	// notesArray: [[note_id, [note_id, content, metadata, null, title]], ...]
+	var notesArr []interface{}
+	if len(data) > 0 {
+		if arr, ok := data[0].([]interface{}); ok {
+			notesArr = arr
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
-			note.GetSourceId(),
-			note.Title,
-			lastMod,
-		)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	fmt.Fprintln(w, "ID\tTITLE\tCONTENT PREVIEW")
+	for _, item := range notesArr {
+		noteWrapper, ok := item.([]interface{})
+		if !ok || len(noteWrapper) < 2 {
+			continue
+		}
+		noteID := jsonStr(noteWrapper, 0)
+
+		// The note data is at position 1: [note_id, content, metadata, null, title]
+		noteData, ok := noteWrapper[1].([]interface{})
+		if !ok {
+			fmt.Fprintf(w, "%s\t\t\n", noteID)
+			continue
+		}
+		title := jsonStr(noteData, 4)
+		content := jsonStr(noteData, 1)
+		if len(content) > 80 {
+			content = content[:77] + "..."
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n", noteID, title, content)
 	}
 	return w.Flush()
+}
+
+// jsonStr safely extracts a string from a JSON array at the given index.
+func jsonStr(arr []interface{}, idx int) string {
+	if idx >= len(arr) || arr[idx] == nil {
+		return ""
+	}
+	if s, ok := arr[idx].(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", arr[idx])
 }
 
 // Audio operations
@@ -1399,27 +1446,64 @@ func heartbeat(c *api.Client) error {
 
 // Analytics and featured projects
 func getAnalytics(c *api.Client, projectID string) error {
-	// Create orchestration service client using the same auth as the main client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.GetProjectAnalyticsRequest{
-		ProjectId: projectID,
-	}
-
-	analytics, err := orchClient.GetProjectAnalytics(context.Background(), req)
+	// The analytics response wire format doesn't match the proto cleanly
+	// (source_count may arrive as array). Use raw RPC.
+	rpcClient := rpc.New(authToken, cookies)
+	resp, err := rpcClient.Do(rpc.Call{
+		ID:         "AUrzMb", // GetProjectAnalytics
+		NotebookID: projectID,
+		Args:       []interface{}{projectID},
+	})
 	if err != nil {
 		return fmt.Errorf("get analytics: %w", err)
 	}
 
-	fmt.Printf("Project Analytics for %s:\n", projectID)
-	fmt.Printf("  Sources: %d\n", analytics.SourceCount)
-	fmt.Printf("  Notes: %d\n", analytics.NoteCount)
-	fmt.Printf("  Audio Overviews: %d\n", analytics.AudioOverviewCount)
-	if analytics.LastAccessed != nil {
-		fmt.Printf("  Last Accessed: %s\n", analytics.LastAccessed.AsTime().Format(time.RFC3339))
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return fmt.Errorf("parse analytics response: %w", err)
 	}
 
+	if debug {
+		raw, _ := json.MarshalIndent(data, "", "  ")
+		fmt.Fprintf(os.Stderr, "DEBUG: analytics response: %s\n", raw)
+	}
+
+	fmt.Printf("Project Analytics for %s:\n", projectID)
+	// Extract counts - they may be numbers or arrays containing numbers
+	fmt.Printf("  Sources: %s\n", jsonCount(data, 0))
+	fmt.Printf("  Notes: %s\n", jsonCount(data, 1))
+	fmt.Printf("  Audio Overviews: %s\n", jsonCount(data, 2))
+
 	return nil
+}
+
+// jsonCount extracts a count from a JSON array position, handling both
+// number and array-of-number formats from the server.
+func jsonCount(arr []interface{}, idx int) string {
+	if idx >= len(arr) || arr[idx] == nil {
+		return "0"
+	}
+	switch v := arr[idx].(type) {
+	case float64:
+		return fmt.Sprintf("%d", int(v))
+	case []interface{}:
+		// Server sends counts as arrays like [3] or [[3]]
+		if len(v) > 0 {
+			if n, ok := v[0].(float64); ok {
+				return fmt.Sprintf("%d", int(n))
+			}
+			// Nested array
+			if inner, ok := v[0].([]interface{}); ok && len(inner) > 0 {
+				if n, ok := inner[0].(float64); ok {
+					return fmt.Sprintf("%d", int(n))
+				}
+			}
+			return fmt.Sprintf("%v", v[0])
+		}
+		return "0"
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func listFeaturedProjects(c *api.Client) error {
@@ -1866,33 +1950,84 @@ func getInstructions(c *api.Client, notebookID string) error {
 		return fmt.Errorf("parse response: %w", err)
 	}
 
+	if debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: get-instructions response length: %d\n", len(data))
+		for i, v := range data {
+			raw, _ := json.Marshal(v)
+			if len(raw) > 200 {
+				raw = append(raw[:197], "..."...)
+			}
+			fmt.Fprintf(os.Stderr, "DEBUG: position [%d]: %s\n", i, raw)
+		}
+	}
+
+	// The response may be wrapped: [[project_data...]] or [project_data...]
+	// Unwrap if needed - if data[0] is an array and looks like the project data
+	projectData := data
+	if len(data) == 1 {
+		if inner, ok := data[0].([]interface{}); ok {
+			projectData = inner
+		}
+	}
+
+	if debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: project data length after unwrap: %d\n", len(projectData))
+		for i, v := range projectData {
+			raw, _ := json.Marshal(v)
+			if len(raw) > 200 {
+				raw = append(raw[:197], "..."...)
+			}
+			fmt.Fprintf(os.Stderr, "DEBUG: project[%d]: %s\n", i, raw)
+		}
+	}
+
 	// ChatbotConfig is at position [7]: [[goal_type, "prompt"], [length_config]]
-	if len(data) <= 7 || data[7] == nil {
-		fmt.Println("No custom instructions set.")
-		return nil
-	}
-
-	config, ok := data[7].([]interface{})
-	if !ok || len(config) == 0 {
-		fmt.Println("No custom instructions set.")
-		return nil
-	}
-
-	// Goal config is config[0]: [goal_type, "prompt"] or [goal_type]
-	goalConfig, ok := config[0].([]interface{})
-	if !ok || len(goalConfig) < 2 {
-		fmt.Println("No custom instructions set.")
-		return nil
-	}
-
-	prompt, ok := goalConfig[1].(string)
-	if !ok || prompt == "" {
+	prompt := extractInstructionsFromProject(projectData)
+	if prompt == "" {
 		fmt.Println("No custom instructions set.")
 		return nil
 	}
 
 	fmt.Println(prompt)
 	return nil
+}
+
+// extractInstructionsFromProject searches the project response for chatbot config.
+// The config is typically at position [7] but may shift. Format: [[goal_type, "prompt"], [length_config]]
+func extractInstructionsFromProject(data []interface{}) string {
+	// Try position 7 first (most common)
+	if prompt := tryExtractPrompt(data, 7); prompt != "" {
+		return prompt
+	}
+	// Scan other positions as fallback
+	for i := 5; i < len(data); i++ {
+		if i == 7 {
+			continue
+		}
+		if prompt := tryExtractPrompt(data, i); prompt != "" {
+			return prompt
+		}
+	}
+	return ""
+}
+
+func tryExtractPrompt(data []interface{}, pos int) string {
+	if pos >= len(data) || data[pos] == nil {
+		return ""
+	}
+	config, ok := data[pos].([]interface{})
+	if !ok || len(config) == 0 {
+		return ""
+	}
+	goalConfig, ok := config[0].([]interface{})
+	if !ok || len(goalConfig) < 2 {
+		return ""
+	}
+	prompt, ok := goalConfig[1].(string)
+	if !ok {
+		return ""
+	}
+	return prompt
 }
 
 // Utility functions for commented-out operations
@@ -1926,17 +2061,37 @@ func shareNotebook(c *api.Client, notebookID string) error {
 		return fmt.Errorf("parse response: %w", err)
 	}
 
-	if len(data) > 0 {
-		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
-			if shareURL, ok := shareData[0].(string); ok {
-				fmt.Printf("Share URL: %s\n", shareURL)
-				return nil
+	if debug {
+		raw, _ := json.MarshalIndent(data, "", "  ")
+		fmt.Fprintf(os.Stderr, "DEBUG: share response: %s\n", raw)
+	}
+
+	// Search for a URL string in the response (may be nested at various depths)
+	if url := findShareURL(data); url != "" {
+		fmt.Printf("Share URL: %s\n", url)
+		return nil
+	}
+
+	// If no URL in response, the share succeeded but URL is constructed from project ID
+	fmt.Printf("Share URL: https://notebooklm.google.com/notebook/%s\n", notebookID)
+	return nil
+}
+
+// findShareURL recursively searches a JSON structure for a URL string.
+func findShareURL(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		if strings.HasPrefix(val, "http") && strings.Contains(val, "notebooklm") {
+			return val
+		}
+	case []interface{}:
+		for _, item := range val {
+			if url := findShareURL(item); url != "" {
+				return url
 			}
 		}
 	}
-
-	fmt.Printf("Project shared successfully (URL format not recognized)\n")
-	return nil
+	return ""
 }
 
 func submitFeedback(c *api.Client, message string) error {

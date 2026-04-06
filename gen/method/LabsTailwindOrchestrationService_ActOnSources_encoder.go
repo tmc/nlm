@@ -9,44 +9,27 @@ import (
 // EncodeActOnSourcesArgs encodes arguments for LabsTailwindOrchestrationService.ActOnSources
 // RPC ID: yyryJe
 //
-// Uses the Vyb pattern (standard prompt action with source references):
+// Wire format from HAR:
+//   [sourceRefs, null, null, null, null, action, null, [notebook_id, [2]]]
 //
-// Wire format:
-//   [sourceRefs, hZa, YB, null, null, null, null, ProjectContext, null, null, origin]
-//
-// Field 1: repeated WB source references wrapping Ru{sourceId}: [[[sourceId]]]
-// Field 2: hZa context settings {field 7: 2, field 10: 2}
-// Field 3: oneof YB standard action {field 1: prompt, field 2: [], field 4: actionType}
-// Field 8: ProjectContext yZa variant [2, null, 1, [1]]
-// Field 11: int origin enum
+// sourceRefs: [[["source-id-1"]], [["source-id-2"]]]  (each source: [["id"]])
+// action: string like "summarize", "brainstorm", etc.
+// position 7: [notebook_id, [2]] (ProjectContext)
 func EncodeActOnSourcesArgs(req *notebooklmv1alpha1.ActOnSourcesRequest) []interface{} {
-	// Build source references: each source ID wraps as WB{oneof Ru{sourceId}} = [[["sourceId"]]]
-	// 3-level nesting confirmed via HAR capture
+	// Build source references: each source wraps as [["sourceId"]]
 	var sourceRefs []interface{}
 	for _, id := range req.GetSourceIds() {
-		sourceRefs = append(sourceRefs, []interface{}{[]interface{}{[]interface{}{id}}})
+		sourceRefs = append(sourceRefs, []interface{}{[]interface{}{id}})
 	}
 
-	// hZa context settings: {field 7: 2, field 10: 2}
-	// Wire: [null, null, null, null, null, null, 2, null, null, 2]
-	hzaContext := []interface{}{nil, nil, nil, nil, nil, nil, 2, nil, nil, 2}
-
-	// YB standard action: {field 1: prompt, field 2: annotations, field 4: action_type}
-	// For named actions like "summarize", the prompt describes the action
-	actionPrompt := "Please " + req.GetAction() + " the selected sources."
-	yb := []interface{}{actionPrompt, []interface{}{}, nil, req.GetAction()}
-
-	// ProjectContext yZa variant: [2, null, 1, [1]]
-	projectContext := []interface{}{2, nil, 1, []interface{}{1}}
-
 	return []interface{}{
-		sourceRefs,     // field 1: source refs
-		hzaContext,     // field 2: hZa context settings
-		yb,             // field 3: oneof YB (standard prompt action)
-		nil,            // field 4: oneof kZa (update chat)
-		nil,            // field 5: gap
-		nil,            // field 6: oneof vZa (named action) — not used in Vyb
-		nil,            // field 7: aZa generation options
-		projectContext, // field 8: ProjectContext
+		sourceRefs,                                          // pos 0: source refs
+		nil,                                                 // pos 1
+		nil,                                                 // pos 2
+		nil,                                                 // pos 3
+		nil,                                                 // pos 4
+		req.GetAction(),                                     // pos 5: action string
+		nil,                                                 // pos 6
+		[]interface{}{req.GetProjectId(), []interface{}{2}},  // pos 7: [notebook_id, [2]]
 	}
 }
