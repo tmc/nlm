@@ -41,8 +41,9 @@ const (
 	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
 	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
 
-	// NotebookLM service - Video operations
-	RPCCreateVideoOverview = "R7cb6c" // CreateVideoOverview
+	// NotebookLM service - Video/Artifact operations
+	RPCCreateUniversalArtifact = "R7cb6c" // Universal artifact creator (audio, video, reports, flashcards, slides, infographics)
+	RPCCreateVideoOverview     = "R7cb6c" // Alias for backward compatibility
 
 	// NotebookLM service - Chat operations
 	// NOTE: GenerateFreeFormStreamed does NOT use batchexecute. It uses a gRPC-Web
@@ -51,8 +52,13 @@ const (
 	RPCGenerateFreeFormStreamed = "BD"     // DEPRECATED: chat uses gRPC-Web, not batchexecute
 	RPCGetConversations        = "hPTbtc" // GetConversations - list conversation IDs for a notebook
 	RPCGetConversationHistory  = "khqZz"  // GetConversationHistory - retrieve chat messages
-	RPCDeleteChatHistory       = "e3bVqc" // DeleteChatHistory - delete all chat history for a notebook
+	RPCDeleteChatHistory       = "e3bVqc" // DeleteChatHistory / PollDeepResearch - server routes by args
 	RPCRateConversationTurn    = "J7Gthc" // RateConversationTurn - mark conversation turn (thumbs up/down?)
+
+	// NotebookLM service - Deep Research operations
+	RPCStartDeepResearch  = "QA9ei"  // StartDeepResearch - initiate deep research
+	RPCPollDeepResearch   = "e3bVqc" // PollDeepResearch - poll research progress (same RPC ID as DeleteChatHistory; server routes by args)
+	RPCDeleteDeepResearch = "LBwxtb" // DeleteDeepResearch - delete a deep research session
 
 	// NotebookLM service - Generation operations
 	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
