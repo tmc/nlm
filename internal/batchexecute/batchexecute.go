@@ -1,12 +1,14 @@
 package batchexecute
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -629,7 +631,7 @@ func NewClient(config Config, opts ...Option) *Client {
 
 	c := &Client{
 		config:     config,
-		httpClient: http.DefaultClient,
+		httpClient: NewIPv4HTTPClient(),
 		debug:      func(format string, args ...interface{}) {}, // noop by default
 		reqid:      NewReqIDGenerator(),
 	}
@@ -641,6 +643,33 @@ func NewClient(config Config, opts ...Option) *Client {
 
 func (c *Client) Config() Config {
 	return c.config
+}
+
+// NewIPv4HTTPClient creates an HTTP client that prefers IPv4 connections.
+// This works around environments where IPv6 sockets are broken.
+func NewIPv4HTTPClient() *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// Try IPv4 first
+			if network == "tcp" {
+				conn, err := dialer.DialContext(ctx, "tcp4", addr)
+				if err == nil {
+					return conn, nil
+				}
+				// Fall back to any network
+				return dialer.DialContext(ctx, network, addr)
+			}
+			return dialer.DialContext(ctx, network, addr)
+		},
+		MaxIdleConns:        100,
+		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+	}
+	return &http.Client{Transport: transport}
 }
 
 // ReqIDGenerator generates sequential request IDs

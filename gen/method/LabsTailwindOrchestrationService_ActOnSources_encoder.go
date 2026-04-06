@@ -13,15 +13,15 @@ import (
 //
 //	[sourceRefs, null, null, null, null, actionConfig, null, modeSelector]
 //
-// sourceRefs: [["source-id-1"], ["source-id-2"]]  (each source: ["id"], 1-level)
+// sourceRefs: [[["source-id-1"]], [["source-id-2"]]]  (each source: [["id"]], 2-level)
 // actionConfig: ["action_name", [["[CONTEXT]", ""]], ""]  (3-element array)
 // modeSelector: [2, null, [1], [1]]  (same as chat mode selector)
 // Notebook ID is conveyed via source-path URL param, NOT in args.
 func EncodeActOnSourcesArgs(req *notebooklmv1alpha1.ActOnSourcesRequest) []interface{} {
-	// Build source references: each source is ["uuid"] (1-level nesting)
+	// Build source references: each source is [["uuid"]] (2-level nesting, same as chat)
 	var sourceRefs []interface{}
 	for _, id := range req.GetSourceIds() {
-		sourceRefs = append(sourceRefs, []interface{}{id})
+		sourceRefs = append(sourceRefs, []interface{}{[]interface{}{id}})
 	}
 
 	// Action config: [action_name, [["[CONTEXT]", ""]], ""]

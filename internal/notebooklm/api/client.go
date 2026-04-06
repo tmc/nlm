@@ -27,6 +27,13 @@ import (
 type Notebook = pb.Project
 type Note = pb.Source
 
+// httpClientWithTimeout returns an IPv4-preferring HTTP client with the given timeout.
+func httpClientWithTimeout(timeout time.Duration) *http.Client {
+	c := batchexecute.NewIPv4HTTPClient()
+	c.Timeout = timeout
+	return c
+}
+
 // Client handles NotebookLM API interactions.
 type Client struct {
 	rpc                  *rpc.Client
@@ -471,7 +478,7 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 		}
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := httpClientWithTimeout(30 * time.Second)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("upload init request: %w", err)
@@ -523,7 +530,7 @@ func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
 	req.Header.Set("Referer", "https://notebooklm.google.com/")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
 
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := httpClientWithTimeout(5 * time.Minute)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("upload request: %w", err)
@@ -1420,21 +1427,19 @@ func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
 	// TODO: Integrate auth.DownloadWithBrowser when fully tested
 
 	// Create client that follows redirects automatically
-	client := &http.Client{
-		Timeout: 60 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Allow up to 10 redirects
-			if len(via) >= 10 {
-				return fmt.Errorf("stopped after 10 redirects")
+	client := httpClientWithTimeout(60 * time.Second)
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		// Allow up to 10 redirects
+		if len(via) >= 10 {
+			return fmt.Errorf("stopped after 10 redirects")
+		}
+		// Copy cookies to redirect requests
+		if len(via) > 0 {
+			for _, cookie := range via[0].Cookies() {
+				req.AddCookie(cookie)
 			}
-			// Copy cookies to redirect requests
-			if len(via) > 0 {
-				for _, cookie := range via[0].Cookies() {
-					req.AddCookie(cookie)
-				}
-			}
-			return nil
-		},
+		}
+		return nil
 	}
 
 	req, err := http.NewRequest("GET", audioURL, nil)
@@ -1940,7 +1945,7 @@ func (r *VideoOverviewResult) SaveVideoToFile(filename string) error {
 // downloadVideoFromURL downloads video from a URL with proper authentication
 func (r *VideoOverviewResult) downloadVideoFromURL(url, filename string) error {
 	// Create HTTP client with authentication
-	client := &http.Client{}
+	client := httpClientWithTimeout(30 * time.Second)
 
 	// Create request with proper headers
 	req, err := http.NewRequest("GET", url, nil)
@@ -2003,9 +2008,7 @@ func (r *VideoOverviewResult) saveBase64VideoToFile(base64Data, filename string)
 // DownloadVideoWithAuth downloads a video using the client's authentication
 func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
 	// Create HTTP client with timeout
-	client := &http.Client{
-		Timeout: 300 * time.Second, // 5 minute timeout for large video downloads
-	}
+	client := httpClientWithTimeout(300 * time.Second)
 
 	// Create request
 	req, err := http.NewRequest("GET", videoURL, nil)
@@ -2433,8 +2436,11 @@ func (c *Client) buildChatRequestBody(req ChatRequest) (string, error) {
 		return "", fmt.Errorf("marshal chat envelope: %w", err)
 	}
 
-	// Form body: just f.req=<url-encoded-outer> — auth is via cookies + SAPISIDHASH header
-	body := fmt.Sprintf("f.req=%s", url.QueryEscape(string(outerJSON)))
+	// Form body: f.req=<url-encoded-outer>&at=<auth-token>
+	authToken := c.rpc.Config.AuthToken
+	body := fmt.Sprintf("f.req=%s&at=%s",
+		url.QueryEscape(string(outerJSON)),
+		url.QueryEscape(authToken))
 
 	return body, nil
 }
@@ -2498,7 +2504,7 @@ func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) boo
 	// Required header for chat endpoint (observed in HAR capture)
 	httpReq.Header.Set("x-goog-ext-353267353-jspb", "[null,null,null,282611]")
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := httpClientWithTimeout(120 * time.Second)
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("chat request: %w", err)
