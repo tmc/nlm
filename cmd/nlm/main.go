@@ -129,7 +129,9 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n")
 		fmt.Fprintf(os.Stderr, "  chat-list               List all saved chat sessions\n")
 		fmt.Fprintf(os.Stderr, "  delete-chat <id>        Delete server-side chat history\n")
-		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n\n")
+		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n")
+		fmt.Fprintf(os.Stderr, "  set-instructions <id> \"prompt\"      Set system instructions\n")
+		fmt.Fprintf(os.Stderr, "  get-instructions <id>               Show current system instructions\n\n")
 
 		fmt.Fprintf(os.Stderr, "Content Transformation Commands:\n")
 		fmt.Fprintf(os.Stderr, "  rephrase <id> <source-ids...>     Rephrase content from sources\n")
@@ -350,6 +352,16 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-chat <notebook-id> <prompt>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "set-instructions":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm set-instructions <notebook-id> \"prompt text\"\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "get-instructions":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm get-instructions <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "chat":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm chat <notebook-id>\n")
@@ -442,7 +454,7 @@ func isValidCommand(cmd string) bool {
 		"notes", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
-		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config",
+		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
 	}
@@ -835,6 +847,11 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = deleteChatHistory(client, args[0])
 	case "chat-config":
 		err = setChatConfig(client, args)
+	case "set-instructions":
+		prompt := strings.Join(args[1:], " ")
+		err = setInstructions(client, args[0], prompt)
+	case "get-instructions":
+		err = getInstructions(client, args[0])
 
 	// Sharing operations
 	case "share":
@@ -1675,6 +1692,61 @@ func setChatConfig(c *api.Client, args []string) error {
 	default:
 		return fmt.Errorf("unknown setting: %s (use 'goal' or 'length')", setting)
 	}
+}
+
+func setInstructions(c *api.Client, notebookID, prompt string) error {
+	if err := c.SetChatConfig(notebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault); err != nil {
+		return fmt.Errorf("set instructions: %w", err)
+	}
+	fmt.Println("Instructions updated.")
+	return nil
+}
+
+func getInstructions(c *api.Client, notebookID string) error {
+	// GetProject response has chatbot config at wire position [7] which isn't
+	// in the proto. Use raw RPC to extract it.
+	rpcClient := rpc.New(authToken, cookies)
+	resp, err := rpcClient.Do(rpc.Call{
+		ID:         rpc.RPCGetProject,
+		NotebookID: notebookID,
+		Args:       []interface{}{notebookID},
+	})
+	if err != nil {
+		return fmt.Errorf("get project: %w", err)
+	}
+
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return fmt.Errorf("parse response: %w", err)
+	}
+
+	// ChatbotConfig is at position [7]: [[goal_type, "prompt"], [length_config]]
+	if len(data) <= 7 || data[7] == nil {
+		fmt.Println("No custom instructions set.")
+		return nil
+	}
+
+	config, ok := data[7].([]interface{})
+	if !ok || len(config) == 0 {
+		fmt.Println("No custom instructions set.")
+		return nil
+	}
+
+	// Goal config is config[0]: [goal_type, "prompt"] or [goal_type]
+	goalConfig, ok := config[0].([]interface{})
+	if !ok || len(goalConfig) < 2 {
+		fmt.Println("No custom instructions set.")
+		return nil
+	}
+
+	prompt, ok := goalConfig[1].(string)
+	if !ok || prompt == "" {
+		fmt.Println("No custom instructions set.")
+		return nil
+	}
+
+	fmt.Println(prompt)
+	return nil
 }
 
 // Utility functions for commented-out operations
