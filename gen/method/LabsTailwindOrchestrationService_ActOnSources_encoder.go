@@ -20,10 +20,11 @@ import (
 // Field 8: ProjectContext yZa variant [2, null, 1, [1]]
 // Field 11: int origin enum
 func EncodeActOnSourcesArgs(req *notebooklmv1alpha1.ActOnSourcesRequest) []interface{} {
-	// Build source references: each source ID wraps as WB{oneof Ru{sourceId}} = [["sourceId"]]
+	// Build source references: each source ID wraps as WB{oneof Ru{sourceId}} = [[["sourceId"]]]
+	// 3-level nesting confirmed via HAR capture
 	var sourceRefs []interface{}
 	for _, id := range req.GetSourceIds() {
-		sourceRefs = append(sourceRefs, []interface{}{[]interface{}{id}})
+		sourceRefs = append(sourceRefs, []interface{}{[]interface{}{[]interface{}{id}}})
 	}
 
 	// hZa context settings: {field 7: 2, field 10: 2}
