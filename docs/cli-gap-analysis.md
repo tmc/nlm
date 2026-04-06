@@ -1,15 +1,14 @@
 # NLM CLI Gap Analysis
 
 Generated: 2026-04-05
-Tested against: c19815a (main)
-Updated: 2026-04-05 (commits through 5fa21a9)
+Tested against: 88b05ca (main)
+Updated: 2026-04-05 (final retest after 10 fix commits)
 
 ## Summary
-- 18/49 commands fully working (live tested)
-- 10 commands partially working (output issues, wrong types, etc.)
-- 15 commands broken (wire format / API issues)
-- 3 commands newly registered but untested (set-instructions, get-instructions, research)
-- 3 commands have updated wire formats but untested (generate-outline, generate-section, discover-sources)
+- 22/49 commands fully working
+- 8 commands partially working
+- 13 commands still broken (wire format / API issues)
+- 6 commands untested (need specific preconditions)
 
 ## Command Status
 
@@ -19,7 +18,7 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 |---------|--------|-------|
 | `ls` / `list` | PASS | Lists 334 notebooks, pagination works |
 | `create <title>` | PASS | Returns notebook UUID |
-| `rm <id>` | PASS | Confirmation prompt works; `-y` flag must precede command (`nlm -y rm <id>`) |
+| `rm <id>` | PASS | Confirmation prompt works; `-y` flag works before or after command name |
 | `analytics <id>` | PASS | Shows source/note/audio counts |
 | `list-featured` | FAIL | Unmarshal error: `user_role` field expects number, got array |
 
@@ -29,7 +28,7 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 |---------|--------|-------|
 | `sources <id>` | PASS | Lists sources; source types are wrong (URL shows as GOOGLE_SHEETS, text as GOOGLE_SLIDES) |
 | `add <id> <file>` | PASS | File and URL sources work |
-| `add --name` | PARTIAL | Works only with `nlm --name "X" add <id> -` (flag before command); `nlm add <id> --name "X" -` fails due to Go flag package semantics |
+| `add --name` | PASS | Both `nlm add --name "X" <id> -` and `nlm --name "X" add <id> -` work (flag reordering fix) |
 | `rm-source <id> <src>` | PASS | Deletes source correctly |
 | `rename-source <src> <name>` | FAIL | Unmarshal error: `invalid character '\\'` in response JSON |
 | `check-source <src>` | PASS | Reports freshness status |
@@ -40,8 +39,8 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `notes <id>` | FAIL | Unmarshal error: `invalid character '\\'` — response contains double-escaped JSON |
-| `new-note <id> <title> [content]` | FAIL | Same unmarshal error on response parsing (note may actually be created server-side) |
+| `notes <id>` | PARTIAL | No longer crashes. Shows table but fields mostly empty — Note wire format differs from Source proto. Needs dedicated Note message type. |
+| `new-note <id> <title> [content]` | PASS | Creates notes successfully. Content via arg or stdin both work. |
 | `update-note` | UNTESTED | Blocked by notes list failure (can't get note ID) |
 | `rm-note` | UNTESTED | Same blocker |
 
@@ -61,8 +60,8 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `set-instructions` | UNTESTED | Registered (9ca97af). Delegates to SetChatConfig with ChatGoalCustom. |
-| `get-instructions` | UNTESTED | Registered (9ca97af). Extracts chatbot config from raw GetProject response. |
+| `set-instructions` | PASS | "Instructions updated." — delegates to SetChatConfig with ChatGoalCustom |
+| `get-instructions` | PARTIAL | Returns "No custom instructions set." — response position [7] extraction may need adjustment |
 
 ### Audio Operations
 
@@ -97,7 +96,7 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 
 | Command | Status | Notes |
 |---------|--------|-------|
-| `generate-guide <id>` | FAIL | Unmarshal error: `invalid character '\\'` |
+| `generate-guide <id>` | PASS | Works with ProjectContext [2] suffix + chunked parser fix |
 | `generate-outline <id>` | FAIL | 400 Bad Request |
 | `generate-section <id>` | FAIL | 400 Bad Request |
 | `generate-magic <id> <src>` | UNTESTED | Requires source IDs |
@@ -127,7 +126,7 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 | `feedback <msg>` | PASS | Submits feedback |
 | `hb` | PASS | Heartbeat succeeds silently |
 | `--help` | PASS | Comprehensive command listing |
-| `research` | UNTESTED | Registered (5fa21a9). StartDeepResearch + PollDeepResearch with 5s polling. Wire format guessed. |
+| `research` | UNTESTED | Registered (5fa21a9). Wire format guessed — needs live verification. |
 
 ### Edge Cases
 
@@ -137,14 +136,13 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 | Empty notebook: sources | PASS | Empty table headers |
 | Empty notebook: notes | PASS | Empty table headers |
 | Empty notebook: rm | PASS | Deletes cleanly |
-| Flag ordering | ISSUE | Go `flag` package requires flags before command: `nlm -y rm <id>` not `nlm rm -y <id>` |
+| Flag ordering | FIXED | `reorderArgs()` moves flags before command: both `nlm rm -y <id>` and `nlm -y rm <id>` work |
 
 ## Systemic Issues
 
-### 1. Double-Escaped JSON Response Parsing
-**Affected commands**: notes, new-note, rename-source, generate-guide, share-details, video-create
-**Error**: `invalid character '\\' looking for beginning of value`
-**Root cause**: Server responses contain double-escaped JSON (e.g., `\"` within a JSON string). The batchexecute response parser isn't unescaping before parsing the inner payload. This is the single most impactful bug — fixing it would likely unblock 6+ commands.
+### 1. Double-Escaped JSON Response Parsing (FIXED)
+**Fixed in**: aa0bd00 (unescape), 5369377 (chunked parser rewrite), 88b05ca (beprotojson coercion)
+**Root cause**: The chunked response parser used line-based scanning with size counting, but the batchexecute format's size prefix doesn't correspond to simple byte counts. This caused cross-chunk data leaking. Fixed by rewriting the chunked parser to use bracket-based JSON extraction (findJSONEnd). Also added string-to-number coercion in beprotojson and graceful skipping of unparseable repeated items.
 
 ### 2. Wire Format Errors (400 Bad Request)
 **Affected commands**: discover-sources, generate-outline, generate-section, create-artifact, generate-chat
@@ -157,8 +155,9 @@ Updated: 2026-04-05 (commits through 5fa21a9)
 ### 4. Source Type Enum Mapping
 URLs display as `SOURCE_TYPE_GOOGLE_SHEETS`, text as `SOURCE_TYPE_GOOGLE_SLIDES`. The proto enum values don't match actual server-side types. Need to capture real type values from HAR and update the enum mapping.
 
-### 5. Flag Ordering (Go `flag` Package Limitation)
-Go's standard `flag` package stops parsing at the first non-flag argument. This means `nlm rm -y <id>` fails because `-y` comes after the `rm` command. Users must write `nlm -y rm <id>`. Consider switching to a subcommand-aware flag parser (e.g., `pflag`, `cobra`) or implementing per-command flag sets.
+### 5. Flag Ordering (FIXED)
+**Fixed in**: b8e6f88
+Added `reorderArgs()` that moves flags to before the command name before calling `flag.Parse()`. Both `nlm rm -y <id>` and `nlm -y rm <id>` now work. Handles boolean vs string flags, bare `-` (stdin), and `--` (end of flags).
 
 ## Feature Gaps vs Web UI
 
