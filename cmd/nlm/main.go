@@ -1429,6 +1429,20 @@ func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []s
 
 // Other operations
 func createAudioOverview(c *api.Client, projectID string, instructions string) error {
+	// NLM limits to one audio overview per notebook. Check for existing.
+	existing, _ := c.ListAudioOverviews(projectID)
+	if len(existing) > 0 {
+		if yes {
+			fmt.Fprintf(os.Stderr, "Existing audio overview found. Deleting before creating new one...\n")
+			if err := c.DeleteAudioOverview(projectID); err != nil {
+				return fmt.Errorf("delete existing audio: %w", err)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Notebook already has an audio overview. Use -y to replace it, or 'nlm audio-rm %s' first.\n", projectID)
+			return fmt.Errorf("existing audio overview")
+		}
+	}
+
 	fmt.Printf("Creating audio overview for notebook %s...\n", projectID)
 	fmt.Printf("Instructions: %s\n", instructions)
 
@@ -2661,6 +2675,13 @@ func startAutoRefreshIfEnabled() {
 }
 
 func createVideoOverview(c *api.Client, projectID string, instructions string) error {
+	// NLM may limit to one video per notebook. Check for existing.
+	existingVideos, _ := c.ListVideoOverviews(projectID)
+	if len(existingVideos) > 0 && !yes {
+		fmt.Fprintf(os.Stderr, "Notebook already has a video overview. Use -y to replace it.\n")
+		return fmt.Errorf("existing video overview")
+	}
+
 	fmt.Printf("Creating video overview for notebook %s...\n", projectID)
 	fmt.Printf("Instructions: %s\n", instructions)
 
