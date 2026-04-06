@@ -165,17 +165,20 @@ func init() {
 	}
 }
 
-// reorderArgs moves flags that appear after the command name to before it,
-// so "nlm rm -y <id>" works the same as "nlm -y rm <id>". Go's flag package
-// stops parsing at the first non-flag argument.
+// reorderArgs moves known top-level flags that appear after the command name
+// to before it, so "nlm rm -y <id>" works the same as "nlm -y rm <id>".
+// Unknown flags (e.g. subcommand-specific flags like --cdp-url for auth)
+// are left in positional order so the subcommand's FlagSet can parse them.
 func reorderArgs() {
 	if len(os.Args) < 3 {
 		return
 	}
 
-	// Build set of known boolean flags (don't consume next arg)
+	// Build sets of known top-level flags
+	knownFlags := map[string]bool{}
 	boolFlags := map[string]bool{}
 	flag.CommandLine.VisitAll(func(f *flag.Flag) {
+		knownFlags[f.Name] = true
 		if bf, ok := f.Value.(interface{ IsBoolFlag() bool }); ok && bf.IsBoolFlag() {
 			boolFlags[f.Name] = true
 		}
@@ -186,7 +189,6 @@ func reorderArgs() {
 	for i < len(os.Args) {
 		arg := os.Args[i]
 		if arg == "--" {
-			// Everything after -- is positional
 			positional = append(positional, os.Args[i:]...)
 			break
 		}
@@ -195,11 +197,20 @@ func reorderArgs() {
 			if eq := strings.IndexByte(name, '='); eq >= 0 {
 				name = name[:eq]
 			}
-			flags = append(flags, arg)
-			// If it's a string flag (not bool) and no =, consume next arg as value
-			if !boolFlags[name] && !strings.Contains(arg, "=") && i+1 < len(os.Args) {
-				i++
-				flags = append(flags, os.Args[i])
+			if knownFlags[name] {
+				flags = append(flags, arg)
+				if !boolFlags[name] && !strings.Contains(arg, "=") && i+1 < len(os.Args) {
+					i++
+					flags = append(flags, os.Args[i])
+				}
+			} else {
+				// Unknown flag — leave as positional for subcommand parsing
+				positional = append(positional, arg)
+				// If it looks like it takes a value, pass that through too
+				if !strings.Contains(arg, "=") && i+1 < len(os.Args) && !strings.HasPrefix(os.Args[i+1], "-") {
+					i++
+					positional = append(positional, os.Args[i])
+				}
 			}
 		} else {
 			positional = append(positional, arg)
