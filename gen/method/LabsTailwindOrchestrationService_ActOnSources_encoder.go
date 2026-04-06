@@ -10,26 +10,38 @@ import (
 // RPC ID: yyryJe
 //
 // Wire format from HAR:
-//   [sourceRefs, null, null, null, null, action, null, [notebook_id, [2]]]
 //
-// sourceRefs: [[["source-id-1"]], [["source-id-2"]]]  (each source: [["id"]])
-// action: string like "summarize", "brainstorm", etc.
-// position 7: [notebook_id, [2]] (ProjectContext)
+//	[sourceRefs, null, null, null, null, actionConfig, null, modeSelector]
+//
+// sourceRefs: [["source-id-1"], ["source-id-2"]]  (each source: ["id"], 1-level)
+// actionConfig: ["action_name", [["[CONTEXT]", ""]], ""]  (3-element array)
+// modeSelector: [2, null, [1], [1]]  (same as chat mode selector)
+// Notebook ID is conveyed via source-path URL param, NOT in args.
 func EncodeActOnSourcesArgs(req *notebooklmv1alpha1.ActOnSourcesRequest) []interface{} {
-	// Build source references: each source wraps as [["sourceId"]]
+	// Build source references: each source is ["uuid"] (1-level nesting)
 	var sourceRefs []interface{}
 	for _, id := range req.GetSourceIds() {
-		sourceRefs = append(sourceRefs, []interface{}{[]interface{}{id}})
+		sourceRefs = append(sourceRefs, []interface{}{id})
 	}
 
+	// Action config: [action_name, [["[CONTEXT]", ""]], ""]
+	actionConfig := []interface{}{
+		req.GetAction(),
+		[]interface{}{[]interface{}{"[CONTEXT]", ""}},
+		"",
+	}
+
+	// Mode selector (same as chat): [2, null, [1], [1]]
+	modeSelector := []interface{}{2, nil, []interface{}{1}, []interface{}{1}}
+
 	return []interface{}{
-		sourceRefs,                                          // pos 0: source refs
-		nil,                                                 // pos 1
-		nil,                                                 // pos 2
-		nil,                                                 // pos 3
-		nil,                                                 // pos 4
-		req.GetAction(),                                     // pos 5: action string
-		nil,                                                 // pos 6
-		[]interface{}{req.GetProjectId(), []interface{}{2}},  // pos 7: [notebook_id, [2]]
+		sourceRefs,   // pos 0: source refs
+		nil,          // pos 1
+		nil,          // pos 2
+		nil,          // pos 3
+		nil,          // pos 4
+		actionConfig, // pos 5: action config
+		nil,          // pos 6
+		modeSelector, // pos 7: mode selector
 	}
 }

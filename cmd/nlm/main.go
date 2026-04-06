@@ -1468,6 +1468,10 @@ func getAnalytics(c *api.Client, projectID string) error {
 		fmt.Fprintf(os.Stderr, "DEBUG: analytics response: %s\n", raw)
 	}
 
+	if len(data) == 0 {
+		fmt.Printf("No analytics data available for notebook %s.\n", projectID)
+		return nil
+	}
 	fmt.Printf("Project Analytics for %s:\n", projectID)
 	// Extract counts - they may be numbers or arrays containing numbers
 	fmt.Printf("  Sources: %s\n", jsonCount(data, 0))

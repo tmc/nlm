@@ -2385,12 +2385,11 @@ func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 		req.SeqNum = 1
 	}
 
-	// Build source IDs array: [[["id1"], ["id2"]]]
+	// Build source IDs: each source needs 2-level nesting [[["id1"]], [["id2"]]]
 	var sourceIDArrays []interface{}
 	for _, id := range req.SourceIDs {
-		sourceIDArrays = append(sourceIDArrays, []interface{}{id})
+		sourceIDArrays = append(sourceIDArrays, []interface{}{[]interface{}{id}})
 	}
-	sources := []interface{}{sourceIDArrays}
 
 	// Build history: [[response, null, 2], [query, null, 1], ...]
 	var history interface{}
@@ -2403,7 +2402,7 @@ func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 	}
 
 	args := []interface{}{
-		sources,
+		sourceIDArrays,
 		req.Prompt,
 		history,
 		[]interface{}{2, nil, []interface{}{1}, []interface{}{1}},
@@ -2434,11 +2433,8 @@ func (c *Client) buildChatRequestBody(req ChatRequest) (string, error) {
 		return "", fmt.Errorf("marshal chat envelope: %w", err)
 	}
 
-	// Form body: f.req=<url-encoded-outer>&at=<auth-token>&
-	authToken := c.rpc.Config.AuthToken
-	body := fmt.Sprintf("f.req=%s&at=%s&",
-		url.QueryEscape(string(outerJSON)),
-		url.QueryEscape(authToken))
+	// Form body: just f.req=<url-encoded-outer> — auth is via cookies + SAPISIDHASH header
+	body := fmt.Sprintf("f.req=%s", url.QueryEscape(string(outerJSON)))
 
 	return body, nil
 }
