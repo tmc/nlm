@@ -63,11 +63,11 @@ const (
 	// NotebookLM service - Generation operations
 	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
 	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline           = "lCjAd"  // GenerateOutline
-	RPCGenerateSection           = "BeTrYd" // GenerateSection
+	RPCGenerateOutline           = "lCjAd"  // GenerateOutline (DEPRECATED: use ciyUvf → R7cb6c workflow)
+	RPCGenerateSection           = "BeTrYd" // GenerateSection (DEPRECATED: use ciyUvf → R7cb6c workflow)
 	RPCStartDraft                = "exXvGf" // StartDraft
 	RPCStartSection              = "pGC7gf" // StartSection
-	RPCGenerateReportSuggestions = "GHsKob" // GenerateReportSuggestions
+	RPCGenerateReportSuggestions = "ciyUvf" // GenerateReportSuggestions (HAR-verified; was GHsKob)
 	RPCGetAudioFormats           = "sqTeoe" // GetAudioFormats - returns available audio overview types
 
 	// NotebookLM service - Account operations
@@ -102,8 +102,12 @@ const (
 	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
 
 	// LabsTailwindOrchestrationService - Additional operations
-	RPCListFeaturedProjects = "nS9Qlc" // ListFeaturedProjects
-	RPCReportContent        = "rJKx8e" // ReportContent
+	RPCListFeaturedProjects     = "nS9Qlc" // ListFeaturedProjects
+	RPCReportContent            = "rJKx8e" // ReportContent
+	RPCReviseArtifact           = "KmcKPe" // ReviseArtifact - revise artifact with instructions
+	RPCListCollections          = "ub2Bae" // ListCollections - list notebook collections/folders
+	RPCGetNotebookUsage         = "V5N4be" // GetNotebookUsage - notebook usage/sync stats
+	RPCAudioTopicSuggestions    = "otmP3b" // AudioTopicSuggestions - audio topic suggestions
 )
 
 // Call represents a NotebookLM RPC call
@@ -124,7 +128,7 @@ func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 	// Use session-specific parameters from env if available (set during auth)
 	blParam := os.Getenv("NLM_BL_PARAM")
 	if blParam == "" {
-		blParam = "boq_labs-tailwind-frontend_20260210.19_p0"
+		blParam = "boq_labs-tailwind-frontend_20260402.11_p0"
 	}
 	sessionID := os.Getenv("NLM_SESSION_ID")
 	if sessionID == "" {

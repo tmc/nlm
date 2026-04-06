@@ -27,7 +27,7 @@ type LabsTailwindGuidebooksServiceClient struct {
 func NewLabsTailwindGuidebooksServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindGuidebooksServiceClient {
 	blParam := os.Getenv("NLM_BL_PARAM")
 	if blParam == "" {
-		blParam = "boq_labs-tailwind-frontend_20260210.19_p0"
+		blParam = "boq_labs-tailwind-frontend_20260402.11_p0"
 	}
 	sessionID := os.Getenv("NLM_SESSION_ID")
 	if sessionID == "" {
