@@ -646,23 +646,34 @@ func (c *Client) Config() Config {
 }
 
 // NewIPv4HTTPClient creates an HTTP client that prefers IPv4 connections.
-// This works around environments where IPv6 sockets are broken.
+// This works around environments where IPv6 sockets are broken (e.g., sandboxed terminals).
+// The key is resolving DNS to IPv4 addresses, not just dialing with "tcp4".
 func NewIPv4HTTPClient() *http.Client {
+	resolver := &net.Resolver{}
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// Try IPv4 first
-			if network == "tcp" {
-				conn, err := dialer.DialContext(ctx, "tcp4", addr)
-				if err == nil {
-					return conn, nil
-				}
-				// Fall back to any network
+			// Resolve hostname to IPv4 addresses and try those first.
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
 				return dialer.DialContext(ctx, network, addr)
 			}
+			ips, err := resolver.LookupIPAddr(ctx, host)
+			if err == nil {
+				// Try IPv4 addresses first
+				for _, ip := range ips {
+					if ip.IP.To4() != nil {
+						conn, err := dialer.DialContext(ctx, "tcp4", net.JoinHostPort(ip.IP.String(), port))
+						if err == nil {
+							return conn, nil
+						}
+					}
+				}
+			}
+			// Fall back to default resolution
 			return dialer.DialContext(ctx, network, addr)
 		},
 		MaxIdleConns:        100,
