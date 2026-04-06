@@ -165,7 +165,53 @@ func init() {
 	}
 }
 
+// reorderArgs moves flags that appear after the command name to before it,
+// so "nlm rm -y <id>" works the same as "nlm -y rm <id>". Go's flag package
+// stops parsing at the first non-flag argument.
+func reorderArgs() {
+	if len(os.Args) < 3 {
+		return
+	}
+
+	// Build set of known boolean flags (don't consume next arg)
+	boolFlags := map[string]bool{}
+	flag.CommandLine.VisitAll(func(f *flag.Flag) {
+		if bf, ok := f.Value.(interface{ IsBoolFlag() bool }); ok && bf.IsBoolFlag() {
+			boolFlags[f.Name] = true
+		}
+	})
+
+	var flags, positional []string
+	i := 1 // skip os.Args[0] (program name)
+	for i < len(os.Args) {
+		arg := os.Args[i]
+		if arg == "--" {
+			// Everything after -- is positional
+			positional = append(positional, os.Args[i:]...)
+			break
+		}
+		if arg != "-" && strings.HasPrefix(arg, "-") {
+			name := strings.TrimLeft(arg, "-")
+			if eq := strings.IndexByte(name, '='); eq >= 0 {
+				name = name[:eq]
+			}
+			flags = append(flags, arg)
+			// If it's a string flag (not bool) and no =, consume next arg as value
+			if !boolFlags[name] && !strings.Contains(arg, "=") && i+1 < len(os.Args) {
+				i++
+				flags = append(flags, os.Args[i])
+			}
+		} else {
+			positional = append(positional, arg)
+		}
+		i++
+	}
+
+	os.Args = append([]string{os.Args[0]}, append(flags, positional...)...)
+}
+
 func main() {
+	reorderArgs()
 	flag.Parse()
 
 	if debug {
