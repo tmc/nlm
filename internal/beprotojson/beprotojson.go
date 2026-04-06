@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -330,6 +331,10 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 			// This typically represents an empty array or special condition
 			// For now, treat any number as an indicator of empty array to be more forgiving
 			return nil
+		case string:
+			// Server sometimes returns a string where a repeated field is expected.
+			// Treat as a single-element array of the appropriate type.
+			return nil
 		default:
 			return fmt.Errorf("expected array for repeated field, got %T", val)
 		}
@@ -352,9 +357,12 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 					}
 					msg := msgType.New().Interface()
 
-					// Populate the message from the array
+					// Populate the message from the array — skip items that fail
 					if err := o.populateMessage(itemArr, msg); err != nil {
-						return fmt.Errorf("failed to populate message: %w", err)
+						if o.DebugParsing {
+							fmt.Printf("beprotojson: skipping item: %v\n", err)
+						}
+						continue
 					}
 
 					list.Append(protoreflect.ValueOfMessage(msg.ProtoReflect()))
@@ -374,10 +382,13 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 			// For now, let's try parsing each individual element as a message
 			for _, item := range arr {
 				if itemArr, ok := item.([]interface{}); ok {
-					// Each item is an array representing a Project message
+					// Each item is an array representing a Project message — skip on error
 					msg := msgType.New().Interface()
 					if err := o.populateMessage(itemArr, msg); err != nil {
-						return fmt.Errorf("failed to populate message: %w", err)
+						if o.DebugParsing {
+							fmt.Printf("beprotojson: skipping item: %v\n", err)
+						}
+						continue
 					}
 					list.Append(protoreflect.ValueOfMessage(msg.ProtoReflect()))
 				}
@@ -741,6 +752,12 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 			return protoreflect.ValueOfInt32(int32(v)), nil
 		case int32:
 			return protoreflect.ValueOfInt32(v), nil
+		case string:
+			n, err := strconv.ParseInt(v, 10, 32)
+			if err != nil {
+				return protoreflect.Value{}, fmt.Errorf("expected number, got string %q: %w", v, err)
+			}
+			return protoreflect.ValueOfInt32(int32(n)), nil
 		default:
 			return protoreflect.Value{}, fmt.Errorf("expected number, got %T", val)
 		}
@@ -753,6 +770,12 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 			return protoreflect.ValueOfInt64(v), nil
 		case int32:
 			return protoreflect.ValueOfInt64(int64(v)), nil
+		case string:
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return protoreflect.Value{}, fmt.Errorf("expected number, got string %q: %w", v, err)
+			}
+			return protoreflect.ValueOfInt64(n), nil
 		default:
 			return protoreflect.Value{}, fmt.Errorf("expected number, got %T", val)
 		}
@@ -765,6 +788,12 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 			return protoreflect.ValueOfUint32(uint32(v)), nil
 		case uint32:
 			return protoreflect.ValueOfUint32(v), nil
+		case string:
+			n, err := strconv.ParseUint(v, 10, 32)
+			if err != nil {
+				return protoreflect.Value{}, fmt.Errorf("expected number, got string %q: %w", v, err)
+			}
+			return protoreflect.ValueOfUint32(uint32(n)), nil
 		default:
 			return protoreflect.Value{}, fmt.Errorf("expected number, got %T", val)
 		}
@@ -777,6 +806,12 @@ func (o UnmarshalOptions) convertValue(fd protoreflect.FieldDescriptor, val inte
 			return protoreflect.ValueOfUint64(uint64(v)), nil
 		case uint64:
 			return protoreflect.ValueOfUint64(v), nil
+		case string:
+			n, err := strconv.ParseUint(v, 10, 64)
+			if err != nil {
+				return protoreflect.Value{}, fmt.Errorf("expected number, got string %q: %w", v, err)
+			}
+			return protoreflect.ValueOfUint64(n), nil
 		default:
 			return protoreflect.Value{}, fmt.Errorf("expected number, got %T", val)
 		}

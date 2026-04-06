@@ -1176,10 +1176,14 @@ func listNotes(c *api.Client, notebookID string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tLAST MODIFIED")
 	for _, note := range notes {
+		lastMod := ""
+		if m := note.GetMetadata(); m != nil && m.LastModifiedTime != nil {
+			lastMod = m.LastModifiedTime.AsTime().Format(time.RFC3339)
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
 			note.GetSourceId(),
 			note.Title,
-			note.GetMetadata().LastModifiedTime.AsTime().Format(time.RFC3339),
+			lastMod,
 		)
 	}
 	return w.Flush()
