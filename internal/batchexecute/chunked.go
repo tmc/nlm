@@ -50,104 +50,25 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 		}
 	}
 
-	var (
-		chunks     []string
-		scanner    = bufio.NewScanner(br)
-		chunkData  strings.Builder
-		collecting bool
-		chunkSize  int
-		allLines   []string
-	)
+	// Read all remaining data.
+	remaining, _ := io.ReadAll(br)
+	raw := string(remaining)
 
-	// Increase scanner buffer size to handle large chunks (up to 10MB)
-	const maxScanTokenSize = 10 * 1024 * 1024 // 10MB
-	buf := make([]byte, maxScanTokenSize)
-	scanner.Buffer(buf, maxScanTokenSize)
-
-	// Process each line
-	for scanner.Scan() {
-		line := scanner.Text()
-		allLines = append(allLines, line)
-
-		// Only debug small lines to avoid flooding
-		if len(line) < 200 {
-		} else {
-		}
-
-		// Skip empty lines only if not collecting
-		if !collecting && strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		// If we're not currently collecting a chunk, this line should be a chunk length
-		if !collecting {
-			size, err := strconv.Atoi(strings.TrimSpace(line))
-			if err != nil {
-				// If not a number, it might be direct JSON data
-				// Check if it looks like JSON
-				if strings.HasPrefix(strings.TrimSpace(line), "{") || strings.HasPrefix(strings.TrimSpace(line), "[") {
-					chunks = append(chunks, line)
-				} else if strings.HasPrefix(strings.TrimSpace(line), "wrb.fr") {
-					// It might be a direct RPC response without proper JSON format
-					chunks = append(chunks, "["+line+"]")
-				} else {
-					// Fallback: treat as a potential response chunk anyway
-					chunks = append(chunks, line)
-				}
-				continue
-			}
-
-			chunkSize = size
-			collecting = true
-			chunkData.Reset()
-			continue
-		}
-
-		// If we're collecting a chunk, add this line to the current chunk
-		if chunkData.Len() > 0 {
-			chunkData.WriteString("\n")
-		}
-		chunkData.WriteString(line)
-
-		// If we've collected enough data, add the chunk and reset
-		if chunkData.Len() >= chunkSize {
-			chunks = append(chunks, chunkData.String())
-			collecting = false
-		}
-	}
-
-	// Check if we have any partial chunk data remaining
-	if collecting && chunkData.Len() > 0 {
-		// We have partial data, add it as a chunk
-		chunks = append(chunks, chunkData.String())
-	} else if collecting && chunkData.Len() == 0 {
-		// We were expecting data but got none
-		// Only treat small numbers as potential error codes
-		if chunkSize < 1000 {
-			// Small number, might be an error code
-			possibleError := strconv.Itoa(chunkSize)
-			chunks = append(chunks, possibleError)
-		} else {
-			// Large number, probably a real chunk size but we didn't get the data
-			// This might be a parsing issue with the scanner
-			// Try to use all lines as the chunk data
-			if len(allLines) > 1 {
-				// Skip the first line (chunk size) and use the rest
-				chunks = append(chunks, strings.Join(allLines[1:], "\n"))
+	// Split into chunks. The batchexecute chunked format uses length
+	// prefixes, but the exact counting varies. Instead of trusting the
+	// length values, extract JSON arrays directly by finding balanced
+	// brackets at the top level.
+	var chunks []string
+	for i := 0; i < len(raw); i++ {
+		if raw[i] == '[' {
+			end := findJSONEnd(raw, i, '[', ']')
+			if end > i {
+				chunks = append(chunks, raw[i:end])
+				i = end - 1
 			}
 		}
 	}
 
-	// If we still have no chunks but we processed lines, this might be a different response format
-	if len(chunks) == 0 && len(allLines) > 0 {
-		// Treat all the lines as a single response
-		allData := strings.Join(allLines, "\n")
-		if strings.TrimSpace(allData) != "" {
-			chunks = append(chunks, allData)
-		}
-	}
-
-	// Process all collected chunks
 	return processChunks(chunks)
 }
 
@@ -212,11 +133,11 @@ func extractWRBResponse(chunk string) *Response {
 		}
 	}
 
-	// If we found valid JSON data, use it; otherwise use a synthetic response
+	// If we found valid JSON data, unescape and return it
 	if jsonData != "" {
 		return &Response{
 			ID:   id,
-			Data: json.RawMessage(jsonData),
+			Data: unescapeResponseData(jsonData),
 		}
 	}
 
@@ -318,8 +239,6 @@ func processChunks(chunks []string) ([]Response, error) {
 			if err := json.Unmarshal([]byte(chunk), &singleData); err != nil {
 				// If it still fails, check if it contains wrb.fr and try to manually extract
 				if strings.Contains(chunk, "wrb.fr") {
-					// Manually construct a response
-					// fmt.Printf("Attempting to manually extract wrb.fr response from: %s\n", chunk)
 					if resp := extractWRBResponse(chunk); resp != nil {
 						allResponses = append(allResponses, *resp)
 						continue
