@@ -154,6 +154,9 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  share-private <id>  Share notebook privately\n")
 		fmt.Fprintf(os.Stderr, "  share-details <share-id>  Get details of shared project\n\n")
 
+		fmt.Fprintf(os.Stderr, "Research Commands:\n")
+		fmt.Fprintf(os.Stderr, "  research <id> \"query\"   Start deep research and poll for results\n\n")
+
 		fmt.Fprintf(os.Stderr, "Other Commands:\n")
 		fmt.Fprintf(os.Stderr, "  auth [profile]    Setup authentication\n")
 		fmt.Fprintf(os.Stderr, "  refresh           Refresh authentication credentials\n")
@@ -362,6 +365,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm get-instructions <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "research":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm research <notebook-id> \"query\"\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "chat":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm chat <notebook-id>\n")
@@ -456,6 +464,7 @@ func isValidCommand(cmd string) bool {
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
+		"research",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
 	}
 
@@ -852,6 +861,11 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = setInstructions(client, args[0], prompt)
 	case "get-instructions":
 		err = getInstructions(client, args[0])
+
+	// Research operations
+	case "research":
+		query := strings.Join(args[1:], " ")
+		err = deepResearch(client, args[0], query)
 
 	// Sharing operations
 	case "share":
@@ -1692,6 +1706,77 @@ func setChatConfig(c *api.Client, args []string) error {
 	default:
 		return fmt.Errorf("unknown setting: %s (use 'goal' or 'length')", setting)
 	}
+}
+
+func deepResearch(c *api.Client, notebookID, query string) error {
+	rpcClient := rpc.New(authToken, cookies)
+
+	// Start deep research
+	fmt.Fprintf(os.Stderr, "Starting deep research: %s\n", query)
+	startResp, err := rpcClient.Do(rpc.Call{
+		ID:         rpc.RPCStartDeepResearch,
+		NotebookID: notebookID,
+		Args:       []interface{}{notebookID, query, []interface{}{2}},
+	})
+	if err != nil {
+		return fmt.Errorf("start deep research: %w", err)
+	}
+
+	// Extract research ID from response
+	var startData []interface{}
+	if err := json.Unmarshal(startResp, &startData); err != nil {
+		return fmt.Errorf("parse start response: %w", err)
+	}
+
+	// Research ID is typically at position [0]
+	researchID := ""
+	if len(startData) > 0 {
+		if id, ok := startData[0].(string); ok {
+			researchID = id
+		}
+	}
+	if researchID == "" {
+		// Print raw response for debugging
+		fmt.Fprintf(os.Stderr, "Research started (raw response: %s)\n", string(startResp))
+		researchID = notebookID // fallback: use notebook ID for polling
+	} else {
+		fmt.Fprintf(os.Stderr, "Research ID: %s\n", researchID)
+	}
+
+	// Poll for results
+	fmt.Fprintf(os.Stderr, "Polling for results")
+	for i := 0; i < 120; i++ { // max 10 minutes (120 * 5s)
+		time.Sleep(5 * time.Second)
+		fmt.Fprintf(os.Stderr, ".")
+
+		pollResp, err := rpcClient.Do(rpc.Call{
+			ID:         rpc.RPCPollDeepResearch,
+			NotebookID: notebookID,
+			Args:       []interface{}{notebookID, researchID, []interface{}{2}},
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\n")
+			return fmt.Errorf("poll deep research: %w", err)
+		}
+
+		var pollData []interface{}
+		if err := json.Unmarshal(pollResp, &pollData); err != nil {
+			continue // response may not be parseable yet
+		}
+
+		// Check if research is complete — look for content in response
+		// The response payload grows as the research progresses
+		if len(pollResp) > 1000 {
+			fmt.Fprintf(os.Stderr, "\nResearch complete.\n\n")
+			// Extract and print the research content
+			// The content is typically a large text blob in the response
+			fmt.Println(string(pollResp))
+			return nil
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "\nResearch timed out after 10 minutes.\n")
+	return fmt.Errorf("research timed out")
 }
 
 func setInstructions(c *api.Client, notebookID, prompt string) error {
