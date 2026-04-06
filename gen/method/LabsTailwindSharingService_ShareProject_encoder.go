@@ -22,19 +22,23 @@ import (
 func EncodeShareProjectArgs(req *notebooklmv1alpha1.ShareProjectRequest) []interface{} {
 	settings := req.GetSettings()
 
-	// Build link sharing settings: Uzb{field 1: is_public}
-	var linkSettings interface{}
-	if settings != nil {
-		linkSettings = []interface{}{settings.GetIsPublic()}
-	} else {
-		linkSettings = []interface{}{true} // default to public
+	// Build link sharing settings: [1, accessLevel]
+	// 1 = link sharing enabled; accessLevel: 0=private, 1=public
+	accessLevel := 0
+	if settings != nil && settings.GetIsPublic() {
+		accessLevel = 1
 	}
+	linkSettings := []interface{}{1, accessLevel}
+
+	// Build notification settings
+	notification := []interface{}{0, ""}
 
 	// Build YM share target
 	shareTarget := []interface{}{
 		req.GetProjectId(), // field 1: project ID
 		nil,                // field 2: email-role pairs (not used for link sharing)
-		linkSettings,       // field 3: Uzb link sharing settings
+		linkSettings,       // field 3: [1, accessLevel]
+		notification,       // field 4: notification settings
 	}
 
 	// ProjectContext
@@ -42,7 +46,7 @@ func EncodeShareProjectArgs(req *notebooklmv1alpha1.ShareProjectRequest) []inter
 
 	return []interface{}{
 		[]interface{}{shareTarget}, // field 1: repeated YM
-		true,                       // field 2: M3 flag
+		1,                          // field 2: int (not bool)
 		nil,                        // field 3: gap
 		projectContext,             // field 4: ProjectContext
 	}

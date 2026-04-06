@@ -1437,6 +1437,9 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 			if err := c.DeleteAudioOverview(projectID); err != nil {
 				return fmt.Errorf("delete existing audio: %w", err)
 			}
+			// Wait for server-side propagation of delete
+			fmt.Fprintf(os.Stderr, "Waiting for delete to propagate...\n")
+			time.Sleep(3 * time.Second)
 		} else {
 			fmt.Fprintf(os.Stderr, "Notebook already has an audio overview. Use -y to replace it, or 'nlm audio-rm %s' first.\n", projectID)
 			return fmt.Errorf("existing audio overview")

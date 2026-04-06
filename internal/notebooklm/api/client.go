@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -1144,68 +1145,40 @@ func (c *Client) CreateVideoOverview(projectID string, instructions string) (*Vi
 		return nil, fmt.Errorf("instructions required")
 	}
 
-	// Video requires source IDs - try to get them from the notebook
-	// For testing, we can also accept a hardcoded source ID
-	var sourceIDs []interface{}
-
-	// Try to get sources from the project
-	// For now, use hardcoded test source ID if available
-	testSourceID := "d7236810-f298-4119-a289-2b8a98170fbd"
-	if testSourceID != "" {
-		sourceIDs = []interface{}{[]interface{}{testSourceID}}
-	} else {
-		sourceIDs = []interface{}{[]interface{}{}} // Empty nested array
+	// Get project to extract source IDs
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("get project sources: %w", err)
 	}
 
-	// Use the complex structure from the curl command
-	// Structure: [[2], "notebook-id", [null, null, 3, [[[source-id]]], null, null, null, null, [null, null, [[[source-id]], "en", "instructions"]]]]
-	videoArgs := []interface{}{
-		[]interface{}{2}, // Mode
-		projectID,        // Notebook ID
-		[]interface{}{
-			nil,
-			nil,
-			3,                        // Type or version
-			[]interface{}{sourceIDs}, // Source IDs array
-			nil,
-			nil,
-			nil,
-			nil,
-			[]interface{}{
-				nil,
-				nil,
-				[]interface{}{
-					sourceIDs,    // Source IDs again
-					"en",         // Language
-					instructions, // The actual instructions
-				},
-			},
-		},
+	var sourceIDs []string
+	for _, source := range project.Sources {
+		if source.SourceId != nil {
+			sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+		}
+	}
+	if len(sourceIDs) == 0 {
+		return nil, fmt.Errorf("project has no sources - add sources before creating video overview")
 	}
 
-	// Video args should be passed as the raw structure
-	// The batchexecute layer will handle the JSON encoding
+	// Build request and use the proper encoder via R7cb6c
+	req := &pb.CreateVideoOverviewRequest{
+		ProjectId:          projectID,
+		AudioType:          pb.AudioType_AUDIO_TYPE_BRIEF, // Videos default to brief style
+		SourceIds:          sourceIDs,
+		CustomInstructions: instructions,
+		Language:           "en",
+	}
+
+	args := method.EncodeCreateVideoOverviewArgs(req)
+
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCCreateVideoOverview,
 		NotebookID: projectID,
-		Args:       videoArgs, // Pass the structure directly
+		Args:       args,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create video overview: %w", err)
-	}
-
-	// Parse response - video returns: [["video-id", "title", status, ...]]
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		// Try parsing as string then as JSON (double encoded)
-		var strData string
-		if err2 := json.Unmarshal(resp, &strData); err2 == nil {
-			if err3 := json.Unmarshal([]byte(strData), &responseData); err3 != nil {
-				return nil, fmt.Errorf("parse video response: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("parse video response: %w", err)
-		}
 	}
 
 	result := &VideoOverviewResult{
@@ -1213,23 +1186,21 @@ func (c *Client) CreateVideoOverview(projectID string, instructions string) (*Vi
 		IsReady:   false, // Video generation is async
 	}
 
-	// Extract video details from response
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		return nil, fmt.Errorf("parse video response: %w", err)
+	}
+
 	if len(responseData) > 0 {
 		if videoData, ok := responseData[0].([]interface{}); ok && len(videoData) > 0 {
-			// First element is video ID
 			if id, ok := videoData[0].(string); ok {
 				result.VideoID = id
-				if c.config.Debug {
-					fmt.Printf("Video creation initiated with ID: %s\n", id)
-				}
 			}
-			// Second element is title
 			if len(videoData) > 1 {
 				if title, ok := videoData[1].(string); ok {
 					result.Title = title
 				}
 			}
-			// Third element is status (1 = processing, 2 = ready?)
 			if len(videoData) > 2 {
 				if status, ok := videoData[2].(float64); ok {
 					result.IsReady = status == 2
@@ -2838,30 +2809,25 @@ type ShareAudioResult struct {
 
 // ShareAudio shares an audio overview with optional public access
 func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAudioResult, error) {
-	req := &pb.ShareAudioRequest{
-		ShareOptions: []int32{int32(shareOption)},
-		ProjectId:    projectID,
+	// RGP97b (ShareAudio) was never captured in HAR and returns error 3.
+	// Route through QDyure (ShareProject) which handles all sharing including audio.
+	req := &pb.ShareProjectRequest{
+		ProjectId: projectID,
+		Settings: &pb.ShareSettings{
+			IsPublic: shareOption == SharePublic,
+		},
 	}
 	ctx := context.Background()
-	response, err := c.sharingService.ShareAudio(ctx, req)
+	response, err := c.sharingService.ShareProject(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("share audio: %w", err)
 	}
 
-	// Convert pb.ShareAudioResponse to ShareAudioResult
-	result := &ShareAudioResult{
+	return &ShareAudioResult{
+		ShareURL: response.ShareUrl,
+		ShareID:  response.ShareId,
 		IsPublic: shareOption == SharePublic,
-	}
-
-	// Extract share URL and ID from share_info array
-	if len(response.ShareInfo) > 0 {
-		result.ShareURL = response.ShareInfo[0]
-	}
-	if len(response.ShareInfo) > 1 {
-		result.ShareID = response.ShareInfo[1]
-	}
-
-	return result, nil
+	}, nil
 }
 
 // ShareProject shares a project with specified settings
