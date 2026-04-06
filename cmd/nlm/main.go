@@ -89,7 +89,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  add <id> <input>  Add source to notebook\n")
 		fmt.Fprintf(os.Stderr, "  rm-source <id> <source-id>  Remove source\n")
 		fmt.Fprintf(os.Stderr, "  rename-source <source-id> <new-name>  Rename source\n")
-		fmt.Fprintf(os.Stderr, "  refresh-source <source-id>  Refresh source content\n")
+		fmt.Fprintf(os.Stderr, "  refresh-source <notebook-id> <source-id>  Refresh source content\n")
 		fmt.Fprintf(os.Stderr, "  check-source <source-id>  Check source freshness\n")
 		fmt.Fprintf(os.Stderr, "  discover-sources <id> <query>  Discover relevant sources\n\n")
 
@@ -492,8 +492,8 @@ func validateArgs(cmd string, args []string) error {
 			return fmt.Errorf("invalid arguments")
 		}
 	case "refresh-source":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm refresh-source <source-id>\n")
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm refresh-source <notebook-id> <source-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "notes":
@@ -798,7 +798,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "rename-source":
 		err = renameSource(client, args[0], args[1])
 	case "refresh-source":
-		err = refreshSource(client, args[0])
+		err = refreshSource(client, args[0], args[1])
 	case "check-source":
 		err = checkSourceFreshness(client, args[0])
 	case "discover-sources":
@@ -1306,23 +1306,49 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 }
 
 func generateOutline(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Generating outline...\n")
-	outline, err := c.GenerateOutline(notebookID)
+	fmt.Fprintf(os.Stderr, "Generating report suggestions...\n")
+
+	// Use ciyUvf (GenerateReportSuggestions) workflow instead of deprecated lCjAd
+	// First get the project to extract source IDs
+	p, err := c.GetProject(notebookID)
 	if err != nil {
-		return fmt.Errorf("generate outline: %w", err)
+		return fmt.Errorf("get project: %w", err)
 	}
-	fmt.Printf("Outline:\n%s\n", outline.Content)
+
+	var sourceIDs []string
+	for _, src := range p.Sources {
+		if src.SourceId != nil {
+			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+		}
+	}
+
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	req := &pb.GenerateReportSuggestionsRequest{
+		ProjectId: notebookID,
+		SourceIds: sourceIDs,
+	}
+
+	resp, err := orchClient.GenerateReportSuggestions(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("generate report suggestions: %w", err)
+	}
+
+	if len(resp.Suggestions) == 0 {
+		fmt.Println("No report suggestions available.")
+		return nil
+	}
+
+	fmt.Println("Report Suggestions:")
+	for i, s := range resp.Suggestions {
+		fmt.Printf("  %d. %s\n", i+1, s)
+	}
 	return nil
 }
 
 func generateSection(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Generating section...\n")
-	section, err := c.GenerateSection(notebookID)
-	if err != nil {
-		return fmt.Errorf("generate section: %w", err)
-	}
-	fmt.Printf("Section:\n%s\n", section.Content)
-	return nil
+	// Deprecated: BeTrYd no longer supported. Redirect to report suggestions.
+	fmt.Fprintf(os.Stderr, "Note: generate-section now uses the report suggestions workflow.\n")
+	return generateOutline(c, notebookID)
 }
 
 func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
@@ -1540,12 +1566,13 @@ func listFeaturedProjects(c *api.Client) error {
 }
 
 // Enhanced source operations
-func refreshSource(c *api.Client, sourceID string) error {
+func refreshSource(c *api.Client, notebookID, sourceID string) error {
 	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
 
 	req := &pb.RefreshSourceRequest{
-		SourceId: sourceID,
+		SourceId:  sourceID,
+		ProjectId: notebookID,
 	}
 
 	fmt.Fprintf(os.Stderr, "Refreshing source %s...\n", sourceID)
@@ -2044,13 +2071,16 @@ func shareNotebook(c *api.Client, notebookID string) error {
 	//   field 1: repeated YM [{field 1: projectId, field 3: Uzb{field 1: true} (link sharing)}]
 	//   field 2: bool (M3 flag)
 	//   field 4: ProjectContext [2]
+	// HAR-verified wire format:
+	// [  [["notebook-id", null, [1, 1], [0, ""]]]  , 1, null, [2] ]
+	// linkSettings [1, 1] = enabled + public; [1, 0] = enabled + private
 	call := rpc.Call{
 		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
-			[]interface{}{[]interface{}{notebookID, nil, []interface{}{true}}}, // field 1: [YM{projId, null, Uzb{true}}]
-			true,              // field 2: M3 flag
-			nil,               // field 3: gap
-			[]interface{}{2},  // field 4: ProjectContext
+			[]interface{}{[]interface{}{notebookID, nil, []interface{}{1, 1}, []interface{}{0, ""}}},
+			1,                 // int, not bool
+			nil,               // gap
+			[]interface{}{2},  // ProjectContext
 		},
 	}
 
@@ -2125,13 +2155,14 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 	//   field 1: repeated YM [{field 1: projectId, field 3: Uzb{field 1: false} (link sharing off)}]
 	//   field 2: bool (M3 flag)
 	//   field 4: ProjectContext [2]
+	// HAR-verified: linkSettings [1, 0] = enabled + private
 	call := rpc.Call{
 		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
-			[]interface{}{[]interface{}{notebookID, nil, []interface{}{false}}}, // field 1: [YM{projId, null, Uzb{false}}]
-			true,              // field 2: M3 flag
-			nil,               // field 3: gap
-			[]interface{}{2},  // field 4: ProjectContext
+			[]interface{}{[]interface{}{notebookID, nil, []interface{}{1, 0}, []interface{}{0, ""}}},
+			1,                 // int, not bool
+			nil,               // gap
+			[]interface{}{2},  // ProjectContext
 		},
 	}
 

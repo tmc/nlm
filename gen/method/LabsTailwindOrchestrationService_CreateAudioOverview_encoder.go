@@ -9,83 +9,84 @@ import (
 // EncodeCreateAudioOverviewArgs encodes arguments for creating an audio overview
 // via the CreateArtifact RPC (R7cb6c).
 //
-// Audio overviews are a type of artifact. The request goes through CreateArtifact
-// with the audio-specific Uv artifact spec at field 3.
+// HAR-verified wire format:
 //
-// Wire format: [jC_ProjectContext, "projectId", Uv_artifact_spec]
+//	[ProjectContext, "notebook-id", artifactSpec]
 //
-// k_a request fields:
-//   Field 1: bC ProjectContext (jC variant)
-//   Field 2: string project ID
-//   Field 3: Uv artifact spec
+// ProjectContext: [2, null, null, [1,null*9,[1]], [[1,4,2,3,6,5]]]
 //
-// Uv fields:
-//   Field 2: string title (optional)
-//   Field 3: int artifact type
-//   Field 4: repeated Ru source references
-//   Field 7: oneof Rv audio message {field 2: Tv audio metadata}
+// artifactSpec: [null, null, 1, sourceRefs, null, null, [null, [null, audioType, null, sourceRefsFlat, "en", instructions, audioLength]]]
 //
-// Tv audio metadata fields:
-//   Field 1: string title/name
-//   Field 2: int audio type (1=deep_dive, 2=brief, 3=critique, 4=debate)
-//   Field 4: repeated Ru source references
-//   Field 5: string custom instructions
-//   Field 7: int audio style/length
+//	pos 2: artifact type = 1 (audio)
+//	pos 3: sourceRefs = [[["id1"]], [["id2"]]] (triple-nested)
+//	pos 6: [null, Tv] where Tv = audio metadata
+//
+// Tv audio metadata:
+//
+//	pos 0: null (not title)
+//	pos 1: audioType (1=deep_dive, 2=brief, 3=critique, 4=debate, 5=podcast, 6=lecture, 7=talk_show)
+//	pos 3: sourceRefsFlat [["src1"],["src2"]] (double-nested)
+//	pos 4: "en" (language)
+//	pos 5: instructions or null
+//	pos 6: audioLength (1=short, 2=medium/default)
 func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRequest) []interface{} {
-	// Build source references
-	var sourceRefs []interface{}
+	// Build source references: triple-nested for artifact spec pos 3
+	var sourceRefsTriple []interface{}
+	// Build source references: double-nested for Tv pos 3
+	var sourceRefsDouble []interface{}
 	for _, id := range req.GetSourceIds() {
-		sourceRefs = append(sourceRefs, []interface{}{id})
+		sourceRefsTriple = append(sourceRefsTriple, []interface{}{[]interface{}{id}})
+		sourceRefsDouble = append(sourceRefsDouble, []interface{}{id})
 	}
 
-	// Build Tv audio metadata
-	// [title, audioType, null, [sourceRefs], instructions, null, audioLength]
 	audioType := int(req.GetAudioType())
 	if audioType == 0 {
 		audioType = 1 // default to deep_dive
 	}
 	audioLength := int(req.GetLength())
 	if audioLength == 0 {
-		audioLength = 2 // default length
+		audioLength = 2 // default medium
 	}
 
+	// Tv audio metadata
+	var instructions interface{}
+	if req.GetCustomInstructions() != "" {
+		instructions = req.GetCustomInstructions()
+	}
 	tv := []interface{}{
-		req.GetCustomInstructions(), // field 1: title/name (using instructions as name)
-		audioType,                   // field 2: audio type enum
-		nil,                         // field 3: gap
-		sourceRefs,                  // field 4: source references
-		req.GetCustomInstructions(), // field 5: custom instructions
-		nil,                         // field 6: gap
-		audioLength,                 // field 7: audio style/length
+		nil,              // pos 0: null
+		audioType,        // pos 1: audio type enum
+		nil,              // pos 2: gap
+		sourceRefsDouble, // pos 3: source refs (double-nested)
+		"en",             // pos 4: language
+		instructions,     // pos 5: custom instructions or null
+		audioLength,      // pos 6: audio length
 	}
 
-	// Build Rv audio wrapper: {field 2: Tv}
+	// Rv audio wrapper: [null, Tv]
 	rv := []interface{}{nil, tv}
 
-	// Build Uv artifact spec
-	// Field 3 = type (for audio, check what value to use)
-	// Field 4 = source refs
-	// Field 7 = Rv audio (oneof)
+	// Artifact spec
 	artifactSpec := []interface{}{
-		nil,        // field 1: gap
-		nil,        // field 2: title
-		7,          // field 3: artifact type (audio = 7 based on Qv oneof position)
-		sourceRefs, // field 4: source references
-		nil,        // field 5: gap
-		nil,        // field 6: gap
-		rv,         // field 7: Rv audio (oneof)
+		nil,               // pos 0
+		nil,               // pos 1
+		1,                 // pos 2: artifact type = 1 (audio)
+		sourceRefsTriple,  // pos 3: source refs (triple-nested)
+		nil,               // pos 4
+		nil,               // pos 5
+		rv,                // pos 6: [null, Tv] audio metadata
 	}
 
-	// ProjectContext jC variant: [2, null, null, [1, null, null, null, null, null, null, null, null, null, [1]], [[1]]]
+	// ProjectContext with full capabilities
 	projectContext := []interface{}{
 		2, nil, nil,
 		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
-		[]interface{}{[]interface{}{1}},
+		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
 	}
 
 	return []interface{}{
-		projectContext,        // field 1: ProjectContext (jC variant)
-		req.GetProjectId(),   // field 2: project ID
-		artifactSpec,         // field 3: Uv artifact spec
+		projectContext,      // field 1: ProjectContext
+		req.GetProjectId(),  // field 2: project ID
+		artifactSpec,        // field 3: artifact spec
 	}
 }

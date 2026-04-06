@@ -380,8 +380,9 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateSource(ctx context.Contex
 func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Context, req *notebooklmv1alpha1.RefreshSourceRequest) (*notebooklmv1alpha1.Source, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "FLmJqe",
-		Args: method.EncodeRefreshSourceArgs(req),
+		ID:         "FLmJqe",
+		Args:       method.EncodeRefreshSourceArgs(req),
+		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -857,7 +858,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateOutline(ctx context.Con
 func (c *LabsTailwindOrchestrationServiceClient) GenerateReportSuggestions(ctx context.Context, req *notebooklmv1alpha1.GenerateReportSuggestionsRequest) (*notebooklmv1alpha1.GenerateReportSuggestionsResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "GHsKob",
+		ID:         "ciyUvf", // HAR-verified (was GHsKob)
 		Args:       method.EncodeGenerateReportSuggestionsArgs(req),
 		NotebookID: req.GetProjectId(),
 	}

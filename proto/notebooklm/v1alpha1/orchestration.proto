@@ -212,6 +212,7 @@ message GenerateFreeFormStreamedResponse {
 
 message GenerateReportSuggestionsRequest {
     string project_id = 1;
+    repeated string source_ids = 2;
 }
 
 message GenerateReportSuggestionsResponse {
@@ -576,6 +577,7 @@ message LoadSourceRequest {
 
 message RefreshSourceRequest {
     string source_id = 1;
+    string project_id = 2;  // Needed for source-path URL param
 }
 
 message GenerateDocumentGuidesRequest {
