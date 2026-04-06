@@ -448,7 +448,7 @@ func decodeResponse(raw string) ([]Response, error) {
 		// Try position 2 first (traditional location)
 		if rpcData[2] != nil {
 			if dataStr, ok := rpcData[2].(string); ok {
-				resp.Data = json.RawMessage(dataStr)
+				resp.Data = unescapeResponseData(dataStr)
 				responseData = dataStr
 			} else {
 				// If position 2 is not a string, use it directly

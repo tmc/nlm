@@ -377,7 +377,7 @@ func extractResponses(data [][]interface{}) ([]Response, error) {
 		if rpcData[2] != nil {
 			switch data := rpcData[2].(type) {
 			case string:
-				resp.Data = json.RawMessage(data)
+				resp.Data = unescapeResponseData(data)
 			default:
 				if rawData, err := json.Marshal(data); err == nil {
 					resp.Data = rawData
