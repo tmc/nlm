@@ -239,6 +239,20 @@ func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshness
 	return result, nil
 }
 
+func (c *Client) SubmitFeedback(projectID, feedbackType, feedbackText string) error {
+	req := &pb.SubmitFeedbackRequest{
+		ProjectId:    projectID,
+		FeedbackType: feedbackType,
+		FeedbackText: feedbackText,
+	}
+
+	_, err := c.orchestrationService.SubmitFeedback(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("submit feedback: %w", err)
+	}
+	return nil
+}
+
 func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) error {
 	req := &pb.ActOnSourcesRequest{
 		ProjectId: projectID,
@@ -3048,6 +3062,18 @@ func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReport
 		return nil, fmt.Errorf("generate report suggestions: %w", err)
 	}
 	return response, nil
+}
+
+func (c *Client) GetProjectDetails(shareID string) (*pb.ProjectDetails, error) {
+	req := &pb.GetProjectDetailsRequest{
+		ShareId: shareID,
+	}
+
+	details, err := c.sharingService.GetProjectDetails(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("get project details: %w", err)
+	}
+	return details, nil
 }
 
 // Sharing operations

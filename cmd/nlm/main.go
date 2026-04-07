@@ -117,8 +117,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  audio-get <id>    Get audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (requires --direct-rpc)\n")
 		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
-		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n")
-		fmt.Fprintf(os.Stderr, "  audio-interactive <id> [flags]  Start an interactive audio session\n\n")
+		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n\n")
 
 		fmt.Fprintf(os.Stderr, "Video Commands:\n")
 		fmt.Fprintf(os.Stderr, "  video-list <id>   List all video overviews for a notebook with status\n")
@@ -2447,17 +2446,8 @@ func findShareURL(v interface{}) string {
 }
 
 func submitFeedback(c *api.Client, message string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.SubmitFeedbackRequest{
-		FeedbackType: "general",
-		FeedbackText: message,
-	}
-
-	_, err := orchClient.SubmitFeedback(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("submit feedback: %w", err)
+	if err := c.SubmitFeedback("", "general", message); err != nil {
+		return err
 	}
 
 	fmt.Printf("✅ Feedback submitted\n")
@@ -2510,38 +2500,43 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 
 func getShareDetails(c *api.Client, shareID string) error {
 	fmt.Fprintf(os.Stderr, "Getting share details...\n")
-
-	// Create RPC client directly for getting project details
-	rpcClient := rpc.New(authToken, cookies)
-	call := rpc.Call{
-		ID:   "JFMDGd", // GetProjectDetails RPC ID
-		Args: []interface{}{shareID},
-	}
-
-	resp, err := rpcClient.Do(call)
+	details, err := c.GetProjectDetails(shareID)
 	if err != nil {
-		return fmt.Errorf("get project details: %w", err)
+		return err
 	}
-
-	// Parse response to extract project details
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse response: %w", err)
-	}
-
-	// Display project details in a readable format
-	fmt.Printf("Share Details:\n")
-	fmt.Printf("Share ID: %s\n", shareID)
-
-	if len(data) > 0 {
-		// Try to parse the project details from the response
-		// The exact format depends on the API response structure
-		fmt.Printf("Details: %v\n", data)
-	} else {
-		fmt.Printf("No details available for this share ID\n")
-	}
-
+	printShareDetails(os.Stdout, shareID, details)
 	return nil
+}
+
+func printShareDetails(w io.Writer, shareID string, details *pb.ProjectDetails) {
+	fmt.Fprintln(w, "Share Details:")
+	fmt.Fprintf(w, "Share ID: %s\n", shareID)
+	if details == nil {
+		fmt.Fprintln(w, "No details available for this share ID.")
+		return
+	}
+	if details.ProjectId != "" {
+		fmt.Fprintf(w, "Project ID: %s\n", details.ProjectId)
+	}
+	title := strings.TrimSpace(strings.TrimSpace(details.Emoji) + " " + details.Title)
+	if title != "" {
+		fmt.Fprintf(w, "Title: %s\n", title)
+	}
+	if details.OwnerName != "" {
+		fmt.Fprintf(w, "Owner: %s\n", details.OwnerName)
+	}
+	visibility := "private"
+	if details.IsPublic {
+		visibility = "public"
+	}
+	fmt.Fprintf(w, "Visibility: %s\n", visibility)
+	if ts := details.SharedAt; ts != nil && ts.IsValid() {
+		fmt.Fprintf(w, "Shared At: %s\n", ts.AsTime().Format(time.RFC3339))
+	}
+	fmt.Fprintf(w, "Sources: %d\n", len(details.Sources))
+	for _, src := range details.Sources {
+		fmt.Fprintf(w, "  - %s (%s)\n", src.Title, src.SourceType.String())
+	}
 }
 
 // Chat helper functions
