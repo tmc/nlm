@@ -9,15 +9,13 @@ import (
 // EncodeShareProjectArgs encodes arguments for LabsTailwindSharingService.ShareProject
 // RPC ID: QDyure
 //
-// Wire format from JS analysis (mAb function):
-//   [[[projectId, emailRoles, linkSettings, notification]], boolFlag, null, [2]]
+// HAR-verified wire format:
+//
+//	[[[projectId, null, [1, accessLevel], [0, ""]]], 1, null, [2]]
 //
 // Field 1: repeated YM share targets
-//   YM field 1: string (project ID)
-//   YM field 2: repeated Vzb (email-role pairs) — optional
-//   YM field 3: Uzb (link sharing settings) — {field 1: bool (enabled)}
-//   YM field 4: xw (notification settings) — optional
-// Field 2: bool (M3 flag)
+// Field 2: int (not bool)
+// Field 3: null
 // Field 4: ProjectContext [2]
 func EncodeShareProjectArgs(req *notebooklmv1alpha1.ShareProjectRequest) []interface{} {
 	settings := req.GetSettings()

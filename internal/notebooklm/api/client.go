@@ -873,11 +873,18 @@ func (c *Client) MutateNote(projectID string, noteID string, content string, tit
 }
 
 func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
-	req := &pb.DeleteNotesRequest{
-		NoteIds: noteIDs,
+	// Use direct RPC — DeleteNotesRequest proto lacks project_id field
+	// but the wire format requires it at pos 0.
+	noteIDsIface := make([]interface{}, len(noteIDs))
+	for i, id := range noteIDs {
+		noteIDsIface[i] = id
 	}
-	ctx := context.Background()
-	_, err := c.orchestrationService.DeleteNotes(ctx, req)
+	args := []interface{}{projectID, nil, noteIDsIface, []interface{}{2}}
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         "AH0mwd",
+		NotebookID: projectID,
+		Args:       args,
+	})
 	if err != nil {
 		return fmt.Errorf("delete notes: %w", err)
 	}
