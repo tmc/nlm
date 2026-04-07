@@ -2711,6 +2711,66 @@ func (c *Client) GetConversations(projectID string) ([]string, error) {
 	return convIDs, nil
 }
 
+// GetConversationHistory retrieves the message history for a specific conversation.
+func (c *Client) GetConversationHistory(projectID, conversationID string) ([]ChatMessage, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCGetConversationHistory,
+		NotebookID: projectID,
+		Args: []interface{}{
+			projectID,
+			conversationID,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get conversation history: %w", err)
+	}
+
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return nil, fmt.Errorf("parse conversation history: %w", err)
+	}
+
+	// Response format: [[content, null, role], [content, null, role], ...]
+	// or wrapped: [[[content, null, role], [content, null, role], ...]]
+	var messages []ChatMessage
+	var msgArrays []interface{}
+
+	if len(data) > 0 {
+		// Check if it's wrapped in an extra array
+		if outer, ok := data[0].([]interface{}); ok {
+			if len(outer) > 0 {
+				if _, ok := outer[0].([]interface{}); ok {
+					// Wrapped format: [[[msg1], [msg2]]]
+					msgArrays = outer
+				} else {
+					// Flat format: [[msg1], [msg2]]
+					msgArrays = data
+				}
+			}
+		}
+	}
+
+	for _, item := range msgArrays {
+		arr, ok := item.([]interface{})
+		if !ok || len(arr) < 3 {
+			continue
+		}
+		content, _ := arr[0].(string)
+		role := 0
+		if r, ok := arr[2].(float64); ok {
+			role = int(r)
+		}
+		if content != "" && role > 0 {
+			messages = append(messages, ChatMessage{
+				Content: content,
+				Role:    role,
+			})
+		}
+	}
+
+	return messages, nil
+}
+
 // ChatGoal represents a conversational goal setting.
 type ChatGoal int
 

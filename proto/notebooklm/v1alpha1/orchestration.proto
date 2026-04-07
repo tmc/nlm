@@ -203,11 +203,25 @@ message GenerateFreeFormStreamedRequest {
     string project_id = 1;
     string prompt = 2;
     repeated string source_ids = 3;
+    string conversation_id = 4;
+    repeated ChatMessage history = 5;
+    int32 seq_num = 6;
 }
 
 message GenerateFreeFormStreamedResponse {
     string chunk = 1;
     bool is_final = 2;
+    // Transient fields — present in intermediate stream chunks only.
+    string thinking = 3;           // Reasoning traces ("Thinking...", source-searching phases)
+    repeated CitationRef citations = 4; // Citation offset references to source excerpts
+}
+
+// CitationRef maps an inline citation marker in a chat response to a source excerpt.
+message CitationRef {
+    string source_id = 1;
+    int32 start_offset = 2;
+    int32 end_offset = 3;
+    string excerpt = 4;
 }
 
 message GenerateReportSuggestionsRequest {
@@ -465,13 +479,13 @@ service LabsTailwindOrchestrationService {
         option (arg_format) = "[%project_id%]";
     }
     rpc GenerateFreeFormStreamed(GenerateFreeFormStreamedRequest) returns (stream GenerateFreeFormStreamedResponse) {
-        // This now uses gRPC-style endpoint instead of batchexecute
-        option (grpc_endpoint) = "/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed";
+        // gRPC-Web stream — NOT batchexecute. Requires:
+        //   x-goog-ext-353267353-jspb: [null,null,null,282611]
+        //   X-Same-Domain: 1
+        option (grpc_endpoint) = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed";
         option (requires_sources) = true;
-        option (grpc_arg_format) = "[[%all_sources%], %prompt%, null, [2]]";
-        // Keeping old format for backwards compatibility
-        option (rpc_id) = "BD";
-        option (arg_format) = "[%project_id%, %prompt%]";
+        // Source IDs use 3-level nesting: [[["source-id"]]]
+        option (grpc_arg_format) = "[[%source_ids%], %prompt%, null]";
     }
     rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {
         option (rpc_id) = "VfAZjd";

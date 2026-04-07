@@ -51,11 +51,17 @@ type ChatSession struct {
 	UpdatedAt      time.Time     `json:"updated_at"`
 }
 
-// ChatMessage represents a single message in the conversation
+// ChatMessage represents a single message in the conversation.
+// Local storage preserves transient stream data (reasoning, citations)
+// that the server discards after generation completes.
 type ChatMessage struct {
 	Role      string    `json:"role"` // "user" or "assistant"
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
+
+	// Transient stream data — only available locally, not from server history.
+	Thinking  string   `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
+	Citations []string `json:"citations,omitempty"` // Source references from the response
 }
 
 func init() {
@@ -128,8 +134,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n")
 		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n")
 		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
-		fmt.Fprintf(os.Stderr, "  chat <id>               Interactive chat session\n")
-		fmt.Fprintf(os.Stderr, "  chat-list               List all saved chat sessions\n")
+		fmt.Fprintf(os.Stderr, "  chat <id> [conv|prompt]  Interactive chat (or one-shot with prompt)\n")
+		fmt.Fprintf(os.Stderr, "  chat-list [id]          List chat sessions (server-side if notebook given)\n")
 		fmt.Fprintf(os.Stderr, "  delete-chat <id>        Delete server-side chat history\n")
 		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n")
 		fmt.Fprintf(os.Stderr, "  set-instructions <id> \"prompt\"      Set system instructions\n")
@@ -430,13 +436,13 @@ func validateArgs(cmd string, args []string) error {
 			return fmt.Errorf("invalid arguments")
 		}
 	case "chat":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm chat <notebook-id>\n")
+		if len(args) < 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm chat <notebook-id> [conversation-id | prompt]\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "chat-list":
-		if len(args) != 0 {
-			fmt.Fprintf(os.Stderr, "usage: nlm chat-list\n")
+		if len(args) > 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm chat-list [notebook-id]\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "delete-chat":
@@ -908,9 +914,24 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "generate-chat":
 		err = generateFreeFormChat(client, args[0], args[1])
 	case "chat":
-		err = interactiveChat(client, args[0])
+		if len(args) >= 2 {
+			rest := strings.Join(args[1:], " ")
+			// If it looks like a conversation ID (UUID-ish), resume that conversation
+			if isConversationID(rest) {
+				err = interactiveChatWithConv(client, args[0], rest)
+			} else {
+				// Treat as a one-shot prompt
+				err = oneShotChat(client, args[0], rest)
+			}
+		} else {
+			err = interactiveChat(client, args[0])
+		}
 	case "chat-list":
-		err = listChatSessions()
+		if len(args) == 1 {
+			err = listChatConversations(client, args[0])
+		} else {
+			err = listChatSessions()
+		}
 	case "delete-chat":
 		err = deleteChatHistory(client, args[0])
 	case "chat-config":
@@ -1825,15 +1846,17 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
-	// Use the API client's GenerateFreeFormStreamed method
-	response, err := c.GenerateFreeFormStreamed(projectID, prompt, nil)
+	var gotResponse bool
+	err := c.GenerateFreeFormStreamedWithCallback(projectID, prompt, nil, func(chunk string) bool {
+		fmt.Print(chunk)
+		gotResponse = true
+		return true
+	})
 	if err != nil {
 		return fmt.Errorf("generate chat: %w", err)
 	}
-
-	// Display the response
-	if response != nil && response.Chunk != "" {
-		fmt.Println(response.Chunk)
+	if gotResponse {
+		fmt.Println()
 	} else {
 		fmt.Println("(No response received)")
 	}
@@ -1901,6 +1924,177 @@ func setChatConfig(c *api.Client, args []string) error {
 	default:
 		return fmt.Errorf("unknown setting: %s (use 'goal' or 'length')", setting)
 	}
+}
+
+// isConversationID returns true if the string looks like a conversation ID
+// (UUID format or long alphanumeric string, not natural language).
+func isConversationID(s string) bool {
+	// UUIDs: 8-4-4-4-12 hex
+	if len(s) == 36 && s[8] == '-' && s[13] == '-' && s[18] == '-' && s[23] == '-' {
+		return true
+	}
+	// Also accept raw hex strings >= 20 chars with no spaces
+	if len(s) >= 20 && !strings.Contains(s, " ") {
+		return true
+	}
+	return false
+}
+
+// oneShotChat sends a single prompt and streams the response without entering interactive mode.
+func oneShotChat(c *api.Client, notebookID, prompt string) error {
+	// Load or create session for history continuity
+	session, err := loadChatSession(notebookID)
+	if err != nil {
+		session = &ChatSession{
+			NotebookID:     notebookID,
+			ConversationID: uuid.New().String(),
+			Messages:       []ChatMessage{},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+	}
+	if session.ConversationID == "" {
+		session.ConversationID = uuid.New().String()
+	}
+
+	// Add user message
+	session.Messages = append(session.Messages, ChatMessage{
+		Role: "user", Content: prompt, Timestamp: time.Now(),
+	})
+
+	wireHistory := buildWireHistory(session)
+	chatReq := api.ChatRequest{
+		ProjectID:      notebookID,
+		Prompt:         prompt,
+		ConversationID: session.ConversationID,
+		History:        wireHistory,
+		SeqNum:         len(session.Messages)/2 + 1,
+	}
+
+	var fullResponse strings.Builder
+	err = c.GenerateFreeFormStreamedWithCallback(notebookID, prompt, nil, func(chunk string) bool {
+		fmt.Print(chunk)
+		fullResponse.WriteString(chunk)
+		return true
+	})
+	if err != nil {
+		response, chatErr := c.ChatWithHistory(chatReq)
+		if chatErr != nil {
+			return fmt.Errorf("chat: %w", err)
+		}
+		fmt.Print(response)
+		fullResponse.WriteString(response)
+	}
+	fmt.Println()
+
+	// Save response
+	response := strings.TrimSpace(fullResponse.String())
+	if response != "" {
+		session.Messages = append(session.Messages, ChatMessage{
+			Role: "assistant", Content: response, Timestamp: time.Now(),
+		})
+	}
+	session.UpdatedAt = time.Now()
+	return saveChatSession(session)
+}
+
+// interactiveChatWithConv starts or resumes an interactive chat with a specific conversation ID.
+func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) error {
+	// Try to load local session for this conversation
+	session, err := loadChatSessionForConv(notebookID, conversationID)
+	if err != nil {
+		// Try fetching server-side history
+		serverMsgs, fetchErr := c.GetConversationHistory(notebookID, conversationID)
+		if fetchErr != nil && debug {
+			fmt.Fprintf(os.Stderr, "nlm: could not fetch server history: %v\n", fetchErr)
+		}
+
+		session = &ChatSession{
+			NotebookID:     notebookID,
+			ConversationID: conversationID,
+			Messages:       []ChatMessage{},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+
+		// Populate from server history
+		if fetchErr == nil && len(serverMsgs) > 0 {
+			for _, m := range serverMsgs {
+				role := "user"
+				if m.Role == 2 {
+					role = "assistant"
+				}
+				session.Messages = append(session.Messages, ChatMessage{
+					Role:    role,
+					Content: m.Content,
+				})
+			}
+			fmt.Printf("Loaded %d messages from server history.\n", len(serverMsgs))
+		}
+	}
+
+	// Override the conversation ID (the loaded session might have an old one)
+	session.ConversationID = conversationID
+
+	return runInteractiveChat(c, session)
+}
+
+// listChatConversations lists server-side conversations for a notebook.
+func listChatConversations(c *api.Client, notebookID string) error {
+	convIDs, err := c.GetConversations(notebookID)
+	if err != nil {
+		return fmt.Errorf("list conversations: %w", err)
+	}
+
+	// Also get local sessions for this notebook
+	localSessions, _ := listLocalChatSessions(notebookID)
+	localByConv := make(map[string]*ChatSession)
+	for i := range localSessions {
+		if localSessions[i].ConversationID != "" {
+			localByConv[localSessions[i].ConversationID] = &localSessions[i]
+		}
+	}
+
+	if len(convIDs) == 0 && len(localSessions) == 0 {
+		fmt.Println("No conversations found.")
+		return nil
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "CONVERSATION\tMESSAGES\tSTATUS\tLAST UPDATED")
+	fmt.Fprintln(w, "------------\t--------\t------\t------------")
+
+	seen := make(map[string]bool)
+	for _, id := range convIDs {
+		seen[id] = true
+		msgs := "-"
+		status := "server"
+		lastUpdated := "-"
+		if local, ok := localByConv[id]; ok {
+			msgs = fmt.Sprintf("%d", len(local.Messages))
+			status = "synced"
+			lastUpdated = local.UpdatedAt.Format("Jan 2 15:04")
+		}
+		short := id
+		if len(id) > 8 {
+			short = id[:8]
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", short, msgs, status, lastUpdated)
+	}
+
+	// Show local-only sessions
+	for _, s := range localSessions {
+		if s.ConversationID != "" && !seen[s.ConversationID] {
+			short := s.ConversationID
+			if len(short) > 8 {
+				short = short[:8]
+			}
+			fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
+				short, len(s.Messages), "local", s.UpdatedAt.Format("Jan 2 15:04"))
+		}
+	}
+
+	return w.Flush()
 }
 
 func deepResearch(c *api.Client, notebookID, query string) error {
@@ -2247,14 +2441,69 @@ func getShareDetails(c *api.Client, shareID string) error {
 
 // Chat helper functions
 func getChatSessionPath(notebookID string) string {
+	return getChatSessionPathForConv(notebookID, "")
+}
+
+func getChatSessionPathForConv(notebookID, conversationID string) string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
+		if conversationID != "" {
+			return filepath.Join(os.TempDir(), fmt.Sprintf("nlm-chat-%s-%s.json", notebookID, conversationID[:8]))
+		}
 		return filepath.Join(os.TempDir(), fmt.Sprintf("nlm-chat-%s.json", notebookID))
 	}
 
 	nlmDir := filepath.Join(homeDir, ".nlm")
 	os.MkdirAll(nlmDir, 0700) // Ensure directory exists
+	if conversationID != "" {
+		return filepath.Join(nlmDir, fmt.Sprintf("chat-%s-%s.json", notebookID, conversationID[:8]))
+	}
 	return filepath.Join(nlmDir, fmt.Sprintf("chat-%s.json", notebookID))
+}
+
+func loadChatSessionForConv(notebookID, conversationID string) (*ChatSession, error) {
+	path := getChatSessionPathForConv(notebookID, conversationID)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var session ChatSession
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, err
+	}
+	return &session, nil
+}
+
+// listLocalChatSessions returns all local chat sessions for a given notebook ID.
+// If notebookID is empty, returns sessions for all notebooks.
+func listLocalChatSessions(notebookID string) ([]ChatSession, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
+	nlmDir := filepath.Join(homeDir, ".nlm")
+	entries, err := os.ReadDir(nlmDir)
+	if err != nil {
+		return nil, nil
+	}
+	var sessions []ChatSession
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), "chat-") || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(nlmDir, entry.Name()))
+		if err != nil {
+			continue
+		}
+		var session ChatSession
+		if err := json.Unmarshal(data, &session); err != nil {
+			continue
+		}
+		if notebookID == "" || session.NotebookID == notebookID {
+			sessions = append(sessions, session)
+		}
+	}
+	return sessions, nil
 }
 
 func loadChatSession(notebookID string) (*ChatSession, error) {
@@ -2284,34 +2533,9 @@ func saveChatSession(session *ChatSession) error {
 }
 
 func listChatSessions() error {
-	homeDir, err := os.UserHomeDir()
+	sessions, err := listLocalChatSessions("")
 	if err != nil {
 		return err
-	}
-
-	nlmDir := filepath.Join(homeDir, ".nlm")
-	entries, err := os.ReadDir(nlmDir)
-	if err != nil {
-		fmt.Println("No chat sessions found.")
-		return nil
-	}
-
-	var sessions []ChatSession
-	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), "chat-") && strings.HasSuffix(entry.Name(), ".json") {
-			sessionPath := filepath.Join(nlmDir, entry.Name())
-			data, err := os.ReadFile(sessionPath)
-			if err != nil {
-				continue
-			}
-
-			var session ChatSession
-			if err := json.Unmarshal(data, &session); err != nil {
-				continue
-			}
-
-			sessions = append(sessions, session)
-		}
 	}
 
 	if len(sessions) == 0 {
@@ -2319,21 +2543,26 @@ func listChatSessions() error {
 		return nil
 	}
 
-	fmt.Printf("📚 Chat Sessions (%d total)\n", len(sessions))
-	fmt.Println("=" + strings.Repeat("=", 40))
+	fmt.Printf("Chat Sessions (%d total)\n", len(sessions))
+	fmt.Println(strings.Repeat("=", 41))
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NOTEBOOK\tMESSAGES\tLAST UPDATED\tCREATED")
-	fmt.Fprintln(w, "--------\t--------\t------------\t-------")
+	fmt.Fprintln(w, "NOTEBOOK\tCONVERSATION\tMESSAGES\tLAST UPDATED")
+	fmt.Fprintln(w, "--------\t------------\t--------\t------------")
 
 	for _, session := range sessions {
-		lastUpdated := session.UpdatedAt.Format("Jan 2 15:04")
-		created := session.CreatedAt.Format("Jan 2 15:04")
-		fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
+		convShort := session.ConversationID
+		if len(convShort) > 8 {
+			convShort = convShort[:8]
+		}
+		if convShort == "" {
+			convShort = "-"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
 			session.NotebookID,
+			convShort,
 			len(session.Messages),
-			lastUpdated,
-			created)
+			session.UpdatedAt.Format("Jan 2 15:04"))
 	}
 
 	return w.Flush()
@@ -2415,12 +2644,10 @@ func getFallbackResponse(input, notebookID string) string {
 	return "I'm unable to process your request right now due to connectivity issues. The chat service may be temporarily unavailable. You can try using other nlm commands or rephrase your question."
 }
 
-// Interactive chat interface with history and streaming support
+// interactiveChat starts a new or resumes the default interactive chat session for a notebook.
 func interactiveChat(c *api.Client, notebookID string) error {
-	// Load or create chat session
 	session, err := loadChatSession(notebookID)
 	if err != nil {
-		// Create new session if loading fails
 		session = &ChatSession{
 			NotebookID:     notebookID,
 			ConversationID: uuid.New().String(),
@@ -2429,15 +2656,24 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			UpdatedAt:      time.Now(),
 		}
 	}
-	// Ensure conversation ID exists (for sessions loaded from older format)
 	if session.ConversationID == "" {
 		session.ConversationID = uuid.New().String()
 	}
+	return runInteractiveChat(c, session)
+}
 
-	// Display welcome message
-	fmt.Println("\n📚 NotebookLM Interactive Chat")
+// runInteractiveChat runs the interactive chat loop with the given session.
+func runInteractiveChat(c *api.Client, session *ChatSession) error {
+	notebookID := session.NotebookID
+
+	fmt.Println("\nNotebookLM Interactive Chat")
 	fmt.Println("================================")
 	fmt.Printf("Notebook: %s\n", notebookID)
+	convShort := session.ConversationID
+	if len(convShort) > 8 {
+		convShort = convShort[:8]
+	}
+	fmt.Printf("Conversation: %s\n", convShort)
 
 	if len(session.Messages) > 0 {
 		fmt.Printf("Chat history: %d messages (started %s)\n",
@@ -2448,20 +2684,12 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		}
 	}
 
-	fmt.Println("\nCommands:")
-	fmt.Println("  /exit or /quit - Exit chat")
-	fmt.Println("  /clear - Clear screen")
-	fmt.Println("  /history - Show recent chat history")
-	fmt.Println("  /reset - Clear chat history")
-	fmt.Println("  /save - Save current session")
-	fmt.Println("  /help - Show this help")
-	fmt.Println("  /multiline - Toggle multiline mode (end with empty line)")
-	fmt.Println("\nType your message and press Enter to send.")
+	fmt.Println("\nCommands: /exit /clear /history /reset /new /fork /conversations /save /help /multiline")
+	fmt.Println("Type your message and press Enter to send.")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	multiline := false
 
-	// Show recent history only if -history flag is set
 	if showChatHistory && len(session.Messages) > 0 {
 		fmt.Println("\n--- Recent Chat History ---")
 		showRecentHistory(session, 10)
@@ -2469,22 +2697,20 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	}
 
 	for {
-		// Show prompt with context indicator
 		historyCount := len(session.Messages)
 		if multiline {
-			fmt.Printf("📝 [%d msgs] (multiline, empty line to send) > ", historyCount)
+			fmt.Printf("[%s %d msgs] (multiline) > ", convShort, historyCount)
 		} else {
-			fmt.Printf("💬 [%d msgs] > ", historyCount)
+			fmt.Printf("[%s %d msgs] > ", convShort, historyCount)
 		}
 
-		// Read input
 		var input string
 		if multiline {
 			var lines []string
 			for scanner.Scan() {
 				line := scanner.Text()
 				if line == "" {
-					break // Empty line ends multiline input
+					break
 				}
 				lines = append(lines, line)
 				fmt.Print("... > ")
@@ -2492,12 +2718,11 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			input = strings.Join(lines, "\n")
 		} else {
 			if !scanner.Scan() {
-				break // EOF or error
+				break
 			}
 			input = scanner.Text()
 		}
 
-		// Handle special commands
 		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
@@ -2505,18 +2730,15 @@ func interactiveChat(c *api.Client, notebookID string) error {
 
 		switch strings.ToLower(input) {
 		case "/exit", "/quit":
-			fmt.Println("\n👋 Saving session and goodbye!")
+			fmt.Println("\nSaving session and goodbye!")
 			if err := saveChatSession(session); err != nil {
 				fmt.Printf("Warning: Failed to save session: %v\n", err)
 			}
 			return nil
 		case "/clear":
-			// Clear screen (works on most terminals)
 			fmt.Print("\033[H\033[2J")
-			fmt.Println("📚 NotebookLM Interactive Chat")
-			fmt.Println("================================")
-			fmt.Printf("Notebook: %s\n", notebookID)
-			fmt.Printf("Chat history: %d messages\n\n", len(session.Messages))
+			fmt.Printf("Notebook: %s  Conversation: %s  Messages: %d\n\n",
+				notebookID, convShort, len(session.Messages))
 			continue
 		case "/history":
 			fmt.Println("\n--- Chat History ---")
@@ -2526,26 +2748,90 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		case "/reset":
 			if confirmAction("Are you sure you want to clear chat history?") {
 				session.Messages = []ChatMessage{}
+				session.ConversationID = uuid.New().String()
+				convShort = session.ConversationID[:8]
 				session.UpdatedAt = time.Now()
-				fmt.Println("Chat history cleared.")
+				fmt.Printf("Chat history cleared. New conversation: %s\n", convShort)
 			}
+			continue
+		case "/new":
+			// Start a new conversation within the same notebook
+			if err := saveChatSession(session); err != nil && debug {
+				fmt.Fprintf(os.Stderr, "Debug: save failed: %v\n", err)
+			}
+			session = &ChatSession{
+				NotebookID:     notebookID,
+				ConversationID: uuid.New().String(),
+				Messages:       []ChatMessage{},
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			}
+			convShort = session.ConversationID[:8]
+			fmt.Printf("Started new conversation: %s\n", convShort)
+			continue
+		case "/fork":
+			// Fork: save current, create new conversation with same history
+			if err := saveChatSession(session); err != nil && debug {
+				fmt.Fprintf(os.Stderr, "Debug: save failed: %v\n", err)
+			}
+			oldShort := convShort
+			// Deep copy messages
+			forkedMsgs := make([]ChatMessage, len(session.Messages))
+			copy(forkedMsgs, session.Messages)
+			session = &ChatSession{
+				NotebookID:     notebookID,
+				ConversationID: uuid.New().String(),
+				Messages:       forkedMsgs,
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			}
+			convShort = session.ConversationID[:8]
+			fmt.Printf("Forked from %s -> %s (%d messages carried over)\n",
+				oldShort, convShort, len(forkedMsgs))
+			continue
+		case "/conversations":
+			convIDs, err := c.GetConversations(notebookID)
+			if err != nil {
+				fmt.Printf("Error fetching conversations: %v\n", err)
+				continue
+			}
+			if len(convIDs) == 0 {
+				fmt.Println("No server-side conversations found.")
+				continue
+			}
+			fmt.Printf("\nConversations for notebook %s:\n", notebookID)
+			for i, id := range convIDs {
+				marker := "  "
+				if id == session.ConversationID {
+					marker = "* "
+				}
+				short := id
+				if len(short) > 8 {
+					short = short[:8]
+				}
+				fmt.Printf("  %s%d. %s\n", marker, i+1, short)
+			}
+			fmt.Println("\nUse 'nlm chat <notebook-id> <conversation-id>' to resume a conversation.")
 			continue
 		case "/save":
 			if err := saveChatSession(session); err != nil {
 				fmt.Printf("Error saving session: %v\n", err)
 			} else {
-				fmt.Println("Session saved successfully.")
+				fmt.Println("Session saved.")
 			}
 			continue
 		case "/help":
 			fmt.Println("\nCommands:")
-			fmt.Println("  /exit or /quit - Exit chat")
-			fmt.Println("  /clear - Clear screen")
-			fmt.Println("  /history - Show recent chat history")
-			fmt.Println("  /reset - Clear chat history")
-			fmt.Println("  /save - Save current session")
-			fmt.Println("  /help - Show this help")
-			fmt.Println("  /multiline - Toggle multiline mode")
+			fmt.Println("  /exit or /quit     - Exit chat")
+			fmt.Println("  /clear             - Clear screen")
+			fmt.Println("  /history           - Show recent chat history")
+			fmt.Println("  /reset             - Clear history and start new conversation")
+			fmt.Println("  /new               - Start a new conversation (keeps old one)")
+			fmt.Println("  /fork              - Fork: new conversation with current history")
+			fmt.Println("  /conversations     - List server-side conversations")
+			fmt.Println("  /save              - Save current session")
+			fmt.Println("  /multiline         - Toggle multiline mode")
+			fmt.Println("  /help              - Show this help")
 			continue
 		case "/multiline":
 			multiline = !multiline
@@ -2557,7 +2843,6 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			continue
 		}
 
-		// Add user message to local history
 		userMsg := ChatMessage{
 			Role:      "user",
 			Content:   input,
@@ -2565,12 +2850,9 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		}
 		session.Messages = append(session.Messages, userMsg)
 
-		fmt.Println("\n🤔 Thinking...")
+		fmt.Println("\nThinking...")
 
-		// Build wire history from session (newest first, as the protocol expects)
 		wireHistory := buildWireHistory(session)
-
-		// Send chat request with full history
 		chatReq := api.ChatRequest{
 			ProjectID:      notebookID,
 			Prompt:         input,
@@ -2579,7 +2861,7 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			SeqNum:         len(session.Messages)/2 + 1,
 		}
 
-		fmt.Print("\n🤖 Assistant: ")
+		fmt.Print("\nAssistant: ")
 		var fullResponse strings.Builder
 		err := c.GenerateFreeFormStreamedWithCallback(notebookID, input, nil, func(chunk string) bool {
 			fmt.Print(chunk)
@@ -2587,13 +2869,12 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			return true
 		})
 
-		// Fallback: use ChatWithHistory for non-streaming
 		if err != nil {
 			response, chatErr := c.ChatWithHistory(chatReq)
 			if chatErr != nil {
-				fmt.Printf("\n⚠️ Chat API error: %v\n", err)
+				fmt.Printf("\nChat API error: %v\n", err)
 				fallbackResponse := getFallbackResponse(input, notebookID)
-				fmt.Printf("🤖 Assistant: %s\n", fallbackResponse)
+				fmt.Printf("Assistant: %s\n", fallbackResponse)
 				session.Messages = append(session.Messages, ChatMessage{
 					Role: "assistant", Content: fallbackResponse, Timestamp: time.Now(),
 				})
@@ -2612,26 +2893,23 @@ func interactiveChat(c *api.Client, notebookID string) error {
 			}
 		}
 		fmt.Println()
-		_ = chatReq // used in fallback path
+		_ = chatReq
 
-		// Update session timestamp
 		session.UpdatedAt = time.Now()
 
-		// Auto-save every few messages
-		if len(session.Messages)%6 == 0 { // Save every 3 exchanges
+		if len(session.Messages)%6 == 0 {
 			if err := saveChatSession(session); err != nil && debug {
 				fmt.Printf("Debug: Auto-save failed: %v\n", err)
 			}
 		}
 
-		fmt.Println() // Add a blank line for readability
+		fmt.Println()
 	}
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("read input: %w", err)
 	}
 
-	// Save session before exiting
 	if err := saveChatSession(session); err != nil && debug {
 		fmt.Printf("Debug: Failed to save session on exit: %v\n", err)
 	}
