@@ -512,6 +512,21 @@ service LabsTailwindOrchestrationService {
         option (arg_format) = "[%project_id%, %feedback_type%, %feedback_text%]";
     }
     
+    // Conversation lifecycle
+    rpc GetConversations(GetConversationsRequest) returns (GetConversationsResponse) {
+        option (rpc_id) = "hPTbtc";
+        option (arg_format) = "[[], null, %project_id%, %limit%]";
+    }
+    rpc GetConversationHistory(GetConversationHistoryRequest) returns (GetConversationHistoryResponse) {
+        option (rpc_id) = "khqZz";
+        option (arg_format) = "[%project_id%, %conversation_id%]";
+    }
+    rpc DeleteChatHistory(DeleteChatHistoryRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "e3bVqc";
+        // Polymorphic endpoint: payload shape [null, null, project_id] selects DeleteChatHistory
+        option (arg_format) = "[null, null, %project_id%]";
+    }
+
     // Account operations
     rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account) {
         option (rpc_id) = "ZwVcOc";
@@ -609,4 +624,67 @@ message SubmitFeedbackRequest {
     string project_id = 1;
     string feedback_type = 2;
     string feedback_text = 3;
+}
+
+// Conversation lifecycle management
+// Reconstructed from batchexecute wire formats and Go client implementations.
+
+message GetConversationsRequest {
+    // Wire format: [[], null, %project_id%, %limit%]
+    string project_id = 3;
+    int32 limit = 4;
+}
+
+message GetConversationsResponse {
+    repeated string conversation_ids = 1;
+}
+
+message GetConversationHistoryRequest {
+    string project_id = 1;
+    string conversation_id = 2;
+}
+
+message GetConversationHistoryResponse {
+    repeated ChatMessage messages = 1;
+}
+
+message DeleteChatHistoryRequest {
+    // Wire format: [null, null, %project_id%]
+    // Polymorphic endpoint shared with PollDeepResearch
+    string project_id = 3;
+}
+
+message ChatMessage {
+    string content = 1;
+    int32 role = 2; // 1 = user, 2 = assistant
+}
+
+// Interactive audio (WebRTC) types
+// Reconstructed from JavaScript analysis and HAR captures.
+
+// AgentCommsUserMessage is the protobuf transmitted over the WebRTC DataChannel
+// for real-time bidirectional UI and transcript synchronization.
+message AgentCommsUserMessage {
+    AgentCommsMessageType type = 1;
+    string content = 2;
+}
+
+enum AgentCommsMessageType {
+    AGENT_COMMS_MESSAGE_TYPE_UNSPECIFIED = 0;
+    USER_UTTERANCE = 1;     // Real-time text transcript of user's speech
+    AGENT_UTTERANCE = 2;    // Real-time text transcript of AI host's speech
+    TTS_EVENT = 3;          // Text-to-speech lifecycle hooks
+    SEND_AUDIO_EVENT = 4;   // Audio payload transmission triggers
+    // 5 is unobserved
+    PLAYBACK_EVENT = 6;     // Client-side media playback state sync
+    MICROPHONE_EVENT = 7;   // Microphone active/muted state sync
+    STATUS_MESSAGE = 8;     // Connection diagnostics and state updates
+}
+
+message FetchInteractivityTokenRequest {
+    // Wire format: [] (empty payload)
+}
+
+message FetchInteractivityTokenResponse {
+    string token = 1;
 }
