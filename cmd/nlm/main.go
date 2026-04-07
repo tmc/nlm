@@ -39,6 +39,7 @@ var (
 	skipSources       bool // Skip fetching sources for chat (useful when project is inaccessible)
 	yes               bool   // Skip confirmation prompts
 	sourceName        string // Custom name for added sources
+	showChatHistory   bool   // Show previous chat conversation on start
 )
 
 // ChatSession represents a persistent chat conversation
@@ -74,6 +75,7 @@ func init() {
 	flag.StringVar(&mimeType, "mime-type", "", "specify MIME type for content (alias for -mime)")
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
+	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
@@ -2441,6 +2443,9 @@ func interactiveChat(c *api.Client, notebookID string) error {
 		fmt.Printf("Chat history: %d messages (started %s)\n",
 			len(session.Messages),
 			session.CreatedAt.Format("Jan 2 15:04"))
+		if !showChatHistory {
+			fmt.Println("  (use -history flag to show previous conversation)")
+		}
 	}
 
 	fmt.Println("\nCommands:")
@@ -2456,10 +2461,10 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	scanner := bufio.NewScanner(os.Stdin)
 	multiline := false
 
-	// Show recent history if it exists
-	if len(session.Messages) > 0 {
+	// Show recent history only if -history flag is set
+	if showChatHistory && len(session.Messages) > 0 {
 		fmt.Println("\n--- Recent Chat History ---")
-		showRecentHistory(session, 3)
+		showRecentHistory(session, 10)
 		fmt.Println("---------------------------")
 	}
 
