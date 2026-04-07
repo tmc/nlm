@@ -20,6 +20,7 @@ import (
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/rpc"
 	"github.com/tmc/nlm/internal/rpc/grpcendpoint"
 )
@@ -1963,16 +1964,21 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 			}
 			// Fall through to batchexecute
 		} else {
-			// Parse the gRPC response
 			if c.config.Debug {
 				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response: %s\n", string(respBytes))
 			}
-			// For now, extract text from response and return
-			response := &pb.GenerateFreeFormStreamedResponse{
-				Chunk:   string(respBytes),
-				IsFinal: true,
+			// Parse the gRPC response — same chunked wire format as batchexecute
+			data, parseErr := batchexecute.DecodeBodyData(respBytes)
+			if parseErr == nil {
+				var parsed pb.GenerateFreeFormStreamedResponse
+				if unmarshalErr := beprotojson.Unmarshal(data, &parsed); unmarshalErr == nil {
+					return &parsed, nil
+				}
 			}
-			return response, nil
+			if c.config.Debug {
+				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response parse failed, trying batchexecute fallback\n")
+			}
+			// Fall through to batchexecute
 		}
 	}
 

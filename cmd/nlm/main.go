@@ -35,7 +35,8 @@ var (
 	chunkedResponse   bool // Control rt=c parameter for chunked vs JSON array response
 	useDirectRPC      bool // Use direct RPC calls instead of orchestration service
 	skipSources       bool // Skip fetching sources for chat (useful when project is inaccessible)
-	jsonOutput        bool // Output in JSON format instead of human-readable tables
+	jsonOutput        bool   // Output in JSON format instead of human-readable tables
+	outputFormat      string // Output format for generate-chat: "stream" or "plain"
 )
 
 // ChatSession represents a persistent chat conversation
@@ -62,6 +63,7 @@ func init() {
 	flag.BoolVar(&useDirectRPC, "direct-rpc", false, "use direct RPC calls for audio/video (bypasses orchestration service)")
 	flag.BoolVar(&skipSources, "skip-sources", false, "skip fetching sources for chat (useful for testing)")
 	flag.BoolVar(&jsonOutput, "json", false, "output in JSON format")
+	flag.StringVar(&outputFormat, "format", "stream", "output format for generate-chat: stream (default) or plain (clean text only)")
 	flag.StringVar(&chromeProfile, "profile", os.Getenv("NLM_BROWSER_PROFILE"), "Chrome profile to use")
 	flag.StringVar(&authToken, "auth", os.Getenv("NLM_AUTH_TOKEN"), "auth token (or set NLM_AUTH_TOKEN)")
 	flag.StringVar(&cookies, "cookies", os.Getenv("NLM_COOKIES"), "cookies for authentication (or set NLM_COOKIES)")
@@ -799,7 +801,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "toc":
 		err = actOnSources(client, args[0], "table_of_contents", args[1:])
 	case "generate-chat":
-		err = generateFreeFormChat(client, args[0], args[1])
+		err = generateFreeFormChat(client, args[0], args[1], outputFormat)
 	case "chat":
 		err = interactiveChat(client, args[0])
 	case "chat-list":
@@ -1636,8 +1638,10 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 }
 
 // Generation operations
-func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
-	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
+func generateFreeFormChat(c *api.Client, projectID, prompt, format string) error {
+	if format != "plain" {
+		fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
+	}
 
 	// Use the API client's GenerateFreeFormStreamed method
 	response, err := c.GenerateFreeFormStreamed(projectID, prompt, nil)
@@ -1648,7 +1652,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	// Display the response
 	if response != nil && response.Chunk != "" {
 		fmt.Println(response.Chunk)
-	} else {
+	} else if format != "plain" {
 		fmt.Println("(No response received)")
 	}
 

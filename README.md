@@ -45,7 +45,7 @@ Generation Commands:
   generate-guide <id>  Generate notebook guide
   generate-outline <id>  Generate content outline
   generate-section <id>  Generate new section
-  generate-chat <id> <prompt>  Free-form chat
+  generate-chat <id> <prompt>  Free-form chat (use --format plain for clean piped output)
   generate-magic <id> <source-ids...>  Generate magic view synthesis
   chat <id>  Interactive chat session
 
@@ -74,6 +74,24 @@ Research Commands:
 Other Commands:
   auth              Setup authentication
   batch <commands>  Execute multiple commands in batch
+
+Global Flags:
+  --format stream|plain  Output format for generate-chat (default: stream)
+  --json                 Output in JSON format for list commands
+  --debug                Enable debug output
+```
+
+### Programmatic / piped usage
+
+Use `--format plain` with `generate-chat` to get clean text output suitable for piping or capturing in scripts:
+
+```bash
+# Clean answer text on stdout, no progress messages
+answer=$(nlm --format plain generate-chat <notebook-id> "What is the main argument?")
+echo "$answer"
+
+# Pipe to another tool
+nlm --format plain generate-chat <notebook-id> "Summarize in one paragraph" | pbcopy
 ```
 
 <details>

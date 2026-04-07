@@ -57,6 +57,20 @@ func (c *Client) Do(rpc RPC) (*Response, error) {
 	return c.Execute([]RPC{rpc})
 }
 
+// DecodeBodyData parses a raw batchexecute HTTP response body and returns the
+// data payload of the first wrb.fr response. This is used to parse gRPC-style
+// endpoint responses that share the same chunked wire format.
+func DecodeBodyData(body []byte) (json.RawMessage, error) {
+	responses, err := decodeResponse(string(body))
+	if err != nil {
+		return nil, err
+	}
+	if len(responses) == 0 {
+		return nil, fmt.Errorf("no responses found in body")
+	}
+	return responses[0].Data, nil
+}
+
 // maskSensitiveValue masks sensitive values like tokens for debug output
 func maskSensitiveValue(value string) string {
 	if len(value) <= 8 {
