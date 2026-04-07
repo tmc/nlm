@@ -10,6 +10,6 @@ exec ./nlm_test chat-list
 ! stderr 'Authentication required'
 
 # Test chat-list with too many arguments (should fail with usage)
-! exec ./nlm_test chat-list extra
-stderr 'usage: nlm chat-list'
+! exec ./nlm_test chat-list notebook123 extra
+stderr 'usage: nlm chat-list \[notebook-id\]'
 ! stderr 'panic'

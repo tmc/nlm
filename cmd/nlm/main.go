@@ -22,6 +22,7 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"golang.org/x/term"
 )
 
 // Global flags
@@ -34,12 +35,13 @@ var (
 	debugFieldMapping bool
 	chromeProfile     string
 	mimeType          string
-	chunkedResponse   bool // Control rt=c parameter for chunked vs JSON array response
-	useDirectRPC      bool // Use direct RPC calls instead of orchestration service
-	skipSources       bool // Skip fetching sources for chat (useful when project is inaccessible)
+	chunkedResponse   bool   // Control rt=c parameter for chunked vs JSON array response
+	useDirectRPC      bool   // Use direct RPC calls instead of orchestration service
+	skipSources       bool   // Skip fetching sources for chat (useful when project is inaccessible)
 	yes               bool   // Skip confirmation prompts
 	sourceName        string // Custom name for added sources
 	showChatHistory   bool   // Show previous chat conversation on start
+	verbose           bool   // Show full thinking traces in chat
 )
 
 // ChatSession represents a persistent chat conversation
@@ -82,6 +84,8 @@ func init() {
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
+	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces in chat (default: headers only)")
+	flag.BoolVar(&verbose, "v", false, "show full thinking traces in chat (shorthand)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
@@ -113,7 +117,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  audio-get <id>    Get audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (requires --direct-rpc)\n")
 		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
-		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n\n")
+		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n")
+		fmt.Fprintf(os.Stderr, "  audio-interactive <id> [flags]  Start an interactive audio session\n\n")
 
 		fmt.Fprintf(os.Stderr, "Video Commands:\n")
 		fmt.Fprintf(os.Stderr, "  video-list <id>   List all video overviews for a notebook with status\n")
@@ -327,6 +332,10 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm audio-list <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "audio-interactive":
+		if err := validateInteractiveAudioArgs(args); err != nil {
+			return err
+		}
 	case "audio-download":
 		if len(args) < 1 || len(args) > 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm audio-download <notebook-id> [filename]\n")
@@ -525,7 +534,7 @@ func isValidCommand(cmd string) bool {
 		"list", "ls", "create", "rm", "analytics", "list-featured",
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
 		"notes", "new-note", "update-note", "rm-note",
-		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "video-create", "video-list", "video-download",
+		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive", "video-create", "video-list", "video-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
@@ -602,6 +611,9 @@ func run() error {
 
 	// Validate arguments first (before authentication check)
 	if err := validateArgs(cmd, args); err != nil {
+		if errors.Is(err, errInteractiveAudioHelp) {
+			return nil
+		}
 		return err
 	}
 
@@ -843,6 +855,13 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = shareAudioOverview(client, args[0])
 	case "audio-list":
 		err = listAudioOverviews(client, args[0])
+	case "audio-interactive":
+		var opts interactiveAudioOptions
+		var notebookID string
+		opts, notebookID, err = parseInteractiveAudioArgs(args)
+		if err == nil {
+			err = runInteractiveAudioCommand(client, notebookID, opts)
+		}
 	case "audio-download":
 		filename := ""
 		if len(args) > 1 {
@@ -1842,20 +1861,110 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 	return nil
 }
 
+// ANSI escape codes for muted/grey thinking output.
+const (
+	ansiDim   = "\033[2m"  // dim
+	ansiGrey  = "\033[90m" // bright black (grey)
+	ansiReset = "\033[0m"
+)
+
+type chatStreamRenderer struct {
+	out             io.Writer
+	status          io.Writer
+	isTTY           bool
+	verbose         bool
+	lastThinkingLen int
+	answerBuf       strings.Builder
+	thinkingBuf     strings.Builder
+}
+
+func newChatStreamRenderer(out, status io.Writer, isTTY, verbose bool) *chatStreamRenderer {
+	return &chatStreamRenderer{
+		out:     out,
+		status:  status,
+		isTTY:   isTTY,
+		verbose: verbose,
+	}
+}
+
+func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
+	switch chunk.Phase {
+	case api.ChatChunkThinking:
+		r.thinkingBuf.WriteString(chunk.Text + "\n")
+		if !r.isTTY {
+			return
+		}
+		if r.verbose {
+			r.clearThinkingLine()
+			fmt.Fprintf(r.status, "%s%s%s\n", ansiGrey, chunk.Text, ansiReset)
+			return
+		}
+		r.clearThinkingLine()
+		display := strings.TrimPrefix(strings.TrimSuffix(chunk.Header, "**"), "**")
+		line := fmt.Sprintf("%s  [thinking] %s%s", ansiGrey, display, ansiReset)
+		fmt.Fprint(r.status, line)
+		r.lastThinkingLen = len("  [thinking] ") + len(display)
+	case api.ChatChunkAnswer:
+		r.clearThinkingLine()
+		fmt.Fprint(r.out, chunk.Text)
+		r.answerBuf.WriteString(chunk.Text)
+	}
+}
+
+func (r *chatStreamRenderer) Finish() {
+	r.clearThinkingLine()
+}
+
+func (r *chatStreamRenderer) Answer() string {
+	return r.answerBuf.String()
+}
+
+func (r *chatStreamRenderer) Thinking() string {
+	return r.thinkingBuf.String()
+}
+
+func (r *chatStreamRenderer) clearThinkingLine() {
+	if r.lastThinkingLen == 0 {
+		return
+	}
+	clearLine := strings.Repeat(" ", r.lastThinkingLen)
+	fmt.Fprintf(r.status, "\r%s\r", clearLine)
+	r.lastThinkingLen = 0
+}
+
+// streamChatResponse streams a chat response with phase-aware rendering.
+// Default: thinking headers shown on a single overwriting line in grey.
+// With --verbose: full thinking text streams in grey before the answer.
+// Final answer text streams normally. Returns the full answer and thinking trace.
+func streamChatResponse(c *api.Client, req api.ChatRequest) (answer, thinking string, err error) {
+	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, isTerminal(os.Stdout), verbose)
+
+	err = c.StreamChat(req, func(chunk api.ChatChunk) bool {
+		renderer.WriteChunk(chunk)
+		return true
+	})
+
+	renderer.Finish()
+
+	return renderer.Answer(), renderer.Thinking(), err
+}
+
+func isTerminal(f *os.File) bool {
+	return term.IsTerminal(int(f.Fd()))
+}
+
 // Generation operations
 func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
-	var gotResponse bool
-	err := c.GenerateFreeFormStreamedWithCallback(projectID, prompt, nil, func(chunk string) bool {
-		fmt.Print(chunk)
-		gotResponse = true
-		return true
+	answer, _, err := streamChatResponse(c, api.ChatRequest{
+		ProjectID: projectID,
+		Prompt:    prompt,
 	})
 	if err != nil {
 		return fmt.Errorf("generate chat: %w", err)
 	}
-	if gotResponse {
+	if answer != "" {
 		fmt.Println()
 	} else {
 		fmt.Println("(No response received)")
@@ -1971,27 +2080,23 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 		SeqNum:         len(session.Messages)/2 + 1,
 	}
 
-	var fullResponse strings.Builder
-	err = c.GenerateFreeFormStreamedWithCallback(notebookID, prompt, nil, func(chunk string) bool {
-		fmt.Print(chunk)
-		fullResponse.WriteString(chunk)
-		return true
-	})
+	answer, thinking, err := streamChatResponse(c, chatReq)
 	if err != nil {
 		response, chatErr := c.ChatWithHistory(chatReq)
 		if chatErr != nil {
 			return fmt.Errorf("chat: %w", err)
 		}
 		fmt.Print(response)
-		fullResponse.WriteString(response)
+		answer = response
 	}
 	fmt.Println()
 
-	// Save response
-	response := strings.TrimSpace(fullResponse.String())
+	// Save response with thinking trace
+	response := strings.TrimSpace(answer)
 	if response != "" {
 		session.Messages = append(session.Messages, ChatMessage{
 			Role: "assistant", Content: response, Timestamp: time.Now(),
+			Thinking: thinking,
 		})
 	}
 	session.UpdatedAt = time.Now()
@@ -2291,9 +2396,9 @@ func shareNotebook(c *api.Client, notebookID string) error {
 		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
 			[]interface{}{[]interface{}{notebookID, nil, []interface{}{1, 1}, []interface{}{0, ""}}},
-			1,                 // int, not bool
-			nil,               // gap
-			[]interface{}{2},  // ProjectContext
+			1,                // int, not bool
+			nil,              // gap
+			[]interface{}{2}, // ProjectContext
 		},
 	}
 
@@ -2373,9 +2478,9 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 		ID: "QDyure", // ShareProject RPC ID
 		Args: []interface{}{
 			[]interface{}{[]interface{}{notebookID, nil, []interface{}{1, 0}, []interface{}{0, ""}}},
-			1,                 // int, not bool
-			nil,               // gap
-			[]interface{}{2},  // ProjectContext
+			1,                // int, not bool
+			nil,              // gap
+			[]interface{}{2}, // ProjectContext
 		},
 	}
 
@@ -2850,8 +2955,6 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 		}
 		session.Messages = append(session.Messages, userMsg)
 
-		fmt.Println("\nThinking...")
-
 		wireHistory := buildWireHistory(session)
 		chatReq := api.ChatRequest{
 			ProjectID:      notebookID,
@@ -2861,13 +2964,8 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 			SeqNum:         len(session.Messages)/2 + 1,
 		}
 
-		fmt.Print("\nAssistant: ")
-		var fullResponse strings.Builder
-		err := c.GenerateFreeFormStreamedWithCallback(notebookID, input, nil, func(chunk string) bool {
-			fmt.Print(chunk)
-			fullResponse.WriteString(chunk)
-			return true
-		})
+		fmt.Println()
+		answer, thinking, err := streamChatResponse(c, chatReq)
 
 		if err != nil {
 			response, chatErr := c.ChatWithHistory(chatReq)
@@ -2885,15 +2983,15 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 				})
 			}
 		} else {
-			response := strings.TrimSpace(fullResponse.String())
+			response := strings.TrimSpace(answer)
 			if response != "" {
 				session.Messages = append(session.Messages, ChatMessage{
 					Role: "assistant", Content: response, Timestamp: time.Now(),
+					Thinking: thinking,
 				})
 			}
 		}
 		fmt.Println()
-		_ = chatReq
 
 		session.UpdatedAt = time.Now()
 

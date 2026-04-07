@@ -2,6 +2,7 @@
 package api
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha1"
@@ -2299,6 +2300,21 @@ type ChatRequest struct {
 	SeqNum         int           // Request sequence number within conversation
 }
 
+// ChatChunkPhase indicates which phase of the stream a chunk belongs to.
+type ChatChunkPhase int
+
+const (
+	ChatChunkThinking ChatChunkPhase = iota // Reasoning trace (replaced by next thinking chunk)
+	ChatChunkAnswer                         // Final answer text (cumulative delta)
+)
+
+// ChatChunk is a parsed chunk from the chat stream with phase metadata.
+type ChatChunk struct {
+	Text   string         // The text content (delta for answer, full replacement for thinking)
+	Header string         // For thinking chunks: the bold header line only
+	Phase  ChatChunkPhase // Whether this is thinking or answer
+}
+
 // chatEndpoint is the gRPC-Web endpoint for GenerateFreeFormStreamed.
 // Chat does NOT use batchexecute — it uses a dedicated gRPC-Web endpoint.
 const chatEndpoint = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
@@ -2322,6 +2338,12 @@ func (c *Client) GenerateFreeFormStreamedWithCallback(projectID string, prompt s
 		Prompt:    prompt,
 		SourceIDs: sourceIDs,
 	}, callback)
+}
+
+// StreamChat streams the response with phase-aware ChatChunk callbacks.
+// Thinking chunks are complete reasoning traces; answer chunks are cumulative deltas.
+func (c *Client) StreamChat(req ChatRequest, callback func(ChatChunk) bool) error {
+	return c.doChatStreamedChunked(req, callback)
 }
 
 // ChatWithHistory sends a chat message with full conversation history.
@@ -2503,6 +2525,167 @@ func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) boo
 
 	// Parse chunked response format: )]}'\n followed by length-prefixed chunks
 	return c.parseChatResponse(resp.Body, callback)
+}
+
+// doChatStreamedChunked sends a chat request and streams phase-aware ChatChunks via callback.
+func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk) bool) error {
+	body, err := c.buildChatRequestBody(req)
+	if err != nil {
+		return err
+	}
+
+	chatURL := c.buildChatURL(req.ProjectID)
+
+	httpReq, err := http.NewRequest("POST", chatURL, strings.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create chat request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+	c.setAuthHeaders(httpReq)
+	httpReq.Header.Set("x-goog-ext-353267353-jspb", "[null,null,null,282611]")
+
+	client := httpClientWithTimeout(120 * time.Second)
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("chat request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("chat request failed: %d %s: %s", resp.StatusCode, resp.Status, string(respBody)[:min(500, len(respBody))])
+	}
+
+	return c.parseChatResponseChunked(resp.Body, callback)
+}
+
+// parseChatResponseChunked reads the stream incrementally and emits phase-aware
+// ChatChunks as each wire frame arrives. The wire format is:
+//
+//	)]}'           (anti-XSSI prefix, first line only)
+//	<length>\n     (decimal byte count of the following JSON line)
+//	<json>\n       (the actual data — may contain ["wrb.fr", ...] envelope)
+//
+// Chunks are emitted immediately as they are read, enabling real-time streaming.
+func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) bool) error {
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024) // up to 1MB lines
+
+	var lastThinking string
+	var lastAnswer string
+	var answerStarted bool
+	firstLine := true
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Strip anti-XSSI prefix on first non-empty line.
+		if firstLine {
+			line = strings.TrimPrefix(line, ")]}'")
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			firstLine = false
+		}
+
+		// Skip length-prefix lines (pure digits).
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		isLengthLine := true
+		for _, ch := range trimmed {
+			if ch < '0' || ch > '9' {
+				isLengthLine = false
+				break
+			}
+		}
+		if isLengthLine {
+			continue
+		}
+
+		// Look for wrb.fr envelope in this line.
+		startIdx := strings.Index(line, "[\"wrb.fr\"")
+		if startIdx < 0 {
+			continue
+		}
+
+		chunkJSON := extractJSONArray(line[startIdx:])
+		if chunkJSON == "" {
+			continue
+		}
+
+		var envelope []interface{}
+		if err := json.Unmarshal([]byte(chunkJSON), &envelope); err != nil {
+			continue
+		}
+
+		if len(envelope) < 3 {
+			continue
+		}
+		innerStr, ok := envelope[2].(string)
+		if !ok || innerStr == "" {
+			continue
+		}
+
+		text := extractChatText(innerStr)
+		if text == "" {
+			continue
+		}
+
+		if c.config.Debug {
+			preview := text
+			if len(preview) > 120 {
+				preview = preview[:120] + "..."
+			}
+			fmt.Fprintf(os.Stderr, "DEBUG chunk: len=%d answerLen=%d thinkingLen=%d cumulativeAnswer=%v thinking=%v text=%q\n",
+				len(text), len(lastAnswer), len(lastThinking),
+				strings.HasPrefix(text, lastAnswer) && lastAnswer != "",
+				strings.HasPrefix(strings.TrimSpace(text), "**"),
+				preview)
+		}
+
+		isThinkingText := strings.HasPrefix(strings.TrimSpace(text), "**")
+
+		// Thinking updates are full replacements. Track them separately from
+		// answer text so a growing reasoning trace does not get misclassified
+		// as the start of the final answer.
+		if isThinkingText && !answerStarted {
+			if text == lastThinking {
+				continue
+			}
+
+			header := text
+			if idx := strings.Index(text, "\n"); idx > 0 {
+				header = text[:idx]
+			}
+			if !callback(ChatChunk{Text: text, Header: header, Phase: ChatChunkThinking}) {
+				return nil
+			}
+			lastThinking = text
+			continue
+		}
+
+		answerStarted = true
+		if text == lastAnswer {
+			continue
+		}
+
+		delta := text
+		if strings.HasPrefix(text, lastAnswer) && lastAnswer != "" {
+			delta = text[len(lastAnswer):]
+		}
+		if delta != "" {
+			if !callback(ChatChunk{Text: delta, Phase: ChatChunkAnswer}) {
+				return nil
+			}
+		}
+		lastAnswer = text
+	}
+
+	return scanner.Err()
 }
 
 // parseChatResponse reads the Google chunked response format and extracts text.
