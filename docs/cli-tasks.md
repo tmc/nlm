@@ -164,9 +164,15 @@ needs fixing, testing, or finishing to make every command fully operational.
   - [ ] Auth expiry mid-session gives unclear errors
   - [ ] Consider auto-refresh on 401/Unauthenticated responses
 
-## Interactive Audio (WebRTC) — Deferred
+## Interactive Audio
 
-- [ ] `FetchInteractivityToken` (Of0kDd) — voice session auth
-- [ ] `eyWvXc` — WebRTC SDP offer/answer negotiation
-- [ ] UDP DataChannel with `AgentCommsUserMessage` for live transcripts
-- [ ] See `docs/webrtc-interactive-audio.md` for protocol details
+- [x] `audio-interactive <id>` command surface in help, validation, and dispatch
+- [x] `--transcript-only`, `--no-mic`, `--speaker`, `--mic`, `--timeout`, `--help` parsing and usage output
+- [x] `FetchInteractivityToken` (Of0kDd) — voice session auth
+- [x] `eyWvXc` — WebRTC SDP offer/answer negotiation
+- [x] Receive WebRTC DataChannel transcripts and render them in `--transcript-only` mode
+- [x] macOS backend scaffold uses `github.com/tmc/apple/avfaudio` for future playback/capture wiring
+- [ ] Remote audio playback (Opus decode + local speaker output)
+- [ ] Microphone capture / outbound audio encode
+- [ ] Live end-to-end verification against NotebookLM
+- [x] See `docs/spec-interactive-audio.md` for protocol details

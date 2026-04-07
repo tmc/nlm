@@ -37,9 +37,11 @@ const (
 	RPCGetNotes    = "cFji9"  // GetNotes
 
 	// NotebookLM service - Audio operations
-	RPCCreateAudioOverview = "AHyHrd" // CreateAudioOverview
-	RPCGetAudioOverview    = "VUsiyb" // GetAudioOverview
-	RPCDeleteAudioOverview = "sJDbic" // DeleteAudioOverview
+	RPCCreateAudioOverview     = "AHyHrd" // CreateAudioOverview
+	RPCGetAudioOverview        = "VUsiyb" // GetAudioOverview
+	RPCDeleteAudioOverview     = "sJDbic" // DeleteAudioOverview
+	RPCFetchInteractivityToken = "Of0kDd" // FetchInteractivityToken - voice session auth + ICE config
+	RPCSDPExchange             = "eyWvXc" // SDP offer/answer exchange for WebRTC negotiation
 
 	// NotebookLM service - Video/Artifact operations
 	RPCCreateUniversalArtifact = "R7cb6c" // Universal artifact creator (audio, video, reports, flashcards, slides, infographics)
@@ -50,10 +52,10 @@ const (
 	// endpoint at /_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed
 	// The "BD" ID was incorrectly assumed; kept only for reference.
 	RPCGenerateFreeFormStreamed = "BD"     // DEPRECATED: chat uses gRPC-Web, not batchexecute
-	RPCGetConversations        = "hPTbtc" // GetConversations - list conversation IDs for a notebook
-	RPCGetConversationHistory  = "khqZz"  // GetConversationHistory - retrieve chat messages
-	RPCDeleteChatHistory       = "e3bVqc" // DeleteChatHistory / PollDeepResearch - server routes by args
-	RPCRateConversationTurn    = "J7Gthc" // RateConversationTurn - mark conversation turn (thumbs up/down?)
+	RPCGetConversations         = "hPTbtc" // GetConversations - list conversation IDs for a notebook
+	RPCGetConversationHistory   = "khqZz"  // GetConversationHistory - retrieve chat messages
+	RPCDeleteChatHistory        = "e3bVqc" // DeleteChatHistory / PollDeepResearch - server routes by args
+	RPCRateConversationTurn     = "J7Gthc" // RateConversationTurn - mark conversation turn (thumbs up/down?)
 
 	// NotebookLM service - Deep Research operations
 	RPCStartDeepResearch  = "QA9ei"  // StartDeepResearch - initiate deep research
@@ -102,12 +104,12 @@ const (
 	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
 
 	// LabsTailwindOrchestrationService - Additional operations
-	RPCListFeaturedProjects     = "nS9Qlc" // ListFeaturedProjects
-	RPCReportContent            = "rJKx8e" // ReportContent
-	RPCReviseArtifact           = "KmcKPe" // ReviseArtifact - revise artifact with instructions
-	RPCListCollections          = "ub2Bae" // ListCollections - list notebook collections/folders
-	RPCGetNotebookUsage         = "V5N4be" // GetNotebookUsage - notebook usage/sync stats
-	RPCAudioTopicSuggestions    = "otmP3b" // AudioTopicSuggestions - audio topic suggestions
+	RPCListFeaturedProjects  = "nS9Qlc" // ListFeaturedProjects
+	RPCReportContent         = "rJKx8e" // ReportContent
+	RPCReviseArtifact        = "KmcKPe" // ReviseArtifact - revise artifact with instructions
+	RPCListCollections       = "ub2Bae" // ListCollections - list notebook collections/folders
+	RPCGetNotebookUsage      = "V5N4be" // GetNotebookUsage - notebook usage/sync stats
+	RPCAudioTopicSuggestions = "otmP3b" // AudioTopicSuggestions - audio topic suggestions
 )
 
 // Call represents a NotebookLM RPC call

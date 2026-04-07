@@ -117,7 +117,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  audio-get <id>    Get audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (requires --direct-rpc)\n")
 		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
-		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n\n")
+		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n")
+		fmt.Fprintf(os.Stderr, "  audio-interactive <id> [flags]  Start an interactive audio session\n\n")
 
 		fmt.Fprintf(os.Stderr, "Video Commands:\n")
 		fmt.Fprintf(os.Stderr, "  video-list <id>   List all video overviews for a notebook with status\n")
@@ -858,6 +859,9 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		var opts interactiveAudioOptions
 		var notebookID string
 		opts, notebookID, err = parseInteractiveAudioArgs(args)
+		if errors.Is(err, errInteractiveAudioHelp) {
+			return nil
+		}
 		if err == nil {
 			err = runInteractiveAudioCommand(client, notebookID, opts)
 		}
