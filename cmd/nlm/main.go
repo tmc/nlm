@@ -155,6 +155,11 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  refresh           Refresh authentication credentials\n")
 		fmt.Fprintf(os.Stderr, "  feedback <msg>    Submit feedback\n")
 		fmt.Fprintf(os.Stderr, "  hb                Send heartbeat\n\n")
+
+		fmt.Fprintf(os.Stderr, "Global Flags:\n")
+		fmt.Fprintf(os.Stderr, "  --format stream|plain  Output format for generate-chat (plain: clean text, no progress messages)\n")
+		fmt.Fprintf(os.Stderr, "  --json                 Output in JSON format for list commands\n")
+		fmt.Fprintf(os.Stderr, "  --debug                Enable debug output\n\n")
 	}
 }
 
