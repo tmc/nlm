@@ -200,28 +200,23 @@ message DiscoverSourcesResponse {
 }
 
 message GenerateFreeFormStreamedRequest {
+    // Wire format: [[source_ids], prompt, null]
+    // Conversation state (history, conversation_id, seq_num) is managed
+    // by the ChatRequest struct and buildChatArgs/buildWireHistory functions,
+    // NOT encoded via this proto. The gRPC-Web endpoint receives a manually
+    // constructed JSON string payload, not protobuf binary.
     string project_id = 1;
     string prompt = 2;
     repeated string source_ids = 3;
-    string conversation_id = 4;
-    repeated ChatMessage history = 5;
-    int32 seq_num = 6;
 }
 
 message GenerateFreeFormStreamedResponse {
+    // The chunk field contains double-encoded JSON arrays. Reasoning traces
+    // ("Thinking..."), source-searching phases, and citation offset data
+    // are embedded WITHIN the chunk string, not as separate proto fields.
+    // The stream parser must unmarshal chunk content dynamically.
     string chunk = 1;
     bool is_final = 2;
-    // Transient fields — present in intermediate stream chunks only.
-    string thinking = 3;           // Reasoning traces ("Thinking...", source-searching phases)
-    repeated CitationRef citations = 4; // Citation offset references to source excerpts
-}
-
-// CitationRef maps an inline citation marker in a chat response to a source excerpt.
-message CitationRef {
-    string source_id = 1;
-    int32 start_offset = 2;
-    int32 end_offset = 3;
-    string excerpt = 4;
 }
 
 message GenerateReportSuggestionsRequest {
