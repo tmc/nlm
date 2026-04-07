@@ -1,48 +1,76 @@
 # Debug Hypotheses
 
-## Bug: generate-chat returns 400 Bad Request on every call
+## Bug 3: --format plain does not clean output — still raw wrb.fr JSON
 Started: 2026-04-06
-Status: FIXED
 
-## Root Cause (Confirmed)
+### Symptom
+- `nlm --format plain generate-chat <id> <q>` is accepted (no unknown flag error)
+- Output is still raw streaming JSON with wrb.fr payloads
+- The flag suppresses nothing / does not clean the response text
 
-The recent refactor of `GenerateFreeFormStreamed` in `internal/api/client.go` broke
-the gRPC response handling. Specifically:
+### Context
+The --format plain flag was designed to:
+1. Suppress "Generating response for:" progress message (stderr)
+2. The actual text cleaning was expected to come from the gRPC path fix
 
-**Before (working):** When the gRPC endpoint call succeeded, the code immediately
-returned a synthetic `GenerateFreeFormStreamedResponse{Chunk: string(respBytes)}`,
-always giving the caller a result.
+BUT: if response.Chunk still contains raw JSON (wrb.fr), then fmt.Println(response.Chunk)
+outputs raw JSON regardless of the format flag. The format flag does NOT filter/clean
+the Chunk content — it only affects stderr progress messages.
 
-**After (broken):** The refactor added `DecodeBodyData + beprotojson.Unmarshal` to
-parse the gRPC response. When either step fails (which happens because the gRPC
-streaming response format doesn't match `GenerateFreeFormStreamedResponse`'s
-`[chunk_text, is_final]` schema), the code falls through to the batchexecute BD RPC.
+So the real question is: why is response.Chunk still raw JSON after the gRPC fix?
 
-The BD batchexecute RPC is **deprecated** (documented in
-`docs/investigations/2025-02-01_generate-chat-400-error.md` — the February 2025 fix
-specifically replaced it with the gRPC endpoint). The server returns 400 for it.
+### Candidates
+1. extractTextFromJSON fallback in client.go is returning the full raw JSON blob
+   (the longest "string" in the wrb.fr payload may BE a JSON-encoded string, not the text)
+2. The batchexecute fallback path is still being hit (gRPC still failing) and
+   batchexecute returns raw chunked bytes via a different code path
+3. The format flag is not connected to any output filtering — it only gates stderr,
+   so the user's expectation (clean stdout) requires actual Chunk cleaning
 
-## Fix Applied
+## Iteration Log
 
-**File:** `internal/api/client.go`
+### H1 (CONFIRMED): DecodeBodyData succeeds but beprotojson.Unmarshal fails, and
+extractTextFromJSON returns raw JSON string instead of clean text.
 
-When the gRPC call succeeds (no network/HTTP error), we now never fall through to
-batchexecute. Instead:
-1. If `DecodeBodyData + beprotojson.Unmarshal` both succeed → return parsed response
-2. If unmarshal fails but decode succeeded → extract longest string from JSON data
-   via new `extractTextFromJSON` helper, return as chunk
-3. If decode also fails → return raw response bytes as chunk
+**Evidence from code trace (internal/api/client.go lines 1960-1995):**
 
-The batchexecute fallback is now only reachable when the gRPC endpoint itself fails
-(network error or HTTP error status), which is appropriate.
+The gRPC path in GenerateFreeFormStreamed has THREE result paths:
 
-**Helper added:** `extractTextFromJSON(json.RawMessage) string` + `longestStringIn`
-recursive helper, both in `internal/api/client.go`.
+Path A (lines 1976-1977): beprotojson.Unmarshal succeeds → return parsed response.
+  - If Chunk is correctly extracted, this works.
+  - If Chunk is empty (wrong field mapping), main.go prints nothing.
 
-**Regression test added:** `TestExtractTextFromJSON` in `internal/api/client_test.go`
+Path B (lines 1983-1986): beprotojson.Unmarshal fails, but DecodeBodyData succeeded →
+  return extractTextFromJSON(data) as Chunk.
+  - The issue: for a real streaming gRPC response, `data` (what DecodeBodyData returns)
+    is the JSON payload from wrb.fr position [2]. This is a JSON array like:
+    `["text chunk here", false]` or a more complex nested structure.
+  - extractTextFromJSON calls longestStringIn, which finds the longest string in the
+    entire nested structure. If a session UUID, base64 blob, or the JSON-encoded
+    inner payload string itself is longer than the actual answer text, it returns THAT
+    instead of the human-readable text.
 
-## Hypothesis Log
-| # | Hypothesis | Test | Result |
-|---|-----------|------|--------|
-| H1 | Missing NotebookID in batchexecute Call causes source-path="/" which 400s | Checked both GenerateFreeFormStreamed and GenerateNotebookGuide service clients — neither sets NotebookID. But generate-guide works, so missing NotebookID is not the cause. | REJECTED |
-| H2 | gRPC parse fails silently, falls through to deprecated BD batchexecute RPC | Traced code path: gRPC succeeds, DecodeBodyData+Unmarshal fail, falls through to `c.orchestrationService.GenerateFreeFormStreamed` which uses BD RPC. Confirmed BD is deprecated per docs/investigations/2025-02-01_generate-chat-400-error.md | CONFIRMED |
+Path C (lines 1992-1994): DecodeBodyData fails (parseErr != nil) →
+  return string(respBytes) as Chunk.
+  - string(respBytes) = the entire raw HTTP response body, including the `)]}'` prefix,
+    chunk-length numbers, and wrb.fr JSON arrays.
+  - THIS is what produces the "raw streaming JSON with wrb.fr payloads" the user sees.
+  - This is the CONFIRMED root cause path.
+
+**Why does DecodeBodyData fail?**
+The grpcendpoint.Execute sends with rt=c (chunked format). The streaming endpoint
+GenerateFreeFormStreamed returns MULTIPLE wrb.fr entries (one per text chunk).
+parseChunkedResponse's chunk-size tracking may miscount if server chunk sizes include
+the trailing newline byte (off-by-one), causing the parser to consume the next chunk's
+size line as part of the current chunk's data, corrupting subsequent parsing, and
+ultimately returning "no valid responses found" → error → Path C → raw respBytes.
+
+**The fix (two parts):**
+1. Path C: Instead of returning string(respBytes), apply extractTextFromJSON to the
+   raw bytes — or better, try to extract text by scanning respBytes for wrb.fr content.
+   The safest fix: use a dedicated scan that finds all wrb.fr JSON strings and
+   concatenates the text from each one.
+2. Path B: The current extractTextFromJSON (longestStringIn) heuristic is fragile.
+   For a GenerateFreeFormStreamed response, field 1 (position 0 in the array) IS the
+   text chunk. A targeted extractor that reads position [0] from the decoded array
+   would be more reliable than the longest-string heuristic.

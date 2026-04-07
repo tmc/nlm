@@ -6,6 +6,60 @@ import (
 	"testing"
 )
 
+// TestExtractTextFromRawGRPCBytes is a regression test for the --format plain raw JSON bug.
+// When DecodeBodyData fails to parse the chunked gRPC response (e.g. due to a streaming
+// response with mismatched chunk sizes), GenerateFreeFormStreamed used to fall back to
+// string(respBytes) which printed the raw HTTP body including )]}\' and wrb.fr JSON.
+// The fix must extract readable text from raw bytes without returning raw framing.
+func TestExtractTextFromRawGRPCBytes(t *testing.T) {
+	tests := []struct {
+		name        string
+		body        []byte
+		wantContain string
+		wantNot     []string
+	}{
+		{
+			name: "single chunk standard format",
+			// )]}\' prefix, chunk-size line, wrb.fr JSON with data string at position [2].
+			// Data string is a JSON-encoded array: ["text", false] — field 1 = chunk text.
+			body: []byte(")]}'\n\n145\n[[\"wrb.fr\",\"GenerateFreeFormStreamed\",\"[\\\"Dopamine is a neurotransmitter.\\\",false]\",null,null,null,\"generic\"]]\n25\n[[\"e\",4,null,null,237]]\n"),
+			wantContain: "Dopamine",
+			wantNot:     []string{"wrb.fr", ")]}"},
+		},
+		{
+			name: "multiple streaming chunks concatenated",
+			// Streaming endpoint sends multiple wrb.fr frames; old code returned all raw.
+			body: []byte(")]}'\n\n80\n[[\"wrb.fr\",\"rpc\",\"[\\\"Hello \\\",false]\",null,null,null,\"generic\"]]\n78\n[[\"wrb.fr\",\"rpc\",\"[\\\"world.\\\",true]\",null,null,null,\"generic\"]]\n"),
+			wantContain: "Hello",
+			wantNot:     []string{"wrb.fr", ")]}"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractTextFromRawGRPCBytes(tt.body)
+			for _, bad := range tt.wantNot {
+				if strings.Contains(got, bad) {
+					t.Errorf("extractTextFromRawGRPCBytes contains unwanted %q in output: %q", bad, got[:minInt(len(got), 300)])
+				}
+			}
+			if got == "" {
+				t.Errorf("extractTextFromRawGRPCBytes returned empty string, want text content")
+			}
+			if tt.wantContain != "" && !strings.Contains(got, tt.wantContain) {
+				t.Errorf("extractTextFromRawGRPCBytes = %q, want string containing %q", got, tt.wantContain)
+			}
+		})
+	}
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // TestExtractTextFromJSON is a regression test for the generate-chat 400 fix.
 // When GenerateFreeFormStreamed falls back to extracting text from a raw gRPC
 // response payload, extractTextFromJSON must return the longest string found

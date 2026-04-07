@@ -1987,10 +1987,10 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 			} else if c.config.Debug {
 				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response decode failed: %v, extracting raw text\n", parseErr)
 			}
-			// Decode failed entirely — return raw response bytes as chunk text so the
-			// user gets some output rather than a 400 from the dead batchexecute RPC.
+			// Decode failed entirely — extract text from the raw bytes rather than
+			// returning the raw HTTP body (which contains wrb.fr JSON framing).
 			return &pb.GenerateFreeFormStreamedResponse{
-				Chunk:   string(respBytes),
+				Chunk:   extractTextFromRawGRPCBytes(respBytes),
 				IsFinal: true,
 			}, nil
 		}
@@ -2399,6 +2399,146 @@ func longestStringIn(v interface{}) string {
 		return best
 	}
 	return ""
+}
+
+// extractTextFromRawGRPCBytes extracts human-readable text from a raw gRPC/batchexecute
+// HTTP response body. It is used when DecodeBodyData fails (e.g. due to streaming
+// chunk-size mismatches) so that the caller never receives raw JSON as output.
+//
+// Strategy: scan the raw bytes for JSON strings that appear at wrb.fr position [2]
+// (the data payload). Each such string is itself a JSON-encoded proto array whose
+// first element (field 1 = chunk) is the text. We collect all non-empty text chunks
+// and join them, falling back to longestStringIn on the entire body if nothing is found.
+func extractTextFromRawGRPCBytes(body []byte) string {
+	s := string(body)
+
+	// Walk all occurrences of "wrb.fr" and grab the data string at position [2].
+	var texts []string
+	search := s
+	for {
+		idx := strings.Index(search, `"wrb.fr"`)
+		if idx < 0 {
+			break
+		}
+		// After "wrb.fr", position [1] is the RPC name, [2] is the data string.
+		// Find the data string: the third quoted string in the array after "wrb.fr".
+		rest := search[idx+len(`"wrb.fr"`):]
+
+		// Skip past position [1] (the RPC name string).
+		// Find the next JSON string (position [1]) and skip it.
+		rest, ok := skipJSONString(rest)
+		if !ok {
+			search = search[idx+1:]
+			continue
+		}
+
+		// Now rest starts at or before the position [2] value.
+		// Find the next JSON string (position [2]: the data payload).
+		dataStr, _, ok2 := nextJSONString(rest)
+		if !ok2 {
+			search = search[idx+1:]
+			continue
+		}
+
+		// dataStr is the JSON-encoded proto array, e.g. "[\"text here\",false]"
+		// or "[[\"text here\",false],null,...]". Extract text from it.
+		text := extractTextFromJSON(json.RawMessage(dataStr))
+		if text != "" && !strings.Contains(text, "wrb.fr") && !strings.HasPrefix(text, ")]}'") {
+			texts = append(texts, text)
+		}
+
+		search = search[idx+1:]
+	}
+
+	if len(texts) > 0 {
+		return strings.Join(texts, "")
+	}
+
+	// Last-resort fallback: find the longest string anywhere in the body that is not
+	// the raw HTTP framing.
+	var v interface{}
+	// Strip non-JSON framing characters before attempting parse.
+	cleaned := strings.TrimSpace(s)
+	// Remove the )]}\' prefix if present.
+	if strings.HasPrefix(cleaned, ")]}'") {
+		cleaned = cleaned[4:]
+	}
+	// Try to find any JSON array in the body.
+	if start := strings.IndexByte(cleaned, '['); start >= 0 {
+		if err := json.Unmarshal([]byte(cleaned[start:]), &v); err == nil {
+			candidate := longestStringIn(v)
+			if !strings.Contains(candidate, "wrb.fr") {
+				return candidate
+			}
+		}
+	}
+
+	return ""
+}
+
+// skipJSONString advances past the next JSON string in s (including any leading
+// commas and whitespace) and returns the remaining string. ok is false if no
+// JSON string was found.
+func skipJSONString(s string) (rest string, ok bool) {
+	_, rest, ok = nextJSONString(s)
+	return rest, ok
+}
+
+// nextJSONString finds the first JSON string in s and returns its unquoted value,
+// the remaining input after the string, and whether a string was found.
+func nextJSONString(s string) (value, rest string, ok bool) {
+	// Scan for an opening double-quote, skipping commas, brackets, whitespace, null.
+	i := 0
+	for i < len(s) {
+		c := s[i]
+		if c == '"' {
+			break
+		}
+		// Skip structural characters and null literals.
+		if c == ',' || c == '[' || c == ']' || c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+			i++
+			continue
+		}
+		// If it's 'n' (null), skip 4 chars.
+		if c == 'n' && i+4 <= len(s) && s[i:i+4] == "null" {
+			i += 4
+			continue
+		}
+		// Anything else (number, boolean, nested structure) — not a string at this level.
+		return "", s[i:], false
+	}
+	if i >= len(s) {
+		return "", s, false
+	}
+
+	// Parse the JSON string starting at s[i].
+	end := i + 1
+	escaped := false
+	for end < len(s) {
+		c := s[end]
+		if escaped {
+			escaped = false
+			end++
+			continue
+		}
+		if c == '\\' {
+			escaped = true
+			end++
+			continue
+		}
+		if c == '"' {
+			end++
+			break
+		}
+		end++
+	}
+
+	// s[i:end] is the raw JSON string including quotes; unmarshal to get the value.
+	var val string
+	if err := json.Unmarshal([]byte(s[i:end]), &val); err != nil {
+		return "", s[end:], false
+	}
+	return val, s[end:], true
 }
 
 // driveSourceMIMEType maps research source type codes to MIME types.
