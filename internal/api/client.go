@@ -1966,18 +1966,33 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 			if c.config.Debug {
 				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response: %s\n", string(respBytes))
 			}
-			// Parse the gRPC response — same chunked wire format as batchexecute
+			// Parse the gRPC response — same chunked wire format as batchexecute.
+			// If parsing succeeds and unmarshal succeeds, return the structured response.
+			// If parsing or unmarshal fails, fall back to returning raw text — but never
+			// fall through to the batchexecute BD RPC, which is deprecated and returns 400.
 			data, parseErr := batchexecute.DecodeBodyData(respBytes)
 			if parseErr == nil {
 				var parsed pb.GenerateFreeFormStreamedResponse
 				if unmarshalErr := beprotojson.Unmarshal(data, &parsed); unmarshalErr == nil {
 					return &parsed, nil
 				} else if c.config.Debug {
-					fmt.Fprintf(os.Stderr, "DEBUG:gRPC response unmarshal failed: %v, trying batchexecute fallback\n", unmarshalErr)
+					fmt.Fprintf(os.Stderr, "DEBUG:gRPC response unmarshal failed: %v, extracting raw text\n", unmarshalErr)
 				}
+				// Unmarshal failed but we have decoded data — extract text content.
+				// The data is a JSON array; pull out any string value to use as chunk text.
+				return &pb.GenerateFreeFormStreamedResponse{
+					Chunk:   extractTextFromJSON(data),
+					IsFinal: true,
+				}, nil
 			} else if c.config.Debug {
-				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response decode failed: %v, trying batchexecute fallback\n", parseErr)
+				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response decode failed: %v, extracting raw text\n", parseErr)
 			}
+			// Decode failed entirely — return raw response bytes as chunk text so the
+			// user gets some output rather than a 400 from the dead batchexecute RPC.
+			return &pb.GenerateFreeFormStreamedResponse{
+				Chunk:   string(respBytes),
+				IsFinal: true,
+			}, nil
 		}
 	}
 
@@ -2347,6 +2362,43 @@ func (c *Client) importDriveSources(projectID, taskID string, sources []Research
 		return fmt.Errorf("import drive sources: %w", err)
 	}
 	return nil
+}
+
+// extractTextFromJSON scans a JSON value (typically an array) and returns the
+// longest string found anywhere in the structure. This is used to extract readable
+// text content from gRPC response payloads whose exact schema is unknown.
+func extractTextFromJSON(data json.RawMessage) string {
+	var v interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return string(data)
+	}
+	return longestStringIn(v)
+}
+
+// longestStringIn recursively walks a JSON-decoded value and returns the longest
+// string it finds. Arrays and maps are traversed depth-first.
+func longestStringIn(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case []interface{}:
+		best := ""
+		for _, elem := range val {
+			if s := longestStringIn(elem); len(s) > len(best) {
+				best = s
+			}
+		}
+		return best
+	case map[string]interface{}:
+		best := ""
+		for _, elem := range val {
+			if s := longestStringIn(elem); len(s) > len(best) {
+				best = s
+			}
+		}
+		return best
+	}
+	return ""
 }
 
 // driveSourceMIMEType maps research source type codes to MIME types.
