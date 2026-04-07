@@ -9,11 +9,13 @@ import (
 // EncodeCheckSourceFreshnessArgs encodes arguments for LabsTailwindOrchestrationService.CheckSourceFreshness
 // RPC ID: yR9Yof
 //
-// Wire format: [null, ["source-id"], [2]]
-//   Field 2: SourceRevision sub-message with field 1 = source ID
-//   Field 3: ProjectContext {field 1: 2}
+// Wire format (from NLM source analysis):
+//
+//	[null, ["source-id"], [4]]
+//
+// pos 2: ProjectContext [4] — refresh/freshness RPCs use context value 4
 func EncodeCheckSourceFreshnessArgs(req *notebooklmv1alpha1.CheckSourceFreshnessRequest) []interface{} {
 	sourceRevision := []interface{}{req.GetSourceId()}
-	projectContext := []interface{}{2}
+	projectContext := []interface{}{4}
 	return []interface{}{nil, sourceRevision, projectContext}
 }
