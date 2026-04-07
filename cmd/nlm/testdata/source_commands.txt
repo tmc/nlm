@@ -68,11 +68,11 @@ stderr 'Authentication required'
 # === REFRESH-SOURCE COMMAND ===
 # Test refresh-source without arguments
 ! exec ./nlm_test refresh-source
-stderr 'usage: nlm refresh-source <source-id>'
+stderr 'usage: nlm refresh-source <notebook-id> <source-id>'
 ! stderr 'panic'
 
 # Test refresh-source without authentication
-! exec ./nlm_test refresh-source source123
+! exec ./nlm_test refresh-source notebook123 source123
 stderr 'Authentication required'
 ! stderr 'panic'
 
