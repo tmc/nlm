@@ -25,6 +25,19 @@ func TestParseInteractivityTokenResponse(t *testing.T) {
 	}
 }
 
+func TestInteractivityTokenCallUsesEmptyArgs(t *testing.T) {
+	call := interactivityTokenCall("notebook-123")
+	if call.ID != "Of0kDd" {
+		t.Fatalf("ID = %q, want Of0kDd", call.ID)
+	}
+	if call.NotebookID != "notebook-123" {
+		t.Fatalf("NotebookID = %q, want notebook-123", call.NotebookID)
+	}
+	if len(call.Args) != 0 {
+		t.Fatalf("Args = %#v, want empty args", call.Args)
+	}
+}
+
 func TestParseSDPExchangeResponse(t *testing.T) {
 	raw := json.RawMessage(`["{\"sdp\":\"v=0\\r\\n\",\"type\":\"answer\"}\n"]`)
 

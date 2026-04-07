@@ -169,8 +169,9 @@ needs fixing, testing, or finishing to make every command fully operational.
 - [x] `audio-interactive <id>` command surface in help, validation, and dispatch
 - [x] `--transcript-only`, `--no-mic`, `--speaker`, `--mic`, `--timeout`, `--help` parsing and usage output
 - [x] `FetchInteractivityToken` (Of0kDd) — voice session auth
-- [x] `eyWvXc` — WebRTC SDP offer/answer negotiation
-- [x] Receive WebRTC DataChannel transcripts and render them in `--transcript-only` mode
+- [x] `eyWvXc` RPC wiring for WebRTC SDP offer/answer negotiation
+- [ ] Live NotebookLM acceptance of the `eyWvXc` SDP offer
+- [x] Decode captured WebRTC DataChannel transcripts and render them in `--transcript-only` mode
 - [x] macOS backend scaffold uses `github.com/tmc/apple/avfaudio` for future playback/capture wiring
 - [ ] Remote audio playback (Opus decode + local speaker output)
 - [ ] Microphone capture / outbound audio encode

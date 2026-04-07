@@ -33,12 +33,16 @@ func newRPCClient(authToken, cookies string, debug bool) *rpc.Client {
 	return rpc.New(authToken, cookies, opts...)
 }
 
-func fetchInteractivityToken(client *rpc.Client, notebookID string) (*InteractivityToken, error) {
-	raw, err := client.Do(rpc.Call{
+func interactivityTokenCall(notebookID string) rpc.Call {
+	return rpc.Call{
 		ID:         rpc.RPCFetchInteractivityToken,
 		NotebookID: notebookID,
-		Args:       []interface{}{"[]"},
-	})
+		Args:       []interface{}{},
+	}
+}
+
+func fetchInteractivityToken(client *rpc.Client, notebookID string) (*InteractivityToken, error) {
+	raw, err := client.Do(interactivityTokenCall(notebookID))
 	if err != nil {
 		return nil, fmt.Errorf("fetch interactivity token: %w", err)
 	}

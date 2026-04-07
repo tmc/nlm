@@ -710,11 +710,6 @@ func run() error {
 			if i == 2 { // Last attempt
 				return fmt.Errorf("authentication failed after 3 attempts: %w", authErr)
 			}
-		} else {
-			// Save the refreshed credentials
-			if saveErr := saveCredentials(authToken, cookies); saveErr != nil && debug {
-				fmt.Fprintf(os.Stderr, "nlm: warning: failed to save credentials: %v\n", saveErr)
-			}
 		}
 	}
 	return fmt.Errorf("nlm: authentication failed after 3 attempts")
@@ -741,13 +736,17 @@ func isAuthenticationError(err error) bool {
 		"error 16",
 		"status: 401",
 		"status: 403",
-		"session.*invalid",
-		"session.*expired",
-		"login.*required",
-		"auth.*required",
-		"invalid.*credentials",
-		"token.*expired",
-		"cookie.*invalid",
+		"session invalid",
+		"invalid session",
+		"session expired",
+		"expired session",
+		"login required",
+		"auth required",
+		"invalid credentials",
+		"token expired",
+		"expired token",
+		"cookie invalid",
+		"invalid cookie",
 	}
 
 	for _, keyword := range authKeywords {
@@ -758,39 +757,6 @@ func isAuthenticationError(err error) bool {
 
 	return false
 }
-
-// saveCredentials saves authentication credentials to environment file
-func saveCredentials(authToken, cookies string) error {
-	// Get home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("get home directory: %w", err)
-	}
-
-	// Create .nlm directory if it doesn't exist
-	nlmDir := filepath.Join(home, ".nlm")
-	if err := os.MkdirAll(nlmDir, 0755); err != nil {
-		return fmt.Errorf("create nlm directory: %w", err)
-	}
-
-	// Write environment file
-	envFile := filepath.Join(nlmDir, "env")
-	content := fmt.Sprintf(`NLM_COOKIES=%q
-NLM_AUTH_TOKEN=%q
-NLM_BROWSER_PROFILE=%q
-`,
-		cookies,
-		authToken,
-		chromeProfile,
-	)
-
-	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
-		return fmt.Errorf("write env file: %w", err)
-	}
-
-	return nil
-}
-
 func runCmd(client *api.Client, cmd string, args ...string) error {
 	var err error
 	switch cmd {

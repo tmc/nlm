@@ -266,14 +266,24 @@ func detectAuthInfo(cmd string) (string, string, error) {
 		return "", "", fmt.Errorf("no auth token found")
 	}
 	authToken := atMatch[1]
-	persistAuthToDisk(cookies, authToken, "", "", "")
-	return authToken, cookies, nil
+	return persistAuthToDisk(cookies, authToken, "", "", "")
 }
 
 func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam string) (string, string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", "", fmt.Errorf("get home dir: %w", err)
+	}
+
+	existing := readStoredEnv()
+	if profileName == "" {
+		profileName = firstNonEmpty(os.Getenv("NLM_BROWSER_PROFILE"), existing["NLM_BROWSER_PROFILE"])
+	}
+	if sessionID == "" {
+		sessionID = firstNonEmpty(os.Getenv("NLM_SESSION_ID"), existing["NLM_SESSION_ID"])
+	}
+	if blParam == "" {
+		blParam = firstNonEmpty(os.Getenv("NLM_BL_PARAM"), existing["NLM_BL_PARAM"])
 	}
 
 	// Create .nlm directory if it doesn't exist
@@ -296,21 +306,45 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam strin
 		return "", "", fmt.Errorf("write env file: %w", err)
 	}
 
+	for key, value := range map[string]string{
+		"NLM_COOKIES":         cookies,
+		"NLM_AUTH_TOKEN":      authToken,
+		"NLM_BROWSER_PROFILE": profileName,
+		"NLM_SESSION_ID":      sessionID,
+		"NLM_BL_PARAM":        blParam,
+	} {
+		if err := os.Setenv(key, value); err != nil {
+			return "", "", fmt.Errorf("set %s: %w", key, err)
+		}
+	}
+
 	fmt.Fprintf(os.Stderr, "nlm: auth info written to %s\n", envFile)
 	return authToken, cookies, nil
 }
 
 func loadStoredEnv() {
+	for key, value := range readStoredEnv() {
+		// Check if environment variable is explicitly set (including empty string)
+		// This respects test environment isolation where env vars are cleared
+		if _, isSet := os.LookupEnv(key); isSet {
+			continue
+		}
+		os.Setenv(key, value)
+	}
+}
+
+func readStoredEnv() map[string]string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return
+		return nil
 	}
 
 	data, err := os.ReadFile(filepath.Join(home, ".nlm", "env"))
 	if err != nil {
-		return
+		return nil
 	}
 
+	values := make(map[string]string)
 	s := bufio.NewScanner(strings.NewReader(string(data)))
 	for s.Scan() {
 		line := strings.TrimSpace(s.Text())
@@ -324,18 +358,22 @@ func loadStoredEnv() {
 		}
 
 		key = strings.TrimSpace(key)
-		// Check if environment variable is explicitly set (including empty string)
-		// This respects test environment isolation where env vars are cleared
-		if _, isSet := os.LookupEnv(key); isSet {
-			continue
-		}
-
 		value = strings.TrimSpace(value)
 		if unquoted, err := strconv.Unquote(value); err == nil {
 			value = unquoted
 		}
-		os.Setenv(key, value)
+		values[key] = value
 	}
+	return values
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // refreshCredentials refreshes the authentication credentials using Google's signaler API

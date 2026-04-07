@@ -343,3 +343,19 @@ func TestChunkedResponses(t *testing.T) {
 		t.Errorf("Unexpected response data:\ngot:  %s\nwant: %s", string(response.Data), string(expectedData))
 	}
 }
+
+func TestBuildRPCDataEmptyArgs(t *testing.T) {
+	rpc := RPC{
+		ID:   "Of0kDd",
+		Args: []interface{}{},
+	}
+
+	got := buildRPCData(rpc)
+	args, ok := got[1].(string)
+	if !ok {
+		t.Fatalf("args type = %T, want string", got[1])
+	}
+	if args != "[]" {
+		t.Fatalf("args = %q, want []", args)
+	}
+}
