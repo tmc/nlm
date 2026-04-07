@@ -1644,7 +1644,8 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 
 // Generation operations
 func generateFreeFormChat(c *api.Client, projectID, prompt, format string) error {
-	if format != "plain" {
+	plain := format == "plain"
+	if !plain {
 		fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 	}
 
@@ -1657,7 +1658,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt, format string) error
 	// Display the response
 	if response != nil && response.Chunk != "" {
 		fmt.Println(response.Chunk)
-	} else if format != "plain" {
+	} else if !plain {
 		fmt.Println("(No response received)")
 	}
 

@@ -1962,7 +1962,6 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 			if c.config.Debug {
 				fmt.Fprintf(os.Stderr, "DEBUG:gRPC endpoint failed: %v, trying batchexecute fallback\n", err)
 			}
-			// Fall through to batchexecute
 		} else {
 			if c.config.Debug {
 				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response: %s\n", string(respBytes))
@@ -1973,12 +1972,12 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 				var parsed pb.GenerateFreeFormStreamedResponse
 				if unmarshalErr := beprotojson.Unmarshal(data, &parsed); unmarshalErr == nil {
 					return &parsed, nil
+				} else if c.config.Debug {
+					fmt.Fprintf(os.Stderr, "DEBUG:gRPC response unmarshal failed: %v, trying batchexecute fallback\n", unmarshalErr)
 				}
+			} else if c.config.Debug {
+				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response decode failed: %v, trying batchexecute fallback\n", parseErr)
 			}
-			if c.config.Debug {
-				fmt.Fprintf(os.Stderr, "DEBUG:gRPC response parse failed, trying batchexecute fallback\n")
-			}
-			// Fall through to batchexecute
 		}
 	}
 
