@@ -2576,8 +2576,18 @@ func (c *Client) parseChatResponse(r io.Reader, callback func(chunk string) bool
 			if innerStr, ok := envelope[2].(string); ok && innerStr != "" {
 				text := extractChatText(innerStr)
 				if text != "" && text != lastText {
-					if !callback(text) {
-						return nil
+					// The stream has two phases:
+					// 1. Thinking: each chunk is a complete replacement (no shared prefix)
+					// 2. Final answer: cumulative — each chunk extends the previous
+					// Compute delta to avoid re-emitting already-printed text.
+					delta := text
+					if strings.HasPrefix(text, lastText) {
+						delta = text[len(lastText):]
+					}
+					if delta != "" {
+						if !callback(delta) {
+							return nil
+						}
 					}
 					lastText = text
 				}
