@@ -8,6 +8,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -960,7 +961,7 @@ func (c *Client) CreateAudioOverview(projectID string, instructions string) (*Au
 	ctx := context.Background()
 	audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("create audio overview: %w", err)
+		return nil, fmt.Errorf("create audio overview: %w", wrapCreateAudioOverviewError(err))
 	}
 	// Convert pb.AudioOverview to AudioOverviewResult
 	// Note: pb.AudioOverview has different fields than expected, so we map what's available
@@ -1157,6 +1158,70 @@ func mergeAudioOverviewResult(dst, src *AudioOverviewResult) {
 	}
 }
 
+func audioOverviewResultsFromArtifacts(projectID string, resp []byte) ([]*AudioOverviewResult, error) {
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		return nil, fmt.Errorf("parse artifacts response: %w", err)
+	}
+
+	items := responseData
+	if wrapped, ok := interfaceSliceAt(responseData, 0); ok {
+		if len(wrapped) == 0 {
+			items = wrapped
+		} else if _, ok := wrapped[0].([]interface{}); ok {
+			items = wrapped
+		}
+	}
+
+	overviews := make([]*AudioOverviewResult, 0, len(items))
+	for _, item := range items {
+		overview := audioOverviewResultFromArtifact(projectID, item)
+		if overview != nil {
+			overviews = append(overviews, overview)
+		}
+	}
+	return overviews, nil
+}
+
+func audioOverviewResultFromArtifact(projectID string, data interface{}) *AudioOverviewResult {
+	artifactData, ok := data.([]interface{})
+	if !ok || len(artifactData) == 0 {
+		return nil
+	}
+
+	audioID := stringAt(artifactData, 0)
+	if audioID == "" {
+		return nil
+	}
+	typeCode, ok := int32At(artifactData, 2)
+	if !ok || pb.ArtifactType(typeCode) != pb.ArtifactType_ARTIFACT_TYPE_AUDIO_OVERVIEW {
+		return nil
+	}
+
+	stateCode, _ := int32At(artifactData, 4)
+	return &AudioOverviewResult{
+		ProjectID: projectID,
+		AudioID:   audioID,
+		Title:     stringAt(artifactData, 1),
+		IsReady:   pb.ArtifactState(stateCode) == pb.ArtifactState_ARTIFACT_STATE_READY,
+	}
+}
+
+func wrapCreateAudioOverviewError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var apiErr *batchexecute.APIError
+	if errors.As(err, &apiErr) && apiErr.ErrorCode != nil && apiErr.ErrorCode.Type == batchexecute.ErrorTypeUnavailable {
+		return fmt.Errorf("%w; NotebookLM usually returns this when the notebook does not yet contain enough source text for audio generation", err)
+	}
+	if strings.Contains(err.Error(), "API error 3 (Unavailable)") || strings.Contains(err.Error(), "Service unavailable") {
+		return fmt.Errorf("%w; NotebookLM usually returns this when the notebook does not yet contain enough source text for audio generation", err)
+	}
+	return err
+}
+
 func interfaceSliceAt(values []interface{}, idx int) ([]interface{}, bool) {
 	if idx < 0 || idx >= len(values) {
 		return nil, false
@@ -1179,6 +1244,17 @@ func boolAt(values []interface{}, idx int) (bool, bool) {
 	}
 	b, ok := values[idx].(bool)
 	return b, ok
+}
+
+func int32At(values []interface{}, idx int) (int32, bool) {
+	if idx < 0 || idx >= len(values) {
+		return 0, false
+	}
+	f, ok := values[idx].(float64)
+	if !ok {
+		return 0, false
+	}
+	return int32(f), true
 }
 
 // AudioOverviewResult represents an audio overview response
@@ -1574,27 +1650,40 @@ func (r *AudioOverviewResult) SaveAudioToFile(filename string) error {
 
 // ListAudioOverviews returns audio overviews for a notebook
 func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, error) {
-	// Try to get the audio overview for the project
-	// NotebookLM typically has at most one audio overview per notebook
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCListArtifacts,
+		Args: []interface{}{
+			[]interface{}{2},
+			projectID,
+		},
+		NotebookID: projectID,
+	})
+	if err == nil {
+		overviews, parseErr := audioOverviewResultsFromArtifacts(projectID, resp)
+		if parseErr == nil && len(overviews) > 0 {
+			return overviews, nil
+		}
+		if c.config.Debug && parseErr != nil {
+			fmt.Printf("Error parsing audio overview artifacts: %v\n", parseErr)
+		}
+	}
+	if err != nil && c.config.Debug {
+		fmt.Printf("Error listing audio overview artifacts: %v\n", err)
+	}
+
 	audioOverview, err := c.GetAudioOverview(projectID)
 	if err != nil {
-		// Check if it's a not found error vs other errors
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "does not exist") {
-			// No audio overview exists
 			return []*AudioOverviewResult{}, nil
 		}
-		// For other errors, still return empty list but log if debug
 		if c.config.Debug {
 			fmt.Printf("Error getting audio overview: %v\n", err)
 		}
 		return []*AudioOverviewResult{}, nil
 	}
-
-	// Return the overview if it has content or is marked as ready
 	if audioOverview != nil && (audioOverview.AudioData != "" || audioOverview.IsReady || audioOverview.AudioID != "") {
 		return []*AudioOverviewResult{audioOverview}, nil
 	}
-
 	return []*AudioOverviewResult{}, nil
 }
 

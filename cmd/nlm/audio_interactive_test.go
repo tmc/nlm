@@ -22,9 +22,10 @@ func TestParseInteractiveAudioArgs(t *testing.T) {
 	}{
 		{
 			name:   "id before flags",
-			args:   []string{"notebook-123", "--transcript-only", "--no-mic", "--speaker", "Built-in Output", "--mic=USB Mic", "--timeout", "45m"},
+			args:   []string{"notebook-123", "--audio-id", "audio-789", "--transcript-only", "--no-mic", "--speaker", "Built-in Output", "--mic=USB Mic", "--timeout", "45m"},
 			wantID: "notebook-123",
 			wantOpts: interactiveAudioOptions{
+				AudioID:        "audio-789",
 				TranscriptOnly: true,
 				NoMic:          true,
 				Speaker:        "Built-in Output",
@@ -95,6 +96,7 @@ func TestParseInteractiveAudioArgsRejectsUnknownFlag(t *testing.T) {
 func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T) {
 	origRefresh := refreshInteractiveAudioPageState
 	origSignalerAuth := refreshInteractiveAudioSignalerAuth
+	origListOverview := listInteractiveAudioOverviews
 	origGetOverview := getInteractiveAudioOverview
 	origRun := runInteractiveAudioSession
 	origAuthToken := authToken
@@ -103,6 +105,7 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 	t.Cleanup(func() {
 		refreshInteractiveAudioPageState = origRefresh
 		refreshInteractiveAudioSignalerAuth = origSignalerAuth
+		listInteractiveAudioOverviews = origListOverview
 		getInteractiveAudioOverview = origGetOverview
 		runInteractiveAudioSession = origRun
 		authToken = origAuthToken
@@ -119,16 +122,21 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 		calls = append(calls, "refresh")
 		return nil
 	}
-	getInteractiveAudioOverview = func(_ *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
-		calls = append(calls, "overview")
+	listInteractiveAudioOverviews = func(_ *api.Client, notebookID string) ([]*api.AudioOverviewResult, error) {
+		calls = append(calls, "list")
 		if notebookID != "notebook-123" {
 			t.Fatalf("notebookID = %q, want notebook-123", notebookID)
 		}
-		return &api.AudioOverviewResult{
+		return []*api.AudioOverviewResult{{
 			ProjectID: notebookID,
 			AudioID:   "audio-123",
+			Title:     "Ready audio",
 			IsReady:   true,
-		}, nil
+		}}, nil
+	}
+	getInteractiveAudioOverview = func(_ *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
+		t.Fatal("getInteractiveAudioOverview should not be called when list returns a ready overview")
+		return nil, nil
 	}
 	refreshInteractiveAudioSignalerAuth = func(bool) (string, error) {
 		calls = append(calls, "signaler")
@@ -155,7 +163,110 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 	if err != nil {
 		t.Fatalf("runInteractiveAudio() error = %v", err)
 	}
-	if got, want := strings.Join(calls, ","), "refresh,overview,signaler,run"; got != want {
+	if got, want := strings.Join(calls, ","), "refresh,list,signaler,run"; got != want {
 		t.Fatalf("call order = %q, want %q", got, want)
+	}
+}
+
+func TestRunInteractiveAudioUsesAudioIDOverride(t *testing.T) {
+	origRefresh := refreshInteractiveAudioPageState
+	origSignalerAuth := refreshInteractiveAudioSignalerAuth
+	origListOverview := listInteractiveAudioOverviews
+	origGetOverview := getInteractiveAudioOverview
+	origRun := runInteractiveAudioSession
+	origAuthToken := authToken
+	origCookies := cookies
+	origDebug := debug
+	t.Cleanup(func() {
+		refreshInteractiveAudioPageState = origRefresh
+		refreshInteractiveAudioSignalerAuth = origSignalerAuth
+		listInteractiveAudioOverviews = origListOverview
+		getInteractiveAudioOverview = origGetOverview
+		runInteractiveAudioSession = origRun
+		authToken = origAuthToken
+		cookies = origCookies
+		debug = origDebug
+	})
+
+	authToken = "token-a"
+	cookies = "cookie-a"
+	debug = false
+
+	refreshInteractiveAudioPageState = func(bool) error { return nil }
+	listInteractiveAudioOverviews = func(_ *api.Client, notebookID string) ([]*api.AudioOverviewResult, error) {
+		return []*api.AudioOverviewResult{
+			{ProjectID: notebookID, AudioID: "audio-123", Title: "Old", IsReady: true},
+			{ProjectID: notebookID, AudioID: "audio-456", Title: "Chosen", IsReady: true},
+		}, nil
+	}
+	getInteractiveAudioOverview = func(_ *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
+		t.Fatal("getInteractiveAudioOverview should not be called when override resolves from list")
+		return nil, nil
+	}
+	refreshInteractiveAudioSignalerAuth = func(bool) (string, error) { return "", nil }
+	runInteractiveAudioSession = func(_ context.Context, _, _, _ string, opts interactiveaudio.Options) error {
+		if opts.AudioOverviewID != "audio-456" {
+			t.Fatalf("AudioOverviewID = %q, want audio-456", opts.AudioOverviewID)
+		}
+		return nil
+	}
+
+	err := runInteractiveAudio(nil, "notebook-123", interactiveAudioOptions{
+		AudioID:        "audio-456",
+		TranscriptOnly: true,
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("runInteractiveAudio() error = %v", err)
+	}
+}
+
+func TestRunInteractiveAudioUsesAudioIDOverrideWhenListIsEmpty(t *testing.T) {
+	origRefresh := refreshInteractiveAudioPageState
+	origSignalerAuth := refreshInteractiveAudioSignalerAuth
+	origListOverview := listInteractiveAudioOverviews
+	origGetOverview := getInteractiveAudioOverview
+	origRun := runInteractiveAudioSession
+	origAuthToken := authToken
+	origCookies := cookies
+	origDebug := debug
+	t.Cleanup(func() {
+		refreshInteractiveAudioPageState = origRefresh
+		refreshInteractiveAudioSignalerAuth = origSignalerAuth
+		listInteractiveAudioOverviews = origListOverview
+		getInteractiveAudioOverview = origGetOverview
+		runInteractiveAudioSession = origRun
+		authToken = origAuthToken
+		cookies = origCookies
+		debug = origDebug
+	})
+
+	authToken = "token-a"
+	cookies = "cookie-a"
+	debug = false
+
+	refreshInteractiveAudioPageState = func(bool) error { return nil }
+	listInteractiveAudioOverviews = func(_ *api.Client, notebookID string) ([]*api.AudioOverviewResult, error) {
+		return nil, nil
+	}
+	getInteractiveAudioOverview = func(_ *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
+		t.Fatal("getInteractiveAudioOverview should not be called when audio-id override is set")
+		return nil, nil
+	}
+	refreshInteractiveAudioSignalerAuth = func(bool) (string, error) { return "", nil }
+	runInteractiveAudioSession = func(_ context.Context, _, _, _ string, opts interactiveaudio.Options) error {
+		if opts.AudioOverviewID != "audio-override" {
+			t.Fatalf("AudioOverviewID = %q, want audio-override", opts.AudioOverviewID)
+		}
+		return nil
+	}
+
+	err := runInteractiveAudio(nil, "notebook-123", interactiveAudioOptions{
+		AudioID:        "audio-override",
+		TranscriptOnly: true,
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("runInteractiveAudio() error = %v", err)
 	}
 }

@@ -3071,7 +3071,7 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-	fmt.Fprintln(w, "PROJECT\tTITLE\tSTATUS")
+	fmt.Fprintln(w, "ID\tTITLE\tSTATUS")
 	for _, audio := range audioOverviews {
 		status := "pending"
 		if audio.IsReady {
@@ -3081,8 +3081,12 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 		if title == "" {
 			title = "(untitled)"
 		}
+		id := audio.AudioID
+		if id == "" {
+			id = "(unknown)"
+		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
-			audio.ProjectID,
+			id,
 			title,
 			status,
 		)

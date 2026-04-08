@@ -57,3 +57,32 @@ func TestAudioOverviewResultFromRPC(t *testing.T) {
 		t.Fatal("IsReady = false, want true")
 	}
 }
+
+func TestAudioOverviewResultsFromArtifacts(t *testing.T) {
+	t.Parallel()
+
+	resp := []byte(`[[["audio-2","Newest audio",2,[[["src-1"]]],2],["video-1","Ignore video",3,[[["src-2"]]],2],["audio-1","Older audio",2,[[["src-3"]]],1]]]`)
+
+	results, err := audioOverviewResultsFromArtifacts("project-123", resp)
+	if err != nil {
+		t.Fatalf("audioOverviewResultsFromArtifacts() error = %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("len(results) = %d, want 2", len(results))
+	}
+	if results[0].AudioID != "audio-2" {
+		t.Fatalf("results[0].AudioID = %q, want audio-2", results[0].AudioID)
+	}
+	if results[0].Title != "Newest audio" {
+		t.Fatalf("results[0].Title = %q, want Newest audio", results[0].Title)
+	}
+	if !results[0].IsReady {
+		t.Fatal("results[0].IsReady = false, want true")
+	}
+	if results[1].AudioID != "audio-1" {
+		t.Fatalf("results[1].AudioID = %q, want audio-1", results[1].AudioID)
+	}
+	if results[1].IsReady {
+		t.Fatal("results[1].IsReady = true, want false")
+	}
+}
