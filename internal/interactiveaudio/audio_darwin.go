@@ -27,6 +27,8 @@ const (
 	playbackStartBuffers     = 6
 	playbackStartMaxDelay    = 150 * time.Millisecond
 	playbackPrepareFrameRate = 10
+	playbackDefaultRate      = 48000
+	playbackDefaultChannels  = 2
 )
 
 // Backend is the Darwin audio backend.
@@ -46,6 +48,8 @@ type Backend struct {
 	playbackChans    int
 	playbackSlots    chan struct{}
 	playbackPrimedAt time.Time
+	closeOnce        sync.Once
+	closed           chan struct{}
 }
 
 // New creates the Darwin backend.
@@ -54,6 +58,7 @@ func New(cfg Config) (*Backend, error) {
 	cfg.Mic = strings.TrimSpace(cfg.Mic)
 
 	b := &Backend{cfg: cfg}
+	b.closed = make(chan struct{})
 	if cfg.TranscriptOnly {
 		return b, nil
 	}
@@ -74,6 +79,9 @@ func (b *Backend) Close() error {
 	if b == nil {
 		return nil
 	}
+	b.closeOnce.Do(func() {
+		close(b.closed)
+	})
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.tapActive && b.input.ID != 0 {
@@ -123,7 +131,9 @@ func (b *Backend) StartPlayback() error {
 	if b.playbackSlots == nil {
 		b.playbackSlots = make(chan struct{}, playbackQueueDepth)
 	}
-	return nil
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.ensurePlaybackGraph(playbackDefaultRate, playbackDefaultChannels)
 }
 
 // WritePCM16 schedules interleaved 16-bit PCM for playback.
@@ -146,10 +156,18 @@ func (b *Backend) WritePCM16(samples []int16, sampleRate, channels int) error {
 	if b.playbackSlots == nil {
 		b.playbackSlots = make(chan struct{}, playbackQueueDepth)
 	}
-	b.playbackSlots <- struct{}{}
+	select {
+	case b.playbackSlots <- struct{}{}:
+	case <-b.closed:
+		return context.Canceled
+	}
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := b.closeErr(); err != nil {
+		<-b.playbackSlots
+		return err
+	}
 
 	if err := b.ensurePlaybackGraph(sampleRate, channels); err != nil {
 		<-b.playbackSlots
@@ -207,6 +225,9 @@ func (b *Backend) StartCapture(handler captureHandler) error {
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := b.closeErr(); err != nil {
+		return err
+	}
 
 	if b.input.ID == 0 {
 		if node := b.engine.InputNode(); node.GetID() != 0 {
@@ -221,6 +242,9 @@ func (b *Backend) StartCapture(handler captureHandler) error {
 	}
 	b.input.RemoveTapOnBus(0)
 	tapBlock := objc.NewBlock(func(_ objc.Block, bufferID objc.ID, _ objc.ID) {
+		if b.closeErr() != nil {
+			return
+		}
 		buffer := avfaudio.AVAudioPCMBufferFromID(bufferID)
 		samples, sampleRate, channels, err := decodeInputPCMBuffer(buffer)
 		if err != nil || len(samples) == 0 {
@@ -298,6 +322,18 @@ func (b *Backend) WaitPlaybackIdle(ctx context.Context, settle time.Duration) er
 // PlaybackIdle reports whether the local playback queue is empty.
 func (b *Backend) PlaybackIdle() bool {
 	return b.playbackPending() == 0
+}
+
+func (b *Backend) closeErr() error {
+	if b == nil || b.closed == nil {
+		return nil
+	}
+	select {
+	case <-b.closed:
+		return context.Canceled
+	default:
+		return nil
+	}
 }
 
 func (b *Backend) ensurePlaybackGraph(sampleRate, channels int) error {
