@@ -32,6 +32,14 @@ type RefreshClient struct {
 	debug      bool
 }
 
+// NotebookLMPageState is the page bootstrap state needed by batchexecute and
+// related signaling flows.
+type NotebookLMPageState struct {
+	GSessionID string
+	SessionID  string
+	BLParam    string
+}
+
 // NewRefreshClient creates a new refresh client
 func NewRefreshClient(cookies string) (*RefreshClient, error) {
 	// Extract SAPISID from cookies
@@ -157,8 +165,21 @@ func extractCookieValue(cookies, name string) string {
 	return ""
 }
 
-// ExtractGSessionID extracts the gsessionid from NotebookLM by fetching the page
-func ExtractGSessionID(cookies string) (string, error) {
+// ExtractNotebookLMPageState fetches NotebookLM and extracts bootstrap values
+// from the page HTML.
+func ExtractNotebookLMPageState(cookies string) (NotebookLMPageState, error) {
+	body, err := fetchNotebookLMPage(cookies)
+	if err != nil {
+		return NotebookLMPageState{}, err
+	}
+	state := parseNotebookLMPageState(body)
+	if state.GSessionID == "" && state.SessionID == "" && state.BLParam == "" {
+		return NotebookLMPageState{}, fmt.Errorf("notebooklm page state not found in page")
+	}
+	return state, nil
+}
+
+func fetchNotebookLMPage(cookies string) ([]byte, error) {
 	// Create HTTP client with longer timeout and redirect following
 	client := &http.Client{
 		Timeout: 60 * time.Second,
@@ -178,7 +199,7 @@ func ExtractGSessionID(cookies string) (string, error) {
 	// Create request to NotebookLM
 	req, err := http.NewRequest("GET", "https://notebooklm.google.com/", nil)
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	// Set headers
@@ -188,33 +209,67 @@ func ExtractGSessionID(cookies string) (string, error) {
 	// Send request
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("fetch page: %w", err)
+		return nil, fmt.Errorf("fetch page: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	// Look for gsessionid in the page
-	// Pattern: "gsessionid":"<value>"
-	pattern := regexp.MustCompile(`"gsessionid"\s*:\s*"([^"]+)"`)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("fetch page: status %d", resp.StatusCode)
+	}
+
+	return body, nil
+}
+
+func parseNotebookLMPageState(body []byte) NotebookLMPageState {
+	return NotebookLMPageState{
+		GSessionID: firstNotebookLMPageMatch(body,
+			regexp.MustCompile(`"gsessionid"\s*:\s*"([^"]+)"`),
+			regexp.MustCompile(`gsessionid\s*=\s*['"]([^'"]+)['"]`),
+		),
+		SessionID: extractNotebookLMJSONStringField(body, "FdrFJe"),
+		BLParam:   extractNotebookLMJSONStringField(body, "cfb2h"),
+	}
+}
+
+func firstNotebookLMPageMatch(body []byte, patterns ...*regexp.Regexp) string {
+	for _, pattern := range patterns {
+		matches := pattern.FindSubmatch(body)
+		if len(matches) > 1 {
+			return string(matches[1])
+		}
+	}
+	return ""
+}
+
+func extractNotebookLMJSONStringField(body []byte, field string) string {
+	pattern := regexp.MustCompile(fmt.Sprintf(`"%s"\s*:\s*"((?:\\.|[^"\\])*)"`, regexp.QuoteMeta(field)))
 	matches := pattern.FindSubmatch(body)
-	if len(matches) > 1 {
-		return string(matches[1]), nil
+	if len(matches) < 2 {
+		return ""
 	}
-
-	// Alternative pattern: gsessionid='<value>'
-	pattern2 := regexp.MustCompile(`gsessionid\s*=\s*['"]([^'"]+)['"]`)
-	matches2 := pattern2.FindSubmatch(body)
-	if len(matches2) > 1 {
-		return string(matches2[1]), nil
+	value, err := strconv.Unquote(`"` + string(matches[1]) + `"`)
+	if err != nil {
+		return string(matches[1])
 	}
+	return value
+}
 
-	// If not found, return error
-	return "", fmt.Errorf("gsessionid not found in page")
+// ExtractGSessionID extracts the gsessionid from NotebookLM by fetching the page.
+func ExtractGSessionID(cookies string) (string, error) {
+	state, err := ExtractNotebookLMPageState(cookies)
+	if err != nil {
+		return "", err
+	}
+	if state.GSessionID == "" {
+		return "", fmt.Errorf("gsessionid not found in page")
+	}
+	return state.GSessionID, nil
 }
 
 // RefreshLoop runs a background refresh loop to keep credentials alive

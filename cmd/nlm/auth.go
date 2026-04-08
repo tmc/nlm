@@ -15,6 +15,8 @@ import (
 	"golang.org/x/term"
 )
 
+var extractNotebookLMPageState = auth.ExtractNotebookLMPageState
+
 // maskProfileName masks sensitive profile names in debug output
 func maskProfileName(profile string) string {
 	if profile == "" {
@@ -394,6 +396,7 @@ func refreshCredentials(debugFlag bool) error {
 	if cookies == "" {
 		return fmt.Errorf("no stored credentials found. Run 'nlm auth' first")
 	}
+	authToken := os.Getenv("NLM_AUTH_TOKEN")
 
 	// Create refresh client
 	refreshClient, err := auth.NewRefreshClient(cookies)
@@ -406,9 +409,14 @@ func refreshCredentials(debugFlag bool) error {
 		fmt.Fprintf(os.Stderr, "nlm: refreshing credentials...\n")
 	}
 
-	// For now, use a hardcoded gsessionid from the user's example
-	// TODO: Extract this dynamically from the NotebookLM page
-	gsessionID := "LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg"
+	state, err := extractNotebookLMPageState(cookies)
+	if err != nil {
+		return fmt.Errorf("refresh notebooklm page state: %w", err)
+	}
+	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam); err != nil {
+		return fmt.Errorf("persist notebooklm page state: %w", err)
+	}
+	gsessionID := state.GSessionID
 	if debug {
 		fmt.Fprintf(os.Stderr, "nlm: using gsessionid: %s\n", gsessionID)
 	}
@@ -419,5 +427,36 @@ func refreshCredentials(debugFlag bool) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "nlm: credentials refreshed successfully\n")
+	return nil
+}
+
+func refreshNotebookLMPageState(debugFlag bool) error {
+	loadStoredEnv()
+
+	cookies := os.Getenv("NLM_COOKIES")
+	if cookies == "" {
+		return fmt.Errorf("no stored credentials found. Run 'nlm auth' first")
+	}
+
+	authToken := os.Getenv("NLM_AUTH_TOKEN")
+	state, err := extractNotebookLMPageState(cookies)
+	if err != nil {
+		return fmt.Errorf("extract notebooklm page state: %w", err)
+	}
+	if state.SessionID == "" || state.BLParam == "" {
+		return fmt.Errorf("incomplete notebooklm page state")
+	}
+	if debugFlag {
+		fmt.Fprintf(os.Stderr, "nlm: refreshed notebooklm page state\n")
+		if state.SessionID != "" {
+			fmt.Fprintf(os.Stderr, "nlm: session id: %s\n", state.SessionID)
+		}
+		if state.BLParam != "" {
+			fmt.Fprintf(os.Stderr, "nlm: build label: %s\n", state.BLParam)
+		}
+	}
+	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam); err != nil {
+		return fmt.Errorf("persist notebooklm page state: %w", err)
+	}
 	return nil
 }

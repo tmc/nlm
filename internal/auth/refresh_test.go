@@ -56,3 +56,25 @@ func TestExtractCookieValue(t *testing.T) {
 		})
 	}
 }
+
+func TestParseNotebookLMPageState(t *testing.T) {
+	body := []byte(`
+<!doctype html>
+<html>
+<head><script>
+window.WIZ_global_data = {"FdrFJe":"-8344731930921376674","cfb2h":"boq_labs-tailwind-frontend_20260406.14_p0"};
+</script></head>
+<body>{"gsessionid":"LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg"}</body>
+</html>`)
+
+	got := parseNotebookLMPageState(body)
+	if got.GSessionID != "LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg" {
+		t.Fatalf("GSessionID = %q, want %q", got.GSessionID, "LsWt3iCG3ezhLlQau_BO2Gu853yG1uLi0RnZlSwqVfg")
+	}
+	if got.SessionID != "-8344731930921376674" {
+		t.Fatalf("SessionID = %q, want %q", got.SessionID, "-8344731930921376674")
+	}
+	if got.BLParam != "boq_labs-tailwind-frontend_20260406.14_p0" {
+		t.Fatalf("BLParam = %q, want %q", got.BLParam, "boq_labs-tailwind-frontend_20260406.14_p0")
+	}
+}

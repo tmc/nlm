@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tmc/nlm/internal/auth"
 )
 
 func TestIsAuthenticationError(t *testing.T) {
@@ -83,6 +85,61 @@ func TestPersistAuthToDiskPreservesSessionState(t *testing.T) {
 		`NLM_BROWSER_PROFILE="Default"`,
 		`NLM_SESSION_ID="session-a"`,
 		`NLM_BL_PARAM="bl-a"`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("env file missing %q\n%s", want, text)
+		}
+	}
+}
+
+func TestRefreshNotebookLMPageStateUpdatesStoredSessionState(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("NLM_COOKIES", "")
+	t.Setenv("NLM_AUTH_TOKEN", "")
+	t.Setenv("NLM_BROWSER_PROFILE", "")
+	t.Setenv("NLM_SESSION_ID", "")
+	t.Setenv("NLM_BL_PARAM", "")
+
+	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-old", "bl-old"); err != nil {
+		t.Fatalf("persistAuthToDisk() initial error = %v", err)
+	}
+
+	orig := extractNotebookLMPageState
+	extractNotebookLMPageState = func(cookies string) (auth.NotebookLMPageState, error) {
+		if cookies != "cookie-a" {
+			t.Fatalf("cookies = %q, want cookie-a", cookies)
+		}
+		return auth.NotebookLMPageState{
+			GSessionID: "gsession-new",
+			SessionID:  "session-new",
+			BLParam:    "bl-new",
+		}, nil
+	}
+	defer func() { extractNotebookLMPageState = orig }()
+
+	if err := refreshNotebookLMPageState(false); err != nil {
+		t.Fatalf("refreshNotebookLMPageState() error = %v", err)
+	}
+
+	if got := os.Getenv("NLM_SESSION_ID"); got != "session-new" {
+		t.Fatalf("NLM_SESSION_ID = %q, want session-new", got)
+	}
+	if got := os.Getenv("NLM_BL_PARAM"); got != "bl-new" {
+		t.Fatalf("NLM_BL_PARAM = %q, want bl-new", got)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".nlm", "env"))
+	if err != nil {
+		t.Fatalf("read env file: %v", err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		`NLM_COOKIES="cookie-a"`,
+		`NLM_AUTH_TOKEN="token-a"`,
+		`NLM_BROWSER_PROFILE="Default"`,
+		`NLM_SESSION_ID="session-new"`,
+		`NLM_BL_PARAM="bl-new"`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("env file missing %q\n%s", want, text)
