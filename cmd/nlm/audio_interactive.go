@@ -19,6 +19,12 @@ var errInteractiveAudioHelp = errors.New("interactive audio help shown")
 var refreshInteractiveAudioPageState = refreshNotebookLMPageState
 var refreshInteractiveAudioSignalerAuth = refreshNotebookLMSignalerAuthorization
 var runInteractiveAudioSession = interactiveaudio.Run
+var getInteractiveAudioOverview = func(client *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
+	if client == nil {
+		return nil, fmt.Errorf("interactive audio requires api client")
+	}
+	return client.GetAudioOverview(notebookID)
+}
 
 type interactiveAudioOptions struct {
 	TranscriptOnly bool
@@ -130,8 +136,6 @@ func runInteractiveAudioCommand(client *api.Client, notebookID string, opts inte
 }
 
 func runInteractiveAudio(client *api.Client, notebookID string, opts interactiveAudioOptions) error {
-	_ = client
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -146,6 +150,18 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 			fmt.Fprintf(os.Stderr, "nlm: interactive audio page-state refresh failed: %v\n", err)
 		}
 	}
+
+	audioOverview, err := getInteractiveAudioOverview(client, notebookID)
+	if err != nil {
+		return fmt.Errorf("get audio overview: %w", err)
+	}
+	if audioOverview == nil || strings.TrimSpace(audioOverview.AudioID) == "" {
+		return fmt.Errorf("interactive audio requires an audio overview")
+	}
+	if !audioOverview.IsReady {
+		return fmt.Errorf("audio overview is not ready yet")
+	}
+
 	signalerAuthorization, signalerErr := refreshInteractiveAudioSignalerAuth(debug)
 	if signalerErr != nil {
 		if debug {
@@ -153,13 +169,14 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 		}
 	}
 
-	err := runInteractiveAudioSession(ctx, authToken, cookies, notebookID, interactiveaudio.Options{
+	err = runInteractiveAudioSession(ctx, authToken, cookies, notebookID, interactiveaudio.Options{
 		Config: interactiveaudio.Config{
 			TranscriptOnly: opts.TranscriptOnly,
 			NoMic:          opts.NoMic,
 			Speaker:        opts.Speaker,
 			Mic:            opts.Mic,
 		},
+		AudioOverviewID:       audioOverview.AudioID,
 		Debug:                 debug,
 		Stdout:                os.Stdout,
 		Stderr:                os.Stderr,

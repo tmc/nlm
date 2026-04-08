@@ -1051,31 +1051,54 @@ func (c *Client) GetAudioOverview(projectID string) (*AudioOverviewResult, error
 	if err != nil {
 		return nil, fmt.Errorf("get audio overview: %w", err)
 	}
-	// Convert pb.AudioOverview to AudioOverviewResult
-	// Note: pb.AudioOverview has different fields than expected, so we map what's available
-	result := &AudioOverviewResult{
-		ProjectID: projectID,
-		AudioID:   "",                                 // Not available in pb.AudioOverview
-		Title:     "",                                 // Not available in pb.AudioOverview
-		AudioData: audioOverview.Content,              // Map Content to AudioData
-		IsReady:   audioOverview.Status != "CREATING", // Infer from Status
+	result := audioOverviewResultFromProto(projectID, audioOverview)
+	if result.AudioID != "" || result.AudioData != "" || result.Title != "" {
+		return result, nil
+	}
+
+	fallback, err := c.getAudioOverviewDirectRPC(projectID)
+	if err == nil {
+		mergeAudioOverviewResult(result, fallback)
 	}
 	return result, nil
 }
 
+func audioOverviewResultFromProto(projectID string, audioOverview *pb.AudioOverview) *AudioOverviewResult {
+	result := &AudioOverviewResult{ProjectID: projectID}
+	if audioOverview == nil {
+		return result
+	}
+
+	result.AudioID = audioOverview.GetAudioId()
+	result.Title = audioOverview.GetTitle()
+	result.AudioData = audioOverview.GetContent()
+	if status := audioOverview.GetStatus(); status != "" {
+		result.IsReady = status != "CREATING"
+	}
+	return result
+}
+
 // getAudioOverviewDirectRPC uses direct RPC to get audio overview
 func (c *Client) getAudioOverviewDirectRPC(projectID string) (*AudioOverviewResult, error) {
-	return c.getAudioOverviewDirectRPCWithType(projectID, 1) // Default to type 1
+	result, err := c.getAudioOverviewDirectRPCArgs(projectID, []interface{}{projectID})
+	if err == nil && (result.AudioID != "" || result.AudioData != "" || result.Title != "") {
+		return result, nil
+	}
+	return c.getAudioOverviewDirectRPCWithType(projectID, 1)
 }
 
 // getAudioOverviewDirectRPCWithType uses direct RPC with a specific request type
 func (c *Client) getAudioOverviewDirectRPCWithType(projectID string, requestType int) (*AudioOverviewResult, error) {
+	return c.getAudioOverviewDirectRPCArgs(projectID, []interface{}{
+		projectID,
+		requestType, // request_type - try different values
+	})
+}
+
+func (c *Client) getAudioOverviewDirectRPCArgs(projectID string, args []interface{}) (*AudioOverviewResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGetAudioOverview,
-		Args: []interface{}{
-			projectID,
-			requestType, // request_type - try different values
-		},
+		ID:         rpc.RPCGetAudioOverview,
+		Args:       args,
 		NotebookID: projectID,
 	})
 	if err != nil {
@@ -1087,37 +1110,75 @@ func (c *Client) getAudioOverviewDirectRPCWithType(projectID string, requestType
 	if err := json.Unmarshal(resp, &data); err != nil {
 		return nil, fmt.Errorf("parse response JSON: %w", err)
 	}
+	return audioOverviewResultFromRPC(projectID, data), nil
+}
 
+func audioOverviewResultFromRPC(projectID string, data []interface{}) *AudioOverviewResult {
 	result := &AudioOverviewResult{
 		ProjectID: projectID,
 	}
 
-	// Extract fields from response
-	// Response format varies, but typically contains status and data
-	if len(data) > 0 {
-		if audioData, ok := data[0].([]interface{}); ok {
-			// Check status
-			if len(audioData) > 0 {
-				if status, ok := audioData[0].(string); ok {
-					result.IsReady = status != "CREATING"
-				}
-			}
-			// Get audio content
-			if len(audioData) > 1 {
-				if content, ok := audioData[1].(string); ok {
-					result.AudioData = content
-				}
-			}
-			// Get title if available
-			if len(audioData) > 2 {
-				if title, ok := audioData[2].(string); ok {
-					result.Title = title
-				}
-			}
+	if detail, ok := interfaceSliceAt(data, 2); ok {
+		result.AudioData = stringAt(detail, 1)
+		result.AudioID = stringAt(detail, 2)
+		result.Title = stringAt(detail, 3)
+		if ready, ok := boolAt(detail, 5); ok {
+			result.IsReady = ready
 		}
+		return result
 	}
 
-	return result, nil
+	if legacy, ok := interfaceSliceAt(data, 0); ok {
+		if status := stringAt(legacy, 0); status != "" {
+			result.IsReady = status != "CREATING"
+		}
+		result.AudioData = stringAt(legacy, 1)
+		result.Title = stringAt(legacy, 2)
+	}
+
+	return result
+}
+
+func mergeAudioOverviewResult(dst, src *AudioOverviewResult) {
+	if dst == nil || src == nil {
+		return
+	}
+	if dst.AudioID == "" {
+		dst.AudioID = src.AudioID
+	}
+	if dst.Title == "" {
+		dst.Title = src.Title
+	}
+	if dst.AudioData == "" {
+		dst.AudioData = src.AudioData
+	}
+	if !dst.IsReady {
+		dst.IsReady = src.IsReady
+	}
+}
+
+func interfaceSliceAt(values []interface{}, idx int) ([]interface{}, bool) {
+	if idx < 0 || idx >= len(values) {
+		return nil, false
+	}
+	slice, ok := values[idx].([]interface{})
+	return slice, ok
+}
+
+func stringAt(values []interface{}, idx int) string {
+	if idx < 0 || idx >= len(values) {
+		return ""
+	}
+	s, _ := values[idx].(string)
+	return s
+}
+
+func boolAt(values []interface{}, idx int) (bool, bool) {
+	if idx < 0 || idx >= len(values) {
+		return false, false
+	}
+	b, ok := values[idx].(bool)
+	return b, ok
 }
 
 // AudioOverviewResult represents an audio overview response
@@ -2334,30 +2395,43 @@ type ChatChunk struct {
 const chatEndpoint = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
 
 func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
-	resp, err := c.doChat(ChatRequest{
+	var resp strings.Builder
+	err := c.StreamChat(ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
 		SourceIDs: sourceIDs,
-	})
+	}, answerOnlyCallback(func(chunk string) bool {
+		resp.WriteString(chunk)
+		return true
+	}))
 	if err != nil {
 		return nil, fmt.Errorf("generate free form streamed: %w", err)
 	}
-	return &pb.GenerateFreeFormStreamedResponse{Chunk: resp}, nil
+	return &pb.GenerateFreeFormStreamedResponse{Chunk: resp.String()}, nil
 }
 
 // GenerateFreeFormStreamedWithCallback streams the response and calls the callback for each chunk.
 func (c *Client) GenerateFreeFormStreamedWithCallback(projectID string, prompt string, sourceIDs []string, callback func(chunk string) bool) error {
-	return c.doChatStreamed(ChatRequest{
+	return c.StreamChat(ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
 		SourceIDs: sourceIDs,
-	}, callback)
+	}, answerOnlyCallback(callback))
 }
 
 // StreamChat streams the response with phase-aware ChatChunk callbacks.
 // Thinking chunks are complete reasoning traces; answer chunks are cumulative deltas.
 func (c *Client) StreamChat(req ChatRequest, callback func(ChatChunk) bool) error {
 	return c.doChatStreamedChunked(req, callback)
+}
+
+func answerOnlyCallback(callback func(string) bool) func(ChatChunk) bool {
+	return func(chunk ChatChunk) bool {
+		if chunk.Phase != ChatChunkAnswer || chunk.Text == "" {
+			return true
+		}
+		return callback(chunk.Text)
+	}
 }
 
 // ChatWithHistory sends a chat message with full conversation history.

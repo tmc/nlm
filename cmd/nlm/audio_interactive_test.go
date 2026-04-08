@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tmc/nlm/internal/interactiveaudio"
+	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 func TestParseInteractiveAudioArgs(t *testing.T) {
@@ -94,6 +95,7 @@ func TestParseInteractiveAudioArgsRejectsUnknownFlag(t *testing.T) {
 func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T) {
 	origRefresh := refreshInteractiveAudioPageState
 	origSignalerAuth := refreshInteractiveAudioSignalerAuth
+	origGetOverview := getInteractiveAudioOverview
 	origRun := runInteractiveAudioSession
 	origAuthToken := authToken
 	origCookies := cookies
@@ -101,6 +103,7 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 	t.Cleanup(func() {
 		refreshInteractiveAudioPageState = origRefresh
 		refreshInteractiveAudioSignalerAuth = origSignalerAuth
+		getInteractiveAudioOverview = origGetOverview
 		runInteractiveAudioSession = origRun
 		authToken = origAuthToken
 		cookies = origCookies
@@ -116,6 +119,17 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 		calls = append(calls, "refresh")
 		return nil
 	}
+	getInteractiveAudioOverview = func(_ *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
+		calls = append(calls, "overview")
+		if notebookID != "notebook-123" {
+			t.Fatalf("notebookID = %q, want notebook-123", notebookID)
+		}
+		return &api.AudioOverviewResult{
+			ProjectID: notebookID,
+			AudioID:   "audio-123",
+			IsReady:   true,
+		}, nil
+	}
 	refreshInteractiveAudioSignalerAuth = func(bool) (string, error) {
 		calls = append(calls, "signaler")
 		return "Bearer signaler-token", nil
@@ -124,6 +138,9 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 		calls = append(calls, "run")
 		if !opts.Config.TranscriptOnly {
 			t.Fatalf("TranscriptOnly = false, want true")
+		}
+		if opts.AudioOverviewID != "audio-123" {
+			t.Fatalf("AudioOverviewID = %q, want audio-123", opts.AudioOverviewID)
 		}
 		if opts.SignalerAuthorization != "Bearer signaler-token" {
 			t.Fatalf("SignalerAuthorization = %q, want Bearer signaler-token", opts.SignalerAuthorization)
@@ -138,7 +155,7 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 	if err != nil {
 		t.Fatalf("runInteractiveAudio() error = %v", err)
 	}
-	if got, want := strings.Join(calls, ","), "refresh,signaler,run"; got != want {
+	if got, want := strings.Join(calls, ","), "refresh,overview,signaler,run"; got != want {
 		t.Fatalf("call order = %q, want %q", got, want)
 	}
 }

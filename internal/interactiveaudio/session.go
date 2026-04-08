@@ -17,6 +17,7 @@ import (
 // Options controls an interactive-audio run.
 type Options struct {
 	Config                Config
+	AudioOverviewID       string
 	Debug                 bool
 	Stdout                io.Writer
 	Stderr                io.Writer
@@ -32,6 +33,7 @@ type session struct {
 	renderer   *Renderer
 	backend    *Backend
 	stderr     io.Writer
+	outbound   outboundState
 }
 
 type sessionMessage struct {
@@ -56,6 +58,10 @@ func Run(ctx context.Context, authToken, cookies, notebookID string, opts Option
 	if strings.TrimSpace(notebookID) == "" {
 		return fmt.Errorf("missing notebook id")
 	}
+	opts.AudioOverviewID = strings.TrimSpace(opts.AudioOverviewID)
+	if opts.AudioOverviewID == "" {
+		return fmt.Errorf("interactive audio requires audio overview id")
+	}
 
 	opts.Config.Speaker = strings.TrimSpace(opts.Config.Speaker)
 	opts.Config.Mic = strings.TrimSpace(opts.Config.Mic)
@@ -71,16 +77,21 @@ func Run(ctx context.Context, authToken, cookies, notebookID string, opts Option
 	if opts.Config.Mic != "" {
 		return fmt.Errorf("microphone selection is not wired yet; use --transcript-only")
 	}
-	if !opts.Config.TranscriptOnly {
-		return fmt.Errorf("local audio playback is not wired yet; use --transcript-only")
+	if !opts.Config.TranscriptOnly && !opts.Config.NoMic {
+		return fmt.Errorf("microphone capture is not wired yet; use --no-mic")
 	}
-	opts.Config.NoMic = true
+	if opts.Config.TranscriptOnly {
+		opts.Config.NoMic = true
+	}
 
 	backend, err := New(opts.Config)
 	if err != nil {
 		return err
 	}
 	defer backend.Close()
+	if err := backend.StartPlayback(); err != nil {
+		return err
+	}
 
 	renderer := NewRenderer(opts.Stdout, opts.Stderr, opts.TTY)
 	renderer.SetDebug(opts.Debug)
@@ -153,26 +164,20 @@ func (s *session) run(ctx context.Context) error {
 	})
 
 	pc.OnTrack(func(track *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		if s.opts.Debug {
-			fmt.Fprintf(s.stderr, "Ignoring remote %s track (%s) in transcript-only mode\n", track.Kind().String(), track.Codec().MimeType)
-		}
-		buf := make([]byte, 1500)
-		for {
-			if _, _, err := track.Read(buf); err != nil {
-				return
-			}
+		if err := s.handleRemoteTrack(track); err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
+			sendSessionError(connErrs, err)
 		}
 	})
 
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
-		s.attachDataChannel(ctx, dc, events)
+		s.attachDataChannel(ctx, dc, events, connErrs)
 	})
 
 	dc, err := pc.CreateDataChannel("webrtc-datachannel", nil)
 	if err != nil {
 		return fmt.Errorf("create data channel: %w", err)
 	}
-	s.attachDataChannel(ctx, dc, events)
+	s.attachDataChannel(ctx, dc, events, connErrs)
 
 	offer, err := pc.CreateOffer(nil)
 	if err != nil {
@@ -265,10 +270,24 @@ func (s *session) startSignaler(ctx context.Context) {
 	}
 }
 
-func (s *session) attachDataChannel(ctx context.Context, dc *webrtc.DataChannel, events chan<- sessionMessage) {
+func (s *session) attachDataChannel(ctx context.Context, dc *webrtc.DataChannel, events chan<- sessionMessage, connErrs chan<- error) {
 	dc.OnOpen(func() {
 		if s.opts.Debug {
 			fmt.Fprintf(s.stderr, "Data channel open: %s\n", dc.Label())
+		}
+		if dc.Label() != "data-channel" && dc.Label() != "webrtc-datachannel" {
+			return
+		}
+		frames := s.outbound.startupFrames(s.opts.AudioOverviewID)
+		if len(frames) == 0 {
+			return
+		}
+		if err := sendFrames(dc, frames); err != nil {
+			sendSessionError(connErrs, err)
+			return
+		}
+		if s.opts.Debug {
+			fmt.Fprintf(s.stderr, "Sent %d startup data-channel frames\n", len(frames))
 		}
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {

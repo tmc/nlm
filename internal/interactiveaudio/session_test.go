@@ -38,11 +38,11 @@ func TestRunValidatesOptions(t *testing.T) {
 			want: "microphone selection is not wired yet",
 		},
 		{
-			name: "local playback not wired",
+			name: "microphone capture not wired",
 			opts: Options{
 				Config: Config{},
 			},
-			want: "local audio playback is not wired yet",
+			want: "microphone capture is not wired yet",
 		},
 	}
 
@@ -52,14 +52,28 @@ func TestRunValidatesOptions(t *testing.T) {
 			t.Parallel()
 
 			err := Run(context.Background(), "auth", "cookies", "notebook", Options{
-				Config: tt.opts.Config,
-				Stdout: io.Discard,
-				Stderr: io.Discard,
+				Config:          tt.opts.Config,
+				AudioOverviewID: "audio-123",
+				Stdout:          io.Discard,
+				Stderr:          io.Discard,
 			})
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("Run() error = %v, want substring %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestRunRequiresAudioOverviewID(t *testing.T) {
+	t.Parallel()
+
+	err := Run(context.Background(), "auth", "cookies", "notebook", Options{
+		Config: Config{TranscriptOnly: true},
+		Stdout: io.Discard,
+		Stderr: io.Discard,
+	})
+	if err == nil || !strings.Contains(err.Error(), "requires audio overview id") {
+		t.Fatalf("Run() error = %v, want audio overview id error", err)
 	}
 }
 
