@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"strings"
@@ -19,6 +20,7 @@ var errInteractiveAudioHelp = errors.New("interactive audio help shown")
 var refreshInteractiveAudioPageState = refreshNotebookLMPageState
 var refreshInteractiveAudioSignalerAuth = refreshNotebookLMSignalerAuthorization
 var runInteractiveAudioSession = interactiveaudio.Run
+var interactiveAudioStatusWriter = func() io.Writer { return os.Stderr }
 var listInteractiveAudioOverviews = func(client *api.Client, notebookID string) ([]*api.AudioOverviewResult, error) {
 	if client == nil {
 		return nil, fmt.Errorf("interactive audio requires api client")
@@ -65,12 +67,16 @@ func parseInteractiveAudioArgs(args []string) (interactiveAudioOptions, string, 
 		fmt.Fprintf(os.Stderr, "Usage: nlm audio-interactive <notebook-id> [flags]\n\n")
 		fmt.Fprintln(os.Stderr, "Flags:")
 		fmt.Fprintln(os.Stderr, "  --audio-id <id>     Specific audio overview to launch")
-		fmt.Fprintln(os.Stderr, "  --transcript-only   Skip audio playback, print transcript only")
-		fmt.Fprintln(os.Stderr, "  --no-mic            Listen-only mode (no microphone input)")
+		fmt.Fprintln(os.Stderr, "  --transcript-only   Print transcript only; audio playback and microphone stay off")
+		fmt.Fprintln(os.Stderr, "  --no-mic            Listen-only mode; rerun without --no-mic to speak")
 		fmt.Fprintln(os.Stderr, "  --speaker <device>  Audio output device (default: system default)")
 		fmt.Fprintln(os.Stderr, "  --mic <device>      Audio input device (default: system default)")
 		fmt.Fprintln(os.Stderr, "  --timeout <dur>     Session timeout (default: 30m)")
 		fmt.Fprintln(os.Stderr, "  --help              Show help for audio-interactive")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Examples:")
+		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id>           Start with mic on (voice-activated)")
+		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --no-mic  Start with mic off")
 	}
 
 	flagArgs, notebookID, err := splitInteractiveAudioArgs(args)
@@ -185,6 +191,7 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 			fmt.Fprintf(os.Stderr, "nlm: interactive audio signaler auth refresh failed: %v\n", signalerErr)
 		}
 	}
+	fmt.Fprintln(interactiveAudioStatusWriter(), describeInteractiveAudioMicMode(opts))
 
 	err = runInteractiveAudioSession(ctx, authToken, cookies, notebookID, interactiveaudio.Options{
 		Config: interactiveaudio.Config{
@@ -204,6 +211,17 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 		return nil
 	}
 	return err
+}
+
+func describeInteractiveAudioMicMode(opts interactiveAudioOptions) string {
+	switch {
+	case opts.TranscriptOnly:
+		return "Mic: off. Transcript-only mode disables audio playback and microphone input."
+	case opts.NoMic:
+		return "Mic: off. Running in listen-only mode. Rerun without --no-mic to speak."
+	default:
+		return "Mic: on. Speak to interrupt. Rerun with --no-mic to turn it off."
+	}
 }
 
 func resolveInteractiveAudioOverview(client *api.Client, notebookID string, opts interactiveAudioOptions) (*api.AudioOverviewResult, string, error) {

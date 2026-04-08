@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -90,6 +92,42 @@ func TestParseInteractiveAudioArgsRejectsUnknownFlag(t *testing.T) {
 	_, _, err := parseInteractiveAudioArgs([]string{"notebook-123", "--wat"})
 	if err == nil || !strings.Contains(err.Error(), "unknown flag") {
 		t.Fatalf("error = %v, want unknown flag error", err)
+	}
+}
+
+func TestDescribeInteractiveAudioMicMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		opts interactiveAudioOptions
+		want string
+	}{
+		{
+			name: "transcript only",
+			opts: interactiveAudioOptions{TranscriptOnly: true},
+			want: "Mic: off. Transcript-only mode disables audio playback and microphone input.",
+		},
+		{
+			name: "listen only",
+			opts: interactiveAudioOptions{NoMic: true},
+			want: "Mic: off. Running in listen-only mode. Rerun without --no-mic to speak.",
+		},
+		{
+			name: "mic enabled",
+			opts: interactiveAudioOptions{},
+			want: "Mic: on. Speak to interrupt. Rerun with --no-mic to turn it off.",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := describeInteractiveAudioMicMode(tt.opts); got != tt.want {
+				t.Fatalf("describeInteractiveAudioMicMode() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -268,5 +306,113 @@ func TestRunInteractiveAudioUsesAudioIDOverrideWhenListIsEmpty(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("runInteractiveAudio() error = %v", err)
+	}
+}
+
+func TestRunInteractiveAudioTreatsCanceledSessionAsCleanExit(t *testing.T) {
+	origRefresh := refreshInteractiveAudioPageState
+	origSignalerAuth := refreshInteractiveAudioSignalerAuth
+	origListOverview := listInteractiveAudioOverviews
+	origGetOverview := getInteractiveAudioOverview
+	origRun := runInteractiveAudioSession
+	origAuthToken := authToken
+	origCookies := cookies
+	origDebug := debug
+	t.Cleanup(func() {
+		refreshInteractiveAudioPageState = origRefresh
+		refreshInteractiveAudioSignalerAuth = origSignalerAuth
+		listInteractiveAudioOverviews = origListOverview
+		getInteractiveAudioOverview = origGetOverview
+		runInteractiveAudioSession = origRun
+		authToken = origAuthToken
+		cookies = origCookies
+		debug = origDebug
+	})
+
+	authToken = "token-a"
+	cookies = "cookie-a"
+	debug = false
+
+	refreshInteractiveAudioPageState = func(bool) error { return nil }
+	listInteractiveAudioOverviews = func(_ *api.Client, notebookID string) ([]*api.AudioOverviewResult, error) {
+		return []*api.AudioOverviewResult{{
+			ProjectID: notebookID,
+			AudioID:   "audio-123",
+			IsReady:   true,
+		}}, nil
+	}
+	getInteractiveAudioOverview = func(_ *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
+		t.Fatal("getInteractiveAudioOverview should not be called when list returns a ready overview")
+		return nil, nil
+	}
+	refreshInteractiveAudioSignalerAuth = func(bool) (string, error) { return "", nil }
+	runInteractiveAudioSession = func(_ context.Context, _, _, _ string, _ interactiveaudio.Options) error {
+		return context.Canceled
+	}
+
+	err := runInteractiveAudio(nil, "notebook-123", interactiveAudioOptions{
+		TranscriptOnly: true,
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("runInteractiveAudio() error = %v, want nil", err)
+	}
+}
+
+func TestRunInteractiveAudioReportsMicMode(t *testing.T) {
+	origRefresh := refreshInteractiveAudioPageState
+	origSignalerAuth := refreshInteractiveAudioSignalerAuth
+	origListOverview := listInteractiveAudioOverviews
+	origGetOverview := getInteractiveAudioOverview
+	origRun := runInteractiveAudioSession
+	origStatusWriter := interactiveAudioStatusWriter
+	origAuthToken := authToken
+	origCookies := cookies
+	origDebug := debug
+	t.Cleanup(func() {
+		refreshInteractiveAudioPageState = origRefresh
+		refreshInteractiveAudioSignalerAuth = origSignalerAuth
+		listInteractiveAudioOverviews = origListOverview
+		getInteractiveAudioOverview = origGetOverview
+		runInteractiveAudioSession = origRun
+		interactiveAudioStatusWriter = origStatusWriter
+		authToken = origAuthToken
+		cookies = origCookies
+		debug = origDebug
+	})
+
+	authToken = "token-a"
+	cookies = "cookie-a"
+	debug = false
+
+	refreshInteractiveAudioPageState = func(bool) error { return nil }
+	listInteractiveAudioOverviews = func(_ *api.Client, notebookID string) ([]*api.AudioOverviewResult, error) {
+		return []*api.AudioOverviewResult{{
+			ProjectID: notebookID,
+			AudioID:   "audio-123",
+			IsReady:   true,
+		}}, nil
+	}
+	getInteractiveAudioOverview = func(_ *api.Client, notebookID string) (*api.AudioOverviewResult, error) {
+		t.Fatal("getInteractiveAudioOverview should not be called when list returns a ready overview")
+		return nil, nil
+	}
+	refreshInteractiveAudioSignalerAuth = func(bool) (string, error) { return "", nil }
+	runInteractiveAudioSession = func(_ context.Context, _, _, _ string, _ interactiveaudio.Options) error {
+		return context.Canceled
+	}
+
+	var status bytes.Buffer
+	interactiveAudioStatusWriter = func() io.Writer { return &status }
+
+	err := runInteractiveAudio(nil, "notebook-123", interactiveAudioOptions{
+		NoMic:   true,
+		Timeout: time.Second,
+	})
+	if err != nil {
+		t.Fatalf("runInteractiveAudio() error = %v, want nil", err)
+	}
+	if got := status.String(); !strings.Contains(got, "Mic: off. Running in listen-only mode.") {
+		t.Fatalf("status = %q, want mic mode message", got)
 	}
 }
