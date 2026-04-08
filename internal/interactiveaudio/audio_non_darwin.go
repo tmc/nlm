@@ -3,8 +3,10 @@
 package interactiveaudio
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Config describes the requested interactive-audio mode.
@@ -61,10 +63,23 @@ func (b *Backend) StartPlayback() error {
 	return fmt.Errorf("interactive audio playback requires darwin")
 }
 
+// WritePCM16 is unavailable on non-Darwin systems.
+func (b *Backend) WritePCM16([]int16, int, int) error {
+	if b != nil && b.cfg.TranscriptOnly {
+		return nil
+	}
+	return fmt.Errorf("interactive audio playback requires darwin")
+}
+
 // StartCapture always fails on non-Darwin platforms.
 func (b *Backend) StartCapture() error {
 	if b != nil && (b.cfg.TranscriptOnly || b.cfg.NoMic) {
 		return nil
 	}
 	return fmt.Errorf("interactive audio microphone capture requires darwin")
+}
+
+// WaitPlaybackIdle is a no-op on non-Darwin platforms.
+func (b *Backend) WaitPlaybackIdle(context.Context, time.Duration) error {
+	return nil
 }

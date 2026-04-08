@@ -41,6 +41,15 @@ func TestAudioSupportFlags(t *testing.T) {
 			t.Fatal("SupportsCapture() = true, want false")
 		}
 	}
+	if runtime.GOOS == "darwin" {
+		if err := b.StartPlayback(); err != nil {
+			t.Fatalf("StartPlayback() error = %v", err)
+		}
+		if err := b.StartCapture(); err == nil {
+			t.Fatal("StartCapture() error = nil, want error")
+		}
+		return
+	}
 	if err := b.StartPlayback(); err == nil {
 		t.Fatal("StartPlayback() error = nil, want error")
 	}

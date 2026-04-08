@@ -26,8 +26,8 @@ func TestDarwinTranscriptOnlyBackend(t *testing.T) {
 	}
 }
 
-func TestDarwinBackendScaffold(t *testing.T) {
-	b, err := New(Config{})
+func TestDarwinPlaybackBackend(t *testing.T) {
+	b, err := New(Config{NoMic: true})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -37,14 +37,14 @@ func TestDarwinBackendScaffold(t *testing.T) {
 	if !b.SupportsPlayback() {
 		t.Fatal("SupportsPlayback() = false, want true")
 	}
-	if !b.SupportsCapture() {
-		t.Fatal("SupportsCapture() = false, want true")
+	if b.SupportsCapture() {
+		t.Fatal("SupportsCapture() = true, want false")
 	}
-	if err := b.StartPlayback(); err == nil {
-		t.Fatal("StartPlayback() error = nil, want error")
+	if err := b.StartPlayback(); err != nil {
+		t.Fatalf("StartPlayback() error = %v", err)
 	}
-	if err := b.StartCapture(); err == nil {
-		t.Fatal("StartCapture() error = nil, want error")
+	if err := b.StartCapture(); err != nil {
+		t.Fatalf("StartCapture() error = %v", err)
 	}
 	if err := b.Close(); err != nil {
 		t.Fatalf("Close() error = %v", err)
