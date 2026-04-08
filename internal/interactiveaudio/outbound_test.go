@@ -60,3 +60,19 @@ func TestOutboundStartupFramesRequireAudioOverviewID(t *testing.T) {
 		t.Fatalf("startupFrames(\"\") = %d frames, want nil", len(got))
 	}
 }
+
+func TestOutboundCompletionFrames(t *testing.T) {
+	var state outboundState
+	_ = state.startupFrames("58133c78-e2c4-4176-8974-09eb4647b82b")
+	frames := state.completionFrames()
+	if len(frames) != 1 {
+		t.Fatalf("completionFrames() returned %d frames, want 1", len(frames))
+	}
+	const want = "EgoIARAEIgQiAhIA"
+	if got := base64.StdEncoding.EncodeToString(frames[0]); got != want {
+		t.Fatalf("completion frame = %s, want %s", got, want)
+	}
+	if got := state.completionFrames(); got != nil {
+		t.Fatalf("second completionFrames() = %d frames, want nil", len(got))
+	}
+}

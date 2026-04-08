@@ -12,6 +12,7 @@ type outboundState struct {
 	mu           sync.Mutex
 	nextSequence int
 	started      bool
+	completed    bool
 }
 
 func (s *outboundState) startupFrames(audioOverviewID string) [][]byte {
@@ -24,6 +25,18 @@ func (s *outboundState) startupFrames(audioOverviewID string) [][]byte {
 	s.started = true
 
 	frames := [][]byte{encodeGroundedAgentStartFrame(s.nextSequence, audioOverviewID)}
+	s.nextSequence += len(frames)
+	return frames
+}
+
+func (s *outboundState) completionFrames() [][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.started || s.completed {
+		return nil
+	}
+	s.completed = true
+	frames := [][]byte{encodeSendAudioStopFrame(s.nextSequence)}
 	s.nextSequence += len(frames)
 	return frames
 }
@@ -73,6 +86,16 @@ func encodeMicrophoneFrame(sequence int, statusCode int32) []byte {
 	body = protowire.AppendTag(body, 1, protowire.VarintType)
 	body = protowire.AppendVarint(body, uint64(statusCode))
 	payload = protowire.AppendTag(payload, 7, protowire.BytesType)
+	payload = protowire.AppendBytes(payload, body)
+	return encodeOutboundFrame(sequence, payload)
+}
+
+func encodeSendAudioStopFrame(sequence int) []byte {
+	var payload []byte
+	var body []byte
+	body = protowire.AppendTag(body, 2, protowire.BytesType)
+	body = protowire.AppendString(body, "")
+	payload = protowire.AppendTag(payload, 4, protowire.BytesType)
 	payload = protowire.AppendBytes(payload, body)
 	return encodeOutboundFrame(sequence, payload)
 }

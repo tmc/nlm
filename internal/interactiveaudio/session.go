@@ -34,12 +34,23 @@ type session struct {
 	backend    *Backend
 	stderr     io.Writer
 	outbound   outboundState
+
+	controlMu sync.Mutex
+	controlDC *webrtc.DataChannel
+
+	playbackMu      sync.Mutex
+	finalTTS        bool
+	lastSignalAt    time.Time
+	lastRemoteAudio time.Time
+	stopSent        bool
+	stopSentAt      time.Time
 }
 
 const (
 	playbackCompletionEventType = 2
-	playbackDrainSettle         = 250 * time.Millisecond
-	playbackDrainTimeout        = 2 * time.Second
+	playbackQuietWindow         = time.Second
+	playbackAckTimeout          = 1500 * time.Millisecond
+	playbackPollInterval        = 100 * time.Millisecond
 )
 
 type sessionMessage struct {
@@ -227,6 +238,9 @@ func (s *session) run(ctx context.Context) error {
 		return nil
 	}
 
+	ticker := time.NewTicker(playbackPollInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case msg := <-events:
@@ -237,6 +251,14 @@ func (s *session) run(ctx context.Context) error {
 				continue
 			}
 			done, err := s.handleEvent(ctx, msg.frame.Event)
+			if err != nil {
+				return err
+			}
+			if done {
+				return nil
+			}
+		case <-ticker.C:
+			done, err := s.pollPlaybackCompletion()
 			if err != nil {
 				return err
 			}
@@ -260,38 +282,162 @@ func (s *session) run(ctx context.Context) error {
 	}
 }
 
-func (s *session) handleEvent(ctx context.Context, event Event) (bool, error) {
+func (s *session) handleEvent(_ context.Context, event Event) (bool, error) {
 	if err := s.renderer.Handle(event); err != nil {
 		return false, err
 	}
-	if !s.passivePlaybackComplete(event) {
+	if s.recordPassivePlaybackEvent(event) {
+		return s.finishPlayback()
+	}
+	if !s.passivePlaybackObserved() {
 		return false, nil
 	}
-	if err := s.waitForPlaybackCompletion(ctx); err != nil {
-		return false, err
+	return false, nil
+}
+
+func (s *session) recordPassivePlaybackEvent(event Event) bool {
+	if !s.passivePlaybackEnabled() {
+		return false
 	}
+	now := time.Now()
+
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+
+	switch e := event.(type) {
+	case TTSEvent:
+		if e.EventType == playbackCompletionEventType {
+			s.finalTTS = true
+			s.lastSignalAt = now
+		}
+	case SendAudioEvent:
+		if s.finalTTS {
+			s.lastSignalAt = now
+		}
+	case PlaybackEvent:
+		if s.finalTTS {
+			s.lastSignalAt = now
+			return s.stopSent
+		}
+	}
+	return false
+}
+
+func (s *session) pollPlaybackCompletion() (bool, error) {
+	if !s.passivePlaybackEnabled() {
+		return false, nil
+	}
+	if s.shouldSendPlaybackStop(time.Now()) {
+		if err := s.sendPlaybackStop(); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	if s.shouldFinishPlayback(time.Now()) {
+		return s.finishPlayback()
+	}
+	return false, nil
+}
+
+func (s *session) passivePlaybackEnabled() bool {
+	return s.opts.Config.NoMic || s.opts.Config.TranscriptOnly
+}
+
+func (s *session) passivePlaybackObserved() bool {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+	return s.finalTTS
+}
+
+func (s *session) shouldSendPlaybackStop(now time.Time) bool {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+
+	if !s.finalTTS || s.stopSent {
+		return false
+	}
+	if s.backend != nil && !s.backend.PlaybackIdle() {
+		return false
+	}
+	last := s.lastSignalAt
+	if s.lastRemoteAudio.After(last) {
+		last = s.lastRemoteAudio
+	}
+	if last.IsZero() {
+		last = now
+	}
+	return now.Sub(last) >= playbackQuietWindow
+}
+
+func (s *session) shouldFinishPlayback(now time.Time) bool {
+	s.playbackMu.Lock()
+	defer s.playbackMu.Unlock()
+
+	if !s.stopSent {
+		return false
+	}
+	if s.backend != nil && !s.backend.PlaybackIdle() {
+		return false
+	}
+	return now.Sub(s.stopSentAt) >= playbackAckTimeout
+}
+
+func (s *session) sendPlaybackStop() error {
+	frames := s.outbound.completionFrames()
+	if len(frames) == 0 {
+		return nil
+	}
+	dc := s.controlChannel()
+	if dc == nil {
+		return nil
+	}
+	if err := sendFrames(dc, frames); err != nil {
+		return err
+	}
+	s.playbackMu.Lock()
+	s.stopSent = true
+	s.stopSentAt = time.Now()
+	s.playbackMu.Unlock()
+	if s.opts.Debug {
+		fmt.Fprintf(s.stderr, "Sent %d playback completion data-channel frames\n", len(frames))
+	}
+	return nil
+}
+
+func (s *session) finishPlayback() (bool, error) {
+	fmt.Fprintln(s.stderr, "Playback complete.")
 	return true, nil
 }
 
-func (s *session) passivePlaybackComplete(event Event) bool {
-	if !(s.opts.Config.NoMic || s.opts.Config.TranscriptOnly) {
-		return false
-	}
-	tts, ok := event.(TTSEvent)
-	return ok && tts.EventType == playbackCompletionEventType
+func (s *session) markRemoteAudioActivity() {
+	s.playbackMu.Lock()
+	s.lastRemoteAudio = time.Now()
+	s.playbackMu.Unlock()
 }
 
-func (s *session) waitForPlaybackCompletion(ctx context.Context) error {
-	if s.backend != nil && !s.backend.TranscriptOnly() {
-		waitCtx, cancel := context.WithTimeout(ctx, playbackDrainTimeout)
-		err := s.backend.WaitPlaybackIdle(waitCtx, playbackDrainSettle)
-		cancel()
-		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-			return err
-		}
+func (s *session) controlChannel() *webrtc.DataChannel {
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
+	return s.controlDC
+}
+
+func (s *session) setControlChannel(dc *webrtc.DataChannel) {
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
+	if dc == nil {
+		return
 	}
-	fmt.Fprintln(s.stderr, "Playback complete.")
-	return nil
+	if s.controlDC == nil || dc.Label() == "data-channel" {
+		s.controlDC = dc
+	}
+}
+
+func (s *session) clearControlChannel(dc *webrtc.DataChannel) {
+	s.controlMu.Lock()
+	defer s.controlMu.Unlock()
+	if s.controlDC == dc {
+		s.controlDC = nil
+	}
 }
 
 func (s *session) startSignaler(ctx context.Context) {
@@ -322,6 +468,7 @@ func (s *session) attachDataChannel(ctx context.Context, dc *webrtc.DataChannel,
 		if dc.Label() != "data-channel" && dc.Label() != "webrtc-datachannel" {
 			return
 		}
+		s.setControlChannel(dc)
 		frames := s.outbound.startupFrames(s.opts.AudioOverviewID)
 		if len(frames) == 0 {
 			return
@@ -333,6 +480,9 @@ func (s *session) attachDataChannel(ctx context.Context, dc *webrtc.DataChannel,
 		if s.opts.Debug {
 			fmt.Fprintf(s.stderr, "Sent %d startup data-channel frames\n", len(frames))
 		}
+	})
+	dc.OnClose(func() {
+		s.clearControlChannel(dc)
 	})
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 		frame, err := DecodeFrame(msg.Data)

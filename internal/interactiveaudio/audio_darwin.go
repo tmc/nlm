@@ -210,6 +210,11 @@ func (b *Backend) WaitPlaybackIdle(ctx context.Context, settle time.Duration) er
 	}
 }
 
+// PlaybackIdle reports whether the local playback queue is empty.
+func (b *Backend) PlaybackIdle() bool {
+	return b.playbackPending() == 0
+}
+
 func (b *Backend) ensurePlaybackGraph(sampleRate, channels int) error {
 	if sampleRate <= 0 {
 		return fmt.Errorf("interactive audio playback requires positive sample rate")

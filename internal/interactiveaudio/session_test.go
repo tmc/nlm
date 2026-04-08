@@ -160,7 +160,7 @@ func TestSessionStartSignalerFailure(t *testing.T) {
 	}
 }
 
-func TestSessionHandleEventCompletesPassivePlayback(t *testing.T) {
+func TestSessionHandleEventMarksPassivePlaybackFinal(t *testing.T) {
 	t.Parallel()
 
 	backend, err := New(Config{TranscriptOnly: true, NoMic: true})
@@ -186,11 +186,11 @@ func TestSessionHandleEventCompletesPassivePlayback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("handleEvent() error = %v", err)
 	}
-	if !done {
-		t.Fatalf("handleEvent() done = false, want true")
+	if done {
+		t.Fatalf("handleEvent() done = true, want false")
 	}
-	if got := stderr.String(); !strings.Contains(got, "Playback complete.") {
-		t.Fatalf("stderr = %q, want playback complete message", got)
+	if got := stderr.String(); got != "" {
+		t.Fatalf("stderr = %q, want empty", got)
 	}
 }
 
@@ -221,5 +221,37 @@ func TestSessionHandleEventIgnoresNonTerminalTTSEvent(t *testing.T) {
 	}
 	if done {
 		t.Fatalf("handleEvent() done = true, want false")
+	}
+}
+
+func TestSessionHandleEventCompletesAfterPlaybackAck(t *testing.T) {
+	t.Parallel()
+
+	backend, err := New(Config{TranscriptOnly: true, NoMic: true})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	var stderr bytes.Buffer
+	s := &session{
+		opts: Options{
+			Config: Config{TranscriptOnly: true, NoMic: true},
+		},
+		renderer: NewRenderer(io.Discard, io.Discard, false),
+		backend:  backend,
+		stderr:   &stderr,
+		finalTTS: true,
+		stopSent: true,
+	}
+
+	done, err := s.handleEvent(context.Background(), PlaybackEvent{})
+	if err != nil {
+		t.Fatalf("handleEvent() error = %v", err)
+	}
+	if !done {
+		t.Fatalf("handleEvent() done = false, want true")
+	}
+	if got := stderr.String(); !strings.Contains(got, "Playback complete.") {
+		t.Fatalf("stderr = %q, want playback complete message", got)
 	}
 }

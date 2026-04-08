@@ -65,6 +65,7 @@ func (s *session) handleRemoteTrack(track *webrtc.TrackRemote) error {
 		if len(packet.Payload) == 0 {
 			continue
 		}
+		s.markRemoteAudioActivity()
 		frames, err := decoder.Decode(packet.Payload, pcm)
 		if err != nil {
 			if s.opts.Debug {

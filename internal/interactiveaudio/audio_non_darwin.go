@@ -83,3 +83,8 @@ func (b *Backend) StartCapture() error {
 func (b *Backend) WaitPlaybackIdle(context.Context, time.Duration) error {
 	return nil
 }
+
+// PlaybackIdle reports whether local playback has drained.
+func (b *Backend) PlaybackIdle() bool {
+	return true
+}
