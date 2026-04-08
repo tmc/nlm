@@ -21,7 +21,12 @@ type Config struct {
 	Mic            string
 }
 
-const playbackQueueDepth = 32
+const (
+	playbackQueueDepth       = 96
+	playbackStartBuffers     = 6
+	playbackStartMaxDelay    = 150 * time.Millisecond
+	playbackPrepareFrameRate = 10
+)
 
 // Backend is the Darwin audio backend.
 type Backend struct {
@@ -31,12 +36,13 @@ type Backend struct {
 	input      avfaudio.AVAudioInputNode
 	graphReady bool
 
-	mu              sync.Mutex
-	format          avfaudio.AVAudioFormat
-	playbackStarted bool
-	playbackRate    int
-	playbackChans   int
-	playbackSlots   chan struct{}
+	mu               sync.Mutex
+	format           avfaudio.AVAudioFormat
+	playbackStarted  bool
+	playbackRate     int
+	playbackChans    int
+	playbackSlots    chan struct{}
+	playbackPrimedAt time.Time
 }
 
 // New creates the Darwin backend.
@@ -127,11 +133,7 @@ func (b *Backend) WritePCM16(samples []int16, sampleRate, channels int) error {
 	if b.playbackSlots == nil {
 		b.playbackSlots = make(chan struct{}, playbackQueueDepth)
 	}
-	select {
-	case b.playbackSlots <- struct{}{}:
-	default:
-		return nil
-	}
+	b.playbackSlots <- struct{}{}
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -155,10 +157,22 @@ func (b *Backend) WritePCM16(samples []int16, sampleRate, channels int) error {
 			case <-b.playbackSlots:
 			default:
 			}
+			b.mu.Lock()
+			if b.playbackPending() == 0 {
+				b.playbackPrimedAt = time.Time{}
+			}
+			b.mu.Unlock()
 		},
 	)
 	if !b.player.Playing() {
+		if b.playbackPrimedAt.IsZero() {
+			b.playbackPrimedAt = time.Now()
+		}
+		if !shouldStartPlayback(b.playbackPending(), b.playbackPrimedAt, time.Now()) {
+			return nil
+		}
 		b.player.Play()
+		b.playbackPrimedAt = time.Time{}
 	}
 	return nil
 }
@@ -247,7 +261,7 @@ func (b *Backend) ensurePlaybackGraph(sampleRate, channels int) error {
 
 	b.engine.AttachNode(b.player)
 	b.engine.ConnectToFormat(b.player, b.engine.MainMixerNode(), format)
-	b.player.PrepareWithFrameCount(avfaudio.AVAudioFrameCount(sampleRate / 50))
+	b.player.PrepareWithFrameCount(avfaudio.AVAudioFrameCount(sampleRate / playbackPrepareFrameRate))
 	b.engine.Prepare()
 
 	ok, err := b.engine.StartAndReturnError()
@@ -257,13 +271,21 @@ func (b *Backend) ensurePlaybackGraph(sampleRate, channels int) error {
 	if !ok {
 		return fmt.Errorf("start interactive audio engine")
 	}
-	b.player.Play()
-
 	b.format = format
 	b.playbackRate = sampleRate
 	b.playbackChans = channels
 	b.playbackStarted = true
 	return nil
+}
+
+func shouldStartPlayback(queued int, primedAt, now time.Time) bool {
+	if queued >= playbackStartBuffers {
+		return true
+	}
+	if queued <= 0 || primedAt.IsZero() {
+		return false
+	}
+	return now.Sub(primedAt) >= playbackStartMaxDelay
 }
 
 func (b *Backend) playbackPending() int {

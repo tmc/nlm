@@ -10,7 +10,10 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-const maxOpusFrameSamples = 2880
+const (
+	maxOpusFrameSamples      = 2880
+	maxConcealedPacketBursts = 8
+)
 
 func (s *session) handleRemoteTrack(track *webrtc.TrackRemote) error {
 	if track.Kind() != webrtc.RTPCodecTypeAudio {
@@ -50,6 +53,8 @@ func (s *session) handleRemoteTrack(track *webrtc.TrackRemote) error {
 		return fmt.Errorf("create opus decoder: %w", err)
 	}
 	pcm := make([]int16, maxOpusFrameSamples*channels)
+	var lastSequence uint16
+	var haveSequence bool
 	if s.opts.Debug {
 		fmt.Fprintf(s.stderr, "Playing remote audio track: codec=%s rate=%d channels=%d\n", codec.MimeType, sampleRate, channels)
 	}
@@ -66,6 +71,18 @@ func (s *session) handleRemoteTrack(track *webrtc.TrackRemote) error {
 			continue
 		}
 		s.markRemoteAudioActivity()
+		if missing := missingPacketCount(haveSequence, lastSequence, packet.SequenceNumber); missing > 0 {
+			if s.opts.Debug {
+				fmt.Fprintf(s.stderr, "Concealing %d missing remote audio packet(s)\n", missing)
+			}
+			if err := concealMissingAudio(s, decoder, packet.Payload, sampleRate, channels, missing); err != nil {
+				if s.opts.Debug {
+					fmt.Fprintf(s.stderr, "Skipping packet-loss concealment: %v\n", err)
+				}
+			}
+		}
+		lastSequence = packet.SequenceNumber
+		haveSequence = true
 		frames, err := decoder.Decode(packet.Payload, pcm)
 		if err != nil {
 			if s.opts.Debug {
@@ -80,4 +97,56 @@ func (s *session) handleRemoteTrack(track *webrtc.TrackRemote) error {
 			return err
 		}
 	}
+}
+
+func missingPacketCount(haveLast bool, last, current uint16) int {
+	if !haveLast {
+		return 0
+	}
+	delta := current - last
+	if delta <= 1 || delta > 0x8000 {
+		return 0
+	}
+	return int(delta - 1)
+}
+
+func concealMissingAudio(s *session, decoder *opus.Decoder, packet []byte, sampleRate, channels, missing int) error {
+	if missing <= 0 {
+		return nil
+	}
+	frameSamples, err := decoder.LastPacketDuration()
+	if err != nil {
+		return err
+	}
+	if frameSamples <= 0 {
+		frameSamples = sampleRate / 50
+	}
+	if frameSamples > maxOpusFrameSamples {
+		frameSamples = maxOpusFrameSamples
+	}
+	if missing > maxConcealedPacketBursts {
+		missing = maxConcealedPacketBursts
+	}
+	for i := 0; i < missing; i++ {
+		pcm := make([]int16, frameSamples*channels)
+		if i == missing-1 {
+			err = decoder.DecodeFEC(packet, pcm)
+		} else {
+			err = decoder.DecodePLC(pcm)
+		}
+		if err != nil {
+			return err
+		}
+		s.markRemoteAudioActivity()
+		if err := s.backend.WritePCM16(pcm, sampleRate, channels); err != nil {
+			return err
+		}
+		if nextSamples, nextErr := decoder.LastPacketDuration(); nextErr == nil && nextSamples > 0 {
+			frameSamples = nextSamples
+			if frameSamples > maxOpusFrameSamples {
+				frameSamples = maxOpusFrameSamples
+			}
+		}
+	}
+	return nil
 }
