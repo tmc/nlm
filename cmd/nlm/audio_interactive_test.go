@@ -93,12 +93,14 @@ func TestParseInteractiveAudioArgsRejectsUnknownFlag(t *testing.T) {
 
 func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T) {
 	origRefresh := refreshInteractiveAudioPageState
+	origSignalerAuth := refreshInteractiveAudioSignalerAuth
 	origRun := runInteractiveAudioSession
 	origAuthToken := authToken
 	origCookies := cookies
 	origDebug := debug
 	t.Cleanup(func() {
 		refreshInteractiveAudioPageState = origRefresh
+		refreshInteractiveAudioSignalerAuth = origSignalerAuth
 		runInteractiveAudioSession = origRun
 		authToken = origAuthToken
 		cookies = origCookies
@@ -114,10 +116,17 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 		calls = append(calls, "refresh")
 		return nil
 	}
+	refreshInteractiveAudioSignalerAuth = func(bool) (string, error) {
+		calls = append(calls, "signaler")
+		return "Bearer signaler-token", nil
+	}
 	runInteractiveAudioSession = func(_ context.Context, _, _, _ string, opts interactiveaudio.Options) error {
 		calls = append(calls, "run")
 		if !opts.Config.TranscriptOnly {
 			t.Fatalf("TranscriptOnly = false, want true")
+		}
+		if opts.SignalerAuthorization != "Bearer signaler-token" {
+			t.Fatalf("SignalerAuthorization = %q, want Bearer signaler-token", opts.SignalerAuthorization)
 		}
 		return nil
 	}
@@ -129,7 +138,7 @@ func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T
 	if err != nil {
 		t.Fatalf("runInteractiveAudio() error = %v", err)
 	}
-	if got, want := strings.Join(calls, ","), "refresh,run"; got != want {
+	if got, want := strings.Join(calls, ","), "refresh,signaler,run"; got != want {
 		t.Fatalf("call order = %q, want %q", got, want)
 	}
 }

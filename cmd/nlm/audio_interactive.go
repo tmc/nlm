@@ -17,6 +17,7 @@ import (
 
 var errInteractiveAudioHelp = errors.New("interactive audio help shown")
 var refreshInteractiveAudioPageState = refreshNotebookLMPageState
+var refreshInteractiveAudioSignalerAuth = refreshNotebookLMSignalerAuthorization
 var runInteractiveAudioSession = interactiveaudio.Run
 
 type interactiveAudioOptions struct {
@@ -145,6 +146,12 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 			fmt.Fprintf(os.Stderr, "nlm: interactive audio page-state refresh failed: %v\n", err)
 		}
 	}
+	signalerAuthorization, signalerErr := refreshInteractiveAudioSignalerAuth(debug)
+	if signalerErr != nil {
+		if debug {
+			fmt.Fprintf(os.Stderr, "nlm: interactive audio signaler auth refresh failed: %v\n", signalerErr)
+		}
+	}
 
 	err := runInteractiveAudioSession(ctx, authToken, cookies, notebookID, interactiveaudio.Options{
 		Config: interactiveaudio.Config{
@@ -153,10 +160,11 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 			Speaker:        opts.Speaker,
 			Mic:            opts.Mic,
 		},
-		Debug:  debug,
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-		TTY:    isTerminal(os.Stdout),
+		Debug:                 debug,
+		Stdout:                os.Stdout,
+		Stderr:                os.Stderr,
+		TTY:                   isTerminal(os.Stdout),
+		SignalerAuthorization: signalerAuthorization,
 	})
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return nil

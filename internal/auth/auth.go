@@ -27,18 +27,20 @@ type BrowserAuth struct {
 	keepOpenSeconds int    // Keep browser open for N seconds after auth
 	sessionID       string // Captured session ID for Jules API
 	blParam         string // Build label parameter for Jules API
+	signalerAuth    string // Captured signaler Authorization header for punctual APIs
 	sourcePath      string // Source path parameter for Jules API
 	rtParam         string // RT parameter for Jules API
 }
 
 // AuthData holds authentication information extracted from the browser
 type AuthData struct {
-	Token      string
-	Cookies    string
-	SessionID  string
-	BLParam    string // Build label parameter for Jules API
-	SourcePath string // Source path parameter for Jules API
-	RTParam    string // RT parameter for Jules API
+	Token        string
+	Cookies      string
+	SessionID    string
+	BLParam      string // Build label parameter for Jules API
+	SignalerAuth string // Authorization header for NotebookLM signaler APIs
+	SourcePath   string // Source path parameter for Jules API
+	RTParam      string // RT parameter for Jules API
 }
 
 func New(debug bool) *BrowserAuth {
@@ -55,12 +57,13 @@ func (ba *BrowserAuth) GetAuthData(opts ...Option) (*AuthData, error) {
 		return nil, err
 	}
 	return &AuthData{
-		Token:      token,
-		Cookies:    cookies,
-		SessionID:  ba.sessionID,
-		BLParam:    ba.blParam,
-		SourcePath: ba.sourcePath,
-		RTParam:    ba.rtParam,
+		Token:        token,
+		Cookies:      cookies,
+		SessionID:    ba.sessionID,
+		BLParam:      ba.blParam,
+		SignalerAuth: ba.signalerAuth,
+		SourcePath:   ba.sourcePath,
+		RTParam:      ba.rtParam,
 	}, nil
 }
 
@@ -94,6 +97,7 @@ func WithProfileName(p string) Option { return func(o *Options) { o.ProfileName 
 func WithTryAllProfiles() Option      { return func(o *Options) { o.TryAllProfiles = true } }
 func WithScanBeforeAuth() Option      { return func(o *Options) { o.ScanBeforeAuth = true } }
 func WithTargetURL(url string) Option { return func(o *Options) { o.TargetURL = url } }
+func WithoutScanBeforeAuth() Option   { return func(o *Options) { o.ScanBeforeAuth = false } }
 func WithPreferredBrowsers(browsers []string) Option {
 	return func(o *Options) { o.PreferredBrowsers = browsers }
 }
@@ -1303,12 +1307,49 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	ba.sourcePath = "/session" // Default source path for Jules
 	ba.rtParam = "c"           // Default rt parameter
 
+	var signalerAuth string
+	if err := chromedp.Run(ctx, chromedp.Evaluate(`(() => {
+		try {
+			if (typeof gapi !== "undefined" && gapi.auth && typeof gapi.auth.getToken === "function") {
+				const token = gapi.auth.getToken();
+				if (token && token.access_token) {
+					return (token.token_type || "Bearer") + " " + token.access_token;
+				}
+			}
+		} catch (_) {}
+		try {
+			if (typeof gapi !== "undefined" && gapi.auth2 && typeof gapi.auth2.getAuthInstance === "function") {
+				const instance = gapi.auth2.getAuthInstance();
+				if (instance && instance.isSignedIn && instance.isSignedIn.get()) {
+					const response = instance.currentUser.get().getAuthResponse(true);
+					if (response && response.access_token) {
+						return (response.token_type || "Bearer") + " " + response.access_token;
+					}
+				}
+			}
+		} catch (_) {}
+		try {
+			if (typeof _ !== "undefined" && _ && typeof _.Fu === "function") {
+				return _.Fu([]) || "";
+			}
+		} catch (_) {}
+		return "";
+	})()`, &signalerAuth)); err != nil {
+		if ba.debug {
+			fmt.Printf("Warning: extract signaler authorization failed: %v\n", err)
+		}
+	}
+	ba.signalerAuth = strings.TrimSpace(signalerAuth)
+
 	if ba.debug {
 		if sessionID != "" {
 			fmt.Printf("Extracted session ID: %s\n", sessionID)
 		}
 		if blParam != "" {
 			fmt.Printf("Extracted BL parameter: %s\n", blParam)
+		}
+		if ba.signalerAuth != "" {
+			fmt.Printf("Extracted signaler authorization (%d bytes)\n", len(ba.signalerAuth))
 		}
 	}
 	if err != nil {

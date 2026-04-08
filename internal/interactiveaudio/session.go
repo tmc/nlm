@@ -10,21 +10,24 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
+	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
 // Options controls an interactive-audio run.
 type Options struct {
-	Config Config
-	Debug  bool
-	Stdout io.Writer
-	Stderr io.Writer
-	TTY    bool
+	Config                Config
+	Debug                 bool
+	Stdout                io.Writer
+	Stderr                io.Writer
+	TTY                   bool
+	SignalerAuthorization string
 }
 
 type session struct {
 	opts       Options
 	notebookID string
+	cookies    string
 	rpcClient  *rpc.Client
 	renderer   *Renderer
 	backend    *Backend
@@ -34,6 +37,15 @@ type session struct {
 type sessionMessage struct {
 	frame Frame
 	err   error
+}
+
+type signalerStarter interface {
+	SetDebug(bool)
+	StartInteractiveAudioChannel(context.Context, string) error
+}
+
+var newSignalerClient = func(cookies, authorization string) (signalerStarter, error) {
+	return auth.NewSignalerClient(cookies, authorization)
 }
 
 // Run starts an interactive-audio session.
@@ -77,6 +89,7 @@ func Run(ctx context.Context, authToken, cookies, notebookID string, opts Option
 	s := &session{
 		opts:       opts,
 		notebookID: notebookID,
+		cookies:    cookies,
 		rpcClient:  newRPCClient(authToken, cookies, opts.Debug),
 		renderer:   renderer,
 		backend:    backend,
@@ -88,6 +101,8 @@ func Run(ctx context.Context, authToken, cookies, notebookID string, opts Option
 
 func (s *session) run(ctx context.Context) error {
 	fmt.Fprintln(s.stderr, "Connecting to interactive audio session...")
+
+	s.startSignaler(ctx)
 
 	token, err := fetchInteractivityToken(s.rpcClient, s.notebookID)
 	if err != nil {
@@ -227,6 +242,26 @@ func (s *session) run(ctx context.Context) error {
 			fmt.Fprintln(s.stderr, "[disconnected]")
 			return nil
 		}
+	}
+}
+
+func (s *session) startSignaler(ctx context.Context) {
+	signaler, err := newSignalerClient(s.cookies, s.opts.SignalerAuthorization)
+	if err != nil {
+		if s.opts.Debug {
+			fmt.Fprintf(s.stderr, "[signaler] unavailable: %v\n", err)
+		}
+		return
+	}
+	signaler.SetDebug(s.opts.Debug)
+	if err := signaler.StartInteractiveAudioChannel(ctx, s.notebookID); err != nil {
+		if s.opts.Debug {
+			fmt.Fprintf(s.stderr, "[signaler] start failed: %v\n", err)
+		}
+		return
+	}
+	if s.opts.Debug {
+		fmt.Fprintln(s.stderr, "[signaler] channel started")
 	}
 }
 

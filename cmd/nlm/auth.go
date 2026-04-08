@@ -460,3 +460,26 @@ func refreshNotebookLMPageState(debugFlag bool) error {
 	}
 	return nil
 }
+
+func refreshNotebookLMSignalerAuthorization(debugFlag bool) (string, error) {
+	loadStoredEnv()
+
+	profileName := firstNonEmpty(os.Getenv("NLM_BROWSER_PROFILE"), readStoredEnv()["NLM_BROWSER_PROFILE"], "Default")
+	browserAuth := auth.New(debugFlag)
+	authData, err := browserAuth.GetAuthData(
+		auth.WithProfileName(profileName),
+		auth.WithTargetURL("https://notebooklm.google.com"),
+		auth.WithoutScanBeforeAuth(),
+	)
+	if err != nil {
+		return "", fmt.Errorf("extract browser signaler authorization: %w", err)
+	}
+	authz := strings.TrimSpace(authData.SignalerAuth)
+	if authz == "" {
+		return "", fmt.Errorf("signaler authorization not found in notebooklm page")
+	}
+	if debugFlag {
+		fmt.Fprintf(os.Stderr, "nlm: refreshed notebooklm signaler authorization (%d bytes)\n", len(authz))
+	}
+	return authz, nil
+}

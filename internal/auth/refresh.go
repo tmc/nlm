@@ -142,8 +142,12 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 // generateSAPISIDHASH generates the authorization hash
 // Format: SHA1(timestamp + " " + SAPISID + " " + origin)
 func (r *RefreshClient) generateSAPISIDHASH(timestamp int64) string {
+	return generateSAPISIDHASH(r.sapisid, timestamp)
+}
+
+func generateSAPISIDHASH(sapisid string, timestamp int64) string {
 	origin := "https://notebooklm.google.com"
-	data := fmt.Sprintf("%d %s %s", timestamp, r.sapisid, origin)
+	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, origin)
 
 	hash := sha1.New()
 	hash.Write([]byte(data))
