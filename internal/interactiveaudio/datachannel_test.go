@@ -147,6 +147,47 @@ func TestRendererTTYAndPipedOutput(t *testing.T) {
 		}
 	})
 
+	t.Run("piped incremental host output after tts start", func(t *testing.T) {
+		var out bytes.Buffer
+		var status bytes.Buffer
+
+		r := NewRenderer(&out, &status, false)
+		if err := r.Handle(AgentUtterance{
+			Speakers:    []string{"Host Speaker"},
+			Transcript:  "First chunk.",
+			UtteranceID: "utt-1",
+		}); err != nil {
+			t.Fatalf("handle queued agent: %v", err)
+		}
+		if got := out.String(); got != "" {
+			t.Fatalf("stdout before tts = %q, want empty", got)
+		}
+		if err := r.Handle(TTSEvent{EventType: 1, UtteranceID: "utt-1", SegmentIdx: 0}); err != nil {
+			t.Fatalf("handle tts start: %v", err)
+		}
+		if err := r.Handle(AgentUtterance{
+			Speakers:    []string{"Host Speaker"},
+			Transcript:  "Second chunk.",
+			UtteranceID: "utt-2",
+		}); err != nil {
+			t.Fatalf("handle active agent: %v", err)
+		}
+		if err := r.Handle(TTSEvent{EventType: 2, UtteranceID: "utt-1", SegmentIdx: 1}); err != nil {
+			t.Fatalf("handle tts end: %v", err)
+		}
+		if err := r.Finish(); err != nil {
+			t.Fatalf("finish: %v", err)
+		}
+
+		want := "[HOST] First chunk.\n[HOST] Second chunk.\n"
+		if got := out.String(); got != want {
+			t.Fatalf("stdout = %q, want %q", got, want)
+		}
+		if got := status.String(); got != "" {
+			t.Fatalf("stderr = %q, want empty", got)
+		}
+	})
+
 	t.Run("tty", func(t *testing.T) {
 		var out bytes.Buffer
 		var status bytes.Buffer
@@ -174,6 +215,40 @@ func TestRendererTTYAndPipedOutput(t *testing.T) {
 		}
 		if got := status.String(); !strings.Contains(got, "[user speaking]") {
 			t.Fatalf("stderr = %q, want mic status", got)
+		}
+	})
+
+	t.Run("tty incremental host output after tts start", func(t *testing.T) {
+		var out bytes.Buffer
+		var status bytes.Buffer
+
+		r := NewRenderer(&out, &status, true)
+		if err := r.Handle(AgentUtterance{
+			Speakers:    []string{"Host Speaker"},
+			Transcript:  "First chunk.",
+			UtteranceID: "utt-1",
+		}); err != nil {
+			t.Fatalf("handle queued agent: %v", err)
+		}
+		if got := out.String(); got != "" {
+			t.Fatalf("stdout before tts = %q, want empty", got)
+		}
+		if err := r.Handle(TTSEvent{EventType: 1, UtteranceID: "utt-1", SegmentIdx: 0}); err != nil {
+			t.Fatalf("handle tts start: %v", err)
+		}
+		if err := r.Handle(AgentUtterance{
+			Speakers:    []string{"Host Speaker"},
+			Transcript:  "Second chunk.",
+			UtteranceID: "utt-2",
+		}); err != nil {
+			t.Fatalf("handle active agent: %v", err)
+		}
+		if err := r.Finish(); err != nil {
+			t.Fatalf("finish: %v", err)
+		}
+
+		if got := out.String(); !strings.Contains(got, ansiBold+"Host Speaker"+ansiReset+": First chunk.") || !strings.Contains(got, ansiBold+"Host Speaker"+ansiReset+": Second chunk.") {
+			t.Fatalf("stdout = %q, want incremental host lines", got)
 		}
 	})
 }

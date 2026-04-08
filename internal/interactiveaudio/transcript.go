@@ -19,8 +19,11 @@ type Renderer struct {
 	tty    bool
 	debug  bool
 
-	pendingUser  UserUtterance
-	pendingAgent AgentUtterance
+	pendingUser       UserUtterance
+	pendingAgents     []AgentUtterance
+	lastAgentSpeakers []string
+	lastEmittedAgent  AgentUtterance
+	ttsActive         bool
 }
 
 // NewRenderer creates a transcript renderer.
@@ -55,7 +58,7 @@ func (r *Renderer) Handle(event Event) error {
 	case StatusMessage:
 		return r.debugEvent("status", e.Text)
 	case TTSEvent:
-		return r.debugEvent("tts", fmt.Sprintf("utterance=%s segment=%d event=%d", e.UtteranceID, e.SegmentIdx, e.EventType))
+		return r.handleTTS(e)
 	case SendAudioEvent:
 		return r.debugEvent("audio", fmt.Sprintf("utterance=%s trigger=%d", e.UtteranceID, e.TriggerType))
 	case PlaybackEvent:
@@ -72,7 +75,7 @@ func (r *Renderer) Finish() error {
 	if err := r.flushPendingUser(); err != nil {
 		return err
 	}
-	if err := r.flushPendingAgent(); err != nil {
+	if err := r.flushPendingAgents(); err != nil {
 		return err
 	}
 	return nil
@@ -101,31 +104,73 @@ func (r *Renderer) handleUser(e UserUtterance) error {
 }
 
 func (r *Renderer) handleAgent(e AgentUtterance) error {
-	if e.Transcript == "" {
-		e.Transcript = r.pendingAgent.Transcript
-	}
 	if len(e.Speakers) == 0 {
-		e.Speakers = r.pendingAgent.Speakers
+		e.Speakers = r.lastAgentSpeakers
 	}
 	if len(e.Speakers) == 0 {
 		e.Speakers = []string{"Host Speaker"}
 	}
+	r.lastAgentSpeakers = append([]string(nil), e.Speakers...)
 
-	if r.tty {
+	e.Transcript = strings.TrimSpace(e.Transcript)
+	if e.Transcript == "" {
 		if e.IsFinal {
-			r.pendingAgent = AgentUtterance{}
-			_, err := fmt.Fprintf(r.out, "%s%s%s: %s\n", ansiBold, e.Speakers[0], ansiReset, strings.TrimSpace(e.Transcript))
-			return err
+			return r.flushPendingAgents()
 		}
-		r.pendingAgent = e
 		return nil
 	}
 
-	r.pendingAgent = e
+	if r.shouldSkipAgent(e) {
+		if e.IsFinal {
+			return r.flushPendingAgents()
+		}
+		return nil
+	}
+	if r.ttsActive {
+		return r.emitAgent(e)
+	}
+	r.pendingAgents = append(r.pendingAgents, e)
 	if e.IsFinal {
-		return r.flushPendingAgent()
+		return r.flushPendingAgents()
 	}
 	return nil
+}
+
+func (r *Renderer) handleTTS(e TTSEvent) error {
+	if err := r.debugEvent("tts", fmt.Sprintf("utterance=%s segment=%d event=%d", e.UtteranceID, e.SegmentIdx, e.EventType)); err != nil {
+		return err
+	}
+	switch e.EventType {
+	case 1:
+		r.ttsActive = true
+		return r.flushPendingAgents()
+	case 2:
+		r.ttsActive = false
+		return r.flushPendingAgents()
+	default:
+		return nil
+	}
+}
+
+func (r *Renderer) shouldSkipAgent(e AgentUtterance) bool {
+	if r.lastEmittedAgent.UtteranceID == e.UtteranceID && r.lastEmittedAgent.Transcript == e.Transcript {
+		return true
+	}
+	if len(r.pendingAgents) == 0 {
+		return false
+	}
+	last := r.pendingAgents[len(r.pendingAgents)-1]
+	return last.UtteranceID == e.UtteranceID && last.Transcript == e.Transcript
+}
+
+func (r *Renderer) emitAgent(e AgentUtterance) error {
+	r.lastEmittedAgent = e
+	if r.tty {
+		_, err := fmt.Fprintf(r.out, "%s%s%s: %s\n", ansiBold, e.Speakers[0], ansiReset, e.Transcript)
+		return err
+	}
+	_, err := fmt.Fprintf(r.out, "[HOST] %s\n", e.Transcript)
+	return err
 }
 
 func (r *Renderer) handleMicrophone(e MicrophoneEvent) error {
@@ -160,12 +205,15 @@ func (r *Renderer) flushPendingUser() error {
 	return err
 }
 
-func (r *Renderer) flushPendingAgent() error {
-	if strings.TrimSpace(r.pendingAgent.Transcript) == "" {
-		r.pendingAgent = AgentUtterance{}
-		return nil
+func (r *Renderer) flushPendingAgents() error {
+	for _, agent := range r.pendingAgents {
+		if strings.TrimSpace(agent.Transcript) == "" {
+			continue
+		}
+		if err := r.emitAgent(agent); err != nil {
+			return err
+		}
 	}
-	_, err := fmt.Fprintf(r.out, "[HOST] %s\n", strings.TrimSpace(r.pendingAgent.Transcript))
-	r.pendingAgent = AgentUtterance{}
-	return err
+	r.pendingAgents = nil
+	return nil
 }
