@@ -35,6 +35,7 @@ type Backend struct {
 	player     avfaudio.AVAudioPlayerNode
 	input      avfaudio.AVAudioInputNode
 	graphReady bool
+	tapActive  bool
 
 	mu               sync.Mutex
 	format           avfaudio.AVAudioFormat
@@ -59,7 +60,9 @@ func New(cfg Config) (*Backend, error) {
 	// compile-time checked against the local apple bindings.
 	b.engine = avfaudio.NewAVAudioEngine()
 	b.player = avfaudio.NewAVAudioPlayerNode()
-	b.input = avfaudio.NewAVAudioInputNode()
+	if node := b.engine.InputNode(); node.GetID() != 0 {
+		b.input = avfaudio.AVAudioInputNodeFromID(node.GetID())
+	}
 	b.graphReady = true
 	return b, nil
 }
@@ -71,6 +74,10 @@ func (b *Backend) Close() error {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.tapActive && b.input.ID != 0 {
+		b.input.RemoveTapOnBus(0)
+		b.tapActive = false
+	}
 	if b.player.ID != 0 && b.player.Playing() {
 		b.player.Stop()
 	}
@@ -177,8 +184,8 @@ func (b *Backend) WritePCM16(samples []int16, sampleRate, channels int) error {
 	return nil
 }
 
-// StartCapture reserves the AVAudioEngine/AVAudioInputNode path.
-func (b *Backend) StartCapture() error {
+// StartCapture begins microphone capture and forwards PCM buffers to handler.
+func (b *Backend) StartCapture(handler captureHandler) error {
 	if b == nil {
 		return fmt.Errorf("interactive audio backend is nil")
 	}
@@ -188,7 +195,58 @@ func (b *Backend) StartCapture() error {
 	if !b.SupportsCapture() {
 		return fmt.Errorf("interactive audio microphone graph is unavailable")
 	}
-	return fmt.Errorf("interactive audio microphone capture graph is ready on darwin, but outbound audio encode is not wired yet")
+	if handler == nil {
+		return fmt.Errorf("interactive audio microphone capture requires a handler")
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.input.ID == 0 {
+		if node := b.engine.InputNode(); node.GetID() != 0 {
+			b.input = avfaudio.AVAudioInputNodeFromID(node.GetID())
+		}
+	}
+	if b.input.ID == 0 {
+		return fmt.Errorf("interactive audio microphone input node is unavailable")
+	}
+	if b.tapActive {
+		return nil
+	}
+	format := avfaudio.AVAudioFormatFromID(b.input.OutputFormatForBus(0).GetID())
+	if format.ID == 0 {
+		return fmt.Errorf("interactive audio microphone input format is unavailable")
+	}
+
+	b.input.InstallTapOnBusBufferSizeFormatBlock(
+		0,
+		avfaudio.AVAudioFrameCount(uplinkFrameSamples),
+		format,
+		func(buffer avfaudio.AVAudioPCMBuffer, _ avfaudio.AVAudioTime) {
+			samples, sampleRate, channels, err := decodeInputPCMBuffer(buffer)
+			if err != nil || len(samples) == 0 {
+				return
+			}
+			if err := handler(samples, sampleRate, channels); err != nil {
+				return
+			}
+		},
+	)
+	b.tapActive = true
+	if !b.engine.Running() {
+		ok, err := b.engine.StartAndReturnError()
+		if err != nil {
+			b.input.RemoveTapOnBus(0)
+			b.tapActive = false
+			return fmt.Errorf("start interactive audio engine for capture: %w", err)
+		}
+		if !ok {
+			b.input.RemoveTapOnBus(0)
+			b.tapActive = false
+			return fmt.Errorf("start interactive audio engine for capture")
+		}
+	}
+	return nil
 }
 
 // WaitPlaybackIdle waits until queued playback has drained and stayed idle for
@@ -317,4 +375,115 @@ func (b *Backend) newPlaybackBuffer(samples []int16, channels int) (avfaudio.AVA
 	copy(dst, samples)
 	buffer.SetFrameLength(avfaudio.AVAudioFrameCount(frameCount))
 	return buffer, nil
+}
+
+func decodeInputPCMBuffer(buffer avfaudio.AVAudioPCMBuffer) ([]int16, int, int, error) {
+	format := avfaudio.AVAudioFormatFromID(buffer.Format().GetID())
+	if format.ID == 0 {
+		return nil, 0, 0, fmt.Errorf("interactive audio microphone buffer format is unavailable")
+	}
+	frameCount := int(buffer.FrameLength())
+	channels := int(format.ChannelCount())
+	if frameCount == 0 || channels == 0 {
+		return nil, int(format.SampleRate()), channels, nil
+	}
+
+	switch format.CommonFormat() {
+	case avfaudio.AVAudioPCMFormatFloat32:
+		samples, err := float32PCMBufferSamples(buffer, frameCount, channels, format.Interleaved())
+		return samples, int(format.SampleRate()), channels, err
+	case avfaudio.AVAudioPCMFormatInt16:
+		samples, err := int16PCMBufferSamples(buffer, frameCount, channels, format.Interleaved())
+		return samples, int(format.SampleRate()), channels, err
+	case avfaudio.AVAudioPCMFormatInt32:
+		samples, err := int32PCMBufferSamples(buffer, frameCount, channels, format.Interleaved())
+		return samples, int(format.SampleRate()), channels, err
+	default:
+		return nil, 0, 0, fmt.Errorf("interactive audio microphone format %s is unsupported", format.CommonFormat())
+	}
+}
+
+func int16PCMBufferSamples(buffer avfaudio.AVAudioPCMBuffer, frames, channels int, interleaved bool) ([]int16, error) {
+	channelData := buffer.Int16ChannelData()
+	if channelData == nil {
+		return nil, fmt.Errorf("interactive audio microphone buffer returned no int16 data")
+	}
+	ptrs := unsafe.Slice((**int16)(channelData), channels)
+	if len(ptrs) == 0 || ptrs[0] == nil {
+		return nil, fmt.Errorf("interactive audio microphone buffer returned empty int16 data")
+	}
+	if interleaved {
+		return append([]int16(nil), unsafe.Slice(ptrs[0], frames*channels)...), nil
+	}
+	samples := make([]int16, 0, frames*channels)
+	for frame := 0; frame < frames; frame++ {
+		for ch := 0; ch < channels; ch++ {
+			if ptrs[ch] == nil {
+				return nil, fmt.Errorf("interactive audio microphone buffer returned empty int16 channel %d", ch)
+			}
+			channel := unsafe.Slice(ptrs[ch], frames)
+			samples = append(samples, channel[frame])
+		}
+	}
+	return samples, nil
+}
+
+func float32PCMBufferSamples(buffer avfaudio.AVAudioPCMBuffer, frames, channels int, interleaved bool) ([]int16, error) {
+	channelData := buffer.FloatChannelData()
+	if channelData == nil {
+		return nil, fmt.Errorf("interactive audio microphone buffer returned no float32 data")
+	}
+	ptrs := unsafe.Slice((**float32)(channelData), channels)
+	if len(ptrs) == 0 || ptrs[0] == nil {
+		return nil, fmt.Errorf("interactive audio microphone buffer returned empty float32 data")
+	}
+	if interleaved {
+		raw := unsafe.Slice(ptrs[0], frames*channels)
+		samples := make([]int16, len(raw))
+		for i, sample := range raw {
+			samples[i] = clampPCM16(float64(sample) * maxPCM16)
+		}
+		return samples, nil
+	}
+	samples := make([]int16, 0, frames*channels)
+	for frame := 0; frame < frames; frame++ {
+		for ch := 0; ch < channels; ch++ {
+			if ptrs[ch] == nil {
+				return nil, fmt.Errorf("interactive audio microphone buffer returned empty float32 channel %d", ch)
+			}
+			channel := unsafe.Slice(ptrs[ch], frames)
+			samples = append(samples, clampPCM16(float64(channel[frame])*maxPCM16))
+		}
+	}
+	return samples, nil
+}
+
+func int32PCMBufferSamples(buffer avfaudio.AVAudioPCMBuffer, frames, channels int, interleaved bool) ([]int16, error) {
+	channelData := buffer.Int32ChannelData()
+	if channelData == nil {
+		return nil, fmt.Errorf("interactive audio microphone buffer returned no int32 data")
+	}
+	ptrs := unsafe.Slice((**int32)(channelData), channels)
+	if len(ptrs) == 0 || ptrs[0] == nil {
+		return nil, fmt.Errorf("interactive audio microphone buffer returned empty int32 data")
+	}
+	if interleaved {
+		raw := unsafe.Slice(ptrs[0], frames*channels)
+		samples := make([]int16, len(raw))
+		for i, sample := range raw {
+			samples[i] = clampPCM16(float64(sample) / 65536.0)
+		}
+		return samples, nil
+	}
+	samples := make([]int16, 0, frames*channels)
+	for frame := 0; frame < frames; frame++ {
+		for ch := 0; ch < channels; ch++ {
+			if ptrs[ch] == nil {
+				return nil, fmt.Errorf("interactive audio microphone buffer returned empty int32 channel %d", ch)
+			}
+			channel := unsafe.Slice(ptrs[ch], frames)
+			samples = append(samples, clampPCM16(float64(channel[frame])/65536.0))
+		}
+	}
+	return samples, nil
 }

@@ -24,7 +24,7 @@ func TestDarwinTranscriptOnlyBackend(t *testing.T) {
 	if err := b.StartPlayback(); err != nil {
 		t.Fatalf("StartPlayback() transcript-only error = %v", err)
 	}
-	if err := b.StartCapture(); err != nil {
+	if err := b.StartCapture(nil); err != nil {
 		t.Fatalf("StartCapture() transcript-only error = %v", err)
 	}
 }
@@ -46,11 +46,21 @@ func TestDarwinPlaybackBackend(t *testing.T) {
 	if err := b.StartPlayback(); err != nil {
 		t.Fatalf("StartPlayback() error = %v", err)
 	}
-	if err := b.StartCapture(); err != nil {
+	if err := b.StartCapture(nil); err != nil {
 		t.Fatalf("StartCapture() error = %v", err)
 	}
 	if err := b.Close(); err != nil {
 		t.Fatalf("Close() error = %v", err)
+	}
+}
+
+func TestDarwinCaptureRequiresHandler(t *testing.T) {
+	b, err := New(Config{})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if err := b.StartCapture(nil); err == nil {
+		t.Fatal("StartCapture(nil) error = nil, want error")
 	}
 }
 

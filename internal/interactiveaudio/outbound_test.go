@@ -76,3 +76,20 @@ func TestOutboundCompletionFrames(t *testing.T) {
 		t.Fatalf("second completionFrames() = %d frames, want nil", len(got))
 	}
 }
+
+func TestOutboundInterruptionFrames(t *testing.T) {
+	var state outboundState
+	_ = state.startupFrames("58133c78-e2c4-4176-8974-09eb4647b82b")
+	frames := state.interruptionFrames()
+	if len(frames) != 1 {
+		t.Fatalf("interruptionFrames() returned %d frames, want 1", len(frames))
+	}
+	const want = "EgoIARAEIgQaAggF"
+	if got := base64.StdEncoding.EncodeToString(frames[0]); got != want {
+		t.Fatalf("interruption frame = %s, want %s", got, want)
+	}
+	second := state.interruptionFrames()
+	if len(second) != 1 {
+		t.Fatalf("second interruptionFrames() returned %d frames, want 1", len(second))
+	}
+}

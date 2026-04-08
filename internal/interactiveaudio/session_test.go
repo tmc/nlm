@@ -37,13 +37,6 @@ func TestRunValidatesOptions(t *testing.T) {
 			},
 			want: "microphone selection is not wired yet",
 		},
-		{
-			name: "microphone capture not wired",
-			opts: Options{
-				Config: Config{},
-			},
-			want: "microphone capture is not wired yet",
-		},
 	}
 
 	for _, tt := range tests {

@@ -41,6 +41,17 @@ func (s *outboundState) completionFrames() [][]byte {
 	return frames
 }
 
+func (s *outboundState) interruptionFrames() [][]byte {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.started || s.completed {
+		return nil
+	}
+	frames := [][]byte{encodeTTSInterruptionFrame(s.nextSequence)}
+	s.nextSequence += len(frames)
+	return frames
+}
+
 func encodeGroundedAgentStartFrame(sequence int, audioOverviewID string) []byte {
 	var groundedAgentConfig []byte
 	groundedAgentConfig = protowire.AppendTag(groundedAgentConfig, 1, protowire.BytesType)
@@ -96,6 +107,16 @@ func encodeSendAudioStopFrame(sequence int) []byte {
 	body = protowire.AppendTag(body, 2, protowire.BytesType)
 	body = protowire.AppendString(body, "")
 	payload = protowire.AppendTag(payload, 4, protowire.BytesType)
+	payload = protowire.AppendBytes(payload, body)
+	return encodeOutboundFrame(sequence, payload)
+}
+
+func encodeTTSInterruptionFrame(sequence int) []byte {
+	var payload []byte
+	var body []byte
+	body = protowire.AppendTag(body, 1, protowire.VarintType)
+	body = protowire.AppendVarint(body, 5)
+	payload = protowire.AppendTag(payload, 3, protowire.BytesType)
 	payload = protowire.AppendBytes(payload, body)
 	return encodeOutboundFrame(sequence, payload)
 }

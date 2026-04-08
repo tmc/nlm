@@ -16,7 +16,7 @@ func TestNewTranscriptOnlyBackend(t *testing.T) {
 	if err := b.StartPlayback(); err != nil {
 		t.Fatalf("StartPlayback() transcript-only error = %v", err)
 	}
-	if err := b.StartCapture(); err != nil {
+	if err := b.StartCapture(nil); err != nil {
 		t.Fatalf("StartCapture() transcript-only error = %v", err)
 	}
 }
@@ -45,7 +45,7 @@ func TestAudioSupportFlags(t *testing.T) {
 		if err := b.StartPlayback(); err != nil {
 			t.Fatalf("StartPlayback() error = %v", err)
 		}
-		if err := b.StartCapture(); err == nil {
+		if err := b.StartCapture(nil); err == nil {
 			t.Fatal("StartCapture() error = nil, want error")
 		}
 		return
@@ -53,7 +53,7 @@ func TestAudioSupportFlags(t *testing.T) {
 	if err := b.StartPlayback(); err == nil {
 		t.Fatal("StartPlayback() error = nil, want error")
 	}
-	if err := b.StartCapture(); err == nil {
+	if err := b.StartCapture(nil); err == nil {
 		t.Fatal("StartCapture() error = nil, want error")
 	}
 }

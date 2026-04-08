@@ -94,9 +94,6 @@ func Run(ctx context.Context, authToken, cookies, notebookID string, opts Option
 	if opts.Config.Mic != "" {
 		return fmt.Errorf("microphone selection is not wired yet; use --transcript-only")
 	}
-	if !opts.Config.TranscriptOnly && !opts.Config.NoMic {
-		return fmt.Errorf("microphone capture is not wired yet; use --no-mic")
-	}
 	if opts.Config.TranscriptOnly {
 		opts.Config.NoMic = true
 	}
@@ -153,12 +150,37 @@ func (s *session) run(ctx context.Context) error {
 	}
 	defer pc.Close()
 
-	_, err = pc.AddTransceiverFromKind(
+	audioTransceiver, err := pc.AddTransceiverFromKind(
 		webrtc.RTPCodecTypeAudio,
 		webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendrecv},
 	)
 	if err != nil {
 		return fmt.Errorf("add audio transceiver: %w", err)
+	}
+
+	var micSender *localAudioSender
+	if !s.passivePlaybackEnabled() {
+		localTrack, err := webrtc.NewTrackLocalStaticRTP(
+			webrtc.RTPCodecCapability{
+				MimeType:     webrtc.MimeTypeOpus,
+				ClockRate:    uplinkSampleRate,
+				Channels:     2,
+				SDPFmtpLine:  "minptime=10;useinbandfec=1",
+				RTCPFeedback: []webrtc.RTCPFeedback{{Type: "transport-cc"}},
+			},
+			"audio",
+			"interactive-audio",
+		)
+		if err != nil {
+			return fmt.Errorf("create local audio track: %w", err)
+		}
+		if err := audioTransceiver.Sender().ReplaceTrack(localTrack); err != nil {
+			return fmt.Errorf("attach local audio track: %w", err)
+		}
+		micSender, err = newLocalAudioSender(localTrack, s.sendMicInterruption, s.stderr, s.opts.Debug)
+		if err != nil {
+			return err
+		}
 	}
 
 	events := make(chan sessionMessage, 128)
@@ -236,6 +258,18 @@ func (s *session) run(ctx context.Context) error {
 	case <-ctx.Done():
 		fmt.Fprintln(s.stderr, "[disconnected]")
 		return nil
+	}
+
+	if micSender != nil {
+		if err := s.backend.StartCapture(func(samples []int16, sampleRate, channels int) error {
+			err := micSender.HandlePCM16(samples, sampleRate, channels)
+			if err != nil {
+				sendSessionError(connErrs, err)
+			}
+			return err
+		}); err != nil {
+			return err
+		}
 	}
 
 	ticker := time.NewTicker(playbackPollInterval)
@@ -341,6 +375,24 @@ func (s *session) pollPlaybackCompletion() (bool, error) {
 
 func (s *session) passivePlaybackEnabled() bool {
 	return s.opts.Config.NoMic || s.opts.Config.TranscriptOnly
+}
+
+func (s *session) sendMicInterruption() error {
+	frames := s.outbound.interruptionFrames()
+	if len(frames) == 0 {
+		return nil
+	}
+	dc := s.controlChannel()
+	if dc == nil {
+		return fmt.Errorf("interactive audio control channel is unavailable")
+	}
+	if err := sendFrames(dc, frames); err != nil {
+		return err
+	}
+	if s.opts.Debug {
+		fmt.Fprintf(s.stderr, "Sent %d interruption data-channel frames\n", len(frames))
+	}
+	return nil
 }
 
 func (s *session) passivePlaybackObserved() bool {

@@ -72,7 +72,7 @@ func (b *Backend) WritePCM16([]int16, int, int) error {
 }
 
 // StartCapture always fails on non-Darwin platforms.
-func (b *Backend) StartCapture() error {
+func (b *Backend) StartCapture(captureHandler) error {
 	if b != nil && (b.cfg.TranscriptOnly || b.cfg.NoMic) {
 		return nil
 	}
