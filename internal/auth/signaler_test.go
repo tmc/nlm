@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -100,30 +99,18 @@ func TestParseChannelAIDAdjacentChunks(t *testing.T) {
 	}
 }
 
-func TestBuildSignalerAuthorizationRequiresCookies(t *testing.T) {
-	if _, err := buildSignalerAuthorization("HSID=value", 12345); err == nil {
-		t.Fatalf("buildSignalerAuthorization() error = nil, want error")
+func TestNewSignalerClientRequiresAuthorization(t *testing.T) {
+	if _, err := NewSignalerClient("SAPISID=sapi", ""); err == nil {
+		t.Fatalf("NewSignalerClient() error = nil, want error")
 	}
 }
 
-func TestBuildSignalerAuthorization(t *testing.T) {
-	cookies := strings.Join([]string{
-		"SAPISID=sapi",
-		"__Secure-1PAPISID=one",
-		"__Secure-3PAPISID=three",
-	}, "; ")
-
-	got, err := buildSignalerAuthorization(cookies, 123)
+func TestNewSignalerClientUsesExplicitAuthorization(t *testing.T) {
+	got, err := NewSignalerClient("SAPISID=sapi", "Bearer token-123")
 	if err != nil {
-		t.Fatalf("buildSignalerAuthorization() error = %v", err)
+		t.Fatalf("NewSignalerClient() error = %v", err)
 	}
-
-	want := strings.Join([]string{
-		"SAPISIDHASH 123_" + generateSAPISIDHASH("sapi", 123),
-		"SAPISID1PHASH 123_" + generateSAPISIDHASH("one", 123),
-		"SAPISID3PHASH 123_" + generateSAPISIDHASH("three", 123),
-	}, " ")
-	if got != want {
-		t.Fatalf("buildSignalerAuthorization() = %q, want %q", got, want)
+	if got.authorization != "Bearer token-123" {
+		t.Fatalf("authorization = %q, want Bearer token-123", got.authorization)
 	}
 }

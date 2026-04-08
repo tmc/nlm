@@ -31,12 +31,9 @@ type SignalerClient struct {
 
 // NewSignalerClient creates a new signaler client.
 func NewSignalerClient(cookies, authorization string) (*SignalerClient, error) {
+	_ = cookies
 	if strings.TrimSpace(authorization) == "" {
-		var err error
-		authorization, err = buildSignalerAuthorization(cookies, time.Now().Unix())
-		if err != nil {
-			return nil, err
-		}
+		return nil, fmt.Errorf("signaler authorization unavailable")
 	}
 	return &SignalerClient{
 		authorization: authorization,
@@ -426,26 +423,4 @@ func signalerInt(max int) int {
 		return 0
 	}
 	return int(n.Int64())
-}
-
-func buildSignalerAuthorization(cookies string, timestamp int64) (string, error) {
-	var parts []string
-
-	sid := extractCookieValue(cookies, "SAPISID")
-	if sid == "" {
-		sid = extractCookieValue(cookies, "__Secure-3PAPISID")
-	}
-	if sid != "" {
-		parts = append(parts, fmt.Sprintf("SAPISIDHASH %d_%s", timestamp, generateSAPISIDHASH(sid, timestamp)))
-	}
-	if sid := extractCookieValue(cookies, "__Secure-1PAPISID"); sid != "" {
-		parts = append(parts, fmt.Sprintf("SAPISID1PHASH %d_%s", timestamp, generateSAPISIDHASH(sid, timestamp)))
-	}
-	if sid := extractCookieValue(cookies, "__Secure-3PAPISID"); sid != "" {
-		parts = append(parts, fmt.Sprintf("SAPISID3PHASH %d_%s", timestamp, generateSAPISIDHASH(sid, timestamp)))
-	}
-	if len(parts) == 0 {
-		return "", fmt.Errorf("signaler authorization unavailable")
-	}
-	return strings.Join(parts, " "), nil
 }
