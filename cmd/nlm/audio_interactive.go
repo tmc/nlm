@@ -16,6 +16,8 @@ import (
 )
 
 var errInteractiveAudioHelp = errors.New("interactive audio help shown")
+var refreshInteractiveAudioPageState = refreshNotebookLMPageState
+var runInteractiveAudioSession = interactiveaudio.Run
 
 type interactiveAudioOptions struct {
 	TranscriptOnly bool
@@ -138,7 +140,13 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 		defer cancel()
 	}
 
-	err := interactiveaudio.Run(ctx, authToken, cookies, notebookID, interactiveaudio.Options{
+	if err := refreshInteractiveAudioPageState(debug); err != nil {
+		if debug {
+			fmt.Fprintf(os.Stderr, "nlm: interactive audio page-state refresh failed: %v\n", err)
+		}
+	}
+
+	err := runInteractiveAudioSession(ctx, authToken, cookies, notebookID, interactiveaudio.Options{
 		Config: interactiveaudio.Config{
 			TranscriptOnly: opts.TranscriptOnly,
 			NoMic:          opts.NoMic,

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tmc/nlm/internal/interactiveaudio"
 )
 
 func TestParseInteractiveAudioArgs(t *testing.T) {
@@ -85,5 +88,48 @@ func TestParseInteractiveAudioArgsRejectsUnknownFlag(t *testing.T) {
 	_, _, err := parseInteractiveAudioArgs([]string{"notebook-123", "--wat"})
 	if err == nil || !strings.Contains(err.Error(), "unknown flag") {
 		t.Fatalf("error = %v, want unknown flag error", err)
+	}
+}
+
+func TestRunInteractiveAudioRefreshesPageStateBeforeStartingSession(t *testing.T) {
+	origRefresh := refreshInteractiveAudioPageState
+	origRun := runInteractiveAudioSession
+	origAuthToken := authToken
+	origCookies := cookies
+	origDebug := debug
+	t.Cleanup(func() {
+		refreshInteractiveAudioPageState = origRefresh
+		runInteractiveAudioSession = origRun
+		authToken = origAuthToken
+		cookies = origCookies
+		debug = origDebug
+	})
+
+	authToken = "token-a"
+	cookies = "cookie-a"
+	debug = false
+
+	var calls []string
+	refreshInteractiveAudioPageState = func(bool) error {
+		calls = append(calls, "refresh")
+		return nil
+	}
+	runInteractiveAudioSession = func(_ context.Context, _, _, _ string, opts interactiveaudio.Options) error {
+		calls = append(calls, "run")
+		if !opts.Config.TranscriptOnly {
+			t.Fatalf("TranscriptOnly = false, want true")
+		}
+		return nil
+	}
+
+	err := runInteractiveAudio(nil, "notebook-123", interactiveAudioOptions{
+		TranscriptOnly: true,
+		Timeout:        time.Second,
+	})
+	if err != nil {
+		t.Fatalf("runInteractiveAudio() error = %v", err)
+	}
+	if got, want := strings.Join(calls, ","), "refresh,run"; got != want {
+		t.Fatalf("call order = %q, want %q", got, want)
 	}
 }
