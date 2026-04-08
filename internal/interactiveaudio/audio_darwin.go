@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/tmc/apple/avfaudio"
+	"github.com/tmc/apple/objc"
 )
 
 // Config describes the requested local-audio mode.
@@ -36,6 +37,7 @@ type Backend struct {
 	input      avfaudio.AVAudioInputNode
 	graphReady bool
 	tapActive  bool
+	tapBlock   objc.Block
 
 	mu               sync.Mutex
 	format           avfaudio.AVAudioFormat
@@ -77,6 +79,10 @@ func (b *Backend) Close() error {
 	if b.tapActive && b.input.ID != 0 {
 		b.input.RemoveTapOnBus(0)
 		b.tapActive = false
+	}
+	if b.tapBlock != 0 {
+		b.tapBlock.Release()
+		b.tapBlock = 0
 	}
 	if b.player.ID != 0 && b.player.Playing() {
 		b.player.Stop()
@@ -213,36 +219,43 @@ func (b *Backend) StartCapture(handler captureHandler) error {
 	if b.tapActive {
 		return nil
 	}
-	format := avfaudio.AVAudioFormatFromID(b.input.OutputFormatForBus(0).GetID())
-	if format.ID == 0 {
-		return fmt.Errorf("interactive audio microphone input format is unavailable")
-	}
-
-	b.input.InstallTapOnBusBufferSizeFormatBlock(
-		0,
+	b.input.RemoveTapOnBus(0)
+	tapBlock := objc.NewBlock(func(_ objc.Block, bufferID objc.ID, _ objc.ID) {
+		buffer := avfaudio.AVAudioPCMBufferFromID(bufferID)
+		samples, sampleRate, channels, err := decodeInputPCMBuffer(buffer)
+		if err != nil || len(samples) == 0 {
+			return
+		}
+		_ = handler(samples, sampleRate, channels)
+	})
+	objc.Send[objc.ID](
+		b.input.ID,
+		objc.Sel("installTapOnBus:bufferSize:format:block:"),
+		avfaudio.AVAudioNodeBus(0),
 		avfaudio.AVAudioFrameCount(uplinkFrameSamples),
-		format,
-		func(buffer avfaudio.AVAudioPCMBuffer, _ avfaudio.AVAudioTime) {
-			samples, sampleRate, channels, err := decodeInputPCMBuffer(buffer)
-			if err != nil || len(samples) == 0 {
-				return
-			}
-			if err := handler(samples, sampleRate, channels); err != nil {
-				return
-			}
-		},
+		objc.ID(0),
+		unsafe.Pointer(tapBlock),
 	)
+	b.tapBlock = tapBlock
 	b.tapActive = true
 	if !b.engine.Running() {
 		ok, err := b.engine.StartAndReturnError()
 		if err != nil {
 			b.input.RemoveTapOnBus(0)
 			b.tapActive = false
+			if b.tapBlock != 0 {
+				b.tapBlock.Release()
+				b.tapBlock = 0
+			}
 			return fmt.Errorf("start interactive audio engine for capture: %w", err)
 		}
 		if !ok {
 			b.input.RemoveTapOnBus(0)
 			b.tapActive = false
+			if b.tapBlock != 0 {
+				b.tapBlock.Release()
+				b.tapBlock = 0
+			}
 			return fmt.Errorf("start interactive audio engine for capture")
 		}
 	}
