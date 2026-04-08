@@ -36,6 +36,12 @@ type session struct {
 	outbound   outboundState
 }
 
+const (
+	playbackCompletionEventType = 2
+	playbackDrainSettle         = 250 * time.Millisecond
+	playbackDrainTimeout        = 2 * time.Second
+)
+
 type sessionMessage struct {
 	frame Frame
 	err   error
@@ -230,8 +236,12 @@ func (s *session) run(ctx context.Context) error {
 			if msg.frame.Event == nil {
 				continue
 			}
-			if err := s.renderer.Handle(msg.frame.Event); err != nil {
+			done, err := s.handleEvent(ctx, msg.frame.Event)
+			if err != nil {
 				return err
+			}
+			if done {
+				return nil
 			}
 		case err := <-connErrs:
 			if err != nil && !errors.Is(err, context.Canceled) {
@@ -248,6 +258,40 @@ func (s *session) run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func (s *session) handleEvent(ctx context.Context, event Event) (bool, error) {
+	if err := s.renderer.Handle(event); err != nil {
+		return false, err
+	}
+	if !s.passivePlaybackComplete(event) {
+		return false, nil
+	}
+	if err := s.waitForPlaybackCompletion(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *session) passivePlaybackComplete(event Event) bool {
+	if !(s.opts.Config.NoMic || s.opts.Config.TranscriptOnly) {
+		return false
+	}
+	tts, ok := event.(TTSEvent)
+	return ok && tts.EventType == playbackCompletionEventType
+}
+
+func (s *session) waitForPlaybackCompletion(ctx context.Context) error {
+	if s.backend != nil && !s.backend.TranscriptOnly() {
+		waitCtx, cancel := context.WithTimeout(ctx, playbackDrainTimeout)
+		err := s.backend.WaitPlaybackIdle(waitCtx, playbackDrainSettle)
+		cancel()
+		if err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+	}
+	fmt.Fprintln(s.stderr, "Playback complete.")
+	return nil
 }
 
 func (s *session) startSignaler(ctx context.Context) {

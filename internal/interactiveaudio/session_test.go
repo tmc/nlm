@@ -159,3 +159,67 @@ func TestSessionStartSignalerFailure(t *testing.T) {
 		t.Fatalf("stderr = %q, want start failed message", got)
 	}
 }
+
+func TestSessionHandleEventCompletesPassivePlayback(t *testing.T) {
+	t.Parallel()
+
+	backend, err := New(Config{TranscriptOnly: true, NoMic: true})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	var stderr bytes.Buffer
+	s := &session{
+		opts: Options{
+			Config: Config{TranscriptOnly: true, NoMic: true},
+		},
+		renderer: NewRenderer(io.Discard, io.Discard, false),
+		backend:  backend,
+		stderr:   &stderr,
+	}
+
+	done, err := s.handleEvent(context.Background(), TTSEvent{
+		EventType:   playbackCompletionEventType,
+		UtteranceID: "utt-1",
+		SegmentIdx:  37,
+	})
+	if err != nil {
+		t.Fatalf("handleEvent() error = %v", err)
+	}
+	if !done {
+		t.Fatalf("handleEvent() done = false, want true")
+	}
+	if got := stderr.String(); !strings.Contains(got, "Playback complete.") {
+		t.Fatalf("stderr = %q, want playback complete message", got)
+	}
+}
+
+func TestSessionHandleEventIgnoresNonTerminalTTSEvent(t *testing.T) {
+	t.Parallel()
+
+	backend, err := New(Config{TranscriptOnly: true, NoMic: true})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	s := &session{
+		opts: Options{
+			Config: Config{TranscriptOnly: true, NoMic: true},
+		},
+		renderer: NewRenderer(io.Discard, io.Discard, false),
+		backend:  backend,
+		stderr:   io.Discard,
+	}
+
+	done, err := s.handleEvent(context.Background(), TTSEvent{
+		EventType:   1,
+		UtteranceID: "utt-1",
+		SegmentIdx:  0,
+	})
+	if err != nil {
+		t.Fatalf("handleEvent() error = %v", err)
+	}
+	if done {
+		t.Fatalf("handleEvent() done = true, want false")
+	}
+}
