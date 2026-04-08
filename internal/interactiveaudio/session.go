@@ -104,9 +104,9 @@ func (s *session) run(ctx context.Context) error {
 		config.ICETransportPolicy = webrtc.ICETransportPolicyRelay
 	}
 
-	pc, err := webrtc.NewPeerConnection(config)
+	pc, err := newNotebookLMPeerConnection(config)
 	if err != nil {
-		return fmt.Errorf("create peer connection: %w", err)
+		return err
 	}
 	defer pc.Close()
 
@@ -153,7 +153,7 @@ func (s *session) run(ctx context.Context) error {
 		s.attachDataChannel(ctx, dc, events)
 	})
 
-	dc, err := pc.CreateDataChannel("data-channel", nil)
+	dc, err := pc.CreateDataChannel("webrtc-datachannel", nil)
 	if err != nil {
 		return fmt.Errorf("create data channel: %w", err)
 	}
@@ -181,7 +181,7 @@ func (s *session) run(ctx context.Context) error {
 		return fmt.Errorf("local description is nil")
 	}
 
-	answer, err := exchangeSDP(s.rpcClient, s.notebookID, local.SDP)
+	answer, err := exchangeSDP(s.rpcClient, s.notebookID, normalizeOfferForNotebookLM(local.SDP))
 	if err != nil {
 		return err
 	}
