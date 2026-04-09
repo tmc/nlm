@@ -9,16 +9,16 @@ import (
 // EncodeDeleteSourcesArgs encodes arguments for LabsTailwindOrchestrationService.DeleteSources
 // RPC ID: tGMBJ
 //
-// Wire format: [[["source-id-1"], ["source-id-2"]], [2]]
-//   Field 1: repeated SourceRevision messages (each wraps source ID in sub-message)
-//   Field 2: ProjectContext {field 1: 2}
+// Wire format from JS reverse-engineering: [repeated_source_ids, project_context]
+//   - Field 1: repeated SourceId — each ID wrapped as ["id"]
+//   - Field 2: ProjectContext [2]
 func EncodeDeleteSourcesArgs(req *notebooklmv1alpha1.DeleteSourcesRequest) []interface{} {
-	// Build repeated SourceRevision messages: [["id1"], ["id2"]]
-	var sourceRevisions []interface{}
-	for _, id := range req.GetSourceIds() {
-		sourceRevisions = append(sourceRevisions, []interface{}{id})
+	wrappedIDs := make([]interface{}, len(req.GetSourceIds()))
+	for i, id := range req.GetSourceIds() {
+		wrappedIDs[i] = []interface{}{id}
 	}
-	// ProjectContext: [2]
-	projectContext := []interface{}{2}
-	return []interface{}{sourceRevisions, projectContext}
+	return []interface{}{
+		wrappedIDs,
+		[]interface{}{2}, // ProjectContext
+	}
 }
