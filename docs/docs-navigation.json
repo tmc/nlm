@@ -1,0 +1,29 @@
+{
+  "sections": [
+    {
+      "title": "Getting Started",
+      "items": [
+        {"title": "Introduction", "path": "/index"},
+        {"title": "Installation", "path": "/installation"},
+        {"title": "Authentication", "path": "/authentication"}
+      ]
+    },
+    {
+      "title": "Usage",
+      "items": [
+        {"title": "Command Reference", "path": "/commands"},
+        {"title": "Examples", "path": "/examples"},
+        {"title": "MCP Server", "path": "/mcp"}
+      ]
+    },
+    {
+      "title": "Development",
+      "items": [
+        {"title": "Developer Guide", "path": "/dev/index"},
+        {"title": "Debugging", "path": "/dev/debugging"},
+        {"title": "HTTP Capture", "path": "/dev/http-capture"},
+        {"title": "Protocol Analysis", "path": "/dev/capture-analysis"}
+      ]
+    }
+  ]
+}
