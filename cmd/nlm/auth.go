@@ -249,7 +249,14 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 		return "", "", fmt.Errorf("browser auth failed: %w", err)
 	}
 
-	return persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam)
+	authToken, cookies, err := persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam)
+	if err != nil {
+		return "", "", err
+	}
+	if err := persistSignalerAuthorization(authData.SignalerAuth); err != nil {
+		return "", "", err
+	}
+	return authToken, cookies, nil
 }
 
 func detectAuthInfo(cmd string) (string, string, error) {
@@ -287,6 +294,7 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam strin
 	if blParam == "" {
 		blParam = firstNonEmpty(os.Getenv("NLM_BL_PARAM"), existing["NLM_BL_PARAM"])
 	}
+	signalerAuth := firstNonEmpty(os.Getenv("NLM_SIGNALER_AUTH"), existing["NLM_SIGNALER_AUTH"])
 
 	// Create .nlm directory if it doesn't exist
 	nlmDir := filepath.Join(homeDir, ".nlm")
@@ -296,12 +304,13 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam strin
 
 	// Create or update env file
 	envFile := filepath.Join(nlmDir, "env")
-	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\n",
+	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\n",
 		cookies,
 		authToken,
 		profileName,
 		sessionID,
 		blParam,
+		signalerAuth,
 	)
 
 	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
@@ -314,6 +323,7 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam strin
 		"NLM_BROWSER_PROFILE": profileName,
 		"NLM_SESSION_ID":      sessionID,
 		"NLM_BL_PARAM":        blParam,
+		"NLM_SIGNALER_AUTH":   signalerAuth,
 	} {
 		if err := os.Setenv(key, value); err != nil {
 			return "", "", fmt.Errorf("set %s: %w", key, err)
@@ -322,6 +332,43 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam strin
 
 	fmt.Fprintf(os.Stderr, "nlm: auth info written to %s\n", envFile)
 	return authToken, cookies, nil
+}
+
+func persistSignalerAuthorization(authz string) error {
+	authz = strings.TrimSpace(authz)
+	if authz == "" {
+		return nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("get home dir: %w", err)
+	}
+	envFile := filepath.Join(homeDir, ".nlm", "env")
+	values := readStoredEnv()
+	if values == nil {
+		values = make(map[string]string)
+	}
+	values["NLM_COOKIES"] = firstNonEmpty(os.Getenv("NLM_COOKIES"), values["NLM_COOKIES"])
+	values["NLM_AUTH_TOKEN"] = firstNonEmpty(os.Getenv("NLM_AUTH_TOKEN"), values["NLM_AUTH_TOKEN"])
+	values["NLM_BROWSER_PROFILE"] = firstNonEmpty(os.Getenv("NLM_BROWSER_PROFILE"), values["NLM_BROWSER_PROFILE"])
+	values["NLM_SESSION_ID"] = firstNonEmpty(os.Getenv("NLM_SESSION_ID"), values["NLM_SESSION_ID"])
+	values["NLM_BL_PARAM"] = firstNonEmpty(os.Getenv("NLM_BL_PARAM"), values["NLM_BL_PARAM"])
+	values["NLM_SIGNALER_AUTH"] = authz
+	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\n",
+		values["NLM_COOKIES"],
+		values["NLM_AUTH_TOKEN"],
+		values["NLM_BROWSER_PROFILE"],
+		values["NLM_SESSION_ID"],
+		values["NLM_BL_PARAM"],
+		values["NLM_SIGNALER_AUTH"],
+	)
+	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
+		return fmt.Errorf("write env file: %w", err)
+	}
+	if err := os.Setenv("NLM_SIGNALER_AUTH", authz); err != nil {
+		return fmt.Errorf("set NLM_SIGNALER_AUTH: %w", err)
+	}
+	return nil
 }
 
 func loadStoredEnv() {
@@ -463,23 +510,12 @@ func refreshNotebookLMPageState(debugFlag bool) error {
 
 func refreshNotebookLMSignalerAuthorization(debugFlag bool) (string, error) {
 	loadStoredEnv()
-
-	profileName := firstNonEmpty(os.Getenv("NLM_BROWSER_PROFILE"), readStoredEnv()["NLM_BROWSER_PROFILE"], "Default")
-	browserAuth := auth.New(debugFlag)
-	authData, err := browserAuth.GetAuthData(
-		auth.WithProfileName(profileName),
-		auth.WithTargetURL("https://notebooklm.google.com"),
-		auth.WithoutScanBeforeAuth(),
-	)
-	if err != nil {
-		return "", fmt.Errorf("extract browser signaler authorization: %w", err)
-	}
-	authz := strings.TrimSpace(authData.SignalerAuth)
+	authz := strings.TrimSpace(os.Getenv("NLM_SIGNALER_AUTH"))
 	if authz == "" {
-		return "", fmt.Errorf("signaler authorization not found in notebooklm page")
+		return "", fmt.Errorf("stored signaler authorization not found; run 'nlm auth --cdp-url ws://localhost:9222'")
 	}
 	if debugFlag {
-		fmt.Fprintf(os.Stderr, "nlm: refreshed notebooklm signaler authorization (%d bytes)\n", len(authz))
+		fmt.Fprintf(os.Stderr, "nlm: reusing stored notebooklm signaler authorization (%d bytes)\n", len(authz))
 	}
 	return authz, nil
 }

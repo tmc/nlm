@@ -78,3 +78,42 @@ window.WIZ_global_data = {"FdrFJe":"-8344731930921376674","cfb2h":"boq_labs-tail
 		t.Fatalf("BLParam = %q, want %q", got.BLParam, "boq_labs-tailwind-frontend_20260406.14_p0")
 	}
 }
+
+func TestValidateNotebookLMPageURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		finalURL string
+		wantErr  bool
+	}{
+		{
+			name:     "empty URL allowed",
+			finalURL: "",
+		},
+		{
+			name:     "NotebookLM host accepted",
+			finalURL: "https://notebooklm.google.com/",
+		},
+		{
+			name:     "redirect to auth host rejected",
+			finalURL: "https://accounts.google.com/v3/signin/identifier",
+			wantErr:  true,
+		},
+		{
+			name:     "malformed URL rejected",
+			finalURL: "://bad-url",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateNotebookLMPageURL(tt.finalURL)
+			if tt.wantErr && err == nil {
+				t.Fatal("validateNotebookLMPageURL() error = nil, want error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("validateNotebookLMPageURL() error = %v, want nil", err)
+			}
+		})
+	}
+}

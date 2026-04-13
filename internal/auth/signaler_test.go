@@ -99,12 +99,6 @@ func TestParseChannelAIDAdjacentChunks(t *testing.T) {
 	}
 }
 
-func TestNewSignalerClientRequiresAuthorization(t *testing.T) {
-	if _, err := NewSignalerClient("SAPISID=sapi", ""); err == nil {
-		t.Fatalf("NewSignalerClient() error = nil, want error")
-	}
-}
-
 func TestNewSignalerClientUsesExplicitAuthorization(t *testing.T) {
 	got, err := NewSignalerClient("SAPISID=sapi", "Bearer token-123")
 	if err != nil {
@@ -112,5 +106,27 @@ func TestNewSignalerClientUsesExplicitAuthorization(t *testing.T) {
 	}
 	if got.authorization != "Bearer token-123" {
 		t.Fatalf("authorization = %q, want Bearer token-123", got.authorization)
+	}
+}
+
+func TestNewSignalerClientDerivesAuthorizationFromCookies(t *testing.T) {
+	got, err := NewSignalerClient("SID=sid; SAPISID=sapi; HSID=hsid", "")
+	if err != nil {
+		t.Fatalf("NewSignalerClient() error = %v", err)
+	}
+	if got.authorization == "" {
+		t.Fatalf("authorization = %q, want non-empty value", got.authorization)
+	}
+	if got.cookies != "SID=sid; SAPISID=sapi; HSID=hsid" {
+		t.Fatalf("cookies = %q, want original cookie string", got.cookies)
+	}
+	if got.authorization[:11] != "SAPISIDHASH" {
+		t.Fatalf("authorization = %q, want SAPISIDHASH prefix", got.authorization)
+	}
+}
+
+func TestNewSignalerClientRequiresAuthorizationSource(t *testing.T) {
+	if _, err := NewSignalerClient("SID=sid; HSID=hsid", ""); err == nil {
+		t.Fatalf("NewSignalerClient() error = nil, want error")
 	}
 }

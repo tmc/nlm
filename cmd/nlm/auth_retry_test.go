@@ -59,6 +59,7 @@ func TestPersistAuthToDiskPreservesSessionState(t *testing.T) {
 	t.Setenv("NLM_BROWSER_PROFILE", "")
 	t.Setenv("NLM_SESSION_ID", "")
 	t.Setenv("NLM_BL_PARAM", "")
+	t.Setenv("NLM_SIGNALER_AUTH", "")
 
 	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a"); err != nil {
 		t.Fatalf("persistAuthToDisk() initial error = %v", err)
@@ -85,6 +86,7 @@ func TestPersistAuthToDiskPreservesSessionState(t *testing.T) {
 		`NLM_BROWSER_PROFILE="Default"`,
 		`NLM_SESSION_ID="session-a"`,
 		`NLM_BL_PARAM="bl-a"`,
+		`NLM_SIGNALER_AUTH=""`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("env file missing %q\n%s", want, text)
@@ -100,6 +102,7 @@ func TestRefreshNotebookLMPageStateUpdatesStoredSessionState(t *testing.T) {
 	t.Setenv("NLM_BROWSER_PROFILE", "")
 	t.Setenv("NLM_SESSION_ID", "")
 	t.Setenv("NLM_BL_PARAM", "")
+	t.Setenv("NLM_SIGNALER_AUTH", "")
 
 	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-old", "bl-old"); err != nil {
 		t.Fatalf("persistAuthToDisk() initial error = %v", err)
@@ -140,9 +143,56 @@ func TestRefreshNotebookLMPageStateUpdatesStoredSessionState(t *testing.T) {
 		`NLM_BROWSER_PROFILE="Default"`,
 		`NLM_SESSION_ID="session-new"`,
 		`NLM_BL_PARAM="bl-new"`,
+		`NLM_SIGNALER_AUTH=""`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("env file missing %q\n%s", want, text)
 		}
+	}
+}
+
+func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("NLM_COOKIES", "")
+	t.Setenv("NLM_AUTH_TOKEN", "")
+	t.Setenv("NLM_BROWSER_PROFILE", "")
+	t.Setenv("NLM_SESSION_ID", "")
+	t.Setenv("NLM_BL_PARAM", "")
+	t.Setenv("NLM_SIGNALER_AUTH", "")
+
+	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a"); err != nil {
+		t.Fatalf("persistAuthToDisk() initial error = %v", err)
+	}
+	if err := persistSignalerAuthorization("Bearer signaler-token"); err != nil {
+		t.Fatalf("persistSignalerAuthorization() error = %v", err)
+	}
+	if _, _, err := persistAuthToDisk("cookie-b", "token-b", "", "", ""); err != nil {
+		t.Fatalf("persistAuthToDisk() update error = %v", err)
+	}
+
+	if got := os.Getenv("NLM_SIGNALER_AUTH"); got != "Bearer signaler-token" {
+		t.Fatalf("NLM_SIGNALER_AUTH = %q, want Bearer signaler-token", got)
+	}
+
+	data, err := os.ReadFile(filepath.Join(home, ".nlm", "env"))
+	if err != nil {
+		t.Fatalf("read env file: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, `NLM_SIGNALER_AUTH="Bearer signaler-token"`) {
+		t.Fatalf("env file missing persisted signaler auth\n%s", text)
+	}
+}
+
+func TestRefreshNotebookLMSignalerAuthorizationUsesStoredValue(t *testing.T) {
+	t.Setenv("NLM_SIGNALER_AUTH", "Bearer signaler-token")
+
+	got, err := refreshNotebookLMSignalerAuthorization(false)
+	if err != nil {
+		t.Fatalf("refreshNotebookLMSignalerAuthorization() error = %v", err)
+	}
+	if got != "Bearer signaler-token" {
+		t.Fatalf("refreshNotebookLMSignalerAuthorization() = %q, want Bearer signaler-token", got)
 	}
 }

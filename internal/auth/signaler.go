@@ -25,18 +25,39 @@ const (
 // SignalerClient maintains the NotebookLM long-poll channel used for state sync.
 type SignalerClient struct {
 	authorization string
+	cookies       string
 	httpClient    *http.Client
 	debug         bool
+	recorder      func(SignalerTrace)
+}
+
+// SignalerTrace captures one signaler HTTP exchange.
+type SignalerTrace struct {
+	StartedDateTime time.Time
+	Duration        time.Duration
+	RequestMethod   string
+	RequestURL      string
+	RequestHeaders  http.Header
+	RequestBody     string
+	ResponseStatus  int
+	ResponseHeaders http.Header
+	ResponseBody    []byte
+	Error           string
 }
 
 // NewSignalerClient creates a new signaler client.
 func NewSignalerClient(cookies, authorization string) (*SignalerClient, error) {
-	_ = cookies
-	if strings.TrimSpace(authorization) == "" {
-		return nil, fmt.Errorf("signaler authorization unavailable")
+	authorization = strings.TrimSpace(authorization)
+	if authorization == "" {
+		var err error
+		authorization, err = signalerAuthorizationFromCookies(cookies)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &SignalerClient{
 		authorization: authorization,
+		cookies:       cookies,
 		httpClient:    &http.Client{Timeout: 60 * time.Second},
 	}, nil
 }
@@ -44,6 +65,11 @@ func NewSignalerClient(cookies, authorization string) (*SignalerClient, error) {
 // SetDebug enables or disables debug output.
 func (c *SignalerClient) SetDebug(debug bool) {
 	c.debug = debug
+}
+
+// SetRecorder records signaler HTTP exchanges.
+func (c *SignalerClient) SetRecorder(recorder func(SignalerTrace)) {
+	c.recorder = recorder
 }
 
 // StartInteractiveAudioChannel starts the NotebookLM signaler channel for a notebook.
@@ -78,16 +104,48 @@ func (c *SignalerClient) chooseServer(ctx context.Context, notebookID string) (s
 	}
 	c.setSignalerHeaders(req.Header, "application/json+protobuf")
 
+	start := time.Now()
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.recordTrace(SignalerTrace{
+			StartedDateTime: start,
+			Duration:        time.Since(start),
+			RequestMethod:   req.Method,
+			RequestURL:      req.URL.String(),
+			RequestHeaders:  cloneSignalerHeader(req.Header),
+			RequestBody:     string(payload),
+			Error:           err.Error(),
+		})
 		return signalerSession{}, fmt.Errorf("choose server: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		c.recordTrace(SignalerTrace{
+			StartedDateTime: start,
+			Duration:        time.Since(start),
+			RequestMethod:   req.Method,
+			RequestURL:      req.URL.String(),
+			RequestHeaders:  cloneSignalerHeader(req.Header),
+			RequestBody:     string(payload),
+			ResponseStatus:  resp.StatusCode,
+			ResponseHeaders: cloneSignalerHeader(resp.Header),
+			Error:           err.Error(),
+		})
 		return signalerSession{}, fmt.Errorf("read chooseServer response: %w", err)
 	}
+	c.recordTrace(SignalerTrace{
+		StartedDateTime: start,
+		Duration:        time.Since(start),
+		RequestMethod:   req.Method,
+		RequestURL:      req.URL.String(),
+		RequestHeaders:  cloneSignalerHeader(req.Header),
+		RequestBody:     string(payload),
+		ResponseStatus:  resp.StatusCode,
+		ResponseHeaders: cloneSignalerHeader(resp.Header),
+		ResponseBody:    append([]byte(nil), body...),
+	})
 	if resp.StatusCode != http.StatusOK {
 		return signalerSession{}, fmt.Errorf("choose server: status %d: %s", resp.StatusCode, string(body))
 	}
@@ -228,12 +286,26 @@ func (c *SignalerClient) pollOnce(ctx context.Context, state signalerSession, ai
 
 func (c *SignalerClient) setSignalerHeaders(headers http.Header, contentType string) {
 	headers.Set("Authorization", c.authorization)
+	if c.cookies != "" {
+		headers.Set("Cookie", c.cookies)
+	}
 	if contentType != "" {
 		headers.Set("Content-Type", contentType)
 	}
+	headers.Set("Accept", "*/*")
+	headers.Set("Origin", "https://notebooklm.google.com")
 	headers.Set("Referer", "https://notebooklm.google.com/")
 	headers.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36")
 	headers.Set("X-Goog-AuthUser", "0")
+}
+
+func signalerAuthorizationFromCookies(cookies string) (string, error) {
+	sapisid := strings.TrimSpace(extractCookieValue(cookies, "SAPISID"))
+	if sapisid == "" {
+		return "", fmt.Errorf("signaler authorization unavailable")
+	}
+	timestamp := time.Now().Unix()
+	return fmt.Sprintf("SAPISIDHASH %d_%s", timestamp, generateSAPISIDHASH(sapisid, timestamp)), nil
 }
 
 func buildChooseServerRequest(notebookID string) []interface{} {
@@ -423,4 +495,22 @@ func signalerInt(max int) int {
 		return 0
 	}
 	return int(n.Int64())
+}
+
+func (c *SignalerClient) recordTrace(trace SignalerTrace) {
+	if c.recorder == nil {
+		return
+	}
+	c.recorder(trace)
+}
+
+func cloneSignalerHeader(h http.Header) http.Header {
+	if h == nil {
+		return nil
+	}
+	out := make(http.Header, len(h))
+	for k, values := range h {
+		out[k] = append([]string(nil), values...)
+	}
+	return out
 }

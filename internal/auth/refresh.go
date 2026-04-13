@@ -172,8 +172,11 @@ func extractCookieValue(cookies, name string) string {
 // ExtractNotebookLMPageState fetches NotebookLM and extracts bootstrap values
 // from the page HTML.
 func ExtractNotebookLMPageState(cookies string) (NotebookLMPageState, error) {
-	body, err := fetchNotebookLMPage(cookies)
+	body, finalURL, err := fetchNotebookLMPage(cookies)
 	if err != nil {
+		return NotebookLMPageState{}, err
+	}
+	if err := validateNotebookLMPageURL(finalURL); err != nil {
 		return NotebookLMPageState{}, err
 	}
 	state := parseNotebookLMPageState(body)
@@ -183,7 +186,7 @@ func ExtractNotebookLMPageState(cookies string) (NotebookLMPageState, error) {
 	return state, nil
 }
 
-func fetchNotebookLMPage(cookies string) ([]byte, error) {
+func fetchNotebookLMPage(cookies string) ([]byte, string, error) {
 	// Create HTTP client with longer timeout and redirect following
 	client := &http.Client{
 		Timeout: 60 * time.Second,
@@ -203,7 +206,7 @@ func fetchNotebookLMPage(cookies string) ([]byte, error) {
 	// Create request to NotebookLM
 	req, err := http.NewRequest("GET", "https://notebooklm.google.com/", nil)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+		return nil, "", fmt.Errorf("create request: %w", err)
 	}
 
 	// Set headers
@@ -213,21 +216,39 @@ func fetchNotebookLMPage(cookies string) ([]byte, error) {
 	// Send request
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fetch page: %w", err)
+		return nil, "", fmt.Errorf("fetch page: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
+		return nil, "", fmt.Errorf("read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetch page: status %d", resp.StatusCode)
+		return nil, "", fmt.Errorf("fetch page: status %d", resp.StatusCode)
 	}
 
-	return body, nil
+	finalURL := ""
+	if resp.Request != nil && resp.Request.URL != nil {
+		finalURL = resp.Request.URL.String()
+	}
+	return body, finalURL, nil
+}
+
+func validateNotebookLMPageURL(finalURL string) error {
+	if strings.TrimSpace(finalURL) == "" {
+		return nil
+	}
+	u, err := url.Parse(finalURL)
+	if err != nil {
+		return fmt.Errorf("parse notebooklm final url: %w", err)
+	}
+	if !strings.EqualFold(u.Host, "notebooklm.google.com") {
+		return fmt.Errorf("unexpected notebooklm final url %q", finalURL)
+	}
+	return nil
 }
 
 func parseNotebookLMPageState(body []byte) NotebookLMPageState {
