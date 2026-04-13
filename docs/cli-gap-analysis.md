@@ -174,5 +174,6 @@ Replace deprecated `generate-outline` (lCjAd) and `generate-section` (BeTrYd) wi
 ### P3 — refresh-source
 Returns error 3. May need different wire format or preconditions.
 
-### P4 — list-featured Field Mapping
-ProjectMetadata `user_role` gets array instead of int. Proto field types don't match featured project response.
+### P4 — list-featured Presentation Coverage
+`ub2Bae` now decodes featured-project presentation payloads, including the
+image list at presentation position 2.

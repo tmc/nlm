@@ -142,8 +142,9 @@ In 574E:
 nlm -debug analytics $NB 2>&1 | tee /tmp/analytics-debug.txt
 ```
 
-The debug output will show the raw JSON response — this is what we need to fix
-the `jsonCount` parser.
+The analytics proto now uses wrapper counts, so the main remaining question is
+whether the server has added any new fields beyond the current count/timestamp
+shape.
 
 ### Phase 3: Artifacts
 

@@ -153,7 +153,6 @@ needs fixing, testing, or finishing to make every command fully operational.
 ## Cross-Cutting Concerns
 
 - [ ] Proto/codegen alignment
-  - [ ] Some proto fields referenced in code may not exist in generated types
   - [ ] `buf generate` clobbers hand-written encoders in `gen/method/` and `gen/service/`
   - [ ] Need backup/restore workflow or move encoders out of `gen/`
 - [ ] Test coverage

@@ -23,9 +23,9 @@ bodies, gRPC-Web streams, WebRTC SDP). Files copied to `docs/captures/`.
 | 4 | `ZwVcOc` | GetOrCreateAccount | 280B | 248B | Account init |
 | 5 | `hPTbtc` | GetConversations | 256B | 187B | Conversation list |
 | 6 | `JFMDGd` | GetProjectDetails | 244B | 328B | Share details |
-| 7 | `e3bVqc` | GetConversations (polymorphic) | 248B | 1.7MB | Full conversation data |
+| 7 | `e3bVqc` | PollDeepResearch (polymorphic) | 248B | 1.7MB | Deep research poll result |
 | 8 | `gArtLc` | ListArtifacts | 544B | 165KB | All artifacts |
-| 9 | `ub2Bae` | **Unknown** | 176B | 412KB | Undocumented RPC |
+| 9 | `ub2Bae` | ListFeaturedProjects | 176B | 412KB | Featured-project cards |
 | 10 | `wXbhsf` | ListRecentlyViewedProjects | 200B | 1.5MB | Project list |
 | 11 | `ozz5Z` | LogEvent | 352B | 1KB | Telemetry |
 | 12-13 | — | Static assets | — | 68KB | Icons, animations |
@@ -42,16 +42,17 @@ bodies, gRPC-Web streams, WebRTC SDP). Files copied to `docs/captures/`.
 
 RPC `e3bVqc` serves double duty:
 - **As DeleteChatHistory**: Deletes all conversations (our existing use)
-- **As GetConversations (full)**: Returns complete conversation data with message
-  content (1.7MB in this capture)
+- **As PollDeepResearch**: Returns the current deep-research result payload
+  (1.7MB in this capture)
 
-The args likely differ — the GetConversations variant probably sends the project
-ID with a different flag than the delete variant. Need to diff the POST bodies.
+The args differ by operation. The large capture aligns with deep-research
+polling, while the conversation list RPC is `hPTbtc`.
 
 ## New RPC: `ub2Bae`
 
-Entry 9 returned 412KB. Not in our RPC mapping. Need to investigate — could be
-a page-load RPC for fetching all project metadata, or a new endpoint.
+Entry 9 returned 412KB and is now identified as `ListFeaturedProjects`.
+The response contains featured-project cards with presentation metadata,
+including provider, description, and image URLs.
 
 ---
 
@@ -522,8 +523,8 @@ Observed between user speech end and agent response start. Small messages
 - `signaler-pa` long-poll channel for real-time state sync
 
 ### For `e3bVqc` Polymorphism (task #32)
-- Same RPC ID serves both DeleteChatHistory and GetConversations (full data)
-- Need to diff the POST bodies to understand the arg format difference
+- Same RPC ID serves both DeleteChatHistory and PollDeepResearch
+- Conversation listing remains `hPTbtc`; the large capture was a research poll
 
 ### For Interactive Audio (tasks #36-38)
 1. **Full signaling flow captured**: `Of0kDd` (ICE/TURN) → `eyWvXc` (SDP) → established
@@ -533,4 +534,5 @@ Observed between user speech end and agent response start. Small messages
 5. **Agent interruption**: Agent detects user intent before mic activates ("I think our listener's got something to say!")
 
 ### New RPC to Investigate
-- `ub2Bae` — 412KB response, not in our mapping
+- `ub2Bae` is mapped to `ListFeaturedProjects`; further work is in the nested
+  presentation and catalog details, not RPC identification

@@ -247,7 +247,7 @@ Defined in `/Volumes/tmc/go/src/github.com/tmc/nlm/internal/notebooklm/rpc/rpc.g
 **Featured:**
 | RPC ID   | Operation                    |
 |----------|------------------------------|
-| `nS9Qlc` | ListFeaturedProjects         |
+| `ub2Bae` | ListFeaturedProjects         |
 | `rJKx8e` | ReportContent                |
 
 ## Test Notebook
