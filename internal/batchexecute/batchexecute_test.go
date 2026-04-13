@@ -128,8 +128,8 @@ func TestDecodeResponse(t *testing.T) {
 					return
 				}
 
-				// Verify the nested structure can be parsed
-				var data struct {
+				// The response data is an array-wrapped object: [{"data":{...}}]
+				type item struct {
 					Data struct {
 						Items []struct {
 							ID       string `json:"id"`
@@ -144,9 +144,17 @@ func TestDecodeResponse(t *testing.T) {
 						} `json:"items"`
 					} `json:"data"`
 				}
-
-				if err := json.Unmarshal(resp[0].Data, &data); err != nil {
-					t.Errorf("Failed to parse nested data: %v", err)
+				var items []item
+				if err := json.Unmarshal(resp[0].Data, &items); err != nil {
+					t.Errorf("Failed to parse nested data: %v\nData: %s", err, string(resp[0].Data))
+					return
+				}
+				if len(items) != 1 {
+					t.Errorf("Expected 1 item in array, got %d", len(items))
+					return
+				}
+				if items[0].Data.Items[0].Content.Text != "Hello, World!" {
+					t.Errorf("Expected text 'Hello, World!', got %q", items[0].Data.Items[0].Content.Text)
 				}
 			},
 			err: nil,

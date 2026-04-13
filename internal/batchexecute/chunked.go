@@ -36,7 +36,7 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 	}
 
 	// Check for and discard the )]}' prefix with newlines
-	if len(prefix) >= 4 && string(prefix[:4]) == ")]}''" {
+	if len(prefix) >= 4 && string(prefix[:4]) == ")]}'" {
 		// Read the first line ()]}')
 		_, err := br.ReadString('\n')
 		if err != nil && err != io.EOF {
@@ -52,7 +52,16 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 
 	// Read all remaining data.
 	remaining, _ := io.ReadAll(br)
-	raw := string(remaining)
+	raw := strings.TrimSpace(string(remaining))
+
+	// Check for numeric-only responses (error codes like 277566, or success codes like 0, 1)
+	// before attempting bracket-based chunk extraction.
+	if raw != "" && isNumeric(raw) {
+		return []Response{{
+			ID:   "numeric",
+			Data: json.RawMessage(raw),
+		}}, nil
+	}
 
 	// Split into chunks. The batchexecute chunked format uses length
 	// prefixes, but the exact counting varies. Instead of trusting the
@@ -203,7 +212,7 @@ func isNumeric(s string) bool {
 
 func processChunks(chunks []string) ([]Response, error) {
 	if len(chunks) == 0 {
-		return nil, fmt.Errorf("no chunks found")
+		return nil, fmt.Errorf("no valid responses found")
 	}
 
 	// Check for numeric responses (potential error codes)
@@ -271,6 +280,13 @@ func extractResponses(data [][]interface{}) ([]Response, error) {
 	var responses []Response
 
 	for _, rpcData := range data {
+		// Unwrap extra nesting: [[["wrb.fr",...]] -> ["wrb.fr",...]
+		if len(rpcData) == 1 {
+			if inner, ok := rpcData[0].([]interface{}); ok {
+				rpcData = inner
+			}
+		}
+
 		if len(rpcData) < 3 {
 			continue
 		}
