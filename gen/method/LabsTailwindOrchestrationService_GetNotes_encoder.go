@@ -2,21 +2,22 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/rpc/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
 
+// Wire format verified against HAR capture — do not regenerate.
+
 // EncodeGetNotesArgs encodes arguments for LabsTailwindOrchestrationService.GetNotes
 // RPC ID: cFji9
-// Argument format: [%project_id%]
+//
+// Wire format (from HAR): [project_id, null, [timestamp_seconds, timestamp_nanos], [2]]
+// Simplified (omit timestamp for full list): [project_id, null, null, [2]]
 func EncodeGetNotesArgs(req *notebooklmv1alpha1.GetNotesRequest) []interface{} {
-	// Using generalized argument encoder
-	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%]")
-	if err != nil {
-		// Log error and return empty args as fallback
-		// In production, this should be handled better
-		return []interface{}{}
+	return []interface{}{
+		req.GetProjectId(),
+		nil,
+		nil,
+		[]interface{}{2},
 	}
-	return args
 }
