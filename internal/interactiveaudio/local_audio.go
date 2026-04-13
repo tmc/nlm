@@ -32,6 +32,7 @@ type localAudioSender struct {
 	interrupt func() error
 	stderr    io.Writer
 	debug     bool
+	enabled   bool
 
 	encoder       *opus.Encoder
 	resampler     pcmResampler
@@ -86,6 +87,35 @@ func newLocalAudioSender(
 	}, nil
 }
 
+func (s *localAudioSender) Enabled() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.enabled
+}
+
+func (s *localAudioSender) SetEnabled(enabled bool) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.enabled == enabled {
+		return s.enabled
+	}
+	s.enabled = enabled
+	if !enabled {
+		s.resetTurnState()
+	}
+	return s.enabled
+}
+
+func (s *localAudioSender) ToggleEnabled() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.enabled = !s.enabled
+	if !s.enabled {
+		s.resetTurnState()
+	}
+	return s.enabled
+}
+
 func (s *localAudioSender) HandlePCM16(samples []int16, sampleRate, channels int) error {
 	if len(samples) == 0 {
 		return nil
@@ -93,6 +123,10 @@ func (s *localAudioSender) HandlePCM16(samples []int16, sampleRate, channels int
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !s.enabled {
+		s.resetTurnState()
+		return nil
+	}
 
 	mono, err := s.resampler.push(samples, sampleRate, channels)
 	if err != nil {
@@ -162,6 +196,15 @@ func (s *localAudioSender) handleFrame(frame []int16) error {
 	s.timestamp += uplinkFrameSamples
 	s.turnPackets++
 	return nil
+}
+
+func (s *localAudioSender) resetTurnState() {
+	s.pending = s.pending[:0]
+	s.resampler.buf = s.resampler.buf[:0]
+	s.resampler.pos = 0
+	s.inSpeech = false
+	s.silenceFrames = 0
+	s.turnPackets = 0
 }
 
 func (r *pcmResampler) push(samples []int16, sampleRate, channels int) ([]int16, error) {

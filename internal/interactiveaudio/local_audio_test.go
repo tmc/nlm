@@ -28,6 +28,7 @@ func TestLocalAudioSenderInterruptsOncePerTurn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newLocalAudioSender() error = %v", err)
 	}
+	sender.SetEnabled(true)
 
 	speech := repeatedPCM(1200, uplinkFrameSamples)
 	silence := repeatedPCM(0, uplinkFrameSamples*(micSilenceHangover+2))
@@ -53,6 +54,52 @@ func TestLocalAudioSenderInterruptsOncePerTurn(t *testing.T) {
 	}
 	if !writer.packets[len(writer.packets)-1].Marker {
 		t.Fatal("second turn first packet marker = false, want true")
+	}
+}
+
+func TestLocalAudioSenderMutedByDefault(t *testing.T) {
+	writer := &recordingRTPWriter{}
+	interrupts := 0
+	sender, err := newLocalAudioSender(writer, func() error {
+		interrupts++
+		return nil
+	}, io.Discard, false)
+	if err != nil {
+		t.Fatalf("newLocalAudioSender() error = %v", err)
+	}
+
+	if sender.Enabled() {
+		t.Fatal("Enabled() = true, want false")
+	}
+	if err := sender.HandlePCM16(repeatedPCM(1200, uplinkFrameSamples), uplinkSampleRate, 1); err != nil {
+		t.Fatalf("HandlePCM16() error = %v", err)
+	}
+	if interrupts != 0 {
+		t.Fatalf("interrupts = %d, want 0", interrupts)
+	}
+	if len(writer.packets) != 0 {
+		t.Fatalf("packets = %d, want 0", len(writer.packets))
+	}
+}
+
+func TestLocalAudioSenderToggleEnabled(t *testing.T) {
+	writer := &recordingRTPWriter{}
+	sender, err := newLocalAudioSender(writer, func() error { return nil }, io.Discard, false)
+	if err != nil {
+		t.Fatalf("newLocalAudioSender() error = %v", err)
+	}
+
+	if enabled := sender.ToggleEnabled(); !enabled {
+		t.Fatal("ToggleEnabled() = false, want true")
+	}
+	if !sender.Enabled() {
+		t.Fatal("Enabled() = false, want true")
+	}
+	if enabled := sender.ToggleEnabled(); enabled {
+		t.Fatal("second ToggleEnabled() = true, want false")
+	}
+	if sender.Enabled() {
+		t.Fatal("Enabled() = true, want false")
 	}
 }
 

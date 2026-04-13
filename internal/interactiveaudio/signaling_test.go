@@ -52,3 +52,24 @@ func TestParseSDPExchangeResponse(t *testing.T) {
 		t.Fatalf("SDP = %q, want %q", desc.SDP, "v=0\r\n")
 	}
 }
+
+func TestSDPExchangePayloadMatchesCaptureShape(t *testing.T) {
+	payload, err := json.Marshal(map[string]string{
+		"sdp":  "v=0\r\n",
+		"type": "offer",
+	})
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+
+	args, err := json.Marshal([]interface{}{string(payload)})
+	if err != nil {
+		t.Fatalf("json.Marshal(args) error = %v", err)
+	}
+
+	got := string(args)
+	want := `["{\"sdp\":\"v=0\\r\\n\",\"type\":\"offer\"}"]`
+	if got != want {
+		t.Fatalf("args = %s, want %s", got, want)
+	}
+}

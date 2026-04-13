@@ -21,6 +21,7 @@ var refreshInteractiveAudioPageState = refreshNotebookLMPageState
 var refreshInteractiveAudioSignalerAuth = refreshNotebookLMSignalerAuthorization
 var runInteractiveAudioSession = interactiveaudio.Run
 var interactiveAudioStatusWriter = func() io.Writer { return os.Stderr }
+var prepareInteractiveAudioRuntime = prepareInteractiveAudioRuntimePlatform
 var listInteractiveAudioOverviews = func(client *api.Client, notebookID string) ([]*api.AudioOverviewResult, error) {
 	if client == nil {
 		return nil, fmt.Errorf("interactive audio requires api client")
@@ -38,6 +39,7 @@ type interactiveAudioOptions struct {
 	AudioID        string
 	TranscriptOnly bool
 	NoMic          bool
+	MicApp         bool
 	Speaker        string
 	Mic            string
 	Timeout        time.Duration
@@ -58,6 +60,7 @@ func parseInteractiveAudioArgs(args []string) (interactiveAudioOptions, string, 
 	flags.StringVar(&opts.AudioID, "audio-id", "", "specific audio overview id to launch")
 	flags.BoolVar(&opts.TranscriptOnly, "transcript-only", false, "skip audio playback, print transcript only")
 	flags.BoolVar(&opts.NoMic, "no-mic", false, "listen-only mode (no microphone input)")
+	flags.BoolVar(&opts.MicApp, "mic-app", false, "show a small AppKit mic controller window")
 	flags.StringVar(&opts.Speaker, "speaker", "", "audio output device (default: system default)")
 	flags.StringVar(&opts.Mic, "mic", "", "audio input device (default: system default)")
 	flags.DurationVar(&opts.Timeout, "timeout", defaultTimeout, "session timeout")
@@ -68,15 +71,17 @@ func parseInteractiveAudioArgs(args []string) (interactiveAudioOptions, string, 
 		fmt.Fprintln(os.Stderr, "Flags:")
 		fmt.Fprintln(os.Stderr, "  --audio-id <id>     Specific audio overview to launch")
 		fmt.Fprintln(os.Stderr, "  --transcript-only   Print transcript only; audio playback and microphone stay off")
-		fmt.Fprintln(os.Stderr, "  --no-mic            Listen-only mode; rerun without --no-mic to speak")
+		fmt.Fprintln(os.Stderr, "  --no-mic            Disable microphone input entirely for this session")
+		fmt.Fprintln(os.Stderr, "  --mic-app           Show a small AppKit mic controller window")
 		fmt.Fprintln(os.Stderr, "  --speaker <device>  Audio output device (default: system default)")
 		fmt.Fprintln(os.Stderr, "  --mic <device>      Audio input device (default: system default)")
 		fmt.Fprintln(os.Stderr, "  --timeout <dur>     Session timeout (default: 30m)")
 		fmt.Fprintln(os.Stderr, "  --help              Show help for audio-interactive")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Examples:")
-		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id>           Start with mic on (voice-activated)")
-		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --no-mic  Start with mic off")
+		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id>           Start with mic muted; press 'm' to toggle it")
+		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --no-mic  Start in listen-only mode with no mic control")
+		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --mic-app Start with the AppKit mic controller window")
 	}
 
 	flagArgs, notebookID, err := splitInteractiveAudioArgs(args)
@@ -94,6 +99,12 @@ func parseInteractiveAudioArgs(args []string) (interactiveAudioOptions, string, 
 	if notebookID == "" {
 		flags.Usage()
 		return opts, "", fmt.Errorf("missing notebook id")
+	}
+	if opts.MicApp && opts.TranscriptOnly {
+		return opts, "", fmt.Errorf("--mic-app cannot be used with --transcript-only")
+	}
+	if opts.MicApp && opts.NoMic {
+		return opts, "", fmt.Errorf("--mic-app cannot be used with --no-mic")
 	}
 	return opts, notebookID, nil
 }
@@ -125,7 +136,7 @@ func splitInteractiveAudioArgs(args []string) ([]string, string, error) {
 
 		name, _, hasValue := strings.Cut(strings.TrimLeft(arg, "-"), "=")
 		switch name {
-		case "transcript-only", "no-mic", "help", "h":
+		case "transcript-only", "no-mic", "mic-app", "help", "h":
 			flagArgs = append(flagArgs, arg)
 		case "audio-id", "speaker", "mic", "timeout":
 			if hasValue {
@@ -147,6 +158,12 @@ func splitInteractiveAudioArgs(args []string) ([]string, string, error) {
 }
 
 func runInteractiveAudioCommand(client *api.Client, notebookID string, opts interactiveAudioOptions) error {
+	if err := prepareInteractiveAudioRuntime(opts); err != nil {
+		return err
+	}
+	if opts.MicApp {
+		return runInteractiveAudioWithMicApp(client, notebookID, opts)
+	}
 	return runInteractiveAudio(client, notebookID, opts)
 }
 
@@ -158,6 +175,26 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
 		defer cancel()
+	}
+
+	return runInteractiveAudioWithControllerContext(ctx, client, notebookID, opts, nil)
+}
+
+type interactiveAudioMicController interface {
+	ToggleEvents() <-chan struct{}
+	SetEnabled(bool)
+	Close()
+}
+
+func runInteractiveAudioWithControllerContext(
+	ctx context.Context,
+	client *api.Client,
+	notebookID string,
+	opts interactiveAudioOptions,
+	controller interactiveAudioMicController,
+) error {
+	if controller != nil {
+		defer controller.Close()
 	}
 
 	if err := refreshInteractiveAudioPageState(debug); err != nil {
@@ -206,6 +243,9 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 		Stderr:                os.Stderr,
 		TTY:                   isTerminal(os.Stdout),
 		SignalerAuthorization: signalerAuthorization,
+		MicToggle:             toggleEvents(controller),
+		MicSetState:           setMicControllerState(controller),
+		MicClose:              closeMicController(controller),
 	})
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return nil
@@ -213,14 +253,37 @@ func runInteractiveAudio(client *api.Client, notebookID string, opts interactive
 	return err
 }
 
+func toggleEvents(controller interactiveAudioMicController) <-chan struct{} {
+	if controller == nil {
+		return nil
+	}
+	return controller.ToggleEvents()
+}
+
+func setMicControllerState(controller interactiveAudioMicController) func(bool) {
+	if controller == nil {
+		return nil
+	}
+	return controller.SetEnabled
+}
+
+func closeMicController(controller interactiveAudioMicController) func() {
+	if controller == nil {
+		return nil
+	}
+	return controller.Close
+}
+
 func describeInteractiveAudioMicMode(opts interactiveAudioOptions) string {
 	switch {
 	case opts.TranscriptOnly:
 		return "Mic: off. Transcript-only mode disables audio playback and microphone input."
 	case opts.NoMic:
-		return "Mic: off. Running in listen-only mode. Rerun without --no-mic to speak."
+		return "Mic: off. Running in listen-only mode. Rerun without --no-mic to enable the mic toggle."
+	case opts.MicApp:
+		return "Mic: off by default. Press 'm' in the terminal or use the mic window to turn it on or off."
 	default:
-		return "Mic: on. Speak to interrupt. Rerun with --no-mic to turn it off."
+		return "Mic: off by default. Press 'm' during the session to turn it on or off."
 	}
 }
 

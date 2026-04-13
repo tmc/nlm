@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/pion/webrtc/v4"
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"golang.org/x/term"
 )
 
 // Options controls an interactive-audio run.
@@ -23,6 +25,9 @@ type Options struct {
 	Stderr                io.Writer
 	TTY                   bool
 	SignalerAuthorization string
+	MicToggle             <-chan struct{}
+	MicSetState           func(bool)
+	MicClose              func()
 }
 
 type session struct {
@@ -66,6 +71,12 @@ type signalerStarter interface {
 var newSignalerClient = func(cookies, authorization string) (signalerStarter, error) {
 	return auth.NewSignalerClient(cookies, authorization)
 }
+
+var (
+	isTerminalFD    = term.IsTerminal
+	makeTerminalRaw = term.MakeRaw
+	restoreTerminal = term.Restore
+)
 
 // Run starts an interactive-audio session.
 func Run(ctx context.Context, authToken, cookies, notebookID string, opts Options) error {
@@ -125,6 +136,9 @@ func Run(ctx context.Context, authToken, cookies, notebookID string, opts Option
 }
 
 func (s *session) run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	fmt.Fprintln(s.stderr, "Connecting to interactive audio session...")
 
 	s.startSignaler(ctx)
@@ -149,6 +163,10 @@ func (s *session) run(ctx context.Context) error {
 		return err
 	}
 	defer pc.Close()
+	go func() {
+		<-ctx.Done()
+		_ = pc.Close()
+	}()
 
 	audioTransceiver, err := pc.AddTransceiverFromKind(
 		webrtc.RTPCodecTypeAudio,
@@ -270,6 +288,11 @@ func (s *session) run(ctx context.Context) error {
 		}); err != nil {
 			return err
 		}
+		stopKeys, err := s.startMicControl(ctx, cancel, micSender, connErrs)
+		if err != nil {
+			return err
+		}
+		defer stopKeys()
 	}
 
 	ticker := time.NewTicker(playbackPollInterval)
@@ -314,6 +337,133 @@ func (s *session) run(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+func (s *session) startMicControl(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	sender *localAudioSender,
+	connErrs chan<- error,
+) (func(), error) {
+	if sender == nil || s.opts.Config.NoMic || s.opts.Config.TranscriptOnly {
+		return func() {}, nil
+	}
+
+	var cleanups []func()
+	setEnabled := func(enabled bool, source string) {
+		if sender.SetEnabled(enabled) != enabled {
+			enabled = sender.Enabled()
+		}
+		if s.opts.MicSetState != nil {
+			s.opts.MicSetState(enabled)
+		}
+		switch {
+		case enabled && source == "app":
+			fmt.Fprintln(s.stderr, "Mic: on. Speak now. Click the mic window or press 'm' again to mute.")
+		case enabled:
+			fmt.Fprintln(s.stderr, "Mic: on. Speak now. Press 'm' again to mute.")
+		case source == "app":
+			fmt.Fprintln(s.stderr, "Mic: off. Click the mic window or press 'm' to talk.")
+		default:
+			fmt.Fprintln(s.stderr, "Mic: off. Press 'm' to talk.")
+		}
+	}
+	toggle := func(source string) {
+		setEnabled(!sender.Enabled(), source)
+	}
+
+	if s.opts.MicClose != nil {
+		cleanups = append(cleanups, s.opts.MicClose)
+	}
+	if s.opts.MicSetState != nil {
+		s.opts.MicSetState(sender.Enabled())
+	}
+	if s.opts.MicToggle != nil {
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case _, ok := <-s.opts.MicToggle:
+					if !ok {
+						return
+					}
+					toggle("app")
+				}
+			}
+		}()
+	}
+
+	if !s.opts.TTY {
+		if s.opts.MicToggle == nil {
+			fmt.Fprintln(s.stderr, "Mic muted by default. Rerun in a TTY or use --mic-app to turn it on.")
+		} else {
+			fmt.Fprintln(s.stderr, "Mic muted by default. Use the mic window to turn it on or off.")
+		}
+		return func() {
+			for i := len(cleanups) - 1; i >= 0; i-- {
+				cleanups[i]()
+			}
+		}, nil
+	}
+
+	fd := int(os.Stdin.Fd())
+	if !isTerminalFD(fd) {
+		if s.opts.MicToggle == nil {
+			fmt.Fprintln(s.stderr, "Mic muted by default. Rerun in a TTY or use --mic-app to turn it on.")
+		} else {
+			fmt.Fprintln(s.stderr, "Mic muted by default. Use the mic window to turn it on or off.")
+		}
+		return func() {
+			for i := len(cleanups) - 1; i >= 0; i-- {
+				cleanups[i]()
+			}
+		}, nil
+	}
+
+	state, err := makeTerminalRaw(fd)
+	if err != nil {
+		return nil, fmt.Errorf("enable raw terminal mode: %w", err)
+	}
+	cleanups = append(cleanups, func() {
+		_ = restoreTerminal(fd, state)
+	})
+
+	if s.opts.MicToggle != nil {
+		fmt.Fprintln(s.stderr, "Mic muted by default. Press 'm' or use the mic window to toggle it on or off. Press Ctrl-C to quit.")
+	} else {
+		fmt.Fprintln(s.stderr, "Mic muted by default. Press 'm' to toggle it on or off. Press Ctrl-C to quit.")
+	}
+
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			n, err := os.Stdin.Read(buf)
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				sendSessionError(connErrs, fmt.Errorf("read mic toggle key: %w", err))
+				return
+			}
+			if n == 0 {
+				continue
+			}
+			switch buf[0] {
+			case 3:
+				cancel()
+				return
+			case 'm', 'M':
+				toggle("tty")
+			}
+		}
+	}()
+
+	return func() {
+		for i := len(cleanups) - 1; i >= 0; i-- {
+			cleanups[i]()
+		}
+	}, nil
 }
 
 func (s *session) handleEvent(_ context.Context, event Event) (bool, error) {

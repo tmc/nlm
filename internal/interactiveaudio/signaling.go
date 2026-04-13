@@ -50,10 +50,10 @@ func fetchInteractivityToken(client *rpc.Client, notebookID string) (*Interactiv
 }
 
 func exchangeSDP(client *rpc.Client, notebookID, offerSDP string) (webrtc.SessionDescription, error) {
-	payload, err := json.Marshal([]map[string]string{{
+	payload, err := json.Marshal(map[string]string{
 		"sdp":  offerSDP,
 		"type": "offer",
-	}})
+	})
 	if err != nil {
 		return webrtc.SessionDescription{}, fmt.Errorf("marshal sdp offer: %w", err)
 	}

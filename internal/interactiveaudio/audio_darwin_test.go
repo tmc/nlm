@@ -3,6 +3,8 @@
 package interactiveaudio
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -61,6 +63,22 @@ func TestDarwinCaptureRequiresHandler(t *testing.T) {
 	}
 	if err := b.StartCapture(nil); err == nil {
 		t.Fatal("StartCapture(nil) error = nil, want error")
+	}
+}
+
+func TestDarwinClosedBackendRejectsPlaybackAndCapture(t *testing.T) {
+	b, err := New(Config{})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if err := b.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if err := b.WritePCM16([]int16{1, 2}, uplinkSampleRate, 1); !errors.Is(err, context.Canceled) {
+		t.Fatalf("WritePCM16() error = %v, want context.Canceled", err)
+	}
+	if err := b.StartCapture(func([]int16, int, int) error { return nil }); !errors.Is(err, context.Canceled) {
+		t.Fatalf("StartCapture() error = %v, want context.Canceled", err)
 	}
 }
 
