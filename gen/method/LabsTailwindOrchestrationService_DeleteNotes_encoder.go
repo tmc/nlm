@@ -2,21 +2,29 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/rpc/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
 
 // EncodeDeleteNotesArgs encodes arguments for LabsTailwindOrchestrationService.DeleteNotes
 // RPC ID: AH0mwd
-// Argument format: [%project_id%, null, %note_ids%, [2]]
+// Wire format verified against HAR capture — do not regenerate.
+//
+// HAR-verified wire format:
+//
+//	[null, null, [noteId1, noteId2, ...], [2]]
+//
+// Note: project_id is passed via URL source-path, NOT in the args array.
 func EncodeDeleteNotesArgs(req *notebooklmv1alpha1.DeleteNotesRequest) []interface{} {
-	// Using generalized argument encoder
-	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%, null, %note_ids%, [2]]")
-	if err != nil {
-		// Log error and return empty args as fallback
-		// In production, this should be handled better
-		return []interface{}{}
+	noteIDs := make([]interface{}, len(req.GetNoteIds()))
+	for i, id := range req.GetNoteIds() {
+		noteIDs[i] = id
 	}
-	return args
+
+	return []interface{}{
+		nil,              // pos 0: project ID (injected by caller via source-path)
+		nil,              // pos 1: null
+		noteIDs,          // pos 2: [noteId1, ...]
+		[]interface{}{2}, // pos 3: ProjectContext
+	}
 }
