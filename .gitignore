@@ -14,6 +14,14 @@
 coverage.html
 coverage.out
 
+# HAR/JSONL captures (contain auth cookies and session tokens)
+docs/captures/
+
+# Scratch files
+foo
+output.har.jsonl
+screenshot-*.png
+
 # Browser data (should never be committed)
 Default/
 Local State
