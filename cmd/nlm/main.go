@@ -125,7 +125,10 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (requires --direct-rpc)\n")
 		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n")
-		fmt.Fprintf(os.Stderr, "  audio-interactive <id> [flags]  Start an interactive audio session\n\n")
+		if os.Getenv("NLM_EXPERIMENTAL") != "" {
+			fmt.Fprintf(os.Stderr, "  audio-interactive <id> [flags]  Start interactive audio session (experimental)\n")
+		}
+		fmt.Fprintf(os.Stderr, "\n")
 
 		fmt.Fprintf(os.Stderr, "Video Commands:\n")
 		fmt.Fprintf(os.Stderr, "  video-list <id>   List all video overviews for a notebook with status\n")
@@ -832,6 +835,9 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "audio-list":
 		err = listAudioOverviews(client, args[0])
 	case "audio-interactive":
+		if os.Getenv("NLM_EXPERIMENTAL") == "" {
+			return fmt.Errorf("audio-interactive is experimental; set NLM_EXPERIMENTAL=1 to enable")
+		}
 		var opts interactiveAudioOptions
 		var notebookID string
 		opts, notebookID, err = parseInteractiveAudioArgs(args)
