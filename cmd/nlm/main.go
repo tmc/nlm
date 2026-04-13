@@ -114,6 +114,7 @@ func init() {
 
 		fmt.Fprintf(os.Stderr, "Note Commands:\n")
 		fmt.Fprintf(os.Stderr, "  notes <id>        List notes in notebook\n")
+		fmt.Fprintf(os.Stderr, "  read-note <id> <note-id>  Read full note content\n")
 		fmt.Fprintf(os.Stderr, "  new-note <id> <title> [content]  Create new note (content via arg or stdin)\n")
 		fmt.Fprintf(os.Stderr, "  update-note <id> <note-id> <content> <title>  Edit note\n")
 		fmt.Fprintf(os.Stderr, "  rm-note <note-id>  Remove note\n\n")
@@ -322,6 +323,11 @@ func validateArgs(cmd string, args []string) error {
 	case "rename-source":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm rename-source <source-id> <new-name>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "read-note":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm read-note <notebook-id> <note-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "new-note":
@@ -546,7 +552,7 @@ func isValidCommand(cmd string) bool {
 		"help", "-h", "--help",
 		"list", "ls", "create", "rm", "analytics", "list-featured",
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
-		"notes", "new-note", "update-note", "rm-note",
+		"notes", "read-note", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive", "video-create", "video-list", "video-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
@@ -810,6 +816,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	// Note operations
 	case "notes":
 		err = listNotes(client, args[0])
+	case "read-note":
+		err = readNote(client, args[0], args[1])
 	case "new-note":
 		noteContent := ""
 		if len(args) > 2 {
@@ -1240,6 +1248,20 @@ func listNotes(c *api.Client, notebookID string) error {
 		fmt.Fprintf(w, "%s\t%s\t%s\n", note.GetNoteId(), note.GetTitle(), content)
 	}
 	return w.Flush()
+}
+
+func readNote(c *api.Client, notebookID, noteID string) error {
+	notes, err := c.GetNotes(notebookID)
+	if err != nil {
+		return fmt.Errorf("get notes: %w", err)
+	}
+	for _, note := range notes {
+		if note.GetNoteId() == noteID {
+			fmt.Printf("# %s\n\n%s\n", note.GetTitle(), note.GetContentText())
+			return nil
+		}
+	}
+	return fmt.Errorf("note %s not found", noteID)
 }
 
 // Audio operations
