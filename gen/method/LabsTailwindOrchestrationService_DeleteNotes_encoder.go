@@ -12,9 +12,7 @@ import (
 //
 // HAR-verified wire format:
 //
-//	[null, null, [noteId1, noteId2, ...], [2]]
-//
-// Note: project_id is passed via URL source-path, NOT in the args array.
+//	[projectId, null, [noteId1, noteId2, ...], [2]]
 func EncodeDeleteNotesArgs(req *notebooklmv1alpha1.DeleteNotesRequest) []interface{} {
 	noteIDs := make([]interface{}, len(req.GetNoteIds()))
 	for i, id := range req.GetNoteIds() {
@@ -22,9 +20,9 @@ func EncodeDeleteNotesArgs(req *notebooklmv1alpha1.DeleteNotesRequest) []interfa
 	}
 
 	return []interface{}{
-		nil,              // pos 0: project ID (injected by caller via source-path)
-		nil,              // pos 1: null
-		noteIDs,          // pos 2: [noteId1, ...]
-		[]interface{}{2}, // pos 3: ProjectContext
+		req.GetProjectId(), // pos 0: project ID
+		nil,                // pos 1: null
+		noteIDs,            // pos 2: [noteId1, ...]
+		[]interface{}{2},   // pos 3: ProjectContext
 	}
 }
