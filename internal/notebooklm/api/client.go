@@ -3102,10 +3102,19 @@ func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) 
 			continue
 		}
 
-		delta := text
-		if strings.HasPrefix(text, lastAnswer) && lastAnswer != "" {
-			delta = text[len(lastAnswer):]
+		// The server sends cumulative text. Find the longest common
+		// prefix with what we already emitted and only send the new
+		// suffix. This handles citation consolidation where the server
+		// revises earlier text (e.g. "[2, 3]" → "[2-5]").
+		commonLen := 0
+		limit := len(lastAnswer)
+		if len(text) < limit {
+			limit = len(text)
 		}
+		for commonLen < limit && text[commonLen] == lastAnswer[commonLen] {
+			commonLen++
+		}
+		delta := text[commonLen:]
 		if delta != "" {
 			if !callback(ChatChunk{Text: delta, Phase: ChatChunkAnswer}) {
 				return nil
