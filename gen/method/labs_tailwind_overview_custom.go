@@ -12,6 +12,7 @@ func encodeOverviewSourceRefs(sourceIDs []string) []interface{} {
 
 // EncodeCreateAudioOverviewArgs encodes the observed R7cb6c audio-overview payload.
 func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRequest) []interface{} {
+	// Wire format verified against HAR capture — do not regenerate.
 	sourceRefs := encodeOverviewSourceRefs(req.GetSourceIds())
 	return []interface{}{
 		[]interface{}{int32(req.GetAudioType())},
@@ -41,6 +42,7 @@ func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRe
 
 // EncodeCreateVideoOverviewArgs encodes the observed R7cb6c video-overview payload.
 func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRequest) []interface{} {
+	// Wire format verified against HAR capture — do not regenerate.
 	sourceRefs := encodeOverviewSourceRefs(req.GetSourceIds())
 	return []interface{}{
 		[]interface{}{int32(req.GetAudioType())},

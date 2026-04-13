@@ -13,6 +13,7 @@ import (
 //   - Field 1: repeated SourceId — each ID wrapped as ["id"]
 //   - Field 2: ProjectContext [2]
 func EncodeDeleteSourcesArgs(req *notebooklmv1alpha1.DeleteSourcesRequest) []interface{} {
+	// Wire format verified against HAR capture — do not regenerate.
 	wrappedIDs := make([]interface{}, len(req.GetSourceIds()))
 	for i, id := range req.GetSourceIds() {
 		wrappedIDs[i] = []interface{}{id}
