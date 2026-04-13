@@ -35,7 +35,7 @@ func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 	}
 }
 
-func TestChatStreamRendererTTYModes(t *testing.T) {
+func TestChatStreamRendererThinkingModes(t *testing.T) {
 	t.Run("header-only", func(t *testing.T) {
 		var out bytes.Buffer
 		var status bytes.Buffer
@@ -60,6 +60,30 @@ func TestChatStreamRendererTTYModes(t *testing.T) {
 		}
 		if got := status.String(); !strings.Contains(got, "\r") {
 			t.Fatalf("status output = %q, want carriage-return clear", got)
+		}
+	})
+
+	t.Run("non-tty-with-thinking-flag", func(t *testing.T) {
+		var out bytes.Buffer
+		var status bytes.Buffer
+
+		r := newChatStreamRenderer(&out, &status, true, false)
+		r.WriteChunk(api.ChatChunk{
+			Phase:  api.ChatChunkThinking,
+			Header: "**Thinking**",
+			Text:   "**Thinking**\nPlanning response",
+		})
+		r.WriteChunk(api.ChatChunk{
+			Phase: api.ChatChunkAnswer,
+			Text:  "Answer",
+		})
+		r.Finish()
+
+		if got := out.String(); got != "Answer" {
+			t.Fatalf("answer output = %q, want %q", got, "Answer")
+		}
+		if got := status.String(); !strings.Contains(got, "[thinking] Thinking") {
+			t.Fatalf("status output = %q, want thinking header", got)
 		}
 	})
 

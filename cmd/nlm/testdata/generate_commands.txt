@@ -60,6 +60,21 @@ stderr 'usage: nlm generate-chat <notebook-id> <prompt>'
 stderr 'Authentication required'
 ! stderr 'panic'
 
+# Test generate-chat with multi-word prompt parsing
+! exec ./nlm_test generate-chat notebook123 prompt with spaces
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test generate-chat with thinking flag
+! exec ./nlm_test -thinking generate-chat notebook123 prompt
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test generate-chat with verbose thinking flag
+! exec ./nlm_test -verbose generate-chat notebook123 prompt
+stderr 'Authentication required'
+! stderr 'panic'
+
 # === GENERATE-MAGIC COMMAND ===
 # Test generate-magic without arguments
 ! exec ./nlm_test generate-magic

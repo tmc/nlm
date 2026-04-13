@@ -41,7 +41,8 @@ var (
 	yes               bool   // Skip confirmation prompts
 	sourceName        string // Custom name for added sources
 	showChatHistory   bool   // Show previous chat conversation on start
-	verbose           bool   // Show full thinking traces in chat
+	showThinking      bool   // Show thinking headers while streaming responses
+	verbose           bool   // Show full thinking traces while streaming responses
 )
 
 // ChatSession represents a persistent chat conversation
@@ -84,8 +85,10 @@ func init() {
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
-	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces in chat (default: headers only)")
-	flag.BoolVar(&verbose, "v", false, "show full thinking traces in chat (shorthand)")
+	flag.BoolVar(&showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
+	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
+	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
+	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
@@ -235,6 +238,8 @@ func reorderArgs() {
 }
 
 func main() {
+	lockInteractiveAudioAppThreadIfNeeded(os.Args[1:])
+
 	reorderArgs()
 	flag.Parse()
 
@@ -425,7 +430,7 @@ func validateArgs(cmd string, args []string) error {
 			return fmt.Errorf("invalid arguments")
 		}
 	case "generate-chat":
-		if len(args) != 2 {
+		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-chat <notebook-id> <prompt>\n")
 			return fmt.Errorf("invalid arguments")
 		}
@@ -900,7 +905,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "toc":
 		err = actOnSources(client, args[0], "table_of_contents", args[1:])
 	case "generate-chat":
-		err = generateFreeFormChat(client, args[0], args[1])
+		err = generateFreeFormChat(client, args[0], strings.Join(args[1:], " "))
 	case "chat":
 		if len(args) >= 2 {
 			rest := strings.Join(args[1:], " ")
@@ -965,6 +970,17 @@ func confirmAction(prompt string) bool {
 	var response string
 	fmt.Scanln(&response)
 	return strings.HasPrefix(strings.ToLower(response), "y")
+}
+
+func confirmActionDefaultYes(prompt string) bool {
+	if yes {
+		return true
+	}
+	fmt.Printf("%s [Y/n] ", prompt)
+	var response string
+	fmt.Scanln(&response)
+	response = strings.TrimSpace(strings.ToLower(response))
+	return response == "" || strings.HasPrefix(response, "y")
 }
 
 // Notebook operations
@@ -1123,7 +1139,7 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 }
 
 func removeSource(c *api.Client, notebookID, sourceID string) error {
-	if !confirmAction(fmt.Sprintf("Are you sure you want to remove source %s?", sourceID)) {
+	if !confirmActionDefaultYes(fmt.Sprintf("Are you sure you want to remove source %s?", sourceID)) {
 		return fmt.Errorf("operation cancelled")
 	}
 
@@ -1179,72 +1195,21 @@ func removeNote(c *api.Client, notebookID, noteID string) error {
 
 // Note operations
 func listNotes(c *api.Client, notebookID string) error {
-	// GetNotes returns Note objects, not Source. The wire format is:
-	//   [note_id, content_text, metadata_array, null, title, rich_text, [2]]
-	// Use raw RPC to extract fields by position since the proto type doesn't match.
-	rpcClient := rpc.New(authToken, cookies)
-	resp, err := rpcClient.Do(rpc.Call{
-		ID:         "cFji9", // GetNotes
-		NotebookID: notebookID,
-		Args:       []interface{}{notebookID, nil, nil, []interface{}{2}},
-	})
+	notes, err := c.GetNotes(notebookID)
 	if err != nil {
 		return fmt.Errorf("list notes: %w", err)
 	}
 
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse notes response: %w", err)
-	}
-
-	if debug {
-		raw, _ := json.MarshalIndent(data, "", "  ")
-		fmt.Fprintf(os.Stderr, "DEBUG: notes response: %s\n", raw)
-	}
-
-	// Response structure: [notesArray, [lastModTimestamp]]
-	// notesArray: [[note_id, [note_id, content, metadata, null, title]], ...]
-	var notesArr []interface{}
-	if len(data) > 0 {
-		if arr, ok := data[0].([]interface{}); ok {
-			notesArr = arr
-		}
-	}
-
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tCONTENT PREVIEW")
-	for _, item := range notesArr {
-		noteWrapper, ok := item.([]interface{})
-		if !ok || len(noteWrapper) < 2 {
-			continue
-		}
-		noteID := jsonStr(noteWrapper, 0)
-
-		// The note data is at position 1: [note_id, content, metadata, null, title]
-		noteData, ok := noteWrapper[1].([]interface{})
-		if !ok {
-			fmt.Fprintf(w, "%s\t\t\n", noteID)
-			continue
-		}
-		title := jsonStr(noteData, 4)
-		content := jsonStr(noteData, 1)
+	for _, note := range notes {
+		content := note.GetContentText()
 		if len(content) > 80 {
 			content = content[:77] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", noteID, title, content)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", note.GetNoteId(), note.GetTitle(), content)
 	}
 	return w.Flush()
-}
-
-// jsonStr safely extracts a string from a JSON array at the given index.
-func jsonStr(arr []interface{}, idx int) string {
-	if idx >= len(arr) || arr[idx] == nil {
-		return ""
-	}
-	if s, ok := arr[idx].(string); ok {
-		return s
-	}
-	return fmt.Sprintf("%v", arr[idx])
 }
 
 // Audio operations
@@ -1297,12 +1262,7 @@ func deleteAudioOverview(c *api.Client, notebookID string) error {
 
 func shareAudioOverview(c *api.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating share link...\n")
-	resp, err := c.ShareAudio(notebookID, api.SharePublic)
-	if err != nil {
-		return fmt.Errorf("share audio: %w", err)
-	}
-	fmt.Printf("Share URL: %s\n", resp.ShareURL)
-	return nil
+	return shareNotebook(c, notebookID)
 }
 
 // Generation operations
@@ -1318,28 +1278,7 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 
 func generateOutline(c *api.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating report suggestions...\n")
-
-	// Use ciyUvf (GenerateReportSuggestions) workflow instead of deprecated lCjAd
-	// First get the project to extract source IDs
-	p, err := c.GetProject(notebookID)
-	if err != nil {
-		return fmt.Errorf("get project: %w", err)
-	}
-
-	var sourceIDs []string
-	for _, src := range p.Sources {
-		if src.SourceId != nil {
-			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
-		}
-	}
-
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	req := &pb.GenerateReportSuggestionsRequest{
-		ProjectId: notebookID,
-		SourceIds: sourceIDs,
-	}
-
-	resp, err := orchClient.GenerateReportSuggestions(context.Background(), req)
+	resp, err := c.GenerateReportSuggestions(notebookID)
 	if err != nil {
 		return fmt.Errorf("generate report suggestions: %w", err)
 	}
@@ -1500,79 +1439,31 @@ func heartbeat(c *api.Client) error {
 
 // Analytics and featured projects
 func getAnalytics(c *api.Client, projectID string) error {
-	// The analytics response wire format doesn't match the proto cleanly
-	// (source_count may arrive as array). Use raw RPC.
-	rpcClient := rpc.New(authToken, cookies)
-	resp, err := rpcClient.Do(rpc.Call{
-		ID:         "AUrzMb", // GetProjectAnalytics
-		NotebookID: projectID,
-		Args:       []interface{}{projectID},
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	resp, err := orchClient.GetProjectAnalytics(context.Background(), &pb.GetProjectAnalyticsRequest{
+		ProjectId: projectID,
 	})
 	if err != nil {
 		return fmt.Errorf("get analytics: %w", err)
 	}
-
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse analytics response: %w", err)
-	}
-
-	if debug {
-		raw, _ := json.MarshalIndent(data, "", "  ")
-		fmt.Fprintf(os.Stderr, "DEBUG: analytics response: %s\n", raw)
-	}
-
-	if len(data) == 0 {
-		fmt.Printf("No analytics data available for notebook %s.\n", projectID)
-		return nil
-	}
 	fmt.Printf("Project Analytics for %s:\n", projectID)
-	// Extract counts - they may be numbers or arrays containing numbers
-	fmt.Printf("  Sources: %s\n", jsonCount(data, 0))
-	fmt.Printf("  Notes: %s\n", jsonCount(data, 1))
-	fmt.Printf("  Audio Overviews: %s\n", jsonCount(data, 2))
+	fmt.Printf("  Sources: %d\n", int32Value(resp.GetSourceCount()))
+	fmt.Printf("  Notes: %d\n", int32Value(resp.GetNoteCount()))
+	fmt.Printf("  Audio Overviews: %d\n", int32Value(resp.GetAudioOverviewCount()))
 
 	return nil
 }
 
-// jsonCount extracts a count from a JSON array position, handling both
-// number and array-of-number formats from the server.
-func jsonCount(arr []interface{}, idx int) string {
-	if idx >= len(arr) || arr[idx] == nil {
-		return "0"
+func int32Value(v interface{ GetValue() int32 }) int32 {
+	if v == nil {
+		return 0
 	}
-	switch v := arr[idx].(type) {
-	case float64:
-		return fmt.Sprintf("%d", int(v))
-	case []interface{}:
-		// Server sends counts as arrays like [3] or [[3]]
-		if len(v) > 0 {
-			if n, ok := v[0].(float64); ok {
-				return fmt.Sprintf("%d", int(n))
-			}
-			// Nested array
-			if inner, ok := v[0].([]interface{}); ok && len(inner) > 0 {
-				if n, ok := inner[0].(float64); ok {
-					return fmt.Sprintf("%d", int(n))
-				}
-			}
-			return fmt.Sprintf("%v", v[0])
-		}
-		return "0"
-	default:
-		return fmt.Sprintf("%v", v)
-	}
+	return v.GetValue()
 }
 
 func listFeaturedProjects(c *api.Client) error {
-	// Create orchestration service client
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.ListFeaturedProjectsRequest{
-		PageSize: 20,
-	}
-
-	resp, err := orchClient.ListFeaturedProjects(context.Background(), req)
+	resp, err := orchClient.ListFeaturedProjects(context.Background(), &pb.ListFeaturedProjectsRequest{})
 	if err != nil {
 		return fmt.Errorf("list featured projects: %w", err)
 	}
@@ -1582,7 +1473,9 @@ func listFeaturedProjects(c *api.Client) error {
 
 	for _, project := range resp.Projects {
 		description := ""
-		if len(project.Sources) > 0 {
+		if project.Presentation != nil && strings.TrimSpace(project.Presentation.Description) != "" {
+			description = strings.TrimSpace(project.Presentation.Description)
+		} else if len(project.Sources) > 0 {
 			description = fmt.Sprintf("%d sources", len(project.Sources))
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
@@ -1595,16 +1488,8 @@ func listFeaturedProjects(c *api.Client) error {
 
 // Enhanced source operations
 func refreshSource(c *api.Client, notebookID, sourceID string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.RefreshSourceRequest{
-		SourceId:  sourceID,
-		ProjectId: notebookID,
-	}
-
 	fmt.Fprintf(os.Stderr, "Refreshing source %s...\n", sourceID)
-	source, err := orchClient.RefreshSource(context.Background(), req)
+	source, err := c.RefreshSource(notebookID, sourceID)
 	if err != nil {
 		return fmt.Errorf("refresh source: %w", err)
 	}
@@ -1642,94 +1527,61 @@ func checkSourceFreshness(c *api.Client, sourceID string) error {
 }
 
 func discoverSources(c *api.Client, projectID, query string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.DiscoverSourcesRequest{
-		ProjectId: projectID,
-		Query:     query,
-	}
-
-	fmt.Fprintf(os.Stderr, "Discovering sources for query: %s\n", query)
-	resp, err := orchClient.DiscoverSources(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("discover sources: %w", err)
-	}
-
-	if len(resp.Sources) == 0 {
-		fmt.Println("No sources found for the query.")
+	fmt.Fprintf(os.Stderr, "DiscoverSources is deprecated upstream; using deep research workflow instead.\n")
+	if err := deepResearch(c, projectID, query); err == nil {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tRELEVANCE")
-
-	for _, source := range resp.Sources {
-		relevance := "Unknown"
-		if source.Metadata != nil {
-			relevance = source.Metadata.GetSourceType().String()
-		}
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-			source.SourceId.GetSourceId(),
-			strings.TrimSpace(source.Title),
-			source.Metadata.GetSourceType(),
-			relevance)
+	fmt.Fprintf(os.Stderr, "Deep research is unavailable; falling back to notebook suggestions.\n")
+	answer, _, err := streamChatResponse(c, api.ChatRequest{
+		ProjectID: projectID,
+		Prompt:    fmt.Sprintf("Suggest sources to add for this query: %s. Respond with a short bullet list of specific documents, sites, or search directions.", query),
+	})
+	if err != nil {
+		return fmt.Errorf("discover sources fallback: %w", err)
 	}
-	return w.Flush()
+	if answer == "" {
+		fmt.Println("(No source suggestions returned)")
+		return nil
+	}
+	fmt.Println()
+	return nil
 }
 
 // Artifact management
 func createArtifact(c *api.Client, projectID, artifactType string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	// Parse artifact type
-	var aType pb.ArtifactType
 	switch strings.ToLower(artifactType) {
 	case "note":
-		aType = pb.ArtifactType_ARTIFACT_TYPE_NOTE
+		note, err := c.CreateNote(projectID, "New artifact note", "")
+		if err != nil {
+			return fmt.Errorf("create note artifact: %w", err)
+		}
+		fmt.Printf("✅ Created note artifact: %s\n", note.GetNoteId())
+		fmt.Printf("  Title: %s\n", note.GetTitle())
+		return nil
 	case "audio":
-		aType = pb.ArtifactType_ARTIFACT_TYPE_AUDIO_OVERVIEW
+		result, err := c.CreateAudioOverview(projectID, "")
+		if err != nil {
+			return fmt.Errorf("create audio artifact: %w", err)
+		}
+		fmt.Printf("✅ Created audio artifact request\n")
+		if result.AudioID != "" {
+			fmt.Printf("  ID: %s\n", result.AudioID)
+		}
+		fmt.Printf("  Ready: %v\n", result.IsReady)
+		return nil
 	case "report":
-		aType = pb.ArtifactType_ARTIFACT_TYPE_REPORT
+		fmt.Fprintf(os.Stderr, "Generic report artifact creation is not a standalone RPC anymore; showing current report suggestions instead.\n")
+		return generateOutline(c, projectID)
 	case "app":
-		aType = pb.ArtifactType_ARTIFACT_TYPE_APP
+		return fmt.Errorf("app artifact creation requires the newer universal artifact workflow and is not wired yet")
 	default:
 		return fmt.Errorf("invalid artifact type: %s (valid: note, audio, report, app)", artifactType)
 	}
-
-	req := &pb.CreateArtifactRequest{
-		ProjectId: projectID,
-		Artifact: &pb.Artifact{
-			ProjectId: projectID,
-			Type:      aType,
-			State:     pb.ArtifactState_ARTIFACT_STATE_CREATING,
-		},
-	}
-
-	fmt.Fprintf(os.Stderr, "Creating %s artifact in project %s...\n", artifactType, projectID)
-	artifact, err := orchClient.CreateArtifact(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("create artifact: %w", err)
-	}
-
-	fmt.Printf("✅ Created artifact: %s\n", artifact.ArtifactId)
-	fmt.Printf("  Type: %s\n", artifact.Type.String())
-	fmt.Printf("  State: %s\n", artifact.State.String())
-
-	return nil
 }
 
 func getArtifact(c *api.Client, artifactID string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.GetArtifactRequest{
-		ArtifactId: artifactID,
-	}
-
-	artifact, err := orchClient.GetArtifact(context.Background(), req)
+	artifact, err := c.GetArtifact(artifactID)
 	if err != nil {
 		return fmt.Errorf("get artifact: %w", err)
 	}
@@ -1840,19 +1692,19 @@ const (
 type chatStreamRenderer struct {
 	out             io.Writer
 	status          io.Writer
-	isTTY           bool
+	showThinking    bool
 	verbose         bool
 	lastThinkingLen int
 	answerBuf       strings.Builder
 	thinkingBuf     strings.Builder
 }
 
-func newChatStreamRenderer(out, status io.Writer, isTTY, verbose bool) *chatStreamRenderer {
+func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool) *chatStreamRenderer {
 	return &chatStreamRenderer{
-		out:     out,
-		status:  status,
-		isTTY:   isTTY,
-		verbose: verbose,
+		out:          out,
+		status:       status,
+		showThinking: showThinking,
+		verbose:      verbose,
 	}
 }
 
@@ -1860,7 +1712,7 @@ func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 	switch chunk.Phase {
 	case api.ChatChunkThinking:
 		r.thinkingBuf.WriteString(chunk.Text + "\n")
-		if !r.isTTY {
+		if !r.showThinking {
 			return
 		}
 		if r.verbose {
@@ -1906,7 +1758,7 @@ func (r *chatStreamRenderer) clearThinkingLine() {
 // With --verbose: full thinking text streams in grey before the answer.
 // Final answer text streams normally. Returns the full answer and thinking trace.
 func streamChatResponse(c *api.Client, req api.ChatRequest) (answer, thinking string, err error) {
-	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, isTerminal(os.Stdout), verbose)
+	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, showThinking || verbose || isTerminal(os.Stdout), verbose)
 
 	err = c.StreamChat(req, func(chunk api.ChatChunk) bool {
 		renderer.WriteChunk(chunk)
@@ -2251,56 +2103,21 @@ func setInstructions(c *api.Client, notebookID, prompt string) error {
 }
 
 func getInstructions(c *api.Client, notebookID string) error {
-	// GetProject response has chatbot config at wire position [7] which isn't
-	// in the proto. Use raw RPC to extract it.
-	rpcClient := rpc.New(authToken, cookies)
-	resp, err := rpcClient.Do(rpc.Call{
-		ID:         rpc.RPCGetProject,
-		NotebookID: notebookID,
-		Args:       []interface{}{notebookID},
-	})
+	project, err := c.GetProject(notebookID)
 	if err != nil {
 		return fmt.Errorf("get project: %w", err)
 	}
 
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse response: %w", err)
-	}
-
 	if debug {
-		fmt.Fprintf(os.Stderr, "DEBUG: get-instructions response length: %d\n", len(data))
-		for i, v := range data {
-			raw, _ := json.Marshal(v)
-			if len(raw) > 200 {
-				raw = append(raw[:197], "..."...)
-			}
-			fmt.Fprintf(os.Stderr, "DEBUG: position [%d]: %s\n", i, raw)
+		if cfg := project.GetChatbotConfig(); cfg != nil {
+			fmt.Fprintf(os.Stderr, "DEBUG: chat goal=%d response_length=%d\n",
+				cfg.GetGoal().GetGoal(),
+				cfg.GetResponseLength().GetValue(),
+			)
 		}
 	}
 
-	// The response may be wrapped: [[project_data...]] or [project_data...]
-	// Unwrap if needed - if data[0] is an array and looks like the project data
-	projectData := data
-	if len(data) == 1 {
-		if inner, ok := data[0].([]interface{}); ok {
-			projectData = inner
-		}
-	}
-
-	if debug {
-		fmt.Fprintf(os.Stderr, "DEBUG: project data length after unwrap: %d\n", len(projectData))
-		for i, v := range projectData {
-			raw, _ := json.Marshal(v)
-			if len(raw) > 200 {
-				raw = append(raw[:197], "..."...)
-			}
-			fmt.Fprintf(os.Stderr, "DEBUG: project[%d]: %s\n", i, raw)
-		}
-	}
-
-	// ChatbotConfig is at position [7]: [[goal_type, "prompt"], [length_config]]
-	prompt := extractInstructionsFromProject(projectData)
+	prompt := strings.TrimSpace(project.GetChatbotConfig().GetGoal().GetCustomPrompt())
 	if prompt == "" {
 		fmt.Println("No custom instructions set.")
 		return nil
@@ -2308,44 +2125,6 @@ func getInstructions(c *api.Client, notebookID string) error {
 
 	fmt.Println(prompt)
 	return nil
-}
-
-// extractInstructionsFromProject searches the project response for chatbot config.
-// The config is typically at position [7] but may shift. Format: [[goal_type, "prompt"], [length_config]]
-func extractInstructionsFromProject(data []interface{}) string {
-	// Try position 7 first (most common)
-	if prompt := tryExtractPrompt(data, 7); prompt != "" {
-		return prompt
-	}
-	// Scan other positions as fallback
-	for i := 5; i < len(data); i++ {
-		if i == 7 {
-			continue
-		}
-		if prompt := tryExtractPrompt(data, i); prompt != "" {
-			return prompt
-		}
-	}
-	return ""
-}
-
-func tryExtractPrompt(data []interface{}, pos int) string {
-	if pos >= len(data) || data[pos] == nil {
-		return ""
-	}
-	config, ok := data[pos].([]interface{})
-	if !ok || len(config) == 0 {
-		return ""
-	}
-	goalConfig, ok := config[0].([]interface{})
-	if !ok || len(goalConfig) < 2 {
-		return ""
-	}
-	prompt, ok := goalConfig[1].(string)
-	if !ok {
-		return ""
-	}
-	return prompt
 }
 
 // Utility functions for commented-out operations

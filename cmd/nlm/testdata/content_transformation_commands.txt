@@ -176,13 +176,13 @@ stderr 'usage: nlm generate-chat'
 stderr 'usage: nlm generate-chat'
 ! stderr 'panic'
 
-# Test generate-chat with too many arguments (should fail with usage)
-! exec ./nlm_test generate-chat notebook123 "hello world" extra
-stderr 'usage: nlm generate-chat'
-! stderr 'panic'
-
 # Test generate-chat without authentication (should fail)
 ! exec ./nlm_test generate-chat notebook123 hello
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test generate-chat with multi-word prompt parsing like chat
+! exec ./nlm_test generate-chat notebook123 hello world extra
 stderr 'Authentication required'
 ! stderr 'panic'
 
