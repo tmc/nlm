@@ -112,7 +112,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect
-	github.com/tmc/macgo v0.0.0
+	github.com/tmc/macgo v0.1.1
 	github.com/vbatts/tar-split v0.12.1 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
@@ -145,7 +145,3 @@ require (
 )
 
 tool github.com/bufbuild/buf/cmd/buf
-
-replace github.com/tmc/apple => /Users/tmc/go/src/github.com/tmc/apple
-
-replace github.com/tmc/macgo => /Users/tmc/go/src/github.com/tmc/macgo
