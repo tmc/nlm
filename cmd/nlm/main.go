@@ -14,12 +14,16 @@ import (
 	"text/tabwriter"
 	"time"
 
+	runtimedebug "runtime/debug"
+
 	"github.com/google/uuid"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
+	"github.com/tmc/nlm/internal/nlmmcp"
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"golang.org/x/term"
@@ -174,6 +178,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  research <id> \"query\"   Start deep research and poll for results\n\n")
 
 		fmt.Fprintf(os.Stderr, "Other Commands:\n")
+		fmt.Fprintf(os.Stderr, "  mcp               Start MCP server (stdin/stdout)\n")
 		fmt.Fprintf(os.Stderr, "  auth [profile]    Setup authentication\n")
 		fmt.Fprintf(os.Stderr, "  refresh           Refresh authentication credentials\n")
 		fmt.Fprintf(os.Stderr, "  feedback <msg>    Submit feedback\n")
@@ -544,7 +549,7 @@ func isValidCommand(cmd string) bool {
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"research",
-		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback",
+		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback", "mcp",
 	}
 
 	for _, valid := range validCommands {
@@ -949,6 +954,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = getShareDetails(client, args[0])
 
 	// Other operations
+	case "mcp":
+		err = runMCP(client)
 	case "feedback":
 		err = submitFeedback(client, args[0])
 	case "hb":
@@ -959,6 +966,19 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	}
 
 	return err
+}
+
+func runMCP(client *api.Client) error {
+	info, ok := runtimedebug.ReadBuildInfo()
+	version := "devel"
+	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		version = info.Main.Version
+	}
+	impl := &mcp.Implementation{
+		Name:    "nlm",
+		Version: version,
+	}
+	return nlmmcp.Run(context.Background(), client, impl)
 }
 
 // confirmAction prompts the user for confirmation unless --yes is set.
