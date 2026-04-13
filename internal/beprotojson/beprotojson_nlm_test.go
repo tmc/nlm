@@ -117,6 +117,24 @@ func TestUnmarshal(t *testing.T) {
 			},
 		},
 		{
+			name: "project with chatbot config",
+			json: `["project3", [], "id3", "📚", null, null, null, [[2, "Be precise"], [4]]]`,
+			want: &pb.Project{
+				Title:     "project3",
+				ProjectId: "id3",
+				Emoji:     "📚",
+				ChatbotConfig: &pb.ChatbotConfig{
+					Goal: &pb.ChatGoalConfig{
+						Goal:         2,
+						CustomPrompt: "Be precise",
+					},
+					ResponseLength: &pb.ResponseLengthConfig{
+						Value: 4,
+					},
+				},
+			},
+		},
+		{
 			name:    "invalid json",
 			json:    `not json`,
 			want:    &pb.Project{},
@@ -140,6 +158,95 @@ func TestUnmarshal(t *testing.T) {
 				t.Errorf("Unmarshal() diff (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestUnmarshalProjectAnalytics(t *testing.T) {
+	got := &pb.ProjectAnalytics{}
+	if err := Unmarshal([]byte(`[[335], [12], [1], [1731910459, 665561000]]`), got); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	want := &pb.ProjectAnalytics{
+		SourceCount:        &wrapperspb.Int32Value{Value: 335},
+		NoteCount:          &wrapperspb.Int32Value{Value: 12},
+		AudioOverviewCount: &wrapperspb.Int32Value{Value: 1},
+		LastAccessed: &timestamppb.Timestamp{
+			Seconds: 1731910459,
+			Nanos:   665561000,
+		},
+	}
+
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Fatalf("Unmarshal() diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestUnmarshalGetNotesResponse(t *testing.T) {
+	got := &pb.GetNotesResponse{}
+	json := `[[["note-1", ["note-1", "hello", null, null, "Test Note", "<p>hello</p>", [2]]], ["note-2", ["note-2", "world", null, null, "Second Note", "<p>world</p>", [1]]]]]`
+	if err := Unmarshal([]byte(json), got); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	want := &pb.GetNotesResponse{
+		Notes: []*pb.Note{
+			{
+				NoteId:      "note-1",
+				ContentText: "hello",
+				Title:       "Test Note",
+				RichText:    "<p>hello</p>",
+				NoteType:    []int32{2},
+			},
+			{
+				NoteId:      "note-2",
+				ContentText: "world",
+				Title:       "Second Note",
+				RichText:    "<p>world</p>",
+				NoteType:    []int32{1},
+			},
+		},
+	}
+
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Fatalf("Unmarshal() diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestUnmarshalFeaturedProjectsResponse(t *testing.T) {
+	got := &pb.ListFeaturedProjectsResponse{}
+	json := `[[["Archive 1945", [], "34510332-d39c-499e-882d-e48393d612cd", "🏛️", null, null, null, [[2, "Use sources only"], [4]], null, null, null, null, null, null, [false, [["https://example.com/cover.png"]], "The Economist", "Witness history as it unfolded in 1945."]]]]`
+	if err := Unmarshal([]byte(json), got); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	want := &pb.ListFeaturedProjectsResponse{
+		Projects: []*pb.FeaturedProject{{
+			Title:     "Archive 1945",
+			ProjectId: "34510332-d39c-499e-882d-e48393d612cd",
+			Emoji:     "🏛️",
+			ChatbotConfig: &pb.ChatbotConfig{
+				Goal: &pb.ChatGoalConfig{
+					Goal:         2,
+					CustomPrompt: "Use sources only",
+				},
+				ResponseLength: &pb.ResponseLengthConfig{
+					Value: 4,
+				},
+			},
+			Presentation: &pb.FeaturedProjectPresentation{
+				Curated: false,
+				Images: []*pb.FeaturedProjectImage{{
+					Url: "https://example.com/cover.png",
+				}},
+				Provider:    "The Economist",
+				Description: "Witness history as it unfolded in 1945.",
+			},
+		}},
+	}
+
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Fatalf("Unmarshal() diff (-want +got):\n%s", diff)
 	}
 }
 

@@ -347,25 +347,15 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 		// Check if this is a double-nested array (like sources field)
 		if _, isNestedArray := arr[0].([]interface{}); isNestedArray {
 			// Pattern: [[[item1_data], [item2_data], ...]]
-			// Each item in arr should be an array representing a message
+			// Each item in arr should be an array representing a message.
+			// Route through appendToList so wrapped item shapes get the
+			// same handling as the generic repeated-message path.
 			for _, item := range arr {
-				if itemArr, ok := item.([]interface{}); ok {
-					// Create a new message instance
-					msgType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName())
-					if err != nil {
-						return fmt.Errorf("failed to find message type %q: %v", fd.Message().FullName(), err)
+				if err := o.appendToList(list, fd, item); err != nil {
+					if o.DebugParsing {
+						fmt.Printf("beprotojson: skipping item: %v\n", err)
 					}
-					msg := msgType.New().Interface()
-
-					// Populate the message from the array — skip items that fail
-					if err := o.populateMessage(itemArr, msg); err != nil {
-						if o.DebugParsing {
-							fmt.Printf("beprotojson: skipping item: %v\n", err)
-						}
-						continue
-					}
-
-					list.Append(protoreflect.ValueOfMessage(msg.ProtoReflect()))
+					continue
 				}
 			}
 			return nil
@@ -373,24 +363,14 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 			// Pattern: [[item1_data, item2_data, item3_data, ...]]
 			// The entire arr represents a list of messages, treating each as a message
 			// This is for cases like ListRecentlyViewedProjects where projects are directly in sequence
-			msgType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName())
-			if err != nil {
-				return fmt.Errorf("failed to find message type %q: %v", fd.Message().FullName(), err)
-			}
-
-			// Group consecutive elements that belong to the same message
-			// For now, let's try parsing each individual element as a message
+			// Group consecutive elements that belong to the same message.
+			// Route through appendToList for consistency with wrapped items.
 			for _, item := range arr {
-				if itemArr, ok := item.([]interface{}); ok {
-					// Each item is an array representing a Project message — skip on error
-					msg := msgType.New().Interface()
-					if err := o.populateMessage(itemArr, msg); err != nil {
-						if o.DebugParsing {
-							fmt.Printf("beprotojson: skipping item: %v\n", err)
-						}
-						continue
+				if err := o.appendToList(list, fd, item); err != nil {
+					if o.DebugParsing {
+						fmt.Printf("beprotojson: skipping item: %v\n", err)
 					}
-					list.Append(protoreflect.ValueOfMessage(msg.ProtoReflect()))
+					continue
 				}
 			}
 			return nil
@@ -428,11 +408,23 @@ func (o UnmarshalOptions) appendToList(list protoreflect.List, fd protoreflect.F
 		msg := msgType.New().Interface()
 		msgReflect := msg.ProtoReflect()
 
-		switch v := val.(type) {
-		case []interface{}:
-			// If this is a nested array structure representing a single value,
-			// flatten it to get the actual value
-			flatVal := flattenSingleValueArray(v)
+	switch v := val.(type) {
+	case []interface{}:
+		if len(v) == 2 {
+			if nested, ok := v[1].([]interface{}); ok && len(nested) > 0 {
+				if outerID, ok := v[0].(string); ok {
+					if innerID, ok := nested[0].(string); ok && outerID == innerID {
+						if err := o.populateMessage(nested, msg); err == nil {
+							list.Append(protoreflect.ValueOfMessage(msgReflect))
+							return nil
+						}
+					}
+				}
+			}
+		}
+		// If this is a nested array structure representing a single value,
+		// flatten it to get the actual value
+		flatVal := flattenSingleValueArray(v)
 			if !isArray(flatVal) {
 				if err := o.setField(msgReflect, msgReflect.Descriptor().Fields().ByNumber(1), flatVal); err != nil {
 					return err
