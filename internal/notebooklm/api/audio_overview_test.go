@@ -86,3 +86,41 @@ func TestAudioOverviewResultsFromArtifacts(t *testing.T) {
 		t.Fatal("results[1].IsReady = true, want false")
 	}
 }
+
+func TestMergeAudioOverviewLists(t *testing.T) {
+	t.Parallel()
+
+	existing := []*AudioOverviewResult{
+		{ProjectID: "project-123", AudioID: "pending-1", Title: "Pending", IsReady: false},
+		{ProjectID: "project-123", AudioID: "audio-1"},
+	}
+	fallback := &AudioOverviewResult{
+		ProjectID: "project-123",
+		AudioID:   "audio-1",
+		Title:     "Ready audio",
+		IsReady:   true,
+	}
+	ready := &AudioOverviewResult{
+		ProjectID: "project-123",
+		AudioID:   "audio-2",
+		Title:     "Second ready",
+		IsReady:   true,
+	}
+
+	results := mergeAudioOverviewLists(existing, fallback, ready)
+	if len(results) != 3 {
+		t.Fatalf("len(results) = %d, want 3", len(results))
+	}
+	if results[1].AudioID != "audio-1" {
+		t.Fatalf("results[1].AudioID = %q, want audio-1", results[1].AudioID)
+	}
+	if results[1].Title != "Ready audio" {
+		t.Fatalf("results[1].Title = %q, want Ready audio", results[1].Title)
+	}
+	if !results[1].IsReady {
+		t.Fatal("results[1].IsReady = false, want true")
+	}
+	if results[2].AudioID != "audio-2" {
+		t.Fatalf("results[2].AudioID = %q, want audio-2", results[2].AudioID)
+	}
+}
