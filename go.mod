@@ -92,7 +92,7 @@ require (
 	github.com/pion/mdns/v2 v2.1.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.16 // indirect
-	github.com/pion/rtp v1.10.1 // indirect
+	github.com/pion/rtp v1.10.1
 	github.com/pion/sctp v1.9.4 // indirect
 	github.com/pion/sdp/v3 v3.0.18 // indirect
 	github.com/pion/srtp/v3 v3.0.10 // indirect
