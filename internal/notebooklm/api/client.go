@@ -45,7 +45,8 @@ type Client struct {
 	guidebooksService    *service.LabsTailwindGuidebooksServiceClient
 	config               struct {
 		Debug        bool
-		UseDirectRPC bool // Use direct RPC calls instead of orchestration service
+		UseDirectRPC bool   // Use direct RPC calls instead of orchestration service
+		AuthUser     string // Google account index for multi-account profiles
 	}
 }
 
@@ -82,6 +83,19 @@ func (c *Client) SetUseDirectRPC(use bool) {
 
 func (c *Client) SetDebug(debug bool) {
 	c.config.Debug = debug
+}
+
+// SetAuthUser sets the Google account index for multi-account profiles.
+func (c *Client) SetAuthUser(authUser string) {
+	c.config.AuthUser = authUser
+}
+
+// authUserOrDefault returns the configured authuser value or "0".
+func (c *Client) authUserOrDefault() string {
+	if c.config.AuthUser != "" {
+		return c.config.AuthUser
+	}
+	return "0"
 }
 
 // Project/Notebook operations
@@ -474,7 +488,7 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 	}
 	metadataB64 := base64.StdEncoding.EncodeToString(metadataJSON)
 
-	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=0"
+	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=" + c.authUserOrDefault()
 	req, err := http.NewRequest("POST", uploadInitURL, strings.NewReader(metadataB64))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
@@ -486,7 +500,7 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 	req.Header.Set("X-Goog-Upload-Command", "start")
 	req.Header.Set("X-Goog-Upload-Protocol", "resumable")
 	req.Header.Set("X-Goog-Upload-Header-Content-Length", fmt.Sprintf("%d", contentLength))
-	req.Header.Set("X-Goog-AuthUser", "0")
+	req.Header.Set("X-Goog-AuthUser", c.authUserOrDefault())
 
 	// Upload uses cookies only — no Authorization, Origin, or X-Same-Domain headers
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
@@ -549,7 +563,7 @@ func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
 	req.Header.Set("X-Goog-Upload-Command", "upload, finalize")
 	req.Header.Set("X-Goog-Upload-Offset", "0")
-	req.Header.Set("X-Goog-AuthUser", "0")
+	req.Header.Set("X-Goog-AuthUser", c.authUserOrDefault())
 
 	// Upload uses cookies only — no Authorization header
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
@@ -2290,12 +2304,11 @@ func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
 	// Get auth token and add as query parameter if needed
 	authToken := os.Getenv("NLM_AUTH_TOKEN")
 	if authToken != "" && !strings.Contains(videoURL, "authuser=") {
-		// Add authuser=0 parameter if not present
 		separator := "?"
 		if strings.Contains(videoURL, "?") {
 			separator = "&"
 		}
-		req.URL, _ = url.Parse(videoURL + separator + "authuser=0")
+		req.URL, _ = url.Parse(videoURL + separator + "authuser=" + c.authUserOrDefault())
 	}
 
 	if c.config.Debug {

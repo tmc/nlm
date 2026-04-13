@@ -61,10 +61,10 @@ func TestPersistAuthToDiskPreservesSessionState(t *testing.T) {
 	t.Setenv("NLM_BL_PARAM", "")
 	t.Setenv("NLM_SIGNALER_AUTH", "")
 
-	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a"); err != nil {
+	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a", ""); err != nil {
 		t.Fatalf("persistAuthToDisk() initial error = %v", err)
 	}
-	if _, _, err := persistAuthToDisk("cookie-b", "token-b", "", "", ""); err != nil {
+	if _, _, err := persistAuthToDisk("cookie-b", "token-b", "", "", "", ""); err != nil {
 		t.Fatalf("persistAuthToDisk() update error = %v", err)
 	}
 
@@ -104,7 +104,7 @@ func TestRefreshNotebookLMPageStateUpdatesStoredSessionState(t *testing.T) {
 	t.Setenv("NLM_BL_PARAM", "")
 	t.Setenv("NLM_SIGNALER_AUTH", "")
 
-	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-old", "bl-old"); err != nil {
+	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-old", "bl-old", ""); err != nil {
 		t.Fatalf("persistAuthToDisk() initial error = %v", err)
 	}
 
@@ -161,13 +161,13 @@ func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
 	t.Setenv("NLM_BL_PARAM", "")
 	t.Setenv("NLM_SIGNALER_AUTH", "")
 
-	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a"); err != nil {
+	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a", ""); err != nil {
 		t.Fatalf("persistAuthToDisk() initial error = %v", err)
 	}
 	if err := persistSignalerAuthorization("Bearer signaler-token"); err != nil {
 		t.Fatalf("persistSignalerAuthorization() error = %v", err)
 	}
-	if _, _, err := persistAuthToDisk("cookie-b", "token-b", "", "", ""); err != nil {
+	if _, _, err := persistAuthToDisk("cookie-b", "token-b", "", "", "", ""); err != nil {
 		t.Fatalf("persistAuthToDisk() update error = %v", err)
 	}
 

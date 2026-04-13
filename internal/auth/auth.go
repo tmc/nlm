@@ -89,6 +89,7 @@ type Options struct {
 	CheckNotebooks    bool
 	KeepOpenSeconds   int    // Keep browser open for N seconds after auth
 	RemoteCDPURL      string // Remote CDP WebSocket URL (e.g. "ws://localhost:9222")
+	AuthUser          string // Google account index for multi-account profiles (e.g. "1")
 }
 
 type Option func(*Options)
@@ -104,6 +105,7 @@ func WithPreferredBrowsers(browsers []string) Option {
 func WithCheckNotebooks() Option             { return func(o *Options) { o.CheckNotebooks = true } }
 func WithKeepOpenSeconds(seconds int) Option { return func(o *Options) { o.KeepOpenSeconds = seconds } }
 func WithRemoteCDPURL(url string) Option     { return func(o *Options) { o.RemoteCDPURL = url } }
+func WithAuthUser(authUser string) Option    { return func(o *Options) { o.AuthUser = authUser } }
 
 // authViaRemoteCDP connects to an existing CDP session and extracts auth data.
 func (ba *BrowserAuth) authViaRemoteCDP(remoteCDPURL, targetURL string) (token, cookies string, err error) {
@@ -428,7 +430,7 @@ func checkProfileForDomainCookies(cookiesPath, targetDomain string) bool {
 }
 
 // countNotebooks makes a request to list the user's notebooks and counts them
-func countNotebooks(token, cookies string) (int, error) {
+func countNotebooks(token, cookies, authUser string) (int, error) {
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -442,7 +444,10 @@ func countNotebooks(token, cookies string) (int, error) {
 	// Add headers
 	req.Header.Add("Cookie", cookies)
 	req.Header.Add("x-goog-api-key", "AIzaSyDRYGVeXVJ5EQwWNjBORFQdrgzjbGsEYg0")
-	req.Header.Add("x-goog-authuser", "0")
+	if authUser == "" {
+		authUser = "0"
+	}
+	req.Header.Add("x-goog-authuser", authUser)
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
@@ -484,6 +489,15 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 	}
 	for _, opt := range opts {
 		opt(o)
+	}
+
+	// Append authuser parameter to target URL for multi-account profiles
+	if o.AuthUser != "" {
+		if strings.Contains(o.TargetURL, "?") {
+			o.TargetURL += "&authuser=" + o.AuthUser
+		} else {
+			o.TargetURL += "?authuser=" + o.AuthUser
+		}
 	}
 
 	// Store keep-open setting in the struct
@@ -602,7 +616,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					profile.AuthCookies = cookies
 
 					// Try to get notebooks
-					notebookCount, err := countNotebooks(token, cookies)
+					notebookCount, err := countNotebooks(token, cookies, o.AuthUser)
 					if err != nil {
 						fmt.Println(" Error counting notebooks")
 						updatedProfiles = append(updatedProfiles, profile)

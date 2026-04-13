@@ -40,6 +40,7 @@ type AuthOptions struct {
 	Help            bool
 	KeepOpenSeconds int
 	RemoteCDPURL    string
+	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
 }
 
 func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
@@ -68,6 +69,8 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 	authFlags.IntVar(&opts.KeepOpenSeconds, "k", 0, "Keep browser open for N seconds after successful auth (shorthand)")
 	authFlags.StringVar(&opts.RemoteCDPURL, "cdp-url", "", "Remote CDP WebSocket URL (e.g. ws://localhost:9222)")
 	authFlags.StringVar(&opts.RemoteCDPURL, "c", "", "Remote CDP WebSocket URL (shorthand)")
+	authFlags.StringVar(&opts.AuthUser, "authuser", os.Getenv("NLM_AUTHUSER"), "Google account index for multi-account profiles (e.g. 1)")
+	authFlags.StringVar(&opts.AuthUser, "au", os.Getenv("NLM_AUTHUSER"), "Google account index (shorthand)")
 
 	// Set custom usage
 	authFlags.Usage = func() {
@@ -243,13 +246,17 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 		authOpts = append(authOpts, auth.WithRemoteCDPURL(opts.RemoteCDPURL))
 	}
 
+	if opts.AuthUser != "" {
+		authOpts = append(authOpts, auth.WithAuthUser(opts.AuthUser))
+	}
+
 	// Get auth data (use GetAuthData to capture session ID and BL param)
 	authData, err := a.GetAuthData(authOpts...)
 	if err != nil {
 		return "", "", fmt.Errorf("browser auth failed: %w", err)
 	}
 
-	authToken, cookies, err := persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam)
+	authToken, cookies, err := persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam, opts.AuthUser)
 	if err != nil {
 		return "", "", err
 	}
@@ -275,10 +282,10 @@ func detectAuthInfo(cmd string) (string, string, error) {
 		return "", "", fmt.Errorf("no auth token found")
 	}
 	authToken := atMatch[1]
-	return persistAuthToDisk(cookies, authToken, "", "", "")
+	return persistAuthToDisk(cookies, authToken, "", "", "", "")
 }
 
-func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam string) (string, string, error) {
+func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, authUser string) (string, string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", "", fmt.Errorf("get home dir: %w", err)
@@ -295,6 +302,9 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam strin
 		blParam = firstNonEmpty(os.Getenv("NLM_BL_PARAM"), existing["NLM_BL_PARAM"])
 	}
 	signalerAuth := firstNonEmpty(os.Getenv("NLM_SIGNALER_AUTH"), existing["NLM_SIGNALER_AUTH"])
+	if authUser == "" {
+		authUser = firstNonEmpty(os.Getenv("NLM_AUTHUSER"), existing["NLM_AUTHUSER"])
+	}
 
 	// Create .nlm directory if it doesn't exist
 	nlmDir := filepath.Join(homeDir, ".nlm")
@@ -304,13 +314,14 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam strin
 
 	// Create or update env file
 	envFile := filepath.Join(nlmDir, "env")
-	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\n",
+	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\nNLM_AUTHUSER=%q\n",
 		cookies,
 		authToken,
 		profileName,
 		sessionID,
 		blParam,
 		signalerAuth,
+		authUser,
 	)
 
 	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
@@ -460,7 +471,7 @@ func refreshCredentials(debugFlag bool) error {
 	if err != nil {
 		return fmt.Errorf("refresh notebooklm page state: %w", err)
 	}
-	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam); err != nil {
+	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam, ""); err != nil {
 		return fmt.Errorf("persist notebooklm page state: %w", err)
 	}
 	gsessionID := state.GSessionID
@@ -502,7 +513,7 @@ func refreshNotebookLMPageState(debugFlag bool) error {
 			fmt.Fprintf(os.Stderr, "nlm: build label: %s\n", state.BLParam)
 		}
 	}
-	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam); err != nil {
+	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam, ""); err != nil {
 		return fmt.Errorf("persist notebooklm page state: %w", err)
 	}
 	return nil

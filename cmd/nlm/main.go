@@ -695,6 +695,10 @@ func run() error {
 		if debug {
 			client.SetDebug(true)
 		}
+		// Set authuser for multi-account support
+		if v := os.Getenv("NLM_AUTHUSER"); v != "" {
+			client.SetAuthUser(v)
+		}
 		// Set direct RPC flag if specified
 		if useDirectRPC {
 			client.SetUseDirectRPC(true)
