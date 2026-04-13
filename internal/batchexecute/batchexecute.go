@@ -37,6 +37,20 @@ type Response struct {
 	Error string          `json:"error"`
 }
 
+// Trace captures one batchexecute HTTP exchange.
+type Trace struct {
+	StartedDateTime time.Time
+	Duration        time.Duration
+	RequestMethod   string
+	RequestURL      string
+	RequestHeaders  http.Header
+	RequestBody     string
+	ResponseStatus  int
+	ResponseHeaders http.Header
+	ResponseBody    []byte
+	Error           string
+}
+
 // BatchExecuteError represents a batchexecute error
 type BatchExecuteError struct {
 	StatusCode int
@@ -265,6 +279,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	// Execute request with retry logic
 	var resp *http.Response
 	var lastErr error
+	var requestStart time.Time
 
 	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
 		if attempt > 0 {
@@ -287,8 +302,18 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			reqClone.Body = io.NopCloser(strings.NewReader(formBody))
 		}
 
+		requestStart = time.Now()
 		resp, err = c.httpClient.Do(reqClone)
 		if err != nil {
+			c.recordTrace(Trace{
+				StartedDateTime: requestStart,
+				Duration:        time.Since(requestStart),
+				RequestMethod:   reqClone.Method,
+				RequestURL:      reqClone.URL.String(),
+				RequestHeaders:  cloneHeader(reqClone.Header),
+				RequestBody:     formBody,
+				Error:           err.Error(),
+			})
 			lastErr = err
 			// Check for common network errors and provide more helpful messages
 			if strings.Contains(err.Error(), "dial tcp") {
@@ -326,8 +351,31 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		c.recordTrace(Trace{
+			StartedDateTime: requestStart,
+			Duration:        time.Since(requestStart),
+			RequestMethod:   req.Method,
+			RequestURL:      req.URL.String(),
+			RequestHeaders:  cloneHeader(req.Header),
+			RequestBody:     formBody,
+			ResponseStatus:  resp.StatusCode,
+			ResponseHeaders: cloneHeader(resp.Header),
+			Error:           err.Error(),
+		})
 		return nil, fmt.Errorf("read response: %w", err)
 	}
+
+	c.recordTrace(Trace{
+		StartedDateTime: requestStart,
+		Duration:        time.Since(requestStart),
+		RequestMethod:   req.Method,
+		RequestURL:      req.URL.String(),
+		RequestHeaders:  cloneHeader(req.Header),
+		RequestBody:     formBody,
+		ResponseStatus:  resp.StatusCode,
+		ResponseHeaders: cloneHeader(resp.Header),
+		ResponseBody:    append([]byte(nil), body...),
+	})
 
 	if c.config.Debug {
 		fmt.Printf("\nResponse Status: %s\n", resp.Status)
@@ -585,6 +633,13 @@ func WithReqIDGenerator(reqid *ReqIDGenerator) Option {
 	}
 }
 
+// WithTraceHook records the final HTTP exchange for each batchexecute request.
+func WithTraceHook(hook func(Trace)) Option {
+	return func(c *Client) {
+		c.traceHook = hook
+	}
+}
+
 // Config holds the configuration for batch execute
 type Config struct {
 	Host      string
@@ -614,6 +669,7 @@ type Client struct {
 	httpClient *http.Client
 	debug      func(format string, args ...interface{})
 	reqid      *ReqIDGenerator
+	traceHook  func(Trace)
 }
 
 // NewClient creates a new batchexecute client
@@ -643,6 +699,24 @@ func NewClient(config Config, opts ...Option) *Client {
 
 func (c *Client) Config() Config {
 	return c.config
+}
+
+func (c *Client) recordTrace(trace Trace) {
+	if c.traceHook == nil {
+		return
+	}
+	c.traceHook(trace)
+}
+
+func cloneHeader(h http.Header) http.Header {
+	if h == nil {
+		return nil
+	}
+	out := make(http.Header, len(h))
+	for k, values := range h {
+		out[k] = append([]string(nil), values...)
+	}
+	return out
 }
 
 // NewIPv4HTTPClient creates an HTTP client that prefers IPv4 connections.
