@@ -103,6 +103,7 @@ func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *{{$pkg
 	// Build the RPC call
 	call := rpc.Call{
 		ID: "{{$rpcID}}",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		{{- if $argFormat }}
 		Args: method.Encode{{.GoName}}Args(req),
 		{{- else }}

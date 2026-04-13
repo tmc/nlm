@@ -40,6 +40,7 @@ enum ArtifactType {
     ARTIFACT_TYPE_VIDEO_OVERVIEW = 3;  // Video overview (confirmed from /tmp/notebooklm3.har)
     ARTIFACT_TYPE_REPORT = 4;
     ARTIFACT_TYPE_APP = 5;
+    ARTIFACT_TYPE_8 = 8;
 }
 
 enum ArtifactState {
@@ -47,6 +48,10 @@ enum ArtifactState {
     ARTIFACT_STATE_CREATING = 1;
     ARTIFACT_STATE_READY = 2;
     ARTIFACT_STATE_FAILED = 3;
+    ARTIFACT_STATE_SUGGESTED = 4;
+    ARTIFACT_STATE_7 = 7;
+    ARTIFACT_STATE_8 = 8;
+    ARTIFACT_STATE_9 = 9;
 }
 
 message ArtifactSource {
@@ -199,24 +204,93 @@ message DiscoverSourcesResponse {
     repeated Source sources = 1;
 }
 
+message GenerateFreeFormStreamedHistoryEntry {
+    // Wire shape: [content, null, role]
+    string content = 1;
+    int32 role = 3;  // 1 = user, 2 = assistant
+}
+
+message GenerateFreeFormStreamedOptions {
+    // Observed default request options: [2, null, [1], [1]]
+    int32 mode = 1;
+    repeated int32 citation_modes = 3;
+    repeated int32 follow_up_modes = 4;
+}
+
 message GenerateFreeFormStreamedRequest {
-    // Wire format: [[source_ids], prompt, null]
-    // Conversation state (history, conversation_id, seq_num) is managed
-    // by the ChatRequest struct and buildChatArgs/buildWireHistory functions,
-    // NOT encoded via this proto. The gRPC-Web endpoint receives a manually
-    // constructed JSON string payload, not protobuf binary.
+    // The gRPC-Web endpoint still expects a manually constructed JSON array,
+    // but this message mirrors the observed request state on that wire:
+    //   [
+    //     [[[source_ids]]],
+    //     prompt,
+    //     history,
+    //     [mode, null, citation_modes, follow_up_modes],
+    //     conversation_id,
+    //     draft_response_id,
+    //     parent_response_id,
+    //     notebook_id,
+    //     sequence_number
+    //   ]
     string project_id = 1;
     string prompt = 2;
     repeated string source_ids = 3;
+    repeated GenerateFreeFormStreamedHistoryEntry history = 4;
+    GenerateFreeFormStreamedOptions options = 5;
+    string conversation_id = 6;
+    string draft_response_id = 7;
+    string parent_response_id = 8;
+    string notebook_id = 9;
+    int32 sequence_number = 10;
+}
+
+message ChatConversationMetadata {
+    string conversation_id = 1;
+    string message_id = 2;
+    int32 sequence_number = 3;
+}
+
+message ChatCharacterRange {
+    int32 start = 1;
+    int32 end = 2;
+}
+
+message ChatCitationSegment {
+    ChatCharacterRange range = 1;
+    string text = 2;
+    bool emphasized = 3;
+}
+
+message ChatCitationExcerpt {
+    ChatCharacterRange range = 1;
+    repeated ChatCitationSegment segments = 2;
+}
+
+message ChatCitation {
+    double confidence = 1;
+    repeated ChatCharacterRange ranges = 2;
+    repeated ChatCitationExcerpt excerpts = 3;
+}
+
+message ChatSourceMapping {
+    ChatCharacterRange range = 1;
+    repeated int32 source_indices = 2;
+}
+
+message ChatFollowUp {
+    string text = 1;
+    int32 type = 2;
 }
 
 message GenerateFreeFormStreamedResponse {
-    // The chunk field contains double-encoded JSON arrays. Reasoning traces
-    // ("Thinking..."), source-searching phases, and citation offset data
-    // are embedded WITHIN the chunk string, not as separate proto fields.
-    // The stream parser must unmarshal chunk content dynamically.
+    // chunk preserves the cumulative answer text used by existing callers.
     string chunk = 1;
+    // is_final mirrors the completion flag at response position [4].
     bool is_final = 2;
+    ChatConversationMetadata conversation = 3;
+    repeated ChatCitation citations = 4;
+    repeated ChatSourceMapping source_mappings = 5;
+    repeated string follow_up_text = 6;
+    repeated ChatFollowUp follow_ups = 7;
 }
 
 message GenerateReportSuggestionsRequest {
@@ -234,20 +308,37 @@ message GetProjectAnalyticsRequest {
 }
 
 message ProjectAnalytics {
-    int32 source_count = 1;
-    int32 note_count = 2;
-    int32 audio_overview_count = 3;
+    google.protobuf.Int32Value source_count = 1;
+    google.protobuf.Int32Value note_count = 2;
+    google.protobuf.Int32Value audio_overview_count = 3;
     google.protobuf.Timestamp last_accessed = 4;
 }
 
-message ListFeaturedProjectsRequest {
-    int32 page_size = 1;
-    string page_token = 2;
+message ListFeaturedProjectsRequest {}
+
+message FeaturedProjectImage {
+    string url = 1;
+}
+
+message FeaturedProjectPresentation {
+    bool curated = 1;
+    repeated FeaturedProjectImage images = 2;
+    string provider = 3;
+    string description = 4;
+}
+
+message FeaturedProject {
+    string title = 1;
+    repeated Source sources = 2;
+    string project_id = 3;
+    string emoji = 4;
+    ProjectMetadata metadata = 6;
+    ChatbotConfig chatbot_config = 8;
+    FeaturedProjectPresentation presentation = 15;
 }
 
 message ListFeaturedProjectsResponse {
-    repeated Project projects = 1;
-    string next_page_token = 2;
+    repeated FeaturedProject projects = 1;
 }
 
 // Update existing request messages to match Gemini's findings
@@ -283,7 +374,8 @@ message CreateNoteRequest {
 }
 
 message DeleteNotesRequest {
-    repeated string note_ids = 1;
+    string project_id = 1;
+    repeated string note_ids = 3;
 }
 
 message GetNotesRequest {
@@ -420,19 +512,19 @@ service LabsTailwindOrchestrationService {
     }
     
     // Note operations
-    rpc CreateNote(CreateNoteRequest) returns (Source) {
+    rpc CreateNote(CreateNoteRequest) returns (Note) {
         option (rpc_id) = "CYK0Xb";
         option (arg_format) = "[%project_id%, %title%, %content%]";
     }
     rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "AH0mwd";
-        option (arg_format) = "[%note_ids%]";
+        option (arg_format) = "[%project_id%, null, %note_ids%, [2]]";
     }
     rpc GetNotes(GetNotesRequest) returns (GetNotesResponse) {
         option (rpc_id) = "cFji9";
         option (arg_format) = "[%project_id%]";
     }
-    rpc MutateNote(MutateNoteRequest) returns (Source) {
+    rpc MutateNote(MutateNoteRequest) returns (Note) {
         option (rpc_id) = "cYAfTb";
         option (arg_format) = "[%note_id%, %title%, %content%]";
     }
@@ -451,8 +543,8 @@ service LabsTailwindOrchestrationService {
         option (arg_format) = "[%project_id%]";
     }
     rpc ListFeaturedProjects(ListFeaturedProjectsRequest) returns (ListFeaturedProjectsResponse) {
-        option (rpc_id) = "nS9Qlc";
-        option (arg_format) = "[%page_size%, %page_token%]";
+        option (rpc_id) = "ub2Bae";
+        option (arg_format) = "[[2]]";
     }
     rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse) {
         option (rpc_id) = "wXbhsf";
@@ -491,7 +583,7 @@ service LabsTailwindOrchestrationService {
         option (arg_format) = "[%project_id%]";
     }
     rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse) {
-        option (rpc_id) = "GHsKob";
+        option (rpc_id) = "ciyUvf";
         option (arg_format) = "[%project_id%]";
     }
     rpc GenerateSection(GenerateSectionRequest) returns (GenerateSectionResponse) {
@@ -547,7 +639,7 @@ service LabsTailwindOrchestrationService {
     }
 }
 
-// Placeholder messages that need to be defined
+// Request messages reconstructed from captured batchexecute traffic.
 message CreateProjectRequest {
     string title = 1;
     string emoji = 2;
@@ -676,6 +768,8 @@ message ChatMessage {
 message AgentCommsUserMessage {
     AgentCommsMessageType type = 1;
     string content = 2;
+    // Field 4 carries the typed event payload observed in live captures.
+    AgentCommsPayload payload = 4;
 }
 
 enum AgentCommsMessageType {
@@ -684,10 +778,71 @@ enum AgentCommsMessageType {
     AGENT_UTTERANCE = 2;    // Real-time text transcript of AI host's speech
     TTS_EVENT = 3;          // Text-to-speech lifecycle hooks
     SEND_AUDIO_EVENT = 4;   // Audio payload transmission triggers
-    // 5 is unobserved
+    GROUNDED_AGENT_CUSTOM_MESSAGE = 5;  // Control frame observed in live captures
     PLAYBACK_EVENT = 6;     // Client-side media playback state sync
     MICROPHONE_EVENT = 7;   // Microphone active/muted state sync
     STATUS_MESSAGE = 8;     // Connection diagnostics and state updates
+}
+
+message GroundedAgentCustomMessage {
+    bytes raw = 1;
+}
+
+message StatusMessagePayload {
+    // Field 1 carries the human-readable status string when present.
+    string text = 1;
+}
+
+// AgentCommsPayload reconstructs the typed DataChannel payload at field 4.
+// The sub-field numbers match AgentCommsMessageType values.
+message AgentCommsPayload {
+    UserUtterance user_utterance = 1;
+    AgentUtterance agent_utterance = 2;
+    TTSEvent tts_event = 3;
+    SendAudioEvent send_audio_event = 4;
+    GroundedAgentCustomMessage grounded_agent_custom_message = 5;
+    PlaybackEvent playback_event = 6;
+    MicrophoneEvent microphone_event = 7;
+    StatusMessagePayload status_message = 8;
+}
+
+message UserUtterance {
+    string transcript = 3;
+    bool is_final = 4;
+    string utterance_id = 5;
+}
+
+message AgentUtterance {
+    int32 speaker_id = 1;
+    repeated string speakers = 2;
+    string transcript_text = 3;
+    bool is_final = 4;
+    string utterance_id = 5;
+}
+
+message TTSTimestamp {
+    int64 epoch_sec = 1;
+    int32 nanos = 2;
+}
+
+message TTSEvent {
+    int32 event_type = 1;
+    string utterance_id = 2;
+    int32 segment_idx = 3;
+    TTSTimestamp timestamp = 4;
+}
+
+message SendAudioEvent {
+    int32 trigger_type = 1;
+    string utterance_id = 2;
+}
+
+message PlaybackEvent {
+    repeated string states = 1;
+}
+
+message MicrophoneEvent {
+    int32 status_code = 1;
 }
 
 message FetchInteractivityTokenRequest {

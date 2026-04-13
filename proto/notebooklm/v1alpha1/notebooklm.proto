@@ -17,12 +17,7 @@ message Project {
   string project_id = 3;
   string emoji = 4;
   ProjectMetadata metadata = 6;
-  //ChatbotConfig config = 6;
-  //AdvancedSettings advanced_settings = 7;
-  //oneof project_state {
-  //  ProjectCreateData create = 8;
-  //  ProjectDeleteData delete = 9;
-  //}
+  ChatbotConfig chatbot_config = 8;
 }
 
 message ProjectMetadata {
@@ -35,6 +30,20 @@ message ProjectMetadata {
     google.protobuf.Timestamp modified_time = 6;  // or similar
     int32 type = 7;
     bool is_starred = 8;
+}
+
+message ChatGoalConfig {
+  int32 goal = 1;
+  string custom_prompt = 2;
+}
+
+message ResponseLengthConfig {
+  int32 value = 1;
+}
+
+message ChatbotConfig {
+  ChatGoalConfig goal = 1;
+  ResponseLengthConfig response_length = 2;
 }
 
 message SourceId {
@@ -120,8 +129,16 @@ message SourceIssue {
     Reason reason = 1;
 }
 
+message Note {
+  string note_id = 1;
+  string content_text = 2;
+  string title = 5;
+  string rich_text = 6;
+  repeated int32 note_type = 7;
+}
+
 message GetNotesResponse {
-  repeated Source notes = 1;
+  repeated Note notes = 1;
 }
 
 message AudioOverview {
@@ -253,7 +270,7 @@ service NotebookLM {
     }
     rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "AH0mwd";
-        option (arg_format) = "[%note_ids%]";
+        option (arg_format) = "[%project_id%, null, %note_ids%, [2]]";
     }
     rpc GetNotes(GetNotesRequest) returns (GetNotesResponse) {
         option (rpc_id) = "cFji9";

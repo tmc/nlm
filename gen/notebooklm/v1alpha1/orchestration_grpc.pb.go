@@ -98,10 +98,10 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
 	CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*VideoOverview, error)
 	// Note operations
-	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Source, error)
+	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Note, error)
 	DeleteNotes(ctx context.Context, in *DeleteNotesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesResponse, error)
-	MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Source, error)
+	MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Note, error)
 	// Project operations
 	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*Project, error)
 	DeleteProjects(ctx context.Context, in *DeleteProjectsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -311,8 +311,8 @@ func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Source, error) {
-	out := new(Source)
+func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Note, error) {
+	out := new(Note)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateNote_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -338,8 +338,8 @@ func (c *labsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, i
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Source, error) {
-	out := new(Source)
+func (c *labsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Note, error) {
+	out := new(Note)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_MutateNote_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -605,10 +605,10 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
 	CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error)
 	// Note operations
-	CreateNote(context.Context, *CreateNoteRequest) (*Source, error)
+	CreateNote(context.Context, *CreateNoteRequest) (*Note, error)
 	DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error)
 	GetNotes(context.Context, *GetNotesRequest) (*GetNotesResponse, error)
-	MutateNote(context.Context, *MutateNoteRequest) (*Source, error)
+	MutateNote(context.Context, *MutateNoteRequest) (*Note, error)
 	// Project operations
 	CreateProject(context.Context, *CreateProjectRequest) (*Project, error)
 	DeleteProjects(context.Context, *DeleteProjectsRequest) (*emptypb.Empty, error)
@@ -701,7 +701,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteAudioOverview(c
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateVideoOverview not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*Source, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*Note, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNote not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error) {
@@ -710,7 +710,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteNotes(context.C
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetNotes(context.Context, *GetNotesRequest) (*GetNotesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNotes not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateNote(context.Context, *MutateNoteRequest) (*Source, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateNote(context.Context, *MutateNoteRequest) (*Note, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MutateNote not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateProject(context.Context, *CreateProjectRequest) (*Project, error) {
