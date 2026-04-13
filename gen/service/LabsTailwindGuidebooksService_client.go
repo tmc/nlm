@@ -7,13 +7,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -25,22 +24,12 @@ type LabsTailwindGuidebooksServiceClient struct {
 // NewLabsTailwindGuidebooksServiceClient creates a new client for the LabsTailwindGuidebooksService service.
 // Source: notebooklm/v1alpha1/sharing.proto IsJules: false Host: notebooklm.google.com App: LabsTailwindUi
 func NewLabsTailwindGuidebooksServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindGuidebooksServiceClient {
-	blParam := os.Getenv("NLM_BL_PARAM")
-	if blParam == "" {
-		blParam = "boq_labs-tailwind-frontend_20260402.11_p0"
-	}
-	sessionID := os.Getenv("NLM_SESSION_ID")
-	if sessionID == "" {
-		sessionID = "-3785608638908410209"
-	}
 	config := rpc.ServiceConfig{
 		Host: "notebooklm.google.com",
 		App:  "LabsTailwindUi",
 		URLParams: map[string]string{
-			"hl":    "en",
-			"bl":    blParam,
-			"f.sid": sessionID,
-			"rt":    "c",
+			"hl": "en",
+			"bl": "boq_labs-tailwind-frontend_20250129.00_p0",
 		},
 	}
 	return &LabsTailwindGuidebooksServiceClient{
@@ -52,8 +41,9 @@ func NewLabsTailwindGuidebooksServiceClient(authToken, cookies string, opts ...b
 func (c *LabsTailwindGuidebooksServiceClient) DeleteGuidebook(ctx context.Context, req *notebooklmv1alpha1.DeleteGuidebookRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "ARGkVc",
-		Args: method.EncodeDeleteGuidebookArgs(req),
+		ID:         "ARGkVc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeDeleteGuidebookArgs(req),
 	}
 
 	// Execute the RPC
@@ -75,8 +65,9 @@ func (c *LabsTailwindGuidebooksServiceClient) DeleteGuidebook(ctx context.Contex
 func (c *LabsTailwindGuidebooksServiceClient) GetGuidebook(ctx context.Context, req *notebooklmv1alpha1.GetGuidebookRequest) (*notebooklmv1alpha1.Guidebook, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "EYqtU",
-		Args: method.EncodeGetGuidebookArgs(req),
+		ID:         "EYqtU",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetGuidebookArgs(req),
 	}
 
 	// Execute the RPC
@@ -98,8 +89,9 @@ func (c *LabsTailwindGuidebooksServiceClient) GetGuidebook(ctx context.Context, 
 func (c *LabsTailwindGuidebooksServiceClient) ListRecentlyViewedGuidebooks(ctx context.Context, req *notebooklmv1alpha1.ListRecentlyViewedGuidebooksRequest) (*notebooklmv1alpha1.ListRecentlyViewedGuidebooksResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "YJBpHc",
-		Args: method.EncodeListRecentlyViewedGuidebooksArgs(req),
+		ID:         "YJBpHc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeListRecentlyViewedGuidebooksArgs(req),
 	}
 
 	// Execute the RPC
@@ -121,8 +113,9 @@ func (c *LabsTailwindGuidebooksServiceClient) ListRecentlyViewedGuidebooks(ctx c
 func (c *LabsTailwindGuidebooksServiceClient) PublishGuidebook(ctx context.Context, req *notebooklmv1alpha1.PublishGuidebookRequest) (*notebooklmv1alpha1.PublishGuidebookResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "R6smae",
-		Args: method.EncodePublishGuidebookArgs(req),
+		ID:         "R6smae",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodePublishGuidebookArgs(req),
 	}
 
 	// Execute the RPC
@@ -144,8 +137,9 @@ func (c *LabsTailwindGuidebooksServiceClient) PublishGuidebook(ctx context.Conte
 func (c *LabsTailwindGuidebooksServiceClient) GetGuidebookDetails(ctx context.Context, req *notebooklmv1alpha1.GetGuidebookDetailsRequest) (*notebooklmv1alpha1.GuidebookDetails, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "LJyzeb",
-		Args: method.EncodeGetGuidebookDetailsArgs(req),
+		ID:         "LJyzeb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetGuidebookDetailsArgs(req),
 	}
 
 	// Execute the RPC
@@ -167,8 +161,9 @@ func (c *LabsTailwindGuidebooksServiceClient) GetGuidebookDetails(ctx context.Co
 func (c *LabsTailwindGuidebooksServiceClient) ShareGuidebook(ctx context.Context, req *notebooklmv1alpha1.ShareGuidebookRequest) (*notebooklmv1alpha1.ShareGuidebookResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "OTl0K",
-		Args: method.EncodeShareGuidebookArgs(req),
+		ID:         "OTl0K",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeShareGuidebookArgs(req),
 	}
 
 	// Execute the RPC
@@ -190,8 +185,9 @@ func (c *LabsTailwindGuidebooksServiceClient) ShareGuidebook(ctx context.Context
 func (c *LabsTailwindGuidebooksServiceClient) GuidebookGenerateAnswer(ctx context.Context, req *notebooklmv1alpha1.GuidebookGenerateAnswerRequest) (*notebooklmv1alpha1.GuidebookGenerateAnswerResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "itA0pc",
-		Args: method.EncodeGuidebookGenerateAnswerArgs(req),
+		ID:         "itA0pc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGuidebookGenerateAnswerArgs(req),
 	}
 
 	// Execute the RPC

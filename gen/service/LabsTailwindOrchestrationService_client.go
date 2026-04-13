@@ -7,13 +7,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -25,22 +24,12 @@ type LabsTailwindOrchestrationServiceClient struct {
 // NewLabsTailwindOrchestrationServiceClient creates a new client for the LabsTailwindOrchestrationService service.
 // Source: notebooklm/v1alpha1/orchestration.proto IsJules: false Host: notebooklm.google.com App: LabsTailwindUi
 func NewLabsTailwindOrchestrationServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindOrchestrationServiceClient {
-	blParam := os.Getenv("NLM_BL_PARAM")
-	if blParam == "" {
-		blParam = "boq_labs-tailwind-frontend_20260402.11_p0"
-	}
-	sessionID := os.Getenv("NLM_SESSION_ID")
-	if sessionID == "" {
-		sessionID = "-3785608638908410209"
-	}
 	config := rpc.ServiceConfig{
 		Host: "notebooklm.google.com",
 		App:  "LabsTailwindUi",
 		URLParams: map[string]string{
-			"hl":    "en",
-			"bl":    blParam,
-			"f.sid": sessionID,
-			"rt":    "c",
+			"hl": "en",
+			"bl": "boq_labs-tailwind-frontend_20250129.00_p0",
 		},
 	}
 	return &LabsTailwindOrchestrationServiceClient{
@@ -53,8 +42,8 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateArtifact(ctx context.Cont
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "xpWGLf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeCreateArtifactArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -76,8 +65,9 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) GetArtifact(ctx context.Context, req *notebooklmv1alpha1.GetArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "BnLyuf",
-		Args: method.EncodeGetArtifactArgs(req),
+		ID:         "BnLyuf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetArtifactArgs(req),
 	}
 
 	// Execute the RPC
@@ -99,8 +89,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GetArtifact(ctx context.Context
 func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Context, req *notebooklmv1alpha1.UpdateArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "DJezBc",
-		Args: method.EncodeUpdateArtifactArgs(req),
+		ID:         "DJezBc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeUpdateArtifactArgs(req),
 	}
 
 	// Execute the RPC
@@ -122,8 +113,9 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Context, req *notebooklmv1alpha1.RenameArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "rc3d8d",
-		Args: []interface{}{}, // TODO: implement argument encoding
+		ID:         "rc3d8d",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeRenameArtifactArgs(req),
 	}
 
 	// Execute the RPC
@@ -145,8 +137,9 @@ func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Context, req *notebooklmv1alpha1.DeleteArtifactRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "WxBZtb",
-		Args: method.EncodeDeleteArtifactArgs(req),
+		ID:         "WxBZtb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeDeleteArtifactArgs(req),
 	}
 
 	// Execute the RPC
@@ -169,8 +162,8 @@ func (c *LabsTailwindOrchestrationServiceClient) ListArtifacts(ctx context.Conte
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "LfTXoe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeListArtifactsArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -193,8 +186,8 @@ func (c *LabsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Cont
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "gArtLc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeQueryArtifactsArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -217,8 +210,8 @@ func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Contex
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "yyryJe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeActOnSourcesArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -241,8 +234,8 @@ func (c *LabsTailwindOrchestrationServiceClient) AddSources(ctx context.Context,
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "izAoDd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeAddSourcesArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -264,8 +257,9 @@ func (c *LabsTailwindOrchestrationServiceClient) AddSources(ctx context.Context,
 func (c *LabsTailwindOrchestrationServiceClient) CheckSourceFreshness(ctx context.Context, req *notebooklmv1alpha1.CheckSourceFreshnessRequest) (*notebooklmv1alpha1.CheckSourceFreshnessResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "yR9Yof",
-		Args: method.EncodeCheckSourceFreshnessArgs(req),
+		ID:         "yR9Yof",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeCheckSourceFreshnessArgs(req),
 	}
 
 	// Execute the RPC
@@ -287,8 +281,9 @@ func (c *LabsTailwindOrchestrationServiceClient) CheckSourceFreshness(ctx contex
 func (c *LabsTailwindOrchestrationServiceClient) DeleteSources(ctx context.Context, req *notebooklmv1alpha1.DeleteSourcesRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "tGMBJ",
-		Args: method.EncodeDeleteSourcesArgs(req),
+		ID:         "tGMBJ",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeDeleteSourcesArgs(req),
 	}
 
 	// Execute the RPC
@@ -311,8 +306,8 @@ func (c *LabsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Con
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "qXyaNe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeDiscoverSourcesArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -334,8 +329,9 @@ func (c *LabsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Con
 func (c *LabsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context, req *notebooklmv1alpha1.LoadSourceRequest) (*notebooklmv1alpha1.Source, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "hizoJc",
-		Args: method.EncodeLoadSourceArgs(req),
+		ID:         "hizoJc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeLoadSourceArgs(req),
 	}
 
 	// Execute the RPC
@@ -357,8 +353,9 @@ func (c *LabsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context,
 func (c *LabsTailwindOrchestrationServiceClient) MutateSource(ctx context.Context, req *notebooklmv1alpha1.MutateSourceRequest) (*notebooklmv1alpha1.Source, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "b7Wfje",
-		Args: method.EncodeMutateSourceArgs(req),
+		ID:         "b7Wfje",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeMutateSourceArgs(req),
 	}
 
 	// Execute the RPC
@@ -381,8 +378,8 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "FLmJqe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeRefreshSourceArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -400,14 +397,13 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 	return &result, nil
 }
 
-// CreateAudioOverview calls the CreateArtifact RPC to create an audio overview.
-// Audio overviews are artifacts created via R7cb6c (CreateArtifact).
+// CreateAudioOverview calls the CreateAudioOverview RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewRequest) (*notebooklmv1alpha1.AudioOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "R7cb6c", // CreateArtifact RPC — audio overviews are a type of artifact
+		ID:         "R7cb6c",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeCreateAudioOverviewArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -430,8 +426,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GetAudioOverview(ctx context.Co
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "VUsiyb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGetAudioOverviewArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -454,8 +450,8 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "sJDbic",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeDeleteAudioOverviewArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -477,8 +473,9 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, req *notebooklmv1alpha1.CreateVideoOverviewRequest) (*notebooklmv1alpha1.VideoOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "R7cb6c",
-		Args: []interface{}{}, // TODO: implement argument encoding
+		ID:         "R7cb6c",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeCreateVideoOverviewArgs(req),
 	}
 
 	// Execute the RPC
@@ -497,12 +494,12 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context
 }
 
 // CreateNote calls the CreateNote RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, req *notebooklmv1alpha1.CreateNoteRequest) (*notebooklmv1alpha1.Source, error) {
+func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, req *notebooklmv1alpha1.CreateNoteRequest) (*notebooklmv1alpha1.Note, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "CYK0Xb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeCreateNoteArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -512,7 +509,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context,
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.Source
+	var result notebooklmv1alpha1.Note
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateNote: unmarshal response: %w", err)
 	}
@@ -524,8 +521,9 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context,
 func (c *LabsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context, req *notebooklmv1alpha1.DeleteNotesRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "AH0mwd",
-		Args: method.EncodeDeleteNotesArgs(req),
+		ID:         "AH0mwd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeDeleteNotesArgs(req),
 	}
 
 	// Execute the RPC
@@ -548,8 +546,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, r
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "cFji9",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGetNotesArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -568,12 +566,12 @@ func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, r
 }
 
 // MutateNote calls the MutateNote RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context, req *notebooklmv1alpha1.MutateNoteRequest) (*notebooklmv1alpha1.Source, error) {
+func (c *LabsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context, req *notebooklmv1alpha1.MutateNoteRequest) (*notebooklmv1alpha1.Note, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "cYAfTb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeMutateNoteArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -583,7 +581,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context,
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.Source
+	var result notebooklmv1alpha1.Note
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateNote: unmarshal response: %w", err)
 	}
@@ -593,10 +591,11 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context,
 
 // CreateProject calls the CreateProject RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) CreateProject(ctx context.Context, req *notebooklmv1alpha1.CreateProjectRequest) (*notebooklmv1alpha1.Project, error) {
-	// Build the RPC call — no NotebookID since this creates a new project
+	// Build the RPC call
 	call := rpc.Call{
-		ID:   "CCqFvf",
-		Args: method.EncodeCreateProjectArgs(req),
+		ID:         "CCqFvf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeCreateProjectArgs(req),
 	}
 
 	// Execute the RPC
@@ -618,8 +617,9 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateProject(ctx context.Conte
 func (c *LabsTailwindOrchestrationServiceClient) DeleteProjects(ctx context.Context, req *notebooklmv1alpha1.DeleteProjectsRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "WWINqb",
-		Args: method.EncodeDeleteProjectsArgs(req),
+		ID:         "WWINqb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeDeleteProjectsArgs(req),
 	}
 
 	// Execute the RPC
@@ -642,8 +642,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProject(ctx context.Context,
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "rLM1Ne",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGetProjectArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -665,8 +665,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProject(ctx context.Context,
 func (c *LabsTailwindOrchestrationServiceClient) ListFeaturedProjects(ctx context.Context, req *notebooklmv1alpha1.ListFeaturedProjectsRequest) (*notebooklmv1alpha1.ListFeaturedProjectsResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "ub2Bae",
-		Args: method.EncodeListFeaturedProjectsArgs(req),
+		ID:         "ub2Bae",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeListFeaturedProjectsArgs(req),
 	}
 
 	// Execute the RPC
@@ -688,8 +689,9 @@ func (c *LabsTailwindOrchestrationServiceClient) ListFeaturedProjects(ctx contex
 func (c *LabsTailwindOrchestrationServiceClient) ListRecentlyViewedProjects(ctx context.Context, req *notebooklmv1alpha1.ListRecentlyViewedProjectsRequest) (*notebooklmv1alpha1.ListRecentlyViewedProjectsResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "wXbhsf",
-		Args: method.EncodeListRecentlyViewedProjectsArgs(req),
+		ID:         "wXbhsf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeListRecentlyViewedProjectsArgs(req),
 	}
 
 	// Execute the RPC
@@ -699,9 +701,6 @@ func (c *LabsTailwindOrchestrationServiceClient) ListRecentlyViewedProjects(ctx 
 	}
 
 	// Decode the response
-	if os.Getenv("NLM_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "DEBUG: ListRecentlyViewedProjects raw resp (%d bytes): %s\n", len(resp), string(resp[:min(len(resp), 500)]))
-	}
 	var result notebooklmv1alpha1.ListRecentlyViewedProjectsResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ListRecentlyViewedProjects: unmarshal response: %w", err)
@@ -715,8 +714,8 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateProject(ctx context.Conte
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "s0tc2d",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeMutateProjectArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -739,8 +738,8 @@ func (c *LabsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "fejl7e",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeRemoveRecentlyViewedProjectArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -763,8 +762,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx cont
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "tr032e",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGenerateDocumentGuidesArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -784,26 +783,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx cont
 
 // GenerateFreeFormStreamed calls the GenerateFreeFormStreamed RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamed(ctx context.Context, req *notebooklmv1alpha1.GenerateFreeFormStreamedRequest) (*notebooklmv1alpha1.GenerateFreeFormStreamedResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "BD",
-		Args:       method.EncodeGenerateFreeFormStreamedArgs(req),
-		NotebookID: req.GetProjectId(),
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
-	if err != nil {
-		return nil, fmt.Errorf("GenerateFreeFormStreamed: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.GenerateFreeFormStreamedResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("GenerateFreeFormStreamed: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	// No RPC ID defined for this method
+	return nil, fmt.Errorf("GenerateFreeFormStreamed: RPC ID not defined in proto")
 }
 
 // GenerateNotebookGuide calls the GenerateNotebookGuide RPC method.
@@ -811,8 +792,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateNotebookGuide(ctx conte
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "VfAZjd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGenerateNotebookGuideArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -835,8 +816,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateOutline(ctx context.Con
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "lCjAd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGenerateOutlineArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -858,9 +839,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateOutline(ctx context.Con
 func (c *LabsTailwindOrchestrationServiceClient) GenerateReportSuggestions(ctx context.Context, req *notebooklmv1alpha1.GenerateReportSuggestionsRequest) (*notebooklmv1alpha1.GenerateReportSuggestionsResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "ciyUvf", // HAR-verified (was GHsKob)
+		ID:         "ciyUvf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGenerateReportSuggestionsArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -883,8 +864,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateSection(ctx context.Con
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "BeTrYd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGenerateSectionArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -907,8 +888,8 @@ func (c *LabsTailwindOrchestrationServiceClient) StartDraft(ctx context.Context,
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "exXvGf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeStartDraftArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -931,8 +912,8 @@ func (c *LabsTailwindOrchestrationServiceClient) StartSection(ctx context.Contex
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "pGC7gf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeStartSectionArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -955,8 +936,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateMagicView(ctx context.C
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "uK8f7c",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGenerateMagicViewArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -979,8 +960,8 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProjectAnalytics(ctx context
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "AUrzMb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGetProjectAnalyticsArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -1003,8 +984,8 @@ func (c *LabsTailwindOrchestrationServiceClient) SubmitFeedback(ctx context.Cont
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "uNyJKe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeSubmitFeedbackArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -1022,12 +1003,85 @@ func (c *LabsTailwindOrchestrationServiceClient) SubmitFeedback(ctx context.Cont
 	return &result, nil
 }
 
+// GetConversations calls the GetConversations RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GetConversations(ctx context.Context, req *notebooklmv1alpha1.GetConversationsRequest) (*notebooklmv1alpha1.GetConversationsResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "hPTbtc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetConversationsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetConversations: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetConversationsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetConversations: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetConversationHistory calls the GetConversationHistory RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GetConversationHistory(ctx context.Context, req *notebooklmv1alpha1.GetConversationHistoryRequest) (*notebooklmv1alpha1.GetConversationHistoryResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "khqZz",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetConversationHistoryArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetConversationHistory: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetConversationHistoryResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetConversationHistory: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteChatHistory calls the DeleteChatHistory RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) DeleteChatHistory(ctx context.Context, req *notebooklmv1alpha1.DeleteChatHistoryRequest) (*emptypb.Empty, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "e3bVqc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeDeleteChatHistoryArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteChatHistory: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("DeleteChatHistory: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // GetOrCreateAccount calls the GetOrCreateAccount RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GetOrCreateAccount(ctx context.Context, req *notebooklmv1alpha1.GetOrCreateAccountRequest) (*notebooklmv1alpha1.Account, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "ZwVcOc",
-		Args: method.EncodeGetOrCreateAccountArgs(req),
+		ID:         "ZwVcOc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetOrCreateAccountArgs(req),
 	}
 
 	// Execute the RPC
@@ -1049,8 +1103,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GetOrCreateAccount(ctx context.
 func (c *LabsTailwindOrchestrationServiceClient) MutateAccount(ctx context.Context, req *notebooklmv1alpha1.MutateAccountRequest) (*notebooklmv1alpha1.Account, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "hT54vc",
-		Args: method.EncodeMutateAccountArgs(req),
+		ID:         "hT54vc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeMutateAccountArgs(req),
 	}
 
 	// Execute the RPC

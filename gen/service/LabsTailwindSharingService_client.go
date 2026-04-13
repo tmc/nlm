@@ -7,13 +7,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	"github.com/tmc/nlm/internal/rpc"
+	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
 // LabsTailwindSharingServiceClient is a generated client for the LabsTailwindSharingService service.
@@ -24,22 +23,12 @@ type LabsTailwindSharingServiceClient struct {
 // NewLabsTailwindSharingServiceClient creates a new client for the LabsTailwindSharingService service.
 // Source: notebooklm/v1alpha1/sharing.proto IsJules: false Host: notebooklm.google.com App: LabsTailwindUi
 func NewLabsTailwindSharingServiceClient(authToken, cookies string, opts ...batchexecute.Option) *LabsTailwindSharingServiceClient {
-	blParam := os.Getenv("NLM_BL_PARAM")
-	if blParam == "" {
-		blParam = "boq_labs-tailwind-frontend_20260402.11_p0"
-	}
-	sessionID := os.Getenv("NLM_SESSION_ID")
-	if sessionID == "" {
-		sessionID = "-3785608638908410209"
-	}
 	config := rpc.ServiceConfig{
 		Host: "notebooklm.google.com",
 		App:  "LabsTailwindUi",
 		URLParams: map[string]string{
-			"hl":    "en",
-			"bl":    blParam,
-			"f.sid": sessionID,
-			"rt":    "c",
+			"hl": "en",
+			"bl": "boq_labs-tailwind-frontend_20250129.00_p0",
 		},
 	}
 	return &LabsTailwindSharingServiceClient{
@@ -52,8 +41,8 @@ func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "RGP97b",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeShareAudioArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC
@@ -75,8 +64,9 @@ func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *
 func (c *LabsTailwindSharingServiceClient) GetProjectDetails(ctx context.Context, req *notebooklmv1alpha1.GetProjectDetailsRequest) (*notebooklmv1alpha1.ProjectDetails, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:   "JFMDGd",
-		Args: method.EncodeGetProjectDetailsArgs(req),
+		ID:         "JFMDGd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetProjectDetailsArgs(req),
 	}
 
 	// Execute the RPC
@@ -99,8 +89,8 @@ func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "QDyure",
+		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeShareProjectArgs(req),
-		NotebookID: req.GetProjectId(),
 	}
 
 	// Execute the RPC

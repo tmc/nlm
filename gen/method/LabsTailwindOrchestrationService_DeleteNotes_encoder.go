@@ -2,33 +2,21 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/rpc/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
 
 // EncodeDeleteNotesArgs encodes arguments for LabsTailwindOrchestrationService.DeleteNotes
 // RPC ID: AH0mwd
-//
-// HAR-verified wire format:
-//
-//	[projectId, null, [noteId1, noteId2, ...], [2]]
-//
-// Note: DeleteNotesRequest proto lacks project_id field, so this encoder
-// only handles the note_ids portion. The service client must set NotebookID
-// separately. For now we encode without projectId at pos 0 — the service
-// client wrapper adds it.
+// Argument format: [%project_id%, null, %note_ids%, [2]]
 func EncodeDeleteNotesArgs(req *notebooklmv1alpha1.DeleteNotesRequest) []interface{} {
-	noteIDs := make([]interface{}, len(req.GetNoteIds()))
-	for i, id := range req.GetNoteIds() {
-		noteIDs[i] = id
+	// Using generalized argument encoder
+	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%, null, %note_ids%, [2]]")
+	if err != nil {
+		// Log error and return empty args as fallback
+		// In production, this should be handled better
+		return []interface{}{}
 	}
-
-	// Wire format: [null, null, [noteIds], [2]]
-	// ProjectId should be injected by the caller since it's not on this proto message.
-	return []interface{}{
-		nil,              // pos 0: project ID (placeholder — caller must override)
-		nil,              // pos 1: null
-		noteIDs,          // pos 2: [noteId1, ...]
-		[]interface{}{2}, // pos 3: ProjectContext
-	}
+	return args
 }
