@@ -2,6 +2,7 @@ package batchexecute
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -93,6 +94,50 @@ func manualUnescape(s string) string {
 		} else {
 			b.WriteByte(s[i])
 		}
+	}
+	return b.String()
+}
+
+// sanitizeJSONControlChars escapes unescaped control characters (U+0000–U+001F)
+// that appear inside JSON string values. Some batchexecute responses contain
+// literal newlines or tabs in titles/content that break json.Unmarshal.
+func sanitizeJSONControlChars(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	inString := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if escaped {
+			b.WriteByte(ch)
+			escaped = false
+			continue
+		}
+		if ch == '\\' && inString {
+			b.WriteByte(ch)
+			escaped = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			b.WriteByte(ch)
+			continue
+		}
+		// Only escape control chars inside JSON strings
+		if inString && ch < 0x20 {
+			switch ch {
+			case '\n':
+				b.WriteString(`\n`)
+			case '\r':
+				b.WriteString(`\r`)
+			case '\t':
+				b.WriteString(`\t`)
+			default:
+				fmt.Fprintf(&b, `\u%04x`, ch)
+			}
+			continue
+		}
+		b.WriteByte(ch)
 	}
 	return b.String()
 }

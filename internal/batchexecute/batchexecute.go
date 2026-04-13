@@ -451,6 +451,10 @@ func decodeResponse(raw string) ([]Response, error) {
 		return decodeChunkedResponse(reader)
 	}
 
+	// Sanitize control characters that sometimes appear unescaped inside JSON
+	// strings in batchexecute responses (e.g. literal newlines in notebook titles).
+	raw = sanitizeJSONControlChars(raw)
+
 	// Try to parse as a regular response
 	var responses [][]interface{}
 	if err := json.NewDecoder(strings.NewReader(raw)).Decode(&responses); err != nil {
