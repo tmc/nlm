@@ -19,8 +19,13 @@ import (
 )
 
 const (
-	// Google Signaler API for credential refresh
+	// Google Signaler API for credential refresh.
 	SignalerAPIURL = "https://signaler-pa.clients6.google.com/punctual/v1/refreshCreds"
+
+	// SignalerAPIKey is Google's public API key for the Signaler service,
+	// embedded in the NotebookLM web client. This is not a secret — it
+	// identifies the application, not the user. User authentication is
+	// handled by session cookies.
 	SignalerAPIKey = "AIzaSyC_pzrI0AjEDXDYcg7kkq3uQEjnXV50pBM"
 )
 

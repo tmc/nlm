@@ -443,6 +443,7 @@ func countNotebooks(token, cookies, authUser string) (int, error) {
 
 	// Add headers
 	req.Header.Add("Cookie", cookies)
+	// Public API key from the NotebookLM web client; identifies the app, not the user.
 	req.Header.Add("x-goog-api-key", "AIzaSyDRYGVeXVJ5EQwWNjBORFQdrgzjbGsEYg0")
 	if authUser == "" {
 		authUser = "0"
