@@ -161,8 +161,21 @@ func defaultRequestScrubbers() []func(req *http.Request) error {
 
 // defaultResponseScrubbers returns the default response scrubbing functions.
 func defaultResponseScrubbers() []func(*bytes.Buffer) error {
-	return []func(*bytes.Buffer) error{}
+	return []func(*bytes.Buffer) error{
+		sanitizeResponseCookies,
+	}
 }
+
+// sanitizeResponseCookies redacts Set-Cookie header values in serialized HTTP responses.
+func sanitizeResponseCookies(buf *bytes.Buffer) error {
+	data := buf.String()
+	result := setCookiePattern.ReplaceAllString(data, "Set-Cookie: [REDACTED]")
+	buf.Reset()
+	buf.WriteString(result)
+	return nil
+}
+
+var setCookiePattern = regexp.MustCompile(`(?i)Set-Cookie: [^\r\n]+`)
 
 // defaultRecordMatcher creates a key for a request based on the notebooklm RPC endpoint
 func defaultRecordMatcher(req *http.Request) string {
