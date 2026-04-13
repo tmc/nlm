@@ -252,15 +252,18 @@ func (b *Backend) StartCapture(handler captureHandler) error {
 		}
 		_ = handler(samples, sampleRate, channels)
 	})
+	b.tapBlock = tapBlock
+	// The block must be passed as unsafe.Pointer to the Objective-C runtime.
+	// Block is objc.ID (uintptr), so this conversion is intentional.
+	blockPtr := *(*unsafe.Pointer)(unsafe.Pointer(&b.tapBlock)) //nolint:govet
 	objc.Send[objc.ID](
 		b.input.ID,
 		objc.Sel("installTapOnBus:bufferSize:format:block:"),
 		avfaudio.AVAudioNodeBus(0),
 		avfaudio.AVAudioFrameCount(uplinkFrameSamples),
 		objc.ID(0),
-		unsafe.Pointer(tapBlock),
+		blockPtr,
 	)
-	b.tapBlock = tapBlock
 	b.tapActive = true
 	if !b.engine.Running() {
 		ok, err := b.engine.StartAndReturnError()
