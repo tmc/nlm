@@ -9,6 +9,13 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 )
 
+// ServiceConfig defines configuration for a generated BatchExecute service client.
+type ServiceConfig struct {
+	Host      string
+	App       string
+	URLParams map[string]string
+}
+
 // RPC endpoint IDs for NotebookLM services
 const (
 	// NotebookLM service - Project/Notebook operations
@@ -104,7 +111,7 @@ const (
 	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
 
 	// LabsTailwindOrchestrationService - Additional operations
-	RPCListFeaturedProjects  = "nS9Qlc" // ListFeaturedProjects
+	RPCListFeaturedProjects  = "ub2Bae" // ListFeaturedProjects
 	RPCReportContent         = "rJKx8e" // ReportContent
 	RPCReviseArtifact        = "KmcKPe" // ReviseArtifact - revise artifact with instructions
 	RPCListCollections       = "ub2Bae" // ListCollections - list notebook collections/folders
@@ -127,37 +134,66 @@ type Client struct {
 
 // New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
+	return NewWithConfig(authToken, cookies, ServiceConfig{
+		Host: "notebooklm.google.com",
+		App:  "LabsTailwindUi",
+	}, options...)
+}
+
+// NewWithConfig creates a new NotebookLM RPC client with explicit service settings.
+func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, options ...batchexecute.Option) *Client {
 	// Use session-specific parameters from env if available (set during auth)
 	blParam := os.Getenv("NLM_BL_PARAM")
 	if blParam == "" {
-		blParam = "boq_labs-tailwind-frontend_20260402.11_p0"
+		blParam = "boq_labs-tailwind-frontend_20260406.14_p0"
 	}
 	sessionID := os.Getenv("NLM_SESSION_ID")
 	if sessionID == "" {
 		sessionID = "-3785608638908410209"
 	}
+	host := serviceConfig.Host
+	if host == "" {
+		host = "notebooklm.google.com"
+	}
+	app := serviceConfig.App
+	if app == "" {
+		app = "LabsTailwindUi"
+	}
+	urlParams := map[string]string{
+		"bl":    blParam,
+		"f.sid": sessionID,
+		"hl":    "en",
+		"rt":    "c",
+	}
+	for k, v := range serviceConfig.URLParams {
+		if v == "" {
+			continue
+		}
+		switch k {
+		case "bl", "f.sid", "rt":
+			// Prefer live session parameters over generated defaults.
+			continue
+		default:
+			urlParams[k] = v
+		}
+	}
 
 	config := batchexecute.Config{
-		Host:      "notebooklm.google.com",
-		App:       "LabsTailwindUi",
+		Host:      host,
+		App:       app,
 		AuthToken: authToken,
 		Cookies:   cookies,
 		Headers: map[string]string{
 			"content-type":    "application/x-www-form-urlencoded;charset=UTF-8",
-			"origin":          "https://notebooklm.google.com",
-			"referer":         "https://notebooklm.google.com/",
+			"origin":          fmt.Sprintf("https://%s", host),
+			"referer":         fmt.Sprintf("https://%s/", host),
 			"x-same-domain":   "1",
 			"accept":          "*/*",
 			"accept-language": "en-US,en;q=0.9",
 			"cache-control":   "no-cache",
 			"pragma":          "no-cache",
 		},
-		URLParams: map[string]string{
-			"bl":    blParam,
-			"f.sid": sessionID,
-			"hl":    "en",
-			"rt":    "c",
-		},
+		URLParams: urlParams,
 	}
 	return &Client{
 		Config: config,
@@ -226,10 +262,25 @@ func (c *Client) ListNotebooks() (json.RawMessage, error) {
 
 // CreateNotebook creates a new notebook with the given title
 func (c *Client) CreateNotebook(title string) (json.RawMessage, error) {
-	return nil, fmt.Errorf("not implemented")
+	return c.Do(Call{
+		ID: RPCCreateProject,
+		Args: []interface{}{
+			title,
+			"",
+		},
+	})
 }
 
 // DeleteNotebook deletes a notebook by ID
 func (c *Client) DeleteNotebook(id string) error {
-	return fmt.Errorf("not implemented")
+	_, err := c.Do(Call{
+		ID: RPCDeleteProjects,
+		Args: []interface{}{
+			[]interface{}{id},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("delete notebook: %w", err)
+	}
+	return nil
 }
