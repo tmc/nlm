@@ -27,7 +27,7 @@ nlm sources abc123
 nlm chat abc123
 
 # Generate an audio summary
-nlm audio-create abc123 "Conversational, focus on key findings"
+nlm create-audio abc123 "Conversational, focus on key findings"
 ```
 
 ## Adding sources from stdin
@@ -76,7 +76,7 @@ nlm timeline "$NB" SOURCE_ID > timeline.md
 nlm briefing-doc "$NB" SOURCE_ID > briefing.md
 
 # Audio overview
-nlm audio-create "$NB" "Professional summary"
+nlm create-audio "$NB" "Professional summary"
 # Wait for generation, then download
 nlm --direct-rpc audio-download "$NB" overview.mp3
 ```
@@ -122,7 +122,7 @@ nlm mindmap "$NB" $SOURCES
 nlm research "$NB" "What are the methodological gaps across these papers?"
 
 # Audio for review
-nlm audio-create "$NB" "Academic tone, compare methodologies"
+nlm create-audio "$NB" "Academic tone, compare methodologies"
 ```
 
 ## Scripting with confirmation bypass

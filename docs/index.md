@@ -33,7 +33,7 @@ nlm add NOTEBOOK_ID "https://example.com/paper.pdf"
 nlm chat NOTEBOOK_ID
 
 # Generate an audio overview
-nlm audio-create NOTEBOOK_ID "Focus on key findings"
+nlm create-audio NOTEBOOK_ID "Focus on key findings"
 ```
 
 ## Next steps

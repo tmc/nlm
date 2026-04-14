@@ -180,22 +180,40 @@ Delete a note.
 nlm rm-note NOTEBOOK_ID NOTE_ID
 ```
 
-## Audio
+## Content Creation
 
-### audio-list
-
-List audio overviews for a notebook with status.
-
-```bash
-nlm audio-list NOTEBOOK_ID
-```
-
-### audio-create
+### create-audio
 
 Create an audio overview with generation instructions.
 
 ```bash
-nlm audio-create NOTEBOOK_ID "Conversational tone, focus on key findings"
+nlm create-audio NOTEBOOK_ID "Conversational tone, focus on key findings"
+```
+
+### create-video
+
+Create a video overview.
+
+```bash
+nlm create-video NOTEBOOK_ID "Educational style with key charts"
+```
+
+### create-slides
+
+Create a slide deck presentation.
+
+```bash
+nlm create-slides NOTEBOOK_ID "Make a detailed presentation on the key findings"
+```
+
+## Audio
+
+### audio-list
+
+List audio overviews for a notebook.
+
+```bash
+nlm audio-list NOTEBOOK_ID
 ```
 
 ### audio-get
@@ -249,14 +267,6 @@ List video overviews for a notebook.
 nlm video-list NOTEBOOK_ID
 ```
 
-### video-create
-
-Create a video overview.
-
-```bash
-nlm video-create NOTEBOOK_ID "Educational style with key charts"
-```
-
 ### video-download
 
 Download a video file. Requires `--direct-rpc`.
@@ -274,15 +284,6 @@ List artifacts in a notebook.
 
 ```bash
 nlm artifacts NOTEBOOK_ID
-```
-
-### create-artifact
-
-Create an artifact. Types: `note`, `audio`, `report`, `app`.
-
-```bash
-nlm create-artifact NOTEBOOK_ID report
-nlm create-artifact NOTEBOOK_ID app
 ```
 
 ### get-artifact
@@ -307,6 +308,56 @@ Delete an artifact.
 
 ```bash
 nlm delete-artifact ARTIFACT_ID
+```
+
+## Guidebooks
+
+### guidebooks
+
+List all guidebooks.
+
+```bash
+nlm guidebooks
+```
+
+### guidebook
+
+Get guidebook content and details.
+
+```bash
+nlm guidebook GUIDEBOOK_ID
+```
+
+### guidebook-publish
+
+Publish a guidebook.
+
+```bash
+nlm guidebook-publish GUIDEBOOK_ID
+```
+
+### guidebook-share
+
+Share a guidebook.
+
+```bash
+nlm guidebook-share GUIDEBOOK_ID
+```
+
+### guidebook-ask
+
+Ask a guidebook a question.
+
+```bash
+nlm guidebook-ask GUIDEBOOK_ID "What are the key findings?"
+```
+
+### guidebook-rm
+
+Delete a guidebook.
+
+```bash
+nlm guidebook-rm GUIDEBOOK_ID
 ```
 
 ## Chat & Generation
