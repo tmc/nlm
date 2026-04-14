@@ -2,6 +2,16 @@ package method
 
 import notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 
+// artifactTypeDescriptor is the constant arg[0] for R7cb6c calls.
+// Verified against HAR captures for audio, video, and slides — identical across all types.
+var artifactTypeDescriptor = []interface{}{
+	2, nil, nil,
+	[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+	[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+}
+
+// encodeOverviewSourceRefs returns 3-level nesting: [[[id1]], [[id2]], ...]
+// Used for the outer source refs at arg[2][3].
 func encodeOverviewSourceRefs(sourceIDs []string) []interface{} {
 	refs := make([]interface{}, 0, len(sourceIDs))
 	for _, id := range sourceIDs {
@@ -10,30 +20,45 @@ func encodeOverviewSourceRefs(sourceIDs []string) []interface{} {
 	return refs
 }
 
+// encodeInnerSourceRefs returns 2-level nesting: [[id1], [id2], ...]
+// Used for source refs inside audioConfig/videoConfig inner arrays.
+func encodeInnerSourceRefs(sourceIDs []string) []interface{} {
+	refs := make([]interface{}, 0, len(sourceIDs))
+	for _, id := range sourceIDs {
+		refs = append(refs, []interface{}{id})
+	}
+	return refs
+}
+
 // EncodeCreateAudioOverviewArgs encodes the observed R7cb6c audio-overview payload.
 func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRequest) []interface{} {
-	// Wire format verified against HAR capture — do not regenerate.
+	// Wire format verified against HAR capture (2026-04-14) — do not regenerate.
 	sourceRefs := encodeOverviewSourceRefs(req.GetSourceIds())
+	innerSourceRefs := encodeInnerSourceRefs(req.GetSourceIds())
+	var instructions interface{}
+	if req.GetCustomInstructions() != "" {
+		instructions = req.GetCustomInstructions()
+	}
 	return []interface{}{
-		[]interface{}{int32(req.GetAudioType())},
+		artifactTypeDescriptor,
 		req.GetProjectId(),
 		[]interface{}{
 			nil,
 			nil,
-			1,
+			1, // artifact type = audio
 			sourceRefs,
 			nil,
 			nil,
 			[]interface{}{
 				nil,
 				[]interface{}{
-					req.GetCustomInstructions(),
-					int32(req.GetLength()),
-					nil,
-					sourceRefs,
-					req.GetLanguage(),
-					true,
-					1,
+					instructions,                // [0] custom instructions or nil
+					2,                           // [1] constant
+					nil,                         // [2]
+					innerSourceRefs,             // [3] 2-level nesting
+					req.GetLanguage(),           // [4] language
+					nil,                         // [5] nil (not true)
+					int32(req.GetAudioType()),   // [6] audio style enum
 				},
 			},
 		},
@@ -42,14 +67,10 @@ func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRe
 
 // EncodeCreateSlideDeckArgs encodes the observed R7cb6c slide-deck payload.
 func EncodeCreateSlideDeckArgs(projectID string, sourceIDs []string, instructions, language string) []interface{} {
-	// Wire format verified against HAR capture — do not regenerate.
+	// Wire format verified against HAR capture (2026-04-14) — do not regenerate.
 	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
 	return []interface{}{
-		[]interface{}{
-			2, nil, nil,
-			[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
-			[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
-		},
+		artifactTypeDescriptor,
 		projectID,
 		[]interface{}{
 			nil,
@@ -64,30 +85,27 @@ func EncodeCreateSlideDeckArgs(projectID string, sourceIDs []string, instruction
 
 // EncodeCreateVideoOverviewArgs encodes the observed R7cb6c video-overview payload.
 func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRequest) []interface{} {
-	// Wire format verified against HAR capture — do not regenerate.
+	// Wire format verified against HAR capture (2026-04-14) — do not regenerate.
 	sourceRefs := encodeOverviewSourceRefs(req.GetSourceIds())
+	innerSourceRefs := encodeInnerSourceRefs(req.GetSourceIds())
 	return []interface{}{
-		[]interface{}{int32(req.GetAudioType())},
+		artifactTypeDescriptor,
 		req.GetProjectId(),
 		[]interface{}{
 			nil,
 			nil,
-			3,
+			3, // artifact type = video
 			sourceRefs,
-			nil,
-			nil,
-			nil,
-			nil,
+			nil, nil, nil, nil,
 			[]interface{}{
 				nil,
 				nil,
 				[]interface{}{
-					sourceRefs,
-					req.GetLanguage(),
-					req.GetCustomInstructions(),
-					nil,
-					1,
-					int32(req.GetVideoStyle()),
+					innerSourceRefs,             // [0] 2-level nesting
+					nil,                         // [1]
+					nil,                         // [2]
+					nil,                         // [3]
+					int32(req.GetVideoStyle()),  // [4] video style enum
 				},
 			},
 		},

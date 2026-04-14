@@ -2642,14 +2642,21 @@ func (c *Client) CreateSlideDeck(projectID, instructions string) (string, error)
 		return "", fmt.Errorf("create slide deck: %w", err)
 	}
 
-	// Response is [artifact_id, title, type, ...]
+	// Response is [[artifact_id, title, type, ...]] — unwrap outer array.
 	var raw []interface{}
 	if err := json.Unmarshal(resp, &raw); err != nil {
 		return "", fmt.Errorf("parse slide deck response: %w", err)
 	}
+	// Try direct string at [0]
 	if len(raw) > 0 {
 		if id, ok := raw[0].(string); ok {
 			return id, nil
+		}
+		// Unwrap nested array: [[id, title, ...]]
+		if inner, ok := raw[0].([]interface{}); ok && len(inner) > 0 {
+			if id, ok := inner[0].(string); ok {
+				return id, nil
+			}
 		}
 	}
 	return "", fmt.Errorf("unexpected slide deck response format")
