@@ -147,6 +147,14 @@ List notes in a notebook.
 nlm notes NOTEBOOK_ID
 ```
 
+### read-note
+
+Display the full content of a specific note.
+
+```bash
+nlm read-note NOTEBOOK_ID NOTE_ID
+```
+
 ### new-note
 
 Create a new note. Content can be passed as an argument or piped via stdin.
@@ -470,6 +478,7 @@ nlm auth
 nlm auth --profile "Work"
 nlm auth --all
 nlm auth --cdp-url ws://localhost:9222
+nlm auth --authuser 1  # use secondary Google account
 ```
 
 ### refresh

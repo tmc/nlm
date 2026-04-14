@@ -78,3 +78,15 @@ nlm refresh
 **Cookies expire quickly** — Run `nlm refresh` or re-run `nlm auth`. The auto-refresh manager handles this during interactive sessions.
 
 **Wrong Google account** — Use `--profile` to select the browser profile associated with the correct account.
+
+**Multiple Google accounts in one profile** — Use `--authuser 1` (or `NLM_AUTHUSER=1`) to authenticate with a non-default account.
+
+**Windows with Google 2FA** — The automated browser may trigger "unsafe browser" warnings. As a workaround, use `--cdp-url` with a manually-launched Chrome instance that has remote debugging enabled:
+
+```bash
+# Launch Chrome with debugging
+chrome.exe --remote-debugging-port=9222
+
+# In another terminal, log into NotebookLM manually, then:
+nlm auth --cdp-url ws://localhost:9222
+```
