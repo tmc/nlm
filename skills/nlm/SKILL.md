@@ -43,6 +43,16 @@ txtar-c -a . 2>/dev/null | nlm add <notebook-id> -
 ```
 Requires: `go install golang.org/x/exp/cmd/txtar-c@latest`
 
+**Large source splitting** — when uploading a codebase, group files by package/directory and upload each group as a separate source. Use `--name` to label sources:
+```bash
+txtar-c -quote dir/ 2>/dev/null | nlm add <notebook-id> - --name "project: dir/"
+```
+
+**Rename after stdin upload** — stdin sources appear as "Pasted Text". Either use `--name` during add, or rename after:
+```bash
+nlm rename-source <source-id> "descriptive name"
+```
+
 **Binary upload workarounds** — if PDF/plist upload fails with 500:
 ```bash
 pdftotext paper.pdf - | nlm add <notebook-id> -
