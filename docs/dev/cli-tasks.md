@@ -30,7 +30,7 @@ needs fixing, testing, or finishing to make every command fully operational.
 
 ## Audio Operations
 
-- [x] `audio-create <id> <instructions>` — create audio overview
+- [x] `create-audio <id> <instructions>` — create audio overview
 - [x] `audio-get <id>` — get audio overview status
 - [x] `audio-rm <id>` — delete audio overview
 - [x] `audio-list <id>` — list audio overviews
@@ -45,7 +45,7 @@ needs fixing, testing, or finishing to make every command fully operational.
 
 ## Video Operations
 
-- [x] `video-create <id> <instructions>` — create video overview
+- [x] `create-video <id> <instructions>` — create video overview
 - [x] `video-list <id>` — list video overviews
 - [ ] `video-download <id> [filename]` — download video
   - [ ] Verify `DownloadVideoOverview` actually returns a URL or base64 data

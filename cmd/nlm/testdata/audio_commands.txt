@@ -1,24 +1,24 @@
 # Test audio and video command validation only (no network calls)
 # Focus on argument validation and authentication checks
 
-# === AUDIO-CREATE COMMAND ===
-# Test audio-create without arguments (should fail with usage)
-! exec ./nlm_test audio-create
-stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+# === CREATE-AUDIO COMMAND ===
+# Test create-audio without arguments (should fail with usage)
+! exec ./nlm_test create-audio
+stderr 'usage: nlm create-audio <notebook-id> <instructions>'
 ! stderr 'panic'
 
-# Test audio-create with only one argument (should fail with usage)
-! exec ./nlm_test audio-create notebook123
-stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+# Test create-audio with only one argument (should fail with usage)
+! exec ./nlm_test create-audio notebook123
+stderr 'usage: nlm create-audio <notebook-id> <instructions>'
 ! stderr 'panic'
 
-# Test audio-create with too many arguments (should fail with usage)
-! exec ./nlm_test audio-create notebook123 instructions extra
-stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+# Test create-audio with too many arguments (should fail with usage)
+! exec ./nlm_test create-audio notebook123 instructions extra
+stderr 'usage: nlm create-audio <notebook-id> <instructions>'
 ! stderr 'panic'
 
-# Test audio-create without authentication (should fail)
-! exec ./nlm_test audio-create notebook123 'Create an overview'
+# Test create-audio without authentication (should fail)
+! exec ./nlm_test create-audio notebook123 'Create an overview'
 stderr 'Authentication required'
 ! stderr 'panic'
 
@@ -65,23 +65,23 @@ stderr 'usage: nlm audio-share <notebook-id>'
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# === VIDEO-CREATE COMMAND ===
-# Test video-create without arguments (should fail with usage)
-! exec ./nlm_test video-create
-stderr 'usage: nlm video-create <notebook-id> <instructions>'
+# === CREATE-VIDEO COMMAND ===
+# Test create-video without arguments (should fail with usage)
+! exec ./nlm_test create-video
+stderr 'usage: nlm create-video <notebook-id> <instructions>'
 ! stderr 'panic'
 
-# Test video-create with only one argument (should fail with usage)
-! exec ./nlm_test video-create notebook123
-stderr 'usage: nlm video-create <notebook-id> <instructions>'
+# Test create-video with only one argument (should fail with usage)
+! exec ./nlm_test create-video notebook123
+stderr 'usage: nlm create-video <notebook-id> <instructions>'
 ! stderr 'panic'
 
-# Test video-create with too many arguments (should fail with usage)
-! exec ./nlm_test video-create notebook123 instructions extra
-stderr 'usage: nlm video-create <notebook-id> <instructions>'
+# Test create-video with too many arguments (should fail with usage)
+! exec ./nlm_test create-video notebook123 instructions extra
+stderr 'usage: nlm create-video <notebook-id> <instructions>'
 ! stderr 'panic'
 
-# Test video-create without authentication (should fail)
-! exec ./nlm_test video-create notebook123 'Create a video overview'
+# Test create-video without authentication (should fail)
+! exec ./nlm_test create-video notebook123 'Create a video overview'
 stderr 'Authentication required'
 ! stderr 'panic'

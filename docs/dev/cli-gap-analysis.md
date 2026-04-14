@@ -68,7 +68,7 @@ Updated: 2026-04-06 (final retest after rounds 1-3)
 | Command | Status | Notes |
 |---------|--------|-------|
 | `audio-list <id>` | PASS | Shows audio overviews with status |
-| `audio-create <id> <instr>` | FAIL | API error 3: Service unavailable (wire format issue) |
+| `create-audio <id> <instr>` | FAIL | API error 3: Service unavailable (wire format issue) |
 | `audio-get <id>` | PASS | Returns audio overview (ready=true) |
 | `audio-download <id> [file]` | UNTESTED | Requires `--direct-rpc` flag |
 | `audio-rm <id>` | UNTESTED | No audio to delete |
@@ -79,7 +79,7 @@ Updated: 2026-04-06 (final retest after rounds 1-3)
 | Command | Status | Notes |
 |---------|--------|-------|
 | `video-list <id>` | PASS | Returns empty list correctly |
-| `video-create <id> <instr>` | FAIL | Response parse error |
+| `create-video <id> <instr>` | FAIL | Response parse error |
 | `video-download <id> [file]` | UNTESTED | No video to download |
 
 ### Artifact Operations
@@ -169,7 +169,7 @@ Replace deprecated `generate-outline` (lCjAd) and `generate-section` (BeTrYd) wi
 3. `gArtLc` (ListArtifacts) → poll for completion
 
 ### P2 — Audio/Video Creation
-`audio-create`, `audio-share`, `video-create` return error 3. Need HAR captures of successful creation calls.
+`create-audio`, `audio-share`, `create-video` return error 3. Need HAR captures of successful creation calls.
 
 ### P3 — refresh-source
 Returns error 3. May need different wire format or preconditions.

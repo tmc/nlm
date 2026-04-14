@@ -56,13 +56,13 @@ stderr 'usage: nlm rm-note <notebook-id> <note-id>'
 ! exec ./nlm_test rm-note notebook123
 stderr 'usage: nlm rm-note <notebook-id> <note-id>'
 
-# Test audio-create command validation
-! exec ./nlm_test audio-create
-stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+# Test create-audio command validation
+! exec ./nlm_test create-audio
+stderr 'usage: nlm create-audio <notebook-id> <instructions>'
 
-# Test audio-create command validation - one arg
-! exec ./nlm_test audio-create notebook123
-stderr 'usage: nlm audio-create <notebook-id> <instructions>'
+# Test create-audio command validation - one arg
+! exec ./nlm_test create-audio notebook123
+stderr 'usage: nlm create-audio <notebook-id> <instructions>'
 
 # Test audio-get command validation
 ! exec ./nlm_test audio-get

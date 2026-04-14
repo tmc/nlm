@@ -289,7 +289,7 @@ Work through these systematically, one at a time. For each action:
 13. **chat-history** — Load chat history
 
 ### Phase 6: Audio
-14. **audio-create** — Create an audio overview
+14. **create-audio** — Create an audio overview
 15. **audio-list** — List audio overviews
 
 ## Important Notes

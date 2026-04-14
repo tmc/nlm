@@ -27,7 +27,7 @@ func TestAuthCommand(t *testing.T) {
 		{"sources", true},
 		{"add", true},
 		{"rm-source", true},
-		{"audio-create", true},
+		{"create-audio", true},
 		{"unknown-command", true},
 	}
 
