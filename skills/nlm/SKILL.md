@@ -8,20 +8,10 @@ argument-hint: "[action] [args...]"
 
 # nlm — NotebookLM CLI
 
-Manages Google NotebookLM notebooks. For the full command list, see [reference/commands.md](reference/commands.md).
-
-## Core Commands
+## Available Commands
 
 ```
-nlm list                                    # List notebooks
-nlm create <title>                          # Create notebook
-nlm sources <id>                            # List sources
-nlm add <id> <file|url|->                  # Add source
-nlm chat <id>                               # Interactive chat
-nlm generate-chat <id> <prompt>             # One-shot question
-nlm create-audio <id> <instructions>        # Audio overview
-nlm create-video <id> <instructions>        # Video overview
-nlm create-slides <id> <instructions>       # Slide deck
+!`nlm --help 2>&1`
 ```
 
 ## Interpreting $ARGUMENTS
