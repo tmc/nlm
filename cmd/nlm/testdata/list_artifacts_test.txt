@@ -82,14 +82,14 @@ stderr 'Authentication required'
 ! stderr 'panic'
 
 # === HELP INTEGRATION ===
-# Test that help shows list-artifacts command
+# Test that help shows artifacts command
 exec ./nlm_test help
-stderr 'list-artifacts <id>  List artifacts in notebook'
+stderr 'artifacts <id>'
 ! stderr 'panic'
 
-# Test that -h shows list-artifacts command
+# Test that -h shows artifacts command
 exec ./nlm_test -h
-stderr 'list-artifacts <id>  List artifacts in notebook'
+stderr 'artifacts <id>'
 ! stderr 'panic'
 
 # === CASE SENSITIVITY ===

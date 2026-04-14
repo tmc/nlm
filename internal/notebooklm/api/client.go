@@ -1041,14 +1041,13 @@ func (c *Client) CreateAudioOverview(projectID string, instructions string) (*Au
 	if err != nil {
 		return nil, fmt.Errorf("create audio overview: %w", wrapCreateAudioOverviewError(err))
 	}
-	// Convert pb.AudioOverview to AudioOverviewResult
-	// Note: pb.AudioOverview has different fields than expected, so we map what's available
+	// R7cb6c returns an artifact creation acknowledgment, not audio data.
+	// Audio data must be fetched later via polling (audio-get/audio-download).
 	result := &AudioOverviewResult{
 		ProjectID: projectID,
-		AudioID:   "",                                 // Not available in pb.AudioOverview
-		Title:     "",                                 // Not available in pb.AudioOverview
-		AudioData: audioOverview.Content,              // Map Content to AudioData
-		IsReady:   audioOverview.Status != "CREATING", // Infer from Status
+		AudioID:   audioOverview.GetAudioId(),
+		Title:     audioOverview.GetTitle(),
+		IsReady:   false, // Audio generation is always async
 	}
 	return result, nil
 }
