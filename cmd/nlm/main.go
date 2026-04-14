@@ -2998,10 +2998,6 @@ func downloadAudioOverview(c *api.Client, notebookID string, filename string) er
 	// Download the audio
 	audioResult, err := c.DownloadAudioOverview(notebookID)
 	if err != nil {
-		// Provide actionable guidance for the known CDN auth issue
-		if strings.Contains(err.Error(), "browser authentication") || strings.Contains(err.Error(), "text/html") {
-			return fmt.Errorf("download audio overview: Google CDN requires browser session cookies that cannot be forwarded via CLI; download manually from https://notebooklm.google.com/notebook/%s", notebookID)
-		}
 		return fmt.Errorf("download audio overview: %w", err)
 	}
 
@@ -3031,9 +3027,6 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 	// Download the video
 	videoResult, err := c.DownloadVideoOverview(notebookID)
 	if err != nil {
-		if strings.Contains(err.Error(), "browser authentication") || strings.Contains(err.Error(), "manual") || strings.Contains(err.Error(), "not available") {
-			return fmt.Errorf("download video overview: Google CDN requires browser session cookies that cannot be forwarded via CLI; download manually from https://notebooklm.google.com/notebook/%s", notebookID)
-		}
 		return fmt.Errorf("download video overview: %w", err)
 	}
 
@@ -3041,9 +3034,6 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 	if videoResult.VideoData != "" && (strings.HasPrefix(videoResult.VideoData, "http://") || strings.HasPrefix(videoResult.VideoData, "https://")) {
 		// Use authenticated download for URLs
 		if err := c.DownloadVideoWithAuth(videoResult.VideoData, filename); err != nil {
-			if strings.Contains(err.Error(), "text/html") {
-				return fmt.Errorf("download video: Google CDN requires browser session cookies that cannot be forwarded via CLI; download manually from https://notebooklm.google.com/notebook/%s", notebookID)
-			}
 			return fmt.Errorf("download video with auth: %w", err)
 		}
 	} else {

@@ -1497,7 +1497,7 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCListArtifacts, // Use gArtLc RPC
 		Args: []interface{}{
-			[]interface{}{2}, // artifact_types=[2] for ARTIFACT_TYPE_AUDIO_OVERVIEW
+			artifactTypeDescriptor(),
 			projectID,
 			"NOT artifact.status = \"ARTIFACT_STATUS_SUGGESTED\"",
 		},
@@ -1588,50 +1588,42 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 		}
 	}
 
-	// Extract fields from artifact
-	// Format: [audio_id, title, type, sources, state, ?, audio_overview, ...]
-	// audio_overview at index 6 contains: [?, ?, audio_url, video_url, ...]
+	// Extract fields from artifact.
+	// HAR-verified format: [id, title, type, sources, state, nil, nil, nil, media_payload, ...]
+	// media_payload at index 8: [nil, preview_url, source_refs, download_url, url_list, [duration, size]]
 	audioID, _ := artifactData[0].(string)
 	title, _ := artifactData[1].(string)
 
-	// Get audio overview array at index 6
-	audioPayload, ok := artifactData[6].([]interface{})
-	if !ok || len(audioPayload) < 6 {
-		return nil, fmt.Errorf("audio overview data not found or incomplete (has %d elements, need at least 6)", len(audioPayload))
+	// Try index 8 first (current HAR format), fall back to index 6 (legacy)
+	mediaIdx := 8
+	audioPayload, ok := artifactData[mediaIdx].([]interface{})
+	if !ok || len(audioPayload) < 4 {
+		mediaIdx = 6
+		audioPayload, ok = artifactData[mediaIdx].([]interface{})
+		if !ok || len(audioPayload) < 4 {
+			return nil, fmt.Errorf("media payload not found at index 8 or 6")
+		}
 	}
 
-	// Audio URLs are in a nested array at audioOverview[5]
-	// Format: [[url1, type1, mime1], [url2, type2, mime2], ...]
-	audioURLList, ok := audioPayload[5].([]interface{})
-	if !ok || len(audioURLList) == 0 {
-		return nil, fmt.Errorf("audio URL list not found - audio may not be ready yet")
-	}
-
-	if c.config.Debug {
-		fmt.Printf("Found %d audio format options in nested array\n", len(audioURLList))
-	}
-
-	// Try to find a URL that doesn't require authentication redirect
-	// Prefer URLs with =m140-dv or =m140 format (direct download formats)
+	// Extract download URL from media payload.
+	// Position [3] is the download variant URL (=m22-dv suffix).
+	// Position [1] is the preview/streaming URL (=m22 suffix).
+	// Position [4] is the URL list: [[url, type, mime], ...]
 	var audioURL string
-	for i, urlData := range audioURLList {
-		if urlArr, ok := urlData.([]interface{}); ok && len(urlArr) > 0 {
-			if url, ok := urlArr[0].(string); ok && url != "" {
-				// Try all URLs, preferring certain formats
-				// Format 0: usually =m140-dv (type 4, audio/mp4)
-				// Format 1: usually =m140 (type 1, audio/mp4)
-				if audioURL == "" || i == 0 {
-					audioURL = url
-					if c.config.Debug {
-						display := url
-						if len(display) > 80 {
-							display = display[:80] + "..."
-						}
-						var mimeType string
-						if len(urlArr) > 2 {
-							mimeType, _ = urlArr[2].(string)
-						}
-						fmt.Printf("  Format %d: %s (mime: %s)\n", i, display, mimeType)
+	if downloadURL, ok := audioPayload[3].(string); ok && downloadURL != "" {
+		audioURL = downloadURL
+	} else if previewURL, ok := audioPayload[1].(string); ok && previewURL != "" {
+		audioURL = previewURL
+	}
+
+	// Fall back to URL list at position [4]
+	if audioURL == "" && len(audioPayload) > 4 {
+		if urlList, ok := audioPayload[4].([]interface{}); ok {
+			for _, urlData := range urlList {
+				if urlArr, ok := urlData.([]interface{}); ok && len(urlArr) > 0 {
+					if url, ok := urlArr[0].(string); ok && url != "" {
+						audioURL = url
+						break
 					}
 				}
 			}
@@ -1722,15 +1714,11 @@ func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
 		fmt.Printf("Content-Type: %s\n", resp.Header.Get("Content-Type"))
 	}
 
-	// Check if we got an HTML auth redirect page
+	// Check if we got a redirect or HTML auth page
 	contentType := resp.Header.Get("Content-Type")
-	if strings.Contains(contentType, "text/html") {
-		// HTML response indicates authentication failure - use browser download
-		if c.config.Debug {
-			fmt.Printf("Got HTML auth redirect, falling back to browser download\n")
-		}
-		_ = auth // Silence unused variable warning
-		return nil, fmt.Errorf("Google CDN requires browser authentication - use browser-based download (not yet implemented)")
+	if strings.Contains(contentType, "text/html") || resp.StatusCode == http.StatusFound {
+		_ = auth
+		return nil, fmt.Errorf("Google CDN requires browser authentication; open this URL in your browser to download: %s", audioURL)
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
@@ -1774,7 +1762,7 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCListArtifacts,
 		Args: []interface{}{
-			[]interface{}{2},
+			artifactTypeDescriptor(),
 			projectID,
 		},
 		NotebookID: projectID,
@@ -2351,13 +2339,24 @@ func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
 	return nil
 }
 
+// artifactTypeDescriptor returns the constant arg[0] for gArtLc and R7cb6c calls.
+// Wire format verified against HAR capture.
+func artifactTypeDescriptor() []interface{} {
+	return []interface{}{
+		2, nil, nil,
+		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+	}
+}
+
 // ListArtifacts returns artifacts for a project using direct RPC
 func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCListArtifacts,
 		Args: []interface{}{
-			[]interface{}{2}, // filter parameter - 2 seems to be for all artifacts
+			artifactTypeDescriptor(),
 			projectID,
+			"NOT artifact.status = \"ARTIFACT_STATUS_SUGGESTED\"",
 		},
 		NotebookID: projectID,
 	})
