@@ -103,6 +103,40 @@ type generateContentInput struct {
 	SourceIDs  []string `json:"source_ids"`
 }
 
+type createVideoOverviewInput struct {
+	NotebookID   string `json:"notebook_id"`
+	Instructions string `json:"instructions"`
+}
+
+type createSlideDeckInput struct {
+	NotebookID   string `json:"notebook_id"`
+	Instructions string `json:"instructions"`
+}
+
+type readNoteInput struct {
+	NotebookID string `json:"notebook_id"`
+	NoteID     string `json:"note_id"`
+}
+
+type setInstructionsInput struct {
+	NotebookID   string `json:"notebook_id"`
+	Instructions string `json:"instructions"`
+}
+
+type getInstructionsInput struct {
+	NotebookID string `json:"notebook_id"`
+}
+
+type startDeepResearchInput struct {
+	NotebookID string `json:"notebook_id"`
+	Query      string `json:"query"`
+}
+
+type pollDeepResearchInput struct {
+	NotebookID string `json:"notebook_id"`
+	ResearchID string `json:"research_id"`
+}
+
 type notebookSummary struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
@@ -325,6 +359,101 @@ func registerTools(server *mcp.Server, client *api.Client) {
 			return textResult("audio sharing disabled (private)"), nil, nil
 		}
 		return textResult(result.ShareURL), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "create_video_overview",
+		Description: "Create a new video overview for a notebook.",
+		Annotations: mutatingAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input createVideoOverviewInput) (*mcp.CallToolResult, any, error) {
+		result, err := client.CreateVideoOverview(input.NotebookID, input.Instructions)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to create video overview: %v", err)), nil, nil
+		}
+		return textResult(fmt.Sprintf("started video overview (id: %s)", result.VideoID)), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "create_slide_deck",
+		Description: "Create a slide deck from notebook sources.",
+		Annotations: mutatingAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input createSlideDeckInput) (*mcp.CallToolResult, any, error) {
+		artifactID, err := client.CreateSlideDeck(input.NotebookID, input.Instructions)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to create slide deck: %v", err)), nil, nil
+		}
+		return textResult(fmt.Sprintf("started slide deck creation (artifact id: %s)", artifactID)), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "read_note",
+		Description: "Read a specific note by ID from a notebook. Returns the note title and content.",
+		Annotations: readOnlyAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input readNoteInput) (*mcp.CallToolResult, any, error) {
+		notes, err := client.GetNotes(input.NotebookID)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to get notes: %v", err)), nil, nil
+		}
+		for _, note := range notes {
+			if note.GetNoteId() == input.NoteID {
+				return jsonResult(map[string]string{
+					"id":      note.GetNoteId(),
+					"title":   note.GetTitle(),
+					"content": note.GetContentText(),
+				}), nil, nil
+			}
+		}
+		return errorResult(fmt.Sprintf("note %s not found in notebook %s", input.NoteID, input.NotebookID)), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "set_instructions",
+		Description: "Set custom chat instructions (system prompt) for a notebook.",
+		Annotations: mutatingAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input setInstructionsInput) (*mcp.CallToolResult, any, error) {
+		if err := client.SetInstructions(input.NotebookID, input.Instructions); err != nil {
+			return errorResult(fmt.Sprintf("failed to set instructions: %v", err)), nil, nil
+		}
+		return textResult("instructions updated"), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_instructions",
+		Description: "Get the current custom chat instructions (system prompt) for a notebook.",
+		Annotations: readOnlyAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input getInstructionsInput) (*mcp.CallToolResult, any, error) {
+		prompt, err := client.GetInstructions(input.NotebookID)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to get instructions: %v", err)), nil, nil
+		}
+		if prompt == "" {
+			return textResult("no custom instructions set"), nil, nil
+		}
+		return textResult(prompt), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "start_deep_research",
+		Description: "Start a deep research session. Returns a research ID that can be used with poll_deep_research to check progress.",
+		Annotations: mutatingAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input startDeepResearchInput) (*mcp.CallToolResult, any, error) {
+		result, err := client.StartDeepResearch(input.NotebookID, input.Query)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to start deep research: %v", err)), nil, nil
+		}
+		return jsonResult(result), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "poll_deep_research",
+		Description: "Poll an in-progress deep research session for results. Returns done=true with content when research is complete.",
+		Annotations: readOnlyAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input pollDeepResearchInput) (*mcp.CallToolResult, any, error) {
+		result, err := client.PollDeepResearch(input.NotebookID, input.ResearchID)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to poll deep research: %v", err)), nil, nil
+		}
+		return jsonResult(result), nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{

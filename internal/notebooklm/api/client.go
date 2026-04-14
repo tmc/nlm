@@ -3779,3 +3779,75 @@ func extractYouTubeVideoID(urlStr string) (string, error) {
 
 	return "", fmt.Errorf("unsupported YouTube URL format")
 }
+
+// SetInstructions sets the notebook's custom chat instructions (system prompt).
+func (c *Client) SetInstructions(projectID string, instructions string) error {
+	return c.SetChatConfig(projectID, ChatGoalCustom, instructions, ResponseLengthDefault)
+}
+
+// GetInstructions returns the notebook's custom chat instructions (system prompt).
+func (c *Client) GetInstructions(projectID string) (string, error) {
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return "", fmt.Errorf("get project: %w", err)
+	}
+	prompt := ""
+	if cfg := project.GetChatbotConfig(); cfg != nil {
+		prompt = cfg.GetGoal().GetCustomPrompt()
+	}
+	return strings.TrimSpace(prompt), nil
+}
+
+// DeepResearchResult holds the outcome of a deep research start or poll.
+type DeepResearchResult struct {
+	ResearchID string `json:"research_id"`
+	Done       bool   `json:"done"`
+	Content    string `json:"content,omitempty"`
+}
+
+// StartDeepResearch initiates a deep research session for the given query.
+func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCStartDeepResearch,
+		NotebookID: projectID,
+		Args:       []interface{}{projectID, query, []interface{}{2}},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("start deep research: %w", err)
+	}
+
+	var data []interface{}
+	if err := json.Unmarshal(resp, &data); err != nil {
+		return nil, fmt.Errorf("parse start response: %w", err)
+	}
+
+	researchID := ""
+	if len(data) > 0 {
+		if id, ok := data[0].(string); ok {
+			researchID = id
+		}
+	}
+	if researchID == "" {
+		researchID = projectID // fallback
+	}
+	return &DeepResearchResult{ResearchID: researchID}, nil
+}
+
+// PollDeepResearch checks the status of a deep research session.
+func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchResult, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCPollDeepResearch,
+		NotebookID: projectID,
+		Args:       []interface{}{projectID, researchID, []interface{}{2}},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("poll deep research: %w", err)
+	}
+
+	result := &DeepResearchResult{ResearchID: researchID}
+	if len(resp) > 1000 {
+		result.Done = true
+		result.Content = string(resp)
+	}
+	return result, nil
+}
