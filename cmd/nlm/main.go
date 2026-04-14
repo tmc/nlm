@@ -144,6 +144,14 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  rename-artifact <artifact-id> <new-title>  Rename artifact\n")
 		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
 
+		fmt.Fprintf(os.Stderr, "Guidebook Commands:\n")
+		fmt.Fprintf(os.Stderr, "  guidebooks          List all guidebooks\n")
+		fmt.Fprintf(os.Stderr, "  guidebook <id>      Get guidebook details\n")
+		fmt.Fprintf(os.Stderr, "  guidebook-publish <id>  Publish a guidebook\n")
+		fmt.Fprintf(os.Stderr, "  guidebook-share <id>    Share a guidebook\n")
+		fmt.Fprintf(os.Stderr, "  guidebook-ask <id> <question>  Ask a guidebook question\n")
+		fmt.Fprintf(os.Stderr, "  guidebook-rm <id>   Delete a guidebook\n\n")
+
 		fmt.Fprintf(os.Stderr, "Generation Commands:\n")
 		fmt.Fprintf(os.Stderr, "  generate-guide <id>  Generate notebook guide\n")
 		fmt.Fprintf(os.Stderr, "  generate-outline <id>  Generate content outline\n")
@@ -512,6 +520,31 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm delete-artifact <artifact-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "guidebook":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm guidebook <guidebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "guidebook-publish":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-publish <guidebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "guidebook-share":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-share <guidebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "guidebook-ask":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-ask <guidebook-id> <question>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "guidebook-rm":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-rm <guidebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "discover-sources":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm discover-sources <notebook-id> <query>\n")
@@ -555,6 +588,7 @@ func isValidCommand(cmd string) bool {
 		"notes", "read-note", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive", "video-create", "video-list", "video-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
+		"guidebooks", "guidebook", "guidebook-publish", "guidebook-share", "guidebook-ask", "guidebook-rm",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"research",
@@ -887,6 +921,61 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = renameArtifact(client, args[0], args[1])
 	case "delete-artifact":
 		err = deleteArtifact(client, args[0])
+
+		// Guidebook operations
+	case "guidebooks":
+		guidebooks, gErr := client.ListGuidebooks()
+		if gErr != nil {
+			err = gErr
+			break
+		}
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+		fmt.Fprintln(w, "ID\tTITLE\tSTATUS")
+		for _, gb := range guidebooks {
+			fmt.Fprintf(w, "%s\t%s\t%s\n", gb.GetGuidebookId(), gb.GetTitle(), gb.GetStatus().String())
+		}
+		err = w.Flush()
+	case "guidebook":
+		gb, gErr := client.GetGuidebook(args[0])
+		if gErr != nil {
+			err = gErr
+			break
+		}
+		fmt.Printf("Guidebook: %s\n", gb.GetTitle())
+		fmt.Printf("ID: %s\n", gb.GetGuidebookId())
+		fmt.Printf("Status: %s\n", gb.GetStatus().String())
+		if content := gb.GetContent(); content != "" {
+			fmt.Printf("\n%s\n", content)
+		}
+	case "guidebook-publish":
+		resp, gErr := client.PublishGuidebook(args[0])
+		if gErr != nil {
+			err = gErr
+			break
+		}
+		_ = resp
+		fmt.Fprintf(os.Stderr, "Guidebook published.\n")
+	case "guidebook-share":
+		resp, gErr := client.ShareGuidebook(args[0])
+		if gErr != nil {
+			err = gErr
+			break
+		}
+		_ = resp
+		fmt.Fprintf(os.Stderr, "Guidebook shared.\n")
+	case "guidebook-ask":
+		question := strings.Join(args[1:], " ")
+		resp, gErr := client.GuidebookAsk(args[0], question)
+		if gErr != nil {
+			err = gErr
+			break
+		}
+		fmt.Println(resp.GetAnswer())
+	case "guidebook-rm":
+		err = client.DeleteGuidebook(args[0])
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "Guidebook deleted.\n")
+		}
 
 		// Generation operations
 	case "generate-guide":

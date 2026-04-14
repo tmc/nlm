@@ -2545,6 +2545,74 @@ func appendArtifactSourceIDs(values []interface{}, seen map[string]bool, out *[]
 	}
 }
 
+// Guidebook operations
+
+func (c *Client) ListGuidebooks() ([]*pb.Guidebook, error) {
+	req := &pb.ListRecentlyViewedGuidebooksRequest{}
+	resp, err := c.guidebooksService.ListRecentlyViewedGuidebooks(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("list guidebooks: %w", err)
+	}
+	return resp.Guidebooks, nil
+}
+
+func (c *Client) GetGuidebook(guidebookID string) (*pb.Guidebook, error) {
+	req := &pb.GetGuidebookRequest{GuidebookId: guidebookID}
+	resp, err := c.guidebooksService.GetGuidebook(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("get guidebook: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) DeleteGuidebook(guidebookID string) error {
+	req := &pb.DeleteGuidebookRequest{GuidebookId: guidebookID}
+	_, err := c.guidebooksService.DeleteGuidebook(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("delete guidebook: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) PublishGuidebook(guidebookID string) (*pb.PublishGuidebookResponse, error) {
+	req := &pb.PublishGuidebookRequest{GuidebookId: guidebookID}
+	resp, err := c.guidebooksService.PublishGuidebook(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("publish guidebook: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) ShareGuidebook(guidebookID string) (*pb.ShareGuidebookResponse, error) {
+	req := &pb.ShareGuidebookRequest{GuidebookId: guidebookID}
+	resp, err := c.guidebooksService.ShareGuidebook(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("share guidebook: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) GetGuidebookDetails(guidebookID string) (*pb.GuidebookDetails, error) {
+	req := &pb.GetGuidebookDetailsRequest{GuidebookId: guidebookID}
+	resp, err := c.guidebooksService.GetGuidebookDetails(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("get guidebook details: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *Client) GuidebookAsk(guidebookID, question string) (*pb.GuidebookGenerateAnswerResponse, error) {
+	req := &pb.GuidebookGenerateAnswerRequest{
+		GuidebookId: guidebookID,
+		Question:    question,
+	}
+	resp, err := c.guidebooksService.GuidebookGenerateAnswer(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("guidebook ask: %w", err)
+	}
+	return resp, nil
+}
+
 // Generation operations
 
 func (c *Client) GenerateDocumentGuides(projectID string) (*pb.GenerateDocumentGuidesResponse, error) {
