@@ -3030,17 +3030,8 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 		return fmt.Errorf("download video overview: %w", err)
 	}
 
-	// Check if we got a video URL
-	if videoResult.VideoData != "" && (strings.HasPrefix(videoResult.VideoData, "http://") || strings.HasPrefix(videoResult.VideoData, "https://")) {
-		// Use authenticated download for URLs
-		if err := c.DownloadVideoWithAuth(videoResult.VideoData, filename); err != nil {
-			return fmt.Errorf("download video with auth: %w", err)
-		}
-	} else {
-		// Try to save base64 data or handle other formats
-		if err := videoResult.SaveVideoToFile(filename); err != nil {
-			return fmt.Errorf("save video file: %w", err)
-		}
+	if err := videoResult.SaveVideoToFile(filename); err != nil {
+		return fmt.Errorf("save video file: %w", err)
 	}
 
 	fmt.Printf("Video saved to: %s\n", filename)

@@ -1493,9 +1493,33 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 		return audioOverview, nil
 	}
 
-	// Query for audio artifacts using direct RPC (response format is complex)
+	// Find audio artifact CDN URL via gArtLc.
+	// Audio = artifact type 2.
+	id, title, cdnURL, err := c.findArtifactCDNURL(projectID, 2)
+	if err != nil {
+		return nil, err
+	}
+
+	audioData, err := c.downloadFromCDN(cdnURL)
+	if err != nil {
+		return nil, fmt.Errorf("download audio: %w", err)
+	}
+
+	return &AudioOverviewResult{
+		ProjectID: projectID,
+		AudioID:   id,
+		Title:     title,
+		AudioData: base64.StdEncoding.EncodeToString(audioData),
+		IsReady:   true,
+	}, nil
+}
+
+// findArtifactCDNURL queries gArtLc for artifacts and returns the CDN URL
+// for the first artifact matching the given type (2=audio, 3=video, 8=slides).
+// Returns (artifactID, title, cdnURL, error).
+func (c *Client) findArtifactCDNURL(projectID string, artifactType int) (string, string, string, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCListArtifacts, // Use gArtLc RPC
+		ID: rpc.RPCListArtifacts,
 		Args: []interface{}{
 			artifactTypeDescriptor(),
 			projectID,
@@ -1504,203 +1528,90 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 		NotebookID: projectID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("query audio artifacts: %w", err)
+		return "", "", "", fmt.Errorf("list artifacts: %w", err)
 	}
 
-	// Parse response - RPC client already extracts and parses the nested JSON for us
 	var responseData []interface{}
 	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return nil, fmt.Errorf("parse artifacts response: %w", err)
+		return "", "", "", fmt.Errorf("parse artifacts response: %w", err)
 	}
 
-	if c.config.Debug {
-		fmt.Printf("Query artifacts response: %d top-level elements\n", len(responseData))
-	}
-
-	// Response is already parsed by RPC client: [[artifact1, artifact2, ...]]
 	if len(responseData) == 0 {
-		return nil, fmt.Errorf("no audio overview found for this notebook")
+		return "", "", "", fmt.Errorf("no artifacts found")
 	}
 
-	// Get the artifacts array (first element)
 	artifacts, ok := responseData[0].([]interface{})
 	if !ok || len(artifacts) == 0 {
-		return nil, fmt.Errorf("no audio artifacts found")
+		return "", "", "", fmt.Errorf("no artifacts found")
 	}
 
-	if c.config.Debug {
-		fmt.Printf("Found %d artifacts\n", len(artifacts))
-	}
-
-	// Get first artifact (most recent)
-	artifactData, ok := artifacts[0].([]interface{})
-	if !ok || len(artifactData) < 7 {
-		return nil, fmt.Errorf("invalid artifact data structure (need at least 7 elements, got %d)", len(artifactData))
-	}
-
-	if c.config.Debug {
-		fmt.Printf("Artifact data has %d elements\n", len(artifactData))
-		// Print first 12 elements to find the URL - including deep nested arrays
-		for i := 0; i < len(artifactData) && i < 12; i++ {
-			fmt.Printf("  [%d] type=%T\n", i, artifactData[i])
-			if str, ok := artifactData[i].(string); ok && len(str) > 0 && len(str) < 200 {
-				fmt.Printf("      value=%s\n", str)
-			}
-			// Check nested arrays for URLs
-			if arr, ok := artifactData[i].([]interface{}); ok && len(arr) > 0 {
-				fmt.Printf("      array length=%d\n", len(arr))
-				for j := 0; j < len(arr) && j < 20; j++ {
-					if str, ok := arr[j].(string); ok {
-						if strings.HasPrefix(str, "https://") {
-							displayStr := str
-							if len(str) > 80 {
-								displayStr = str[:80] + "..."
-							}
-							fmt.Printf("      [%d][%d]=%s\n", i, j, displayStr)
-						} else if len(str) < 100 {
-							// Also show short non-URL strings (mime types, etc)
-							fmt.Printf("      [%d][%d]=%q\n", i, j, str)
-						}
-					}
-					// Check double-nested arrays
-					if nestedArr, ok := arr[j].([]interface{}); ok && len(nestedArr) > 0 {
-						fmt.Printf("      [%d][%d] is array with length %d\n", i, j, len(nestedArr))
-						for k := 0; k < len(nestedArr) && k < 10; k++ {
-							if str, ok := nestedArr[k].(string); ok {
-								if strings.HasPrefix(str, "https://") {
-									displayStr := str
-									if len(str) > 80 {
-										displayStr = str[:80] + "..."
-									}
-									fmt.Printf("        [%d][%d][%d]=%s\n", i, j, k, displayStr)
-								} else if len(str) < 100 {
-									fmt.Printf("        [%d][%d][%d]=%q\n", i, j, k, str)
-								}
-							}
-							// Check for numbers (mime types, sizes, etc)
-							if num, ok := nestedArr[k].(float64); ok {
-								fmt.Printf("        [%d][%d][%d]=%v\n", i, j, k, num)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Extract fields from artifact.
+	// Find first artifact matching the requested type with a media payload.
 	// HAR-verified format: [id, title, type, sources, state, nil, nil, nil, media_payload, ...]
 	// media_payload at index 8: [nil, preview_url, source_refs, download_url, url_list, [duration, size]]
-	audioID, _ := artifactData[0].(string)
-	title, _ := artifactData[1].(string)
-
-	// Try index 8 first (current HAR format), fall back to index 6 (legacy)
-	mediaIdx := 8
-	audioPayload, ok := artifactData[mediaIdx].([]interface{})
-	if !ok || len(audioPayload) < 4 {
-		mediaIdx = 6
-		audioPayload, ok = artifactData[mediaIdx].([]interface{})
-		if !ok || len(audioPayload) < 4 {
-			return nil, fmt.Errorf("media payload not found at index 8 or 6")
+	for _, raw := range artifacts {
+		art, ok := raw.([]interface{})
+		if !ok || len(art) < 9 {
+			continue
 		}
-	}
 
-	// Extract download URL from media payload.
-	// Position [3] is the download variant URL (=m22-dv suffix).
-	// Position [1] is the preview/streaming URL (=m22 suffix).
-	// Position [4] is the URL list: [[url, type, mime], ...]
-	var audioURL string
-	if downloadURL, ok := audioPayload[3].(string); ok && downloadURL != "" {
-		audioURL = downloadURL
-	} else if previewURL, ok := audioPayload[1].(string); ok && previewURL != "" {
-		audioURL = previewURL
-	}
+		artType, _ := art[2].(float64)
+		if int(artType) != artifactType {
+			continue
+		}
 
-	// Fall back to URL list at position [4]
-	if audioURL == "" && len(audioPayload) > 4 {
-		if urlList, ok := audioPayload[4].([]interface{}); ok {
-			for _, urlData := range urlList {
-				if urlArr, ok := urlData.([]interface{}); ok && len(urlArr) > 0 {
-					if url, ok := urlArr[0].(string); ok && url != "" {
-						audioURL = url
-						break
+		// Check for media payload at index 8 (or fallback to 6).
+		payload, ok := art[8].([]interface{})
+		if !ok || len(payload) < 2 {
+			payload, ok = art[6].([]interface{})
+			if !ok || len(payload) < 2 {
+				continue
+			}
+		}
+
+		artID, _ := art[0].(string)
+		title, _ := art[1].(string)
+
+		// Prefer download URL at [3], then preview at [1], then URL list at [4].
+		if u, ok := payload[3].(string); ok && u != "" {
+			return artID, title, u, nil
+		}
+		if u, ok := payload[1].(string); ok && u != "" {
+			return artID, title, u, nil
+		}
+		if len(payload) > 4 {
+			if urlList, ok := payload[4].([]interface{}); ok {
+				for _, entry := range urlList {
+					if arr, ok := entry.([]interface{}); ok && len(arr) > 0 {
+						if u, ok := arr[0].(string); ok && u != "" {
+							return artID, title, u, nil
+						}
 					}
 				}
 			}
 		}
 	}
 
-	if audioURL == "" {
-		return nil, fmt.Errorf("audio URL not found in URL list")
+	typeName := map[int]string{2: "audio", 3: "video", 8: "slides"}[artifactType]
+	if typeName == "" {
+		typeName = fmt.Sprintf("type %d", artifactType)
 	}
-
-	if c.config.Debug {
-		fmt.Printf("Found audio: %s\n", title)
-		fmt.Printf("Downloading audio from: %s\n", audioURL)
-	}
-
-	// Download the audio from the URL
-	audioData, err := c.downloadAudioFromURL(audioURL)
-	if err != nil {
-		return nil, fmt.Errorf("download audio from URL: %w", err)
-	}
-
-	result := &AudioOverviewResult{
-		ProjectID: projectID,
-		AudioID:   audioID,
-		Title:     title,
-		AudioData: base64.StdEncoding.EncodeToString(audioData),
-		IsReady:   true,
-	}
-
-	return result, nil
+	return "", "", "", fmt.Errorf("no completed %s artifact with CDN URL found", typeName)
 }
 
-// downloadAudioFromURL downloads audio data from a googleusercontent URL
-// Google CDN URLs require full browser authentication context, so we use chromedp
-func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
-	// Import the auth package to use browser-based download
-	auth := &struct {
-		Download func(string, string) ([]byte, error)
-	}{}
-
-	// For now, keep the simple HTTP approach as fallback
-	// TODO: Integrate auth.DownloadWithBrowser when fully tested
-
-	// Create client that follows redirects automatically
+// downloadFromCDN attempts to download media from a Google CDN URL.
+// If the CDN requires browser auth (returns HTML), it returns an error
+// containing the URL for the user to open in their browser.
+func (c *Client) downloadFromCDN(cdnURL string) ([]byte, error) {
 	client := httpClientWithTimeout(60 * time.Second)
-	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		// Allow up to 10 redirects
-		if len(via) >= 10 {
-			return fmt.Errorf("stopped after 10 redirects")
-		}
-		// Copy cookies to redirect requests
-		if len(via) > 0 {
-			for _, cookie := range via[0].Cookies() {
-				req.AddCookie(cookie)
-			}
-		}
-		return nil
-	}
-
-	req, err := http.NewRequest("GET", audioURL, nil)
+	req, err := http.NewRequest("GET", cdnURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	// Add browser-like headers and authentication cookies
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Referer", "https://notebooklm.google.com/")
-
-	// Add authentication cookies from RPC client
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
 		req.Header.Set("Cookie", cookies)
-	}
-
-	if c.config.Debug {
-		fmt.Printf("Full audio URL: %s\n", audioURL)
-		fmt.Printf("Using cookies: %v\n", c.rpc.Config.Cookies != "")
 	}
 
 	resp, err := client.Do(req)
@@ -1709,32 +1620,16 @@ func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if c.config.Debug {
-		fmt.Printf("Response status: %d\n", resp.StatusCode)
-		fmt.Printf("Content-Type: %s\n", resp.Header.Get("Content-Type"))
-	}
-
-	// Check if we got a redirect or HTML auth page
 	contentType := resp.Header.Get("Content-Type")
-	if strings.Contains(contentType, "text/html") || resp.StatusCode == http.StatusFound {
-		_ = auth
-		return nil, fmt.Errorf("Google CDN requires browser authentication; open this URL in your browser to download: %s", audioURL)
+	if strings.Contains(contentType, "text/html") {
+		return nil, fmt.Errorf("CDN requires browser auth; open in browser: %s", cdnURL)
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
-	audioData, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
-	}
-
-	if c.config.Debug {
-		fmt.Printf("Downloaded %d bytes of audio data\n", len(audioData))
-	}
-
-	return audioData, nil
+	return io.ReadAll(resp.Body)
 }
 
 // SaveAudioToFile saves audio data to a file
@@ -2013,170 +1908,30 @@ func (c *Client) tryVideoFromCreateResponse(projectID string) (*VideoOverviewRes
 
 // DownloadVideoOverview attempts to download video overview data
 func (c *Client) DownloadVideoOverview(projectID string) (*VideoOverviewResult, error) {
-	if !c.config.UseDirectRPC {
-		return nil, fmt.Errorf("video download requires --direct-rpc flag")
-	}
-
-	// Try to get video overview data
-	result, err := c.GetVideoOverview(projectID)
+	// Find video artifact CDN URL via gArtLc.
+	// Video = artifact type 3.
+	id, title, cdnURL, err := c.findArtifactCDNURL(projectID, 3)
 	if err != nil {
-		return nil, fmt.Errorf("get video overview: %w", err)
+		return nil, err
 	}
 
-	// Check if we have video data
-	if result.VideoData == "" {
-		// Try different approaches to get video download URL
-		if err := c.tryGetVideoDownloadURL(result); err != nil {
-			return nil, fmt.Errorf("no video data found - video may not be ready yet or may need web interface: %w", err)
-		}
-	}
-
-	return result, nil
-}
-
-// tryGetVideoDownloadURL attempts to find the video download URL using various methods
-func (c *Client) tryGetVideoDownloadURL(result *VideoOverviewResult) error {
-	if result.VideoID == "" {
-		return fmt.Errorf("no video ID available")
-	}
-
-	// Method 1: Try to get video URL by requesting detailed video data
-	if videoUrl, err := c.getVideoURLFromAPI(result.ProjectID, result.VideoID); err == nil {
-		result.VideoData = videoUrl
-		return nil
-	} else if c.config.Debug {
-		fmt.Printf("API video URL lookup failed: %v\n", err)
-	}
-
-	// Method 2: Check if the video ID itself is a URL or contains URL components
-	if strings.HasPrefix(result.VideoID, "http") {
-		result.VideoData = result.VideoID
-		return nil
-	}
-
-	// Method 3: Provide instructions for manual download
-	return fmt.Errorf("automatic video download not available - please visit https://notebooklm.google.com/notebook/%s to download manually", result.ProjectID)
-}
-
-// getVideoURLFromAPI attempts to get video URL from various API endpoints
-func (c *Client) getVideoURLFromAPI(projectID, videoID string) (string, error) {
-	// Try to get project details which might contain video URLs
-	project, err := c.GetProject(projectID)
+	videoData, err := c.downloadFromCDN(cdnURL)
 	if err != nil {
-		return "", fmt.Errorf("get project details: %w", err)
+		return &VideoOverviewResult{
+			ProjectID: projectID,
+			VideoID:   id,
+			Title:     title,
+			VideoData: cdnURL, // Store URL for the CLI to report
+		}, fmt.Errorf("download video: %w", err)
 	}
 
-	// Look for video metadata in project that might contain URLs
-	if project.Metadata != nil && c.config.Debug {
-		fmt.Printf("Project metadata: %+v\n", project.Metadata)
-	}
-
-	// Try to use the CreateVideoOverview with different parameters to get existing video data
-	// This might return the URL in the response
-	if videoUrl, err := c.tryGetExistingVideoURL(projectID, videoID); err == nil {
-		return videoUrl, nil
-	}
-
-	return "", fmt.Errorf("no video URL found in API responses")
-}
-
-// tryGetExistingVideoURL attempts to get video URL by querying for existing video
-func (c *Client) tryGetExistingVideoURL(projectID, videoID string) (string, error) {
-	// Get sources from the project
-	project, err := c.GetProject(projectID)
-	if err != nil {
-		return "", fmt.Errorf("get sources: %w", err)
-	}
-
-	if len(project.Sources) == 0 {
-		return "", fmt.Errorf("no sources in project")
-	}
-
-	// Use first source ID
-	sourceID := project.Sources[0].SourceId
-	sourceIDs := []interface{}{[]interface{}{sourceID}}
-
-	// Try a "status" or "get" request for existing video
-	// Mode 0 might be for getting existing data
-	videoArgs := []interface{}{
-		[]interface{}{0}, // Mode 0 = status/get instead of create
-		projectID,        // Notebook ID
-		[]interface{}{
-			nil, nil, 3,
-			[]interface{}{sourceIDs}, // Source IDs array
-			nil, nil, nil, nil,
-			[]interface{}{
-				nil, nil,
-				[]interface{}{
-					sourceIDs, // Source IDs again
-					"en",      // Language
-					videoID,   // Video ID instead of instructions
-				},
-			},
-		},
-	}
-
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCCreateVideoOverview, // Reuse the same endpoint
-		NotebookID: projectID,
-		Args:       videoArgs,
-	})
-	if err != nil {
-		return "", fmt.Errorf("video status RPC: %w", err)
-	}
-
-	// Parse response looking for URLs
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return "", fmt.Errorf("parse video status response: %w", err)
-	}
-
-	// Look through response for URLs that match the googleusercontent.com pattern
-	if url := c.extractVideoURLFromResponse(responseData); url != "" {
-		return url, nil
-	}
-
-	return "", fmt.Errorf("no video URL found in response")
-}
-
-// extractVideoURLFromResponse looks for video URLs in API response data
-func (c *Client) extractVideoURLFromResponse(data []interface{}) string {
-	// Recursively search through the response data for URLs
-	for _, item := range data {
-		if url := c.findVideoURL(item); url != "" {
-			return url
-		}
-	}
-	return ""
-}
-
-// findVideoURL recursively searches for video URLs in response data
-func (c *Client) findVideoURL(item interface{}) string {
-	switch v := item.(type) {
-	case string:
-		// Check if this string is a video URL
-		if strings.Contains(v, "googleusercontent.com") && (strings.Contains(v, "notebooklm") || strings.Contains(v, "rd-notebooklm")) {
-			if c.config.Debug {
-				fmt.Printf("Found potential video URL: %s\n", v)
-			}
-			return v
-		}
-	case []interface{}:
-		// Recursively search arrays
-		for _, subItem := range v {
-			if url := c.findVideoURL(subItem); url != "" {
-				return url
-			}
-		}
-	case map[string]interface{}:
-		// Recursively search maps
-		for _, subItem := range v {
-			if url := c.findVideoURL(subItem); url != "" {
-				return url
-			}
-		}
-	}
-	return ""
+	return &VideoOverviewResult{
+		ProjectID: projectID,
+		VideoID:   id,
+		Title:     title,
+		VideoData: base64.StdEncoding.EncodeToString(videoData),
+		IsReady:   true,
+	}, nil
 }
 
 // SaveVideoToFile saves video data to a file
