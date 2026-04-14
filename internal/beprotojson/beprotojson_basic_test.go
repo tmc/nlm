@@ -85,6 +85,115 @@ func TestUnmarshalBasicTypes(t *testing.T) {
 	}
 }
 
+// TestMarshalBasicTypes tests Marshal with standard protobuf well-known types
+func TestMarshalBasicTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  proto.Message
+		want string
+	}{
+		{
+			name: "nil message",
+			msg:  (*timestamppb.Timestamp)(nil),
+			want: `null`,
+		},
+		{
+			name: "timestamp",
+			msg: &timestamppb.Timestamp{
+				Seconds: 1728034802,
+				Nanos:   578385000,
+			},
+			want: `[1728034802,578385000]`,
+		},
+		{
+			name: "int32 wrapper",
+			msg:  &wrapperspb.Int32Value{Value: 42},
+			want: `[42]`,
+		},
+		{
+			name: "string wrapper",
+			msg:  &wrapperspb.StringValue{Value: "hello"},
+			want: `["hello"]`,
+		},
+		{
+			name: "bool wrapper true",
+			msg:  &wrapperspb.BoolValue{Value: true},
+			want: `[1]`,
+		},
+		{
+			name: "bool wrapper false",
+			msg:  &wrapperspb.BoolValue{Value: false},
+			// In proto3, false is the default so Has() returns false; serializes as null
+			want: `[null]`,
+		},
+		{
+			name: "zero timestamp",
+			msg:  &timestamppb.Timestamp{},
+			want: `[null,null]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Marshal(tt.msg)
+			if err != nil {
+				t.Fatalf("Marshal() error = %v", err)
+			}
+			if string(got) != tt.want {
+				t.Errorf("Marshal() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestMarshalRoundTripBasic tests Marshal → Unmarshal round-trip with well-known types
+func TestMarshalRoundTripBasic(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  proto.Message
+	}{
+		{
+			name: "timestamp",
+			msg: &timestamppb.Timestamp{
+				Seconds: 1728034802,
+				Nanos:   578385000,
+			},
+		},
+		{
+			name: "int32 wrapper",
+			msg:  &wrapperspb.Int32Value{Value: 42},
+		},
+		{
+			name: "string wrapper",
+			msg:  &wrapperspb.StringValue{Value: "hello world"},
+		},
+		{
+			name: "bool wrapper true",
+			msg:  &wrapperspb.BoolValue{Value: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := Marshal(tt.msg)
+			if err != nil {
+				t.Fatalf("Marshal() error = %v", err)
+			}
+
+			got := proto.Clone(tt.msg)
+			proto.Reset(got)
+
+			if err := Unmarshal(data, got); err != nil {
+				t.Fatalf("Unmarshal(%s) error = %v", string(data), err)
+			}
+
+			if diff := cmp.Diff(tt.msg, got, protocmp.Transform()); diff != "" {
+				t.Errorf("Round trip diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 // TestUnmarshalOptionsBasic tests UnmarshalOptions with simple types
 func TestUnmarshalOptionsBasic(t *testing.T) {
 	tests := []struct {

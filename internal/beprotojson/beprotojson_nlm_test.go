@@ -350,8 +350,6 @@ func TestUnmarshalListResponse(t *testing.T) {
 
 // TestRoundTrip tests marshaling and unmarshaling
 func TestRoundTrip(t *testing.T) {
-	t.Skip("Marshal not implemented yet")
-
 	tests := []struct {
 		name string
 		msg  proto.Message
@@ -364,7 +362,37 @@ func TestRoundTrip(t *testing.T) {
 				Emoji:     "📚",
 			},
 		},
-		// Add more test cases here
+		{
+			name: "project with sources",
+			msg: &pb.Project{
+				Title:     "My Project",
+				ProjectId: "id1",
+				Emoji:     "📚",
+				Sources: []*pb.Source{
+					{
+						SourceId: &pb.SourceId{SourceId: "src1"},
+						Title:    "Source One",
+					},
+				},
+			},
+		},
+		{
+			name: "project with chatbot config",
+			msg: &pb.Project{
+				Title:     "project3",
+				ProjectId: "id3",
+				Emoji:     "📚",
+				ChatbotConfig: &pb.ChatbotConfig{
+					Goal: &pb.ChatGoalConfig{
+						Goal:         2,
+						CustomPrompt: "Be precise",
+					},
+					ResponseLength: &pb.ResponseLengthConfig{
+						Value: 4,
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -383,6 +411,42 @@ func TestRoundTrip(t *testing.T) {
 
 			if diff := cmp.Diff(tt.msg, got, protocmp.Transform()); diff != "" {
 				t.Errorf("Round trip diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestMarshalProject tests Marshal output for nlm Project messages
+func TestMarshalProject(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  proto.Message
+		want string
+	}{
+		{
+			name: "basic project",
+			msg: &pb.Project{
+				Title:     "My Project",
+				ProjectId: "id1",
+				Emoji:     "📚",
+			},
+			want: `["My Project",null,"id1","📚",null,null,null,null]`,
+		},
+		{
+			name: "nil message",
+			msg:  (*pb.Project)(nil),
+			want: `null`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := Marshal(tt.msg)
+			if err != nil {
+				t.Fatalf("Marshal() error = %v", err)
+			}
+			if string(got) != tt.want {
+				t.Errorf("Marshal() = %s, want %s", got, tt.want)
 			}
 		})
 	}

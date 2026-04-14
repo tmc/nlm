@@ -24,7 +24,7 @@ func Marshal(m proto.Message) ([]byte, error) {
 
 // Marshal writes the given proto.Message in batchexecute JSON format using options in MarshalOptions.
 func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
-	if m == nil {
+	if m == nil || !m.ProtoReflect().IsValid() {
 		return []byte("null"), nil
 	}
 
@@ -51,14 +51,8 @@ func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
 		if md.Has(field) {
 			value := md.Get(field)
 			result[fieldNum] = o.marshalValue(field, value)
-		} else {
-			// Set appropriate defaults for unset fields
-			if field.IsList() {
-				result[fieldNum] = []interface{}{}
-			} else if field.Kind() == protoreflect.MessageKind {
-				result[fieldNum] = []interface{}{}
-			}
 		}
+		// Unset fields remain nil (JSON null) to match batchexecute protocol
 	}
 
 	return json.Marshal(result)
