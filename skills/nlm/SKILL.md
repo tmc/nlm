@@ -8,11 +8,13 @@ argument-hint: "[action] [args...]"
 
 # nlm — NotebookLM CLI
 
-## Available Commands
+## Commands and Flags
 
 ```
 !`nlm --help 2>&1`
 ```
+
+Run `nlm <command>` with no args to see usage for that command. IDs are UUIDs.
 
 ## Interpreting $ARGUMENTS
 
@@ -27,81 +29,37 @@ argument-hint: "[action] [args...]"
 | a notebook ID | Show details for that notebook |
 | a file path or glob | Upload that file/pattern to a notebook |
 
-## Workflows
+## Things `--help` Won't Tell You
 
-### Create Notebook and Upload Sources
-
+**Bulk upload via txtar** — most efficient way to upload a project:
 ```bash
-# Create
-nlm create "My Project"
-# => notebook-id
-
-# Upload single files
-nlm add <notebook-id> paper.pdf
-nlm add <notebook-id> "https://example.com/article"
-
-# Upload project tree via txtar
 txtar-c -a . 2>/dev/null | nlm add <notebook-id> -
-
-# Name the source
-nlm rename-source <source-id> "project source code"
 ```
+Requires: `go install golang.org/x/exp/cmd/txtar-c@latest`
 
-For binary upload failures, convert to text first:
+**Binary upload workarounds** — if PDF/plist upload fails with 500:
 ```bash
 pdftotext paper.pdf - | nlm add <notebook-id> -
+plutil -convert xml1 -o - file.plist | nlm add <notebook-id> -
 ```
 
-### Chat
+**Content creation takes time** — after `create-audio`, `create-video`, or `create-slides`, poll status with `nlm artifacts <id>` until ready.
 
+**Download requires `--direct-rpc`**:
 ```bash
-nlm chat <notebook-id>                          # Interactive session
-nlm generate-chat <notebook-id> "question"      # One-shot
-nlm set-instructions <notebook-id> "Be concise" # Persistent instructions
+nlm --direct-rpc audio-download <id> output.wav
+nlm --direct-rpc video-download <id> output.mp4
 ```
 
-### Content Creation
+**Multi-account auth** — use `--authuser N` or `NLM_AUTHUSER=N` for non-default Google accounts.
 
-```bash
-nlm create-audio <notebook-id> "Focus on the architecture"
-nlm create-video <notebook-id> "Explain the key concepts"
-nlm create-slides <notebook-id> "Detailed presentation on findings"
+**Always surface IDs** — show notebook and source IDs from command output so the user can reference them in follow-up commands.
 
-# Check status (generation takes time)
-nlm artifacts <notebook-id>
-
-# Download when ready
-nlm --direct-rpc audio-download <notebook-id> overview.wav
-nlm --direct-rpc video-download <notebook-id> overview.mp4
-```
-
-### Content Transformation
-
-All take `<notebook-id> <source-ids...>`:
-```bash
-nlm summarize <notebook-id> <src-id>
-nlm faq <notebook-id> <src-id>
-nlm mindmap <notebook-id> <src-id>
-nlm timeline <notebook-id> <src-id-1> <src-id-2>
-nlm study-guide <notebook-id> <src-id>
-nlm briefing-doc <notebook-id> <src-id>
-```
-
-## Key Facts
-
-- **IDs** are UUIDs: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
-- **`-y`** skips confirmation prompts for destructive operations
-- **`--direct-rpc`** required for audio/video download
-- **`--authuser N`** for multi-account Google profiles
-- **txtar-c** bundles files efficiently: `go install golang.org/x/exp/cmd/txtar-c@latest`
-- Always surface notebook/source IDs so the user can reference them
-- If auth fails, run `nlm auth` (opens browser for cookie extraction)
-
-## Error Handling
+## Error Recovery
 
 | Error | Fix |
 |-------|-----|
 | "Authentication required" | Run `nlm auth` |
 | "Service unavailable" on upload | Retry after a few seconds (rate limit) |
-| "Failed precondition" on plist/XML | Convert to text: `plutil -convert xml1 -o -` |
+| "Failed precondition" | Convert binary to text first (see above) |
 | "upload init failed (status 500)" | Try text extraction workaround |
