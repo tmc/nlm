@@ -224,12 +224,23 @@ func (o UnmarshalOptions) Unmarshal(b []byte, m proto.Message) error {
 		}
 	}
 
-	// Handle double-wrapped arrays (common in batchexecute responses)
+	// Handle double-wrapped arrays (common in batchexecute responses).
 	// If the array has only one element and that element is also an array,
-	// unwrap it once
+	// unwrap it once — but only when the inner array is NOT a list of items
+	// for a repeated field at position 0.
+	//
+	// Example: [[[p1],[p2],...]] where field 1 is repeated should NOT unwrap,
+	// because the outer [] is the positional wrapper and position 0 holds the
+	// repeated field value. Unwrapping would misinterpret each list element
+	// as a separate field position.
 	if len(arr) == 1 {
 		if innerArr, ok := arr[0].([]interface{}); ok {
-			arr = innerArr
+			fd := fields.ByNumber(1)
+			if fd != nil && fd.IsList() && fd.Message() != nil {
+				// Keep positional format: position 0 = repeated field value.
+			} else {
+				arr = innerArr
+			}
 		}
 	}
 
