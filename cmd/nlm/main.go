@@ -144,6 +144,9 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  rename-artifact <artifact-id> <new-title>  Rename artifact\n")
 		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
 
+		fmt.Fprintf(os.Stderr, "Slide Deck Commands:\n")
+		fmt.Fprintf(os.Stderr, "  slide-create <id> <instructions>  Create a slide deck\n\n")
+
 		fmt.Fprintf(os.Stderr, "Guidebook Commands:\n")
 		fmt.Fprintf(os.Stderr, "  guidebooks          List all guidebooks\n")
 		fmt.Fprintf(os.Stderr, "  guidebook <id>      Get guidebook details\n")
@@ -520,6 +523,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm delete-artifact <artifact-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "slide-create":
+		if len(args) < 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm slide-create <notebook-id> <instructions>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "guidebook":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm guidebook <guidebook-id>\n")
@@ -588,6 +596,7 @@ func isValidCommand(cmd string) bool {
 		"notes", "read-note", "new-note", "update-note", "rm-note",
 		"audio-create", "audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive", "video-create", "video-list", "video-download",
 		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
+		"slide-create",
 		"guidebooks", "guidebook", "guidebook-publish", "guidebook-share", "guidebook-ask", "guidebook-rm",
 		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
@@ -921,6 +930,17 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = renameArtifact(client, args[0], args[1])
 	case "delete-artifact":
 		err = deleteArtifact(client, args[0])
+
+		// Slide deck operations
+	case "slide-create":
+		instructions := strings.Join(args[1:], " ")
+		artifactID, sErr := client.CreateSlideDeck(args[0], instructions)
+		if sErr != nil {
+			err = sErr
+			break
+		}
+		fmt.Printf("Created slide deck: %s\n", artifactID)
+		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
 
 		// Guidebook operations
 	case "guidebooks":
@@ -1711,13 +1731,21 @@ func createArtifact(c *api.Client, projectID, artifactType string) error {
 		}
 		fmt.Printf("  Ready: %v\n", result.IsReady)
 		return nil
+	case "slides", "slide-deck":
+		artifactID, err := c.CreateSlideDeck(projectID, "Create a comprehensive slide deck")
+		if err != nil {
+			return fmt.Errorf("create slide deck: %w", err)
+		}
+		fmt.Printf("Created slide deck artifact: %s\n", artifactID)
+		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", projectID)
+		return nil
 	case "report":
 		fmt.Fprintf(os.Stderr, "Generic report artifact creation is not a standalone RPC anymore; showing current report suggestions instead.\n")
 		return generateOutline(c, projectID)
 	case "app":
 		return fmt.Errorf("app artifact creation requires the newer universal artifact workflow and is not wired yet")
 	default:
-		return fmt.Errorf("invalid artifact type: %s (valid: note, audio, report, app)", artifactType)
+		return fmt.Errorf("invalid artifact type: %s (valid: note, audio, slides, report, app)", artifactType)
 	}
 }
 

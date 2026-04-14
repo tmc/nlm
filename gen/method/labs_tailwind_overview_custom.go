@@ -40,6 +40,28 @@ func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRe
 	}
 }
 
+// EncodeCreateSlideDeckArgs encodes the observed R7cb6c slide-deck payload.
+func EncodeCreateSlideDeckArgs(projectID string, sourceIDs []string, instructions, language string) []interface{} {
+	// Wire format verified against HAR capture — do not regenerate.
+	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
+	return []interface{}{
+		[]interface{}{
+			2, nil, nil,
+			[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+			[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+		},
+		projectID,
+		[]interface{}{
+			nil,
+			nil,
+			8, // artifact type 8 = slide deck
+			sourceRefs,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			[]interface{}{[]interface{}{instructions, language, 1, 3}},
+		},
+	}
+}
+
 // EncodeCreateVideoOverviewArgs encodes the observed R7cb6c video-overview payload.
 func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRequest) []interface{} {
 	// Wire format verified against HAR capture — do not regenerate.
