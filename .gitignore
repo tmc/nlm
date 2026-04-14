@@ -1,6 +1,7 @@
 .env
 
 **/.claude/settings.local.json
+.mcp.json
 
 # Binaries (files only, not directories)
 /nlm
