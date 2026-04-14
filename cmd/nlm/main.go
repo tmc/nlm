@@ -127,7 +127,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Audio Commands:\n")
 		fmt.Fprintf(os.Stderr, "  audio-list <id>   List audio overviews for a notebook\n")
 		fmt.Fprintf(os.Stderr, "  audio-get <id>    Get audio overview details\n")
-		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (requires --direct-rpc)\n")
+		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (experimental, requires --direct-rpc)\n")
 		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
 		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n")
 		if os.Getenv("NLM_EXPERIMENTAL") != "" {
@@ -137,7 +137,7 @@ func init() {
 
 		fmt.Fprintf(os.Stderr, "Video Commands:\n")
 		fmt.Fprintf(os.Stderr, "  video-list <id>   List video overviews for a notebook\n")
-		fmt.Fprintf(os.Stderr, "  video-download <id> [filename]  Download video file (requires --direct-rpc)\n\n")
+		fmt.Fprintf(os.Stderr, "  video-download <id> [filename]  Download video file (experimental, requires --direct-rpc)\n\n")
 
 		fmt.Fprintf(os.Stderr, "Artifact Commands:\n")
 		fmt.Fprintf(os.Stderr, "  artifacts <id>       List artifacts in notebook\n")
@@ -155,8 +155,6 @@ func init() {
 
 		fmt.Fprintf(os.Stderr, "Generation Commands:\n")
 		fmt.Fprintf(os.Stderr, "  generate-guide <id>  Generate notebook guide\n")
-		fmt.Fprintf(os.Stderr, "  generate-outline <id>  Generate content outline\n")
-		fmt.Fprintf(os.Stderr, "  generate-section <id>  Generate new section\n")
 		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n")
 		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
 		fmt.Fprintf(os.Stderr, "  chat <id> [conv|prompt]  Interactive chat (or one-shot with prompt)\n")
@@ -427,16 +425,6 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-guide <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "generate-outline":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm generate-outline <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "generate-section":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm generate-section <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
 	case "generate-magic":
 		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm generate-magic <notebook-id> <source-id> [source-id...]\n")
@@ -490,11 +478,6 @@ func validateArgs(cmd string, args []string) error {
 	case "chat-config":
 		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm chat-config <notebook-id> <setting> [value]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "create-artifact":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create-artifact <notebook-id> <type>\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "get-artifact":
@@ -595,9 +578,9 @@ func isValidCommand(cmd string) bool {
 		"create-audio", "create-video", "create-slides",
 		"audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive",
 		"video-list", "video-download",
-		"create-artifact", "get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
+		"get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"guidebooks", "guidebook", "guidebook-publish", "guidebook-share", "guidebook-ask", "guidebook-rm",
-		"generate-guide", "generate-outline", "generate-section", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
+		"generate-guide", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"research",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback", "mcp",
@@ -919,8 +902,6 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = downloadVideoOverview(client, args[0], filename)
 
 	// Artifact operations
-	case "create-artifact":
-		err = createArtifact(client, args[0], args[1])
 	case "get-artifact":
 		err = getArtifact(client, args[0])
 	case "list-artifacts", "artifacts":
@@ -999,10 +980,6 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		// Generation operations
 	case "generate-guide":
 		err = generateNotebookGuide(client, args[0])
-	case "generate-outline":
-		err = generateOutline(client, args[0])
-	case "generate-section":
-		err = generateSection(client, args[0])
 	case "generate-magic":
 		err = generateMagicView(client, args[0], args[1:])
 	case "generate-mindmap":
@@ -1436,31 +1413,6 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 	return nil
 }
 
-func generateOutline(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Generating report suggestions...\n")
-	resp, err := c.GenerateReportSuggestions(notebookID)
-	if err != nil {
-		return fmt.Errorf("generate report suggestions: %w", err)
-	}
-
-	if len(resp.Suggestions) == 0 {
-		fmt.Println("No report suggestions available.")
-		return nil
-	}
-
-	fmt.Println("Report Suggestions:")
-	for i, s := range resp.Suggestions {
-		fmt.Printf("  %d. %s\n", i+1, s)
-	}
-	return nil
-}
-
-func generateSection(c *api.Client, notebookID string) error {
-	// Deprecated: BeTrYd no longer supported. Redirect to report suggestions.
-	fmt.Fprintf(os.Stderr, "Note: generate-section now uses the report suggestions workflow.\n")
-	return generateOutline(c, notebookID)
-}
-
 func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
 	fmt.Fprintf(os.Stderr, "Generating magic view...\n")
 	magicView, err := c.GenerateMagicView(notebookID, sourceIDs)
@@ -1709,45 +1661,6 @@ func discoverSources(c *api.Client, projectID, query string) error {
 }
 
 // Artifact management
-func createArtifact(c *api.Client, projectID, artifactType string) error {
-	switch strings.ToLower(artifactType) {
-	case "note":
-		note, err := c.CreateNote(projectID, "New artifact note", "")
-		if err != nil {
-			return fmt.Errorf("create note artifact: %w", err)
-		}
-		fmt.Printf("✅ Created note artifact: %s\n", note.GetNoteId())
-		fmt.Printf("  Title: %s\n", note.GetTitle())
-		return nil
-	case "audio":
-		result, err := c.CreateAudioOverview(projectID, "")
-		if err != nil {
-			return fmt.Errorf("create audio artifact: %w", err)
-		}
-		fmt.Printf("✅ Created audio artifact request\n")
-		if result.AudioID != "" {
-			fmt.Printf("  ID: %s\n", result.AudioID)
-		}
-		fmt.Printf("  Ready: %v\n", result.IsReady)
-		return nil
-	case "slides", "slide-deck":
-		artifactID, err := c.CreateSlideDeck(projectID, "Create a comprehensive slide deck")
-		if err != nil {
-			return fmt.Errorf("create slide deck: %w", err)
-		}
-		fmt.Printf("Created slide deck artifact: %s\n", artifactID)
-		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", projectID)
-		return nil
-	case "report":
-		fmt.Fprintf(os.Stderr, "Generic report artifact creation is not a standalone RPC anymore; showing current report suggestions instead.\n")
-		return generateOutline(c, projectID)
-	case "app":
-		return fmt.Errorf("app artifact creation requires the newer universal artifact workflow and is not wired yet")
-	default:
-		return fmt.Errorf("invalid artifact type: %s (valid: note, audio, slides, report, app)", artifactType)
-	}
-}
-
 func getArtifact(c *api.Client, artifactID string) error {
 	artifact, err := c.GetArtifact(artifactID)
 	if err != nil {
@@ -3075,7 +2988,7 @@ func listVideoOverviews(c *api.Client, notebookID string) error {
 }
 
 func downloadAudioOverview(c *api.Client, notebookID string, filename string) error {
-	fmt.Printf("Downloading audio overview for notebook %s...\n", notebookID)
+	fmt.Fprintf(os.Stderr, "Downloading audio overview for notebook %s...\n", notebookID)
 
 	// Generate default filename if not provided
 	if filename == "" {
@@ -3085,6 +2998,10 @@ func downloadAudioOverview(c *api.Client, notebookID string, filename string) er
 	// Download the audio
 	audioResult, err := c.DownloadAudioOverview(notebookID)
 	if err != nil {
+		// Provide actionable guidance for the known CDN auth issue
+		if strings.Contains(err.Error(), "browser authentication") || strings.Contains(err.Error(), "text/html") {
+			return fmt.Errorf("download audio overview: Google CDN requires browser session cookies that cannot be forwarded via CLI; download manually from https://notebooklm.google.com/notebook/%s", notebookID)
+		}
 		return fmt.Errorf("download audio overview: %w", err)
 	}
 
@@ -3093,7 +3010,7 @@ func downloadAudioOverview(c *api.Client, notebookID string, filename string) er
 		return fmt.Errorf("save audio file: %w", err)
 	}
 
-	fmt.Printf("✅ Audio saved to: %s\n", filename)
+	fmt.Printf("Audio saved to: %s\n", filename)
 
 	// Show file info
 	if stat, err := os.Stat(filename); err == nil {
@@ -3104,7 +3021,7 @@ func downloadAudioOverview(c *api.Client, notebookID string, filename string) er
 }
 
 func downloadVideoOverview(c *api.Client, notebookID string, filename string) error {
-	fmt.Printf("Downloading video overview for notebook %s...\n", notebookID)
+	fmt.Fprintf(os.Stderr, "Downloading video overview for notebook %s...\n", notebookID)
 
 	// Generate default filename if not provided
 	if filename == "" {
@@ -3114,6 +3031,9 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 	// Download the video
 	videoResult, err := c.DownloadVideoOverview(notebookID)
 	if err != nil {
+		if strings.Contains(err.Error(), "browser authentication") || strings.Contains(err.Error(), "manual") || strings.Contains(err.Error(), "not available") {
+			return fmt.Errorf("download video overview: Google CDN requires browser session cookies that cannot be forwarded via CLI; download manually from https://notebooklm.google.com/notebook/%s", notebookID)
+		}
 		return fmt.Errorf("download video overview: %w", err)
 	}
 
@@ -3121,6 +3041,9 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 	if videoResult.VideoData != "" && (strings.HasPrefix(videoResult.VideoData, "http://") || strings.HasPrefix(videoResult.VideoData, "https://")) {
 		// Use authenticated download for URLs
 		if err := c.DownloadVideoWithAuth(videoResult.VideoData, filename); err != nil {
+			if strings.Contains(err.Error(), "text/html") {
+				return fmt.Errorf("download video: Google CDN requires browser session cookies that cannot be forwarded via CLI; download manually from https://notebooklm.google.com/notebook/%s", notebookID)
+			}
 			return fmt.Errorf("download video with auth: %w", err)
 		}
 	} else {
@@ -3130,7 +3053,7 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 		}
 	}
 
-	fmt.Printf("✅ Video saved to: %s\n", filename)
+	fmt.Printf("Video saved to: %s\n", filename)
 
 	// Show file info
 	if stat, err := os.Stat(filename); err == nil {

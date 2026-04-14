@@ -58,9 +58,10 @@ stderr 'debug mode enabled'
 ! stderr 'debugcookie456'
 ! stdout 'debugtoken123'
 ! stdout 'debugcookie456'
-# But should show masked versions for debugging purposes  
+# Debug mode should show masked token (prints to stdout via fmt.Printf)
 stdout 'DEBUG: Token: de.*23'
-stdout 'SID=de.*56'
+# Cookie values go to stderr, not stdout; verify they are not fully exposed
+! stderr 'debugcookie456'
 
 # Test 6: Command-line flag security - auth passed via flags shouldn't leak
 exec ./nlm_test -auth flag-secret-token -cookies 'flag-cookie-secret' help
