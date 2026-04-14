@@ -17,33 +17,6 @@ stderr 'usage: nlm generate-guide <notebook-id>'
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# === GENERATE-OUTLINE COMMAND ===
-# Test generate-outline without arguments (should fail with usage)
-! exec ./nlm_test generate-outline
-stderr 'usage: nlm generate-outline <notebook-id>'
-! stderr 'panic'
-
-# Test generate-outline with too many arguments
-! exec ./nlm_test generate-outline notebook123 extra
-stderr 'usage: nlm generate-outline <notebook-id>'
-! stderr 'panic'
-
-# Test generate-outline without authentication
-! exec ./nlm_test generate-outline notebook123
-stderr 'Authentication required'
-! stderr 'panic'
-
-# === GENERATE-SECTION COMMAND ===
-# Test generate-section without arguments
-! exec ./nlm_test generate-section
-stderr 'usage: nlm generate-section <notebook-id>'
-! stderr 'panic'
-
-# Test generate-section without authentication
-! exec ./nlm_test generate-section notebook123
-stderr 'Authentication required'
-! stderr 'panic'
-
 # === GENERATE-CHAT COMMAND ===
 # Test generate-chat without arguments
 ! exec ./nlm_test generate-chat

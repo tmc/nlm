@@ -80,10 +80,4 @@ stderr 'usage: nlm audio-share <notebook-id>'
 ! exec ./nlm_test generate-guide
 stderr 'usage: nlm generate-guide <notebook-id>'
 
-# Test generate-outline command validation
-! exec ./nlm_test generate-outline
-stderr 'usage: nlm generate-outline <notebook-id>'
-
-# Test generate-section command validation
-! exec ./nlm_test generate-section
-stderr 'usage: nlm generate-section <notebook-id>'
+# generate-outline and generate-section have been removed; use generate-guide instead

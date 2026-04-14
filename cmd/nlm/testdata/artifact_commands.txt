@@ -1,22 +1,6 @@
 # Test artifact command validation only (no network calls)
 # Focus on argument validation and authentication checks
 
-# === CREATE-ARTIFACT COMMAND ===
-# Test create-artifact without arguments
-! exec ./nlm_test create-artifact
-stderr 'usage: nlm create-artifact <notebook-id> <type>'
-! stderr 'panic'
-
-# Test create-artifact with only notebook ID
-! exec ./nlm_test create-artifact notebook123
-stderr 'usage: nlm create-artifact <notebook-id> <type>'
-! stderr 'panic'
-
-# Test create-artifact without authentication
-! exec ./nlm_test create-artifact notebook123 note
-stderr 'Authentication required'
-! stderr 'panic'
-
 # === GET-ARTIFACT COMMAND ===
 # Test get-artifact without arguments
 ! exec ./nlm_test get-artifact

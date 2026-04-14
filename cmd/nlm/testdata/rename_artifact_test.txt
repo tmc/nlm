@@ -239,10 +239,6 @@ stderr 'usage: nlm get-artifact <artifact-id>'
 stderr 'usage: nlm delete-artifact <artifact-id>'
 ! stderr 'panic'
 
-! exec ./nlm_test create-artifact
-stderr 'usage: nlm create-artifact <notebook-id> <type>'
-! stderr 'panic'
-
 ! exec ./nlm_test list-artifacts
 stderr 'usage: nlm list-artifacts <notebook-id>'
 ! stderr 'panic'
