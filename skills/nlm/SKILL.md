@@ -29,6 +29,12 @@ Run `nlm <command>` with no args to see usage for that command. IDs are UUIDs.
 | a notebook ID | Show details for that notebook |
 | a file path or glob | Upload that file/pattern to a notebook |
 
+## Critical Flags
+
+- **`-y`** — Skip confirmation prompts. Always use `-y` with `rm`, `rm-source`, `rm-note` etc. in non-interactive contexts: `nlm -y rm <id>`. Without `-y`, these commands require interactive TTY input that cannot be piped.
+- **`--direct-rpc`** — Required for `audio-download` and `video-download`.
+- **`--authuser N`** — Select Google account (0-indexed). Also via `NLM_AUTHUSER=N`.
+
 ## Things `--help` Won't Tell You
 
 **Bulk upload via txtar** — most efficient way to upload a project:
@@ -53,7 +59,7 @@ nlm --direct-rpc video-download <id> output.mp4
 
 **Multi-account auth** — use `--authuser N` or `NLM_AUTHUSER=N` for non-default Google accounts.
 
-**Always surface IDs** — show notebook and source IDs from command output so the user can reference them in follow-up commands.
+**Always surface IDs** — EVERY time you display notebooks or sources, include the full UUID in your output. The user needs these IDs for follow-up commands. Never hide IDs behind a formatted table that omits them.
 
 ## Error Recovery
 
