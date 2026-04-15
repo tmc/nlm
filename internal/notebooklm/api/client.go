@@ -242,16 +242,20 @@ func (c *Client) RefreshSource(projectID, sourceID string) (*pb.Source, error) {
 	return source, nil
 }
 
-func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
-	req := &pb.LoadSourceRequest{
-		SourceId: sourceID,
-	}
-	ctx := context.Background()
-	source, err := c.orchestrationService.LoadSource(ctx, req)
+func (c *Client) LoadSource(notebookID, sourceID string) (*pb.Source, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCLoadSource,
+		Args:       []interface{}{sourceID},
+		NotebookID: notebookID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("load source: %w", err)
 	}
-	return source, nil
+	var source pb.Source
+	if err := json.Unmarshal(resp, &source); err != nil {
+		return nil, fmt.Errorf("load source: unmarshal: %w", err)
+	}
+	return &source, nil
 }
 
 func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshnessResponse, error) {

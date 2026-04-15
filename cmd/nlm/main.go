@@ -333,9 +333,9 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm add <notebook-id> <file>\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "rm-source":
+	case "rm-source", "source-rm":
 		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm rm-source <notebook-id> <source-id>\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <source-id>\n", cmd)
 			return fmt.Errorf("invalid arguments")
 		}
 	case "rename-source":
@@ -365,9 +365,9 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "  content can also be piped via stdin\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "rm-note":
+	case "rm-note", "note-rm":
 		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm rm-note <notebook-id> <note-id>\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <note-id>\n", cmd)
 			return fmt.Errorf("invalid arguments")
 		}
 	case "audio-list":
@@ -600,8 +600,8 @@ func isValidCommand(cmd string) bool {
 	validCommands := []string{
 		"help", "-h", "--help",
 		"list", "ls", "create", "rm", "rename", "analytics", "list-featured",
-		"sources", "add", "rm-source", "rename-source", "read-source", "refresh-source", "check-source", "discover-sources",
-		"notes", "read-note", "new-note", "note-create", "update-note", "rm-note",
+		"sources", "add", "rm-source", "source-rm", "rename-source", "read-source", "refresh-source", "check-source", "discover-sources",
+		"notes", "read-note", "new-note", "note-create", "update-note", "rm-note", "note-rm",
 		"create-audio", "audio-create", "create-video", "video-create", "create-slides", "slides-create", "slides-download",
 		"audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive",
 		"video-list", "video-download", "video-rm",
@@ -856,7 +856,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		var id string
 		id, err = addSource(client, args[0], args[1])
 		fmt.Println(id)
-	case "rm-source":
+	case "rm-source", "source-rm":
 		err = removeSource(client, args[0], args[1])
 	case "rename-source":
 		err = renameSource(client, args[0], args[1])
@@ -867,7 +867,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "discover-sources":
 		err = discoverSources(client, args[0], args[1])
 	case "read-source":
-		err = readSource(client, args[1])
+		err = readSource(client, args[0], args[1])
 
 	// Note operations
 	case "notes":
@@ -899,7 +899,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 			content = string(data)
 		}
 		err = updateNote(client, args[0], args[1], content, title)
-	case "rm-note":
+	case "rm-note", "note-rm":
 		err = removeNote(client, args[0], args[1])
 
 		// Audio operations
@@ -1360,8 +1360,8 @@ func renameSource(c *api.Client, sourceID, newName string) error {
 	return nil
 }
 
-func readSource(c *api.Client, sourceID string) error {
-	source, err := c.LoadSource(sourceID)
+func readSource(c *api.Client, notebookID, sourceID string) error {
+	source, err := c.LoadSource(notebookID, sourceID)
 	if err != nil {
 		return fmt.Errorf("read source: %w", err)
 	}
