@@ -1496,7 +1496,7 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 
 	// Find audio artifact CDN URL via gArtLc.
 	// Audio = artifact type 2.
-	id, title, cdnURL, err := c.findArtifactCDNURL(projectID, 2)
+	id, title, cdnURL, err := c.FindArtifactCDNURL(projectID, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -1518,7 +1518,7 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 // findArtifactCDNURL queries gArtLc for artifacts and returns the CDN URL
 // for the first artifact matching the given type (2=audio, 3=video, 8=slides).
 // Returns (artifactID, title, cdnURL, error).
-func (c *Client) findArtifactCDNURL(projectID string, artifactType int) (string, string, string, error) {
+func (c *Client) FindArtifactCDNURL(projectID string, artifactType int) (string, string, string, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCListArtifacts,
 		Args: []interface{}{
@@ -1661,10 +1661,10 @@ func (c *Client) downloadFromCDN(cdnURL string) ([]byte, error) {
 // from the artifact ID and uses cookie-jar-based auth.
 func (c *Client) DownloadSlideDeck(projectID, filename string) error {
 	// Find slides artifact (type 8) via gArtLc.
-	artID, title, _, err := c.findArtifactCDNURL(projectID, 8)
+	artID, title, _, err := c.FindArtifactCDNURL(projectID, 8)
 	if err != nil {
 		// Slides may not have CDN URLs — try finding any type-8 artifact.
-		artID, title, err = c.findArtifactID(projectID, 8)
+		artID, title, err = c.FindArtifactID(projectID, 8)
 		if err != nil {
 			return fmt.Errorf("no slide deck found: %w", err)
 		}
@@ -1676,7 +1676,7 @@ func (c *Client) DownloadSlideDeck(projectID, filename string) error {
 
 	// Build the download URL used by the web UI.
 	// The c= parameter is a protobuf: {1:"notebooklm", 2:{2:"artifacts_media", 3:{1:artifact_id}}}
-	downloadURL := buildSlideDeckDownloadURL(artID, filename)
+	downloadURL := BuildSlideDeckDownloadURL(artID, filename)
 
 	data, err := c.downloadFromCDN(downloadURL)
 	if err != nil {
@@ -1692,7 +1692,7 @@ func (c *Client) DownloadSlideDeck(projectID, filename string) error {
 
 // findArtifactID finds an artifact by type, returning (id, title, error).
 // Unlike findArtifactCDNURL, it doesn't require a CDN URL.
-func (c *Client) findArtifactID(projectID string, artifactType int) (string, string, error) {
+func (c *Client) FindArtifactID(projectID string, artifactType int) (string, string, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCListArtifacts,
 		Args: []interface{}{
@@ -1737,9 +1737,9 @@ func (c *Client) findArtifactID(projectID string, artifactType int) (string, str
 	return "", "", fmt.Errorf("no artifact with type %d found", artifactType)
 }
 
-// buildSlideDeckDownloadURL constructs the Google contribution download URL.
+// BuildSlideDeckDownloadURL constructs the Google contribution download URL.
 // The c= parameter is a manually-encoded protobuf matching the web UI format.
-func buildSlideDeckDownloadURL(artifactID, filename string) string {
+func BuildSlideDeckDownloadURL(artifactID, filename string) string {
 	// Manually encode the protobuf:
 	// field 1 (string): "notebooklm"
 	// field 2 (message):
@@ -2094,7 +2094,7 @@ func (c *Client) tryVideoFromCreateResponse(projectID string) (*VideoOverviewRes
 func (c *Client) DownloadVideoOverview(projectID string) (*VideoOverviewResult, error) {
 	// Find video artifact CDN URL via gArtLc.
 	// Video = artifact type 3.
-	id, title, cdnURL, err := c.findArtifactCDNURL(projectID, 3)
+	id, title, cdnURL, err := c.FindArtifactCDNURL(projectID, 3)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -929,22 +931,25 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
 
 	case "slides-download":
-		filename := ""
+		fmt.Fprintf(os.Stderr, "Looking up slide deck for notebook %s...\n", args[0])
+		artID, title, _, findErr := client.FindArtifactCDNURL(args[0], 8)
+		if findErr != nil {
+			artID, title, findErr = client.FindArtifactID(args[0], 8)
+		}
+		if findErr != nil {
+			err = fmt.Errorf("find slide deck: %w", findErr)
+			break
+		}
+		if title != "" {
+			fmt.Fprintf(os.Stderr, "Found: %s\n", title)
+		}
+		filename := "slides.pptx"
 		if len(args) > 1 {
 			filename = args[1]
 		}
-		if filename == "" {
-			filename = fmt.Sprintf("slides_%s.pptx", args[0])
-		}
-		fmt.Fprintf(os.Stderr, "Downloading slide deck for notebook %s...\n", args[0])
-		if sErr := client.DownloadSlideDeck(args[0], filename); sErr != nil {
-			err = sErr
-			break
-		}
-		fmt.Printf("Slide deck saved to: %s\n", filename)
-		if stat, sErr := os.Stat(filename); sErr == nil {
-			fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
-		}
+		dlURL := api.BuildSlideDeckDownloadURL(artID, filename)
+		fmt.Println(dlURL)
+		openBrowser(dlURL)
 
 		// Guidebook operations
 	case "guidebooks":
@@ -3012,58 +3017,48 @@ func listVideoOverviews(c *api.Client, notebookID string) error {
 }
 
 func downloadAudioOverview(c *api.Client, notebookID string, filename string) error {
-	fmt.Fprintf(os.Stderr, "Downloading audio overview for notebook %s...\n", notebookID)
+	fmt.Fprintf(os.Stderr, "Looking up audio overview for notebook %s...\n", notebookID)
 
-	// Generate default filename if not provided
-	if filename == "" {
-		filename = fmt.Sprintf("audio_overview_%s.wav", notebookID)
-	}
-
-	// Download the audio
-	audioResult, err := c.DownloadAudioOverview(notebookID)
+	_, title, cdnURL, err := c.FindArtifactCDNURL(notebookID, 2)
 	if err != nil {
-		return fmt.Errorf("download audio overview: %w", err)
+		return fmt.Errorf("find audio: %w", err)
 	}
 
-	// Save to file
-	if err := audioResult.SaveAudioToFile(filename); err != nil {
-		return fmt.Errorf("save audio file: %w", err)
+	if title != "" {
+		fmt.Fprintf(os.Stderr, "Found: %s\n", title)
 	}
-
-	fmt.Printf("Audio saved to: %s\n", filename)
-
-	// Show file info
-	if stat, err := os.Stat(filename); err == nil {
-		fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
-	}
-
+	fmt.Println(cdnURL)
+	openBrowser(cdnURL)
 	return nil
 }
 
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", url)
+	case "linux":
+		cmd = exec.Command("xdg-open", url)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	default:
+		return
+	}
+	cmd.Start()
+}
+
 func downloadVideoOverview(c *api.Client, notebookID string, filename string) error {
-	fmt.Fprintf(os.Stderr, "Downloading video overview for notebook %s...\n", notebookID)
+	fmt.Fprintf(os.Stderr, "Looking up video overview for notebook %s...\n", notebookID)
 
-	// Generate default filename if not provided
-	if filename == "" {
-		filename = fmt.Sprintf("video_overview_%s.mp4", notebookID)
-	}
-
-	// Download the video
-	videoResult, err := c.DownloadVideoOverview(notebookID)
+	_, title, cdnURL, err := c.FindArtifactCDNURL(notebookID, 3)
 	if err != nil {
-		return fmt.Errorf("download video overview: %w", err)
+		return fmt.Errorf("find video: %w", err)
 	}
 
-	if err := videoResult.SaveVideoToFile(filename); err != nil {
-		return fmt.Errorf("save video file: %w", err)
+	if title != "" {
+		fmt.Fprintf(os.Stderr, "Found: %s\n", title)
 	}
-
-	fmt.Printf("Video saved to: %s\n", filename)
-
-	// Show file info
-	if stat, err := os.Stat(filename); err == nil {
-		fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
-	}
-
+	fmt.Println(cdnURL)
+	openBrowser(cdnURL)
 	return nil
 }
