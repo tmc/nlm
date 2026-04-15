@@ -46,7 +46,7 @@ stderr 'usage: nlm new-note <notebook-id> <title>'
 
 # Test update-note command validation
 ! exec ./nlm_test update-note
-stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+stderr 'usage: nlm update-note <notebook-id> <note-id> <title>'
 
 # Test rm-note command validation
 ! exec ./nlm_test rm-note

@@ -102,6 +102,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  list, ls          List all notebooks\n")
 		fmt.Fprintf(os.Stderr, "  create <title>    Create a new notebook\n")
 		fmt.Fprintf(os.Stderr, "  rm <id>           Delete a notebook\n")
+		fmt.Fprintf(os.Stderr, "  rename <id> <title>  Rename a notebook\n")
 		fmt.Fprintf(os.Stderr, "  analytics <id>    Show notebook analytics\n")
 		fmt.Fprintf(os.Stderr, "  list-featured     List featured notebooks\n\n")
 
@@ -112,19 +113,20 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  rename-source <source-id> <new-name>  Rename source\n")
 		fmt.Fprintf(os.Stderr, "  refresh-source <notebook-id> <source-id>  Refresh source content\n")
 		fmt.Fprintf(os.Stderr, "  check-source <source-id>  Check source freshness\n")
+		fmt.Fprintf(os.Stderr, "  read-source <notebook-id> <source-id>  Read source content\n")
 		fmt.Fprintf(os.Stderr, "  discover-sources <id> <query>  Discover relevant sources\n\n")
 
 		fmt.Fprintf(os.Stderr, "Note Commands:\n")
 		fmt.Fprintf(os.Stderr, "  notes <id>        List notes in notebook\n")
 		fmt.Fprintf(os.Stderr, "  read-note <id> <note-id>  Read full note content\n")
-		fmt.Fprintf(os.Stderr, "  new-note <id> <title> [content]  Create new note (content via arg or stdin)\n")
-		fmt.Fprintf(os.Stderr, "  update-note <id> <note-id> <content> <title>  Edit note\n")
+		fmt.Fprintf(os.Stderr, "  note-create <id> <title> [content]  Create new note (content via arg or stdin)\n")
+		fmt.Fprintf(os.Stderr, "  update-note <id> <note-id> <title> <content>  Edit note (content via arg or stdin)\n")
 		fmt.Fprintf(os.Stderr, "  rm-note <note-id>  Remove note\n\n")
 
 		fmt.Fprintf(os.Stderr, "Create Commands:\n")
-		fmt.Fprintf(os.Stderr, "  create-audio <id> <instructions>   Create audio overview\n")
-		fmt.Fprintf(os.Stderr, "  create-video <id> <instructions>   Create video overview\n")
-		fmt.Fprintf(os.Stderr, "  create-slides <id> <instructions>  Create slide deck\n")
+		fmt.Fprintf(os.Stderr, "  audio-create <id> <instructions>   Create audio overview\n")
+		fmt.Fprintf(os.Stderr, "  video-create <id> <instructions>   Create video overview\n")
+		fmt.Fprintf(os.Stderr, "  slides-create <id> <instructions>  Create slide deck\n")
 		fmt.Fprintf(os.Stderr, "  slides-download <id> [filename]   Download slide deck as PPTX\n\n")
 
 		fmt.Fprintf(os.Stderr, "Audio Commands:\n")
@@ -140,13 +142,14 @@ func init() {
 
 		fmt.Fprintf(os.Stderr, "Video Commands:\n")
 		fmt.Fprintf(os.Stderr, "  video-list <id>   List video overviews for a notebook\n")
-		fmt.Fprintf(os.Stderr, "  video-download <id> [filename]  Download video file (experimental, requires --direct-rpc)\n\n")
+		fmt.Fprintf(os.Stderr, "  video-download <id> [filename]  Download video file (experimental, requires --direct-rpc)\n")
+		fmt.Fprintf(os.Stderr, "  video-rm <id>     Delete video overview\n\n")
 
 		fmt.Fprintf(os.Stderr, "Artifact Commands:\n")
 		fmt.Fprintf(os.Stderr, "  artifacts <id>       List artifacts in notebook\n")
 		fmt.Fprintf(os.Stderr, "  get-artifact <artifact-id>  Get artifact details\n")
 		fmt.Fprintf(os.Stderr, "  rename-artifact <artifact-id> <new-title>  Rename artifact\n")
-		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
+		fmt.Fprintf(os.Stderr, "  artifact-rm <artifact-id>  Delete artifact\n\n")
 
 		fmt.Fprintf(os.Stderr, "Guidebook Commands:\n")
 		fmt.Fprintf(os.Stderr, "  guidebooks          List all guidebooks\n")
@@ -162,7 +165,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
 		fmt.Fprintf(os.Stderr, "  chat <id> [conv|prompt]  Interactive chat (or one-shot with prompt)\n")
 		fmt.Fprintf(os.Stderr, "  chat-list [id]          List chat sessions (server-side if notebook given)\n")
-		fmt.Fprintf(os.Stderr, "  delete-chat <id>        Delete server-side chat history\n")
+		fmt.Fprintf(os.Stderr, "  chat-rm <id>            Delete server-side chat history\n")
 		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n")
 		fmt.Fprintf(os.Stderr, "  set-instructions <id> \"prompt\"      Set system instructions\n")
 		fmt.Fprintf(os.Stderr, "  get-instructions <id>               Show current system instructions\n\n")
@@ -315,6 +318,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm rm <id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "rename":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm rename <notebook-id> <new-title>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "sources":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm sources <notebook-id>\n")
@@ -335,20 +343,26 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm rename-source <source-id> <new-name>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "read-source":
+		if len(args) != 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm read-source <notebook-id> <source-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "read-note":
 		if len(args) != 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm read-note <notebook-id> <note-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "new-note":
+	case "new-note", "note-create":
 		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm new-note <notebook-id> <title> [content]\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <title> [content]\n", cmd)
 			fmt.Fprintf(os.Stderr, "  content can also be piped via stdin\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "update-note":
-		if len(args) != 4 {
-			fmt.Fprintf(os.Stderr, "usage: nlm update-note <notebook-id> <note-id> <content> <title>\n")
+		if len(args) < 3 {
+			fmt.Fprintf(os.Stderr, "usage: nlm update-note <notebook-id> <note-id> <title> [content]\n")
+			fmt.Fprintf(os.Stderr, "  content can also be piped via stdin\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "rm-note":
@@ -380,9 +394,14 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm video-download <notebook-id> [filename]\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "create-audio":
+	case "video-rm":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm video-rm <notebook-id>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "create-audio", "audio-create":
 		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create-audio <notebook-id> <instructions>\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <instructions>\n", cmd)
 			return fmt.Errorf("invalid arguments")
 		}
 	case "audio-get":
@@ -400,9 +419,9 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm audio-share <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "create-video":
+	case "create-video", "video-create":
 		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create-video <notebook-id> <instructions>\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <instructions>\n", cmd)
 			return fmt.Errorf("invalid arguments")
 		}
 	case "share":
@@ -473,9 +492,9 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm chat-list [notebook-id]\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "delete-chat":
+	case "delete-chat", "chat-rm":
 		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm delete-chat <notebook-id>\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id>\n", cmd)
 			return fmt.Errorf("invalid arguments")
 		}
 	case "chat-config":
@@ -502,14 +521,14 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm rename-artifact <artifact-id> <new-title>\n")
 			return fmt.Errorf("invalid arguments")
 		}
-	case "delete-artifact":
+	case "delete-artifact", "artifact-rm":
 		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm delete-artifact <artifact-id>\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <artifact-id>\n", cmd)
 			return fmt.Errorf("invalid arguments")
 		}
-	case "create-slides":
+	case "create-slides", "slides-create":
 		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create-slides <notebook-id> <instructions>\n")
+			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <instructions>\n", cmd)
 			return fmt.Errorf("invalid arguments")
 		}
 	case "slides-download":
@@ -580,15 +599,15 @@ func validateArgs(cmd string, args []string) error {
 func isValidCommand(cmd string) bool {
 	validCommands := []string{
 		"help", "-h", "--help",
-		"list", "ls", "create", "rm", "analytics", "list-featured",
-		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
-		"notes", "read-note", "new-note", "update-note", "rm-note",
-		"create-audio", "create-video", "create-slides", "slides-download",
+		"list", "ls", "create", "rm", "rename", "analytics", "list-featured",
+		"sources", "add", "rm-source", "rename-source", "read-source", "refresh-source", "check-source", "discover-sources",
+		"notes", "read-note", "new-note", "note-create", "update-note", "rm-note",
+		"create-audio", "audio-create", "create-video", "video-create", "create-slides", "slides-create", "slides-download",
 		"audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive",
-		"video-list", "video-download",
-		"get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
+		"video-list", "video-download", "video-rm",
+		"get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact", "artifact-rm",
 		"guidebooks", "guidebook", "guidebook-publish", "guidebook-share", "guidebook-ask", "guidebook-rm",
-		"generate-guide", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
+		"generate-guide", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-rm", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
 		"research",
 		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback", "mcp",
@@ -823,6 +842,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = create(client, args[0])
 	case "rm":
 		err = remove(client, args[0])
+	case "rename":
+		err = renameNotebook(client, args[0], args[1])
 	case "analytics":
 		err = getAnalytics(client, args[0])
 	case "list-featured":
@@ -845,13 +866,15 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = checkSourceFreshness(client, args[0])
 	case "discover-sources":
 		err = discoverSources(client, args[0], args[1])
+	case "read-source":
+		err = readSource(client, args[1])
 
 	// Note operations
 	case "notes":
 		err = listNotes(client, args[0])
 	case "read-note":
 		err = readNote(client, args[0], args[1])
-	case "new-note":
+	case "new-note", "note-create":
 		noteContent := ""
 		if len(args) > 2 {
 			noteContent = args[2]
@@ -864,12 +887,23 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		}
 		err = createNote(client, args[0], args[1], noteContent)
 	case "update-note":
-		err = updateNote(client, args[0], args[1], args[2], args[3])
+		title := args[2]
+		content := ""
+		if len(args) > 3 {
+			content = args[3]
+		} else if fi, stErr := os.Stdin.Stat(); stErr == nil && fi.Mode()&os.ModeCharDevice == 0 {
+			data, readErr := io.ReadAll(os.Stdin)
+			if readErr != nil {
+				return readErr
+			}
+			content = string(data)
+		}
+		err = updateNote(client, args[0], args[1], content, title)
 	case "rm-note":
 		err = removeNote(client, args[0], args[1])
 
 		// Audio operations
-	case "create-audio":
+	case "create-audio", "audio-create":
 		err = createAudioOverview(client, args[0], args[1])
 	case "audio-get":
 		err = getAudioOverview(client, args[0])
@@ -898,7 +932,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 			filename = args[1]
 		}
 		err = downloadAudioOverview(client, args[0], filename)
-	case "create-video":
+	case "create-video", "video-create":
 		err = createVideoOverview(client, args[0], args[1])
 	case "video-list":
 		err = listVideoOverviews(client, args[0])
@@ -908,6 +942,8 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 			filename = args[1]
 		}
 		err = downloadVideoOverview(client, args[0], filename)
+	case "video-rm":
+		err = deleteVideoOverview(client, args[0])
 
 	// Artifact operations
 	case "get-artifact":
@@ -916,11 +952,11 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		err = listArtifacts(client, args[0])
 	case "rename-artifact":
 		err = renameArtifact(client, args[0], args[1])
-	case "delete-artifact":
+	case "delete-artifact", "artifact-rm":
 		err = deleteArtifact(client, args[0])
 
 		// Slide deck operations
-	case "create-slides":
+	case "create-slides", "slides-create":
 		instructions := strings.Join(args[1:], " ")
 		artifactID, sErr := client.CreateSlideDeck(args[0], instructions)
 		if sErr != nil {
@@ -1062,7 +1098,7 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		} else {
 			err = listChatSessions()
 		}
-	case "delete-chat":
+	case "delete-chat", "chat-rm":
 		err = deleteChatHistory(client, args[0])
 	case "chat-config":
 		err = setChatConfig(client, args)
@@ -1193,6 +1229,16 @@ func remove(c *api.Client, id string) error {
 	return c.DeleteProjects([]string{id})
 }
 
+func renameNotebook(c *api.Client, id, newTitle string) error {
+	updates := &pb.Project{Title: newTitle}
+	_, err := c.MutateProject(id, updates)
+	if err != nil {
+		return fmt.Errorf("rename notebook: %w", err)
+	}
+	fmt.Printf("Renamed notebook to: %s\n", newTitle)
+	return nil
+}
+
 // Source operations
 func listSources(c *api.Client, notebookID string) error {
 	p, err := c.GetProject(notebookID)
@@ -1314,6 +1360,27 @@ func renameSource(c *api.Client, sourceID, newName string) error {
 	return nil
 }
 
+func readSource(c *api.Client, sourceID string) error {
+	source, err := c.LoadSource(sourceID)
+	if err != nil {
+		return fmt.Errorf("read source: %w", err)
+	}
+
+	fmt.Printf("Title: %s\n", source.GetTitle())
+	if source.GetMetadata() != nil {
+		fmt.Printf("Type: %s\n", source.GetMetadata().GetSourceType().String())
+		fmt.Printf("Status: %s\n", source.GetMetadata().GetStatus().String())
+		if source.GetMetadata().GetLastModifiedTime() != nil {
+			fmt.Printf("Last Modified: %s\n", source.GetMetadata().GetLastModifiedTime().AsTime().Format(time.RFC3339))
+		}
+	}
+	if source.GetSourceId() != nil {
+		fmt.Printf("Source ID: %s\n", source.GetSourceId().GetSourceId())
+	}
+
+	return nil
+}
+
 // Note operations
 func createNote(c *api.Client, notebookID, title, content string) error {
 	fmt.Printf("Creating note in notebook %s...\n", notebookID)
@@ -1423,6 +1490,27 @@ func deleteAudioOverview(c *api.Client, notebookID string) error {
 		return fmt.Errorf("delete audio overview: %w", err)
 	}
 	fmt.Printf("✅ Deleted audio overview\n")
+	return nil
+}
+
+func deleteVideoOverview(c *api.Client, notebookID string) error {
+	if !confirmAction("Are you sure you want to delete the video overview?") {
+		return fmt.Errorf("operation cancelled")
+	}
+
+	artID, _, err := c.FindArtifactID(notebookID, 3)
+	if err != nil {
+		return fmt.Errorf("find video artifact: %w", err)
+	}
+
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	req := &pb.DeleteArtifactRequest{
+		ArtifactId: artID,
+	}
+	if _, err := orchClient.DeleteArtifact(context.Background(), req); err != nil {
+		return fmt.Errorf("delete video overview: %w", err)
+	}
+	fmt.Printf("Deleted video overview\n")
 	return nil
 }
 

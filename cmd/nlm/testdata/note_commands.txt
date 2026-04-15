@@ -36,24 +36,25 @@ stderr 'Authentication required'
 # === UPDATE-NOTE COMMAND ===
 # Test update-note without arguments
 ! exec ./nlm_test update-note
-stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+stderr 'usage: nlm update-note <notebook-id> <note-id> <title>'
 ! stderr 'panic'
 
 # Test update-note with insufficient arguments
 ! exec ./nlm_test update-note notebook123
-stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+stderr 'usage: nlm update-note <notebook-id> <note-id> <title>'
 ! stderr 'panic'
 
 ! exec ./nlm_test update-note notebook123 note456
-stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+stderr 'usage: nlm update-note <notebook-id> <note-id> <title>'
 ! stderr 'panic'
 
-! exec ./nlm_test update-note notebook123 note456 "content"
-stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
+# Test update-note without authentication (3 args = title only, content from stdin)
+! exec ./nlm_test update-note notebook123 note456 "My Title"
+stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test update-note without authentication
-! exec ./nlm_test update-note notebook123 note456 content title
+# Test update-note without authentication (4 args = title + content)
+! exec ./nlm_test update-note notebook123 note456 "My Title" "content"
 stderr 'Authentication required'
 ! stderr 'panic'
 
