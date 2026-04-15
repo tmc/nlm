@@ -46,6 +46,8 @@ var (
 	skipSources       bool   // Skip fetching sources for chat (useful when project is inaccessible)
 	yes               bool   // Skip confirmation prompts
 	sourceName        string // Custom name for added sources
+	replaceSourceID   string // Source ID to replace when adding
+	jsonOutput        bool   // Output in JSON format
 	showChatHistory   bool   // Show previous chat conversation on start
 	showThinking      bool   // Show thinking headers while streaming responses
 	verbose           bool   // Show full thinking traces while streaming responses
@@ -90,6 +92,8 @@ func init() {
 	flag.StringVar(&mimeType, "mime-type", "", "specify MIME type for content (alias for -mime)")
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
+	flag.StringVar(&replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
+	flag.BoolVar(&jsonOutput, "json", false, "output in JSON format")
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
 	flag.BoolVar(&showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
@@ -107,8 +111,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  list-featured     List featured notebooks\n\n")
 
 		fmt.Fprintf(os.Stderr, "Source Commands:\n")
-		fmt.Fprintf(os.Stderr, "  sources <id>      List sources in notebook\n")
-		fmt.Fprintf(os.Stderr, "  add <id> <input>  Add source to notebook\n")
+		fmt.Fprintf(os.Stderr, "  sources <id>      List sources in notebook (--json for machine-readable)\n")
+		fmt.Fprintf(os.Stderr, "  add <id> <input>  Add source (--name, --replace <source-id>)\n")
 		fmt.Fprintf(os.Stderr, "  rm-source <id> <source-id>  Remove source\n")
 		fmt.Fprintf(os.Stderr, "  rename-source <source-id> <new-name>  Rename source\n")
 		fmt.Fprintf(os.Stderr, "  refresh-source <notebook-id> <source-id>  Refresh source content\n")
@@ -855,6 +859,14 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	case "add":
 		var id string
 		id, err = addSource(client, args[0], args[1])
+		if err == nil && replaceSourceID != "" {
+			// Upload succeeded — delete the old source it replaces.
+			if delErr := client.DeleteSources(args[0], []string{replaceSourceID}); delErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: uploaded %s but failed to delete old source %s: %v\n", id, replaceSourceID, delErr)
+			} else {
+				fmt.Fprintf(os.Stderr, "Replaced source %s\n", replaceSourceID)
+			}
+		}
 		fmt.Println(id)
 	case "rm-source", "source-rm":
 		err = removeSource(client, args[0], args[1])
@@ -1246,6 +1258,36 @@ func listSources(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list sources: %w", err)
 	}
 
+	if jsonOutput {
+		type sourceJSON struct {
+			SourceID     string `json:"source_id"`
+			Title        string `json:"title"`
+			SourceType   string `json:"source_type"`
+			Status       string `json:"status"`
+			LastModified string `json:"last_modified,omitempty"`
+		}
+		var sources []sourceJSON
+		for _, src := range p.Sources {
+			s := sourceJSON{
+				SourceID:   src.SourceId.GetSourceId(),
+				Title:      strings.TrimSpace(src.Title),
+				SourceType: "unknown",
+				Status:     "enabled",
+			}
+			if src.Metadata != nil {
+				s.SourceType = src.Metadata.GetSourceType().String()
+				s.Status = src.Metadata.Status.String()
+				if src.Metadata.LastModifiedTime != nil {
+					s.LastModified = src.Metadata.LastModifiedTime.AsTime().Format(time.RFC3339)
+				}
+			}
+			sources = append(sources, s)
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(sources)
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
 	for _, src := range p.Sources {
@@ -1295,13 +1337,13 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 
 	// Check if input is a URL
 	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-		fmt.Printf("Adding source from URL: %s\n", input)
+		fmt.Fprintf(os.Stderr, "Adding source from URL: %s\n", input)
 		return c.AddSourceFromURL(notebookID, input)
 	}
 
 	// Try as local file
 	if _, err := os.Stat(input); err == nil {
-		fmt.Printf("Adding source from file: %s\n", input)
+		fmt.Fprintf(os.Stderr, "Adding source from file: %s\n", input)
 		name := filepath.Base(input)
 		if sourceName != "" {
 			name = sourceName
@@ -1328,7 +1370,7 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	}
 
 	// If it's not a URL or file, treat as direct text content
-	fmt.Println("Adding text content as source...")
+	fmt.Fprintln(os.Stderr, "Adding text content as source...")
 	textName := "Text Source"
 	if sourceName != "" {
 		textName = sourceName
