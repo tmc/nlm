@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-capture_root="${HOME}/go/src/github.com/tmc/misc/chrome-to-har/logs/nlm-capture"
+capture_root="${NLM_CAPTURE_ROOT:-docs/captures}"
 output_dir="${capture_root}/sources/notebooklm.google.com/_rpc-samples"
 samples_per_rpc=2
 max_text_chars=12000

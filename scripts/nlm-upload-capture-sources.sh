@@ -1,7 +1,7 @@
 #!/bin/bash
 # nlm-upload-capture-sources.sh — Upload captured NotebookLM source files.
 #
-# Uploads files from the chrome-to-har capture tree into a NotebookLM notebook.
+# Uploads files from a capture source tree into a NotebookLM notebook.
 # Each file gets a stable source name. If an upload fails, the failed blob is
 # split into smaller byte ranges and retried recursively until it uploads or can
 # no longer be split.
@@ -16,7 +16,7 @@
 
 set -uo pipefail
 
-SOURCE_ROOT="${SOURCE_ROOT:-$HOME/go/src/github.com/tmc/misc/chrome-to-har/logs/nlm-capture/sources}"
+SOURCE_ROOT="${SOURCE_ROOT:-docs/captures/sources}"
 PREFIX="${PREFIX:-nlm-capture}"
 MAX_BYTES="${MAX_BYTES:-425000}"
 MIN_SPLIT_BYTES="${MIN_SPLIT_BYTES:-1024}"
@@ -62,7 +62,7 @@ refresh_sources_cache() {
         sources_cache=""
         return
     fi
-    sources_cache=$(nlm sources "$NOTEBOOK_ID" 2>&1 || true)
+    sources_cache=$(nlm source list "$NOTEBOOK_ID" 2>&1 || true)
 }
 
 source_id_for_exact() {
@@ -140,7 +140,7 @@ file_size() {
 upload_full_file() {
     local label="$1"
     local path="$2"
-    nlm --name "$label" add "$NOTEBOOK_ID" "$path"
+    nlm source add --name "$label" "$NOTEBOOK_ID" "$path"
 }
 
 upload_slice_from_file() {
