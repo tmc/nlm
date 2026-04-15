@@ -118,7 +118,7 @@ nlm_sync_end() {
     refresh_sources_cache
     echo ""
     echo "═══════════════════════════════════════════════════"
-    echo "  Done. Verify: nlm sources $NOTEBOOK_ID"
+    echo "  Done. Verify: nlm source list $NOTEBOOK_ID"
     echo "═══════════════════════════════════════════════════"
 }
 
@@ -127,7 +127,7 @@ nlm_sync_end() {
 _sources_cache_json=""
 
 refresh_sources_cache() {
-    _sources_cache_json=$(nlm sources "$NOTEBOOK_ID" --json 2>/dev/null)
+    _sources_cache_json=$(nlm source list "$NOTEBOOK_ID" --json 2>/dev/null)
 }
 
 source_exists() {
@@ -257,8 +257,8 @@ _upload_chunk() {
         # the old source after upload — there's a moment where the old name is
         # gone.  The gap-free path keeps the old content accessible under "[old]"
         # until the new upload is confirmed.
-        nlm rename-source "$old_id" "$part_name [old]" 2>&1 | _nlm_filter_noise
-        new_id=$(printf '%s' "$txtar_content" | nlm add "$NOTEBOOK_ID" - --name "$part_name" 2> >(_nlm_filter_noise >&2)) || {
+        nlm source rename "$old_id" "$part_name [old]" 2>&1 | _nlm_filter_noise
+        new_id=$(printf '%s' "$txtar_content" | nlm source add "$NOTEBOOK_ID" - --name "$part_name" 2> >(_nlm_filter_noise >&2)) || {
             echo "  ERROR uploading $part_name" >&2
             [ -n "$tmpdir" ] && rm -rf "$tmpdir"
             return 1
@@ -267,14 +267,14 @@ _upload_chunk() {
         nlm --yes rm-source "$NOTEBOOK_ID" "$old_id" 2>&1 | _nlm_filter_noise
     elif [ -n "$old_id" ]; then
         # Fast path: --replace uploads new then deletes old.
-        new_id=$(printf '%s' "$txtar_content" | nlm add "$NOTEBOOK_ID" - --name "$part_name" --replace "$old_id" 2> >(_nlm_filter_noise >&2)) || {
+        new_id=$(printf '%s' "$txtar_content" | nlm source add "$NOTEBOOK_ID" - --name "$part_name" --replace "$old_id" 2> >(_nlm_filter_noise >&2)) || {
             echo "  ERROR uploading $part_name" >&2
             [ -n "$tmpdir" ] && rm -rf "$tmpdir"
             return 1
         }
     else
         # New source.
-        new_id=$(printf '%s' "$txtar_content" | nlm add "$NOTEBOOK_ID" - --name "$part_name" 2> >(_nlm_filter_noise >&2)) || {
+        new_id=$(printf '%s' "$txtar_content" | nlm source add "$NOTEBOOK_ID" - --name "$part_name" 2> >(_nlm_filter_noise >&2)) || {
             echo "  ERROR uploading $part_name" >&2
             [ -n "$tmpdir" ] && rm -rf "$tmpdir"
             return 1
@@ -369,6 +369,72 @@ upload_batch() {
 
     # Restore FORCE if overridden by --file match.
     [ -n "$_file_force_saved" ] && FORCE=$_file_force_saved
+}
+
+# ── Parallel upload ───────────────────────────────────────────────────
+
+# upload_batch_parallel "name" file1 file2 ...
+# Like upload_batch but runs _upload_chunk calls in background with & + wait.
+# Use for large uploads where ordering doesn't matter (new sources, or when
+# gap-free isn't needed).  Falls back to serial for --list, --dry-run, --file.
+# Note: stdout lines from concurrent chunks may interleave.  This is cosmetic
+# only — upload correctness is not affected.
+NLM_SYNC_MAX_PARALLEL="${NLM_SYNC_MAX_PARALLEL:-5}"
+
+upload_batch_parallel() {
+    local name="$1"; shift
+
+    # Fall back to serial for modes that shouldn't run in parallel.
+    if $LIST_ONLY || $DRY_RUN || [ -n "$TARGET_FILE" ]; then
+        upload_batch "$name" "$@"
+        return
+    fi
+
+    if [ -n "$ONLY" ] && [[ "$name" != *"$ONLY"* ]]; then return; fi
+
+    local files=()
+    if [ $# -gt 0 ]; then
+        files=("$@")
+    fi
+    if [ ${#files[@]} -eq 0 ]; then
+        echo "  SKIP $name (no files)"
+        return
+    fi
+
+    local txtar_ok=true
+    echo | txtar "${files[0]}" >/dev/null 2>&1 || txtar_ok=false
+
+    # Split into chunks.
+    local part=1 chunk_files=() chunk_size=0 pids=() running=0
+    local f fsize overhead entry_size
+    for f in "${files[@]}"; do
+        fsize=$(wc -c < "$f" 2>/dev/null | tr -d ' ')
+        overhead=$(( ${#f} + 20 ))
+        entry_size=$(( fsize + overhead ))
+        if [ ${#chunk_files[@]} -gt 0 ] && [ $(( chunk_size + entry_size )) -gt "$NLM_SYNC_MAX_BYTES" ]; then
+            _upload_chunk "$name" "$part" "$txtar_ok" "${chunk_files[@]}" &
+            pids+=($!)
+            running=$(( running + 1 ))
+            # Throttle to MAX_PARALLEL.
+            if [ "$running" -ge "$NLM_SYNC_MAX_PARALLEL" ]; then
+                wait "${pids[0]}"
+                pids=("${pids[@]:1}")
+                running=$(( running - 1 ))
+            fi
+            part=$(( part + 1 )); chunk_files=(); chunk_size=0
+        fi
+        chunk_files+=("$f"); chunk_size=$(( chunk_size + entry_size ))
+    done
+    if [ ${#chunk_files[@]} -gt 0 ]; then
+        _upload_chunk "$name" "$part" "$txtar_ok" "${chunk_files[@]}" &
+        pids+=($!)
+    fi
+
+    # Wait for all background uploads.
+    local pid
+    for pid in "${pids[@]}"; do
+        wait "$pid"
+    done
 }
 
 # ── File finders ─────────────────────────────────────────────────────
@@ -563,12 +629,12 @@ upload_text() {
     local new_id=""
 
     if [ -n "$old_id" ]; then
-        new_id=$(nlm add "$NOTEBOOK_ID" - --name "$name" --replace "$old_id" < "$textfile" 2> >(_nlm_filter_noise >&2)) || {
+        new_id=$(nlm source add "$NOTEBOOK_ID" - --name "$name" --replace "$old_id" < "$textfile" 2> >(_nlm_filter_noise >&2)) || {
             echo "  ERROR uploading $name" >&2
             return 1
         }
     else
-        new_id=$(nlm add "$NOTEBOOK_ID" - --name "$name" < "$textfile" 2> >(_nlm_filter_noise >&2)) || {
+        new_id=$(nlm source add "$NOTEBOOK_ID" - --name "$name" < "$textfile" 2> >(_nlm_filter_noise >&2)) || {
             echo "  ERROR uploading $name" >&2
             return 1
         }
