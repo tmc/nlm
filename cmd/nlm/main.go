@@ -3019,16 +3019,22 @@ func listVideoOverviews(c *api.Client, notebookID string) error {
 func downloadAudioOverview(c *api.Client, notebookID string, filename string) error {
 	fmt.Fprintf(os.Stderr, "Looking up audio overview for notebook %s...\n", notebookID)
 
+	// Try artifact CDN URL first (type 2 = audio).
 	_, title, cdnURL, err := c.FindArtifactCDNURL(notebookID, 2)
-	if err != nil {
-		return fmt.Errorf("find audio: %w", err)
+	if err == nil {
+		if title != "" {
+			fmt.Fprintf(os.Stderr, "Found: %s\n", title)
+		}
+		fmt.Println(cdnURL)
+		openBrowser(cdnURL)
+		return nil
 	}
 
-	if title != "" {
-		fmt.Fprintf(os.Stderr, "Found: %s\n", title)
-	}
-	fmt.Println(cdnURL)
-	openBrowser(cdnURL)
+	// Fall back: open the notebook page where audio can be played/downloaded.
+	nbURL := fmt.Sprintf("https://notebooklm.google.com/notebook/%s", notebookID)
+	fmt.Fprintf(os.Stderr, "No audio artifact CDN URL found; opening notebook...\n")
+	fmt.Println(nbURL)
+	openBrowser(nbURL)
 	return nil
 }
 
