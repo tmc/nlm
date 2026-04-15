@@ -122,7 +122,8 @@ func init() {
 		fmt.Fprintf(os.Stderr, "Create Commands:\n")
 		fmt.Fprintf(os.Stderr, "  create-audio <id> <instructions>   Create audio overview\n")
 		fmt.Fprintf(os.Stderr, "  create-video <id> <instructions>   Create video overview\n")
-		fmt.Fprintf(os.Stderr, "  create-slides <id> <instructions>  Create slide deck\n\n")
+		fmt.Fprintf(os.Stderr, "  create-slides <id> <instructions>  Create slide deck\n")
+		fmt.Fprintf(os.Stderr, "  slides-download <id> [filename]   Download slide deck as PPTX\n\n")
 
 		fmt.Fprintf(os.Stderr, "Audio Commands:\n")
 		fmt.Fprintf(os.Stderr, "  audio-list <id>   List audio overviews for a notebook\n")
@@ -509,6 +510,11 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm create-slides <notebook-id> <instructions>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "slides-download":
+		if len(args) < 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm slides-download <notebook-id> [filename]\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "guidebook":
 		if len(args) != 1 {
 			fmt.Fprintf(os.Stderr, "usage: nlm guidebook <guidebook-id>\n")
@@ -575,7 +581,7 @@ func isValidCommand(cmd string) bool {
 		"list", "ls", "create", "rm", "analytics", "list-featured",
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
 		"notes", "read-note", "new-note", "update-note", "rm-note",
-		"create-audio", "create-video", "create-slides",
+		"create-audio", "create-video", "create-slides", "slides-download",
 		"audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive",
 		"video-list", "video-download",
 		"get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
@@ -921,6 +927,24 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 		}
 		fmt.Printf("Created slide deck: %s\n", artifactID)
 		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
+
+	case "slides-download":
+		filename := ""
+		if len(args) > 1 {
+			filename = args[1]
+		}
+		if filename == "" {
+			filename = fmt.Sprintf("slides_%s.pptx", args[0])
+		}
+		fmt.Fprintf(os.Stderr, "Downloading slide deck for notebook %s...\n", args[0])
+		if sErr := client.DownloadSlideDeck(args[0], filename); sErr != nil {
+			err = sErr
+			break
+		}
+		fmt.Printf("Slide deck saved to: %s\n", filename)
+		if stat, sErr := os.Stat(filename); sErr == nil {
+			fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
+		}
 
 		// Guidebook operations
 	case "guidebooks":

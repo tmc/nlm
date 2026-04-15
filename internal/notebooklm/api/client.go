@@ -13,6 +13,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -1599,10 +1600,36 @@ func (c *Client) findArtifactCDNURL(projectID string, artifactType int) (string,
 }
 
 // downloadFromCDN attempts to download media from a Google CDN URL.
-// If the CDN requires browser auth (returns HTML), it returns an error
-// containing the URL for the user to open in their browser.
+// It uses a proper cookie jar so cookies follow redirects across Google domains.
+// If the download fails, it returns an error containing the URL for
+// the user to open in their browser.
 func (c *Client) downloadFromCDN(cdnURL string) ([]byte, error) {
-	client := httpClientWithTimeout(60 * time.Second)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("create cookie jar: %w", err)
+	}
+
+	// Parse cookies from the RPC config and add them to the jar
+	// scoped to .google.com so they follow cross-domain redirects.
+	if rawCookies := c.rpc.Config.Cookies; rawCookies != "" {
+		googleURL, _ := url.Parse("https://www.google.com")
+		var cookies []*http.Cookie
+		for _, part := range strings.Split(rawCookies, "; ") {
+			if idx := strings.IndexByte(part, '='); idx > 0 {
+				cookies = append(cookies, &http.Cookie{
+					Name:  part[:idx],
+					Value: part[idx+1:],
+				})
+			}
+		}
+		jar.SetCookies(googleURL, cookies)
+	}
+
+	client := &http.Client{
+		Jar:     jar,
+		Timeout: 120 * time.Second,
+	}
+
 	req, err := http.NewRequest("GET", cdnURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -1610,9 +1637,6 @@ func (c *Client) downloadFromCDN(cdnURL string) ([]byte, error) {
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
 	req.Header.Set("Referer", "https://notebooklm.google.com/")
-	if cookies := c.rpc.Config.Cookies; cookies != "" {
-		req.Header.Set("Cookie", cookies)
-	}
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -1621,7 +1645,7 @@ func (c *Client) downloadFromCDN(cdnURL string) ([]byte, error) {
 	defer resp.Body.Close()
 
 	contentType := resp.Header.Get("Content-Type")
-	if strings.Contains(contentType, "text/html") {
+	if strings.Contains(contentType, "text/html") || resp.StatusCode == http.StatusForbidden {
 		return nil, fmt.Errorf("CDN requires browser auth; open in browser: %s", cdnURL)
 	}
 
@@ -1630,6 +1654,166 @@ func (c *Client) downloadFromCDN(cdnURL string) ([]byte, error) {
 	}
 
 	return io.ReadAll(resp.Body)
+}
+
+// DownloadSlideDeck downloads a slide deck as PPTX.
+// It constructs the contribution.usercontent.google.com download URL
+// from the artifact ID and uses cookie-jar-based auth.
+func (c *Client) DownloadSlideDeck(projectID, filename string) error {
+	// Find slides artifact (type 8) via gArtLc.
+	artID, title, _, err := c.findArtifactCDNURL(projectID, 8)
+	if err != nil {
+		// Slides may not have CDN URLs — try finding any type-8 artifact.
+		artID, title, err = c.findArtifactID(projectID, 8)
+		if err != nil {
+			return fmt.Errorf("no slide deck found: %w", err)
+		}
+	}
+
+	if c.config.Debug {
+		fmt.Printf("Found slide deck: %s (%s)\n", title, artID)
+	}
+
+	// Build the download URL used by the web UI.
+	// The c= parameter is a protobuf: {1:"notebooklm", 2:{2:"artifacts_media", 3:{1:artifact_id}}}
+	downloadURL := buildSlideDeckDownloadURL(artID, filename)
+
+	data, err := c.downloadFromCDN(downloadURL)
+	if err != nil {
+		return fmt.Errorf("download slide deck: %w", err)
+	}
+
+	if err := os.WriteFile(filename, data, 0644); err != nil {
+		return fmt.Errorf("save file: %w", err)
+	}
+
+	return nil
+}
+
+// findArtifactID finds an artifact by type, returning (id, title, error).
+// Unlike findArtifactCDNURL, it doesn't require a CDN URL.
+func (c *Client) findArtifactID(projectID string, artifactType int) (string, string, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCListArtifacts,
+		Args: []interface{}{
+			artifactTypeDescriptor(),
+			projectID,
+			"NOT artifact.status = \"ARTIFACT_STATUS_SUGGESTED\"",
+		},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("list artifacts: %w", err)
+	}
+
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		return "", "", fmt.Errorf("parse response: %w", err)
+	}
+
+	if len(responseData) == 0 {
+		return "", "", fmt.Errorf("no artifacts found")
+	}
+
+	artifacts, ok := responseData[0].([]interface{})
+	if !ok || len(artifacts) == 0 {
+		return "", "", fmt.Errorf("no artifacts found")
+	}
+
+	for _, raw := range artifacts {
+		art, ok := raw.([]interface{})
+		if !ok || len(art) < 5 {
+			continue
+		}
+		artType, _ := art[2].(float64)
+		if int(artType) != artifactType {
+			continue
+		}
+		artID, _ := art[0].(string)
+		title, _ := art[1].(string)
+		return artID, title, nil
+	}
+
+	return "", "", fmt.Errorf("no artifact with type %d found", artifactType)
+}
+
+// buildSlideDeckDownloadURL constructs the Google contribution download URL.
+// The c= parameter is a manually-encoded protobuf matching the web UI format.
+func buildSlideDeckDownloadURL(artifactID, filename string) string {
+	// Manually encode the protobuf:
+	// field 1 (string): "notebooklm"
+	// field 2 (message):
+	//   field 2 (string): "artifacts_media"
+	//   field 3 (message):
+	//     field 1 (string): artifact_id
+	var buf bytes.Buffer
+
+	// Helper: write a varint
+	writeVarint := func(v uint64) {
+		for v >= 0x80 {
+			buf.WriteByte(byte(v) | 0x80)
+			v >>= 7
+		}
+		buf.WriteByte(byte(v))
+	}
+
+	// Helper: write a length-delimited field
+	writeString := func(fieldNum int, s string) {
+		writeVarint(uint64(fieldNum<<3 | 2)) // wire type 2 = length-delimited
+		writeVarint(uint64(len(s)))
+		buf.WriteString(s)
+	}
+
+	// Helper: write a sub-message field
+	writeMessage := func(fieldNum int, content []byte) {
+		writeVarint(uint64(fieldNum<<3 | 2))
+		writeVarint(uint64(len(content)))
+		buf.Write(content)
+	}
+
+	// Build inner message: {1: artifact_id}
+	var inner3 bytes.Buffer
+	{
+		writeVarint2 := func(v uint64) {
+			for v >= 0x80 {
+				inner3.WriteByte(byte(v) | 0x80)
+				v >>= 7
+			}
+			inner3.WriteByte(byte(v))
+		}
+		writeVarint2(uint64(1<<3 | 2))
+		writeVarint2(uint64(len(artifactID)))
+		inner3.WriteString(artifactID)
+	}
+
+	// Build field 2 message: {2: "artifacts_media", 3: inner3}
+	var inner2 bytes.Buffer
+	{
+		writeVarint2 := func(v uint64) {
+			for v >= 0x80 {
+				inner2.WriteByte(byte(v) | 0x80)
+				v >>= 7
+			}
+			inner2.WriteByte(byte(v))
+		}
+		// field 2: "artifacts_media"
+		s := "artifacts_media"
+		writeVarint2(uint64(2<<3 | 2))
+		writeVarint2(uint64(len(s)))
+		inner2.WriteString(s)
+		// field 3: inner3 message
+		writeVarint2(uint64(3<<3 | 2))
+		writeVarint2(uint64(inner3.Len()))
+		inner2.Write(inner3.Bytes())
+	}
+
+	// Top level: {1: "notebooklm", 2: inner2}
+	writeString(1, "notebooklm")
+	writeMessage(2, inner2.Bytes())
+
+	c := base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(buf.Bytes())
+	return fmt.Sprintf("https://contribution.usercontent.google.com/download?c=%s&filename=%s&authuser=0",
+		url.QueryEscape(c), url.QueryEscape(filename))
 }
 
 // SaveAudioToFile saves audio data to a file
