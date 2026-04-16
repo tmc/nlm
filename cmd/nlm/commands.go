@@ -490,7 +490,7 @@ var commands = []command{
 	},
 	{
 		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",
-		usage: "Free-form chat generation", section: "Generation",
+		usage: "Free-form chat generation (--conversation ID, --web for server chat)", section: "Generation",
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			return generateFreeFormChat(c, args[0], strings.Join(args[1:], " "))
@@ -505,8 +505,17 @@ var commands = []command{
 			if err != nil {
 				return err
 			}
-			for _, s := range resp.GetSuggestions() {
-				fmt.Println(s)
+			for i, s := range resp.GetSuggestions() {
+				if i > 0 {
+					fmt.Println()
+				}
+				fmt.Printf("%s\n", s.GetTitle())
+				if s.GetDescription() != "" {
+					fmt.Printf("  %s\n", s.GetDescription())
+				}
+				if s.GetPrompt() != "" {
+					fmt.Printf("  Prompt: %s\n", s.GetPrompt())
+				}
 			}
 			return nil
 		},

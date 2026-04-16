@@ -53,9 +53,11 @@ var (
 	dryRun            bool   // Show what would change without uploading
 	maxBytes          int    // Chunk threshold for sync-source
 	jsonOutput        bool   // NDJSON output for sync-source
-	reportPrompt      string // Custom instructions for generate-report
-	reportSections    int    // Max sections for generate-report (0 = all)
-
+	reportPrompt       string // Per-section prompt template for generate-report ({topic} replaced)
+	reportInstructions string // Notebook instructions to set before generate-report
+	reportSections     int    // Max sections for generate-report (0 = all)
+	conversationID    string // Conversation ID to continue (generate-chat)
+	useWebChat        bool   // Use most recent server-side conversation (generate-chat)
 )
 
 // ChatSession represents a persistent chat conversation
@@ -102,8 +104,12 @@ func init() {
 	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync-source)")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync-source)")
 	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync-source, default 5120000)")
-	flag.StringVar(&reportPrompt, "prompt", "", "custom instructions for generate-report")
+	flag.StringVar(&reportPrompt, "prompt", "", "per-section prompt template for generate-report ({topic} is replaced)")
+	flag.StringVar(&reportInstructions, "instructions", "", "set notebook instructions before generate-report")
 	flag.IntVar(&reportSections, "sections", 0, "max sections to generate (generate-report, 0=all)")
+	flag.StringVar(&conversationID, "conversation", "", "continue an existing conversation by ID (generate-chat)")
+	flag.StringVar(&conversationID, "c", "", "continue an existing conversation by ID (shorthand)")
+	flag.BoolVar(&useWebChat, "web", false, "use the most recent server-side conversation (generate-chat)")
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
 	flag.BoolVar(&showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
@@ -1244,6 +1250,16 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 		ProjectID: projectID,
 		Prompt:    prompt,
 	}
+
+	// Resolve conversation context from flags.
+	convID, history, seqNum, err := resolveGenerateChatConversation(c, projectID)
+	if err != nil {
+		return err
+	}
+	chatReq.ConversationID = convID
+	chatReq.History = history
+	chatReq.SeqNum = seqNum
+
 	answer, _, err := streamChatResponse(c, chatReq)
 	if err != nil {
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
@@ -1260,49 +1276,125 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 		fmt.Println("(No response received)")
 	}
 
+	// Save to local session so future --conversation or --web calls can continue.
+	if convID != "" {
+		session := &ChatSession{
+			NotebookID:     projectID,
+			ConversationID: convID,
+			Messages: []ChatMessage{
+				{Role: "user", Content: prompt, Timestamp: time.Now()},
+			},
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		if answer != "" {
+			session.Messages = append(session.Messages, ChatMessage{
+				Role: "assistant", Content: strings.TrimSpace(answer), Timestamp: time.Now(),
+			})
+		}
+		// Best-effort save; don't fail the command.
+		_ = saveChatSession(session)
+	}
+
 	return nil
+}
+
+// resolveGenerateChatConversation resolves --conversation and --web flags into
+// a conversation ID, wire history, and sequence number for generate-chat.
+// Returns empty values when neither flag is set (fresh conversation).
+func resolveGenerateChatConversation(c *api.Client, projectID string) (string, []api.ChatMessage, int, error) {
+	if useWebChat {
+		// Fetch the most recent server-side conversation.
+		convIDs, err := c.GetConversations(projectID)
+		if err != nil {
+			return "", nil, 0, fmt.Errorf("list server conversations: %w", err)
+		}
+		if len(convIDs) == 0 {
+			return "", nil, 0, fmt.Errorf("no server-side conversations found for this notebook")
+		}
+		conversationID = convIDs[0]
+		fmt.Fprintf(os.Stderr, "Using server conversation: %s\n", conversationID[:8])
+	}
+
+	if conversationID == "" {
+		return "", nil, 0, nil
+	}
+
+	// Try local session first for richer history.
+	session, err := loadChatSessionForConv(projectID, conversationID)
+	if err == nil && len(session.Messages) > 0 {
+		fmt.Fprintf(os.Stderr, "Continuing conversation %s (%d messages)\n",
+			session.ConversationID[:8], len(session.Messages))
+		wireHistory := buildWireHistory(session)
+		return session.ConversationID, wireHistory, len(session.Messages)/2 + 1, nil
+	}
+
+	// No local session — use the conversation ID with no history.
+	// The server remembers prior messages for server-side conversations.
+	fmt.Fprintf(os.Stderr, "Continuing conversation %s (server-side)\n", conversationID[:8])
+	return conversationID, nil, 0, nil
 }
 
 // generateReport orchestrates report-suggestions + generate-chat to produce
 // a multi-section report on stdout. If reportPrompt is set, instructions are
 // applied to the notebook before generation.
+// defaultReportPrompt is the per-section generation template.
+// {topic} is replaced with the section topic.
+const defaultReportPrompt = `Write a thorough, implementation-level wiki section on: {topic}
+
+Requirements:
+- Use a top-level heading (# {topic})
+- Include mermaid diagrams where architecture or flow is relevant
+- Include tables for configuration, parameters, or comparisons
+- Cite sources with numbered references
+- Be comprehensive: cover design rationale, key APIs, data structures, error handling, and examples
+- Target ~2000 words per section`
+
 func generateReport(c *api.Client, notebookID string) error {
-	// Optionally set custom instructions.
-	if reportPrompt != "" {
+	// Optionally set notebook instructions.
+	if reportInstructions != "" {
 		fmt.Fprintf(os.Stderr, "Setting instructions...\n")
-		if err := c.SetInstructions(notebookID, reportPrompt); err != nil {
+		if err := c.SetInstructions(notebookID, reportInstructions); err != nil {
 			return fmt.Errorf("set instructions: %w", err)
 		}
 	}
 
-	// Get section topics from the API.
-	fmt.Fprintf(os.Stderr, "Fetching report suggestions...\n")
-	resp, err := c.GenerateReportSuggestions(notebookID)
+	// Read suggestions from stdin or API.
+	suggestions, err := readReportSuggestions(c, notebookID)
 	if err != nil {
-		return fmt.Errorf("report suggestions: %w", err)
-	}
-	topics := resp.GetSuggestions()
-	if len(topics) == 0 {
-		return fmt.Errorf("no report suggestions returned")
+		return err
 	}
 
 	// Limit sections if requested.
-	if reportSections > 0 && reportSections < len(topics) {
-		topics = topics[:reportSections]
+	if reportSections > 0 && reportSections < len(suggestions) {
+		suggestions = suggestions[:reportSections]
 	}
 
-	fmt.Fprintf(os.Stderr, "Generating %d sections...\n", len(topics))
+	// Resolve per-section prompt template.
+	tmpl := defaultReportPrompt
+	if reportPrompt != "" {
+		tmpl = reportPrompt
+	}
 
-	for i, topic := range topics {
-		fmt.Fprintf(os.Stderr, "[%d/%d] %s\n", i+1, len(topics), topic)
+	fmt.Fprintf(os.Stderr, "Generating %d sections...\n", len(suggestions))
 
-		prompt := fmt.Sprintf("Write a detailed section on: %s\n\nUse markdown formatting with a level-2 heading.", topic)
-		answer, _, err := streamChatResponse(c, api.ChatRequest{
+	for i, s := range suggestions {
+		title := s.GetTitle()
+		fmt.Fprintf(os.Stderr, "[%d/%d] %s\n", i+1, len(suggestions), title)
+
+		prompt := strings.ReplaceAll(tmpl, "{topic}", title)
+		// Use suggestion-specific prompt if available and no custom template set.
+		if reportPrompt == "" && s.GetPrompt() != "" {
+			prompt = s.GetPrompt()
+		}
+		chatReq := api.ChatRequest{
 			ProjectID: notebookID,
 			Prompt:    prompt,
-		})
+			SourceIDs: s.GetSourceIds(),
+		}
+		answer, _, err := streamChatResponse(c, chatReq)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: section %q failed: %v\n", topic, err)
+			fmt.Fprintf(os.Stderr, "warning: section %q failed: %v\n", title, err)
 			continue
 		}
 		if answer != "" {
@@ -1312,6 +1404,43 @@ func generateReport(c *api.Client, notebookID string) error {
 	}
 
 	return nil
+}
+
+// readReportSuggestions reads suggestions from stdin (one title per line) or
+// from the report-suggestions API. API suggestions include per-section source
+// scoping and prompts; stdin suggestions are title-only.
+func readReportSuggestions(c *api.Client, notebookID string) ([]*pb.ReportSuggestion, error) {
+	if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice == 0 {
+		// stdin is piped — read topics from it.
+		var suggestions []*pb.ReportSuggestion
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line != "" {
+				suggestions = append(suggestions, &pb.ReportSuggestion{Title: line})
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			return nil, fmt.Errorf("read topics from stdin: %w", err)
+		}
+		if len(suggestions) == 0 {
+			return nil, fmt.Errorf("no topics provided on stdin")
+		}
+		fmt.Fprintf(os.Stderr, "Read %d topics from stdin\n", len(suggestions))
+		return suggestions, nil
+	}
+
+	// Fetch from API.
+	fmt.Fprintf(os.Stderr, "Fetching report suggestions...\n")
+	resp, err := c.GenerateReportSuggestions(notebookID)
+	if err != nil {
+		return nil, fmt.Errorf("report suggestions: %w", err)
+	}
+	suggestions := resp.GetSuggestions()
+	if len(suggestions) == 0 {
+		return nil, fmt.Errorf("no report suggestions returned")
+	}
+	return suggestions, nil
 }
 
 func deleteChatHistory(c *api.Client, notebookID string) error {

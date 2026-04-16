@@ -298,8 +298,17 @@ message GenerateReportSuggestionsRequest {
     repeated string source_ids = 2;
 }
 
+message ReportSuggestion {
+    string title = 1;
+    string description = 2;
+    // field 3 is null in observed responses
+    repeated string source_ids = 4;
+    string prompt = 5;
+    int32 count = 6;
+}
+
 message GenerateReportSuggestionsResponse {
-    repeated string suggestions = 1;
+    repeated ReportSuggestion suggestions = 1;
 }
 
 

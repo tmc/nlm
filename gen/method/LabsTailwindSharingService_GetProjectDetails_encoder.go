@@ -2,17 +2,21 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/rpc/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
 
 // EncodeGetProjectDetailsArgs encodes arguments for LabsTailwindSharingService.GetProjectDetails
 // RPC ID: JFMDGd
-//
-// Wire format: [share_id, [2]]
-//
-//	Field 1: share_id (project UUID)
-//	Field 2: ProjectContext {field 1: 2}
+// Argument format: [%share_id%]
 func EncodeGetProjectDetailsArgs(req *notebooklmv1alpha1.GetProjectDetailsRequest) []interface{} {
-	return []interface{}{req.GetShareId(), []interface{}{2}}
+	// Using generalized argument encoder
+	args, err := argbuilder.EncodeRPCArgs(req, "[%share_id%]")
+	if err != nil {
+		// Log error and return empty args as fallback
+		// In production, this should be handled better
+		return []interface{}{}
+	}
+	return args
 }

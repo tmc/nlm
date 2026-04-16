@@ -115,7 +115,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Cont
 	call := rpc.Call{
 		ID:         "rc3d8d",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeRenameArtifactArgs(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
@@ -403,7 +403,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context
 	call := rpc.Call{
 		ID:         "R7cb6c",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeCreateAudioOverviewArgs(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
@@ -475,7 +475,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context
 	call := rpc.Call{
 		ID:         "R7cb6c",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeCreateVideoOverviewArgs(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC

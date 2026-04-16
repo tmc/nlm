@@ -3711,16 +3711,86 @@ func (c *Client) GetProjectWithContext(ctx context.Context, projectID string) (*
 
 func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReportSuggestionsResponse, error) {
 	sourceIDs := c.resolveSourceIDs(projectID, nil)
-	req := &pb.GenerateReportSuggestionsRequest{
-		ProjectId: projectID,
-		SourceIds: sourceIDs,
+
+	// Build source refs in wire format: [["src1"],["src2"],...]
+	var sourceRefs []interface{}
+	for _, id := range sourceIDs {
+		sourceRefs = append(sourceRefs, []interface{}{id})
 	}
-	ctx := context.Background()
-	response, err := c.orchestrationService.GenerateReportSuggestions(ctx, req)
+
+	projectContext := []interface{}{
+		2, nil, nil,
+		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+	}
+
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         "ciyUvf",
+		NotebookID: projectID,
+		Args:       []interface{}{projectContext, projectID, sourceRefs},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("generate report suggestions: %w", err)
 	}
-	return response, nil
+
+	// Raw response: [[ [title, desc, null, [[src_id],...], prompt, count], ... ]]
+	var raw []interface{}
+	if err := json.Unmarshal(resp, &raw); err != nil {
+		return nil, fmt.Errorf("parse report suggestions: %w", err)
+	}
+
+	// Unwrap outer array: response is [[suggestions...]]
+	suggestions := raw
+	if len(raw) > 0 {
+		if inner, ok := raw[0].([]interface{}); ok {
+			// Check if inner[0] is itself an array (i.e., a suggestion)
+			if len(inner) > 0 {
+				if _, ok := inner[0].([]interface{}); ok {
+					suggestions = inner
+				}
+			}
+		}
+	}
+
+	result := &pb.GenerateReportSuggestionsResponse{}
+	for _, item := range suggestions {
+		arr, ok := item.([]interface{})
+		if !ok || len(arr) < 2 {
+			continue
+		}
+		s := &pb.ReportSuggestion{}
+		if v, ok := arr[0].(string); ok {
+			s.Title = v
+		}
+		if v, ok := arr[1].(string); ok {
+			s.Description = v
+		}
+		// arr[2] is null
+		// arr[3] is source refs: [[src_id1], [src_id2], ...]
+		if len(arr) > 3 {
+			if refs, ok := arr[3].([]interface{}); ok {
+				for _, ref := range refs {
+					if inner, ok := ref.([]interface{}); ok && len(inner) > 0 {
+						if id, ok := inner[0].(string); ok {
+							s.SourceIds = append(s.SourceIds, id)
+						}
+					}
+				}
+			}
+		}
+		if len(arr) > 4 {
+			if v, ok := arr[4].(string); ok {
+				s.Prompt = v
+			}
+		}
+		if len(arr) > 5 {
+			if v, ok := arr[5].(float64); ok {
+				s.Count = int32(v)
+			}
+		}
+		result.Suggestions = append(result.Suggestions, s)
+	}
+	return result, nil
 }
 
 func (c *Client) GetProjectDetails(shareID string) (*pb.ProjectDetails, error) {
