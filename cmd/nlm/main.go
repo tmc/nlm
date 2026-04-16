@@ -1878,6 +1878,9 @@ func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) e
 // printChatHistory prints conversation history, trying the server first then
 // falling back to local session storage.
 func printChatHistory(c *api.Client, notebookID, conversationID string) error {
+	// Resolve partial conversation IDs (e.g. "abcd1234" from chat-list output).
+	conversationID = resolveConversationID(c, notebookID, conversationID)
+
 	// Try server-side history first.
 	messages, err := c.GetConversationHistory(notebookID, conversationID)
 	if err == nil && len(messages) > 0 {
@@ -1911,6 +1914,24 @@ func printChatHistory(c *api.Client, notebookID, conversationID string) error {
 		fmt.Printf("[%s]\n%s\n\n", role, m.Content)
 	}
 	return nil
+}
+
+// resolveConversationID expands a partial conversation ID prefix (as shown by
+// chat-list) to the full UUID by checking server-side conversations.
+func resolveConversationID(c *api.Client, notebookID, partial string) string {
+	if len(partial) >= 36 {
+		return partial // already full UUID
+	}
+	convIDs, err := c.GetConversations(notebookID)
+	if err != nil {
+		return partial
+	}
+	for _, id := range convIDs {
+		if strings.HasPrefix(id, partial) {
+			return id
+		}
+	}
+	return partial
 }
 
 // listChatConversations lists server-side conversations for a notebook.
