@@ -1761,6 +1761,13 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	if err != nil {
 		return err
 	}
+	// Fresh conversation: mint a UUID locally so we can surface it to the
+	// user for follow-ups (the api client would otherwise generate one
+	// internally and never return it).
+	isNewConversation := convID == ""
+	if isNewConversation {
+		convID = uuid.New().String()
+	}
 	chatReq.ConversationID = convID
 	chatReq.History = history
 	chatReq.SeqNum = seqNum
@@ -1784,28 +1791,51 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 		fmt.Println("(No response received)")
 	}
 
-	// Save to local session so future --conversation or --web calls can continue.
-	if convID != "" {
-		session := &ChatSession{
-			NotebookID:     projectID,
-			ConversationID: convID,
-			Messages: []ChatMessage{
-				{Role: "user", Content: prompt, Timestamp: time.Now()},
-			},
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-		if res.Answer != "" {
-			session.Messages = append(session.Messages, ChatMessage{
-				Role: "assistant", Content: strings.TrimSpace(res.Answer), Timestamp: time.Now(),
-				Citations: res.Citations,
-			})
-		}
-		// Best-effort save; don't fail the command.
-		_ = saveChatSession(session)
+	// Save to local session so future --conversation calls can continue.
+	session := &ChatSession{
+		NotebookID:     projectID,
+		ConversationID: convID,
+		Messages: []ChatMessage{
+			{Role: "user", Content: prompt, Timestamp: time.Now()},
+		},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
+	if res.Answer != "" {
+		session.Messages = append(session.Messages, ChatMessage{
+			Role: "assistant", Content: strings.TrimSpace(res.Answer), Timestamp: time.Now(),
+			Citations: res.Citations,
+		})
+	}
+	// Best-effort save; don't fail the command.
+	_ = saveChatSession(session)
+
+	// Tell the user how to continue this conversation.
+	printContinuationHint(os.Stderr, projectID, convID, isNewConversation)
 
 	return nil
+}
+
+// printContinuationHint writes a muted one-line nudge to stderr telling the
+// user how to follow up on the conversation they just had. New conversations
+// get the full command; continued ones get a shorter acknowledgement.
+func printContinuationHint(w *os.File, projectID, convID string, isNew bool) {
+	short := convID
+	if len(short) > 8 {
+		short = short[:8]
+	}
+	useColor := isTerminal(w)
+	openTag, closeTag := "", ""
+	if useColor {
+		openTag, closeTag = ansiGrey, ansiReset
+	}
+	if isNew {
+		fmt.Fprintf(w, "%snlm: continue with: nlm generate-chat --conversation %s %s \"...\"%s\n",
+			openTag, convID, projectID, closeTag)
+	} else {
+		fmt.Fprintf(w, "%snlm: continued conversation %s (use --conversation %s to follow up)%s\n",
+			openTag, short, convID, closeTag)
+	}
 }
 
 // resolveGenerateChatConversation resolves --conversation and --web flags into
