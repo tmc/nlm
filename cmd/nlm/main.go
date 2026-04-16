@@ -521,20 +521,9 @@ func listSources(c *api.Client, notebookID string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
 	for _, src := range p.Sources {
-		status := "enabled"
-		if src.Metadata != nil {
-			status = src.Metadata.Status.String()
-		}
-
-		lastUpdated := "unknown"
-		if src.Metadata != nil && src.Metadata.LastModifiedTime != nil {
-			lastUpdated = src.Metadata.LastModifiedTime.AsTime().Format(time.RFC3339)
-		}
-
-		sourceType := "unknown"
-		if src.Metadata != nil {
-			sourceType = src.Metadata.GetSourceType().String()
-		}
+		status := formatSourceStatus(src)
+		lastUpdated := formatSourceTime(src)
+		sourceType := formatSourceType(src)
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			src.SourceId.GetSourceId(),
@@ -545,6 +534,76 @@ func listSources(c *api.Client, notebookID string) error {
 		)
 	}
 	return w.Flush()
+}
+
+func formatSourceStatus(src *pb.Source) string {
+	if src.Settings != nil && src.Settings.Status != 0 {
+		switch src.Settings.Status {
+		case 1:
+			return "enabled"
+		case 2:
+			return "disabled"
+		case 3:
+			return "error"
+		}
+	}
+	if src.Metadata != nil && src.Metadata.Status != 0 {
+		switch src.Metadata.Status {
+		case 1:
+			return "enabled"
+		case 2:
+			return "disabled"
+		case 3:
+			return "error"
+		}
+	}
+	// Show warning codes if present.
+	if len(src.Warnings) > 0 {
+		var codes []string
+		for _, w := range src.Warnings {
+			codes = append(codes, fmt.Sprintf("warn:%d", w.GetValue()))
+		}
+		return strings.Join(codes, ",")
+	}
+	return "ok"
+}
+
+func formatSourceType(src *pb.Source) string {
+	if src.Metadata == nil {
+		return "-"
+	}
+	switch src.Metadata.GetSourceType() {
+	case 0, 1:
+		return "-"
+	case 2:
+		return "gdoc"
+	case 3:
+		return "gslides"
+	case 4:
+		return "text"
+	case 5:
+		return "web"
+	case 6:
+		return "file"
+	case 7:
+		return "gsheets"
+	case 8:
+		return "note"
+	case 9:
+		return "youtube"
+	default:
+		return fmt.Sprintf("type:%d", int(src.Metadata.GetSourceType()))
+	}
+}
+
+func formatSourceTime(src *pb.Source) string {
+	if src.Metadata != nil && src.Metadata.LastModifiedTime != nil {
+		return src.Metadata.LastModifiedTime.AsTime().Format(time.RFC3339)
+	}
+	if src.Metadata != nil && src.Metadata.LastUpdateTimeSeconds != nil {
+		return time.Unix(int64(src.Metadata.LastUpdateTimeSeconds.GetValue()), 0).Format(time.RFC3339)
+	}
+	return "-"
 }
 
 func addSource(c *api.Client, notebookID, input string) (string, error) {
@@ -713,7 +772,12 @@ func listNotes(c *api.Client, notebookID string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	fmt.Fprintln(w, "ID\tTITLE\tCONTENT PREVIEW")
 	for _, note := range notes {
-		content := note.GetContentText()
+		content := note.GetRichText()
+		if content == "" {
+			content = note.GetContentText()
+		}
+		// Strip HTML/markdown for preview, collapse whitespace.
+		content = strings.Join(strings.Fields(content), " ")
 		if len(content) > 80 {
 			content = content[:77] + "..."
 		}
@@ -729,7 +793,11 @@ func readNote(c *api.Client, notebookID, noteID string) error {
 	}
 	for _, note := range notes {
 		if note.GetNoteId() == noteID {
-			fmt.Printf("# %s\n\n%s\n", note.GetTitle(), note.GetContentText())
+			content := note.GetRichText()
+			if content == "" {
+				content = note.GetContentText()
+			}
+			fmt.Printf("# %s\n\n%s\n", note.GetTitle(), content)
 			return nil
 		}
 	}
