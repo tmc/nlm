@@ -1143,14 +1143,14 @@ func discoverSources(c *api.Client, projectID, query string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Deep research is unavailable; falling back to notebook suggestions.\n")
-	answer, _, err := streamChatResponse(c, api.ChatRequest{
+	res, err := streamChatResponse(c, api.ChatRequest{
 		ProjectID: projectID,
 		Prompt:    fmt.Sprintf("Suggest sources to add for this query: %s. Respond with a short bullet list of specific documents, sites, or search directions.", query),
 	})
 	if err != nil {
 		return fmt.Errorf("discover sources fallback: %w", err)
 	}
-	if answer == "" {
+	if res.Answer == "" {
 		fmt.Println("(No source suggestions returned)")
 		return nil
 	}
@@ -1434,17 +1434,29 @@ func (r *chatStreamRenderer) clearThinkingLine() {
 // Default: thinking headers shown on a single overwriting line in grey.
 // With --verbose: full thinking text streams in grey before the answer.
 // Final answer text streams normally. Returns the full answer and thinking trace.
-func streamChatResponse(c *api.Client, req api.ChatRequest) (answer, thinking string, err error) {
+type chatResult struct {
+	Answer    string
+	Thinking  string
+	Citations []string
+	FollowUps []string
+}
+
+func streamChatResponse(c *api.Client, req api.ChatRequest) (chatResult, error) {
 	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, showThinking || verbose || isTerminal(os.Stdout), verbose)
 
-	err = c.StreamChat(req, func(chunk api.ChatChunk) bool {
+	err := c.StreamChat(req, func(chunk api.ChatChunk) bool {
 		renderer.WriteChunk(chunk)
 		return true
 	})
 
 	renderer.Finish()
 
-	return renderer.Answer(), renderer.Thinking(), err
+	return chatResult{
+		Answer:    renderer.Answer(),
+		Thinking:  renderer.Thinking(),
+		Citations: renderer.CitationStrings(),
+		FollowUps: renderer.followUps,
+	}, err
 }
 
 func isTerminal(f *os.File) bool {
@@ -1469,7 +1481,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	chatReq.History = history
 	chatReq.SeqNum = seqNum
 
-	answer, _, err := streamChatResponse(c, chatReq)
+	res, err := streamChatResponse(c, chatReq)
 	if err != nil {
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
 		response, chatErr := c.ChatWithHistory(chatReq)
@@ -1477,9 +1489,9 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 			return fmt.Errorf("generate chat: %w", err)
 		}
 		fmt.Print(response)
-		answer = response
+		res.Answer = response
 	}
-	if answer != "" {
+	if res.Answer != "" {
 		fmt.Println()
 	} else {
 		fmt.Println("(No response received)")
@@ -1496,9 +1508,10 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		if answer != "" {
+		if res.Answer != "" {
 			session.Messages = append(session.Messages, ChatMessage{
-				Role: "assistant", Content: strings.TrimSpace(answer), Timestamp: time.Now(),
+				Role: "assistant", Content: strings.TrimSpace(res.Answer), Timestamp: time.Now(),
+				Citations: res.Citations,
 			})
 		}
 		// Best-effort save; don't fail the command.
@@ -1639,12 +1652,12 @@ func generateReport(c *api.Client, notebookID string) error {
 			Prompt:    prompt,
 			SourceIDs: s.GetSourceIds(),
 		}
-		answer, _, err := streamChatResponse(c, chatReq)
+		res, err := streamChatResponse(c, chatReq)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: section %q failed: %v\n", title, err)
 			continue
 		}
-		if answer != "" {
+		if res.Answer != "" {
 			fmt.Println()
 		}
 		fmt.Println() // blank line between sections
@@ -1797,23 +1810,24 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 		SeqNum:         len(session.Messages)/2 + 1,
 	}
 
-	answer, thinking, err := streamChatResponse(c, chatReq)
+	res, err := streamChatResponse(c, chatReq)
 	if err != nil {
 		response, chatErr := c.ChatWithHistory(chatReq)
 		if chatErr != nil {
 			return fmt.Errorf("chat: %w", err)
 		}
 		fmt.Print(response)
-		answer = response
+		res.Answer = response
 	}
 	fmt.Println()
 
-	// Save response with thinking trace
-	response := strings.TrimSpace(answer)
+	// Save response with thinking trace and citations.
+	response := strings.TrimSpace(res.Answer)
 	if response != "" {
 		session.Messages = append(session.Messages, ChatMessage{
 			Role: "assistant", Content: response, Timestamp: time.Now(),
-			Thinking: thinking,
+			Thinking:  res.Thinking,
+			Citations: res.Citations,
 		})
 	}
 	session.UpdatedAt = time.Now()
@@ -2649,7 +2663,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 		session.SeqNum++
 
 		fmt.Println()
-		answer, thinking, err := streamChatResponse(c, chatReq)
+		res, err := streamChatResponse(c, chatReq)
 
 		if err != nil {
 			response, chatErr := c.ChatWithHistory(chatReq)
@@ -2669,12 +2683,13 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 				})
 			}
 		} else {
-			response := strings.TrimSpace(answer)
+			response := strings.TrimSpace(res.Answer)
 			if response != "" {
 				session.Messages = append(session.Messages, ChatMessage{
 					Role: "assistant", Content: response, Timestamp: time.Now(),
-					Thinking: thinking,
-					SeqNum:   session.SeqNum,
+					Thinking:  res.Thinking,
+					Citations: res.Citations,
+					SeqNum:    session.SeqNum,
 				})
 			}
 		}
