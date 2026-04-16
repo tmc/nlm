@@ -2,9 +2,9 @@
 # Focus on argument validation and authentication checks
 
 # === LIST COMMAND ===
-# Test list with extra arguments (should still work)
+# Test list with extra arguments (should fail with usage)
 ! exec ./nlm_test list extra
-stderr 'Authentication required'
+stderr 'invalid arguments'
 ! stderr 'panic'
 
 # Test list without authentication
@@ -56,9 +56,9 @@ stderr 'Authentication required'
 ! stderr 'panic'
 
 # === LIST-FEATURED COMMAND ===
-# Test list-featured with extra arguments (should still work)
+# Test list-featured with extra arguments (should fail with usage)
 ! exec ./nlm_test list-featured extra
-stderr 'Authentication required'
+stderr 'invalid arguments'
 ! stderr 'panic'
 
 # Test list-featured without authentication

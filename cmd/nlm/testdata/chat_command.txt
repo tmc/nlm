@@ -66,5 +66,5 @@ stderr 'Usage: nlm <command>'
 # === HELP TEXT VALIDATION ===
 # Test that chat command appears in help text
 exec ./nlm_test help
-stderr 'chat <id> \[conv\|prompt\]  Interactive chat \(or one-shot with prompt\)'
+stderr 'chat.*Interactive chat'
 ! stderr 'panic'

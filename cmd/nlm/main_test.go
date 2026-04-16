@@ -232,31 +232,31 @@ func TestCommandValidation(t *testing.T) {
 			name:     "create without title",
 			args:     []string{"create"},
 			wantExit: true,
-			contains: "usage: nlm create <title>",
+			contains: "usage: nlm create",
 		},
 		{
 			name:     "rm without id",
 			args:     []string{"rm"},
 			wantExit: true,
-			contains: "usage: nlm rm <id>",
+			contains: "usage: nlm rm",
 		},
 		{
 			name:     "sources without notebook id",
 			args:     []string{"sources"},
 			wantExit: true,
-			contains: "usage: nlm sources <notebook-id>",
+			contains: "usage: nlm sources",
 		},
 		{
 			name:     "add without args",
 			args:     []string{"add"},
 			wantExit: true,
-			contains: "usage: nlm add <notebook-id> <file>",
+			contains: "usage: nlm add",
 		},
 		{
 			name:     "add with one arg",
 			args:     []string{"add", "notebook123"},
 			wantExit: true,
-			contains: "usage: nlm add <notebook-id> <file>",
+			contains: "usage: nlm add",
 		},
 	}
 

@@ -18,7 +18,7 @@ stderr 'Authentication required'
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test hb with extra arguments (should still work)
+# Test hb with extra arguments (should fail with usage)
 ! exec ./nlm_test hb extra
-stderr 'Authentication required'
+stderr 'invalid arguments'
 ! stderr 'panic'

@@ -26,6 +26,7 @@ import (
 	"github.com/tmc/nlm/internal/nlmmcp"
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	nlmsync "github.com/tmc/nlm/internal/sync"
 	"golang.org/x/term"
 )
 
@@ -47,6 +48,11 @@ var (
 	showChatHistory   bool   // Show previous chat conversation on start
 	showThinking      bool   // Show thinking headers while streaming responses
 	verbose           bool   // Show full thinking traces while streaming responses
+	replaceSourceID   string // Source ID to replace when adding
+	force             bool   // Force re-upload even if unchanged
+	dryRun            bool   // Show what would change without uploading
+	maxBytes          int    // Chunk threshold for sync-source
+	jsonOutput        bool   // NDJSON output for sync-source
 )
 
 // ChatSession represents a persistent chat conversation
@@ -88,113 +94,18 @@ func init() {
 	flag.StringVar(&mimeType, "mime-type", "", "specify MIME type for content (alias for -mime)")
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
+	flag.StringVar(&replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
+	flag.BoolVar(&jsonOutput, "json", false, "output in JSON format")
+	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync-source)")
+	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync-source)")
+	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync-source, default 5120000)")
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
 	flag.BoolVar(&showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
-		fmt.Fprintf(os.Stderr, "Notebook Commands:\n")
-		fmt.Fprintf(os.Stderr, "  list, ls          List all notebooks\n")
-		fmt.Fprintf(os.Stderr, "  create <title>    Create a new notebook\n")
-		fmt.Fprintf(os.Stderr, "  rm <id>           Delete a notebook\n")
-		fmt.Fprintf(os.Stderr, "  analytics <id>    Show notebook analytics\n")
-		fmt.Fprintf(os.Stderr, "  list-featured     List featured notebooks\n\n")
-
-		fmt.Fprintf(os.Stderr, "Source Commands:\n")
-		fmt.Fprintf(os.Stderr, "  sources <id>      List sources in notebook\n")
-		fmt.Fprintf(os.Stderr, "  add <id> <input>  Add source to notebook\n")
-		fmt.Fprintf(os.Stderr, "  rm-source <id> <source-id>  Remove source\n")
-		fmt.Fprintf(os.Stderr, "  rename-source <source-id> <new-name>  Rename source\n")
-		fmt.Fprintf(os.Stderr, "  refresh-source <notebook-id> <source-id>  Refresh source content\n")
-		fmt.Fprintf(os.Stderr, "  check-source <source-id>  Check source freshness\n")
-		fmt.Fprintf(os.Stderr, "  discover-sources <id> <query>  Discover relevant sources\n\n")
-
-		fmt.Fprintf(os.Stderr, "Note Commands:\n")
-		fmt.Fprintf(os.Stderr, "  notes <id>        List notes in notebook\n")
-		fmt.Fprintf(os.Stderr, "  read-note <id> <note-id>  Read full note content\n")
-		fmt.Fprintf(os.Stderr, "  new-note <id> <title> [content]  Create new note (content via arg or stdin)\n")
-		fmt.Fprintf(os.Stderr, "  update-note <id> <note-id> <content> <title>  Edit note\n")
-		fmt.Fprintf(os.Stderr, "  rm-note <note-id>  Remove note\n\n")
-
-		fmt.Fprintf(os.Stderr, "Create Commands:\n")
-		fmt.Fprintf(os.Stderr, "  create-audio <id> <instructions>   Create audio overview\n")
-		fmt.Fprintf(os.Stderr, "  create-video <id> <instructions>   Create video overview\n")
-		fmt.Fprintf(os.Stderr, "  create-slides <id> <instructions>  Create slide deck\n\n")
-
-		fmt.Fprintf(os.Stderr, "Audio Commands:\n")
-		fmt.Fprintf(os.Stderr, "  audio-list <id>   List audio overviews for a notebook\n")
-		fmt.Fprintf(os.Stderr, "  audio-get <id>    Get audio overview details\n")
-		fmt.Fprintf(os.Stderr, "  audio-download <id> [filename]  Download audio file (experimental, requires --direct-rpc)\n")
-		fmt.Fprintf(os.Stderr, "  audio-rm <id>     Delete audio overview\n")
-		fmt.Fprintf(os.Stderr, "  audio-share <id>  Share audio overview\n")
-		if os.Getenv("NLM_EXPERIMENTAL") != "" {
-			fmt.Fprintf(os.Stderr, "  audio-interactive <id> [flags]  Start interactive audio session (experimental)\n")
-		}
-		fmt.Fprintf(os.Stderr, "\n")
-
-		fmt.Fprintf(os.Stderr, "Video Commands:\n")
-		fmt.Fprintf(os.Stderr, "  video-list <id>   List video overviews for a notebook\n")
-		fmt.Fprintf(os.Stderr, "  video-download <id> [filename]  Download video file (experimental, requires --direct-rpc)\n\n")
-
-		fmt.Fprintf(os.Stderr, "Artifact Commands:\n")
-		fmt.Fprintf(os.Stderr, "  artifacts <id>       List artifacts in notebook\n")
-		fmt.Fprintf(os.Stderr, "  get-artifact <artifact-id>  Get artifact details\n")
-		fmt.Fprintf(os.Stderr, "  rename-artifact <artifact-id> <new-title>  Rename artifact\n")
-		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
-
-		fmt.Fprintf(os.Stderr, "Guidebook Commands:\n")
-		fmt.Fprintf(os.Stderr, "  guidebooks          List all guidebooks\n")
-		fmt.Fprintf(os.Stderr, "  guidebook <id>      Get guidebook details\n")
-		fmt.Fprintf(os.Stderr, "  guidebook-publish <id>  Publish a guidebook\n")
-		fmt.Fprintf(os.Stderr, "  guidebook-share <id>    Share a guidebook\n")
-		fmt.Fprintf(os.Stderr, "  guidebook-ask <id> <question>  Ask a guidebook question\n")
-		fmt.Fprintf(os.Stderr, "  guidebook-rm <id>   Delete a guidebook\n\n")
-
-		fmt.Fprintf(os.Stderr, "Generation Commands:\n")
-		fmt.Fprintf(os.Stderr, "  generate-guide <id>  Generate notebook guide\n")
-		fmt.Fprintf(os.Stderr, "  generate-chat <id> <prompt>  Free-form chat generation\n")
-		fmt.Fprintf(os.Stderr, "  generate-magic <id> <source-ids...>  Generate magic view from sources\n")
-		fmt.Fprintf(os.Stderr, "  chat <id> [conv|prompt]  Interactive chat (or one-shot with prompt)\n")
-		fmt.Fprintf(os.Stderr, "  chat-list [id]          List chat sessions (server-side if notebook given)\n")
-		fmt.Fprintf(os.Stderr, "  delete-chat <id>        Delete server-side chat history\n")
-		fmt.Fprintf(os.Stderr, "  chat-config <id> <setting> [value]  Configure chat settings\n")
-		fmt.Fprintf(os.Stderr, "  set-instructions <id> \"prompt\"      Set system instructions\n")
-		fmt.Fprintf(os.Stderr, "  get-instructions <id>               Show current system instructions\n\n")
-
-		fmt.Fprintf(os.Stderr, "Content Transformation Commands:\n")
-		fmt.Fprintf(os.Stderr, "  rephrase <id> <source-ids...>     Rephrase content from sources\n")
-		fmt.Fprintf(os.Stderr, "  expand <id> <source-ids...>       Expand on content from sources\n")
-		fmt.Fprintf(os.Stderr, "  summarize <id> <source-ids...>    Summarize content from sources\n")
-		fmt.Fprintf(os.Stderr, "  critique <id> <source-ids...>     Provide critique of content\n")
-		fmt.Fprintf(os.Stderr, "  brainstorm <id> <source-ids...>   Brainstorm ideas from sources\n")
-		fmt.Fprintf(os.Stderr, "  verify <id> <source-ids...>       Verify facts in sources\n")
-		fmt.Fprintf(os.Stderr, "  explain <id> <source-ids...>      Explain concepts from sources\n")
-		fmt.Fprintf(os.Stderr, "  outline <id> <source-ids...>      Create outline from sources\n")
-		fmt.Fprintf(os.Stderr, "  study-guide <id> <source-ids...>  Generate study guide\n")
-		fmt.Fprintf(os.Stderr, "  faq <id> <source-ids...>          Generate FAQ from sources\n")
-		fmt.Fprintf(os.Stderr, "  briefing-doc <id> <source-ids...> Create briefing document\n")
-		fmt.Fprintf(os.Stderr, "  mindmap <id> <source-ids...>      Generate interactive mindmap\n")
-		fmt.Fprintf(os.Stderr, "  timeline <id> <source-ids...>     Create timeline from sources\n")
-		fmt.Fprintf(os.Stderr, "  toc <id> <source-ids...>          Generate table of contents\n\n")
-
-		fmt.Fprintf(os.Stderr, "Sharing Commands:\n")
-		fmt.Fprintf(os.Stderr, "  share <id>        Share notebook publicly\n")
-		fmt.Fprintf(os.Stderr, "  share-private <id>  Share notebook privately\n")
-		fmt.Fprintf(os.Stderr, "  share-details <share-id>  Get details of shared project\n\n")
-
-		fmt.Fprintf(os.Stderr, "Research Commands:\n")
-		fmt.Fprintf(os.Stderr, "  research <id> \"query\"   Start deep research and poll for results\n\n")
-
-		fmt.Fprintf(os.Stderr, "Other Commands:\n")
-		fmt.Fprintf(os.Stderr, "  mcp               Start MCP server (stdin/stdout)\n")
-		fmt.Fprintf(os.Stderr, "  auth [profile]    Setup authentication\n")
-		fmt.Fprintf(os.Stderr, "  refresh           Refresh authentication credentials\n")
-		fmt.Fprintf(os.Stderr, "  feedback <msg>    Submit feedback\n")
-		fmt.Fprintf(os.Stderr, "  hb                Send heartbeat\n\n")
-	}
+	flag.Usage = printUsage
 }
 
 // reorderArgs moves known top-level flags that appear after the command name
@@ -300,319 +211,6 @@ func main() {
 
 // isAuthCommand returns true if the command requires authentication
 // validateArgs validates command arguments without requiring authentication
-func validateArgs(cmd string, args []string) error {
-	switch cmd {
-	case "create":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create <title>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "rm":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm rm <id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "sources":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm sources <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "add":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm add <notebook-id> <file>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "rm-source":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm rm-source <notebook-id> <source-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "rename-source":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm rename-source <source-id> <new-name>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "read-note":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm read-note <notebook-id> <note-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "new-note":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm new-note <notebook-id> <title> [content]\n")
-			fmt.Fprintf(os.Stderr, "  content can also be piped via stdin\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "update-note":
-		if len(args) != 4 {
-			fmt.Fprintf(os.Stderr, "usage: nlm update-note <notebook-id> <note-id> <content> <title>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "rm-note":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm rm-note <notebook-id> <note-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "audio-list":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm audio-list <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "audio-interactive":
-		if err := validateInteractiveAudioArgs(args); err != nil {
-			return err
-		}
-	case "audio-download":
-		if len(args) < 1 || len(args) > 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm audio-download <notebook-id> [filename]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "video-list":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm video-list <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "video-download":
-		if len(args) < 1 || len(args) > 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm video-download <notebook-id> [filename]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "create-audio":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create-audio <notebook-id> <instructions>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "audio-get":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm audio-get <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "audio-rm":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm audio-rm <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "audio-share":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm audio-share <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "create-video":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create-video <notebook-id> <instructions>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "share":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm share <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "share-private":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm share-private <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "share-details":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm share-details <share-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "refresh":
-		// refresh command optionally takes -debug flag
-		// Don't validate here, let the command handle its own flags
-	case "generate-guide":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm generate-guide <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "generate-magic":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm generate-magic <notebook-id> <source-id> [source-id...]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "generate-mindmap":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm generate-mindmap <notebook-id> <source-id> [source-id...]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <source-id> [source-id...]\n", cmd)
-			return fmt.Errorf("invalid arguments")
-		}
-	case "generate-chat":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm generate-chat <notebook-id> <prompt>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "set-instructions":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm set-instructions <notebook-id> \"prompt text\"\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "get-instructions":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm get-instructions <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "research":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm research <notebook-id> \"query\"\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "chat":
-		if len(args) < 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm chat <notebook-id> [conversation-id | prompt]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "chat-list":
-		if len(args) > 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm chat-list [notebook-id]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "delete-chat":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm delete-chat <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "chat-config":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm chat-config <notebook-id> <setting> [value]\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "get-artifact":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm get-artifact <artifact-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "list-artifacts", "artifacts":
-		if len(args) != 1 {
-			if cmd == "artifacts" {
-				fmt.Fprintf(os.Stderr, "usage: nlm artifacts <notebook-id>\n")
-			} else {
-				fmt.Fprintf(os.Stderr, "usage: nlm list-artifacts <notebook-id>\n")
-			}
-			return fmt.Errorf("invalid arguments")
-		}
-	case "rename-artifact":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm rename-artifact <artifact-id> <new-title>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "delete-artifact":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm delete-artifact <artifact-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "create-slides":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm create-slides <notebook-id> <instructions>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "guidebook":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm guidebook <guidebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "guidebook-publish":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-publish <guidebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "guidebook-share":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-share <guidebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "guidebook-ask":
-		if len(args) < 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-ask <guidebook-id> <question>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "guidebook-rm":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm guidebook-rm <guidebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "discover-sources":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm discover-sources <notebook-id> <query>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "analytics":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm analytics <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "check-source":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm check-source <source-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "refresh-source":
-		if len(args) != 2 {
-			fmt.Fprintf(os.Stderr, "usage: nlm refresh-source <notebook-id> <source-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "notes":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm notes <notebook-id>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	case "feedback":
-		if len(args) != 1 {
-			fmt.Fprintf(os.Stderr, "usage: nlm feedback <message>\n")
-			return fmt.Errorf("invalid arguments")
-		}
-	}
-	return nil
-}
-
-// isValidCommand checks if a command is valid
-func isValidCommand(cmd string) bool {
-	validCommands := []string{
-		"help", "-h", "--help",
-		"list", "ls", "create", "rm", "analytics", "list-featured",
-		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
-		"notes", "read-note", "new-note", "update-note", "rm-note",
-		"create-audio", "create-video", "create-slides",
-		"audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive",
-		"video-list", "video-download",
-		"get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
-		"guidebooks", "guidebook", "guidebook-publish", "guidebook-share", "guidebook-ask", "guidebook-rm",
-		"generate-guide", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
-		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
-		"research",
-		"auth", "refresh", "hb", "share", "share-private", "share-details", "feedback", "mcp",
-	}
-
-	for _, valid := range validCommands {
-		if cmd == valid {
-			return true
-		}
-	}
-	return false
-}
-
-func isAuthCommand(cmd string) bool {
-	// Only help-related commands don't need auth
-	if cmd == "help" || cmd == "-h" || cmd == "--help" {
-		return false
-	}
-	// Auth command doesn't need prior auth
-	if cmd == "auth" {
-		return false
-	}
-	// Refresh command manages its own auth
-	if cmd == "refresh" {
-		return false
-	}
-	// Chat-list just lists local sessions, no auth needed
-	if cmd == "chat-list" {
-		return false
-	}
-	return true
-}
 
 func run() error {
 	if authToken == "" {
@@ -644,44 +242,39 @@ func run() error {
 		os.Exit(1)
 	}
 
-	cmd := flag.Arg(0)
+	cmdName := flag.Arg(0)
 	args := flag.Args()[1:]
 
-	// Check if command is valid first
-	if !isValidCommand(cmd) {
+	// Handle help aliases.
+	if helpAliases[cmdName] {
+		flag.Usage()
+		os.Exit(0)
+	}
+
+	// Look up command in the table.
+	entry, ok := lookupCommand(cmdName)
+	if !ok {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	// Validate arguments first (before authentication check)
-	if err := validateArgs(cmd, args); err != nil {
+	// Validate arguments.
+	if err := validateCommandArgs(entry, cmdName, args); err != nil {
 		if errors.Is(err, errInteractiveAudioHelp) {
 			return nil
 		}
 		return err
 	}
 
-	// Check if this command needs authentication
-	if isAuthCommand(cmd) && (authToken == "" || cookies == "") {
-		fmt.Fprintf(os.Stderr, "Authentication required for '%s'. Run 'nlm auth' first.\n", cmd)
+	// Commands that don't need an API client run directly.
+	if entry.noClient {
+		return entry.run(nil, args)
+	}
+
+	// Check authentication.
+	if !entry.noAuth && (authToken == "" || cookies == "") {
+		fmt.Fprintf(os.Stderr, "Authentication required for '%s'. Run 'nlm auth' first.\n", cmdName)
 		return fmt.Errorf("authentication required")
-	}
-
-	// Handle help commands without creating API client
-	if cmd == "help" || cmd == "-h" || cmd == "--help" {
-		flag.Usage()
-		os.Exit(0)
-	}
-
-	// Handle auth command
-	if cmd == "auth" {
-		_, _, err := handleAuth(args, debug)
-		return err
-	}
-
-	// Handle refresh command
-	if cmd == "refresh" {
-		return refreshCredentials(debug)
 	}
 
 	var opts []batchexecute.Option
@@ -737,7 +330,7 @@ func run() error {
 				fmt.Fprintf(os.Stderr, "nlm: using direct RPC for audio/video operations\n")
 			}
 		}
-		cmdErr := runCmd(client, cmd, args...)
+		cmdErr := entry.run(client, args)
 		if cmdErr == nil {
 			if i > 0 {
 				fmt.Fprintln(os.Stderr, "nlm: authentication refreshed successfully")
@@ -804,271 +397,6 @@ func isAuthenticationError(err error) bool {
 	}
 
 	return false
-}
-func runCmd(client *api.Client, cmd string, args ...string) error {
-	var err error
-	switch cmd {
-	// Notebook operations
-	case "list", "ls":
-		err = list(client)
-	case "create":
-		err = create(client, args[0])
-	case "rm":
-		err = remove(client, args[0])
-	case "analytics":
-		err = getAnalytics(client, args[0])
-	case "list-featured":
-		err = listFeaturedProjects(client)
-
-	// Source operations
-	case "sources":
-		err = listSources(client, args[0])
-	case "add":
-		var id string
-		id, err = addSource(client, args[0], args[1])
-		fmt.Println(id)
-	case "rm-source":
-		err = removeSource(client, args[0], args[1])
-	case "rename-source":
-		err = renameSource(client, args[0], args[1])
-	case "refresh-source":
-		err = refreshSource(client, args[0], args[1])
-	case "check-source":
-		err = checkSourceFreshness(client, args[0])
-	case "discover-sources":
-		err = discoverSources(client, args[0], args[1])
-
-	// Note operations
-	case "notes":
-		err = listNotes(client, args[0])
-	case "read-note":
-		err = readNote(client, args[0], args[1])
-	case "new-note":
-		noteContent := ""
-		if len(args) > 2 {
-			noteContent = args[2]
-		} else if fi, stErr := os.Stdin.Stat(); stErr == nil && fi.Mode()&os.ModeCharDevice == 0 {
-			data, readErr := io.ReadAll(os.Stdin)
-			if readErr != nil {
-				return readErr
-			}
-			noteContent = string(data)
-		}
-		err = createNote(client, args[0], args[1], noteContent)
-	case "update-note":
-		err = updateNote(client, args[0], args[1], args[2], args[3])
-	case "rm-note":
-		err = removeNote(client, args[0], args[1])
-
-		// Audio operations
-	case "create-audio":
-		err = createAudioOverview(client, args[0], args[1])
-	case "audio-get":
-		err = getAudioOverview(client, args[0])
-	case "audio-rm":
-		err = deleteAudioOverview(client, args[0])
-	case "audio-share":
-		err = shareAudioOverview(client, args[0])
-	case "audio-list":
-		err = listAudioOverviews(client, args[0])
-	case "audio-interactive":
-		if os.Getenv("NLM_EXPERIMENTAL") == "" {
-			return fmt.Errorf("audio-interactive is experimental; set NLM_EXPERIMENTAL=1 to enable")
-		}
-		var opts interactiveAudioOptions
-		var notebookID string
-		opts, notebookID, err = parseInteractiveAudioArgs(args)
-		if errors.Is(err, errInteractiveAudioHelp) {
-			return nil
-		}
-		if err == nil {
-			err = runInteractiveAudioCommand(client, notebookID, opts)
-		}
-	case "audio-download":
-		filename := ""
-		if len(args) > 1 {
-			filename = args[1]
-		}
-		err = downloadAudioOverview(client, args[0], filename)
-	case "create-video":
-		err = createVideoOverview(client, args[0], args[1])
-	case "video-list":
-		err = listVideoOverviews(client, args[0])
-	case "video-download":
-		filename := ""
-		if len(args) > 1 {
-			filename = args[1]
-		}
-		err = downloadVideoOverview(client, args[0], filename)
-
-	// Artifact operations
-	case "get-artifact":
-		err = getArtifact(client, args[0])
-	case "list-artifacts", "artifacts":
-		err = listArtifacts(client, args[0])
-	case "rename-artifact":
-		err = renameArtifact(client, args[0], args[1])
-	case "delete-artifact":
-		err = deleteArtifact(client, args[0])
-
-		// Slide deck operations
-	case "create-slides":
-		instructions := strings.Join(args[1:], " ")
-		artifactID, sErr := client.CreateSlideDeck(args[0], instructions)
-		if sErr != nil {
-			err = sErr
-			break
-		}
-		fmt.Printf("Created slide deck: %s\n", artifactID)
-		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
-
-		// Guidebook operations
-	case "guidebooks":
-		guidebooks, gErr := client.ListGuidebooks()
-		if gErr != nil {
-			err = gErr
-			break
-		}
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-		fmt.Fprintln(w, "ID\tTITLE\tSTATUS")
-		for _, gb := range guidebooks {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", gb.GetGuidebookId(), gb.GetTitle(), gb.GetStatus().String())
-		}
-		err = w.Flush()
-	case "guidebook":
-		gb, gErr := client.GetGuidebook(args[0])
-		if gErr != nil {
-			err = gErr
-			break
-		}
-		fmt.Printf("Guidebook: %s\n", gb.GetTitle())
-		fmt.Printf("ID: %s\n", gb.GetGuidebookId())
-		fmt.Printf("Status: %s\n", gb.GetStatus().String())
-		if content := gb.GetContent(); content != "" {
-			fmt.Printf("\n%s\n", content)
-		}
-	case "guidebook-publish":
-		resp, gErr := client.PublishGuidebook(args[0])
-		if gErr != nil {
-			err = gErr
-			break
-		}
-		_ = resp
-		fmt.Fprintf(os.Stderr, "Guidebook published.\n")
-	case "guidebook-share":
-		resp, gErr := client.ShareGuidebook(args[0])
-		if gErr != nil {
-			err = gErr
-			break
-		}
-		_ = resp
-		fmt.Fprintf(os.Stderr, "Guidebook shared.\n")
-	case "guidebook-ask":
-		question := strings.Join(args[1:], " ")
-		resp, gErr := client.GuidebookAsk(args[0], question)
-		if gErr != nil {
-			err = gErr
-			break
-		}
-		fmt.Println(resp.GetAnswer())
-	case "guidebook-rm":
-		err = client.DeleteGuidebook(args[0])
-		if err == nil {
-			fmt.Fprintf(os.Stderr, "Guidebook deleted.\n")
-		}
-
-		// Generation operations
-	case "generate-guide":
-		err = generateNotebookGuide(client, args[0])
-	case "generate-magic":
-		err = generateMagicView(client, args[0], args[1:])
-	case "generate-mindmap":
-		err = generateMindmap(client, args[0], args[1:])
-	case "rephrase":
-		err = actOnSources(client, args[0], "rephrase", args[1:])
-	case "expand":
-		err = actOnSources(client, args[0], "expand", args[1:])
-	case "summarize":
-		err = actOnSources(client, args[0], "summarize", args[1:])
-	case "critique":
-		err = actOnSources(client, args[0], "critique", args[1:])
-	case "brainstorm":
-		err = actOnSources(client, args[0], "brainstorm", args[1:])
-	case "verify":
-		err = actOnSources(client, args[0], "verify", args[1:])
-	case "explain":
-		err = actOnSources(client, args[0], "explain", args[1:])
-	case "outline":
-		err = actOnSources(client, args[0], "outline", args[1:])
-	case "study-guide":
-		err = actOnSources(client, args[0], "study_guide", args[1:])
-	case "faq":
-		err = actOnSources(client, args[0], "faq", args[1:])
-	case "briefing-doc":
-		err = actOnSources(client, args[0], "briefing_doc", args[1:])
-	case "mindmap":
-		err = actOnSources(client, args[0], "interactive_mindmap", args[1:])
-	case "timeline":
-		err = actOnSources(client, args[0], "timeline", args[1:])
-	case "toc":
-		err = actOnSources(client, args[0], "table_of_contents", args[1:])
-	case "generate-chat":
-		err = generateFreeFormChat(client, args[0], strings.Join(args[1:], " "))
-	case "chat":
-		if len(args) >= 2 {
-			rest := strings.Join(args[1:], " ")
-			// If it looks like a conversation ID (UUID-ish), resume that conversation
-			if isConversationID(rest) {
-				err = interactiveChatWithConv(client, args[0], rest)
-			} else {
-				// Treat as a one-shot prompt
-				err = oneShotChat(client, args[0], rest)
-			}
-		} else {
-			err = interactiveChat(client, args[0])
-		}
-	case "chat-list":
-		if len(args) == 1 {
-			err = listChatConversations(client, args[0])
-		} else {
-			err = listChatSessions()
-		}
-	case "delete-chat":
-		err = deleteChatHistory(client, args[0])
-	case "chat-config":
-		err = setChatConfig(client, args)
-	case "set-instructions":
-		prompt := strings.Join(args[1:], " ")
-		err = setInstructions(client, args[0], prompt)
-	case "get-instructions":
-		err = getInstructions(client, args[0])
-
-	// Research operations
-	case "research":
-		query := strings.Join(args[1:], " ")
-		err = deepResearch(client, args[0], query)
-
-	// Sharing operations
-	case "share":
-		err = shareNotebook(client, args[0])
-	case "share-private":
-		err = shareNotebookPrivate(client, args[0])
-	case "share-details":
-		err = getShareDetails(client, args[0])
-
-	// Other operations
-	case "mcp":
-		err = runMCP(client)
-	case "feedback":
-		err = submitFeedback(client, args[0])
-	case "hb":
-		err = heartbeat(client)
-	default:
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	return err
 }
 
 func runMCP(client *api.Client) error {
@@ -1259,6 +587,46 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 		textName = sourceName
 	}
 	return c.AddSourceFromText(notebookID, input, textName)
+}
+
+// syncClientAdapter wraps *api.Client to satisfy nlmsync.Client.
+type syncClientAdapter struct {
+	client *api.Client
+}
+
+func (a *syncClientAdapter) ListSources(ctx context.Context, notebookID string) ([]nlmsync.Source, error) {
+	p, err := a.client.GetProject(notebookID)
+	if err != nil {
+		return nil, err
+	}
+	var sources []nlmsync.Source
+	for _, src := range p.Sources {
+		sources = append(sources, nlmsync.Source{
+			ID:    src.SourceId.GetSourceId(),
+			Title: strings.TrimSpace(src.Title),
+		})
+	}
+	return sources, nil
+}
+
+func (a *syncClientAdapter) AddSource(ctx context.Context, notebookID string, title string, r io.Reader) (string, error) {
+	// Always use text path — sync-source content is txtar, never binary.
+	// AddSourceFromReader would MIME-detect and route large content to
+	// the binary resumable upload, which the server rejects for text.
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return "", fmt.Errorf("read source: %w", err)
+	}
+	return a.client.AddSourceFromText(notebookID, string(data), title)
+}
+
+func (a *syncClientAdapter) DeleteSources(ctx context.Context, notebookID string, ids []string) error {
+	return a.client.DeleteSources(notebookID, ids)
+}
+
+func (a *syncClientAdapter) RenameSource(ctx context.Context, sourceID string, title string) error {
+	_, err := a.client.MutateSource(sourceID, &pb.Source{Title: title})
+	return err
 }
 
 func removeSource(c *api.Client, notebookID, sourceID string) error {
