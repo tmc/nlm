@@ -1596,9 +1596,11 @@ func truncateExcerpt(s string, max int) string {
 	return string(runes[:max]) + "…"
 }
 
-// insertSuperscripts splices superscript markers at each citation's EndChar.
-// Ranges overlapping the same EndChar are merged so multi-cite positions
-// emit a single combined marker (¹²).
+// insertSuperscripts splices citation markers at each citation's EndChar.
+// A single citation at a position renders as a Unicode superscript (¹, ²).
+// Multiple citations sharing the same position render as a bracketed cluster
+// ([1,2]) to avoid digit ambiguity — e.g. "³⁴" reads as "3⁴" rather than
+// "cite 3, cite 4". Positions are snapped to the next word boundary.
 func insertSuperscripts(answer string, citations []api.Citation) string {
 	type insert struct {
 		at  int
@@ -1633,13 +1635,25 @@ func insertSuperscripts(answer string, citations []api.Citation) string {
 			continue
 		}
 		b.WriteString(answer[last:pos])
-		for _, idx := range byPos[pos].idx {
-			b.WriteString(superscript(idx))
-		}
+		b.WriteString(formatCitationCluster(byPos[pos].idx))
 		last = pos
 	}
 	b.WriteString(answer[last:])
 	return b.String()
+}
+
+// formatCitationCluster renders a set of citation indices that share a splice
+// position. A single index becomes a Unicode superscript; two or more become
+// a bracketed, comma-joined cluster.
+func formatCitationCluster(idx []int) string {
+	if len(idx) == 1 {
+		return superscript(idx[0])
+	}
+	parts := make([]string, len(idx))
+	for i, n := range idx {
+		parts[i] = fmt.Sprintf("%d", n)
+	}
+	return "[" + strings.Join(parts, ",") + "]"
 }
 
 // superscript formats a 1-based citation index using Unicode superscript digits.

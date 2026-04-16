@@ -367,6 +367,32 @@ func TestSnapToWordBoundary(t *testing.T) {
 	}
 }
 
+func TestInsertSuperscriptsClustersToBrackets(t *testing.T) {
+	// Two citations sharing the same splice position must render as a
+	// bracketed cluster to avoid digit ambiguity ("³⁴" reading as "3⁴").
+	answer := "Hello world."
+	citations := []api.Citation{
+		{SourceIndex: 3, SourceID: "a", EndChar: 5},
+		{SourceIndex: 4, SourceID: "b", EndChar: 5},
+	}
+	got := insertSuperscripts(answer, citations)
+	want := "Hello[3,4] world."
+	if got != want {
+		t.Errorf("cluster = %q, want %q", got, want)
+	}
+}
+
+func TestInsertSuperscriptsSingletonStaysSuperscript(t *testing.T) {
+	// A single citation stays a Unicode superscript.
+	answer := "Hello world."
+	citations := []api.Citation{{SourceIndex: 3, SourceID: "a", EndChar: 5}}
+	got := insertSuperscripts(answer, citations)
+	want := "Hello³ world."
+	if got != want {
+		t.Errorf("singleton = %q, want %q", got, want)
+	}
+}
+
 func TestInsertSuperscriptsSnapsToWordBoundary(t *testing.T) {
 	// EndChar 4 lands inside "answers"; splice must snap to the end of the word.
 	answer := "Final answers are cited."
