@@ -65,6 +65,8 @@ type ChatSession struct {
 	NotebookID     string        `json:"notebook_id"`
 	ConversationID string        `json:"conversation_id,omitempty"`
 	Messages       []ChatMessage `json:"messages"`
+	SeqNum         int           `json:"seq_num,omitempty"`          // Next sequence number for this session
+	LastResponseID string        `json:"last_response_id,omitempty"` // ID of last assistant response (for threading)
 	CreatedAt      time.Time     `json:"created_at"`
 	UpdatedAt      time.Time     `json:"updated_at"`
 }
@@ -76,6 +78,10 @@ type ChatMessage struct {
 	Role      string    `json:"role"` // "user" or "assistant"
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
+
+	// Conversation threading metadata.
+	MessageID string `json:"message_id,omitempty"` // Server-assigned response ID
+	SeqNum    int    `json:"seq_num,omitempty"`    // Sequence number within conversation
 
 	// Transient stream data — only available locally, not from server history.
 	Thinking  string   `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
@@ -1159,16 +1165,61 @@ func getArtifact(c *api.Client, artifactID string) error {
 		return fmt.Errorf("get artifact: %w", err)
 	}
 
-	fmt.Printf("Artifact Details:\n")
-	fmt.Printf("  ID: %s\n", artifact.ArtifactId)
-	fmt.Printf("  Project: %s\n", artifact.ProjectId)
-	fmt.Printf("  Type: %s\n", artifact.Type.String())
-	fmt.Printf("  State: %s\n", artifact.State.String())
+	fmt.Printf("Artifact: %s\n", artifact.ArtifactId)
+	fmt.Printf("Project:  %s\n", artifact.ProjectId)
+	fmt.Printf("Type:     %s\n", artifact.Type.String())
+	fmt.Printf("State:    %s\n", artifact.State.String())
 
 	if len(artifact.Sources) > 0 {
-		fmt.Printf("  Sources (%d):\n", len(artifact.Sources))
+		fmt.Printf("Sources:  %d\n", len(artifact.Sources))
 		for _, src := range artifact.Sources {
-			fmt.Printf("    - %s\n", src.SourceId.GetSourceId())
+			id := src.SourceId.GetSourceId()
+			if len(src.TextFragments) > 0 {
+				fmt.Printf("  %s (%d fragments)\n", id, len(src.TextFragments))
+			} else {
+				fmt.Printf("  %s\n", id)
+			}
+		}
+	}
+
+	// Type-specific content
+	if report := artifact.TailoredReport; report != nil {
+		if report.Title != "" {
+			fmt.Printf("\nReport: %s\n", report.Title)
+		}
+		if report.Content != "" {
+			fmt.Printf("\n%s\n", report.Content)
+		}
+		for i, section := range report.Sections {
+			fmt.Printf("\n## %d. %s\n\n%s\n", i+1, section.Title, section.Content)
+		}
+	}
+
+	if note := artifact.Note; note != nil {
+		fmt.Printf("\nNote: %s (source: %s)\n", note.GetTitle(), note.GetSourceId().GetSourceId())
+	}
+
+	if app := artifact.App; app != nil {
+		fmt.Printf("\nApp: %s\n", app.Name)
+		if app.Description != "" {
+			fmt.Printf("  %s\n", app.Description)
+		}
+		if app.AppId != "" {
+			fmt.Printf("  ID: %s\n", app.AppId)
+		}
+	}
+
+	if audio := artifact.AudioOverview; audio != nil {
+		fmt.Printf("\nAudio: status=%s\n", audio.Status)
+		if audio.Instructions != "" {
+			fmt.Printf("  Instructions: %s\n", audio.Instructions)
+		}
+	}
+
+	if video := artifact.VideoOverview; video != nil {
+		data, err := json.MarshalIndent(video, "", "  ")
+		if err == nil {
+			fmt.Printf("\nVideo:\n%s\n", string(data))
 		}
 	}
 
@@ -2576,14 +2627,20 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 		}
 		session.Messages = append(session.Messages, userMsg)
 
+		if session.SeqNum == 0 {
+			session.SeqNum = 1
+		}
+		userMsg.SeqNum = session.SeqNum
+
 		wireHistory := buildWireHistory(session)
 		chatReq := api.ChatRequest{
 			ProjectID:      notebookID,
 			Prompt:         input,
 			ConversationID: session.ConversationID,
 			History:        wireHistory,
-			SeqNum:         len(session.Messages)/2 + 1,
+			SeqNum:         session.SeqNum,
 		}
+		session.SeqNum++
 
 		fmt.Println()
 		answer, thinking, err := streamChatResponse(c, chatReq)
@@ -2596,11 +2653,13 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 				fmt.Printf("Assistant: %s\n", fallbackResponse)
 				session.Messages = append(session.Messages, ChatMessage{
 					Role: "assistant", Content: fallbackResponse, Timestamp: time.Now(),
+					SeqNum: session.SeqNum,
 				})
 			} else {
 				fmt.Print(response)
 				session.Messages = append(session.Messages, ChatMessage{
 					Role: "assistant", Content: response, Timestamp: time.Now(),
+					SeqNum: session.SeqNum,
 				})
 			}
 		} else {
@@ -2609,6 +2668,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 				session.Messages = append(session.Messages, ChatMessage{
 					Role: "assistant", Content: response, Timestamp: time.Now(),
 					Thinking: thinking,
+					SeqNum:   session.SeqNum,
 				})
 			}
 		}
