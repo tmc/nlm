@@ -238,8 +238,8 @@ func run() error {
 	}
 
 	if debug {
-		fmt.Printf("DEBUG: Auth token loaded: %v\n", authToken != "")
-		fmt.Printf("DEBUG: Cookies loaded: %v\n", cookies != "")
+		fmt.Fprintf(os.Stderr, "DEBUG: Auth token loaded: %v\n", authToken != "")
+		fmt.Fprintf(os.Stderr, "DEBUG: Cookies loaded: %v\n", cookies != "")
 		if authToken != "" {
 			// Mask token for security - show only first 2 and last 2 chars for tokens > 8 chars
 			var tokenDisplay string
@@ -250,7 +250,7 @@ func run() error {
 				end := authToken[len(authToken)-2:]
 				tokenDisplay = start + strings.Repeat("*", len(authToken)-4) + end
 			}
-			fmt.Printf("DEBUG: Token: %s\n", tokenDisplay)
+			fmt.Fprintf(os.Stderr, "DEBUG: Token: %s\n", tokenDisplay)
 		}
 	}
 
@@ -442,7 +442,7 @@ func confirmAction(prompt string) bool {
 	if yes {
 		return true
 	}
-	fmt.Printf("%s [y/N] ", prompt)
+	fmt.Fprintf(os.Stderr, "%s [y/N] ", prompt)
 	var response string
 	fmt.Scanln(&response)
 	return strings.HasPrefix(strings.ToLower(response), "y")
@@ -452,7 +452,7 @@ func confirmActionDefaultYes(prompt string) bool {
 	if yes {
 		return true
 	}
-	fmt.Printf("%s [Y/n] ", prompt)
+	fmt.Fprintf(os.Stderr, "%s [Y/n] ", prompt)
 	var response string
 	fmt.Scanln(&response)
 	response = strings.TrimSpace(strings.ToLower(response))
