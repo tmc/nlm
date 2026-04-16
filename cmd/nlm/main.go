@@ -53,6 +53,9 @@ var (
 	dryRun            bool   // Show what would change without uploading
 	maxBytes          int    // Chunk threshold for sync-source
 	jsonOutput        bool   // NDJSON output for sync-source
+	reportPrompt      string // Custom instructions for generate-report
+	reportSections    int    // Max sections for generate-report (0 = all)
+
 )
 
 // ChatSession represents a persistent chat conversation
@@ -99,6 +102,8 @@ func init() {
 	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync-source)")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync-source)")
 	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync-source, default 5120000)")
+	flag.StringVar(&reportPrompt, "prompt", "", "custom instructions for generate-report")
+	flag.IntVar(&reportSections, "sections", 0, "max sections to generate (generate-report, 0=all)")
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
 	flag.BoolVar(&showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
@@ -256,6 +261,14 @@ func run() error {
 	if !ok {
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	// Check for help flags in subcommand args.
+	for _, a := range args {
+		if a == "--help" || a == "-h" || a == "-help" {
+			fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n  %s\n", cmdName, entry.argsUsage, entry.usage)
+			return nil
+		}
 	}
 
 	// Validate arguments.
@@ -1227,17 +1240,75 @@ func isTerminal(f *os.File) bool {
 func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
-	answer, _, err := streamChatResponse(c, api.ChatRequest{
+	chatReq := api.ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
-	})
+	}
+	answer, _, err := streamChatResponse(c, chatReq)
 	if err != nil {
-		return fmt.Errorf("generate chat: %w", err)
+		// Fall back to non-streaming path (mirrors oneShotChat behavior).
+		response, chatErr := c.ChatWithHistory(chatReq)
+		if chatErr != nil {
+			return fmt.Errorf("generate chat: %w", err)
+		}
+		fmt.Print(response)
+		answer = response
 	}
 	if answer != "" {
 		fmt.Println()
 	} else {
 		fmt.Println("(No response received)")
+	}
+
+	return nil
+}
+
+// generateReport orchestrates report-suggestions + generate-chat to produce
+// a multi-section report on stdout. If reportPrompt is set, instructions are
+// applied to the notebook before generation.
+func generateReport(c *api.Client, notebookID string) error {
+	// Optionally set custom instructions.
+	if reportPrompt != "" {
+		fmt.Fprintf(os.Stderr, "Setting instructions...\n")
+		if err := c.SetInstructions(notebookID, reportPrompt); err != nil {
+			return fmt.Errorf("set instructions: %w", err)
+		}
+	}
+
+	// Get section topics from the API.
+	fmt.Fprintf(os.Stderr, "Fetching report suggestions...\n")
+	resp, err := c.GenerateReportSuggestions(notebookID)
+	if err != nil {
+		return fmt.Errorf("report suggestions: %w", err)
+	}
+	topics := resp.GetSuggestions()
+	if len(topics) == 0 {
+		return fmt.Errorf("no report suggestions returned")
+	}
+
+	// Limit sections if requested.
+	if reportSections > 0 && reportSections < len(topics) {
+		topics = topics[:reportSections]
+	}
+
+	fmt.Fprintf(os.Stderr, "Generating %d sections...\n", len(topics))
+
+	for i, topic := range topics {
+		fmt.Fprintf(os.Stderr, "[%d/%d] %s\n", i+1, len(topics), topic)
+
+		prompt := fmt.Sprintf("Write a detailed section on: %s\n\nUse markdown formatting with a level-2 heading.", topic)
+		answer, _, err := streamChatResponse(c, api.ChatRequest{
+			ProjectID: notebookID,
+			Prompt:    prompt,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: section %q failed: %v\n", topic, err)
+			continue
+		}
+		if answer != "" {
+			fmt.Println()
+		}
+		fmt.Println() // blank line between sections
 	}
 
 	return nil
@@ -1412,6 +1483,44 @@ func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) e
 	session.ConversationID = conversationID
 
 	return runInteractiveChat(c, session)
+}
+
+// printChatHistory prints conversation history, trying the server first then
+// falling back to local session storage.
+func printChatHistory(c *api.Client, notebookID, conversationID string) error {
+	// Try server-side history first.
+	messages, err := c.GetConversationHistory(notebookID, conversationID)
+	if err == nil && len(messages) > 0 {
+		for _, m := range messages {
+			role := "UNKNOWN"
+			switch m.Role {
+			case 1:
+				role = "USER"
+			case 2:
+				role = "ASSISTANT"
+			}
+			fmt.Printf("[%s]\n%s\n\n", role, m.Content)
+		}
+		return nil
+	}
+
+	// Fall back to local session.
+	session, localErr := loadChatSessionForConv(notebookID, conversationID)
+	if localErr != nil {
+		if err != nil {
+			return fmt.Errorf("server: %w; no local session found", err)
+		}
+		return fmt.Errorf("no conversation history found")
+	}
+	if len(session.Messages) == 0 {
+		fmt.Println("No messages in conversation.")
+		return nil
+	}
+	for _, m := range session.Messages {
+		role := strings.ToUpper(m.Role)
+		fmt.Printf("[%s]\n%s\n\n", role, m.Content)
+	}
+	return nil
 }
 
 // listChatConversations lists server-side conversations for a notebook.

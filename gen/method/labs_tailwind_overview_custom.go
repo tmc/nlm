@@ -83,6 +83,50 @@ func EncodeCreateSlideDeckArgs(projectID string, sourceIDs []string, instruction
 	}
 }
 
+// EncodeCreateReportArgs encodes the R7cb6c report artifact payload.
+// Mode 4 = ARTIFACT_TYPE_REPORT. Report config goes at field index 7
+// (not 16 like slides). The generation options contain:
+//   - reportType: topic name from suggestions (e.g. "Technical Specification")
+//   - reportDescription: detailed description from suggestions
+//   - instructions: custom user prompt (or nil)
+//   - innerSourceRefs: 2-level nested source IDs
+func EncodeCreateReportArgs(projectID string, sourceIDs []string, reportType, reportDescription, instructions string) []interface{} {
+	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
+	innerSourceRefs := encodeInnerSourceRefs(sourceIDs)
+	var inst interface{}
+	if instructions != "" {
+		inst = instructions
+	}
+	var rtype interface{}
+	if reportType != "" {
+		rtype = reportType
+	}
+	var rdesc interface{}
+	if reportDescription != "" {
+		rdesc = reportDescription
+	}
+	return []interface{}{
+		artifactTypeDescriptor,
+		projectID,
+		[]interface{}{
+			nil,
+			nil,
+			4, // artifact type = report
+			sourceRefs,
+			nil, nil, nil,
+			[]interface{}{ // field 8: TailoredReport message
+				nil,
+				[]interface{}{ // GenerationOptions
+					rtype,           // report type / topic
+					rdesc,           // report description
+					inst,            // custom instructions
+					innerSourceRefs, // 2-level nested source IDs
+				},
+			},
+		},
+	}
+}
+
 // EncodeCreateVideoOverviewArgs encodes the observed R7cb6c video-overview payload.
 func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRequest) []interface{} {
 	// Wire format verified against HAR capture (2026-04-14) — do not regenerate.

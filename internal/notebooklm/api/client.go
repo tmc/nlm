@@ -2709,6 +2709,54 @@ func (c *Client) CreateSlideDeck(projectID, instructions string) (string, error)
 	return "", fmt.Errorf("unexpected slide deck response format")
 }
 
+// CreateReport creates a report artifact via R7cb6c (mode 4).
+// reportType and reportDescription typically come from GenerateReportSuggestions.
+// instructions is an optional custom user prompt.
+// Returns the artifact ID. The report is generated asynchronously;
+// poll with ListArtifacts to check completion status.
+func (c *Client) CreateReport(projectID, reportType, reportDescription, instructions string) (string, error) {
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return "", fmt.Errorf("get project sources: %w", err)
+	}
+	var sourceIDs []string
+	for _, src := range project.Sources {
+		if src.SourceId != nil {
+			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+		}
+	}
+	if len(sourceIDs) == 0 {
+		return "", fmt.Errorf("notebook has no sources")
+	}
+
+	args := method.EncodeCreateReportArgs(projectID, sourceIDs, reportType, reportDescription, instructions)
+	call := rpc.Call{
+		ID:         "R7cb6c",
+		NotebookID: projectID,
+		Args:       args,
+	}
+	resp, err := c.rpc.Do(call)
+	if err != nil {
+		return "", fmt.Errorf("create report: %w", err)
+	}
+
+	var raw []interface{}
+	if err := json.Unmarshal(resp, &raw); err != nil {
+		return "", fmt.Errorf("parse report response: %w", err)
+	}
+	if len(raw) > 0 {
+		if id, ok := raw[0].(string); ok {
+			return id, nil
+		}
+		if inner, ok := raw[0].([]interface{}); ok && len(inner) > 0 {
+			if id, ok := inner[0].(string); ok {
+				return id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("unexpected report response format")
+}
+
 // Generation operations
 
 func (c *Client) GenerateDocumentGuides(projectID string) (*pb.GenerateDocumentGuidesResponse, error) {

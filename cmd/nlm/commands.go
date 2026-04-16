@@ -497,32 +497,6 @@ var commands = []command{
 		},
 	},
 	{
-		name: "generate-outline", argsUsage: "<notebook-id>",
-		usage: "Generate outline from notebook", section: "Generation",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			resp, err := c.GenerateOutline(args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Println(resp.GetContent())
-			return nil
-		},
-	},
-	{
-		name: "generate-section", argsUsage: "<notebook-id>",
-		usage: "Generate a specific report section", section: "Generation",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			resp, err := c.GenerateSection(args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Println(resp.GetContent())
-			return nil
-		},
-	},
-	{
 		name: "report-suggestions", argsUsage: "<notebook-id>",
 		usage: "Suggest report topics for notebook", section: "Generation",
 		minArgs: 1, maxArgs: 1,
@@ -538,9 +512,67 @@ var commands = []command{
 		},
 	},
 	{
-		name: "start-draft", argsUsage: "<notebook-id>",
-		usage: "Start a draft document from notebook", section: "Generation",
+		name: "create-report", argsUsage: "<notebook-id> <report-type> [description] [instructions]",
+		usage: "Create report artifact (use report-suggestions for types)", section: "Create",
+		minArgs: 2, maxArgs: -1,
+		run: func(c *api.Client, args []string) error {
+			reportType := args[1]
+			description := ""
+			instructions := ""
+			if len(args) > 2 {
+				description = args[2]
+			}
+			if len(args) > 3 {
+				instructions = strings.Join(args[3:], " ")
+			}
+			artifactID, err := c.CreateReport(args[0], reportType, description, instructions)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Created report: %s\n", artifactID)
+			fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
+			return nil
+		},
+	},
+	{
+		name: "generate-report", argsUsage: "<notebook-id>",
+		usage: "Generate multi-section report via chat (--prompt, --sections)", section: "Generation",
 		minArgs: 1, maxArgs: 1,
+		run: func(c *api.Client, args []string) error {
+			return generateReport(c, args[0])
+		},
+	},
+	// Deprecated generation commands — kept for backwards compat but hidden from help.
+	{
+		name: "generate-outline", argsUsage: "<notebook-id>",
+		usage: "Generate outline (deprecated: use create-report)", section: "Generation",
+		minArgs: 1, maxArgs: 1, hidden: true,
+		run: func(c *api.Client, args []string) error {
+			resp, err := c.GenerateOutline(args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Println(resp.GetContent())
+			return nil
+		},
+	},
+	{
+		name: "generate-section", argsUsage: "<notebook-id>",
+		usage: "Generate section (deprecated: use create-report)", section: "Generation",
+		minArgs: 1, maxArgs: 1, hidden: true,
+		run: func(c *api.Client, args []string) error {
+			resp, err := c.GenerateSection(args[0])
+			if err != nil {
+				return err
+			}
+			fmt.Println(resp.GetContent())
+			return nil
+		},
+	},
+	{
+		name: "start-draft", argsUsage: "<notebook-id>",
+		usage: "Start draft (deprecated: use create-report)", section: "Generation",
+		minArgs: 1, maxArgs: 1, hidden: true,
 		run: func(c *api.Client, args []string) error {
 			_, err := c.StartDraft(args[0])
 			if err != nil {
@@ -584,21 +616,7 @@ var commands = []command{
 		usage: "View conversation history", section: "Chat",
 		minArgs: 2, maxArgs: 2,
 		run: func(c *api.Client, args []string) error {
-			messages, err := c.GetConversationHistory(args[0], args[1])
-			if err != nil {
-				return err
-			}
-			for _, m := range messages {
-				role := "UNKNOWN"
-				switch m.Role {
-				case 1:
-					role = "USER"
-				case 2:
-					role = "ASSISTANT"
-				}
-				fmt.Printf("[%s]\n%s\n\n", role, m.Content)
-			}
-			return nil
+			return printChatHistory(c, args[0], args[1])
 		},
 	},
 	{
