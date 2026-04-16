@@ -468,7 +468,7 @@ func list(c *api.Client) error {
 
 	// Display total count
 	total := len(notebooks)
-	fmt.Printf("Total notebooks: %d (showing first 10)\n\n", total)
+	fmt.Fprintf(os.Stderr, "Total notebooks: %d (showing first 10)\n\n", total)
 
 	// Limit to first 10 entries
 	limit := 10
@@ -632,13 +632,13 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 
 	// Check if input is a URL
 	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-		fmt.Printf("Adding source from URL: %s\n", input)
+		fmt.Fprintf(os.Stderr, "Adding source from URL: %s\n", input)
 		return c.AddSourceFromURL(notebookID, input)
 	}
 
 	// Try as local file
 	if _, err := os.Stat(input); err == nil {
-		fmt.Printf("Adding source from file: %s\n", input)
+		fmt.Fprintf(os.Stderr, "Adding source from file: %s\n", input)
 		name := filepath.Base(input)
 		if sourceName != "" {
 			name = sourceName
@@ -665,7 +665,7 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	}
 
 	// If it's not a URL or file, treat as direct text content
-	fmt.Println("Adding text content as source...")
+	fmt.Fprintln(os.Stderr, "Adding text content as source...")
 	textName := "Text Source"
 	if sourceName != "" {
 		textName = sourceName
@@ -721,38 +721,38 @@ func removeSource(c *api.Client, notebookID, sourceID string) error {
 	if err := c.DeleteSources(notebookID, []string{sourceID}); err != nil {
 		return fmt.Errorf("remove source: %w", err)
 	}
-	fmt.Printf("✅ Removed source %s from notebook %s\n", sourceID, notebookID)
+	fmt.Fprintf(os.Stderr, "Removed source %s from notebook %s\n", sourceID, notebookID)
 	return nil
 }
 
 func renameSource(c *api.Client, sourceID, newName string) error {
-	fmt.Printf("Renaming source %s to: %s\n", sourceID, newName)
+	fmt.Fprintf(os.Stderr, "Renaming source %s to: %s\n", sourceID, newName)
 	if _, err := c.MutateSource(sourceID, &pb.Source{
 		Title: newName,
 	}); err != nil {
 		return fmt.Errorf("rename source: %w", err)
 	}
 
-	fmt.Printf("✅ Renamed source to: %s\n", newName)
+	fmt.Fprintf(os.Stderr, "Renamed source to: %s\n", newName)
 	return nil
 }
 
 // Note operations
 func createNote(c *api.Client, notebookID, title, content string) error {
-	fmt.Printf("Creating note in notebook %s...\n", notebookID)
+	fmt.Fprintf(os.Stderr, "Creating note in notebook %s...\n", notebookID)
 	if _, err := c.CreateNote(notebookID, title, content); err != nil {
 		return fmt.Errorf("create note: %w", err)
 	}
-	fmt.Printf("✅ Created note: %s\n", title)
+	fmt.Fprintf(os.Stderr, "Created note: %s\n", title)
 	return nil
 }
 
 func updateNote(c *api.Client, notebookID, noteID, content, title string) error {
-	fmt.Printf("Updating note %s...\n", noteID)
+	fmt.Fprintf(os.Stderr, "Updating note %s...\n", noteID)
 	if _, err := c.MutateNote(notebookID, noteID, content, title); err != nil {
 		return fmt.Errorf("update note: %w", err)
 	}
-	fmt.Printf("✅ Updated note: %s\n", title)
+	fmt.Fprintf(os.Stderr, "Updated note: %s\n", title)
 	return nil
 }
 
@@ -764,7 +764,7 @@ func removeNote(c *api.Client, notebookID, noteID string) error {
 	if err := c.DeleteNotes(notebookID, []string{noteID}); err != nil {
 		return fmt.Errorf("remove note: %w", err)
 	}
-	fmt.Printf("✅ Removed note: %s\n", noteID)
+	fmt.Fprintf(os.Stderr, "Removed note: %s\n", noteID)
 	return nil
 }
 
@@ -820,7 +820,7 @@ func getAudioOverview(c *api.Client, projectID string) error {
 	}
 
 	if !result.IsReady {
-		fmt.Println("Audio overview is not ready yet. Try again in a few moments.")
+		fmt.Fprintln(os.Stderr, "Audio overview is not ready yet. Try again in a few moments.")
 		return nil
 	}
 
@@ -854,7 +854,7 @@ func deleteAudioOverview(c *api.Client, notebookID string) error {
 	if err := c.DeleteAudioOverview(notebookID); err != nil {
 		return fmt.Errorf("delete audio overview: %w", err)
 	}
-	fmt.Printf("✅ Deleted audio overview\n")
+	fmt.Fprintln(os.Stderr, "Deleted audio overview")
 	return nil
 }
 
@@ -951,7 +951,7 @@ func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []s
 // 	if err := c.SubmitFeedback(message); err != nil {
 // 		return fmt.Errorf("submit feedback: %w", err)
 // 	}
-// 	fmt.Printf("✅ Feedback submitted\n")
+// 	fmt.Fprintln(os.Stderr, "Feedback submitted")
 // 	return nil
 // }
 
@@ -969,7 +969,7 @@ func createArtifact(c *api.Client, notebookID, artifactType, instructions string
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Created slide deck: %s\n", artifactID)
+		fmt.Fprintf(os.Stderr, "Created slide deck: %s\n", artifactID)
 		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", notebookID)
 		return nil
 	case "report":
@@ -1006,7 +1006,7 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 		}
 	}
 
-	fmt.Printf("Creating audio overview for notebook %s...\n", projectID)
+	fmt.Fprintf(os.Stderr, "Creating audio overview for notebook %s...\n", projectID)
 	fmt.Printf("Instructions: %s\n", instructions)
 
 	result, err := c.CreateAudioOverview(projectID, instructions)
@@ -1015,12 +1015,12 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 	}
 
 	if !result.IsReady {
-		fmt.Println("✅ Audio overview creation started. Use 'nlm audio-get' to check status.")
+		fmt.Fprintln(os.Stderr, "Audio overview creation started. Use 'nlm audio-get' to check status.")
 		return nil
 	}
 
 	// If the result is immediately ready (unlikely but possible)
-	fmt.Printf("✅ Audio Overview created:\n")
+	fmt.Fprintf(os.Stderr, "Audio overview created:\n")
 	fmt.Printf("  Title: %s\n", result.Title)
 	fmt.Printf("  ID: %s\n", result.AudioID)
 
@@ -1104,7 +1104,7 @@ func refreshSource(c *api.Client, notebookID, sourceID string) error {
 		return fmt.Errorf("refresh source: %w", err)
 	}
 
-	fmt.Printf("✅ Refreshed source: %s\n", source.Title)
+	fmt.Fprintf(os.Stderr, "Refreshed source: %s\n", source.Title)
 	return nil
 }
 
@@ -1271,14 +1271,14 @@ func displayArtifacts(artifacts []*pb.Artifact) error {
 }
 
 func renameArtifact(c *api.Client, artifactID, newTitle string) error {
-	fmt.Printf("Renaming artifact %s to '%s'...\n", artifactID, newTitle)
+	fmt.Fprintf(os.Stderr, "Renaming artifact %s to '%s'...\n", artifactID, newTitle)
 
 	artifact, err := c.RenameArtifact(artifactID, newTitle)
 	if err != nil {
 		return fmt.Errorf("rename artifact: %w", err)
 	}
 
-	fmt.Printf("✅ Artifact renamed successfully\n")
+	fmt.Fprintln(os.Stderr, "Artifact renamed successfully")
 	fmt.Printf("ID: %s\n", artifact.ArtifactId)
 	fmt.Printf("New Title: %s\n", newTitle)
 
@@ -1302,7 +1302,7 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 		return fmt.Errorf("delete artifact: %w", err)
 	}
 
-	fmt.Printf("✅ Deleted artifact: %s\n", artifactID)
+	fmt.Fprintf(os.Stderr, "Deleted artifact: %s\n", artifactID)
 	return nil
 }
 
@@ -1605,7 +1605,7 @@ func createReport(c *api.Client, notebookID, reportType string, extra []string) 
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Created report: %s\n", artifactID)
+	fmt.Fprintf(os.Stderr, "Created report: %s\n", artifactID)
 	fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", notebookID)
 	return nil
 }
@@ -2168,7 +2168,7 @@ func submitFeedback(c *api.Client, message string) error {
 		return err
 	}
 
-	fmt.Printf("✅ Feedback submitted\n")
+	fmt.Fprintln(os.Stderr, "Feedback submitted")
 	return nil
 }
 
@@ -2789,7 +2789,7 @@ func createVideoOverview(c *api.Client, projectID string, instructions string) e
 		return fmt.Errorf("existing video overview")
 	}
 
-	fmt.Printf("Creating video overview for notebook %s...\n", projectID)
+	fmt.Fprintf(os.Stderr, "Creating video overview for notebook %s...\n", projectID)
 	fmt.Printf("Instructions: %s\n", instructions)
 
 	result, err := c.CreateVideoOverview(projectID, instructions)
@@ -2798,13 +2798,13 @@ func createVideoOverview(c *api.Client, projectID string, instructions string) e
 	}
 
 	if !result.IsReady {
-		fmt.Println("✅ Video overview creation started. Video generation may take several minutes.")
-		fmt.Printf("  Project ID: %s\n", result.ProjectID)
+		fmt.Fprintln(os.Stderr, "Video overview creation started. Video generation may take several minutes.")
+		fmt.Fprintf(os.Stderr, "  Project ID: %s\n", result.ProjectID)
 		return nil
 	}
 
 	// If the result is immediately ready (unlikely but possible)
-	fmt.Printf("✅ Video Overview created:\n")
+	fmt.Fprintf(os.Stderr, "Video overview created:\n")
 	fmt.Printf("  Title: %s\n", result.Title)
 	fmt.Printf("  Video ID: %s\n", result.VideoID)
 
@@ -2816,7 +2816,7 @@ func createVideoOverview(c *api.Client, projectID string, instructions string) e
 }
 
 func listAudioOverviews(c *api.Client, notebookID string) error {
-	fmt.Printf("Listing audio overviews for notebook %s...\n", notebookID)
+	fmt.Fprintf(os.Stderr, "Listing audio overviews for notebook %s...\n", notebookID)
 
 	audioOverviews, err := c.ListAudioOverviews(notebookID)
 	if err != nil {
@@ -2824,7 +2824,7 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 	}
 
 	if len(audioOverviews) == 0 {
-		fmt.Println("No audio overviews found.")
+		fmt.Fprintln(os.Stderr, "No audio overviews found.")
 		return nil
 	}
 
@@ -2853,7 +2853,7 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 }
 
 func listVideoOverviews(c *api.Client, notebookID string) error {
-	fmt.Printf("Listing video overviews for notebook %s...\n", notebookID)
+	fmt.Fprintf(os.Stderr, "Listing video overviews for notebook %s...\n", notebookID)
 
 	videoOverviews, err := c.ListVideoOverviews(notebookID)
 	if err != nil {
@@ -2861,7 +2861,7 @@ func listVideoOverviews(c *api.Client, notebookID string) error {
 	}
 
 	if len(videoOverviews) == 0 {
-		fmt.Println("No video overviews found.")
+		fmt.Fprintln(os.Stderr, "No video overviews found.")
 		return nil
 	}
 

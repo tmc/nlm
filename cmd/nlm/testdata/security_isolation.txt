@@ -58,8 +58,8 @@ stderr 'debug mode enabled'
 ! stderr 'debugcookie456'
 ! stdout 'debugtoken123'
 ! stdout 'debugcookie456'
-# Debug mode should show masked token (prints to stdout via fmt.Printf)
-stdout 'DEBUG: Token: de.*23'
+# Debug mode should show masked token on stderr
+stderr 'DEBUG: Token: de.*23'
 # Cookie values go to stderr, not stdout; verify they are not fully exposed
 ! stderr 'debugcookie456'
 
