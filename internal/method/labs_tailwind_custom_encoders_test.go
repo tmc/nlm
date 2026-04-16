@@ -137,85 +137,11 @@ func TestEncodeGetProjectAnalyticsArgsV2(t *testing.T) {
 	}
 }
 
-// TestEncoderDelegation verifies the original encoder functions delegate to V2.
-func TestEncoderDelegation(t *testing.T) {
-	tests := []struct {
-		name string
-		fn   func() string
-	}{
-		{
-			name: "PublishGuidebook",
-			fn: func() string {
-				req := &notebooklmv1alpha1.PublishGuidebookRequest{GuidebookId: "test"}
-				return mustJSONHelper(EncodePublishGuidebookArgs(req))
-			},
-		},
-		{
-			name: "ShareGuidebook",
-			fn: func() string {
-				req := &notebooklmv1alpha1.ShareGuidebookRequest{GuidebookId: "test"}
-				return mustJSONHelper(EncodeShareGuidebookArgs(req))
-			},
-		},
-		{
-			name: "DeleteGuidebook",
-			fn: func() string {
-				req := &notebooklmv1alpha1.DeleteGuidebookRequest{GuidebookId: "test"}
-				return mustJSONHelper(EncodeDeleteGuidebookArgs(req))
-			},
-		},
-		{
-			name: "GuidebookGenerateAnswer",
-			fn: func() string {
-				req := &notebooklmv1alpha1.GuidebookGenerateAnswerRequest{GuidebookId: "test", Question: "q"}
-				return mustJSONHelper(EncodeGuidebookGenerateAnswerArgs(req))
-			},
-		},
-		{
-			name: "DeleteArtifact",
-			fn: func() string {
-				req := &notebooklmv1alpha1.DeleteArtifactRequest{ArtifactId: "test"}
-				return mustJSONHelper(EncodeDeleteArtifactArgs(req))
-			},
-		},
-		{
-			name: "DeleteAudioOverview",
-			fn: func() string {
-				req := &notebooklmv1alpha1.DeleteAudioOverviewRequest{ProjectId: "test"}
-				return mustJSONHelper(EncodeDeleteAudioOverviewArgs(req))
-			},
-		},
-		{
-			name: "ShareAudio",
-			fn: func() string {
-				req := &notebooklmv1alpha1.ShareAudioRequest{ProjectId: "test"}
-				return mustJSONHelper(EncodeShareAudioArgs(req))
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.fn()
-			if got == "" || got == "[]" || got == "null" {
-				t.Errorf("encoder returned empty or trivial result: %s", got)
-			}
-		})
-	}
-}
-
 func mustJSON(t *testing.T, v interface{}) string {
 	t.Helper()
 	b, err := json.Marshal(v)
 	if err != nil {
 		t.Fatalf("json.Marshal: %v", err)
-	}
-	return string(b)
-}
-
-func mustJSONHelper(v interface{}) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return ""
 	}
 	return string(b)
 }

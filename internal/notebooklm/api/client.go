@@ -24,6 +24,8 @@ import (
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/beprotojson"
+	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
@@ -265,12 +267,22 @@ func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, 
 		SourceId: sourceID,
 		Updates:  updates,
 	}
-	ctx := context.Background()
-	source, err := c.orchestrationService.MutateSource(ctx, req)
+	// Bypass the service client: its generated encoder uses argbuilder and
+	// produces the wrong wire format. Use the HAR-verified encoder from
+	// internal/method.
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateSource,
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       intmethod.EncodeMutateSourceArgs(req),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("mutate source: %w", err)
 	}
-	return source, nil
+	var source pb.Source
+	if err := beprotojson.Unmarshal(resp, &source); err != nil {
+		return nil, fmt.Errorf("mutate source: unmarshal response: %w", err)
+	}
+	return &source, nil
 }
 
 func (c *Client) RefreshSource(projectID, sourceID string) (*pb.Source, error) {
@@ -1535,7 +1547,7 @@ func (c *Client) CreateVideoOverview(projectID string, instructions string) (*Vi
 		Language:           "en",
 	}
 
-	args := method.EncodeCreateVideoOverviewArgs(req)
+	args := intmethod.EncodeCreateVideoOverviewArgs(req)
 
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCCreateVideoOverview,
@@ -2711,7 +2723,7 @@ func (c *Client) CreateSlideDeck(projectID, instructions string) (string, error)
 		return "", fmt.Errorf("notebook has no sources")
 	}
 
-	args := method.EncodeCreateSlideDeckArgs(projectID, sourceIDs, instructions, "en")
+	args := intmethod.EncodeCreateSlideDeckArgs(projectID, sourceIDs, instructions, "en")
 	call := rpc.Call{
 		ID:         "R7cb6c",
 		NotebookID: projectID,
@@ -2768,7 +2780,7 @@ func (c *Client) CreateReport(projectID, reportType, reportDescription, instruct
 		return "", fmt.Errorf("notebook has no sources")
 	}
 
-	args := method.EncodeCreateReportArgs(projectID, sourceIDs, reportType, reportDescription, instructions)
+	args := intmethod.EncodeCreateReportArgs(projectID, sourceIDs, reportType, reportDescription, instructions)
 	call := rpc.Call{
 		ID:         "R7cb6c",
 		NotebookID: projectID,
