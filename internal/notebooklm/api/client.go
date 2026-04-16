@@ -327,18 +327,53 @@ func (c *Client) SubmitFeedback(projectID, feedbackType, feedbackText string) er
 	return nil
 }
 
-func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) error {
+// ActOnSources performs a content transformation and returns the raw response.
+// The response typically contains the generated content (markdown text) at position [0][0]
+// or similar nested positions depending on the action.
+func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) (string, error) {
 	req := &pb.ActOnSourcesRequest{
 		ProjectId: projectID,
 		Action:    action,
 		SourceIds: sourceIDs,
 	}
-	ctx := context.Background()
-	_, err := c.orchestrationService.ActOnSources(ctx, req)
-	if err != nil {
-		return fmt.Errorf("act on sources: %w", err)
+	call := rpc.Call{
+		ID:         "yyryJe",
+		NotebookID: projectID,
+		Args:       method.EncodeActOnSourcesArgs(req),
 	}
-	return nil
+	resp, err := c.rpc.Do(call)
+	if err != nil {
+		return "", fmt.Errorf("act on sources: %w", err)
+	}
+	return extractTextContent(resp), nil
+}
+
+// extractTextContent walks a raw JSON response looking for the first non-empty string.
+// ActOnSources responses typically nest the content at varying depths.
+func extractTextContent(raw json.RawMessage) string {
+	var data interface{}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return string(raw)
+	}
+	if s := findFirstString(data); s != "" {
+		return s
+	}
+	return ""
+}
+
+// findFirstString does a depth-first search for the first non-empty string in a JSON value.
+func findFirstString(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		return val
+	case []interface{}:
+		for _, item := range val {
+			if s := findFirstString(item); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 // Source upload utility methods

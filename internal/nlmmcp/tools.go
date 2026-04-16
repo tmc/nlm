@@ -547,8 +547,12 @@ func registerGenerationTools(server *mcp.Server, client *api.Client) {
 			Description: fmt.Sprintf("Generate a %s from sources.", toolName),
 			Annotations: mutatingAnnotations,
 		}, func(ctx context.Context, req *mcp.CallToolRequest, input generateContentInput) (*mcp.CallToolResult, any, error) {
-			if err := client.ActOnSources(input.NotebookID, action, input.SourceIDs); err != nil {
+			content, err := client.ActOnSources(input.NotebookID, action, input.SourceIDs)
+			if err != nil {
 				return errorResult(fmt.Sprintf("failed to generate %s: %v", toolName, err)), nil, nil
+			}
+			if content != "" {
+				return textResult(content), nil, nil
 			}
 			return textResult(fmt.Sprintf("triggered %s generation", toolName)), nil, nil
 		})

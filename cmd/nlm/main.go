@@ -819,11 +819,14 @@ func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) err
 
 func actOnSourcesMindmap(c *api.Client, notebookID string, sourceIDs []string) error {
 	fmt.Fprintf(os.Stderr, "Generating interactive mindmap...\n")
-	err := c.ActOnSources(notebookID, "interactive_mindmap", sourceIDs)
+	content, err := c.ActOnSources(notebookID, "interactive_mindmap", sourceIDs)
 	if err != nil {
 		return fmt.Errorf("generate mindmap: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "Mindmap created — open notebook in browser to view.\n")
+	if content != "" {
+		fmt.Print(content)
+	}
+	fmt.Fprintf(os.Stderr, "Mindmap also saved as note — use 'nlm notes' to retrieve.\n")
 	return nil
 }
 
@@ -850,11 +853,13 @@ func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []s
 	}
 
 	fmt.Fprintf(os.Stderr, "%s content from sources...\n", actionName)
-	err := c.ActOnSources(notebookID, action, sourceIDs)
+	content, err := c.ActOnSources(notebookID, action, sourceIDs)
 	if err != nil {
 		return fmt.Errorf("%s: %w", strings.ToLower(actionName), err)
 	}
-	fmt.Printf("Content %s successfully.\n", strings.ToLower(actionName))
+	if content != "" {
+		fmt.Print(content)
+	}
 	return nil
 }
 
