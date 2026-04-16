@@ -3359,6 +3359,8 @@ func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) 
 				len(text), len(lastAnswer), len(lastThinking),
 				len(payload.Citations), len(payload.FollowUps),
 				preview)
+			// Dump raw citation wire data for debugging field positions.
+			debugDumpChatWirePositions(innerStr)
 		}
 
 		isThinkingText := strings.HasPrefix(strings.TrimSpace(text), "**")
@@ -3598,6 +3600,29 @@ func extractChatPayload(innerJSON string) chatPayload {
 // extractChatText is a convenience wrapper for callers that only need text.
 func extractChatText(innerJSON string) string {
 	return extractChatPayload(innerJSON).Text
+}
+
+// debugDumpChatWirePositions logs the raw JSON structure at each position
+// of the inner chat payload. Only called when --debug is set.
+func debugDumpChatWirePositions(innerJSON string) {
+	var arr []interface{}
+	if err := json.Unmarshal([]byte(innerJSON), &arr); err != nil {
+		return
+	}
+	for i, item := range arr {
+		if item == nil {
+			continue
+		}
+		raw, err := json.Marshal(item)
+		if err != nil {
+			continue
+		}
+		s := string(raw)
+		if len(s) > 500 {
+			s = s[:500] + "..."
+		}
+		fmt.Fprintf(os.Stderr, "DEBUG wire[%d]: %s\n", i, s)
+	}
 }
 
 // parseCitations extracts citation data from wire position [2] and range mapping from [3].
