@@ -2800,7 +2800,7 @@ func getFallbackResponse(input, notebookID string) string {
 
 	// Content questions
 	if strings.Contains(lowerInput, "what") || strings.Contains(lowerInput, "explain") || strings.Contains(lowerInput, "tell me") {
-		return "I'm having trouble connecting to the chat service right now. You might want to try using specific commands like 'nlm generate-guide " + notebookID + "' or 'nlm generate-outline " + notebookID + "' for detailed content analysis."
+		return "I'm having trouble connecting to the chat service right now. You might want to try using specific commands like 'nlm generate-guide " + notebookID + "' or 'nlm create-report " + notebookID + "' for detailed content analysis."
 	}
 
 	// Summary requests

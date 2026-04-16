@@ -568,33 +568,6 @@ var commands = []command{
 			return generateReport(c, args[0])
 		},
 	},
-	// Deprecated generation commands — kept for backwards compat but hidden from help.
-	{
-		name: "generate-outline", argsUsage: "<notebook-id>",
-		usage: "Generate outline (deprecated: use create-report)", section: "Generation",
-		minArgs: 1, maxArgs: 1, hidden: true,
-		run: func(c *api.Client, args []string) error {
-			resp, err := c.GenerateOutline(args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Println(resp.GetContent())
-			return nil
-		},
-	},
-	{
-		name: "generate-section", argsUsage: "<notebook-id>",
-		usage: "Generate section (deprecated: use create-report)", section: "Generation",
-		minArgs: 1, maxArgs: 1, hidden: true,
-		run: func(c *api.Client, args []string) error {
-			resp, err := c.GenerateSection(args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Println(resp.GetContent())
-			return nil
-		},
-	},
 	{
 		name: "start-draft", argsUsage: "<notebook-id>",
 		usage: "Start draft (deprecated: use create-report)", section: "Generation",
