@@ -85,8 +85,8 @@ type ChatMessage struct {
 	SeqNum    int    `json:"seq_num,omitempty"`    // Sequence number within conversation
 
 	// Transient stream data — only available locally, not from server history.
-	Thinking  string   `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
-	Citations []string `json:"citations,omitempty"` // Source references from the response
+	Thinking  string         `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
+	Citations []api.Citation `json:"citations,omitempty"` // Source references from the response
 }
 
 func init() {
@@ -1673,18 +1673,6 @@ func (r *chatStreamRenderer) Thinking() string {
 	return r.thinking
 }
 
-func (r *chatStreamRenderer) CitationStrings() []string {
-	var out []string
-	for _, c := range r.citations {
-		label := c.Title
-		if label == "" {
-			label = c.SourceID
-		}
-		out = append(out, fmt.Sprintf("[%d] %s", c.SourceIndex, label))
-	}
-	return out
-}
-
 func (r *chatStreamRenderer) clearThinkingLine() {
 	if r.lastThinkingLen == 0 {
 		return
@@ -1701,7 +1689,7 @@ func (r *chatStreamRenderer) clearThinkingLine() {
 type chatResult struct {
 	Answer    string
 	Thinking  string
-	Citations []string
+	Citations []api.Citation // raw citation metadata for persistence / re-rendering
 	FollowUps []string
 }
 
@@ -1720,7 +1708,7 @@ func streamChatResponse(c *api.Client, req api.ChatRequest) (chatResult, error) 
 	return chatResult{
 		Answer:    renderer.Answer(),
 		Thinking:  renderer.Thinking(),
-		Citations: renderer.CitationStrings(),
+		Citations: renderer.citations,
 		FollowUps: renderer.followUps,
 	}, err
 }
