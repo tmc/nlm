@@ -344,6 +344,41 @@ func TestChatStreamRendererCitationModeTailNoCitations(t *testing.T) {
 	}
 }
 
+func TestSnapToWordBoundary(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+		pos  int
+		want int
+	}{
+		{"already at space", "hello world", 5, 5},
+		{"mid-word advances to space", "answers are", 4, 7},
+		{"mid-word to punctuation", "parser.go uses", 4, 6},
+		{"backtick is word-ish, snaps past", "foo`bar baz", 3, 7},
+		{"end of string", "hello", 5, 5},
+		{"past end clamps to len", "hello", 10, 5},
+		{"negative clamps to 0", "hello", -1, 0},
+		{"no boundary within 32 returns original", strings.Repeat("x", 40), 3, 3},
+	}
+	for _, tc := range cases {
+		if got := snapToWordBoundary(tc.text, tc.pos); got != tc.want {
+			t.Errorf("%s: snapToWordBoundary(%q, %d) = %d, want %d", tc.name, tc.text, tc.pos, got, tc.want)
+		}
+	}
+}
+
+func TestInsertSuperscriptsSnapsToWordBoundary(t *testing.T) {
+	// EndChar 10 lands inside "answers" at offset 4 of "answers"; the
+	// splice must advance to the end of the word.
+	answer := "Final answers are cited."
+	citations := []api.Citation{{SourceIndex: 1, SourceID: "s", EndChar: 10}}
+	got := insertSuperscripts(answer, citations)
+	want := "Final answers¹ are cited."
+	if got != want {
+		t.Errorf("insertSuperscripts snap = %q, want %q", got, want)
+	}
+}
+
 func TestSuperscript(t *testing.T) {
 	cases := map[int]string{
 		0:  "",
