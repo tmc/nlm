@@ -1306,7 +1306,7 @@ type chatStreamRenderer struct {
 	verbose         bool
 	lastThinkingLen int
 	answerBuf       strings.Builder
-	thinkingBuf     strings.Builder
+	thinking        string
 	citations       []api.Citation
 	followUps       []string
 }
@@ -1323,7 +1323,9 @@ func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool) *c
 func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 	switch chunk.Phase {
 	case api.ChatChunkThinking:
-		r.thinkingBuf.WriteString(chunk.Text + "\n")
+		// Thinking chunks arrive as full cumulative snapshots, not deltas.
+		// Replace instead of appending to avoid quadratic growth.
+		r.thinking = chunk.Text
 		if !r.showThinking {
 			return
 		}
@@ -1392,7 +1394,7 @@ func (r *chatStreamRenderer) Answer() string {
 }
 
 func (r *chatStreamRenderer) Thinking() string {
-	return r.thinkingBuf.String()
+	return r.thinking
 }
 
 func (r *chatStreamRenderer) CitationStrings() []string {
@@ -1479,6 +1481,9 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	}
 	if res.Answer != "" {
 		fmt.Println()
+	} else if thinking := strings.TrimSpace(res.Thinking); thinking != "" {
+		fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
+		fmt.Println(thinking)
 	} else {
 		fmt.Println("(No response received)")
 	}
@@ -1804,6 +1809,12 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 		}
 		fmt.Print(response)
 		res.Answer = response
+	}
+	if res.Answer == "" {
+		if thinking := strings.TrimSpace(res.Thinking); thinking != "" {
+			fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
+			fmt.Println(thinking)
+		}
 	}
 	fmt.Println()
 

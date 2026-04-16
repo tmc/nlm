@@ -30,8 +30,22 @@ func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 	if got := status.String(); got != "" {
 		t.Fatalf("status output = %q, want empty", got)
 	}
-	if got := r.Thinking(); got != "**Thinking**\nPlanning response\n" {
+	if got := r.Thinking(); got != "**Thinking**\nPlanning response" {
 		t.Fatalf("thinking trace = %q", got)
+	}
+}
+
+func TestChatStreamRendererThinkingReplacesCumulativeSnapshots(t *testing.T) {
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false)
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip"})
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip a thin wrapper"})
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip a thin wrapper via cmd/cove-serve"})
+	r.Finish()
+
+	want := "**T**\nShip a thin wrapper via cmd/cove-serve"
+	if got := r.Thinking(); got != want {
+		t.Fatalf("thinking trace = %q, want %q", got, want)
 	}
 }
 
