@@ -1750,14 +1750,6 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 // downloadAudioFromURL downloads audio data from a googleusercontent URL
 // Google CDN URLs require full browser authentication context, so we use chromedp
 func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
-	// Import the auth package to use browser-based download
-	auth := &struct {
-		Download func(string, string) ([]byte, error)
-	}{}
-
-	// For now, keep the simple HTTP approach as fallback
-	// TODO: Integrate auth.DownloadWithBrowser when fully tested
-
 	// Create client that follows redirects automatically
 	client := httpClientWithTimeout(60 * time.Second)
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -1812,8 +1804,7 @@ func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
 		if c.config.Debug {
 			fmt.Printf("Got HTML auth redirect, falling back to browser download\n")
 		}
-		_ = auth // Silence unused variable warning
-		return nil, fmt.Errorf("Google CDN requires browser authentication - use browser-based download (not yet implemented)")
+		return nil, fmt.Errorf("Google CDN requires browser authentication - use 'nlm audio-download' to open in browser")
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {

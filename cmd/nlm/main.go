@@ -937,24 +937,6 @@ func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []s
 	return nil
 }
 
-// func shareNotebook(c *api.Client, notebookID string) error {
-// 	fmt.Fprintf(os.Stderr, "Generating share link...\n")
-// 	resp, err := c.ShareProject(notebookID)
-// 	if err != nil {
-// 		return fmt.Errorf("share notebook: %w", err)
-// 	}
-// 	fmt.Printf("Share URL: %s\n", resp.ShareUrl)
-// 	return nil
-// }
-
-// func submitFeedback(c *api.Client, message string) error {
-// 	if err := c.SubmitFeedback(message); err != nil {
-// 		return fmt.Errorf("submit feedback: %w", err)
-// 	}
-// 	fmt.Fprintln(os.Stderr, "Feedback submitted")
-// 	return nil
-// }
-
 // Other operations
 // createArtifact dispatches to the type-specific creation methods.
 // All types use R7cb6c under the hood.
