@@ -2226,6 +2226,60 @@ func resolveConversationID(c *api.Client, notebookID, partial string) string {
 	return partial
 }
 
+// chatShow renders a locally-stored conversation with full citation modes.
+// Unlike chat-history (which prefers server-side), chat-show reads only the
+// local session so it can surface persisted citation metadata (char ranges,
+// source IDs) that the server doesn't return in conversation history.
+func chatShow(notebookID, conversationID string) error {
+	session, err := loadChatSessionForConv(notebookID, conversationID)
+	if err != nil {
+		// Fall back to the single-session-per-notebook path (older layout).
+		legacy, legacyErr := loadChatSession(notebookID)
+		if legacyErr != nil || legacy.ConversationID != conversationID {
+			return fmt.Errorf("load local session: %w", err)
+		}
+		session = legacy
+	}
+	if len(session.Messages) == 0 {
+		fmt.Println("No messages in local session.")
+		return nil
+	}
+
+	mode := resolveCitationMode(citationMode, isTerminal(os.Stdout))
+	for i, m := range session.Messages {
+		if i > 0 {
+			fmt.Println()
+		}
+		fmt.Printf("[%s]\n", strings.ToUpper(m.Role))
+
+		if m.Role != "assistant" {
+			fmt.Println(m.Content)
+			continue
+		}
+		if showThinking && m.Thinking != "" {
+			fmt.Fprintf(os.Stderr, "%s%s%s\n", ansiGrey, m.Thinking, ansiReset)
+		}
+		renderPersistedAssistant(os.Stdout, os.Stderr, m, mode)
+	}
+	return nil
+}
+
+// renderPersistedAssistant feeds a stored assistant message through the live
+// renderer so all citation modes (block/stream/tail/overlay) work identically
+// for replays.
+func renderPersistedAssistant(out, status io.Writer, m ChatMessage, mode citationRenderMode) {
+	r := newChatStreamRenderer(out, status, false, false, mode)
+	r.WriteChunk(api.ChatChunk{
+		Phase:     api.ChatChunkAnswer,
+		Text:      m.Content,
+		Citations: m.Citations,
+	})
+	r.Finish()
+	if !strings.HasSuffix(m.Content, "\n") {
+		fmt.Fprintln(out)
+	}
+}
+
 // listChatConversationsWithAuth creates a client and lists server-side
 // conversations. Used by chat-list which is noClient (local-only path needs no client).
 func listChatConversationsWithAuth(notebookID string) error {

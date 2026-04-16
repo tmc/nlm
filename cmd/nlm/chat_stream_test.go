@@ -352,9 +352,9 @@ func TestSnapToWordBoundary(t *testing.T) {
 		want int
 	}{
 		{"already at space", "hello world", 5, 5},
-		{"mid-word advances to space", "answers are", 4, 7},
-		{"mid-word to punctuation", "parser.go uses", 4, 6},
-		{"backtick is word-ish, snaps past", "foo`bar baz", 3, 7},
+		{"mid-word advances to space", "answers are", 4, 7},      // "answ|ers" → "answers|"
+		{"mid-word to punctuation", "parser.go uses", 4, 6},      // "pars|er.go" → "parser|.go"
+		{"backtick is word-ish, snaps past", "foo`bar baz", 3, 7}, // "foo|`bar baz" treated as word, scans to space
 		{"end of string", "hello", 5, 5},
 		{"past end clamps to len", "hello", 10, 5},
 		{"negative clamps to 0", "hello", -1, 0},
@@ -368,14 +368,69 @@ func TestSnapToWordBoundary(t *testing.T) {
 }
 
 func TestInsertSuperscriptsSnapsToWordBoundary(t *testing.T) {
-	// EndChar 10 lands inside "answers" at offset 4 of "answers"; the
-	// splice must advance to the end of the word.
+	// EndChar 4 lands inside "answers"; splice must snap to the end of the word.
 	answer := "Final answers are cited."
-	citations := []api.Citation{{SourceIndex: 1, SourceID: "s", EndChar: 10}}
+	citations := []api.Citation{{SourceIndex: 1, SourceID: "s", EndChar: 10}} // mid-word "answ|ers"
 	got := insertSuperscripts(answer, citations)
 	want := "Final answers¹ are cited."
 	if got != want {
 		t.Errorf("insertSuperscripts snap = %q, want %q", got, want)
+	}
+}
+
+func TestRenderPersistedAssistantBlock(t *testing.T) {
+	var out, status bytes.Buffer
+	msg := ChatMessage{
+		Role:    "assistant",
+		Content: "Answer body.",
+		Citations: []api.Citation{
+			{SourceIndex: 1, SourceID: "src_a", Title: "First"},
+			{SourceIndex: 2, SourceID: "src_b", Title: "Second"},
+		},
+	}
+	renderPersistedAssistant(&out, &status, msg, citationModeBlock)
+	if !strings.Contains(out.String(), "Answer body.") {
+		t.Fatalf("body missing from stdout: %q", out.String())
+	}
+	s := status.String()
+	if !strings.Contains(s, "Sources:") {
+		t.Fatalf("block footer missing: %q", s)
+	}
+	if !strings.Contains(s, "[1] src_a") || !strings.Contains(s, "First") {
+		t.Fatalf("entry 1 missing: %q", s)
+	}
+	if !strings.Contains(s, "[2] src_b") || !strings.Contains(s, "Second") {
+		t.Fatalf("entry 2 missing: %q", s)
+	}
+}
+
+func TestRenderPersistedAssistantOverlay(t *testing.T) {
+	var out, status bytes.Buffer
+	msg := ChatMessage{
+		Role:    "assistant",
+		Content: "Hello world.",
+		Citations: []api.Citation{
+			{SourceIndex: 1, SourceID: "src_a", Title: "greeting", EndChar: 5},
+		},
+	}
+	renderPersistedAssistant(&out, &status, msg, citationModeOverlay)
+	if !strings.Contains(out.String(), "Hello¹") {
+		t.Fatalf("overlay superscript missing (post-snap): %q", out.String())
+	}
+	if !strings.Contains(status.String(), "¹ src_a") {
+		t.Fatalf("overlay footer missing entry: %q", status.String())
+	}
+}
+
+func TestRenderPersistedAssistantNoCitations(t *testing.T) {
+	var out, status bytes.Buffer
+	msg := ChatMessage{Role: "assistant", Content: "Plain answer."}
+	renderPersistedAssistant(&out, &status, msg, citationModeBlock)
+	if got := out.String(); !strings.HasPrefix(got, "Plain answer.") {
+		t.Fatalf("body missing: %q", got)
+	}
+	if status.String() != "" {
+		t.Fatalf("footer should be empty for no citations, got %q", status.String())
 	}
 }
 

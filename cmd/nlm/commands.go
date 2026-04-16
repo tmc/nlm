@@ -646,6 +646,15 @@ var commands = []command{
 		},
 	},
 	{
+		name: "chat-show", argsUsage: "<notebook-id> <conversation-id>",
+		usage: "Render local chat with citation modes (see --citations)", section: "Chat",
+		minArgs: 2, maxArgs: 2,
+		noAuth: true, noClient: true,
+		run: func(_ *api.Client, args []string) error {
+			return chatShow(args[0], args[1])
+		},
+	},
+	{
 		name: "delete-chat", argsUsage: "<notebook-id>",
 		usage: "Delete server-side chat history", section: "Chat",
 		minArgs: 1, maxArgs: 1,
