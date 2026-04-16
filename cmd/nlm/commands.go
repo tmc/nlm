@@ -507,8 +507,8 @@ var commands = []command{
 	},
 	{
 		name: "generate-mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
-		usage: "Generate interactive mindmap (opens in browser)", section: "Generation",
-		minArgs: 2, maxArgs: -1,
+		usage: "Generate interactive mindmap (alias for mindmap)", section: "Generation",
+		hidden: true, minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			return actOnSourcesMindmap(c, args[0], args[1:])
 		},
