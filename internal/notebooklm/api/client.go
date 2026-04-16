@@ -2887,8 +2887,9 @@ func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error
 
 // ChatMessage represents a message in chat history for the wire protocol.
 type ChatMessage struct {
-	Content string // Message text
-	Role    int    // 1 = user, 2 = assistant
+	Content   string // Message text
+	Role      int    // 1 = user, 2 = assistant
+	MessageID string // Server-assigned message UUID (from GetConversationHistory)
 }
 
 // ChatRequest contains parameters for a chat request.
@@ -3841,12 +3842,17 @@ func (c *Client) GetConversations(projectID string) ([]string, error) {
 
 // GetConversationHistory retrieves the message history for a specific conversation.
 func (c *Client) GetConversationHistory(projectID, conversationID string) ([]ChatMessage, error) {
+	// Wire format: [[], null, null, conversation_id, limit]
+	// Project ID is conveyed via the source-path URL parameter (NotebookID field).
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCGetConversationHistory,
 		NotebookID: projectID,
 		Args: []interface{}{
-			projectID,
+			[]interface{}{},
+			nil,
+			nil,
 			conversationID,
+			20,
 		},
 	})
 	if err != nil {
@@ -3858,20 +3864,18 @@ func (c *Client) GetConversationHistory(projectID, conversationID string) ([]Cha
 		return nil, fmt.Errorf("parse conversation history: %w", err)
 	}
 
-	// Response format: [[content, null, role], [content, null, role], ...]
-	// or wrapped: [[[content, null, role], [content, null, role], ...]]
+	// Response format: [[[msg1, msg2, ...]]] where each message is:
+	// [0]=message_id, [1]=timestamp ([epoch_s, nanos]), [2]=role (1=user, 2=assistant),
+	// [3]=null, [4]=content_segments (nested arrays with text + formatting)
 	var messages []ChatMessage
 	var msgArrays []interface{}
 
 	if len(data) > 0 {
-		// Check if it's wrapped in an extra array
 		if outer, ok := data[0].([]interface{}); ok {
 			if len(outer) > 0 {
 				if _, ok := outer[0].([]interface{}); ok {
-					// Wrapped format: [[[msg1], [msg2]]]
 					msgArrays = outer
 				} else {
-					// Flat format: [[msg1], [msg2]]
 					msgArrays = data
 				}
 			}
@@ -3883,20 +3887,67 @@ func (c *Client) GetConversationHistory(projectID, conversationID string) ([]Cha
 		if !ok || len(arr) < 3 {
 			continue
 		}
-		content, _ := arr[0].(string)
+
+		messageID, _ := arr[0].(string)
 		role := 0
 		if r, ok := arr[2].(float64); ok {
 			role = int(r)
 		}
+
+		// User messages: [message_id, timestamp, 1, content_text] — plain string at [3].
+		// Assistant messages: [message_id, timestamp, 2, null, content_segments] — nested at [4].
+		var content string
+		if role == 1 && len(arr) > 3 {
+			content, _ = arr[3].(string)
+		} else if len(arr) > 4 {
+			content = extractContentSegments(arr[4])
+		}
+
 		if content != "" && role > 0 {
-			messages = append(messages, ChatMessage{
+			msg := ChatMessage{
 				Content: content,
 				Role:    role,
-			})
+			}
+			if messageID != "" {
+				msg.MessageID = messageID
+			}
+			messages = append(messages, msg)
 		}
 	}
 
 	return messages, nil
+}
+
+// extractContentSegments concatenates text from the content_segments array at
+// position [4] of a GetConversationHistory message. Each segment is either a
+// simple [text, lang] pair or a complex [start, end, ...rich_text...] span.
+func extractContentSegments(v interface{}) string {
+	segments, ok := v.([]interface{})
+	if !ok {
+		return ""
+	}
+	var b strings.Builder
+	for _, seg := range segments {
+		arr, ok := seg.([]interface{})
+		if !ok || len(arr) == 0 {
+			continue
+		}
+		// Simple segment: first element is the text string.
+		if s, ok := arr[0].(string); ok {
+			b.WriteString(s)
+			continue
+		}
+		// Complex segment with char offsets: look for nested text.
+		// Format: [start_char, end_char, ...nested...] or [start, end, null, null, null, null, [text, lang]]
+		for _, elem := range arr {
+			if sub, ok := elem.([]interface{}); ok {
+				if s, ok := sub[0].(string); ok {
+					b.WriteString(s)
+				}
+			}
+		}
+	}
+	return b.String()
 }
 
 // ChatGoal represents a conversational goal setting.

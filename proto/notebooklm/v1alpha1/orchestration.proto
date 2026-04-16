@@ -629,7 +629,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc GetConversationHistory(GetConversationHistoryRequest) returns (GetConversationHistoryResponse) {
         option (rpc_id) = "khqZz";
-        option (arg_format) = "[%project_id%, %conversation_id%]";
+        option (arg_format) = "[[], null, null, %conversation_id%, %limit%]";
     }
     rpc DeleteChatHistory(DeleteChatHistoryRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "e3bVqc";
