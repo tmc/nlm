@@ -37,6 +37,54 @@ func httpClientWithTimeout(timeout time.Duration) *http.Client {
 	return c
 }
 
+// idleTimeoutReader wraps a reader and enforces a per-read idle timeout.
+// Unlike http.Client.Timeout which limits the entire request/response,
+// this resets the deadline on each successful read — suitable for
+// long-running streaming responses where data arrives in chunks.
+type idleTimeoutReader struct {
+	r       io.ReadCloser
+	timeout time.Duration
+	timer   *time.Timer
+	done    chan struct{}
+}
+
+func newIdleTimeoutReader(r io.ReadCloser, timeout time.Duration) *idleTimeoutReader {
+	return &idleTimeoutReader{
+		r:       r,
+		timeout: timeout,
+		timer:   time.NewTimer(timeout),
+		done:    make(chan struct{}),
+	}
+}
+
+func (r *idleTimeoutReader) Read(p []byte) (int, error) {
+	// Reset the idle timer before each read.
+	r.timer.Reset(r.timeout)
+	type result struct {
+		n   int
+		err error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		n, err := r.r.Read(p)
+		ch <- result{n, err}
+	}()
+	select {
+	case res := <-ch:
+		return res.n, res.err
+	case <-r.timer.C:
+		return 0, fmt.Errorf("idle timeout: no data received for %s", r.timeout)
+	case <-r.done:
+		return 0, fmt.Errorf("reader closed")
+	}
+}
+
+func (r *idleTimeoutReader) Close() error {
+	close(r.done)
+	r.timer.Stop()
+	return r.r.Close()
+}
+
 // Client handles NotebookLM API interactions.
 type Client struct {
 	rpc                  *rpc.Client
@@ -3062,7 +3110,7 @@ func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) boo
 	// Required header for chat endpoint (observed in HAR capture)
 	httpReq.Header.Set("x-goog-ext-353267353-jspb", "[null,null,null,282611]")
 
-	client := httpClientWithTimeout(120 * time.Second)
+	client := httpClientWithTimeout(5 * time.Minute)
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("chat request: %w", err)
@@ -3081,8 +3129,10 @@ func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) boo
 		return fmt.Errorf("chat request failed: %d %s: %s", resp.StatusCode, resp.Status, string(respBody)[:min(500, len(respBody))])
 	}
 
-	// Parse chunked response format: )]}'\n followed by length-prefixed chunks
-	return c.parseChatResponse(resp.Body, callback)
+	// Wrap body with idle timeout for streaming.
+	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
+	defer idleBody.Close()
+	return c.parseChatResponse(idleBody, callback)
 }
 
 // doChatStreamedChunked sends a chat request and streams phase-aware ChatChunks via callback.
@@ -3103,7 +3153,10 @@ func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk)
 	c.setAuthHeaders(httpReq)
 	httpReq.Header.Set("x-goog-ext-353267353-jspb", "[null,null,null,282611]")
 
-	client := httpClientWithTimeout(120 * time.Second)
+	// Use a long total timeout for initial connection, but rely on
+	// idle timeout for the streaming body — the server may think for
+	// minutes before responding, but should send data regularly once started.
+	client := httpClientWithTimeout(5 * time.Minute)
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("chat request: %w", err)
@@ -3115,7 +3168,10 @@ func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk)
 		return fmt.Errorf("chat request failed: %d %s: %s", resp.StatusCode, resp.Status, string(respBody)[:min(500, len(respBody))])
 	}
 
-	return c.parseChatResponseChunked(resp.Body, callback)
+	// Wrap body with idle timeout: reset deadline on each chunk received.
+	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
+	defer idleBody.Close()
+	return c.parseChatResponseChunked(idleBody, callback)
 }
 
 // parseChatResponseChunked reads the stream incrementally and emits phase-aware
