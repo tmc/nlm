@@ -882,6 +882,38 @@ func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []s
 // }
 
 // Other operations
+// createArtifact dispatches to the type-specific creation methods.
+// All types use R7cb6c under the hood.
+func createArtifact(c *api.Client, notebookID, artifactType, instructions string) error {
+	switch strings.ToLower(artifactType) {
+	case "audio":
+		return createAudioOverview(c, notebookID, instructions)
+	case "video":
+		return createVideoOverview(c, notebookID, instructions)
+	case "slides":
+		artifactID, err := c.CreateSlideDeck(notebookID, instructions)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Created slide deck: %s\n", artifactID)
+		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", notebookID)
+		return nil
+	case "report":
+		if instructions == "" {
+			return fmt.Errorf("report type requires instructions: nlm create-artifact <nb> report <topic> [description]")
+		}
+		parts := strings.SplitN(instructions, " ", 2)
+		topic := parts[0]
+		desc := ""
+		if len(parts) > 1 {
+			desc = parts[1]
+		}
+		return createReport(c, notebookID, topic, []string{desc})
+	default:
+		return fmt.Errorf("unknown artifact type %q (audio, video, slides, report)", artifactType)
+	}
+}
+
 func createAudioOverview(c *api.Client, projectID string, instructions string) error {
 	// NLM limits to one audio overview per notebook. Check for existing.
 	existing, _ := c.ListAudioOverviews(projectID)

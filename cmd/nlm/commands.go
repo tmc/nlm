@@ -233,6 +233,19 @@ var commands = []command{
 		},
 	},
 
+	{
+		name: "create-artifact", argsUsage: "<notebook-id> <type> [instructions]",
+		usage: "Create artifact (type: audio, video, slides, report)", section: "Create",
+		minArgs: 2, maxArgs: -1,
+		run: func(c *api.Client, args []string) error {
+			instructions := ""
+			if len(args) > 2 {
+				instructions = strings.Join(args[2:], " ")
+			}
+			return createArtifact(c, args[0], args[1], instructions)
+		},
+	},
+
 	// Audio operations
 	{
 		name: "audio-list", argsUsage: "<notebook-id>",
@@ -341,9 +354,25 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return listArtifacts(c, args[0]) },
 	},
 	{
+		name: "update-artifact", argsUsage: "<artifact-id> [new-title]",
+		usage: "Update artifact (rename with positional arg or --name)", section: "Artifact",
+		minArgs: 1, maxArgs: 2,
+		run: func(c *api.Client, args []string) error {
+			title := sourceName // reuse --name flag
+			if len(args) > 1 {
+				title = args[1]
+			}
+			if title == "" {
+				return fmt.Errorf("provide new title as second arg or --name flag")
+			}
+			return renameArtifact(c, args[0], title)
+		},
+	},
+	{
 		name: "rename-artifact", argsUsage: "<artifact-id> <new-title>",
-		usage: "Rename artifact", section: "Artifact",
+		usage: "Rename artifact (alias: update-artifact)", section: "Artifact",
 		minArgs: 2, maxArgs: 2,
+		hidden: true, // superseded by update-artifact
 		run: func(c *api.Client, args []string) error { return renameArtifact(c, args[0], args[1]) },
 	},
 	{
