@@ -160,25 +160,19 @@ var errorCodeDictionary = map[int]ErrorCode{
 		Description: "An internal server error occurred. Please try again later.",
 		Retryable:   true,
 	},
+	// gRPC canonical error codes (verified against frontend JS loa function)
 	3: {
 		Code:        3,
-		Type:        ErrorTypeUnavailable,
-		Message:     "Service unavailable",
-		Description: "The service is temporarily unavailable. Please try again later.",
-		Retryable:   true,
+		Type:        ErrorTypeInvalidInput,
+		Message:     "Invalid argument",
+		Description: "One or more arguments are invalid.",
+		Retryable:   false,
 	},
 	5: {
 		Code:        5,
 		Type:        ErrorTypeNotFound,
 		Message:     "Not found",
 		Description: "The requested item was not found.",
-		Retryable:   false,
-	},
-	6: {
-		Code:        6,
-		Type:        ErrorTypeInvalidInput,
-		Message:     "Invalid argument",
-		Description: "One or more arguments are invalid.",
 		Retryable:   false,
 	},
 	7: {
