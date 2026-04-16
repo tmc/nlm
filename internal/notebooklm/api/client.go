@@ -4172,20 +4172,14 @@ func (c *Client) ShareProject(projectID string, settings *pb.ShareSettings) (*pb
 }
 
 func (c *Client) shareProjectDirect(projectID string, isPublic bool) (*pb.ShareProjectResponse, error) {
-	linkSettings := []interface{}{1, 0}
-	if isPublic {
-		linkSettings[1] = 1
+	req := &pb.ShareProjectRequest{
+		ProjectId: projectID,
+		Settings:  &pb.ShareSettings{IsPublic: isPublic},
 	}
-
 	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCShareProject,
-		Args: []interface{}{
-			[]interface{}{[]interface{}{projectID, nil, linkSettings, []interface{}{0, ""}}},
-			1,
-			nil,
-			[]interface{}{2},
-		},
+		ID:         rpc.RPCShareProject,
 		NotebookID: projectID,
+		Args:       intmethod.EncodeShareProjectArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("share project: %w", err)

@@ -2534,44 +2534,14 @@ func submitFeedback(c *api.Client, message string) error {
 
 func shareNotebookPrivate(c *api.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating private share link...\n")
-
-	// Create RPC client directly for sharing project
-	rpcClient := rpc.New(authToken, cookies)
-	// Wire format from JS analysis (mAb function):
-	//   field 1: repeated YM [{field 1: projectId, field 3: Uzb{field 1: false} (link sharing off)}]
-	//   field 2: bool (M3 flag)
-	//   field 4: ProjectContext [2]
-	// HAR-verified: linkSettings [1, 0] = enabled + private
-	call := rpc.Call{
-		ID: "QDyure", // ShareProject RPC ID
-		Args: []interface{}{
-			[]interface{}{[]interface{}{notebookID, nil, []interface{}{1, 0}, []interface{}{0, ""}}},
-			1,                // int, not bool
-			nil,              // gap
-			[]interface{}{2}, // ProjectContext
-		},
-	}
-
-	resp, err := rpcClient.Do(call)
+	resp, err := c.ShareProject(notebookID, &pb.ShareSettings{IsPublic: false})
 	if err != nil {
 		return fmt.Errorf("share project privately: %w", err)
 	}
-
-	// Parse response to extract share URL
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse response: %w", err)
+	if resp.GetShareUrl() != "" {
+		fmt.Printf("Private Share URL: %s\n", resp.GetShareUrl())
+		return nil
 	}
-
-	if len(data) > 0 {
-		if shareData, ok := data[0].([]interface{}); ok && len(shareData) > 0 {
-			if shareURL, ok := shareData[0].(string); ok {
-				fmt.Printf("Private Share URL: %s\n", shareURL)
-				return nil
-			}
-		}
-	}
-
 	fmt.Printf("Project shared privately (URL format not recognized)\n")
 	return nil
 }
