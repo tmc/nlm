@@ -2439,6 +2439,16 @@ func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
 	return c.parseArtifactsResponse(resp)
 }
 
+// FROZEN BLOCK — awaiting P1.1 HAR capture.
+// GetArtifact and DeleteArtifact both target RPC IDs that return 400 against
+// the live server (BnLyuf and WxBZtb respectively). The fallback scan below
+// enumerates via ListRecentlyViewedProjects + ListArtifacts so get-artifact
+// works end-to-end; DeleteArtifact has no such fallback.
+//
+// Do NOT change the RPC IDs, rewrite this fallback, or "fix" the broken
+// direct paths without a HAR line proving the real RPC ID. See
+// docs/dev/remaining-gaps.md P1.1 and docs/dev/phase1-verification.md §4.
+//
 // GetArtifact returns a single artifact using direct RPC.
 func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
 	resp, err := c.rpc.Do(rpc.Call{

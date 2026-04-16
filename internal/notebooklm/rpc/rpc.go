@@ -102,20 +102,29 @@ const (
 	RPCShareGuidebook               = "OTl0K"  // ShareGuidebook
 	RPCGuidebookGenerateAnswer      = "itA0pc" // GuidebookGenerateAnswer
 
+	// FROZEN BLOCK — awaiting P1.1 HAR capture. Do not rename, remap, or
+	// add new artifact-CRUD constants without a HAR line proving the RPC ID.
+	// RPCGetArtifact (BnLyuf) and RPCDeleteArtifact (WxBZtb) both return
+	// 400 against the live server today; the real IDs are unknown until
+	// the web-UI capture in docs/dev/remaining-gaps.md P1.1 lands.
+	// RPCGetNotebookUsage (V5N4be) is NOT a candidate — the plan's prior
+	// assumption that V5N4be = get-artifact was never grounded in a capture.
+	// See docs/dev/phase1-verification.md §4.
 	// LabsTailwindOrchestrationService - Artifact operations
 	RPCCreateArtifact = "xpWGLf" // CreateArtifact
-	RPCGetArtifact    = "BnLyuf" // GetArtifact
+	RPCGetArtifact    = "BnLyuf" // GetArtifact — FROZEN, returns 400
 	RPCUpdateArtifact = "DJezBc" // UpdateArtifact
 	RPCRenameArtifact = "rc3d8d" // RenameArtifact - for title updates
-	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact
+	RPCDeleteArtifact = "WxBZtb" // DeleteArtifact — FROZEN, returns 400
 	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
+	// END FROZEN BLOCK
 
 	// LabsTailwindOrchestrationService - Additional operations
 	RPCListFeaturedProjects  = "ub2Bae" // ListFeaturedProjects
 	RPCReportContent         = "rJKx8e" // ReportContent
 	RPCReviseArtifact        = "KmcKPe" // ReviseArtifact - revise artifact with instructions
 	RPCListCollections       = "ub2Bae" // ListCollections - list notebook collections/folders
-	RPCGetNotebookUsage      = "V5N4be" // GetNotebookUsage - notebook usage/sync stats
+	RPCGetNotebookUsage      = "V5N4be" // GetNotebookUsage — NOT a candidate for artifact CRUD; see FROZEN BLOCK above
 	RPCAudioTopicSuggestions = "otmP3b" // AudioTopicSuggestions - audio topic suggestions
 )
 
