@@ -100,10 +100,7 @@ type Client struct {
 
 // New creates a new NotebookLM API client.
 func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
-	// Basic validation of auth parameters
-	if authToken == "" || cookies == "" {
-		fmt.Fprintf(os.Stderr, "Warning: Missing authentication credentials. Use 'nlm auth' to setup authentication.\n")
-	}
+	// Auth validation is handled by callers; no warning here.
 
 	// Add debug option if needed
 	if os.Getenv("NLM_DEBUG") == "true" {
@@ -439,7 +436,7 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 	if strings.HasPrefix(detectedType, "text/") ||
 		detectedType == "application/json" ||
 		strings.HasSuffix(filename, ".json") {
-		if strings.HasSuffix(filename, ".json") || detectedType == "application/json" {
+		if c.config.Debug && (strings.HasSuffix(filename, ".json") || detectedType == "application/json") {
 			fmt.Fprintf(os.Stderr, "Handling JSON file as text: %s (MIME: %s)\n", filename, detectedType)
 		}
 		return c.AddSourceFromText(projectID, string(content), filename)
