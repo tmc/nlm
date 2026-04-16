@@ -629,10 +629,10 @@ var commands = []command{
 		name: "chat-list", argsUsage: "[notebook-id]",
 		usage: "List chat sessions (server-side if notebook given)", section: "Chat",
 		minArgs: 0, maxArgs: 1,
-		noAuth: true,
-		run: func(c *api.Client, args []string) error {
+		noAuth: true, noClient: true,
+		run: func(_ *api.Client, args []string) error {
 			if len(args) == 1 {
-				return listChatConversations(c, args[0])
+				return listChatConversationsWithAuth(args[0])
 			}
 			return listChatSessions()
 		},

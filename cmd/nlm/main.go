@@ -1920,6 +1920,19 @@ func resolveConversationID(c *api.Client, notebookID, partial string) string {
 	return partial
 }
 
+// listChatConversationsWithAuth creates a client and lists server-side
+// conversations. Used by chat-list which is noClient (local-only path needs no client).
+func listChatConversationsWithAuth(notebookID string) error {
+	if authToken == "" || cookies == "" {
+		return fmt.Errorf("authentication required for server-side listing; run 'nlm auth' first")
+	}
+	c := api.New(authToken, cookies)
+	if debug {
+		c.SetDebug(true)
+	}
+	return listChatConversations(c, notebookID)
+}
+
 // listChatConversations lists server-side conversations for a notebook.
 func listChatConversations(c *api.Client, notebookID string) error {
 	convIDs, err := c.GetConversations(notebookID)
