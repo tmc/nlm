@@ -1202,6 +1202,8 @@ type chatStreamRenderer struct {
 	lastThinkingLen int
 	answerBuf       strings.Builder
 	thinkingBuf     strings.Builder
+	citations       []api.Citation
+	followUps       []string
 }
 
 func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool) *chatStreamRenderer {
@@ -1234,11 +1236,44 @@ func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 		r.clearThinkingLine()
 		fmt.Fprint(r.out, chunk.Text)
 		r.answerBuf.WriteString(chunk.Text)
+		// Citations and follow-ups accumulate — keep the latest set.
+		if len(chunk.Citations) > 0 {
+			r.citations = chunk.Citations
+		}
+		if len(chunk.FollowUps) > 0 {
+			r.followUps = chunk.FollowUps
+		}
 	}
 }
 
 func (r *chatStreamRenderer) Finish() {
 	r.clearThinkingLine()
+	r.printCitations()
+	r.printFollowUps()
+}
+
+func (r *chatStreamRenderer) printCitations() {
+	if len(r.citations) == 0 {
+		return
+	}
+	fmt.Fprintf(r.status, "\n%sSources:%s\n", ansiGrey, ansiReset)
+	for _, c := range r.citations {
+		label := c.Title
+		if label == "" {
+			label = c.SourceID
+		}
+		fmt.Fprintf(r.status, "%s  [%d] %s%s\n", ansiGrey, c.SourceIndex, label, ansiReset)
+	}
+}
+
+func (r *chatStreamRenderer) printFollowUps() {
+	if len(r.followUps) == 0 {
+		return
+	}
+	fmt.Fprintf(r.status, "%sFollow-up suggestions:%s\n", ansiGrey, ansiReset)
+	for _, q := range r.followUps {
+		fmt.Fprintf(r.status, "%s  - %s%s\n", ansiGrey, q, ansiReset)
+	}
 }
 
 func (r *chatStreamRenderer) Answer() string {
@@ -1247,6 +1282,18 @@ func (r *chatStreamRenderer) Answer() string {
 
 func (r *chatStreamRenderer) Thinking() string {
 	return r.thinkingBuf.String()
+}
+
+func (r *chatStreamRenderer) CitationStrings() []string {
+	var out []string
+	for _, c := range r.citations {
+		label := c.Title
+		if label == "" {
+			label = c.SourceID
+		}
+		out = append(out, fmt.Sprintf("[%d] %s", c.SourceIndex, label))
+	}
+	return out
 }
 
 func (r *chatStreamRenderer) clearThinkingLine() {

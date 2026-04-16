@@ -2909,11 +2909,22 @@ const (
 	ChatChunkAnswer                         // Final answer text (cumulative delta)
 )
 
+// Citation represents a source citation from the chat response.
+type Citation struct {
+	SourceIndex int    // 1-based index as shown in the response text [1], [2], etc.
+	SourceID    string // Source identifier
+	Title       string // Source title or excerpt
+	StartChar   int    // Start character offset in the response text
+	EndChar     int    // End character offset in the response text
+}
+
 // ChatChunk is a parsed chunk from the chat stream with phase metadata.
 type ChatChunk struct {
-	Text   string         // The text content (delta for answer, full replacement for thinking)
-	Header string         // For thinking chunks: the bold header line only
-	Phase  ChatChunkPhase // Whether this is thinking or answer
+	Text      string         // The text content (delta for answer, full replacement for thinking)
+	Header    string         // For thinking chunks: the bold header line only
+	Phase     ChatChunkPhase // Whether this is thinking or answer
+	Citations []Citation     // Source citations (populated on final/near-final chunks)
+	FollowUps []string       // Suggested follow-up questions
 }
 
 // chatEndpoint is the gRPC-Web endpoint for GenerateFreeFormStreamed.
@@ -3333,7 +3344,8 @@ func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) 
 			continue
 		}
 
-		text := extractChatText(innerStr)
+		payload := extractChatPayload(innerStr)
+		text := payload.Text
 		if text == "" {
 			continue
 		}
@@ -3343,10 +3355,9 @@ func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) 
 			if len(preview) > 120 {
 				preview = preview[:120] + "..."
 			}
-			fmt.Fprintf(os.Stderr, "DEBUG chunk: len=%d answerLen=%d thinkingLen=%d cumulativeAnswer=%v thinking=%v text=%q\n",
+			fmt.Fprintf(os.Stderr, "DEBUG chunk: len=%d answerLen=%d thinkingLen=%d citations=%d followups=%d text=%q\n",
 				len(text), len(lastAnswer), len(lastThinking),
-				strings.HasPrefix(text, lastAnswer) && lastAnswer != "",
-				strings.HasPrefix(strings.TrimSpace(text), "**"),
+				len(payload.Citations), len(payload.FollowUps),
 				preview)
 		}
 
@@ -3390,7 +3401,12 @@ func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) 
 		}
 		delta := text[commonLen:]
 		if delta != "" {
-			if !callback(ChatChunk{Text: delta, Phase: ChatChunkAnswer}) {
+			if !callback(ChatChunk{
+				Text:      delta,
+				Phase:     ChatChunkAnswer,
+				Citations: payload.Citations,
+				FollowUps: payload.FollowUps,
+			}) {
 				return nil
 			}
 		}
@@ -3539,27 +3555,147 @@ func extractJSONArray(s string) string {
 
 // extractChatText extracts the readable text from the inner JSON of a chat response chunk.
 // The inner JSON has varying structure but the main text is typically at position [0][0].
-func extractChatText(innerJSON string) string {
+// chatPayload holds the parsed fields from a chat stream inner JSON array.
+type chatPayload struct {
+	Text      string
+	Citations []Citation
+	FollowUps []string
+}
+
+func extractChatPayload(innerJSON string) chatPayload {
 	var data interface{}
 	if err := json.Unmarshal([]byte(innerJSON), &data); err != nil {
-		return ""
+		return chatPayload{}
 	}
 
-	// The response structure contains the full response text (not deltas).
-	// Navigate: [0] -> [0] to find the text string
 	arr, ok := data.([]interface{})
 	if !ok || len(arr) == 0 {
-		return ""
+		return chatPayload{}
 	}
 
-	// Try [0][0] - the main text content
+	var p chatPayload
+
+	// [0][0] = answer text (cumulative)
 	if inner, ok := arr[0].([]interface{}); ok && len(inner) > 0 {
 		if text, ok := inner[0].(string); ok {
-			return text
+			p.Text = text
 		}
 	}
 
-	return ""
+	// [2] = citation details: [[source_id, title, excerpt, ...], ...]
+	if len(arr) > 2 {
+		p.Citations = parseCitations(arr[2], arr)
+	}
+
+	// [4] = structured follow-ups: [[text, null, ..., type_code], ...]
+	if len(arr) > 4 {
+		p.FollowUps = parseFollowUps(arr[4])
+	}
+
+	return p
+}
+
+// extractChatText is a convenience wrapper for callers that only need text.
+func extractChatText(innerJSON string) string {
+	return extractChatPayload(innerJSON).Text
+}
+
+// parseCitations extracts citation data from wire position [2] and range mapping from [3].
+// Wire [2] is an array of citation entries, each containing source info.
+// Wire [3] maps response character ranges to citation indices.
+func parseCitations(citationData interface{}, fullArr []interface{}) []Citation {
+	citArr, ok := citationData.([]interface{})
+	if !ok || len(citArr) == 0 {
+		return nil
+	}
+
+	// Parse range mappings from [3] if available.
+	// [3] entries: [start_char, end_char, [citation_indices...]]
+	type rangeMapping struct {
+		startChar int
+		endChar   int
+		indices   []int
+	}
+	var ranges []rangeMapping
+	if len(fullArr) > 3 {
+		if rangeArr, ok := fullArr[3].([]interface{}); ok {
+			for _, r := range rangeArr {
+				rm, ok := r.([]interface{})
+				if !ok || len(rm) < 3 {
+					continue
+				}
+				start, _ := rm[0].(float64)
+				end, _ := rm[1].(float64)
+				var indices []int
+				if idxArr, ok := rm[2].([]interface{}); ok {
+					for _, idx := range idxArr {
+						if v, ok := idx.(float64); ok {
+							indices = append(indices, int(v))
+						}
+					}
+				}
+				ranges = append(ranges, rangeMapping{
+					startChar: int(start),
+					endChar:   int(end),
+					indices:   indices,
+				})
+			}
+		}
+	}
+
+	var citations []Citation
+	for i, entry := range citArr {
+		entryArr, ok := entry.([]interface{})
+		if !ok || len(entryArr) == 0 {
+			continue
+		}
+		c := Citation{SourceIndex: i + 1}
+
+		// Position [0]: source ID
+		if s, ok := entryArr[0].(string); ok {
+			c.SourceID = s
+		}
+		// Position [1]: title or source name
+		if len(entryArr) > 1 {
+			if s, ok := entryArr[1].(string); ok {
+				c.Title = s
+			}
+		}
+
+		// Find character range from [3] mappings
+		for _, rm := range ranges {
+			for _, idx := range rm.indices {
+				if idx == i {
+					c.StartChar = rm.startChar
+					c.EndChar = rm.endChar
+					break
+				}
+			}
+		}
+
+		citations = append(citations, c)
+	}
+	return citations
+}
+
+// parseFollowUps extracts follow-up suggestions from wire position [4].
+// Each entry is [text, null, ..., type_code] where type 9 = question.
+func parseFollowUps(data interface{}) []string {
+	arr, ok := data.([]interface{})
+	if !ok || len(arr) == 0 {
+		return nil
+	}
+	var followUps []string
+	for _, item := range arr {
+		itemArr, ok := item.([]interface{})
+		if !ok || len(itemArr) == 0 {
+			continue
+		}
+		if text, ok := itemArr[0].(string); ok && text != "" {
+			followUps = append(followUps, text)
+		}
+	}
+	return followUps
 }
 
 // DeleteChatHistory deletes all chat history for a notebook.
