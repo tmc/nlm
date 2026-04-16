@@ -1377,11 +1377,17 @@ func (r *chatStreamRenderer) printCitations() {
 	}
 	fmt.Fprintf(r.status, "\n%sSources:%s\n", ansiGrey, ansiReset)
 	for _, c := range r.citations {
-		label := c.Title
-		if label == "" {
-			label = c.SourceID
+		id := c.SourceID
+		if len(id) > 12 {
+			id = id[:12]
 		}
-		fmt.Fprintf(r.status, "%s  [%d] %s%s\n", ansiGrey, c.SourceIndex, label, ansiReset)
+		if c.Title != "" {
+			fmt.Fprintf(r.status, "%s  [%d] %s — %q%s\n", ansiGrey, c.SourceIndex, id, c.Title, ansiReset)
+		} else if id != "" {
+			fmt.Fprintf(r.status, "%s  [%d] %s%s\n", ansiGrey, c.SourceIndex, id, ansiReset)
+		} else {
+			fmt.Fprintf(r.status, "%s  [%d]%s\n", ansiGrey, c.SourceIndex, ansiReset)
+		}
 	}
 }
 

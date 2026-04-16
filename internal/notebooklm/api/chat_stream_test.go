@@ -15,7 +15,7 @@ func TestParseChatResponseChunked(t *testing.T) {
 
 	var got []ChatChunk
 	c := &Client{}
-	err := c.parseChatResponseChunked(strings.NewReader(stream), func(chunk ChatChunk) bool {
+	err := c.parseChatResponseChunked(strings.NewReader(stream), nil, func(chunk ChatChunk) bool {
 		got = append(got, chunk)
 		return true
 	})

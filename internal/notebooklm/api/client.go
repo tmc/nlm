@@ -3271,7 +3271,10 @@ func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk)
 	// Wrap body with idle timeout: reset deadline on each chunk received.
 	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
 	defer idleBody.Close()
-	return c.parseChatResponseChunked(idleBody, callback)
+
+	// Resolve source IDs so citation index lookups work.
+	sourceIDs := c.resolveSourceIDs(req.ProjectID, req.SourceIDs)
+	return c.parseChatResponseChunked(idleBody, sourceIDs, callback)
 }
 
 // parseChatResponseChunked reads the stream incrementally and emits phase-aware
@@ -3282,7 +3285,7 @@ func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk)
 //	<json>\n       (the actual data — may contain ["wrb.fr", ...] envelope)
 //
 // Chunks are emitted immediately as they are read, enabling real-time streaming.
-func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) bool) error {
+func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callback func(ChatChunk) bool) error {
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024) // up to 1MB lines
 
@@ -3344,7 +3347,7 @@ func (c *Client) parseChatResponseChunked(r io.Reader, callback func(ChatChunk) 
 			continue
 		}
 
-		payload := extractChatPayload(innerStr)
+		payload := extractChatPayload(innerStr, sourceIDs)
 		text := payload.Text
 		if text == "" {
 			continue
@@ -3564,7 +3567,7 @@ type chatPayload struct {
 	FollowUps []string
 }
 
-func extractChatPayload(innerJSON string) chatPayload {
+func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
 	var data interface{}
 	if err := json.Unmarshal([]byte(innerJSON), &data); err != nil {
 		return chatPayload{}
@@ -3584,9 +3587,10 @@ func extractChatPayload(innerJSON string) chatPayload {
 		}
 	}
 
-	// [2] = citation details: [[source_id, title, excerpt, ...], ...]
+	// [1] = citation details (confidence, ranges, excerpts)
+	// [2] = source mappings (char range → source_indices into request's source_ids)
 	if len(arr) > 2 {
-		p.Citations = parseCitations(arr[2], arr)
+		p.Citations = parseCitationsV2(arr[1], arr[2], sourceIDs)
 	}
 
 	// [4] = structured follow-ups: [[text, null, ..., type_code], ...]
@@ -3599,7 +3603,7 @@ func extractChatPayload(innerJSON string) chatPayload {
 
 // extractChatText is a convenience wrapper for callers that only need text.
 func extractChatText(innerJSON string) string {
-	return extractChatPayload(innerJSON).Text
+	return extractChatPayload(innerJSON, nil).Text
 }
 
 // debugDumpChatWirePositions logs the raw JSON structure at each position
@@ -3625,82 +3629,140 @@ func debugDumpChatWirePositions(innerJSON string) {
 	}
 }
 
-// parseCitations extracts citation data from wire position [2] and range mapping from [3].
-// Wire [2] is an array of citation entries, each containing source info.
-// Wire [3] maps response character ranges to citation indices.
-func parseCitations(citationData interface{}, fullArr []interface{}) []Citation {
-	citArr, ok := citationData.([]interface{})
-	if !ok || len(citArr) == 0 {
-		return nil
-	}
+// parseCitationsV2 extracts citation data from the corrected wire positions.
+//
+// Wire layout (inner chat payload):
+//
+//	[1] = citation details array, each entry:
+//	  [1] = confidence (float64)
+//	  [2] = ranges array: [_, start, end]
+//	  [4] = excerpts array → [2] segments → [2] text
+//
+//	[2] = source mappings array, each entry:
+//	  [1] = char range: [_, start, end]
+//	  [2] = source_indices ([]int, zero-based into request's source_ids)
+//
+// sourceIDs are the source IDs from the original ChatRequest, used to resolve
+// integer indices back to source identifiers.
+func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string) []Citation {
+	// Build a map of source_index → Citation from the source mappings at [2].
+	// Each mapping entry tells us which source indices are cited at which char range.
+	seen := make(map[int]*Citation)
 
-	// Parse range mappings from [3] if available.
-	// [3] entries: [start_char, end_char, [citation_indices...]]
-	type rangeMapping struct {
-		startChar int
-		endChar   int
-		indices   []int
-	}
-	var ranges []rangeMapping
-	if len(fullArr) > 3 {
-		if rangeArr, ok := fullArr[3].([]interface{}); ok {
-			for _, r := range rangeArr {
-				rm, ok := r.([]interface{})
-				if !ok || len(rm) < 3 {
-					continue
+	if mapArr, ok := mappingData.([]interface{}); ok {
+		for _, entry := range mapArr {
+			entryArr, ok := entry.([]interface{})
+			if !ok || len(entryArr) < 3 {
+				continue
+			}
+
+			// [1] = char range [_, start, end]
+			var startChar, endChar int
+			if rangeArr, ok := entryArr[1].([]interface{}); ok && len(rangeArr) >= 3 {
+				if v, ok := rangeArr[1].(float64); ok {
+					startChar = int(v)
 				}
-				start, _ := rm[0].(float64)
-				end, _ := rm[1].(float64)
-				var indices []int
-				if idxArr, ok := rm[2].([]interface{}); ok {
-					for _, idx := range idxArr {
-						if v, ok := idx.(float64); ok {
-							indices = append(indices, int(v))
+				if v, ok := rangeArr[2].(float64); ok {
+					endChar = int(v)
+				}
+			}
+
+			// [2] = source_indices (zero-based into sourceIDs)
+			if idxArr, ok := entryArr[2].([]interface{}); ok {
+				for _, idx := range idxArr {
+					srcIdx := -1
+					if v, ok := idx.(float64); ok {
+						srcIdx = int(v)
+					}
+					if srcIdx < 0 {
+						continue
+					}
+					if _, exists := seen[srcIdx]; !exists {
+						c := &Citation{
+							SourceIndex: srcIdx + 1, // 1-based for display
+							StartChar:   startChar,
+							EndChar:     endChar,
 						}
+						if srcIdx < len(sourceIDs) {
+							c.SourceID = sourceIDs[srcIdx]
+						}
+						seen[srcIdx] = c
 					}
 				}
-				ranges = append(ranges, rangeMapping{
-					startChar: int(start),
-					endChar:   int(end),
-					indices:   indices,
-				})
 			}
 		}
 	}
 
-	var citations []Citation
-	for i, entry := range citArr {
-		entryArr, ok := entry.([]interface{})
-		if !ok || len(entryArr) == 0 {
-			continue
-		}
-		c := Citation{SourceIndex: i + 1}
-
-		// Position [0]: source ID
-		if s, ok := entryArr[0].(string); ok {
-			c.SourceID = s
-		}
-		// Position [1]: title or source name
-		if len(entryArr) > 1 {
-			if s, ok := entryArr[1].(string); ok {
-				c.Title = s
+	// Extract excerpts from citation details at [1] to enrich titles.
+	if citArr, ok := citationData.([]interface{}); ok {
+		for i, entry := range citArr {
+			entryArr, ok := entry.([]interface{})
+			if !ok {
+				continue
 			}
-		}
+			c, exists := seen[i]
+			if !exists {
+				continue
+			}
 
-		// Find character range from [3] mappings
-		for _, rm := range ranges {
-			for _, idx := range rm.indices {
-				if idx == i {
-					c.StartChar = rm.startChar
-					c.EndChar = rm.endChar
-					break
+			// [4] = excerpts: navigate to excerpt text
+			// [4][N][2][M][2] = text string
+			if len(entryArr) > 4 {
+				if excerpts := extractExcerptText(entryArr[4]); excerpts != "" {
+					c.Title = excerpts
 				}
 			}
 		}
+	}
 
-		citations = append(citations, c)
+	// Collect into sorted slice.
+	var citations []Citation
+	for _, c := range seen {
+		citations = append(citations, *c)
+	}
+	// Sort by source index for stable output.
+	for i := 0; i < len(citations); i++ {
+		for j := i + 1; j < len(citations); j++ {
+			if citations[j].SourceIndex < citations[i].SourceIndex {
+				citations[i], citations[j] = citations[j], citations[i]
+			}
+		}
 	}
 	return citations
+}
+
+// extractExcerptText navigates the nested excerpt structure to find text.
+// Structure: excerpts_array → [N] → [2] segments → [M] → [2] text
+func extractExcerptText(data interface{}) string {
+	excerptArr, ok := data.([]interface{})
+	if !ok || len(excerptArr) == 0 {
+		return ""
+	}
+	for _, excerpt := range excerptArr {
+		eArr, ok := excerpt.([]interface{})
+		if !ok || len(eArr) < 3 {
+			continue
+		}
+		// [2] = segments array
+		segments, ok := eArr[2].([]interface{})
+		if !ok {
+			continue
+		}
+		for _, seg := range segments {
+			segArr, ok := seg.([]interface{})
+			if !ok || len(segArr) < 3 {
+				continue
+			}
+			// [2] = text
+			if text, ok := segArr[2].(string); ok && text != "" {
+				if len(text) > 100 {
+					return text[:97] + "..."
+				}
+				return text
+			}
+		}
+	}
+	return ""
 }
 
 // parseFollowUps extracts follow-up suggestions from wire position [4].
