@@ -3618,18 +3618,18 @@ func debugDumpChatWirePositions(innerJSON string) {
 	}
 }
 
-// parseCitationsV2 extracts citation data from the corrected wire positions.
+// parseCitationsV2 extracts citation data from the wire payload.
 //
 // Wire layout (inner chat payload):
 //
 //	[1] = citation details array, each entry:
-//	  [1] = confidence (float64)
-//	  [2] = ranges array: [_, start, end]
-//	  [4] = excerpts array → [2] segments → [2] text
+//	  [2] = confidence (float64)
+//	  [3] = ranges array
+//	  [4] = excerpts array → nested text segments
 //
-//	[2] = source mappings array, each entry:
-//	  [1] = char range: [_, start, end]
-//	  [2] = source_indices ([]int, zero-based into request's source_ids)
+//	[2] = source mappings array, each entry is [charRange, srcIndices]:
+//	  [0] = char range: [null, start, end]
+//	  [1] = source_indices ([]int, zero-based into request's source_ids)
 //
 // sourceIDs are the source IDs from the original ChatRequest, used to resolve
 // integer indices back to source identifiers.
@@ -3641,13 +3641,13 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 	if mapArr, ok := mappingData.([]interface{}); ok {
 		for _, entry := range mapArr {
 			entryArr, ok := entry.([]interface{})
-			if !ok || len(entryArr) < 3 {
+			if !ok || len(entryArr) < 2 {
 				continue
 			}
 
-			// [1] = char range [_, start, end]
+			// [0] = char range [null, start, end]
 			var startChar, endChar int
-			if rangeArr, ok := entryArr[1].([]interface{}); ok && len(rangeArr) >= 3 {
+			if rangeArr, ok := entryArr[0].([]interface{}); ok && len(rangeArr) >= 3 {
 				if v, ok := rangeArr[1].(float64); ok {
 					startChar = int(v)
 				}
@@ -3656,8 +3656,8 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 				}
 			}
 
-			// [2] = source_indices (zero-based into sourceIDs)
-			if idxArr, ok := entryArr[2].([]interface{}); ok {
+			// [1] = source_indices (zero-based into sourceIDs)
+			if idxArr, ok := entryArr[1].([]interface{}); ok {
 				for _, idx := range idxArr {
 					srcIdx := -1
 					if v, ok := idx.(float64); ok {

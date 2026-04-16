@@ -58,6 +58,7 @@ var (
 	reportSections     int    // Max sections for generate-report (0 = all)
 	conversationID    string // Conversation ID to continue (generate-chat)
 	useWebChat        bool   // Use most recent server-side conversation (generate-chat)
+	citationMode      string // Citation rendering mode: off|block|overlay (default block-on-TTY)
 )
 
 // ChatSession represents a persistent chat conversation
@@ -121,6 +122,7 @@ func init() {
 	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
+	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay (default: block on TTY, off when piped)")
 
 	flag.Usage = printUsage
 }
@@ -1299,24 +1301,103 @@ const (
 	ansiReset = "\033[0m"
 )
 
+// citationRenderMode controls how Citation data is surfaced in the CLI.
+type citationRenderMode int
+
+const (
+	citationModeOff     citationRenderMode = iota // Suppress the trailing Sources block entirely.
+	citationModeBlock                             // Stream answer normally; print a trailing Sources block.
+	citationModeStream                            // Stream live; trailing footer lists citations with their char ranges.
+	citationModeTail                              // Stream live, hold a bounded tail window; splice inline superscripts where possible.
+	citationModeOverlay                           // Buffer the whole answer; at Finish, splice inline superscripts at exact positions.
+)
+
+// resolveCitationMode maps the user-facing --citations flag to a mode.
+// Empty flag defaults to stream when stdout is a TTY, off when piped.
+func resolveCitationMode(flag string, outIsTTY bool) citationRenderMode {
+	switch strings.ToLower(flag) {
+	case "off", "none":
+		return citationModeOff
+	case "block":
+		return citationModeBlock
+	case "stream", "inline-footer":
+		return citationModeStream
+	case "tail":
+		return citationModeTail
+	case "overlay", "footnote":
+		return citationModeOverlay
+	}
+	if outIsTTY {
+		return citationModeStream
+	}
+	return citationModeOff
+}
+
+// snapToWordBoundary advances pos forward within text until it lies after a
+// word character and before a non-word character (or at end-of-string).
+// This avoids splicing citation markers mid-word when EndChar lands inside
+// one. Walks at most 32 bytes; if no boundary found, returns the original pos.
+func snapToWordBoundary(text string, pos int) int {
+	if pos < 0 {
+		return 0
+	}
+	if pos >= len(text) {
+		return len(text)
+	}
+	// If we're already at a boundary (next byte is non-word), keep it.
+	if !isWordByte(text[pos]) {
+		return pos
+	}
+	// Scan forward for a non-word byte.
+	end := pos + 32
+	if end > len(text) {
+		end = len(text)
+	}
+	for i := pos; i < end; i++ {
+		if !isWordByte(text[i]) {
+			return i
+		}
+	}
+	return pos
+}
+
+func isWordByte(b byte) bool {
+	return (b >= 'a' && b <= 'z') ||
+		(b >= 'A' && b <= 'Z') ||
+		(b >= '0' && b <= '9') ||
+		b == '_' || b == '`' || b == '\'' || b == '"'
+}
+
+// defaultTailWindow is the max byte-length of text held back in tail mode
+// for late-arriving citation annotation.
+const defaultTailWindow = 512
+
 type chatStreamRenderer struct {
 	out             io.Writer
 	status          io.Writer
 	showThinking    bool
 	verbose         bool
+	citationMode    citationRenderMode
+	tailWindow      int                          // tail mode: max bytes held back for splicing
+	resolveTitle    func(sourceID string) string // optional; returns "" if unknown
 	lastThinkingLen int
 	answerBuf       strings.Builder
 	thinking        string
 	citations       []api.Citation
 	followUps       []string
+
+	// tail-mode bookkeeping
+	flushedLen int // absolute cumulative-answer offset of bytes already written to r.out
 }
 
-func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool) *chatStreamRenderer {
+func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mode citationRenderMode) *chatStreamRenderer {
 	return &chatStreamRenderer{
 		out:          out,
 		status:       status,
 		showThinking: showThinking,
 		verbose:      verbose,
+		citationMode: mode,
+		tailWindow:   defaultTailWindow,
 	}
 }
 
@@ -1341,9 +1422,23 @@ func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 		r.lastThinkingLen = len("  [thinking] ") + len(display)
 	case api.ChatChunkAnswer:
 		r.clearThinkingLine()
-		fmt.Fprint(r.out, chunk.Text)
 		r.answerBuf.WriteString(chunk.Text)
-		// Citations and follow-ups accumulate — keep the latest set.
+		switch r.citationMode {
+		case citationModeOverlay:
+			// Hold everything until Finish so we can splice precisely.
+		case citationModeTail:
+			// Flush any bytes that have aged out of the tail window.
+			buf := r.answerBuf.String()
+			stable := len(buf) - r.tailWindow
+			if stable > r.flushedLen {
+				fmt.Fprint(r.out, buf[r.flushedLen:stable])
+				r.flushedLen = stable
+			}
+		default:
+			// block / stream / off — live streaming.
+			fmt.Fprint(r.out, chunk.Text)
+			r.flushedLen += len(chunk.Text)
+		}
 		if len(chunk.Citations) > 0 {
 			r.citations = chunk.Citations
 		}
@@ -1355,28 +1450,209 @@ func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 
 func (r *chatStreamRenderer) Finish() {
 	r.clearThinkingLine()
-	r.printCitations()
+	switch r.citationMode {
+	case citationModeOverlay:
+		r.emitOverlay()
+	case citationModeTail:
+		r.emitTail()
+	case citationModeStream:
+		r.printCitationsFooter()
+	case citationModeBlock:
+		r.printCitationsBlock()
+	}
 	r.printFollowUps()
 }
 
-func (r *chatStreamRenderer) printCitations() {
+// emitOverlay writes the full answer with superscript markers spliced in at
+// the citation char ranges, then prints a numbered footnote block.
+func (r *chatStreamRenderer) emitOverlay() {
+	answer := r.answerBuf.String()
+	if len(r.citations) == 0 {
+		fmt.Fprint(r.out, answer)
+		return
+	}
+	fmt.Fprint(r.out, insertSuperscripts(answer, r.citations))
+	r.printCitationsFootnotes()
+}
+
+// emitTail flushes the held tail window. Citations whose EndChar lands
+// inside the held tail get inline superscripts; citations whose EndChar is
+// already past-flushed get emitted in the footnote block only.
+func (r *chatStreamRenderer) emitTail() {
+	buf := r.answerBuf.String()
+	tail := buf[r.flushedLen:]
+
+	// Partition citations by whether they fall in the still-held tail.
+	var inline, spilled []api.Citation
+	for _, c := range r.citations {
+		if c.EndChar >= r.flushedLen && c.EndChar <= len(buf) {
+			// Translate to a tail-local offset.
+			local := c
+			local.EndChar = c.EndChar - r.flushedLen
+			local.StartChar = c.StartChar - r.flushedLen
+			inline = append(inline, local)
+		} else {
+			spilled = append(spilled, c)
+		}
+	}
+
+	if len(inline) > 0 {
+		fmt.Fprint(r.out, insertSuperscripts(tail, inline))
+	} else {
+		fmt.Fprint(r.out, tail)
+	}
+	r.flushedLen = len(buf)
+
+	if len(r.citations) == 0 {
+		return
+	}
+	// Footer: show inline entries as superscripts, spilled as bracket indices.
+	fmt.Fprintln(r.status)
+	fmt.Fprintln(r.status, ansiGrey+strings.Repeat("─", 3)+ansiReset)
+	for _, c := range r.citations {
+		label := r.citationLabel(c)
+		marker := superscript(c.SourceIndex)
+		for _, s := range spilled {
+			if s.SourceIndex == c.SourceIndex {
+				marker = fmt.Sprintf("[%d]", c.SourceIndex)
+				break
+			}
+		}
+		fmt.Fprintf(r.status, "%s%s %s%s\n", ansiGrey, marker, label, ansiReset)
+	}
+}
+
+// printCitationsFootnotes prints a numbered footnote block separated by a rule.
+// Used by overlay mode where inline superscripts already appear in the answer.
+func (r *chatStreamRenderer) printCitationsFootnotes() {
+	if len(r.citations) == 0 {
+		return
+	}
+	fmt.Fprintln(r.status)
+	fmt.Fprintln(r.status, ansiGrey+strings.Repeat("─", 3)+ansiReset)
+	for _, c := range r.citations {
+		label := r.citationLabel(c)
+		fmt.Fprintf(r.status, "%s%s %s%s\n", ansiGrey, superscript(c.SourceIndex), label, ansiReset)
+	}
+}
+
+// printCitationsFooter prints a post-answer footer that lists each citation
+// with its char range. Useful for "stream" mode which cannot splice inline.
+func (r *chatStreamRenderer) printCitationsFooter() {
+	if len(r.citations) == 0 {
+		return
+	}
+	fmt.Fprintf(r.status, "\n%sCitations:%s\n", ansiGrey, ansiReset)
+	for _, c := range r.citations {
+		label := r.citationLabel(c)
+		fmt.Fprintf(r.status, "%s  [%d] chars %d-%d — %s%s\n",
+			ansiGrey, c.SourceIndex, c.StartChar, c.EndChar, label, ansiReset)
+	}
+}
+
+// printCitationsBlock prints the default post-answer Sources: block.
+func (r *chatStreamRenderer) printCitationsBlock() {
 	if len(r.citations) == 0 {
 		return
 	}
 	fmt.Fprintf(r.status, "\n%sSources:%s\n", ansiGrey, ansiReset)
 	for _, c := range r.citations {
-		id := c.SourceID
-		if len(id) > 12 {
-			id = id[:12]
+		label := r.citationLabel(c)
+		fmt.Fprintf(r.status, "%s  [%d] %s%s\n", ansiGrey, c.SourceIndex, label, ansiReset)
+	}
+}
+
+// citationLabel formats a single citation line: "<source-id> — <title/excerpt>".
+// Prefers a resolved notebook title; falls back to the server-supplied excerpt;
+// falls back to the raw source ID.
+func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
+	id := c.SourceID
+	var title string
+	if r.resolveTitle != nil {
+		title = r.resolveTitle(c.SourceID)
+	}
+	if title == "" {
+		title = c.Title
+	}
+	title = truncateExcerpt(title, 100)
+	switch {
+	case id != "" && title != "":
+		return fmt.Sprintf("%s — %q", id, title)
+	case id != "":
+		return id
+	case title != "":
+		return fmt.Sprintf("%q", title)
+	}
+	return ""
+}
+
+// truncateExcerpt collapses whitespace and clips to max runes with an ellipsis.
+func truncateExcerpt(s string, max int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "…"
+}
+
+// insertSuperscripts splices superscript markers at each citation's EndChar.
+// Ranges overlapping the same EndChar are merged so multi-cite positions
+// emit a single combined marker (¹²).
+func insertSuperscripts(answer string, citations []api.Citation) string {
+	type insert struct {
+		at  int
+		idx []int
+	}
+	byPos := map[int]*insert{}
+	var order []int
+	for _, c := range citations {
+		pos := c.EndChar
+		if pos < 0 || pos > len(answer) {
+			pos = len(answer)
 		}
-		if c.Title != "" {
-			fmt.Fprintf(r.status, "%s  [%d] %s — %q%s\n", ansiGrey, c.SourceIndex, id, c.Title, ansiReset)
-		} else if id != "" {
-			fmt.Fprintf(r.status, "%s  [%d] %s%s\n", ansiGrey, c.SourceIndex, id, ansiReset)
-		} else {
-			fmt.Fprintf(r.status, "%s  [%d]%s\n", ansiGrey, c.SourceIndex, ansiReset)
+		pos = snapToWordBoundary(answer, pos)
+		if _, ok := byPos[pos]; !ok {
+			byPos[pos] = &insert{at: pos}
+			order = append(order, pos)
+		}
+		byPos[pos].idx = append(byPos[pos].idx, c.SourceIndex)
+	}
+	// Emit positions in ascending order.
+	for i := 0; i < len(order); i++ {
+		for j := i + 1; j < len(order); j++ {
+			if order[j] < order[i] {
+				order[i], order[j] = order[j], order[i]
+			}
 		}
 	}
+	var b strings.Builder
+	last := 0
+	for _, pos := range order {
+		if pos < last {
+			continue
+		}
+		b.WriteString(answer[last:pos])
+		for _, idx := range byPos[pos].idx {
+			b.WriteString(superscript(idx))
+		}
+		last = pos
+	}
+	b.WriteString(answer[last:])
+	return b.String()
+}
+
+// superscript formats a 1-based citation index using Unicode superscript digits.
+func superscript(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	digits := []rune("⁰¹²³⁴⁵⁶⁷⁸⁹")
+	var out []rune
+	for _, d := range fmt.Sprintf("%d", n) {
+		out = append(out, digits[d-'0'])
+	}
+	return string(out)
 }
 
 func (r *chatStreamRenderer) printFollowUps() {
@@ -1430,7 +1706,9 @@ type chatResult struct {
 }
 
 func streamChatResponse(c *api.Client, req api.ChatRequest) (chatResult, error) {
-	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, showThinking || verbose || isTerminal(os.Stdout), verbose)
+	mode := resolveCitationMode(citationMode, isTerminal(os.Stdout))
+	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, showThinking || verbose || isTerminal(os.Stdout), verbose, mode)
+	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
 
 	err := c.StreamChat(req, func(chunk api.ChatChunk) bool {
 		renderer.WriteChunk(chunk)
@@ -1445,6 +1723,35 @@ func streamChatResponse(c *api.Client, req api.ChatRequest) (chatResult, error) 
 		Citations: renderer.CitationStrings(),
 		FollowUps: renderer.followUps,
 	}, err
+}
+
+// notebookSourceTitles returns a lazy lookup from source ID to source title.
+// The project fetch happens at most once, on first lookup, and failures are
+// silently suppressed (callers fall back to the server's citation excerpt).
+func notebookSourceTitles(c *api.Client, projectID string) func(string) string {
+	if c == nil || projectID == "" {
+		return nil
+	}
+	var (
+		titles map[string]string
+		loaded bool
+	)
+	return func(sourceID string) string {
+		if !loaded {
+			loaded = true
+			proj, err := c.GetProject(projectID)
+			if err != nil {
+				return ""
+			}
+			titles = make(map[string]string, len(proj.Sources))
+			for _, s := range proj.Sources {
+				if id := s.GetSourceId().GetSourceId(); id != "" {
+					titles[id] = s.GetTitle()
+				}
+			}
+		}
+		return titles[sourceID]
+	}
 }
 
 func isTerminal(f *os.File) bool {
