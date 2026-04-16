@@ -1215,24 +1215,11 @@ func getArtifact(c *api.Client, artifactID string) error {
 }
 
 func listArtifacts(c *api.Client, projectID string) error {
-	// The orchestration service returns 400 Bad Request for list-artifacts
-	// Use direct RPC instead
-	if debug {
-		fmt.Fprintf(os.Stderr, "Using direct RPC for list-artifacts\n")
-	}
-
 	artifacts, err := c.ListArtifacts(projectID)
 	if err != nil {
 		return fmt.Errorf("list artifacts: %w", err)
 	}
-
 	return displayArtifacts(artifacts)
-}
-
-// listArtifactsDirectRPC uses direct RPC to list artifacts
-func listArtifactsDirectRPC(c *api.Client, projectID string) ([]*pb.Artifact, error) {
-	// Use the client's RPC capabilities
-	return c.ListArtifacts(projectID)
 }
 
 // displayArtifacts shows artifacts in a formatted table
