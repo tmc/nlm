@@ -493,9 +493,13 @@ func list(c *api.Client) error {
 			title = title[:42] + "..."
 		}
 		sourceCount := len(nb.Sources)
+		ts := nb.GetMetadata().GetModifiedTime()
+		if ts == nil {
+			ts = nb.GetMetadata().GetCreateTime()
+		}
 		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
 			nb.ProjectId, title, sourceCount,
-			nb.GetMetadata().GetCreateTime().AsTime().Format(time.RFC3339),
+			ts.AsTime().Format(time.RFC3339),
 		)
 	}
 	return w.Flush()
