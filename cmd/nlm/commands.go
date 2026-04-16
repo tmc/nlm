@@ -477,16 +477,19 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return generateNotebookGuide(c, args[0]) },
 	},
 	{
+		name: "generate-mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
+		usage: "Generate interactive mindmap (opens in browser)", section: "Generation",
+		minArgs: 2, maxArgs: -1,
+		run: func(c *api.Client, args []string) error {
+			return actOnSourcesMindmap(c, args[0], args[1:])
+		},
+	},
+	{
 		name: "generate-magic", argsUsage: "<notebook-id> <source-id> [source-id...]",
 		usage: "Generate magic view from sources", section: "Generation",
 		minArgs: 2, maxArgs: -1,
+		hidden: true, // untested, may not produce usable output
 		run: func(c *api.Client, args []string) error { return generateMagicView(c, args[0], args[1:]) },
-	},
-	{
-		name: "generate-mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
-		usage: "Generate mindmap from sources", section: "Generation",
-		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error { return generateMindmap(c, args[0], args[1:]) },
 	},
 	{
 		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",
@@ -525,22 +528,7 @@ var commands = []command{
 		usage: "Create report artifact (use report-suggestions for types)", section: "Create",
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
-			reportType := args[1]
-			description := ""
-			instructions := ""
-			if len(args) > 2 {
-				description = args[2]
-			}
-			if len(args) > 3 {
-				instructions = strings.Join(args[3:], " ")
-			}
-			artifactID, err := c.CreateReport(args[0], reportType, description, instructions)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Created report: %s\n", artifactID)
-			fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
-			return nil
+			return createReport(c, args[0], args[1], args[2:])
 		},
 	},
 	{
@@ -668,7 +656,15 @@ var commands = []command{
 	actOnSourcesCmd("study-guide", "study_guide", "Generate study guide"),
 	actOnSourcesCmd("faq", "faq", "Generate FAQ from sources"),
 	actOnSourcesCmd("briefing-doc", "briefing_doc", "Create briefing document"),
-	actOnSourcesCmd("mindmap", "interactive_mindmap", "Generate interactive mindmap"),
+	{
+		name: "mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
+		usage:   "Generate interactive mindmap (opens in browser)",
+		section: "Content Transformation",
+		minArgs: 2, maxArgs: -1,
+		run: func(c *api.Client, args []string) error {
+			return actOnSourcesMindmap(c, args[0], args[1:])
+		},
+	},
 	actOnSourcesCmd("timeline", "timeline", "Create timeline from sources"),
 	actOnSourcesCmd("toc", "table_of_contents", "Generate table of contents"),
 

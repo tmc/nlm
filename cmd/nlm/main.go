@@ -796,7 +796,7 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 	if err != nil {
 		return fmt.Errorf("generate guide: %w", err)
 	}
-	fmt.Printf("Guide:\n%s\n", guide.Content)
+	fmt.Printf("%s\n", guide.Content)
 	return nil
 }
 
@@ -817,13 +817,13 @@ func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) err
 	return nil
 }
 
-func generateMindmap(c *api.Client, notebookID string, sourceIDs []string) error {
+func actOnSourcesMindmap(c *api.Client, notebookID string, sourceIDs []string) error {
 	fmt.Fprintf(os.Stderr, "Generating interactive mindmap...\n")
 	err := c.ActOnSources(notebookID, "interactive_mindmap", sourceIDs)
 	if err != nil {
 		return fmt.Errorf("generate mindmap: %w", err)
 	}
-	fmt.Printf("Interactive mindmap generated successfully.\n")
+	fmt.Fprintf(os.Stderr, "Mindmap created — open notebook in browser to view.\n")
 	return nil
 }
 
@@ -1349,6 +1349,44 @@ Requirements:
 - Cite sources with numbered references
 - Be comprehensive: cover design rationale, key APIs, data structures, error handling, and examples
 - Target ~2000 words per section`
+
+// createReport creates a report artifact, optionally matching a suggestion to get
+// targeted source_ids and description. If the report type matches a suggestion title,
+// the suggestion's description and source_ids are used instead of all sources.
+func createReport(c *api.Client, notebookID, reportType string, extra []string) error {
+	description := ""
+	instructions := ""
+	if len(extra) > 0 {
+		description = extra[0]
+	}
+	if len(extra) > 1 {
+		instructions = strings.Join(extra[1:], " ")
+	}
+
+	// Try to match reportType against suggestions for targeted source_ids.
+	var sourceIDs []string
+	resp, err := c.GenerateReportSuggestions(notebookID)
+	if err == nil {
+		for _, s := range resp.GetSuggestions() {
+			if strings.EqualFold(s.GetTitle(), reportType) {
+				if description == "" {
+					description = s.GetDescription()
+				}
+				sourceIDs = s.GetSourceIds()
+				fmt.Fprintf(os.Stderr, "Matched suggestion %q (%d sources)\n", s.GetTitle(), len(sourceIDs))
+				break
+			}
+		}
+	}
+
+	artifactID, err := c.CreateReport(notebookID, reportType, description, instructions, sourceIDs...)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Created report: %s\n", artifactID)
+	fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", notebookID)
+	return nil
+}
 
 func generateReport(c *api.Client, notebookID string) error {
 	// Optionally set notebook instructions.

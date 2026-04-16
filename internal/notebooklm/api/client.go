@@ -2714,15 +2714,21 @@ func (c *Client) CreateSlideDeck(projectID, instructions string) (string, error)
 // instructions is an optional custom user prompt.
 // Returns the artifact ID. The report is generated asynchronously;
 // poll with ListArtifacts to check completion status.
-func (c *Client) CreateReport(projectID, reportType, reportDescription, instructions string) (string, error) {
-	project, err := c.GetProject(projectID)
-	if err != nil {
-		return "", fmt.Errorf("get project sources: %w", err)
-	}
+// CreateReport creates a report artifact via R7cb6c.
+// If targetSourceIDs is non-empty, only those sources are used; otherwise all project sources are included.
+func (c *Client) CreateReport(projectID, reportType, reportDescription, instructions string, targetSourceIDs ...string) (string, error) {
 	var sourceIDs []string
-	for _, src := range project.Sources {
-		if src.SourceId != nil {
-			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+	if len(targetSourceIDs) > 0 && len(targetSourceIDs[0]) > 0 {
+		sourceIDs = targetSourceIDs
+	} else {
+		project, err := c.GetProject(projectID)
+		if err != nil {
+			return "", fmt.Errorf("get project sources: %w", err)
+		}
+		for _, src := range project.Sources {
+			if src.SourceId != nil {
+				sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+			}
 		}
 	}
 	if len(sourceIDs) == 0 {
