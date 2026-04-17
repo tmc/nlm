@@ -1,0 +1,13 @@
+Committed: 2026-04-17T01:09:14Z
+claude-code: opus-4.7[1m]
+tty: not a tty
+?
+pid: 79285
+ITERM_SESSION_ID: w0t1p0:509851F8-F1FF-48CC-8CF5-EF87C77DCAE7
+
+P1.1 resolution commit. Replaces FROZEN BLOCK with HAR-verified V5N4be
+DeleteArtifact binding. GetArtifact becomes scan-only (no dedicated RPC
+exists). Two data points in the 04-07 HAR (different artifact UUIDs,
+identical options blob) treated as sufficient to encode options as an
+opaque literal; if a future capture shows variation, the encoder's
+guard comment points at the fixture source.
