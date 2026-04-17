@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	nlmsync "github.com/tmc/nlm/internal/sync"
@@ -404,12 +403,12 @@ var commands = []command{
 			if err != nil {
 				return err
 			}
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+			w, flush := newListWriter(os.Stdout)
 			fmt.Fprintln(w, "ID\tTITLE\tSTATUS")
 			for _, gb := range guidebooks {
 				fmt.Fprintf(w, "%s\t%s\t%s\n", gb.GetGuidebookId(), gb.GetTitle(), gb.GetStatus().String())
 			}
-			return w.Flush()
+			return flush()
 		},
 	},
 	{

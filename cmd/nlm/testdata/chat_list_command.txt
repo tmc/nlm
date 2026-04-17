@@ -9,6 +9,11 @@ exec ./nlm_test chat-list
 ! stderr 'panic'
 ! stderr 'Authentication required'
 
+# In non-TTY mode (txtar's exec pipe) the decorative dashed separator row
+# must not appear on stdout. It would break `chat-list | cut -f1` piping.
+! stdout '^------'
+! stdout '^===='
+
 # Test chat-list with too many arguments (should fail with usage)
 ! exec ./nlm_test chat-list notebook123 extra
 stderr 'usage: nlm chat-list \[notebook-id\]'

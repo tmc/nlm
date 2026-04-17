@@ -616,31 +616,34 @@ func list(c *api.Client) error {
 		return err
 	}
 
-	// Display total count
 	total := len(notebooks)
-	fmt.Fprintf(os.Stderr, "Total notebooks: %d (showing first 10)\n\n", total)
-
-	// Limit to first 10 entries
-	limit := 10
-	if len(notebooks) < limit {
-		limit = len(notebooks)
+	// Default: show first 10 when printing for a human; when piped, emit all
+	// rows so downstream filters don't lose data to an arbitrary cap.
+	limit := total
+	tty := isTerminal(os.Stdout)
+	if tty {
+		fmt.Fprintf(os.Stderr, "Total notebooks: %d (showing first 10)\n\n", total)
+		limit = 10
+		if total < limit {
+			limit = total
+		}
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tSOURCES\tLAST UPDATED")
 	for i := 0; i < limit; i++ {
 		nb := notebooks[i]
-		// Use backspace to compensate for emoji width
-		emoji := strings.TrimSpace(nb.Emoji)
-		var title string
-		if emoji != "" {
-			title = emoji + " \b" + nb.Title // Backspace after space to undo emoji extra width
-		} else {
-			title = nb.Title
-		}
-		// Truncate title to account for display width with emojis
-		if len(title) > 45 {
-			title = title[:42] + "..."
+		title := nb.Title
+		if tty {
+			// Emoji backspace compensation is a terminal-render hack that
+			// corrupts piped output (literal \b bytes break `awk`). Only
+			// apply when stdout is a TTY.
+			if emoji := strings.TrimSpace(nb.Emoji); emoji != "" {
+				title = emoji + " \b" + nb.Title
+			}
+			if len(title) > 45 {
+				title = title[:42] + "..."
+			}
 		}
 		sourceCount := len(nb.Sources)
 		ts := nb.GetMetadata().GetModifiedTime()
@@ -652,7 +655,7 @@ func list(c *api.Client) error {
 			ts.AsTime().Format(time.RFC3339),
 		)
 	}
-	return w.Flush()
+	return flush()
 }
 
 func create(c *api.Client, title string) error {
@@ -678,7 +681,7 @@ func listSources(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list sources: %w", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
 	for _, src := range p.Sources {
 		status := formatSourceStatus(src)
@@ -693,7 +696,7 @@ func listSources(c *api.Client, notebookID string) error {
 			lastUpdated,
 		)
 	}
-	return w.Flush()
+	return flush()
 }
 
 func formatSourceStatus(src *pb.Source) string {
@@ -945,7 +948,7 @@ func listNotes(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list notes: %w", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tCONTENT PREVIEW")
 	for _, note := range notes {
 		content := note.GetRichText()
@@ -959,7 +962,7 @@ func listNotes(c *api.Client, notebookID string) error {
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n", note.GetNoteId(), note.GetTitle(), content)
 	}
-	return w.Flush()
+	return flush()
 }
 
 func readNote(c *api.Client, notebookID, noteID string) error {
@@ -1238,7 +1241,7 @@ func listFeaturedProjects(c *api.Client) error {
 		return fmt.Errorf("list featured projects: %w", err)
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tDESCRIPTION")
 
 	for _, project := range resp.Projects {
@@ -1253,7 +1256,7 @@ func listFeaturedProjects(c *api.Client) error {
 			strings.TrimSpace(project.Emoji)+" "+project.Title,
 			description)
 	}
-	return w.Flush()
+	return flush()
 }
 
 // Enhanced source operations
@@ -1402,7 +1405,7 @@ func displayArtifacts(artifacts []*pb.Artifact) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTYPE\tSTATE\tSOURCES")
 
 	for _, artifact := range artifacts {
@@ -1414,7 +1417,7 @@ func displayArtifacts(artifacts []*pb.Artifact) error {
 			artifact.State.String(),
 			sourceCount)
 	}
-	return w.Flush()
+	return flush()
 }
 
 func renameArtifact(c *api.Client, artifactID, newTitle string) error {
@@ -1920,6 +1923,19 @@ func notebookSourceTitles(c *api.Client, projectID string) func(string) string {
 
 func isTerminal(f *os.File) bool {
 	return term.IsTerminal(int(f.Fd()))
+}
+
+// newListWriter returns a writer for tabular list output that pads columns
+// with a tabwriter when w is a TTY and writes raw tab-separated records
+// otherwise. The returned flush function must be called after all rows are
+// written. Matches the ls/ps convention: humans get aligned columns, pipelines
+// get parseable TSV (cut/awk/paste work on literal tabs).
+func newListWriter(w *os.File) (io.Writer, func() error) {
+	if !isTerminal(w) {
+		return w, func() error { return nil }
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 1, ' ', 0)
+	return tw, tw.Flush
 }
 
 // Generation operations
@@ -2563,13 +2579,15 @@ func listChatConversations(c *api.Client, notebookID string) error {
 	}
 
 	if len(convIDs) == 0 && len(localSessions) == 0 {
-		fmt.Println("No conversations found.")
+		fmt.Fprintln(os.Stderr, "No conversations found.")
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "CONVERSATION\tMESSAGES\tSTATUS\tLAST UPDATED")
-	fmt.Fprintln(w, "------------\t--------\t------\t------------")
+	if isTerminal(os.Stdout) {
+		fmt.Fprintln(w, "------------\t--------\t------\t------------")
+	}
 
 	seen := make(map[string]bool)
 	for _, id := range convIDs {
@@ -2601,7 +2619,7 @@ func listChatConversations(c *api.Client, notebookID string) error {
 		}
 	}
 
-	return w.Flush()
+	return flush()
 }
 
 func deepResearch(c *api.Client, notebookID, query string) error {
@@ -2957,16 +2975,21 @@ func listChatSessions() error {
 	}
 
 	if len(sessions) == 0 {
-		fmt.Println("No chat sessions found.")
+		fmt.Fprintln(os.Stderr, "No chat sessions found.")
 		return nil
 	}
 
-	fmt.Printf("Chat Sessions (%d total)\n", len(sessions))
-	fmt.Println(strings.Repeat("=", 41))
+	isTTY := isTerminal(os.Stdout)
+	if isTTY {
+		fmt.Fprintf(os.Stderr, "Chat Sessions (%d total)\n", len(sessions))
+		fmt.Fprintln(os.Stderr, strings.Repeat("=", 41))
+	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "NOTEBOOK\tCONVERSATION\tMESSAGES\tLAST UPDATED")
-	fmt.Fprintln(w, "--------\t------------\t--------\t------------")
+	if isTTY {
+		fmt.Fprintln(w, "--------\t------------\t--------\t------------")
+	}
 
 	for _, session := range sessions {
 		convShort := session.ConversationID
@@ -2983,7 +3006,7 @@ func listChatSessions() error {
 			session.UpdatedAt.Format("Jan 2 15:04"))
 	}
 
-	return w.Flush()
+	return flush()
 }
 
 func showRecentHistory(session *ChatSession, maxMessages int) {
@@ -3428,7 +3451,7 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tSTATUS")
 	for _, audio := range audioOverviews {
 		status := "pending"
@@ -3449,7 +3472,7 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 			status,
 		)
 	}
-	return w.Flush()
+	return flush()
 }
 
 func listVideoOverviews(c *api.Client, notebookID string) error {
@@ -3465,7 +3488,7 @@ func listVideoOverviews(c *api.Client, notebookID string) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "VIDEO_ID\tTITLE\tSTATUS")
 	for _, video := range videoOverviews {
 		status := "pending"
@@ -3482,7 +3505,7 @@ func listVideoOverviews(c *api.Client, notebookID string) error {
 			status,
 		)
 	}
-	return w.Flush()
+	return flush()
 }
 
 func downloadAudioOverview(c *api.Client, notebookID string, filename string) error {
