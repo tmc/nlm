@@ -247,7 +247,11 @@ func main() {
 
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "nlm: %s\n", friendlyError(err))
-		os.Exit(1)
+		code := exitCodeFor(err)
+		if name := exitCodeName(code); name != "" {
+			fmt.Fprintf(os.Stderr, "nlm: exit-class=%s (exit %d)\n", name, code)
+		}
+		os.Exit(code)
 	}
 }
 
@@ -321,7 +325,7 @@ func run() error {
 
 	if flag.NArg() < 1 {
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(exitBadArgs)
 	}
 
 	cmdName := flag.Arg(0)
@@ -330,14 +334,14 @@ func run() error {
 	// Handle help aliases.
 	if helpAliases[cmdName] {
 		flag.Usage()
-		os.Exit(0)
+		os.Exit(exitSuccess)
 	}
 
 	// Look up command in the table.
 	entry, ok := lookupCommand(cmdName)
 	if !ok {
 		flag.Usage()
-		os.Exit(1)
+		os.Exit(exitBadArgs)
 	}
 
 	// Check for help flags in subcommand args.

@@ -838,6 +838,11 @@ func printUsage() {
 
 // validateCommandArgs checks positional argument count for a command.
 // cmdName is the name the user typed (may be an alias).
+// errBadArgs is returned by argument-validation paths so the exit-code
+// classifier maps them to exit 2 (bad-args). The message is intentionally
+// generic — the per-command usage hint is printed separately to stderr.
+var errBadArgs = errors.New("invalid arguments")
+
 func validateCommandArgs(cmd *command, cmdName string, args []string) error {
 	// Special case: audio-interactive has its own validation.
 	if cmd.name == "audio-interactive" {
@@ -847,11 +852,11 @@ func validateCommandArgs(cmd *command, cmdName string, args []string) error {
 	n := len(args)
 	if n < cmd.minArgs {
 		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
-		return fmt.Errorf("invalid arguments")
+		return errBadArgs
 	}
 	if cmd.maxArgs >= 0 && n > cmd.maxArgs {
 		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
-		return fmt.Errorf("invalid arguments")
+		return errBadArgs
 	}
 	return nil
 }

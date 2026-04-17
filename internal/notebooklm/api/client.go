@@ -235,9 +235,26 @@ func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Pr
 	ctx := context.Background()
 	project, err := c.orchestrationService.AddSources(ctx, req)
 	if err != nil {
+		if isFailedPrecondition(err) {
+			return nil, fmt.Errorf("add sources: %w: %w", ErrSourceCapReached, err)
+		}
 		return nil, fmt.Errorf("add sources: %w", err)
 	}
 	return project, nil
+}
+
+// isFailedPrecondition reports whether err is a batchexecute.APIError with the
+// gRPC "failed precondition" code (9). AddSources uses this to convert a
+// polysemic code-9 into the ErrSourceCapReached sentinel — today every code-9
+// from AddSources is the 300-source cap.
+// If NotebookLM later returns code 9 for other AddSources failure modes, this
+// check will need a more discriminating signal (e.g. server message text).
+func isFailedPrecondition(err error) bool {
+	var apiErr *batchexecute.APIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	return apiErr.ErrorCode != nil && apiErr.ErrorCode.Code == 9
 }
 
 func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
