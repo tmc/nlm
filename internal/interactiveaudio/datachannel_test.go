@@ -2,13 +2,42 @@ package interactiveaudio
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
+// skipIfFixtureMissing skips the test when path is absent.
+//
+// Convention for capture-driven tests in this repo: any test whose inputs
+// live under docs/captures/ (gitignored — contains auth cookies and session
+// tokens) MUST guard the load with this helper (or an inline equivalent)
+// before opening the file. Use t.Skipf, never t.Fatalf, when the fixture is
+// merely absent: that distinguishes "contributor does not have a local
+// capture" from "decoder is broken on a fixture we expect to exist," and it
+// keeps `go test ./...` green on a fresh checkout.
+//
+// Tests that depend on checked-in testdata (internal/method goldens) or on
+// files the test itself wrote earlier in the same run should keep using
+// t.Fatalf — those files are expected to exist, and their absence really is
+// a bug.
+//
+// Add a sibling copy of this helper in any new package that grows the same
+// pattern; promote to a shared internal/testutil package only once a third
+// consumer needs it (currently only this package and
+// internal/cmd/interactiveaudiodecode hold capture-driven tests).
+func skipIfFixtureMissing(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Skipf("fixture absent at %s; capture it via the interactive-audio capture tool to enable this test", path)
+	}
+}
+
 func TestDecodeInteractiveAudioCapture(t *testing.T) {
-	frames, err := DecodeCaptureFile(filepath.Join("..", "..", "docs", "captures", "interactive-audio", "webrtc-datachannel.jsonl"))
+	path := filepath.Join("..", "..", "docs", "captures", "interactive-audio", "webrtc-datachannel.jsonl")
+	skipIfFixtureMissing(t, path)
+	frames, err := DecodeCaptureFile(path)
 	if err != nil {
 		t.Fatalf("decode capture: %v", err)
 	}
@@ -70,7 +99,9 @@ func TestDecodeInteractiveAudioCapture(t *testing.T) {
 }
 
 func TestDecodePlaybackCapture(t *testing.T) {
-	frames, err := DecodeCaptureFile(filepath.Join("..", "..", "docs", "captures", "audio-playback", "webrtc-datachannel.jsonl"))
+	path := filepath.Join("..", "..", "docs", "captures", "audio-playback", "webrtc-datachannel.jsonl")
+	skipIfFixtureMissing(t, path)
+	frames, err := DecodeCaptureFile(path)
 	if err != nil {
 		t.Fatalf("decode capture: %v", err)
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,7 +33,14 @@ func TestRunCaptureRange(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
+	// Capture fixtures under docs/captures/ are gitignored (they contain auth
+	// cookies and session tokens), so contributors without a local capture run
+	// cannot exercise this test. Skip cleanly instead of failing on a missing
+	// path.
 	path := filepath.Join("..", "..", "..", "docs", "captures", "interactive-audio", "webrtc-datachannel.jsonl")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Skipf("fixture absent at %s; capture it via the interactive-audio capture tool to enable this test", path)
+	}
 	err := run([]string{"-capture", path, "-from", "42", "-to", "43"}, &stdout, &stderr)
 	if err != nil {
 		t.Fatalf("run: %v", err)
