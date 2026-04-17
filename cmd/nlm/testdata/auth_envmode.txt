@@ -1,0 +1,46 @@
+# Phase 2: non-interactive auth via NLM_AUTH_TOKEN / NLM_COOKIES.
+#
+# These tests verify the "fresh CI machine" story documented in the
+# release plan — a user can go straight from `go install` to running
+# commands by exporting two environment variables, without `nlm auth`
+# ever launching a browser or touching a local profile.
+
+# `auth --print-env` emits exactly two `export` lines on stdout
+# and nothing else. Diagnostics go to stderr.
+env NLM_AUTH_TOKEN=tok-123
+env NLM_COOKIES=SIDabc_HSIDxyz
+exec ./nlm_test auth --print-env
+stdout 'export NLM_AUTH_TOKEN=''tok-123'''
+stdout 'export NLM_COOKIES=''SIDabc_HSIDxyz'''
+! stdout 'nlm:'
+! stdout 'launching'
+
+# `auth --print-env` fails actionably when there is nothing to print.
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+! exec ./nlm_test auth --print-env
+stderr 'no authenticated session found'
+stderr 'NLM_AUTH_TOKEN'
+stderr 'NLM_COOKIES'
+
+# With env vars set but no profile on disk, the auth-required error
+# still names both paths so the user knows which lever to pull.
+env NLM_AUTH_TOKEN=
+env NLM_COOKIES=
+! exec ./nlm_test list
+stderr 'Authentication required'
+stderr 'nlm auth'
+stderr 'NLM_AUTH_TOKEN'
+stderr 'NLM_COOKIES'
+stderr 'print-env'
+
+# Env-var-only mode never retries browser auth on a bad token — the
+# single attempt returns the session-expired hint instead of chaining
+# into Chrome. A bogus token hits the real API (this txtar runs
+# offline-only, so what matters is the exit is non-zero and no
+# authentication loop output appears).
+env NLM_AUTH_TOKEN=bad-token
+env NLM_COOKIES=bad-cookie
+! exec ./nlm_test list
+! stderr 'launching browser'
+! stderr 'retrying authentication'
