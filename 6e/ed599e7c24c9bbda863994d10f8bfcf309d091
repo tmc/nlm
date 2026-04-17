@@ -1,0 +1,6 @@
+claude-code v? model=claude-opus-4-7[1m] tty=not a tty
+none pid=50013 iterm=w0t1p0:509851F8-F1FF-48CC-8CF5-EF87C77DCAE7
+Date: 2026-04-17T01:21:30Z
+Triggered by: 2858B456 bug batch on chat-show / generate-chat --web flow.
+Verified: build+vet OK, cmd/nlm + api tests pass, manual check of --citations/--citations=block/short-args paths.
+Note: 54D6's docs land at cb75485 between b812a8e and this commit; release-prep HEAD now 6eed599.
