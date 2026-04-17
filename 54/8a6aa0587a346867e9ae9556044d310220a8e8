@@ -1,0 +1,15 @@
+Committed: 2026-04-17T02:33:59Z
+claude-code: opus-4.7[1m]
+tty: not a tty
+not a tty
+pid: 23081
+ITERM_SESSION_ID: w0t1p1:54D6312B-7611-4865-9D6E-8E7DF5940829
+
+Atomic re-commit of docs/dev/test-conventions.md after 5098's split
+(87b38ff kept godoc-only; this commit brings the separate doc back with
+its own authorship). Follows from 572d8f9 → f49eee9 (amend) → reset to
+3269fa2 → 87b38ff (godoc-only) → 548a6aa (this, test-conventions.md).
+
+The godoc on skipIfFixtureMissing and this doc are complementary, not
+redundant — they target different discovery paths (grep on helper name
+vs browsing docs/dev/). No overlap concerns.
