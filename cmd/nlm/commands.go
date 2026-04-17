@@ -162,7 +162,7 @@ var commands = []command{
 		name: "discover-sources", argsUsage: "<notebook-id> <query>",
 		usage: "Discover relevant sources (experimental; upstream RPC deprecated, fallback may return prose)", section: "Source",
 		minArgs: 2, maxArgs: 2,
-		hidden: true, // upstream qXyaNe deprecated, Es3dTe replacement pending HAR capture
+		hidden: true, // upstream qXyaNe deprecated; Ljjv0c (HAR-verified 2026-04-17) is now wired via nlm research --mode=fast
 		run: func(c *api.Client, args []string) error {
 			if !experimentalEnabled() {
 				return fmt.Errorf("discover-sources is experimental (upstream RPC deprecated, fallback may return prose instead of links); pass --experimental or set NLM_EXPERIMENTAL=1")

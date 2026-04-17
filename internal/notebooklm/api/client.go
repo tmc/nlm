@@ -4422,12 +4422,6 @@ type DeepResearchResult struct {
 	Plan []byte `json:"plan,omitempty"`
 }
 
-// FastResearchResult is the payload for a synchronous lightweight research call.
-type FastResearchResult struct {
-	Report  string           `json:"report"`
-	Sources []ResearchSource `json:"sources,omitempty"`
-}
-
 // ResearchSource describes one source discovered by a research call.
 // Rank, FaviconURL, and CitationIndex come from the web-UI source blob
 // layout main_blob[0][i] for i=1..N; preserving them lets downstream
@@ -4441,26 +4435,91 @@ type ResearchSource struct {
 	CitationIndex int    `json:"citation_index,omitempty"`
 }
 
-// FastResearch runs the lightweight synchronous research RPC (Es3dTe) and
-// returns a markdown report plus any discovered sources.
+// startFastResearchArgs produces the 4-position wire shape captured from
+// the NotebookLM web UI on 2026-04-17:
 //
-// BLOCKED on HAR capture for argument shape; the current implementation uses
-// the argbuilder default which returns API error 3 against the live server.
-// See docs/dev/remaining-gaps.md P1.2. When the HAR lands, replace the
-// speculative Args with the verified shape and the speculative response-parse
-// with the true wire layout.
-func (c *Client) FastResearch(projectID, query string) (*FastResearchResult, error) {
+//	[[query, 1], null, 1, project_id]
+//
+// Position [0] is [query, 1] (same pair the wire uses for deep-research
+// at position [2]). Position [2] is the mode enum — 1 for fast, 5 for
+// deep. Exposed as a standalone function so tests can golden-check the
+// shape independent of an rpc.Client.
+func startFastResearchArgs(query, projectID string) []interface{} {
+	return []interface{}{
+		[]interface{}{query, 1},
+		nil,
+		1,
+		projectID,
+	}
+}
+
+// StartFastResearch kicks off a fast-research session for query against
+// projectID. Returns a DeepResearchResult with ConversationID populated
+// (fast-mode uses conversation_id as the poll key; ResearchID stays
+// empty, unlike deep-research). The caller polls via PollFastResearch.
+//
+// Wire-verified 2026-04-17 against notebook
+// 00000000-0000-4000-8000-000000000006 and query "har harl file formats"
+// (NotebookLM web UI capture, 2026-04-17).
+// Retracts the speculative Es3dTe stub from commit b7b04e7; the real
+// RPC is Ljjv0c (the Es3dTe inference in the har-capture-queue was
+// forward-looking guesswork that never ran against a live server).
+func (c *Client) StartFastResearch(projectID, query string) (*DeepResearchResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCFastResearch,
+		ID:         rpc.RPCStartFastResearch,
 		NotebookID: projectID,
-		Args:       []interface{}{projectID, query, []interface{}{2}},
+		Args:       startFastResearchArgs(query, projectID),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("fast research: %w", err)
+		return nil, fmt.Errorf("start fast research: %w", err)
 	}
-	// Speculative parse: treat the whole envelope as a single string report
-	// until the HAR pins the true response shape.
-	return &FastResearchResult{Report: string(resp)}, nil
+	var ids []string
+	if err := json.Unmarshal(resp, &ids); err != nil {
+		return nil, fmt.Errorf("start fast research: decode response: %w", err)
+	}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("start fast research: empty response")
+	}
+	return &DeepResearchResult{
+		ConversationID: ids[0],
+		Query:          query,
+	}, nil
+}
+
+// PollFastResearch scans the e3bVqc session list for a fast-mode
+// conversation. Returns ErrResearchPolling while the session is still
+// running or not yet visible (the caller loops until done or cap
+// exceeded). Shares the same e3bVqc RPC as PollDeepResearch; the
+// scanner matches on ConversationID rather than ResearchID and the
+// main_blob decoder uses the fast-mode layout (sources + summary
+// string, no markdown report header).
+func (c *Client) PollFastResearch(projectID, conversationID string) (*DeepResearchResult, error) {
+	match := func(s deepResearchSession) bool {
+		return s.ConversationID == conversationID && s.Mode == 1
+	}
+	return c.pollResearch(projectID, "fast", match, decodeFastMainBlob)
+}
+
+// FastResearch is a convenience wrapper: start a fast-research session
+// and block until it completes, returning the final result. For a
+// start-and-poll pattern with explicit pacing, call StartFastResearch
+// and PollFastResearch directly.
+func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, error) {
+	started, err := c.StartFastResearch(projectID, query)
+	if err != nil {
+		return nil, err
+	}
+	for attempt := 0; attempt < 60; attempt++ {
+		result, err := c.PollFastResearch(projectID, started.ConversationID)
+		if err == nil && result.Done {
+			return result, nil
+		}
+		if err != nil && !errors.Is(err, ErrResearchPolling) {
+			return nil, err
+		}
+		time.Sleep(2 * time.Second)
+	}
+	return nil, fmt.Errorf("fast research: timed out waiting for completion")
 }
 
 // StartDeepResearch kicks off a deep-research session for query against
@@ -4530,22 +4589,45 @@ func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult
 // states as still-running rather than false-done, which is the safe
 // default.
 func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchResult, error) {
+	match := func(s deepResearchSession) bool {
+		return s.ResearchID == researchID && s.Mode == 5
+	}
+	result, err := c.pollResearch(projectID, "deep", match, decodeDeepResearchContent)
+	if result != nil {
+		result.ResearchID = researchID
+	}
+	return result, err
+}
+
+// pollResearch is the shared scan-and-decode core behind both
+// PollDeepResearch and PollFastResearch. It fetches the current
+// e3bVqc session list, runs match against each session, and when a
+// done session is found calls decode to extract report+sources. The
+// ErrResearchPolling sentinel is returned while the session is either
+// not yet visible (race between Start and first poll) or still
+// running; the caller loops until done or a cap is hit. kind labels
+// the error messages so panic traces distinguish deep-vs-fast.
+func (c *Client) pollResearch(
+	projectID, kind string,
+	match func(deepResearchSession) bool,
+	decode func(json.RawMessage) (string, []ResearchSource),
+) (*DeepResearchResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCGetDeepResearchSessions,
 		NotebookID: projectID,
 		Args:       []interface{}{nil, nil, projectID},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("poll deep research: %w", err)
+		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
 
 	sessions, err := parseDeepResearchSessions(resp, c.rpc.Config.Debug)
 	if err != nil {
-		return nil, fmt.Errorf("poll deep research: %w", err)
+		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
 
 	for _, s := range sessions {
-		if s.ResearchID != researchID {
+		if !match(s) {
 			continue
 		}
 		if s.State == 5 {
@@ -4555,43 +4637,49 @@ func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchRe
 		}
 		if s.State == 2 && len(s.MainBlob) > 0 {
 			result := &DeepResearchResult{
-				ResearchID:     researchID,
+				ResearchID:     s.ResearchID,
 				ConversationID: s.ConversationID,
 				Done:           true,
 				Query:          s.Query,
 				Plan:           s.Plan,
 			}
-			result.Report, result.Sources = decodeDeepResearchContent(s.MainBlob)
+			result.Report, result.Sources = decode(s.MainBlob)
 			return result, nil
 		}
-		// State 1 (running) or unknown: return partial result with
+		// State 1 (running) or an unrecognized state (6 observed but
+		// not documented) is still running. Return partial result with
 		// the busy sentinel so the caller loops.
 		return &DeepResearchResult{
-				ResearchID:     researchID,
+				ResearchID:     s.ResearchID,
 				ConversationID: s.ConversationID,
 				Query:          s.Query,
 				Plan:           s.Plan,
 			},
-			fmt.Errorf("poll deep research: %w", ErrResearchPolling)
+			fmt.Errorf("poll %s research: %w", kind, ErrResearchPolling)
 	}
 
 	// No matching session — either not yet visible (race between
-	// StartDeepResearch and the first GetDeepResearchSessions) or
-	// server tombstoned it. Return the busy sentinel so callers loop;
-	// the run-research cap exits after its own max-polls budget.
-	return &DeepResearchResult{ResearchID: researchID}, fmt.Errorf("poll deep research: %w", ErrResearchPolling)
+	// Start and the first session-list fetch) or server tombstoned
+	// it. Return the busy sentinel so callers loop; the outer
+	// max-polls budget bounds the wait.
+	return &DeepResearchResult{}, fmt.Errorf("poll %s research: %w", kind, ErrResearchPolling)
 }
 
 // deepResearchSession is the internal decoded shape of one session
-// entry within a GetDeepResearchSessions response.
+// entry within an e3bVqc response. The RPC is polymorphic: it serves
+// both deep-research (mode=5, inner has 6 positions with a trailing
+// [research_id, plan_b64] pair) and fast-research (mode=1, inner has
+// 5 positions and the poll key is ConversationID). Position [2] on
+// the inner array is the mode enum.
 type deepResearchSession struct {
 	ConversationID string
 	ProjectID      string
 	Query          string
-	State          int
-	ResearchID     string
-	Plan           []byte          // base64-decoded protobuf of the LLM plan
-	MainBlob       json.RawMessage // session[1][3] (null during RUNNING)
+	Mode           int             // session inner[2]: 1=fast, 5=deep
+	State          int             // session inner[4]: 1=running, 2=complete, 5=tombstone, 6=seen-but-unknown
+	ResearchID     string          // session inner[5][0]; empty for fast-mode
+	Plan           []byte          // base64-decoded protobuf of the LLM plan (deep only)
+	MainBlob       json.RawMessage // session inner[3]; null during RUNNING
 }
 
 // parseDeepResearchSessions decodes the top-level e3bVqc response
@@ -4643,6 +4731,9 @@ func parseDeepResearchSessions(resp json.RawMessage, debug bool) ([]deepResearch
 			if json.Unmarshal(inner[1], &pair) == nil && len(pair) > 0 {
 				_ = json.Unmarshal(pair[0], &ds.Query)
 			}
+		}
+		if len(inner) > 2 {
+			_ = json.Unmarshal(inner[2], &ds.Mode)
 		}
 		if len(inner) > 3 && !bytes.Equal(inner[3], []byte("null")) {
 			ds.MainBlob = inner[3]
@@ -4721,6 +4812,47 @@ func decodeDeepResearchContent(main json.RawMessage) (string, []ResearchSource) 
 		sources = append(sources, rs)
 	}
 	return report, sources
+}
+
+// decodeFastMainBlob splits a fast-mode main_blob into the sources
+// list and the trailing summary string. Layout per CDP capture
+// 2026-04-17:
+//
+//	main_blob = [ [source_1, ..., source_N], summary_string ]
+//	source_i  = [url, title, snippet, rank]
+//
+// Fast-mode responses have no markdown report; the summary string is
+// returned in the Report field of DeepResearchResult so callers have
+// a single shape to render regardless of mode.
+func decodeFastMainBlob(main json.RawMessage) (string, []ResearchSource) {
+	var outer []json.RawMessage
+	if err := json.Unmarshal(main, &outer); err != nil || len(outer) < 1 {
+		return "", nil
+	}
+	var entries []json.RawMessage
+	if err := json.Unmarshal(outer[0], &entries); err != nil {
+		return "", nil
+	}
+	sources := make([]ResearchSource, 0, len(entries))
+	for _, raw := range entries {
+		var src []json.RawMessage
+		if err := json.Unmarshal(raw, &src); err != nil || len(src) < 3 {
+			continue
+		}
+		rs := ResearchSource{}
+		_ = json.Unmarshal(src[0], &rs.URL)
+		_ = json.Unmarshal(src[1], &rs.Title)
+		_ = json.Unmarshal(src[2], &rs.Snippet)
+		if len(src) > 3 {
+			_ = json.Unmarshal(src[3], &rs.Rank)
+		}
+		sources = append(sources, rs)
+	}
+	summary := ""
+	if len(outer) > 1 {
+		_ = json.Unmarshal(outer[1], &summary)
+	}
+	return summary, sources
 }
 
 // DeleteDeepResearch soft-deletes a research session. The server moves
