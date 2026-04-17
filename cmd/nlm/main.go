@@ -62,6 +62,7 @@ var (
 	conversationID    string // Conversation ID to continue (generate-chat)
 	useWebChat        bool   // Use most recent server-side conversation (generate-chat)
 	citationMode      string // Citation rendering mode: off|block|overlay (default block-on-TTY)
+	sourceIDsFlag     string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
 )
 
 // ChatSession represents a persistent chat conversation
@@ -128,6 +129,7 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay (default: block on TTY, off when piped)")
+	flag.StringVar(&sourceIDsFlag, "source-ids", "", "restrict chat to these source IDs (comma-separated, or '-' to read newline-delimited from stdin)")
 
 	flag.Usage = printUsage
 }
@@ -171,9 +173,12 @@ func reorderArgs() {
 					// flag — otherwise treat the flag as switch-form and
 					// rewrite to flag= so flag.Parse doesn't steal a positional
 					// when reorder puts this flag before the command.
+					// A bare "-" is a valid value (conventionally "read from
+					// stdin"), not a flag, so consume it like any other value.
 					if i+1 < len(os.Args) {
 						next := os.Args[i+1]
-						if _, isCmd := lookupCommand(next); !isCmd && !strings.HasPrefix(next, "-") {
+						isFlag := strings.HasPrefix(next, "-") && next != "-"
+						if _, isCmd := lookupCommand(next); !isCmd && !isFlag {
 							flags = append(flags, arg, next)
 							i += 2
 							continue
@@ -859,15 +864,31 @@ func (a *syncClientAdapter) RenameSource(ctx context.Context, sourceID string, t
 	return err
 }
 
-func removeSource(c *api.Client, notebookID, sourceID string) error {
-	if !confirmActionDefaultYes(fmt.Sprintf("Are you sure you want to remove source %s?", sourceID)) {
+func removeSource(c *api.Client, notebookID, sourceArg string) error {
+	sourceIDs, err := resolveIDList(sourceArg)
+	if err != nil {
+		return fmt.Errorf("source IDs: %w", err)
+	}
+	if len(sourceIDs) == 0 {
+		return fmt.Errorf("no source IDs provided")
+	}
+
+	var prompt string
+	if len(sourceIDs) == 1 {
+		prompt = fmt.Sprintf("Are you sure you want to remove source %s?", sourceIDs[0])
+	} else {
+		prompt = fmt.Sprintf("Are you sure you want to remove %d sources?", len(sourceIDs))
+	}
+	if !confirmActionDefaultYes(prompt) {
 		return fmt.Errorf("operation cancelled")
 	}
 
-	if err := c.DeleteSources(notebookID, []string{sourceID}); err != nil {
+	if err := c.DeleteSources(notebookID, sourceIDs); err != nil {
 		return fmt.Errorf("remove source: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "Removed source %s from notebook %s\n", sourceID, notebookID)
+	for _, id := range sourceIDs {
+		fmt.Fprintf(os.Stderr, "Removed source %s from notebook %s\n", id, notebookID)
+	}
 	return nil
 }
 
@@ -1902,9 +1923,15 @@ func isTerminal(f *os.File) bool {
 func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
+	sourceIDs, err := resolveIDList(sourceIDsFlag)
+	if err != nil {
+		return fmt.Errorf("--source-ids: %w", err)
+	}
+
 	chatReq := api.ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
+		SourceIDs: sourceIDs,
 	}
 
 	// Resolve conversation context from flags.

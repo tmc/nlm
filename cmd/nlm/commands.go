@@ -136,8 +136,8 @@ var commands = []command{
 		},
 	},
 	{
-		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id>",
-		usage: "Remove a source from a notebook", section: "Source",
+		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id|-|a,b,c>",
+		usage: "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)", section: "Source",
 		minArgs: 2, maxArgs: 2,
 		run: func(c *api.Client, args []string) error { return removeSource(c, args[0], args[1]) },
 	},
