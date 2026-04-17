@@ -563,9 +563,18 @@ func runMCP(client *api.Client) error {
 }
 
 // confirmAction prompts the user for confirmation unless --yes is set.
+// When stdin is not a TTY and --yes was not passed, the function refuses
+// rather than calling fmt.Scanln. Silently consuming piped input is the
+// worst possible behavior for destructive operations: scripts that pipe
+// source IDs into rm-source would have their input eaten by the prompt
+// and the destructive action half-executed.
 func confirmAction(prompt string) bool {
 	if yes {
 		return true
+	}
+	if !isTerminal(os.Stdin) {
+		fmt.Fprintf(os.Stderr, "%s\nrefusing to prompt in non-interactive mode; pass -y to confirm\n", prompt)
+		return false
 	}
 	fmt.Fprintf(os.Stderr, "%s [y/N] ", prompt)
 	var response string
@@ -576,6 +585,10 @@ func confirmAction(prompt string) bool {
 func confirmActionDefaultYes(prompt string) bool {
 	if yes {
 		return true
+	}
+	if !isTerminal(os.Stdin) {
+		fmt.Fprintf(os.Stderr, "%s\nrefusing to prompt in non-interactive mode; pass -y to confirm\n", prompt)
+		return false
 	}
 	fmt.Fprintf(os.Stderr, "%s [Y/n] ", prompt)
 	var response string
