@@ -2,7 +2,6 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/rpc/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
@@ -10,22 +9,22 @@ import (
 // EncodeRefreshSourceArgs encodes arguments for LabsTailwindOrchestrationService.RefreshSource.
 // RPC ID: FLmJqe
 //
-// BLOCKED on HAR capture. CheckSourceFreshness (yR9Yof) uses
-// [null, [source_id], [4]] and is live-verified working; applying the same
-// shape to RefreshSource returns `API error 3` against the live server
-// (tested 2026-04-17 against note, text, and youtube sources). RefreshSource
-// almost certainly needs a different positional shape — possibly including
-// the project_id, possibly a mutation-envelope like MutateSource
-// ([null, [source_id], [[[[...]]]]]). Do not guess; see
-// docs/dev/har-capture-queue.md P1.4 for the capture requirement.
+// Wire format (HAR-verified 2026-04-17 against Google-Drive source
+// 00000000-0000-4000-8000-000000000109 in notebook
+// 00000000-0000-4000-8000-000000000006):
 //
-// Current behavior: falls back to argbuilder stub, which ALSO fails. Kept
-// non-broken-compile so the CLI surfaces a sensible "invalid argument" error
-// instead of panicking.
+//	[null, ["source-id"], [2]]
+//
+// Shape is identical to CheckSourceFreshness (yR9Yof); both RPCs are
+// Google-Drive-only and use ProjectContext value 2. The CLI layer is
+// expected to reject non-Drive sources before dispatch; the server
+// responds with "One or more arguments are invalid" for non-Drive
+// source ids against this shape.
+//
+// Response shape is a rich Drive-metadata tuple — see
+// internal/notebooklm/api/source_freshness.go parseRefreshSourceResponse.
 func EncodeRefreshSourceArgs(req *notebooklmv1alpha1.RefreshSourceRequest) []interface{} {
-	args, err := argbuilder.EncodeRPCArgs(req, "[%source_id%]")
-	if err != nil {
-		return []interface{}{}
-	}
-	return args
+	sourceRevision := []interface{}{req.GetSourceId()}
+	projectContext := []interface{}{2}
+	return []interface{}{nil, sourceRevision, projectContext}
 }

@@ -1262,42 +1262,78 @@ func listFeaturedProjects(c *api.Client) error {
 }
 
 // Enhanced source operations
+//
+// CheckSourceFreshness (yR9Yof) and RefreshSource (FLmJqe) are
+// Google-Drive-only in the web UI. The server accepts any source id on
+// the wire but returns meaningful results only for Drive sources;
+// non-Drive ids are rejected with "One or more arguments are invalid".
+// When a notebook-id is available we gate client-side and emit a clear
+// error before dispatch; otherwise we pass through and surface the
+// server error as-is.
 func refreshSource(c *api.Client, notebookID, sourceID string) error {
+	if err := assertDriveSource(c, notebookID, sourceID); err != nil {
+		return err
+	}
 	fmt.Fprintf(os.Stderr, "Refreshing source %s...\n", sourceID)
 	source, err := c.RefreshSource(notebookID, sourceID)
 	if err != nil {
 		return fmt.Errorf("refresh source: %w", err)
 	}
-
 	fmt.Fprintf(os.Stderr, "Refreshed source: %s\n", source.Title)
 	return nil
 }
 
-func checkSourceFreshness(c *api.Client, sourceID string) error {
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.CheckSourceFreshnessRequest{
-		SourceId: sourceID,
+func checkSourceFreshness(c *api.Client, sourceID, notebookID string) error {
+	if notebookID != "" {
+		if err := assertDriveSource(c, notebookID, sourceID); err != nil {
+			return err
+		}
+	} else {
+		fmt.Fprintln(os.Stderr, "note: pass notebook-id as the second argument to enable client-side Drive-source validation")
 	}
-
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	req := &pb.CheckSourceFreshnessRequest{SourceId: sourceID}
 	fmt.Fprintf(os.Stderr, "Checking source %s...\n", sourceID)
 	resp, err := orchClient.CheckSourceFreshness(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("check source: %w", err)
 	}
-
 	if resp.IsFresh {
 		fmt.Printf("Source is up to date")
 	} else {
 		fmt.Printf("Source needs refresh")
 	}
-
 	if resp.LastChecked != nil {
 		fmt.Printf(" (last checked: %s)", resp.LastChecked.AsTime().Format(time.RFC3339))
 	}
 	fmt.Println()
+	return nil
+}
 
+// assertDriveSource returns a precondition error if the source lives in
+// notebookID but is not a Google-Drive source type. A lookup failure is
+// treated as non-fatal — the caller continues and lets the server
+// error speak for itself.
+func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
+	project, err := c.GetProject(notebookID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "note: could not verify source type (%v); dispatching anyway\n", err)
+		return nil
+	}
+	for _, src := range project.Sources {
+		if src.SourceId.GetSourceId() != sourceID {
+			continue
+		}
+		st := src.Metadata.GetSourceType()
+		switch st {
+		case pb.SourceType_SOURCE_TYPE_GOOGLE_DOCS,
+			pb.SourceType_SOURCE_TYPE_GOOGLE_SLIDES,
+			pb.SourceType_SOURCE_TYPE_GOOGLE_SHEETS:
+			return nil
+		}
+		return fmt.Errorf("%w: refresh/freshness is Google-Drive-only; source %s is %s", errBadArgs, sourceID, st)
+	}
+	fmt.Fprintf(os.Stderr, "note: source %s not found in notebook %s; dispatching anyway\n", sourceID, notebookID)
 	return nil
 }
 

@@ -147,10 +147,16 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return refreshSource(c, args[0], args[1]) },
 	},
 	{
-		name: "check-source", argsUsage: "<source-id>",
-		usage: "Check source freshness", section: "Source",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return checkSourceFreshness(c, args[0]) },
+		name: "check-source", argsUsage: "<source-id> [notebook-id]",
+		usage: "Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)", section: "Source",
+		minArgs: 1, maxArgs: 2,
+		run: func(c *api.Client, args []string) error {
+			notebookID := ""
+			if len(args) > 1 {
+				notebookID = args[1]
+			}
+			return checkSourceFreshness(c, args[0], notebookID)
+		},
 	},
 	{
 		name: "discover-sources", argsUsage: "<notebook-id> <query>",
