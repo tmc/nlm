@@ -232,8 +232,8 @@ var commands = []command{
 			if err != nil {
 				return err
 			}
-			fmt.Printf("Created slide deck: %s\n", artifactID)
-			fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
+			fmt.Println(artifactID)
+			fmt.Fprintf(os.Stderr, "Created slide deck. Use 'nlm artifacts %s' to check status.\n", args[0])
 			return nil
 		},
 	},

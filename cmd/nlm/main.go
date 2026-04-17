@@ -1164,7 +1164,7 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 	}
 
 	fmt.Fprintf(os.Stderr, "Creating audio overview for notebook %s...\n", projectID)
-	fmt.Printf("Instructions: %s\n", instructions)
+	fmt.Fprintf(os.Stderr, "Instructions: %s\n", instructions)
 
 	result, err := c.CreateAudioOverview(projectID, instructions)
 	if err != nil {
@@ -1403,7 +1403,7 @@ func listArtifacts(c *api.Client, projectID string) error {
 func displayArtifacts(artifacts []*pb.Artifact) error {
 
 	if len(artifacts) == 0 {
-		fmt.Println("No artifacts found in project.")
+		fmt.Fprintln(os.Stderr, "No artifacts found in project.")
 		return nil
 	}
 
@@ -2342,7 +2342,7 @@ func deleteChatHistory(c *api.Client, notebookID string) error {
 	if err := c.DeleteChatHistory(notebookID); err != nil {
 		return fmt.Errorf("delete chat history: %w", err)
 	}
-	fmt.Println("Chat history deleted.")
+	fmt.Fprintln(os.Stderr, "Chat history deleted.")
 	return nil
 }
 
@@ -2549,7 +2549,7 @@ func printChatHistory(c *api.Client, notebookID, conversationID string) error {
 		return fmt.Errorf("no conversation history found")
 	}
 	if len(session.Messages) == 0 {
-		fmt.Println("No messages in conversation.")
+		fmt.Fprintln(os.Stderr, "No messages in conversation.")
 		return nil
 	}
 	for _, m := range session.Messages {
@@ -2592,7 +2592,7 @@ func chatShow(notebookID, conversationID string) error {
 		session = legacy
 	}
 	if len(session.Messages) == 0 {
-		fmt.Println("No messages in local session.")
+		fmt.Fprintln(os.Stderr, "No messages in local session.")
 		return nil
 	}
 
@@ -2787,7 +2787,7 @@ func setInstructions(c *api.Client, notebookID, prompt string) error {
 	if err := c.SetChatConfig(notebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault); err != nil {
 		return fmt.Errorf("set instructions: %w", err)
 	}
-	fmt.Println("Instructions updated.")
+	fmt.Fprintln(os.Stderr, "Instructions updated.")
 	return nil
 }
 
@@ -2808,7 +2808,9 @@ func getInstructions(c *api.Client, notebookID string) error {
 
 	prompt := strings.TrimSpace(project.GetChatbotConfig().GetGoal().GetCustomPrompt())
 	if prompt == "" {
-		fmt.Println("No custom instructions set.")
+		// Empty stdout + zero exit signals "no instructions"; scripts can
+		// branch on `[ -z "$(nlm get-instructions NB)" ]`.
+		fmt.Fprintln(os.Stderr, "No custom instructions set.")
 		return nil
 	}
 
@@ -3613,11 +3615,12 @@ func downloadAudioOverview(c *api.Client, notebookID string, filename string) er
 		return fmt.Errorf("save audio file: %w", err)
 	}
 
-	fmt.Printf("Audio saved to: %s\n", filename)
+	fmt.Println(filename)
 
-	// Show file info
+	// Show file info on stderr so scripts can capture the filename from stdout.
+	fmt.Fprintf(os.Stderr, "Audio saved to: %s\n", filename)
 	if stat, err := os.Stat(filename); err == nil {
-		fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
+		fmt.Fprintf(os.Stderr, "  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
 	}
 
 	return nil
@@ -3656,11 +3659,12 @@ func downloadVideoOverview(c *api.Client, notebookID string, filename string) er
 		}
 	}
 
-	fmt.Printf("Video saved to: %s\n", filename)
+	fmt.Println(filename)
 
-	// Show file info
+	// Show file info on stderr so scripts can capture the filename from stdout.
+	fmt.Fprintf(os.Stderr, "Video saved to: %s\n", filename)
 	if stat, err := os.Stat(filename); err == nil {
-		fmt.Printf("  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
+		fmt.Fprintf(os.Stderr, "  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
 	}
 
 	return nil
