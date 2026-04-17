@@ -1157,7 +1157,14 @@ func heartbeat(c *api.Client) error {
 
 // New orchestration service functions
 
-// Analytics and featured projects
+// Analytics and featured projects.
+//
+// BROKEN — proto contract does not match wire. AUrzMb returns a repeated
+// time-series (metric_id + ~30 daily buckets per metric), not the scalar
+// counts the generated ProjectAnalytics proto expects. Fields below read
+// arbitrary bytes from the time-series encoding; do not trust them.
+// Fixture: internal/notebooklm/api/testdata/AUrzMb_analytics_response.json.
+// Gated behind --experimental until a proper MetricSeries proto + UX land.
 func getAnalytics(c *api.Client, projectID string) error {
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
 	resp, err := orchClient.GetProjectAnalytics(context.Background(), &pb.GetProjectAnalyticsRequest{
@@ -1170,6 +1177,7 @@ func getAnalytics(c *api.Client, projectID string) error {
 	fmt.Printf("  Sources: %d\n", int32Value(resp.GetSourceCount()))
 	fmt.Printf("  Notes: %d\n", int32Value(resp.GetNoteCount()))
 	fmt.Printf("  Audio Overviews: %d\n", int32Value(resp.GetAudioOverviewCount()))
+	fmt.Fprintln(os.Stderr, "warning: analytics output is unreliable; wire returns time-series metrics, not scalar counts")
 
 	return nil
 }
