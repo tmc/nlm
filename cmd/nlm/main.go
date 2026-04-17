@@ -50,6 +50,7 @@ var (
 	sourceName        string // Custom name for added sources
 	showChatHistory   bool   // Show previous chat conversation on start
 	showThinking      bool   // Show thinking headers while streaming responses
+	thinkingJSONL     bool   // Emit chat events (thinking/answer/citation/followup) as JSON-lines on stdout
 	verbose           bool   // Show full thinking traces while streaming responses
 	replaceSourceID   string // Source ID to replace when adding
 	force             bool   // Force re-upload even if unchanged
@@ -126,6 +127,7 @@ func init() {
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
 	flag.BoolVar(&showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
+	flag.BoolVar(&thinkingJSONL, "thinking-jsonl", false, "emit chat stream as JSON-lines events on stdout (thinking/answer/citation/followup); pairs with jq")
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay (default: block on TTY, off when piped)")
@@ -1529,6 +1531,7 @@ type chatStreamRenderer struct {
 	status          io.Writer
 	showThinking    bool
 	verbose         bool
+	jsonl           bool // when true, emit typed JSON-lines events on r.out instead of human output
 	citationMode    citationRenderMode
 	tailWindow      int                          // tail mode: max bytes held back for splicing
 	resolveTitle    func(sourceID string) string // optional; returns "" if unknown
@@ -1540,6 +1543,12 @@ type chatStreamRenderer struct {
 
 	// tail-mode bookkeeping
 	flushedLen int // absolute cumulative-answer offset of bytes already written to r.out
+
+	// jsonl bookkeeping: last emitted absolute answer offset so we only
+	// emit delta text per event, and track which citations have been emitted.
+	jsonlAnswerEmitted int
+	jsonlThinkingSeen  string
+	jsonlCitationsSeen int
 }
 
 func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mode citationRenderMode) *chatStreamRenderer {
@@ -1554,6 +1563,10 @@ func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mo
 }
 
 func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
+	if r.jsonl {
+		r.writeChunkJSONL(chunk)
+		return
+	}
 	switch chunk.Phase {
 	case api.ChatChunkThinking:
 		// Thinking chunks arrive as full cumulative snapshots, not deltas.
@@ -1600,7 +1613,75 @@ func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 	}
 }
 
+// writeChunkJSONL emits chat-stream events as newline-delimited JSON on r.out.
+// Answer text is emitted as deltas so shell consumers can pipeline without
+// waiting for the full response. Thinking chunks arrive as cumulative
+// snapshots; only emit when the snapshot differs from what we last emitted.
+func (r *chatStreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
+	switch chunk.Phase {
+	case api.ChatChunkThinking:
+		r.thinking = chunk.Text
+		if chunk.Text == r.jsonlThinkingSeen {
+			return
+		}
+		r.jsonlThinkingSeen = chunk.Text
+		r.emitJSONLEvent(map[string]any{
+			"phase": "thinking",
+			"text":  chunk.Text,
+		})
+	case api.ChatChunkAnswer:
+		r.answerBuf.WriteString(chunk.Text)
+		if chunk.Text != "" {
+			r.emitJSONLEvent(map[string]any{
+				"phase": "answer",
+				"text":  chunk.Text,
+			})
+			r.jsonlAnswerEmitted += len(chunk.Text)
+		}
+		if len(chunk.Citations) > 0 {
+			r.citations = chunk.Citations
+			for i := r.jsonlCitationsSeen; i < len(chunk.Citations); i++ {
+				c := chunk.Citations[i]
+				r.emitJSONLEvent(map[string]any{
+					"phase":        "citation",
+					"index":        c.SourceIndex,
+					"source_id":    c.SourceID,
+					"title":        c.Title,
+					"start_char":   c.StartChar,
+					"end_char":     c.EndChar,
+					"confidence":   c.Confidence,
+				})
+			}
+			r.jsonlCitationsSeen = len(chunk.Citations)
+		}
+		if len(chunk.FollowUps) > 0 {
+			r.followUps = chunk.FollowUps
+		}
+	}
+}
+
+func (r *chatStreamRenderer) emitJSONLEvent(event map[string]any) {
+	buf, err := json.Marshal(event)
+	if err != nil {
+		fmt.Fprintf(r.status, "nlm: thinking-jsonl marshal failed: %v\n", err)
+		return
+	}
+	fmt.Fprintln(r.out, string(buf))
+}
+
 func (r *chatStreamRenderer) Finish() {
+	if r.jsonl {
+		for _, f := range r.followUps {
+			r.emitJSONLEvent(map[string]any{
+				"phase": "followup",
+				"text":  f,
+			})
+		}
+		r.emitJSONLEvent(map[string]any{
+			"phase": "done",
+		})
+		return
+	}
 	r.clearThinkingLine()
 	switch r.citationMode {
 	case citationModeOverlay:
@@ -1875,6 +1956,7 @@ type chatResult struct {
 func streamChatResponse(c *api.Client, req api.ChatRequest) (chatResult, error) {
 	mode := resolveCitationMode(citationMode, isTerminal(os.Stdout))
 	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, showThinking || verbose || isTerminal(os.Stdout), verbose, mode)
+	renderer.jsonl = thinkingJSONL
 	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
 
 	err := c.StreamChat(req, func(chunk api.ChatChunk) bool {

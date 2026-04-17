@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -472,5 +473,138 @@ func TestSuperscript(t *testing.T) {
 		if got := superscript(n); got != want {
 			t.Errorf("superscript(%d) = %q, want %q", n, got, want)
 		}
+	}
+}
+
+// parseJSONLEvents splits newline-delimited JSON on stdout into a slice of
+// decoded events. Any non-object line fails the calling test.
+func parseJSONLEvents(t *testing.T, raw string) []map[string]any {
+	t.Helper()
+	lines := strings.Split(strings.TrimRight(raw, "\n"), "\n")
+	events := make([]map[string]any, 0, len(lines))
+	for i, line := range lines {
+		if line == "" {
+			continue
+		}
+		var ev map[string]any
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatalf("line %d not valid JSON: %v\nline=%q", i, err, line)
+		}
+		events = append(events, ev)
+	}
+	return events
+}
+
+func TestChatStreamRendererJSONLEmitsTypedEvents(t *testing.T) {
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
+	r.jsonl = true
+
+	r.WriteChunk(api.ChatChunk{
+		Phase:  api.ChatChunkThinking,
+		Header: "**Thinking**",
+		Text:   "**Thinking**\nPlanning response",
+	})
+	r.WriteChunk(api.ChatChunk{
+		Phase: api.ChatChunkAnswer,
+		Text:  "Hello, ",
+	})
+	r.WriteChunk(api.ChatChunk{
+		Phase: api.ChatChunkAnswer,
+		Text:  "world.",
+		Citations: []api.Citation{
+			{SourceIndex: 1, SourceID: "src_aaa", Title: "Guide", StartChar: 0, EndChar: 12, Confidence: 0.87},
+		},
+		FollowUps: []string{"Tell me more", "Different angle"},
+	})
+	r.Finish()
+
+	// Human status stream must stay empty under jsonl mode — no ANSI chatter.
+	if got := status.String(); got != "" {
+		t.Fatalf("jsonl mode leaked status output: %q", got)
+	}
+
+	events := parseJSONLEvents(t, out.String())
+	if len(events) < 5 {
+		t.Fatalf("expected at least 5 events (thinking, 2×answer, citation, done), got %d: %+v", len(events), events)
+	}
+
+	// First event is the thinking trace.
+	if events[0]["phase"] != "thinking" {
+		t.Fatalf("events[0].phase = %v, want thinking", events[0]["phase"])
+	}
+	if !strings.Contains(events[0]["text"].(string), "Planning response") {
+		t.Fatalf("events[0].text missing trace body: %v", events[0]["text"])
+	}
+
+	// Second + third are answer deltas preserving order.
+	if events[1]["phase"] != "answer" || events[1]["text"] != "Hello, " {
+		t.Fatalf("events[1] = %v, want answer 'Hello, '", events[1])
+	}
+	if events[2]["phase"] != "answer" || events[2]["text"] != "world." {
+		t.Fatalf("events[2] = %v, want answer 'world.'", events[2])
+	}
+
+	// Fourth is the citation event.
+	if events[3]["phase"] != "citation" {
+		t.Fatalf("events[3].phase = %v, want citation", events[3]["phase"])
+	}
+	if events[3]["source_id"] != "src_aaa" {
+		t.Fatalf("citation source_id = %v, want src_aaa", events[3]["source_id"])
+	}
+	if got, want := events[3]["confidence"].(float64), 0.87; got != want {
+		t.Fatalf("citation confidence = %v, want %v", got, want)
+	}
+
+	// Last event is done, preceded by followup events.
+	last := events[len(events)-1]
+	if last["phase"] != "done" {
+		t.Fatalf("last event = %v, want phase=done", last)
+	}
+	sawFollowup := 0
+	for _, ev := range events {
+		if ev["phase"] == "followup" {
+			sawFollowup++
+		}
+	}
+	if sawFollowup != 2 {
+		t.Fatalf("expected 2 followup events, got %d", sawFollowup)
+	}
+}
+
+func TestChatStreamRendererJSONLCumulativeThinkingNotDuplicated(t *testing.T) {
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
+	r.jsonl = true
+
+	// Thinking arrives as cumulative snapshots; jsonl must emit once per
+	// change, not once per snapshot.
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "step 1"})
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "step 1"}) // dup
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "step 1\nstep 2"})
+	r.Finish()
+
+	events := parseJSONLEvents(t, out.String())
+	thinkingCount := 0
+	for _, ev := range events {
+		if ev["phase"] == "thinking" {
+			thinkingCount++
+		}
+	}
+	if thinkingCount != 2 {
+		t.Fatalf("thinking events = %d, want 2 (duplicate snapshot should not re-emit)", thinkingCount)
+	}
+}
+
+func TestChatStreamRendererJSONLIsOptIn(t *testing.T) {
+	// Without r.jsonl, output must match existing human-readable behavior
+	// byte-for-byte — no regressions for users who didn't ask for JSON.
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkAnswer, Text: "plain answer"})
+	r.Finish()
+
+	if got := out.String(); got != "plain answer" {
+		t.Fatalf("non-jsonl stdout = %q, want plain answer (jsonl mode leaked into default path)", got)
 	}
 }
