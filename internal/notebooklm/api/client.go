@@ -2451,41 +2451,18 @@ func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
 	return c.parseArtifactsResponse(resp)
 }
 
-// FROZEN BLOCK — awaiting P1.1 HAR capture.
-// GetArtifact and DeleteArtifact both target RPC IDs that return 400 against
-// the live server (BnLyuf and WxBZtb respectively). The fallback scan below
-// enumerates via ListRecentlyViewedProjects + ListArtifacts so get-artifact
-// works end-to-end; DeleteArtifact has no such fallback.
+// GetArtifact returns a single artifact by ID.
 //
-// Do NOT change the RPC IDs, rewrite this fallback, or "fix" the broken
-// direct paths without a HAR line proving the real RPC ID. See
-// docs/dev/remaining-gaps.md P1.1 and docs/dev/phase1-verification.md §4.
-//
-// GetArtifact returns a single artifact using direct RPC.
+// There is no dedicated GetArtifact RPC: the NotebookLM web UI reads
+// individual artifacts by calling ListArtifacts (gArtLc) and filtering
+// client-side. HAR evidence: NotebookLM web UI batchexecute capture
+// (2026-04-07) — V5N4be is the delete operation, not get, and there is no
+// other single-artifact read RPC in the capture. This implementation
+// mirrors the web UI by scanning ListRecentlyViewedProjects +
+// ListArtifacts.
 func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:   rpc.RPCGetArtifact,
-		Args: []interface{}{artifactID},
-	})
-	if err == nil {
-		var responseData []interface{}
-		if err := json.Unmarshal(resp, &responseData); err == nil {
-			if artifact := c.parseArtifactFromResponse(responseData); artifact != nil {
-				return artifact, nil
-			}
-			if len(responseData) > 0 {
-				if artifact := c.parseArtifactFromResponse(responseData[0]); artifact != nil {
-					return artifact, nil
-				}
-			}
-		}
-	}
-
 	projects, listErr := c.ListRecentlyViewedProjects()
 	if listErr != nil {
-		if err != nil {
-			return nil, fmt.Errorf("get artifact RPC: %w", err)
-		}
 		return nil, fmt.Errorf("list projects for artifact lookup: %w", listErr)
 	}
 	for _, project := range projects {
@@ -2499,10 +2476,24 @@ func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
 			}
 		}
 	}
-	if err != nil {
-		return nil, fmt.Errorf("get artifact RPC: %w", err)
-	}
 	return nil, fmt.Errorf("artifact %q not found", artifactID)
+}
+
+// DeleteArtifact deletes an artifact by ID using the V5N4be RPC.
+//
+// Wire format verified against HAR capture 2026-04-07 — see
+// internal/method/LabsTailwindOrchestrationService_DeleteArtifact_encoder.go.
+func (c *Client) DeleteArtifact(artifactID string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCDeleteArtifact,
+		Args: intmethod.EncodeDeleteArtifactArgs(&pb.DeleteArtifactRequest{
+			ArtifactId: artifactID,
+		}),
+	})
+	if err != nil {
+		return fmt.Errorf("delete artifact: %w", err)
+	}
+	return nil
 }
 
 // RenameArtifact renames an artifact using the rc3d8d RPC endpoint

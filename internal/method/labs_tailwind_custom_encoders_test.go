@@ -7,6 +7,20 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
+func TestEncodeDeleteArtifactArgs(t *testing.T) {
+	req := &notebooklmv1alpha1.DeleteArtifactRequest{
+		ArtifactId: "00000000-0000-4000-8000-000000000201",
+	}
+	got := EncodeDeleteArtifactArgs(req)
+	gotJSON := mustJSON(t, got)
+
+	// HAR fixture 2026-04-07 against project 00000000.
+	want := `[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,2,3,6,5]]],"00000000-0000-4000-8000-000000000201"]`
+	if gotJSON != want {
+		t.Errorf("EncodeDeleteArtifactArgs:\n got: %s\nwant: %s", gotJSON, want)
+	}
+}
+
 func TestEncodePublishGuidebookArgsV2(t *testing.T) {
 	req := &notebooklmv1alpha1.PublishGuidebookRequest{
 		GuidebookId: "00000000-0000-4000-8000-000000000301",
@@ -61,19 +75,6 @@ func TestEncodeGuidebookGenerateAnswerArgsV2(t *testing.T) {
 	want := `["What is the API?","00000000-0000-4000-8000-000000000302",0,""]`
 	if gotJSON != want {
 		t.Errorf("EncodeGuidebookGenerateAnswerArgsV2:\n got: %s\nwant: %s", gotJSON, want)
-	}
-}
-
-func TestEncodeDeleteArtifactArgsV2(t *testing.T) {
-	req := &notebooklmv1alpha1.DeleteArtifactRequest{
-		ArtifactId: "test-artifact-id",
-	}
-	got := EncodeDeleteArtifactArgsV2(req)
-	gotJSON := mustJSON(t, got)
-
-	want := `["test-artifact-id",[2]]`
-	if gotJSON != want {
-		t.Errorf("EncodeDeleteArtifactArgsV2:\n got: %s\nwant: %s", gotJSON, want)
 	}
 }
 

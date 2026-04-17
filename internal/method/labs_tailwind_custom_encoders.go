@@ -97,20 +97,6 @@ func EncodeGuidebookGenerateAnswerArgsV2(req *notebooklmv1alpha1.GuidebookGenera
 	}
 }
 
-// EncodeDeleteArtifactArgsV2 encodes arguments for LabsTailwindOrchestrationService.DeleteArtifact.
-// RPC ID: WxBZtb
-//
-// No HAR sample available. Format inferred from similar orchestration service
-// RPCs that use ProjectContext suffix pattern.
-//
-// Wire format (inferred): ["<artifact_id>", [2]]
-func EncodeDeleteArtifactArgsV2(req *notebooklmv1alpha1.DeleteArtifactRequest) []interface{} {
-	return []interface{}{
-		req.GetArtifactId(), // field 1: artifact ID
-		[]interface{}{2},    // field 2: ProjectContext
-	}
-}
-
 // EncodeDeleteAudioOverviewArgsV2 encodes arguments for
 // LabsTailwindOrchestrationService.DeleteAudioOverview.
 // RPC ID: sJDbic (service client uses this), HAR captured as hizoJc.

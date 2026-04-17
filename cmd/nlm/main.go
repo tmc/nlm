@@ -1373,19 +1373,9 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 	if !confirmAction(fmt.Sprintf("Are you sure you want to delete artifact %s?", artifactID)) {
 		return fmt.Errorf("operation cancelled")
 	}
-
-	// Create orchestration service client
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-
-	req := &pb.DeleteArtifactRequest{
-		ArtifactId: artifactID,
+	if err := c.DeleteArtifact(artifactID); err != nil {
+		return err
 	}
-
-	_, err := orchClient.DeleteArtifact(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("delete artifact: %w", err)
-	}
-
 	fmt.Fprintf(os.Stderr, "Deleted artifact: %s\n", artifactID)
 	return nil
 }
