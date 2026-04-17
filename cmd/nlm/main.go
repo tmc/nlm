@@ -2147,19 +2147,54 @@ func resolveGenerateChatConversation(c *api.Client, projectID string) (string, [
 		return "", nil, 0, nil
 	}
 
-	// Try local session first for richer history.
+	// Expand 8-char prefixes (as shown by chat-list) to full UUIDs. The
+	// GetConversationHistory RPC matches on full UUID only; a prefix
+	// returns a 0-message response that the caller would mistake for an
+	// empty conversation.
+	conversationID = resolveConversationID(c, projectID, conversationID)
+
+	// Server conversation length is authoritative for SequenceNumber —
+	// the local cache may be empty (conversation started from the web UI)
+	// or stale (peer edits arrived via another client). Fetch first; fall
+	// back to the local session only if the RPC errors.
+	serverMsgs, serverErr := c.GetConversationHistory(projectID, conversationID)
+	if serverErr == nil {
+		fmt.Fprintf(os.Stderr, "Continuing conversation %s (%d server messages)\n",
+			shortID(conversationID), len(serverMsgs))
+		wireHistory := buildWireHistoryFromServer(serverMsgs)
+		// SeqNum is the 1-indexed slot of the message we're about to send.
+		return conversationID, wireHistory, len(serverMsgs) + 1, nil
+	}
+
+	// Server fetch failed — fall back to local cache if we have one so the
+	// user can still resume, but surface the failure to stderr.
+	fmt.Fprintf(os.Stderr, "nlm: could not fetch server history (%v); trying local cache\n", serverErr)
 	session, err := loadChatSessionForConv(projectID, conversationID)
 	if err == nil && len(session.Messages) > 0 {
-		fmt.Fprintf(os.Stderr, "Continuing conversation %s (%d messages)\n",
+		fmt.Fprintf(os.Stderr, "Continuing conversation %s (%d local messages)\n",
 			shortID(session.ConversationID), len(session.Messages))
 		wireHistory := buildWireHistory(session)
 		return session.ConversationID, wireHistory, len(session.Messages)/2 + 1, nil
 	}
 
-	// No local session — use the conversation ID with no history.
-	// The server remembers prior messages for server-side conversations.
-	fmt.Fprintf(os.Stderr, "Continuing conversation %s (server-side)\n", shortID(conversationID))
+	// No server history and no local session — continue with the ID alone.
+	fmt.Fprintf(os.Stderr, "Continuing conversation %s (no history available)\n", shortID(conversationID))
 	return conversationID, nil, 0, nil
+}
+
+// buildWireHistoryFromServer converts server-fetched ChatMessages into the
+// wire format expected by generate-chat: newest-first, with the final
+// message (which the server will pair with the current prompt) excluded.
+func buildWireHistoryFromServer(msgs []api.ChatMessage) []api.ChatMessage {
+	if len(msgs) == 0 {
+		return nil
+	}
+	// Newest-first ordering to match buildWireHistory.
+	history := make([]api.ChatMessage, 0, len(msgs))
+	for i := len(msgs) - 1; i >= 0; i-- {
+		history = append(history, msgs[i])
+	}
+	return history
 }
 
 // generateReport orchestrates report-suggestions + generate-chat to produce
@@ -2479,6 +2514,9 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 
 // interactiveChatWithConv starts or resumes an interactive chat with a specific conversation ID.
 func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) error {
+	// Expand partial IDs (chat-list prints the first 8 chars of the UUID).
+	conversationID = resolveConversationID(c, notebookID, conversationID)
+
 	// Try to load local session for this conversation
 	session, err := loadChatSessionForConv(notebookID, conversationID)
 	if err != nil {
