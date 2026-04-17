@@ -164,10 +164,23 @@ func reorderArgs() {
 				name = name[:eq]
 			}
 			if knownFlags[name] {
-				flags = append(flags, arg)
-				if !boolFlags[name] && !strings.Contains(arg, "=") && i+1 < len(os.Args) {
-					i++
-					flags = append(flags, os.Args[i])
+				if !boolFlags[name] && !strings.Contains(arg, "=") {
+					// Non-bool flag needs a value. Only consume the next arg as
+					// that value if it's not itself a command name or another
+					// flag — otherwise treat the flag as switch-form and
+					// rewrite to flag= so flag.Parse doesn't steal a positional
+					// when reorder puts this flag before the command.
+					if i+1 < len(os.Args) {
+						next := os.Args[i+1]
+						if _, isCmd := lookupCommand(next); !isCmd && !strings.HasPrefix(next, "-") {
+							flags = append(flags, arg, next)
+							i += 2
+							continue
+						}
+					}
+					flags = append(flags, arg+"=")
+				} else {
+					flags = append(flags, arg)
 				}
 			} else {
 				// Unknown flag — leave as positional for subcommand parsing
@@ -1900,9 +1913,18 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	if res.Answer != "" {
+	answer := strings.TrimSpace(res.Answer)
+	thinking := strings.TrimSpace(res.Thinking)
+	// Persist whichever channel produced content. When the parser misclassifies
+	// the response as thinking-only, promote the trace into Content so chat-show
+	// can replay it and downstream callers can chain --conversation correctly.
+	if answer == "" && thinking != "" {
+		answer = thinking
+	}
+	if answer != "" {
 		session.Messages = append(session.Messages, ChatMessage{
-			Role: "assistant", Content: strings.TrimSpace(res.Answer), Timestamp: time.Now(),
+			Role: "assistant", Content: answer, Timestamp: time.Now(),
+			Thinking:  res.Thinking,
 			Citations: res.Citations,
 		})
 	}
@@ -1951,7 +1973,7 @@ func resolveGenerateChatConversation(c *api.Client, projectID string) (string, [
 			return "", nil, 0, fmt.Errorf("no server-side conversations found for this notebook")
 		}
 		conversationID = convIDs[0]
-		fmt.Fprintf(os.Stderr, "Using server conversation: %s\n", conversationID[:8])
+		fmt.Fprintf(os.Stderr, "Using server conversation: %s\n", shortID(conversationID))
 	}
 
 	if conversationID == "" {
@@ -1962,14 +1984,14 @@ func resolveGenerateChatConversation(c *api.Client, projectID string) (string, [
 	session, err := loadChatSessionForConv(projectID, conversationID)
 	if err == nil && len(session.Messages) > 0 {
 		fmt.Fprintf(os.Stderr, "Continuing conversation %s (%d messages)\n",
-			session.ConversationID[:8], len(session.Messages))
+			shortID(session.ConversationID), len(session.Messages))
 		wireHistory := buildWireHistory(session)
 		return session.ConversationID, wireHistory, len(session.Messages)/2 + 1, nil
 	}
 
 	// No local session — use the conversation ID with no history.
 	// The server remembers prior messages for server-side conversations.
-	fmt.Fprintf(os.Stderr, "Continuing conversation %s (server-side)\n", conversationID[:8])
+	fmt.Fprintf(os.Stderr, "Continuing conversation %s (server-side)\n", shortID(conversationID))
 	return conversationID, nil, 0, nil
 }
 
@@ -2243,8 +2265,13 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 	}
 	fmt.Println()
 
-	// Save response with thinking trace and citations.
+	// Save response with thinking trace and citations. When the parser
+	// classified the response as thinking-only, promote the trace to Content
+	// so chat-show can replay it and history persists across runs.
 	response := strings.TrimSpace(res.Answer)
+	if response == "" {
+		response = strings.TrimSpace(res.Thinking)
+	}
 	if response != "" {
 		session.Messages = append(session.Messages, ChatMessage{
 			Role: "assistant", Content: response, Timestamp: time.Now(),
@@ -2733,7 +2760,7 @@ func getChatSessionPathForConv(notebookID, conversationID string) string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		if conversationID != "" {
-			return filepath.Join(os.TempDir(), fmt.Sprintf("nlm-chat-%s-%s.json", notebookID, conversationID[:8]))
+			return filepath.Join(os.TempDir(), fmt.Sprintf("nlm-chat-%s-%s.json", notebookID, shortID(conversationID)))
 		}
 		return filepath.Join(os.TempDir(), fmt.Sprintf("nlm-chat-%s.json", notebookID))
 	}
@@ -2741,9 +2768,19 @@ func getChatSessionPathForConv(notebookID, conversationID string) string {
 	nlmDir := filepath.Join(homeDir, ".nlm")
 	os.MkdirAll(nlmDir, 0700) // Ensure directory exists
 	if conversationID != "" {
-		return filepath.Join(nlmDir, fmt.Sprintf("chat-%s-%s.json", notebookID, conversationID[:8]))
+		return filepath.Join(nlmDir, fmt.Sprintf("chat-%s-%s.json", notebookID, shortID(conversationID)))
 	}
 	return filepath.Join(nlmDir, fmt.Sprintf("chat-%s.json", notebookID))
+}
+
+// shortID returns the first 8 characters of id, or all of id if shorter.
+// Used to build short suffixes for chat session filenames without panicking
+// on truncated or malformed conversation IDs.
+func shortID(id string) string {
+	if len(id) <= 8 {
+		return id
+	}
+	return id[:8]
 }
 
 func loadChatSessionForConv(notebookID, conversationID string) (*ChatSession, error) {
