@@ -33,6 +33,7 @@ import (
 // Global flags
 var (
 	showVersion       bool
+	experimental      bool // surface experimental commands in help + allow them to run
 	authToken         string
 	cookies           string
 	debug             bool
@@ -92,6 +93,7 @@ type ChatMessage struct {
 
 func init() {
 	flag.BoolVar(&showVersion, "version", false, "print nlm version and exit")
+	flag.BoolVar(&experimental, "experimental", false, "enable experimental commands (also: NLM_EXPERIMENTAL=1)")
 	flag.BoolVar(&debug, "debug", false, "enable debug output")
 	flag.BoolVar(&debugDumpPayload, "debug-dump-payload", false, "dump raw JSON payload and exit (unix-friendly)")
 	flag.BoolVar(&debugParsing, "debug-parsing", false, "show detailed protobuf parsing information")

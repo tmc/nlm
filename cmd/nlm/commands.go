@@ -289,8 +289,8 @@ var commands = []command{
 		minArgs: 0, maxArgs: -1,
 		hidden: true, // requires NLM_EXPERIMENTAL
 		run: func(c *api.Client, args []string) error {
-			if os.Getenv("NLM_EXPERIMENTAL") == "" {
-				return fmt.Errorf("audio-interactive is experimental; set NLM_EXPERIMENTAL=1 to enable")
+			if !experimentalEnabled() {
+				return fmt.Errorf("audio-interactive is experimental (limited functionality); pass --experimental or set NLM_EXPERIMENTAL=1")
 			}
 			opts, notebookID, err := parseInteractiveAudioArgs(args)
 			if errors.Is(err, errInteractiveAudioHelp) {
@@ -768,6 +768,14 @@ func lookupCommand(name string) (*command, bool) {
 	return cmd, ok
 }
 
+// experimentalEnabled reports whether experimental (hidden) commands should
+// be surfaced. Either --experimental or NLM_EXPERIMENTAL=<non-empty> enables
+// them. Keep both forms: the flag is discoverable via --help, the env var
+// is ergonomic for long-running shells and MCP configs.
+func experimentalEnabled() bool {
+	return experimental || os.Getenv("NLM_EXPERIMENTAL") != ""
+}
+
 // printUsage prints the full help text derived from the command table.
 func printUsage() {
 	fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
@@ -786,7 +794,7 @@ func printUsage() {
 			if cmd.section != section {
 				continue
 			}
-			if cmd.hidden && os.Getenv("NLM_EXPERIMENTAL") == "" {
+			if cmd.hidden && !experimentalEnabled() {
 				continue
 			}
 			if !printed {
