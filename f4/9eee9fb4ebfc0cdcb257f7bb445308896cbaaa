@@ -1,0 +1,7 @@
+claude-code v? model=claude-opus-4-7[1m] tty=not a tty
+none pid=17544 iterm=w0t1p0:509851F8-F1FF-48CC-8CF5-EF87C77DCAE7
+Date: 2026-04-17T02:32:48Z
+Triggered by: 4CA610BA option (Y') after the staged-file-mixup discovery — accepted commit but amended message for honesty.
+Co-authoring: docs/dev/test-conventions.md was authored by 54D6 agent (staged in worktree before my git commit ran); the godoc expansion on skipIfFixtureMissing is mine. Both contributions live under the same Author=Travis Cline because both agents automate under that identity.
+Original (now-rewritten) SHA was 572d8f9 with misleading 'godoc only' message. Amended to f49eee9 with honest two-contribution description.
+Verified: build/vet/test green; this is a doc-only change, no functional risk.
