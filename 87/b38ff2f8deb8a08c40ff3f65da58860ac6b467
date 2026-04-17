@@ -1,0 +1,6 @@
+claude-code v? model=claude-opus-4-7[1m] tty=not a tty
+none pid=20045 iterm=w0t1p0:509851F8-F1FF-48CC-8CF5-EF87C77DCAE7
+Date: 2026-04-17T02:33:22Z
+Triggered by: 4CA610BA option (X) confirmed after 54D6 verified release-prep is local-only.
+History note: original SHA was 572d8f9, briefly amended to f49eee9 mixing 54D6's docs/dev/test-conventions.md, now split back to 87b38ff (godoc only). 54D6 will commit test-conventions.md as a separate atomic commit on top.
+Verified: build/vet/test green; doc-only change to existing helper comment, no functional risk.
