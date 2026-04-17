@@ -32,6 +32,7 @@ import (
 
 // Global flags
 var (
+	showVersion       bool
 	authToken         string
 	cookies           string
 	debug             bool
@@ -90,6 +91,7 @@ type ChatMessage struct {
 }
 
 func init() {
+	flag.BoolVar(&showVersion, "version", false, "print nlm version and exit")
 	flag.BoolVar(&debug, "debug", false, "enable debug output")
 	flag.BoolVar(&debugDumpPayload, "debug-dump-payload", false, "dump raw JSON payload and exit (unix-friendly)")
 	flag.BoolVar(&debugParsing, "debug-parsing", false, "show detailed protobuf parsing information")
@@ -188,6 +190,11 @@ func main() {
 
 	reorderArgs()
 	flag.Parse()
+
+	if showVersion {
+		fmt.Println(versionString())
+		return
+	}
 
 	if debug {
 		fmt.Fprintf(os.Stderr, "nlm: debug mode enabled\n")
@@ -332,13 +339,18 @@ func run() error {
 		}
 	}
 
-	for i := 0; i < 3; i++ {
+	// Silent retry is only safe when there is a cached browser profile we can
+	// reuse. In env-var-only mode (fresh CI machine) the credentials are
+	// fixed for this process lifetime and re-running browser auth cannot
+	// help — surface the 401 immediately.
+	maxAttempts := 1
+	if hasCachedProfile() {
+		maxAttempts = 2
+	}
+
+	for i := 0; i < maxAttempts; i++ {
 		if i > 0 {
-			if i == 1 {
-				fmt.Fprintln(os.Stderr, "nlm: authentication expired, refreshing credentials...")
-			} else {
-				fmt.Fprintln(os.Stderr, "nlm: retrying authentication...")
-			}
+			fmt.Fprintln(os.Stderr, "nlm: authentication expired, refreshing credentials...")
 			debug = true
 		}
 
@@ -367,20 +379,26 @@ func run() error {
 			return cmdErr
 		}
 
-		// Authentication error detected, try to refresh
+		// Authentication error detected.
 		if debug {
 			fmt.Fprintf(os.Stderr, "nlm: detected authentication error: %v\n", cmdErr)
+		}
+
+		// Last attempt — surface an actionable message and return the
+		// underlying error so callers still see the full server context.
+		if i == maxAttempts-1 {
+			fmt.Fprintln(os.Stderr, "nlm: session expired. Run `nlm auth` to refresh, or re-export NLM_AUTH_TOKEN / NLM_COOKIES.")
+			return cmdErr
 		}
 
 		var authErr error
 		if authToken, cookies, authErr = handleAuth(nil, debug); authErr != nil {
 			fmt.Fprintf(os.Stderr, "nlm: authentication refresh failed: %v\n", authErr)
-			if i == 2 { // Last attempt
-				return fmt.Errorf("authentication failed after 3 attempts: %w", authErr)
-			}
+			fmt.Fprintln(os.Stderr, "nlm: session expired. Run `nlm auth` to refresh, or re-export NLM_AUTH_TOKEN / NLM_COOKIES.")
+			return authErr
 		}
 	}
-	return fmt.Errorf("nlm: authentication failed after 3 attempts")
+	return fmt.Errorf("nlm: authentication failed")
 }
 
 // isAuthenticationError checks if an error is related to authentication
@@ -424,6 +442,55 @@ func isAuthenticationError(err error) bool {
 	}
 
 	return false
+}
+
+// versionString returns a human-readable version line derived from
+// runtime/debug.ReadBuildInfo. It prefers the module version (set by
+// `go install module@tag`) and falls back to VCS metadata (commit sha +
+// commit date) for source builds. The resulting format is:
+//
+//	nlm <version-or-sha> (<commit-date>)
+//
+// For builds without any VCS or module info it emits "nlm devel".
+func versionString() string {
+	info, ok := runtimedebug.ReadBuildInfo()
+	if !ok {
+		return "nlm devel"
+	}
+	version := info.Main.Version
+	if version == "(devel)" {
+		version = ""
+	}
+	var commit, commitDate string
+	var dirty bool
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			commit = s.Value
+		case "vcs.time":
+			commitDate = s.Value
+		case "vcs.modified":
+			dirty = s.Value == "true"
+		}
+	}
+	if version == "" {
+		if commit != "" {
+			short := commit
+			if len(short) > 12 {
+				short = short[:12]
+			}
+			version = short
+		} else {
+			version = "devel"
+		}
+	}
+	if dirty {
+		version += "-dirty"
+	}
+	if commitDate != "" {
+		return fmt.Sprintf("nlm %s (%s)", version, commitDate)
+	}
+	return fmt.Sprintf("nlm %s", version)
 }
 
 func runMCP(client *api.Client) error {
