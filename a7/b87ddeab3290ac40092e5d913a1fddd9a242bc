@@ -1,0 +1,17 @@
+Committed: 2026-04-17T02:22:52Z
+claude-code: opus-4.7[1m]
+tty: not a tty
+not a tty
+pid: 65685
+ITERM_SESSION_ID: w0t1p1:54D6312B-7611-4865-9D6E-8E7DF5940829
+
+Phase 1g analytics resolution. Agent's option (iii) collapsed into one
+commit: fixture + experimental gate + handler SKIP note + phase1-verification
+§6/§9/§11 + phase1-triage row #27 + release-ready-plan §1g + new
+analytics-wire-mismatch.md. Honest correction of my own prior pass — §7
+(as §6 in the doc) and §9 had the bug mischaracterized; now corrected.
+
+Release-prep builds green. 2 pre-existing test failures in internal/interactiveaudio/
+(missing WebRTC capture fixtures) are unrelated and not in my scope.
+
+Task #17 can be marked complete per 4CA610BA.
