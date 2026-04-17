@@ -2923,11 +2923,12 @@ const (
 
 // Citation represents a source citation from the chat response.
 type Citation struct {
-	SourceIndex int    // 1-based index as shown in the response text [1], [2], etc.
-	SourceID    string // Source identifier
-	Title       string // Source title or excerpt
-	StartChar   int    // Start character offset in the response text
-	EndChar     int    // End character offset in the response text
+	SourceIndex int     // 1-based index as shown in the response text [1], [2], etc.
+	SourceID    string  // Source identifier
+	Title       string  // Source title or excerpt
+	StartChar   int     // Start character offset in the response text
+	EndChar     int     // End character offset in the response text
+	Confidence  float64 // Server-reported citation confidence score (0.0–1.0); 0 if unknown
 }
 
 // ChatChunk is a parsed chunk from the chat stream with phase metadata.
@@ -3715,6 +3716,13 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 			c, exists := seen[i]
 			if !exists {
 				continue
+			}
+
+			// [2] = confidence score (float64). Missing or non-numeric leaves 0.
+			if len(entryArr) > 2 {
+				if v, ok := entryArr[2].(float64); ok {
+					c.Confidence = v
+				}
 			}
 
 			// [4] = excerpts: navigate to excerpt text

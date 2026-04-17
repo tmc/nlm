@@ -1639,7 +1639,8 @@ func (r *chatStreamRenderer) printCitationsFootnotes() {
 	fmt.Fprintln(r.status, ansiGrey+strings.Repeat("─", 3)+ansiReset)
 	for _, c := range r.citations {
 		label := r.citationLabel(c)
-		fmt.Fprintf(r.status, "%s%s %s%s\n", ansiGrey, superscript(c.SourceIndex), label, ansiReset)
+		fmt.Fprintf(r.status, "%s%s%s %s%s\n",
+			ansiGrey, superscript(c.SourceIndex), formatConfidence(c.Confidence), label, ansiReset)
 	}
 }
 
@@ -1652,8 +1653,9 @@ func (r *chatStreamRenderer) printCitationsFooter() {
 	fmt.Fprintf(r.status, "\n%sCitations:%s\n", ansiGrey, ansiReset)
 	for _, c := range r.citations {
 		label := r.citationLabel(c)
-		fmt.Fprintf(r.status, "%s  [%d] chars %d-%d — %s%s\n",
-			ansiGrey, c.SourceIndex, c.StartChar, c.EndChar, label, ansiReset)
+		fmt.Fprintf(r.status, "%s  [%d]%s chars %d-%d — %s%s\n",
+			ansiGrey, c.SourceIndex, formatConfidence(c.Confidence),
+			c.StartChar, c.EndChar, label, ansiReset)
 	}
 }
 
@@ -1665,8 +1667,19 @@ func (r *chatStreamRenderer) printCitationsBlock() {
 	fmt.Fprintf(r.status, "\n%sSources:%s\n", ansiGrey, ansiReset)
 	for _, c := range r.citations {
 		label := r.citationLabel(c)
-		fmt.Fprintf(r.status, "%s  [%d] %s%s\n", ansiGrey, c.SourceIndex, label, ansiReset)
+		fmt.Fprintf(r.status, "%s  [%d]%s %s%s\n",
+			ansiGrey, c.SourceIndex, formatConfidence(c.Confidence), label, ansiReset)
 	}
+}
+
+// formatConfidence returns " (p=0.87)" for a non-zero score, or an empty
+// string. Returned with a leading space so callers can splice it without
+// padding logic.
+func formatConfidence(conf float64) string {
+	if conf <= 0 {
+		return ""
+	}
+	return fmt.Sprintf(" (p=%.2f)", conf)
 }
 
 // citationLabel formats a single citation line: "<source-id> — <title/excerpt>".
