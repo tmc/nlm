@@ -23,7 +23,7 @@ stderr 'usage: nlm create <title>'
 ! stderr 'timeout'
 
 ! exec ./nlm_test add
-stderr 'usage: nlm add <notebook-id> <file>'
+stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
 ! stderr 'network'
 ! stderr 'timeout'
 

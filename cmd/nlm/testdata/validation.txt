@@ -14,11 +14,11 @@ stderr 'usage: nlm sources <notebook-id>'
 
 # Test add command validation - no args
 ! exec ./nlm_test add
-stderr 'usage: nlm add <notebook-id> <file>'
+stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
 
 # Test add command validation - one arg
 ! exec ./nlm_test add notebook123
-stderr 'usage: nlm add <notebook-id> <file>'
+stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
 
 # Test rm-source command validation
 ! exec ./nlm_test rm-source

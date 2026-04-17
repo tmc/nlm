@@ -1,0 +1,23 @@
+# Test the bulk `nlm add` CLI surface added in cmd/nlm/add_sources.go.
+# These exercises validate argument-count handling before any network call.
+# Content-level validation (missing-file fail-fast, mixed-stdin rejection)
+# runs inside run() after auth is verified; those paths are covered by the
+# unit test TestValidateSourceInputs rather than txtar.
+
+# `nlm add` with no arguments — bad-args exit 2 with usage hint.
+! exec ./nlm_test add
+stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
+! stderr 'panic'
+
+# `nlm add` with only a notebook id — same usage hint, still bad-args.
+! exec ./nlm_test add notebook123
+stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
+! stderr 'panic'
+
+# Two inputs after the notebook id pass argument-count validation and
+# then fall through to the auth check (evidence the maxArgs=-1 change
+# took effect — prior code would have rejected 3+ positional args).
+! exec ./nlm_test add notebook123 https://a/x https://b/y
+stderr 'Authentication required'
+! stderr 'usage: nlm add'
+! stderr 'panic'

@@ -20,12 +20,12 @@ stderr 'Authentication required'
 # === ADD COMMAND ===
 # Test add without arguments
 ! exec ./nlm_test add
-stderr 'usage: nlm add <notebook-id> <file>'
+stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
 ! stderr 'panic'
 
 # Test add with only notebook ID
 ! exec ./nlm_test add notebook123
-stderr 'usage: nlm add <notebook-id> <file>'
+stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
 ! stderr 'panic'
 
 # Test add without authentication

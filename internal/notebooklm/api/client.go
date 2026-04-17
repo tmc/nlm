@@ -227,6 +227,13 @@ func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
 
 // Source operations
 
+// AddSources dispatches the izAoDd AddSources RPC with a bulk []SourceInput
+// envelope. NOT exercised by any CLI caller today — `nlm add` iterates
+// per-type RPCs (AddSourceFromText/FromBase64/uploadFileSource) so a failure
+// on one item doesn't mask the rest. The izAoDd bulk wire envelope is
+// unverified: do not dispatch bulk through this method without HAR
+// evidence that the current argument layout matches what the web UI emits.
+// Do not dispatch bulk through this method until the web UI AddSources envelope is captured.
 func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Project, error) {
 	req := &pb.AddSourceRequest{
 		Sources:   sources,

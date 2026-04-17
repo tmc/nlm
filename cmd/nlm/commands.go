@@ -90,21 +90,15 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return listSources(c, args[0]) },
 	},
 	{
-		name: "add", argsUsage: "<notebook-id> <file>",
-		usage: "Add source to notebook", section: "Source",
-		minArgs: 2, maxArgs: 2,
+		name: "add", argsUsage: "<notebook-id> <source|-> [source...]",
+		usage: "Add one or more sources (files, URLs, or text; pass '-' to read newline-delimited entries from stdin)", section: "Source",
+		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
-			id, err := addSource(c, args[0], args[1])
-			if err == nil && replaceSourceID != "" {
-				fmt.Fprintf(os.Stderr, "Replacing source %s...\n", replaceSourceID)
-				if delErr := c.DeleteSources(args[0], []string{replaceSourceID}); delErr != nil {
-					fmt.Fprintf(os.Stderr, "warning: uploaded new source but failed to delete old: %v\n", delErr)
-				}
+			inputs, err := addSourceInputs(args[1:])
+			if err != nil {
+				return err
 			}
-			if err == nil {
-				fmt.Println(id)
-			}
-			return err
+			return addSources(c, args[0], inputs)
 		},
 	},
 	{
