@@ -589,3 +589,17 @@ func refreshNotebookLMSignalerAuthorization(debugFlag bool) (string, error) {
 	}
 	return authz, nil
 }
+
+// hasCachedProfile reports whether nlm has a cached browser-auth profile on
+// disk (i.e. the user previously ran `nlm auth`). When false, the only
+// available credentials are whatever the caller put in NLM_AUTH_TOKEN /
+// NLM_COOKIES for this process, and re-running browser auth cannot help on
+// a 401.
+func hasCachedProfile() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(home, ".nlm", "env"))
+	return err == nil
+}
