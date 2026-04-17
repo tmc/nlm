@@ -65,10 +65,16 @@ const (
 	RPCRateConversationTurn     = "J7Gthc" // RateConversationTurn - mark conversation turn (thumbs up/down?)
 
 	// NotebookLM service - Research operations
-	RPCFastResearch       = "Es3dTe" // FastResearch - synchronous lightweight research (replaces deprecated qXyaNe DiscoverSources)
-	RPCStartDeepResearch  = "QA9ei"  // StartDeepResearch - initiate deep research
-	RPCPollDeepResearch   = "e3bVqc" // PollDeepResearch - poll research progress (same RPC ID as DeleteChatHistory; server routes by args)
-	RPCDeleteDeepResearch = "LBwxtb" // DeleteDeepResearch - delete a deep research session
+	RPCFastResearch            = "Es3dTe" // FastResearch - synchronous lightweight research (replaces deprecated qXyaNe DiscoverSources)
+	RPCStartDeepResearch       = "QA9ei"  // StartDeepResearch - initiate deep research; returns [research_id, conversation_id]
+	RPCGetDeepResearchSessions = "e3bVqc" // GetDeepResearchSessions - returns ALL deep-research sessions for a notebook; clients scan by research_id
+	RPCDeleteDeepResearch      = "LBwxtb" // DeleteDeepResearch - soft-delete a session (state transitions 2→5, row remains with tombstone state)
+
+	// Deprecated: e3bVqc is a polymorphic RPC that serves both
+	// DeleteChatHistory and GetDeepResearchSessions, dispatched on the
+	// arg shape. Use the explicit constants above at call sites; this
+	// alias kept for legacy callers.
+	RPCPollDeepResearch = RPCGetDeepResearchSessions
 
 	// NotebookLM service - Generation operations
 	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides

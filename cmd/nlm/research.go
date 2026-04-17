@@ -36,6 +36,10 @@ type researchEvent struct {
 	// Deep-only: surface the researchID so a caller that needs to resume a
 	// poll later can persist it.
 	ResearchID string `json:"research_id,omitempty"`
+	// ConversationID is the secondary identifier returned by
+	// StartDeepResearch; needed by any caller that wants to follow
+	// up with a delete.
+	ConversationID string `json:"conversation_id,omitempty"`
 }
 
 // runResearch is the nlm research <topic> command entry point. Emits
@@ -129,21 +133,21 @@ func runDeepResearch(c *api.Client, notebookID, query string) error {
 			return fmt.Errorf("poll deep research: %w", err)
 		}
 		if result.Done {
-			report, sources := splitDeepResearchContent(result.Content)
 			if researchMD {
-				fmt.Print(report)
-				if !strings.HasSuffix(report, "\n") {
+				fmt.Print(result.Report)
+				if !strings.HasSuffix(result.Report, "\n") {
 					fmt.Println()
 				}
 				return nil
 			}
 			return emitResearchEvent(researchEvent{
-				Type:       "complete",
-				Mode:       "deep",
-				Query:      query,
-				ResearchID: start.ResearchID,
-				Report:     report,
-				Sources:    sources,
+				Type:           "complete",
+				Mode:           "deep",
+				Query:          query,
+				ResearchID:     start.ResearchID,
+				ConversationID: result.ConversationID,
+				Report:         result.Report,
+				Sources:        result.Sources,
 			})
 		}
 	}
@@ -151,17 +155,6 @@ func runDeepResearch(c *api.Client, notebookID, query string) error {
 	// Loop exhausted without a done signal; surface the busy sentinel so
 	// scripts can retry via polling instead of treating this as a fatal error.
 	return fmt.Errorf("deep research polling exhausted after %d attempts: %w", maxPolls, api.ErrResearchPolling)
-}
-
-// splitDeepResearchContent separates the markdown report from the discovered
-// sources embedded in a deep-research response.
-//
-// BLOCKED on HAR capture of a completed QA9ei → e3bVqc poll (P0.6). The
-// current implementation treats the entire content blob as the report and
-// returns no structured sources. When the HAR lands, parse sources out and
-// return them alongside the report.
-func splitDeepResearchContent(content string) (string, []api.ResearchSource) {
-	return content, nil
 }
 
 // emitResearchEvent writes one JSON-lines record to stdout.

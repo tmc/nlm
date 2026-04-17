@@ -4402,10 +4402,24 @@ func (c *Client) GetInstructions(projectID string) (string, error) {
 }
 
 // DeepResearchResult holds the outcome of a deep research start or poll.
+// QA9ei StartDeepResearch returns two IDs; both are retained because
+// different downstream operations key on different IDs:
+//
+//	ResearchID     — matches session[1][5][0] in GetDeepResearchSessions
+//	                 (primary scan key for PollDeepResearch).
+//	ConversationID — matches session[0] in GetDeepResearchSessions
+//	                 (required by LBwxtb DeleteDeepResearch).
 type DeepResearchResult struct {
-	ResearchID string `json:"research_id"`
-	Done       bool   `json:"done"`
-	Content    string `json:"content,omitempty"`
+	ResearchID     string           `json:"research_id"`
+	ConversationID string           `json:"conversation_id,omitempty"`
+	Done           bool             `json:"done"`
+	Query          string           `json:"query,omitempty"`
+	Report         string           `json:"report,omitempty"`
+	Sources        []ResearchSource `json:"sources,omitempty"`
+	// Plan is the base64-decoded protobuf of the LLM's numbered search
+	// strategy (session[1][5][1]). Ignored by PollDeepResearch itself
+	// but preserved so a future --show-plan mode can surface reasoning.
+	Plan []byte `json:"plan,omitempty"`
 }
 
 // FastResearchResult is the payload for a synchronous lightweight research call.
@@ -4415,10 +4429,16 @@ type FastResearchResult struct {
 }
 
 // ResearchSource describes one source discovered by a research call.
+// Rank, FaviconURL, and CitationIndex come from the web-UI source blob
+// layout main_blob[0][i] for i=1..N; preserving them lets downstream
+// tools reproduce what the browser surfaces.
 type ResearchSource struct {
-	ID    string `json:"id,omitempty"`
-	Title string `json:"title,omitempty"`
-	URL   string `json:"url,omitempty"`
+	URL           string `json:"url,omitempty"`
+	Title         string `json:"title,omitempty"`
+	Snippet       string `json:"snippet,omitempty"`
+	Rank          int    `json:"rank,omitempty"`
+	FaviconURL    string `json:"favicon_url,omitempty"`
+	CitationIndex int    `json:"citation_index,omitempty"`
 }
 
 // FastResearch runs the lightweight synchronous research RPC (Es3dTe) and
@@ -4443,56 +4463,293 @@ func (c *Client) FastResearch(projectID, query string) (*FastResearchResult, err
 	return &FastResearchResult{Report: string(resp)}, nil
 }
 
-// StartDeepResearch initiates a deep research session for the given query.
+// StartDeepResearch kicks off a deep-research session for query against
+// projectID. The call returns two identifiers, both retained in the
+// result: ResearchID is the primary key for polling via
+// GetDeepResearchSessions; ConversationID is the key for
+// DeleteDeepResearch.
+//
+// Wire shape verified across three independent CDP captures spanning
+// 2026-04-10 through 2026-04-17, three different notebooks and three
+// different queries. Request args are five positions:
+//
+//	[0] nil               placeholder
+//	[1] [1]               opaque one-element list; likely a
+//	                      service-version tag or mode enum — bytes
+//	                      captured verbatim, do not infer semantics
+//	                      without a second HAR confirming meaning.
+//	[2] [query, 1]        query string plus an opaque trailing 1
+//	[3] 5                 scalar that matches session[1][2] in the
+//	                      GetDeepResearchSessions response
+//	[4] project_id        notebook identifier
+//
+// Response is a two-element JSON array: [research_id, conversation_id].
 func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCStartDeepResearch,
 		NotebookID: projectID,
-		Args:       []interface{}{projectID, query, []interface{}{2}},
+		Args: []interface{}{
+			nil,
+			[]interface{}{1},
+			[]interface{}{query, 1},
+			5,
+			projectID,
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("start deep research: %w", err)
 	}
 
-	var data []interface{}
+	var data []string
 	if err := json.Unmarshal(resp, &data); err != nil {
 		return nil, fmt.Errorf("parse start response: %w", err)
 	}
-
-	researchID := ""
-	if len(data) > 0 {
-		if id, ok := data[0].(string); ok {
-			researchID = id
-		}
+	if len(data) < 2 {
+		return nil, fmt.Errorf("start deep research: expected [research_id, conversation_id], got %d elements", len(data))
 	}
-	if researchID == "" {
-		researchID = projectID // fallback
-	}
-	return &DeepResearchResult{ResearchID: researchID}, nil
+	return &DeepResearchResult{
+		ResearchID:     data[0],
+		ConversationID: data[1],
+		Query:          query,
+	}, nil
 }
 
-// PollDeepResearch checks the status of a deep research session. When the
-// research is still in progress the function returns ErrResearchPolling
-// wrapped around the partial result, so the exit-code classifier in cmd/nlm
-// can map the error to exit 7 (resource busy).
+// PollDeepResearch fetches the full GetDeepResearchSessions list for
+// projectID and returns the session matching researchID. A session is
+// "done" when state == 2 AND main_blob is non-null; any other state
+// (1 running, 5 tombstoned, anything else) returns the in-progress
+// sentinel so the exit-code classifier maps to exit 7.
+//
+// State enum (observed via CDP capture, 2026-04-17):
+//
+//	1 = RUNNING   (main_blob == null; ts[2] may update as heartbeat)
+//	2 = COMPLETE  (main_blob populated with report + sources)
+//	5 = DELETED   (server-side soft-delete; invisible to future queries)
+//
+// Values 0, 3, and 4 have not been observed. The scan treats unknown
+// states as still-running rather than false-done, which is the safe
+// default.
 func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCPollDeepResearch,
+		ID:         rpc.RPCGetDeepResearchSessions,
 		NotebookID: projectID,
-		Args:       []interface{}{projectID, researchID, []interface{}{2}},
+		Args:       []interface{}{nil, nil, projectID},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("poll deep research: %w", err)
 	}
 
-	result := &DeepResearchResult{ResearchID: researchID}
-	if len(resp) > 1000 {
-		result.Done = true
-		result.Content = string(resp)
-		return result, nil
+	sessions, err := parseDeepResearchSessions(resp, c.rpc.Config.Debug)
+	if err != nil {
+		return nil, fmt.Errorf("poll deep research: %w", err)
 	}
-	// Not done yet — return result alongside the typed sentinel so callers
-	// can distinguish "still polling" from "error". See
-	// docs/dev/remaining-gaps.md P0.6 for the proper done-detection shape.
-	return result, fmt.Errorf("poll deep research: %w", ErrResearchPolling)
+
+	for _, s := range sessions {
+		if s.ResearchID != researchID {
+			continue
+		}
+		if s.State == 5 {
+			// Tombstone: server-side soft-delete. Invisible to
+			// future poll queries from the CLI user's POV.
+			continue
+		}
+		if s.State == 2 && len(s.MainBlob) > 0 {
+			result := &DeepResearchResult{
+				ResearchID:     researchID,
+				ConversationID: s.ConversationID,
+				Done:           true,
+				Query:          s.Query,
+				Plan:           s.Plan,
+			}
+			result.Report, result.Sources = decodeDeepResearchContent(s.MainBlob)
+			return result, nil
+		}
+		// State 1 (running) or unknown: return partial result with
+		// the busy sentinel so the caller loops.
+		return &DeepResearchResult{
+				ResearchID:     researchID,
+				ConversationID: s.ConversationID,
+				Query:          s.Query,
+				Plan:           s.Plan,
+			},
+			fmt.Errorf("poll deep research: %w", ErrResearchPolling)
+	}
+
+	// No matching session — either not yet visible (race between
+	// StartDeepResearch and the first GetDeepResearchSessions) or
+	// server tombstoned it. Return the busy sentinel so callers loop;
+	// the run-research cap exits after its own max-polls budget.
+	return &DeepResearchResult{ResearchID: researchID}, fmt.Errorf("poll deep research: %w", ErrResearchPolling)
+}
+
+// deepResearchSession is the internal decoded shape of one session
+// entry within a GetDeepResearchSessions response.
+type deepResearchSession struct {
+	ConversationID string
+	ProjectID      string
+	Query          string
+	State          int
+	ResearchID     string
+	Plan           []byte          // base64-decoded protobuf of the LLM plan
+	MainBlob       json.RawMessage // session[1][3] (null during RUNNING)
+}
+
+// parseDeepResearchSessions decodes the top-level e3bVqc response
+// payload into structured session records. Defensive by default: a
+// malformed entry is skipped rather than fatal, because the wire
+// format has many optional positions and partial server responses
+// are plausible. When debug is true the function logs each skip so
+// a future reader can see if Google changes the shape.
+func parseDeepResearchSessions(resp json.RawMessage, debug bool) ([]deepResearchSession, error) {
+	var outer [][]json.RawMessage
+	if err := json.Unmarshal(resp, &outer); err != nil {
+		return nil, fmt.Errorf("decode sessions outer: %w", err)
+	}
+	if len(outer) == 0 || len(outer[0]) == 0 {
+		return nil, nil // empty sessions list is valid (no research yet)
+	}
+
+	sessions := make([]deepResearchSession, 0, len(outer[0]))
+	for i, raw := range outer[0] {
+		var s []json.RawMessage
+		if err := json.Unmarshal(raw, &s); err != nil {
+			if debug {
+				fmt.Fprintf(os.Stderr, "api: deep-research session #%d: decode entry: %v\n", i, err)
+			}
+			continue
+		}
+		if len(s) < 2 {
+			if debug {
+				fmt.Fprintf(os.Stderr, "api: deep-research session #%d: expected >=2 fields, got %d\n", i, len(s))
+			}
+			continue
+		}
+		var conv string
+		_ = json.Unmarshal(s[0], &conv)
+
+		var inner []json.RawMessage
+		if err := json.Unmarshal(s[1], &inner); err != nil {
+			if debug {
+				fmt.Fprintf(os.Stderr, "api: deep-research session #%d: decode inner: %v\n", i, err)
+			}
+			continue
+		}
+		ds := deepResearchSession{ConversationID: conv}
+		if len(inner) > 0 {
+			_ = json.Unmarshal(inner[0], &ds.ProjectID)
+		}
+		if len(inner) > 1 {
+			var pair []json.RawMessage
+			if json.Unmarshal(inner[1], &pair) == nil && len(pair) > 0 {
+				_ = json.Unmarshal(pair[0], &ds.Query)
+			}
+		}
+		if len(inner) > 3 && !bytes.Equal(inner[3], []byte("null")) {
+			ds.MainBlob = inner[3]
+		}
+		if len(inner) > 4 {
+			_ = json.Unmarshal(inner[4], &ds.State)
+		}
+		if len(inner) > 5 {
+			var pair []json.RawMessage
+			if json.Unmarshal(inner[5], &pair) == nil {
+				if len(pair) > 0 {
+					_ = json.Unmarshal(pair[0], &ds.ResearchID)
+				}
+				if len(pair) > 1 {
+					var b64 string
+					if json.Unmarshal(pair[1], &b64) == nil {
+						if decoded, err := base64.StdEncoding.DecodeString(b64); err == nil {
+							ds.Plan = decoded
+						}
+					}
+				}
+			}
+		}
+		sessions = append(sessions, ds)
+	}
+	return sessions, nil
+}
+
+// decodeDeepResearchContent splits a main_blob into its markdown report
+// and discovered-sources list. Layout per CDP capture 2026-04-17:
+//
+//	main_blob     = [[ report_header, source_1, ..., source_N ]]
+//	report_header = [null, title, null, mode, null, null, [markdown, 3, ...]]
+//	source_i      = [url, title, snippet, rank, null, favicon,
+//	                 metadata, null, citation_idx]
+func decodeDeepResearchContent(main json.RawMessage) (string, []ResearchSource) {
+	var outer [][]json.RawMessage
+	if err := json.Unmarshal(main, &outer); err != nil || len(outer) == 0 {
+		return "", nil
+	}
+	entries := outer[0]
+	if len(entries) == 0 {
+		return "", nil
+	}
+
+	report := ""
+	{
+		var header []json.RawMessage
+		if err := json.Unmarshal(entries[0], &header); err == nil && len(header) > 6 {
+			var body []json.RawMessage
+			if json.Unmarshal(header[6], &body) == nil && len(body) > 0 {
+				_ = json.Unmarshal(body[0], &report)
+			}
+		}
+	}
+
+	var sources []ResearchSource
+	for i := 1; i < len(entries); i++ {
+		var src []json.RawMessage
+		if err := json.Unmarshal(entries[i], &src); err != nil || len(src) < 3 {
+			continue
+		}
+		rs := ResearchSource{}
+		_ = json.Unmarshal(src[0], &rs.URL)
+		_ = json.Unmarshal(src[1], &rs.Title)
+		_ = json.Unmarshal(src[2], &rs.Snippet)
+		if len(src) > 3 {
+			_ = json.Unmarshal(src[3], &rs.Rank)
+		}
+		if len(src) > 5 {
+			_ = json.Unmarshal(src[5], &rs.FaviconURL)
+		}
+		if len(src) > 8 {
+			_ = json.Unmarshal(src[8], &rs.CitationIndex)
+		}
+		sources = append(sources, rs)
+	}
+	return report, sources
+}
+
+// DeleteDeepResearch soft-deletes a research session. The server moves
+// the session from state 2 (COMPLETE) to state 5 (DELETED) and retains
+// the content internally; PollDeepResearch filters state=5 out so from
+// the CLI caller's perspective the session is gone.
+//
+// Wire shape verified 2026-04-17 via CDP capture. Args: four positions.
+//
+//	[0] nil               placeholder
+//	[1] [1]               opaque constant; bytes captured verbatim
+//	[2] conversation_id   LBwxtb keys on the conversation identifier
+//	                      returned as data[1] from QA9ei (NOT research_id)
+//	[3] project_id
+//
+// Response: empty JSON array on success.
+func (c *Client) DeleteDeepResearch(projectID, conversationID string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCDeleteDeepResearch,
+		NotebookID: projectID,
+		Args: []interface{}{
+			nil,
+			[]interface{}{1},
+			conversationID,
+			projectID,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("delete deep research: %w", err)
+	}
+	return nil
 }

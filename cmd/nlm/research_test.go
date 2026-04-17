@@ -69,7 +69,7 @@ func TestEmitResearchEvent(t *testing.T) {
 				Type:    "complete",
 				Mode:    "deep",
 				Report:  "# Report",
-				Sources: []api.ResearchSource{{ID: "s1", Title: "T", URL: "https://example.com"}},
+				Sources: []api.ResearchSource{{Title: "T", URL: "https://example.com"}},
 			},
 			map[string]any{"type": "complete", "mode": "deep"},
 		},
@@ -129,18 +129,6 @@ func TestRunResearchModeValidation(t *testing.T) {
 				t.Errorf("want error containing %q; got %v", tt.wantErr, err)
 			}
 		})
-	}
-}
-
-func TestSplitDeepResearchContent(t *testing.T) {
-	// Scaffolded stub: returns full content as report, no sources.
-	// When HAR lands this test should fail and force the real parser.
-	report, sources := splitDeepResearchContent("some markdown report")
-	if report != "some markdown report" {
-		t.Errorf("report: got %q, want %q", report, "some markdown report")
-	}
-	if sources != nil {
-		t.Errorf("sources: got %v; scaffold returns nil until HAR lands", sources)
 	}
 }
 
