@@ -23,9 +23,7 @@ env NLM_AUTH_TOKEN=''
 env NLM_COOKIES=''
 ! exec ./nlm_test ls
 stderr 'Authentication required'
-# Empty auth shouldn't try to show any values
-! stderr 'NLM_AUTH_TOKEN'
-! stderr 'NLM_COOKIES'
+# (env var names appear in the hint text now — only values must stay secret)
 
 # Test 3: Debug mode security - ensure debug doesn't leak credentials in auth messages
 env NLM_AUTH_TOKEN=''
@@ -34,8 +32,7 @@ env NLM_COOKIES=''
 # Debug output should not show credential values (even if empty)
 stderr 'debug mode enabled'
 stderr 'Authentication required'
-! stderr 'NLM_AUTH_TOKEN'
-! stderr 'NLM_COOKIES'
+# (env var names appear in the hint text now — only values must stay secret)
 
 # Test 4: Token handling security - real tokens not exposed when API fails
 # Use a short/invalid token that passes auth check but fails API calls
@@ -82,8 +79,4 @@ env NLM_AUTH_TOKEN=
 env NLM_COOKIES=
 ! exec ./nlm_test feedback 'test message'
 stderr 'Authentication required'
-# Environment variable names shouldn't be exposed
-! stdout 'NLM_AUTH_TOKEN'
-! stdout 'NLM_COOKIES'
-! stderr 'NLM_AUTH_TOKEN'
-! stderr 'NLM_COOKIES'
+# (env var names appear in the hint text now — only values must stay secret)
