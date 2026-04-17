@@ -1,0 +1,7 @@
+claude-code v? model=claude-opus-4-7[1m] tty=not a tty
+none pid=90430 iterm=w0t1p0:509851F8-F1FF-48CC-8CF5-EF87C77DCAE7
+Date: 2026-04-17T02:27:44Z
+Triggered by: 4CA610BA phase 3 audit hand-off (original-5 already green, fixture-guard work is the new shape).
+Verified: go build/vet/test all packages green; the 3 tests now SKIP cleanly with informative messages.
+Audit notes: scanned other os.ReadFile sites in *_test.go; remaining ones consume checked-in testdata or files the test wrote.
+Stack: bf5e49c (rename-artifact) -> a7b87dd (54D6 analytics-experimental gate) -> 3269fa2 (this commit).
