@@ -2,10 +2,36 @@ package method
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
+
+func TestEncodeRenameArtifactArgs(t *testing.T) {
+	req := &notebooklmv1alpha1.RenameArtifactRequest{
+		ArtifactId: "00000000-0000-4000-8000-000000000201",
+		NewTitle:   "New Title",
+	}
+	got := EncodeRenameArtifactArgs(req)
+	gotJSON := mustJSON(t, got)
+
+	want := readGoldenPayload(t, "testdata/rc3d8d_rename_artifact_request.json")
+	if gotJSON != want {
+		t.Errorf("EncodeRenameArtifactArgs:\n got: %s\nwant: %s", gotJSON, want)
+	}
+}
+
+func readGoldenPayload(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.FromSlash(path))
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return strings.TrimRight(string(b), "\n")
+}
 
 func TestEncodeDeleteArtifactArgs(t *testing.T) {
 	req := &notebooklmv1alpha1.DeleteArtifactRequest{

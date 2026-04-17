@@ -2496,20 +2496,21 @@ func (c *Client) DeleteArtifact(artifactID string) error {
 	return nil
 }
 
-// RenameArtifact renames an artifact using the rc3d8d RPC endpoint
+// RenameArtifact renames an artifact using the rc3d8d RPC.
+//
+// Wire format: see
+// internal/method/LabsTailwindOrchestrationService_RenameArtifact_encoder.go.
 func (c *Client) RenameArtifact(artifactID, newTitle string) (*pb.Artifact, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCRenameArtifact,
-		Args: []interface{}{
-			[]interface{}{artifactID, newTitle},
-			[]interface{}{[]interface{}{"title"}},
-		},
-		NotebookID: "", // Not needed for artifact operations
+		Args: intmethod.EncodeRenameArtifactArgs(&pb.RenameArtifactRequest{
+			ArtifactId: artifactID,
+			NewTitle:   newTitle,
+		}),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("rename artifact RPC: %w", err)
+		return nil, fmt.Errorf("rename artifact: %w", err)
 	}
-
 	return c.parseRenameArtifactResponse(resp, artifactID)
 }
 
