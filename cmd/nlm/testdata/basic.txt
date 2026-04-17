@@ -25,3 +25,7 @@ stderr 'Usage: nlm <command>'
 # Test --help flag shows help
 exec ./nlm_test --help
 stderr 'Usage: nlm <command>'
+
+# --version prints a version line on stdout and exits 0
+exec ./nlm_test --version
+stdout '^nlm '
