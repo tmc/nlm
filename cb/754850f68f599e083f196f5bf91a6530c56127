@@ -1,0 +1,14 @@
+Committed: 2026-04-17T01:19:30Z
+claude-code: opus-4.7[1m]
+tty: not a tty
+not a tty
+pid: 39270
+ITERM_SESSION_ID: w0t1p1:54D6312B-7611-4865-9D6E-8E7DF5940829
+
+Committing release-ready-plan.md that had lived as an uncommitted file
+on main. Adds §1e status updates for get-artifact / delete-artifact
+(both DONE) and audio-download (no migration needed, no fix). Rewrites
+V5N4be hazard entry. Leaves cli-gap-analysis.md and remaining-gaps.md
+unchanged — they have more stale refs (artifact ops marked UNTESTED,
+V5N4be as 'newly registered') but touching those is a bigger scope
+and probably worth a dedicated freshen-up pass.
