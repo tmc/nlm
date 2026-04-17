@@ -4401,6 +4401,41 @@ type DeepResearchResult struct {
 	Content    string `json:"content,omitempty"`
 }
 
+// FastResearchResult is the payload for a synchronous lightweight research call.
+type FastResearchResult struct {
+	Report  string           `json:"report"`
+	Sources []ResearchSource `json:"sources,omitempty"`
+}
+
+// ResearchSource describes one source discovered by a research call.
+type ResearchSource struct {
+	ID    string `json:"id,omitempty"`
+	Title string `json:"title,omitempty"`
+	URL   string `json:"url,omitempty"`
+}
+
+// FastResearch runs the lightweight synchronous research RPC (Es3dTe) and
+// returns a markdown report plus any discovered sources.
+//
+// BLOCKED on HAR capture for argument shape; the current implementation uses
+// the argbuilder default which returns API error 3 against the live server.
+// See docs/dev/remaining-gaps.md P1.2. When the HAR lands, replace the
+// speculative Args with the verified shape and the speculative response-parse
+// with the true wire layout.
+func (c *Client) FastResearch(projectID, query string) (*FastResearchResult, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCFastResearch,
+		NotebookID: projectID,
+		Args:       []interface{}{projectID, query, []interface{}{2}},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("fast research: %w", err)
+	}
+	// Speculative parse: treat the whole envelope as a single string report
+	// until the HAR pins the true response shape.
+	return &FastResearchResult{Report: string(resp)}, nil
+}
+
 // StartDeepResearch initiates a deep research session for the given query.
 func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
@@ -4429,7 +4464,10 @@ func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult
 	return &DeepResearchResult{ResearchID: researchID}, nil
 }
 
-// PollDeepResearch checks the status of a deep research session.
+// PollDeepResearch checks the status of a deep research session. When the
+// research is still in progress the function returns ErrResearchPolling
+// wrapped around the partial result, so the exit-code classifier in cmd/nlm
+// can map the error to exit 7 (resource busy).
 func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCPollDeepResearch,
@@ -4444,6 +4482,10 @@ func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchRe
 	if len(resp) > 1000 {
 		result.Done = true
 		result.Content = string(resp)
+		return result, nil
 	}
-	return result, nil
+	// Not done yet — return result alongside the typed sentinel so callers
+	// can distinguish "still polling" from "error". See
+	// docs/dev/remaining-gaps.md P0.6 for the proper done-detection shape.
+	return result, fmt.Errorf("poll deep research: %w", ErrResearchPolling)
 }

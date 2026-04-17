@@ -36,12 +36,12 @@ stderr 'Authentication required'
 # === RM-SOURCE COMMAND ===
 # Test rm-source without arguments
 ! exec ./nlm_test rm-source
-stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+stderr 'usage: nlm rm-source <notebook-id> <source-id\|-\|a,b,c>'
 ! stderr 'panic'
 
 # Test rm-source with only one argument
 ! exec ./nlm_test rm-source notebook123
-stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+stderr 'usage: nlm rm-source <notebook-id> <source-id\|-\|a,b,c>'
 ! stderr 'panic'
 
 # Test rm-source without authentication

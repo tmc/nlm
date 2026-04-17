@@ -702,11 +702,11 @@ var commands = []command{
 	// Research operations
 	{
 		name: "research", argsUsage: "<notebook-id> \"query\"",
-		usage: "Run deep research and poll for results", section: "Research",
+		usage: "Run fast or deep research (JSON-lines by default; --md for markdown; --mode=fast|deep)", section: "Research",
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			query := strings.Join(args[1:], " ")
-			return deepResearch(c, args[0], query)
+			return runResearch(c, args[0], query)
 		},
 	},
 

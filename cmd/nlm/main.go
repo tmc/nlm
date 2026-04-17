@@ -130,6 +130,9 @@ func init() {
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay (default: block on TTY, off when piped)")
 	flag.StringVar(&sourceIDsFlag, "source-ids", "", "restrict chat to these source IDs (comma-separated, or '-' to read newline-delimited from stdin)")
+	flag.StringVar(&researchMode, "mode", "", "research mode: fast|deep (default: deep; used by nlm research)")
+	flag.BoolVar(&researchMD, "md", false, "emit raw markdown report (nlm research; default is JSON-lines events)")
+	flag.IntVar(&researchPollMs, "poll-ms", 0, "override research polling interval in milliseconds (default: 5000)")
 
 	flag.Usage = printUsage
 }

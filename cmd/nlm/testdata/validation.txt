@@ -22,11 +22,11 @@ stderr 'usage: nlm add <notebook-id> <file>'
 
 # Test rm-source command validation
 ! exec ./nlm_test rm-source
-stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+stderr 'usage: nlm rm-source <notebook-id> <source-id\|-\|a,b,c>'
 
 # Test rm-source command validation - one arg
 ! exec ./nlm_test rm-source notebook123
-stderr 'usage: nlm rm-source <notebook-id> <source-id>'
+stderr 'usage: nlm rm-source <notebook-id> <source-id\|-\|a,b,c>'
 
 # Test rename-source command validation
 ! exec ./nlm_test rename-source
