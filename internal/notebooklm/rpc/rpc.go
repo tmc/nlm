@@ -69,7 +69,8 @@ const (
 	RPCFastResearch            = RPCStartFastResearch // DEPRECATED: alias kept so older callers compile. Prefer RPCStartFastResearch.
 	RPCStartDeepResearch       = "QA9ei"              // StartDeepResearch - initiate deep research; returns [research_id, conversation_id]
 	RPCGetDeepResearchSessions = "e3bVqc"             // GetDeepResearchSessions - returns ALL deep/fast research sessions for a notebook; clients scan by (research_id, mode=5) for deep or (conversation_id, mode=1) for fast
-	RPCDeleteDeepResearch      = "LBwxtb"             // DeleteDeepResearch - soft-delete a session (state transitions 2→5, row remains with tombstone state)
+	RPCDeleteDeepResearch      = "LBwxtb"             // DeleteDeepResearch - soft-delete a session (state transitions 2→5, row remains with tombstone state); polymorphic with RPCBulkImportFromResearch
+	RPCBulkImportFromResearch  = "LBwxtb"             // BulkImportFromResearch - HAR-verified 2026-04-17; 5-position variant of LBwxtb with a sources array at arg[4], discriminated by arg-4 presence
 
 	// Deprecated: e3bVqc is a polymorphic RPC that serves
 	// DeleteChatHistory, GetDeepResearchSessions, AND (as of 2026-04-17)

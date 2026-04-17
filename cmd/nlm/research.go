@@ -12,9 +12,10 @@ import (
 
 // Research flags (set in init() via flag.StringVar).
 var (
-	researchMode  string // "fast" or "deep"; default "deep"
-	researchMD    bool   // emit markdown report on stdout instead of JSONL events
-	researchPollMs int   // override polling interval for deep research; 0 = default 5s
+	researchMode   string // "fast" or "deep"; default "deep"
+	researchMD     bool   // emit markdown report on stdout instead of JSONL events
+	researchPollMs int    // override polling interval for deep research; 0 = default 5s
+	researchImport bool   // after research completes, import the discovered sources into the notebook
 )
 
 // researchEvent is one JSON-lines record emitted on stdout.
@@ -73,6 +74,10 @@ func runFastResearch(c *api.Client, notebookID, query string) error {
 		return fmt.Errorf("fast research: %w", err)
 	}
 
+	if err := maybeImportResearch(c, notebookID, result, query, "fast"); err != nil {
+		return err
+	}
+
 	if researchMD {
 		fmt.Print(result.Report)
 		if !strings.HasSuffix(result.Report, "\n") {
@@ -82,12 +87,50 @@ func runFastResearch(c *api.Client, notebookID, query string) error {
 	}
 
 	return emitResearchEvent(researchEvent{
-		Type:    "complete",
-		Mode:    "fast",
-		Query:   query,
-		Report:  result.Report,
-		Sources: result.Sources,
+		Type:           "complete",
+		Mode:           "fast",
+		Query:          query,
+		ConversationID: result.ConversationID,
+		Report:         result.Report,
+		Sources:        result.Sources,
 	})
+}
+
+// maybeImportResearch imports the discovered sources into notebookID
+// if --import was passed. Progress lines go to stderr; the set of
+// imported source ids is logged so scripts can extract via stderr
+// parsing if needed. Returns nil (non-fatal) when --import is off.
+func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResearchResult, query, mode string) error {
+	if !researchImport {
+		return nil
+	}
+	if result.ConversationID == "" {
+		return fmt.Errorf("%s research import: server did not return a conversation id; cannot import", mode)
+	}
+	if len(result.Sources) == 0 {
+		fmt.Fprintln(os.Stderr, "no sources to import")
+		return nil
+	}
+	imports := make([]api.BulkImportSource, 0, len(result.Sources))
+	for _, s := range result.Sources {
+		if s.URL == "" {
+			continue
+		}
+		imports = append(imports, api.BulkImportSource{URL: s.URL, Title: s.Title})
+	}
+	if len(imports) == 0 {
+		fmt.Fprintln(os.Stderr, "no URL sources to import (all discovered sources lacked a URL)")
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "Importing %d sources into notebook %s...\n", len(imports), notebookID)
+	imported, err := c.BulkImportFromResearch(notebookID, result.ConversationID, imports)
+	if err != nil {
+		return fmt.Errorf("%s research import: %w", mode, err)
+	}
+	for _, r := range imported {
+		fmt.Fprintf(os.Stderr, "  imported %s  %s\n", r.SourceID, r.Title)
+	}
+	return nil
 }
 
 func runDeepResearch(c *api.Client, notebookID, query string) error {
@@ -133,6 +176,9 @@ func runDeepResearch(c *api.Client, notebookID, query string) error {
 			return fmt.Errorf("poll deep research: %w", err)
 		}
 		if result.Done {
+			if err := maybeImportResearch(c, notebookID, result, query, "deep"); err != nil {
+				return err
+			}
 			if researchMD {
 				fmt.Print(result.Report)
 				if !strings.HasSuffix(result.Report, "\n") {

@@ -135,6 +135,7 @@ func init() {
 	flag.StringVar(&researchMode, "mode", "", "research mode: fast|deep (default: deep; used by nlm research)")
 	flag.BoolVar(&researchMD, "md", false, "emit raw markdown report (nlm research; default is JSON-lines events)")
 	flag.IntVar(&researchPollMs, "poll-ms", 0, "override research polling interval in milliseconds (default: 5000)")
+	flag.BoolVar(&researchImport, "import", false, "after research completes, import the discovered sources into the notebook via LBwxtb BulkImportFromResearch")
 
 	flag.Usage = printUsage
 }

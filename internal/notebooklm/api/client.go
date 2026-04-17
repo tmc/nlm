@@ -4868,20 +4868,151 @@ func decodeFastMainBlob(main json.RawMessage) (string, []ResearchSource) {
 //	                      returned as data[1] from QA9ei (NOT research_id)
 //	[3] project_id
 //
+// LBwxtb is polymorphic — the same RPC also serves
+// BulkImportFromResearch (5-position, adds a sources array at
+// position [4]). The server discriminates on arg-4 presence, NOT on a
+// distinct type flag. See BulkImportFromResearch for the 5-position
+// shape.
+//
 // Response: empty JSON array on success.
 func (c *Client) DeleteDeepResearch(projectID, conversationID string) error {
 	_, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCDeleteDeepResearch,
 		NotebookID: projectID,
-		Args: []interface{}{
-			nil,
-			[]interface{}{1},
-			conversationID,
-			projectID,
-		},
+		Args:       deleteDeepResearchArgs(conversationID, projectID),
 	})
 	if err != nil {
 		return fmt.Errorf("delete deep research: %w", err)
 	}
 	return nil
+}
+
+// deleteDeepResearchArgs produces the 4-position LBwxtb delete shape.
+// Exposed as a pure function so tests can golden-check the encoding
+// without the rpc.Client round-trip.
+func deleteDeepResearchArgs(conversationID, projectID string) []interface{} {
+	return []interface{}{
+		nil,
+		[]interface{}{1},
+		conversationID,
+		projectID,
+	}
+}
+
+// BulkImportSource is one URL + title pair to import via
+// BulkImportFromResearch. The server fills in everything else
+// (source_id, content hash, timestamps, rank, etc.) and returns the
+// enriched metadata on the response; BulkImportResult surfaces the
+// subset the CLI cares about.
+type BulkImportSource struct {
+	URL   string
+	Title string
+}
+
+// BulkImportResult is one server-assigned imported source in the
+// BulkImportFromResearch response. Order matches the request order.
+type BulkImportResult struct {
+	SourceID string
+	Title    string
+	URL      string
+}
+
+// BulkImportFromResearch imports a batch of URL-and-title pairs into
+// notebookID using the LBwxtb polymorphic extension (5-position
+// variant). The conversationID identifies a research session whose
+// suggestions are being imported — typically from a fast- or
+// deep-research run. The server assigns source ids and returns the
+// enriched metadata in request order.
+//
+// Wire shape (HAR-verified 2026-04-17 against notebook
+// 00000000-0000-4000-8000-000000000006, conversation
+// 00000000-0000-4000-8000-000000000401, 10 URL sources):
+//
+//	[
+//	  null,                // [0] placeholder
+//	  [1],                 // [1] opaque constant; same as delete shape
+//	  conversation_id,     // [2] research session conversation id
+//	  project_id,          // [3] target notebook
+//	  [source_1, ..., source_N],   // [4] distinguishes bulk-import from delete
+//	]
+//
+// Each source tuple is 11-position:
+//
+//	[null, null, [url, title], null, null, null, null, null, null, null, 2]
+//
+// Position [2] is [url, title]; position [10] is the source_type enum
+// (2 observed for URL sources in this capture).
+func (c *Client) BulkImportFromResearch(projectID, conversationID string, sources []BulkImportSource) ([]BulkImportResult, error) {
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("bulk import: at least one source required")
+	}
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCBulkImportFromResearch,
+		NotebookID: projectID,
+		Args:       bulkImportArgs(conversationID, projectID, sources),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("bulk import from research: %w", err)
+	}
+	return parseBulkImportResponse(resp)
+}
+
+// bulkImportArgs produces the 5-position LBwxtb bulk-import shape.
+func bulkImportArgs(conversationID, projectID string, sources []BulkImportSource) []interface{} {
+	tuples := make([]interface{}, 0, len(sources))
+	for _, s := range sources {
+		tuples = append(tuples, []interface{}{
+			nil, nil,
+			[]interface{}{s.URL, s.Title},
+			nil, nil, nil, nil, nil, nil, nil,
+			2, // source_type enum: URL
+		})
+	}
+	return []interface{}{
+		nil,
+		[]interface{}{1},
+		conversationID,
+		projectID,
+		tuples,
+	}
+}
+
+// parseBulkImportResponse extracts source_id, title, and URL from the
+// rich server response. Unknown positions are skipped; the response
+// layout is wide (same basic shape as FLmJqe's RefreshSource response)
+// so we decode only the fields the CLI surfaces and leave the rest to
+// future callers if richer metadata is ever needed.
+//
+// Response layout per CDP capture 2026-04-17:
+//
+//	[source, source, ..., source]
+//	source = [[source_id], title, metadata_body, [null, final_state]]
+//	metadata_body[7] = [url]   // single-element URL list
+func parseBulkImportResponse(raw json.RawMessage) ([]BulkImportResult, error) {
+	var outer []json.RawMessage
+	if err := json.Unmarshal(raw, &outer); err != nil {
+		return nil, fmt.Errorf("bulk import response: outer decode: %w", err)
+	}
+	results := make([]BulkImportResult, 0, len(outer))
+	for _, rawSrc := range outer {
+		var src []json.RawMessage
+		if err := json.Unmarshal(rawSrc, &src); err != nil || len(src) < 3 {
+			continue
+		}
+		r := BulkImportResult{}
+		var idArr []string
+		if err := json.Unmarshal(src[0], &idArr); err == nil && len(idArr) > 0 {
+			r.SourceID = idArr[0]
+		}
+		_ = json.Unmarshal(src[1], &r.Title)
+		var body []json.RawMessage
+		if err := json.Unmarshal(src[2], &body); err == nil && len(body) > 7 {
+			var urlArr []string
+			if err := json.Unmarshal(body[7], &urlArr); err == nil && len(urlArr) > 0 {
+				r.URL = urlArr[0]
+			}
+		}
+		results = append(results, r)
+	}
+	return results, nil
 }
