@@ -232,9 +232,49 @@ func main() {
 	startAutoRefreshIfEnabled()
 
 	if err := run(); err != nil {
-		fmt.Fprintf(os.Stderr, "nlm: %v\n", err)
+		fmt.Fprintf(os.Stderr, "nlm: %s\n", friendlyError(err))
 		os.Exit(1)
 	}
+}
+
+// friendlyError rewrites the "API error <N> (<Type>): <msg>" format produced
+// by *batchexecute.APIError into something a user can act on. It keeps the
+// wrapping context (e.g. "get project: ...") so callers still see which
+// operation failed. If err is not a batchexecute APIError the return value
+// is err.Error() unchanged.
+func friendlyError(err error) string {
+	var apiErr *batchexecute.APIError
+	if !errors.As(err, &apiErr) {
+		return err.Error()
+	}
+	// Strip the "API error <N> (<Type>): <msg>" suffix from the wrapped
+	// error chain so the user sees "<outer context>: <friendly message>".
+	full := err.Error()
+	suffix := apiErr.Error()
+	prefix := strings.TrimSuffix(full, suffix)
+	prefix = strings.TrimRight(prefix, ": ")
+
+	msg := friendlyAPIMessage(apiErr)
+	if prefix == "" {
+		return msg
+	}
+	return prefix + ": " + msg
+}
+
+// friendlyAPIMessage returns a human-readable description for an APIError.
+// Prefers ErrorCode.Description (from the dictionary) over raw Message, and
+// never surfaces the numeric code to the user.
+func friendlyAPIMessage(apiErr *batchexecute.APIError) string {
+	if apiErr.ErrorCode != nil && apiErr.ErrorCode.Description != "" {
+		return apiErr.ErrorCode.Description
+	}
+	if apiErr.ErrorCode != nil && apiErr.ErrorCode.Message != "" {
+		return apiErr.ErrorCode.Message
+	}
+	if apiErr.Message != "" {
+		return apiErr.Message
+	}
+	return "request failed"
 }
 
 // isAuthCommand returns true if the command requires authentication
