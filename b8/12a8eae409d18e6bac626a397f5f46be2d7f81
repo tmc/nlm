@@ -1,0 +1,17 @@
+Committed: 2026-04-17T01:13:06Z
+claude-code: opus-4.7[1m]
+tty: not a tty
+?
+pid: 2456
+ITERM_SESSION_ID: w0t1p0:509851F8-F1FF-48CC-8CF5-EF87C77DCAE7
+
+Follow-up to a145cf8 addressing F174's two bug reports:
+(1) nlm research now does a GetProject + len(Sources)==0 pre-flight check
+    and returns an actionable 'add at least one with nlm add-source' hint
+    instead of passing through the upstream 'API error 3' string.
+(2) nlm discover-sources is now hidden by default and requires
+    --experimental / NLM_EXPERIMENTAL=1 to run, matching the existing
+    audio-interactive pattern from bc2db70. Reuses experimentalEnabled().
+
+Note: docs/dev/phase1-triage.md was modified in the worktree during this
+commit (54D6 working on D). Intentionally NOT staged here.
