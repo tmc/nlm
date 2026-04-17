@@ -2800,6 +2800,83 @@ func (c *Client) CreateReport(projectID, reportType, reportDescription, instruct
 	return "", fmt.Errorf("unexpected report response format")
 }
 
+// ArtifactSuggestion is one blueprint returned by GenerateArtifactSuggestions.
+// Title and Description are AI-authored; pass Description (optionally edited)
+// to CreateAudioOverview as the instructions argument.
+type ArtifactSuggestion struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// GenerateArtifactSuggestions calls the otmP3b RPC to fetch AI-generated
+// topic blueprints for a notebook's sources. The UI uses these as the
+// starting point for audio/video/slides creation; users can select or
+// edit one and feed it as the instructions argument to the matching
+// CreateX method.
+//
+// Only kind=ArtifactSuggestionKindAudio is HAR-verified today. Other
+// kinds will likely work but are not attested.
+//
+// variation controls which of several suggestion sets the server
+// returns. The UI increments this each time the user clicks "refresh";
+// 1 is a reasonable default.
+func (c *Client) GenerateArtifactSuggestions(projectID string, kind int, variation int) ([]ArtifactSuggestion, error) {
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return nil, fmt.Errorf("get project sources: %w", err)
+	}
+	var sourceIDs []string
+	for _, src := range project.Sources {
+		if src.SourceId != nil {
+			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+		}
+	}
+	if len(sourceIDs) == 0 {
+		return nil, fmt.Errorf("notebook has no sources")
+	}
+
+	args := intmethod.EncodeGenerateArtifactSuggestionsArgs(kind, projectID, sourceIDs, variation)
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCAudioTopicSuggestions,
+		NotebookID: projectID,
+		Args:       args,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate artifact suggestions: %w", err)
+	}
+
+	// Response shape: [[[title, description], [title, description], ...]]
+	// The outer wrapper carries the suggestion list at outer[0].
+	var outer []interface{}
+	if err := json.Unmarshal(resp, &outer); err != nil {
+		return nil, fmt.Errorf("parse suggestions response: %w", err)
+	}
+	if len(outer) == 0 {
+		return nil, nil
+	}
+	items, ok := outer[0].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected suggestions response shape")
+	}
+	var suggestions []ArtifactSuggestion
+	for _, item := range items {
+		pair, ok := item.([]interface{})
+		if !ok || len(pair) < 2 {
+			continue
+		}
+		title, _ := pair[0].(string)
+		description, _ := pair[1].(string)
+		if title == "" && description == "" {
+			continue
+		}
+		suggestions = append(suggestions, ArtifactSuggestion{
+			Title:       title,
+			Description: description,
+		})
+	}
+	return suggestions, nil
+}
+
 // Generation operations
 
 func (c *Client) GenerateDocumentGuides(projectID string) (*pb.GenerateDocumentGuidesResponse, error) {

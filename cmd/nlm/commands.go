@@ -565,6 +565,14 @@ var commands = []command{
 		},
 	},
 	{
+		name: "audio-suggestions", argsUsage: "<notebook-id>",
+		usage: "Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)", section: "Generation",
+		minArgs: 1, maxArgs: 1,
+		run: func(c *api.Client, args []string) error {
+			return audioSuggestions(c, args[0])
+		},
+	},
+	{
 		name: "create-report", argsUsage: "<notebook-id> <report-type> [description] [instructions]",
 		usage: "Create a report artifact (run report-suggestions for valid types)", section: "Create",
 		minArgs: 2, maxArgs: -1,

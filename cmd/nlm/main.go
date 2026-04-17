@@ -23,6 +23,7 @@ import (
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
+	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/nlmmcp"
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
@@ -2034,6 +2035,33 @@ Requirements:
 // createReport creates a report artifact, optionally matching a suggestion to get
 // targeted source_ids and description. If the report type matches a suggestion title,
 // the suggestion's description and source_ids are used instead of all sources.
+// audioSuggestions prints AI-generated audio-overview blueprints as
+// tab-separated lines (title\tdescription), one per line. Newlines in
+// the description are replaced with spaces so each blueprint stays on
+// a single line, safe for cut/awk/xargs pipelines. Pass --json to emit
+// JSON objects instead.
+func audioSuggestions(c *api.Client, notebookID string) error {
+	suggestions, err := c.GenerateArtifactSuggestions(notebookID, intmethod.ArtifactSuggestionKindAudio, 1)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, s := range suggestions {
+			if err := enc.Encode(s); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, s := range suggestions {
+		desc := strings.ReplaceAll(s.Description, "\t", " ")
+		desc = strings.ReplaceAll(desc, "\n", " ")
+		fmt.Printf("%s\t%s\n", s.Title, desc)
+	}
+	return nil
+}
+
 func createReport(c *api.Client, notebookID, reportType string, extra []string) error {
 	description := ""
 	instructions := ""
