@@ -2482,6 +2482,14 @@ func listChatConversations(c *api.Client, notebookID string) error {
 }
 
 func deepResearch(c *api.Client, notebookID, query string) error {
+	project, err := c.GetProject(notebookID)
+	if err != nil {
+		return fmt.Errorf("look up notebook: %w", err)
+	}
+	if len(project.Sources) == 0 {
+		return fmt.Errorf("notebook has no sources; add at least one with 'nlm add-source %s <path-or-url>' before running research", notebookID)
+	}
+
 	rpcClient := rpc.New(authToken, cookies)
 
 	// Start deep research

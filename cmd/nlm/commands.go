@@ -155,9 +155,15 @@ var commands = []command{
 	},
 	{
 		name: "discover-sources", argsUsage: "<notebook-id> <query>",
-		usage: "Discover relevant sources", section: "Source",
+		usage: "Discover relevant sources (experimental; upstream RPC deprecated, fallback may return prose)", section: "Source",
 		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return discoverSources(c, args[0], args[1]) },
+		hidden: true, // upstream qXyaNe deprecated, Es3dTe replacement pending HAR capture
+		run: func(c *api.Client, args []string) error {
+			if !experimentalEnabled() {
+				return fmt.Errorf("discover-sources is experimental (upstream RPC deprecated, fallback may return prose instead of links); pass --experimental or set NLM_EXPERIMENTAL=1")
+			}
+			return discoverSources(c, args[0], args[1])
+		},
 	},
 
 	// Note operations
