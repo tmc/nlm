@@ -114,7 +114,7 @@ func init() {
 	flag.StringVar(&reportPrompt, "prompt", "", "per-section prompt template for generate-report ({topic} is replaced)")
 	flag.StringVar(&reportInstructions, "instructions", "", "set notebook instructions before generate-report")
 	flag.IntVar(&reportSections, "sections", 0, "max sections to generate (generate-report, 0=all)")
-	flag.StringVar(&conversationID, "conversation", "", "continue an existing conversation by ID (generate-chat)")
+	flag.StringVar(&conversationID, "conversation", "", "continue an existing conversation by ID (generate-chat prints the ID on first turn)")
 	flag.StringVar(&conversationID, "c", "", "continue an existing conversation by ID (shorthand)")
 	flag.BoolVar(&useWebChat, "web", false, "use the most recent server-side conversation (generate-chat)")
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")

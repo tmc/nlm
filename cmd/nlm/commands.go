@@ -104,7 +104,7 @@ var commands = []command{
 	},
 	{
 		name: "sync-source", argsUsage: "<notebook-id> [paths...]",
-		usage: "Sync files as a named source", section: "Source",
+		usage: "Sync files into a named source (use --force to re-upload unchanged)", section: "Source",
 		minArgs: 1, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			notebookID := args[0]
@@ -131,7 +131,7 @@ var commands = []command{
 	},
 	{
 		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id>",
-		usage: "Remove source from notebook", section: "Source",
+		usage: "Remove a source from a notebook", section: "Source",
 		minArgs: 2, maxArgs: 2,
 		run: func(c *api.Client, args []string) error { return removeSource(c, args[0], args[1]) },
 	},
@@ -199,7 +199,7 @@ var commands = []command{
 	},
 	{
 		name: "rm-note", aliases: []string{"note-rm"}, argsUsage: "<notebook-id> <note-id>",
-		usage: "Remove note from notebook", section: "Note",
+		usage: "Remove a note from a notebook", section: "Note",
 		minArgs: 2, maxArgs: 2,
 		run: func(c *api.Client, args []string) error { return removeNote(c, args[0], args[1]) },
 	},
@@ -235,7 +235,7 @@ var commands = []command{
 
 	{
 		name: "create-artifact", argsUsage: "<notebook-id> <type> [instructions]",
-		usage: "Create artifact (type: audio, video, slides, report)", section: "Create",
+		usage: "Create artifact of the given type (audio, video, slides, report)", section: "Create",
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			instructions := ""
@@ -285,7 +285,7 @@ var commands = []command{
 	},
 	{
 		name: "audio-interactive", argsUsage: "<notebook-id> [flags]",
-		usage: "Start interactive audio session (experimental)", section: "Audio",
+		usage: "Start interactive audio session (experimental, limited functionality)", section: "Audio",
 		minArgs: 0, maxArgs: -1,
 		hidden: true, // requires NLM_EXPERIMENTAL
 		run: func(c *api.Client, args []string) error {
@@ -355,7 +355,7 @@ var commands = []command{
 	},
 	{
 		name: "update-artifact", argsUsage: "<artifact-id> [new-title]",
-		usage: "Update artifact (rename with positional arg or --name)", section: "Artifact",
+		usage: "Rename artifact (new title from positional arg or --name)", section: "Artifact",
 		minArgs: 1, maxArgs: 2,
 		run: func(c *api.Client, args []string) error {
 			title := sourceName // reuse --name flag
@@ -522,7 +522,7 @@ var commands = []command{
 	},
 	{
 		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",
-		usage: "Free-form chat generation (--conversation ID, --web for server chat)", section: "Generation",
+		usage: "Stream a one-shot chat answer (use --conversation to follow up)", section: "Generation",
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			return generateFreeFormChat(c, args[0], strings.Join(args[1:], " "))
@@ -554,7 +554,7 @@ var commands = []command{
 	},
 	{
 		name: "create-report", argsUsage: "<notebook-id> <report-type> [description] [instructions]",
-		usage: "Create report artifact (use report-suggestions for types)", section: "Create",
+		usage: "Create a report artifact (run report-suggestions for valid types)", section: "Create",
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			return createReport(c, args[0], args[1], args[2:])
@@ -562,7 +562,7 @@ var commands = []command{
 	},
 	{
 		name: "generate-report", argsUsage: "<notebook-id>",
-		usage: "Generate multi-section report via chat (--prompt, --sections)", section: "Generation",
+		usage: "Generate multi-section report via chat (see --prompt, --sections)", section: "Generation",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
 			return generateReport(c, args[0])
@@ -585,7 +585,7 @@ var commands = []command{
 	// Chat operations
 	{
 		name: "chat", argsUsage: "<notebook-id> [conversation-id | prompt]",
-		usage: "Interactive chat (or one-shot with prompt)", section: "Chat",
+		usage: "Open interactive chat (one-shot if a prompt is given)", section: "Chat",
 		minArgs: 1, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			if len(args) >= 2 {
@@ -600,7 +600,7 @@ var commands = []command{
 	},
 	{
 		name: "chat-list", argsUsage: "[notebook-id]",
-		usage: "List chat sessions (server-side if notebook given)", section: "Chat",
+		usage: "List chat sessions (server-side when a notebook is given)", section: "Chat",
 		minArgs: 0, maxArgs: 1,
 		noAuth: true, noClient: true,
 		run: func(_ *api.Client, args []string) error {
@@ -620,7 +620,7 @@ var commands = []command{
 	},
 	{
 		name: "chat-show", argsUsage: "<notebook-id> <conversation-id>",
-		usage: "Render local chat with citation modes (see --citations)", section: "Chat",
+		usage: "Render a local chat transcript (see --citations)", section: "Chat",
 		minArgs: 2, maxArgs: 2,
 		noAuth: true, noClient: true,
 		run: func(_ *api.Client, args []string) error {
@@ -682,7 +682,7 @@ var commands = []command{
 	// Research operations
 	{
 		name: "research", argsUsage: "<notebook-id> \"query\"",
-		usage: "Start deep research and poll for results", section: "Research",
+		usage: "Run deep research and poll for results", section: "Research",
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			query := strings.Join(args[1:], " ")
@@ -713,13 +713,13 @@ var commands = []command{
 	// Other operations
 	{
 		name: "mcp",
-		usage: "Start MCP server (stdin/stdout)", section: "Other",
+		usage: "Run the MCP server on stdin/stdout", section: "Other",
 		minArgs: 0, maxArgs: 0,
 		run: func(c *api.Client, args []string) error { return runMCP(c) },
 	},
 	{
 		name: "auth", argsUsage: "[profile]",
-		usage: "Setup authentication", section: "Other",
+		usage: "Set up authentication from a browser profile", section: "Other",
 		minArgs: 0, maxArgs: -1,
 		noAuth: true, noClient: true,
 		run: func(c *api.Client, args []string) error {
@@ -729,20 +729,20 @@ var commands = []command{
 	},
 	{
 		name: "refresh",
-		usage: "Refresh authentication credentials", section: "Other",
+		usage: "Refresh stored authentication credentials", section: "Other",
 		minArgs: 0, maxArgs: -1,
 		noAuth: true, noClient: true,
 		run: func(c *api.Client, args []string) error { return refreshCredentials(debug) },
 	},
 	{
 		name: "feedback", argsUsage: "<message>",
-		usage: "Submit feedback", section: "Other",
+		usage: "Submit feedback to NotebookLM", section: "Other",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error { return submitFeedback(c, args[0]) },
 	},
 	{
 		name: "hb",
-		usage: "Send heartbeat", section: "Other",
+		usage: "Send a session heartbeat", section: "Other",
 		minArgs: 0, maxArgs: 0,
 		run: func(c *api.Client, args []string) error { return heartbeat(c) },
 	},
