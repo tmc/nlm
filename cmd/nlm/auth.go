@@ -38,6 +38,7 @@ type AuthOptions struct {
 	CheckNotebooks  bool
 	Debug           bool
 	Help            bool
+	PrintEnv        bool // Print shell-safe export lines for the current session
 	KeepOpenSeconds int
 	RemoteCDPURL    string
 	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
@@ -65,6 +66,7 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 	authFlags.BoolVar(&opts.Debug, "d", debug, "Enable debug output (shorthand)")
 	authFlags.BoolVar(&opts.Help, "help", false, "Show help for auth command")
 	authFlags.BoolVar(&opts.Help, "h", false, "Show help for auth command (shorthand)")
+	authFlags.BoolVar(&opts.PrintEnv, "print-env", false, "Print shell-safe export lines for the current session to stdout")
 	authFlags.IntVar(&opts.KeepOpenSeconds, "keep-open", 0, "Keep browser open for N seconds after successful auth")
 	authFlags.IntVar(&opts.KeepOpenSeconds, "k", 0, "Keep browser open for N seconds after successful auth (shorthand)")
 	authFlags.StringVar(&opts.RemoteCDPURL, "cdp-url", "", "Remote CDP WebSocket URL (e.g. ws://localhost:9222)")
@@ -84,6 +86,7 @@ func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
 		fmt.Fprintf(os.Stderr, "Example: nlm auth login -keep-open 10\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth -cdp-url ws://localhost:9222\n")
 		fmt.Fprintf(os.Stderr, "Example: nlm auth -all\n")
+		fmt.Fprintf(os.Stderr, "Example: nlm auth --print-env > creds.sh   # shell-safe exports for CI\n")
 	}
 
 	// Filter out the 'login' argument if present
@@ -140,6 +143,14 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 			// Parse auth-specific flags which will display help
 			parseAuthFlags([]string{"--help"})
 			return "", "", nil // Help was shown, exit gracefully
+		}
+	}
+
+	// Handle --print-env before any browser or stdin paths so it is safe to run
+	// from CI contexts (no TTY, no local profile).
+	for _, arg := range args {
+		if arg == "--print-env" || arg == "-print-env" {
+			return printAuthEnv(os.Stdout)
 		}
 	}
 
@@ -264,6 +275,54 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 		return "", "", err
 	}
 	return authToken, cookies, nil
+}
+
+// printAuthEnv writes POSIX `export KEY=value` lines for the current session
+// to w. Only NLM_AUTH_TOKEN and NLM_COOKIES are written; other values
+// (profile name, session id, build label, signaler auth) are derived per
+// environment and not portable across machines. Diagnostics go to stderr.
+//
+// The output is suitable for `eval "$(nlm auth --print-env)"` or redirection
+// to a file that is later `source`d. It works under bash, zsh, and fish (via
+// `eval (nlm auth --print-env)`).
+func printAuthEnv(w io.Writer) (string, string, error) {
+	authToken := firstNonEmpty(os.Getenv("NLM_AUTH_TOKEN"))
+	cookies := firstNonEmpty(os.Getenv("NLM_COOKIES"))
+	if authToken == "" || cookies == "" {
+		stored := readStoredEnv()
+		if authToken == "" {
+			authToken = stored["NLM_AUTH_TOKEN"]
+		}
+		if cookies == "" {
+			cookies = stored["NLM_COOKIES"]
+		}
+	}
+	if authToken == "" || cookies == "" {
+		return "", "", fmt.Errorf("no authenticated session found; run 'nlm auth' or export NLM_AUTH_TOKEN and NLM_COOKIES")
+	}
+	fmt.Fprintf(w, "export NLM_AUTH_TOKEN=%s\n", shellQuote(authToken))
+	fmt.Fprintf(w, "export NLM_COOKIES=%s\n", shellQuote(cookies))
+	return authToken, cookies, nil
+}
+
+// shellQuote returns s quoted so it survives a POSIX shell unchanged.
+// It uses single-quote wrapping with embedded single quotes escaped as '\''.
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	var b strings.Builder
+	b.Grow(len(s) + 2)
+	b.WriteByte('\'')
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\'' {
+			b.WriteString(`'\''`)
+			continue
+		}
+		b.WriteByte(s[i])
+	}
+	b.WriteByte('\'')
+	return b.String()
 }
 
 func detectAuthInfo(cmd string) (string, string, error) {

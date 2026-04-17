@@ -300,7 +300,7 @@ func run() error {
 
 	// Check authentication.
 	if !entry.noAuth && (authToken == "" || cookies == "") {
-		fmt.Fprintf(os.Stderr, "Authentication required for '%s'. Run 'nlm auth' first.\n", cmdName)
+		fmt.Fprintf(os.Stderr, "nlm: Authentication required for '%s'. Run 'nlm auth' first, or export NLM_AUTH_TOKEN and NLM_COOKIES (see 'nlm auth --print-env').\n", cmdName)
 		return fmt.Errorf("authentication required")
 	}
 
