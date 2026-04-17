@@ -1,0 +1,10 @@
+Committed: 2026-04-17T01:15:43Z
+claude-code: opus-4.7[1m]
+tty: not a tty
+not a tty
+pid: 18341
+ITERM_SESSION_ID: w0t1p1:54D6312B-7611-4865-9D6E-8E7DF5940829
+
+Phase 1 P1.1 resolution doc updates. Ties docs to commit a145cf8 which
+rebound V5N4be to DeleteArtifact after HAR capture proved the wire shape.
+No code changes here — docs only. Phase 1e is now unblocked.
