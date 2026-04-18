@@ -706,27 +706,19 @@ func listSources(c *api.Client, notebookID string) error {
 }
 
 func formatSourceStatus(src *pb.Source) string {
-	if src.Settings != nil && src.Settings.Status != 0 {
-		switch src.Settings.Status {
-		case 1:
-			return "enabled"
-		case 2:
-			return "disabled"
-		case 3:
-			return "error"
-		}
+	// The NotebookLM UI has no disable-source affordance, so the proto's
+	// SOURCE_STATUS_DISABLED (=2) never appears on real sources:
+	//   - Settings.status ([1][2]) reads 2 on every healthy source — a
+	//     server-side constant, not a user-facing state.
+	//   - Metadata.status ([3][4]) reads 1 on healthy sources; 2 is
+	//     unreachable through any UI path.
+	// We render enabled/error/warnings based on what the server actually sends.
+	if src.Metadata != nil && src.Metadata.Status == 1 {
+		return "enabled"
 	}
-	if src.Metadata != nil && src.Metadata.Status != 0 {
-		switch src.Metadata.Status {
-		case 1:
-			return "enabled"
-		case 2:
-			return "disabled"
-		case 3:
-			return "error"
-		}
+	if src.Settings != nil && src.Settings.Status == 3 {
+		return "error"
 	}
-	// Show warning codes if present.
 	if len(src.Warnings) > 0 {
 		var codes []string
 		for _, w := range src.Warnings {
@@ -2110,15 +2102,15 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 		fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
 		fmt.Println(thinking)
 	} else {
-		// Empty answer with no streaming error usually means all sources are
-		// disabled, the conversation was rejected, or the API returned an empty
-		// payload. Fail loudly with a hint rather than printing a misleading
-		// "(No response received)" and exiting 0.
+		// Empty answer with no streaming error usually means the conversation
+		// was rejected server-side, every source is in an error/indexing state,
+		// or the API returned an empty payload. Fail loudly with a hint rather
+		// than printing a misleading "(No response received)" and exiting 0.
 		hint := "nlm generate-chat: empty response from API"
 		if streamErr != nil {
 			hint = fmt.Sprintf("%s (stream error: %v)", hint, streamErr)
 		}
-		return fmt.Errorf("%s; check 'nlm sources %s' for SOURCE_STATUS_DISABLED, re-run with -debug for details", hint, projectID)
+		return fmt.Errorf("%s; check 'nlm sources %s' for source state, re-run with -debug for details", hint, projectID)
 	}
 
 	// Save to local session so future --conversation calls can continue.
