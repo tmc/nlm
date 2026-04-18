@@ -64,6 +64,7 @@ var (
 	useWebChat        bool   // Use most recent server-side conversation (generate-chat)
 	citationMode      string // Citation rendering mode: off|block|overlay (default block-on-TTY)
 	sourceIDsFlag     string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
+	promptFile        string // Read prompt from file (nlm chat). "-" reads from stdin.
 )
 
 // ChatSession represents a persistent chat conversation
@@ -132,6 +133,8 @@ func init() {
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay (default: block on TTY, off when piped)")
 	flag.StringVar(&sourceIDsFlag, "source-ids", "", "restrict chat to these source IDs (comma-separated, or '-' to read newline-delimited from stdin)")
+	flag.StringVar(&promptFile, "prompt-file", "", "read prompt from file for one-shot chat ('-' reads stdin). Reliable for long/automated prompts.")
+	flag.StringVar(&promptFile, "f", "", "read prompt from file for one-shot chat ('-' reads stdin) (shorthand)")
 	flag.StringVar(&researchMode, "mode", "", "research mode: fast|deep (default: deep; used by nlm research)")
 	flag.BoolVar(&researchMD, "md", false, "emit raw markdown report (nlm research; default is JSON-lines events)")
 	flag.IntVar(&researchPollMs, "poll-ms", 0, "override research polling interval in milliseconds (default: 5000)")
@@ -2088,15 +2091,18 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	chatReq.History = history
 	chatReq.SeqNum = seqNum
 
-	res, err := streamChatResponse(c, chatReq)
-	if err != nil {
+	res, streamErr := streamChatResponse(c, chatReq)
+	if streamErr != nil {
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
 		response, chatErr := c.ChatWithHistory(chatReq)
 		if chatErr != nil {
-			return fmt.Errorf("generate chat: %w", err)
+			return fmt.Errorf("generate chat: stream: %w; fallback: %v", streamErr, chatErr)
 		}
 		fmt.Print(response)
 		res.Answer = response
+		// Surface the streaming error even when fallback succeeded, so users
+		// can diagnose flaky streams rather than silently degrading.
+		fmt.Fprintf(os.Stderr, "nlm: streaming failed, used fallback: %v\n", streamErr)
 	}
 	if res.Answer != "" {
 		fmt.Println()
@@ -2104,7 +2110,15 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 		fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
 		fmt.Println(thinking)
 	} else {
-		fmt.Println("(No response received)")
+		// Empty answer with no streaming error usually means all sources are
+		// disabled, the conversation was rejected, or the API returned an empty
+		// payload. Fail loudly with a hint rather than printing a misleading
+		// "(No response received)" and exiting 0.
+		hint := "nlm generate-chat: empty response from API"
+		if streamErr != nil {
+			hint = fmt.Sprintf("%s (stream error: %v)", hint, streamErr)
+		}
+		return fmt.Errorf("%s; check 'nlm sources %s' for SOURCE_STATUS_DISABLED, re-run with -debug for details", hint, projectID)
 	}
 
 	// Save to local session so future --conversation calls can continue.
@@ -2534,6 +2548,85 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 	// Save response with thinking trace and citations. When the parser
 	// classified the response as thinking-only, promote the trace to Content
 	// so chat-show can replay it and history persists across runs.
+	response := strings.TrimSpace(res.Answer)
+	if response == "" {
+		response = strings.TrimSpace(res.Thinking)
+	}
+	if response != "" {
+		session.Messages = append(session.Messages, ChatMessage{
+			Role: "assistant", Content: response, Timestamp: time.Now(),
+			Thinking:  res.Thinking,
+			Citations: res.Citations,
+		})
+	}
+	session.UpdatedAt = time.Now()
+	return saveChatSession(session)
+}
+
+// readPromptFile returns the prompt text from path, or from stdin when path is "-".
+// Trailing whitespace/newlines are stripped so the prompt matches what users
+// typed interactively.
+func readPromptFile(path string) (string, error) {
+	var data []byte
+	var err error
+	if path == "-" {
+		data, err = io.ReadAll(os.Stdin)
+	} else {
+		data, err = os.ReadFile(path)
+	}
+	if err != nil {
+		return "", err
+	}
+	prompt := strings.TrimRight(string(data), " \t\r\n")
+	if prompt == "" {
+		return "", fmt.Errorf("empty prompt")
+	}
+	return prompt, nil
+}
+
+// oneShotChatInConv sends a single prompt to an existing conversation, then exits.
+// Mirrors oneShotChat but preserves the server-side conversation ID so callers
+// can chain turns via automation.
+func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string) error {
+	conversationID = resolveConversationID(c, notebookID, conversationID)
+	session, err := loadChatSessionForConv(notebookID, conversationID)
+	if err != nil {
+		session = &ChatSession{
+			NotebookID:     notebookID,
+			ConversationID: conversationID,
+			Messages:       []ChatMessage{},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+	}
+	session.ConversationID = conversationID
+	session.Messages = append(session.Messages, ChatMessage{
+		Role: "user", Content: prompt, Timestamp: time.Now(),
+	})
+	wireHistory := buildWireHistory(session)
+	chatReq := api.ChatRequest{
+		ProjectID:      notebookID,
+		Prompt:         prompt,
+		ConversationID: conversationID,
+		History:        wireHistory,
+		SeqNum:         len(session.Messages)/2 + 1,
+	}
+	res, err := streamChatResponse(c, chatReq)
+	if err != nil {
+		response, chatErr := c.ChatWithHistory(chatReq)
+		if chatErr != nil {
+			return fmt.Errorf("chat: %w", err)
+		}
+		fmt.Print(response)
+		res.Answer = response
+	}
+	if res.Answer == "" {
+		if thinking := strings.TrimSpace(res.Thinking); thinking != "" {
+			fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
+			fmt.Println(thinking)
+		}
+	}
+	fmt.Println()
 	response := strings.TrimSpace(res.Answer)
 	if response == "" {
 		response = strings.TrimSpace(res.Thinking)
@@ -3284,10 +3377,27 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 		}
 	}
 
-	fmt.Println("\nCommands: /exit /clear /history /reset /new /fork /conversations /save /help /multiline")
+	fmt.Println("\nCommands: /exit /clear /history /reset /new /fork /conversations /save /help /multiline /file")
 	fmt.Println("Type your message and press Enter to send.")
 
-	scanner := bufio.NewScanner(os.Stdin)
+	// bufio.Reader (not Scanner): Scanner's 64KB token cap truncates pasted
+	// prompts, and it refuses to return a partial line on EOF. Reader.ReadString
+	// grows unbounded and promotes a trailing no-newline chunk on EOF, so
+	// automation that sends text without a final "\n" still submits.
+	reader := bufio.NewReader(os.Stdin)
+	readLine := func() (string, bool) {
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			fmt.Fprintf(os.Stderr, "nlm: read input: %v\n", err)
+			return "", false
+		}
+		// On EOF with buffered chars, submit them as the final line.
+		if err == io.EOF && line == "" {
+			return "", false
+		}
+		return strings.TrimRight(line, "\r\n"), true
+	}
+
 	multiline := false
 
 	if showChatHistory && len(session.Messages) > 0 {
@@ -3307,8 +3417,11 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 		var input string
 		if multiline {
 			var lines []string
-			for scanner.Scan() {
-				line := scanner.Text()
+			for {
+				line, ok := readLine()
+				if !ok {
+					break
+				}
 				if line == "" {
 					break
 				}
@@ -3317,15 +3430,29 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 			}
 			input = strings.Join(lines, "\n")
 		} else {
-			if !scanner.Scan() {
+			line, ok := readLine()
+			if !ok {
 				break
 			}
-			input = scanner.Text()
+			input = line
 		}
 
 		input = strings.TrimSpace(input)
 		if input == "" {
 			continue
+		}
+
+		// /file <path> — load prompt text from disk. Bypasses terminal paste
+		// limits that plague long prompts sent via automation.
+		if strings.HasPrefix(input, "/file ") || strings.HasPrefix(input, "/file\t") {
+			path := strings.TrimSpace(input[len("/file"):])
+			prompt, err := readPromptFile(path)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "nlm: /file %s: %v\n", path, err)
+				continue
+			}
+			input = prompt
+			fmt.Printf("(loaded %d bytes from %s)\n", len(prompt), path)
 		}
 
 		switch strings.ToLower(input) {
@@ -3431,6 +3558,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 			fmt.Println("  /conversations     - List server-side conversations")
 			fmt.Println("  /save              - Save current session")
 			fmt.Println("  /multiline         - Toggle multiline mode")
+			fmt.Println("  /file <path>       - Send contents of file as the next message")
 			fmt.Println("  /help              - Show this help")
 			continue
 		case "/multiline":
@@ -3507,10 +3635,6 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 		}
 
 		fmt.Println()
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("read input: %w", err)
 	}
 
 	if err := saveChatSession(session); err != nil && debug {

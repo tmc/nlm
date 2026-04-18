@@ -604,9 +604,23 @@ var commands = []command{
 	// Chat operations
 	{
 		name: "chat", argsUsage: "<notebook-id> [conversation-id | prompt]",
-		usage: "Open interactive chat (one-shot if a prompt is given)", section: "Chat",
+		usage: "Open interactive chat (one-shot if a prompt is given; -f <file> reads a long prompt from file)", section: "Chat",
 		minArgs: 1, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
+			// -f/--prompt-file overrides positional prompt: reliable for long
+			// prompts that terminals truncate when pasted interactively.
+			if promptFile != "" {
+				prompt, err := readPromptFile(promptFile)
+				if err != nil {
+					return fmt.Errorf("read prompt: %w", err)
+				}
+				if len(args) >= 2 && isConversationID(args[1]) {
+					// chat <nb> <conv-id> -f prompt.txt: one-shot into an
+					// existing conversation.
+					return oneShotChatInConv(c, args[0], args[1], prompt)
+				}
+				return oneShotChat(c, args[0], prompt)
+			}
 			if len(args) >= 2 {
 				rest := strings.Join(args[1:], " ")
 				if isConversationID(rest) {
