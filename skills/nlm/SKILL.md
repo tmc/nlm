@@ -37,15 +37,27 @@ Run `nlm <command>` with no args to see usage for that command. IDs are UUIDs.
 
 ## Things `--help` Won't Tell You
 
-**Bulk upload via txtar** — most efficient way to upload a project:
+**Sync a directory as one source** — `nlm sync` packs files into txtar natively
+(no external tools), quotes files containing txtar markers so they round-trip,
+chunks at 5MB, and is idempotent via a content-hash cache. Re-running only
+uploads what changed:
 ```bash
-txtar-c -a . 2>/dev/null | nlm add <notebook-id> -
+nlm sync <notebook-id> src/                      # name derives from dir
+nlm sync <notebook-id> src/ --name "project: src/"
+nlm sync <notebook-id> --dry-run                 # preview plan, no upload
+nlm sync <notebook-id> --force                   # re-upload even if unchanged
+nlm sync <notebook-id> --json                    # NDJSON progress for scripts
 ```
-Requires: `go install golang.org/x/exp/cmd/txtar-c@latest`
+Use `sync` over `add` whenever you'll re-upload the same tree. Use `add` for
+one-shot single-file/URL uploads.
 
-**Large source splitting** — when uploading a codebase, group files by package/directory and upload each group as a separate source. Use `--name` to label sources:
+**Preview what sync will upload** — `nlm sync-pack` writes the exact txtar
+bytes sync would upload, no network. Pipe through `txtar --list` or `txtar -x`
+to inspect:
 ```bash
-txtar-c -quote dir/ 2>/dev/null | nlm add <notebook-id> - --name "project: dir/"
+nlm sync-pack src/ | txtar --list
+nlm sync-pack src/ > preview.txtar
+nlm sync-pack src/ --chunk 2 > pt2.txtar         # pick one chunk of many
 ```
 
 **Rename after stdin upload** — stdin sources appear as "Pasted Text". Either use `--name` during add, or rename after:

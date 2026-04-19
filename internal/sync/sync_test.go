@@ -260,6 +260,83 @@ func TestChunkNames(t *testing.T) {
 	}
 }
 
+func TestBundleQuotesNestedTxtar(t *testing.T) {
+	dir := t.TempDir()
+	// File whose contents contain a txtar marker line — without quoting
+	// this would split the outer archive into three phantom files.
+	body := "top line\n-- trap.go --\npackage trap\n"
+	os.WriteFile(filepath.Join(dir, "nested.md"), []byte(body), 0o644)
+
+	files, err := gitFiles(dir)
+	if err != nil || len(files) == 0 {
+		files, _ = walkFiles(dir)
+	}
+	chunks, err := bundle(files, 5<<20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("expected 1 chunk, got %d", len(chunks))
+	}
+	chunk := chunks[0]
+
+	if !bytes.Contains(chunk, []byte("unquote ")) {
+		t.Errorf("expected unquote directive in comment, chunk: %q", chunk)
+	}
+	// Raw nested marker must not appear as a bare line.
+	if bytes.Contains(chunk, []byte("\n-- trap.go --\n")) {
+		t.Errorf("unquoted marker leaked through: %q", chunk)
+	}
+	// Quoted form should appear.
+	if !bytes.Contains(chunk, []byte(">-- trap.go --")) {
+		t.Errorf("expected quoted marker in chunk: %q", chunk)
+	}
+}
+
+func TestQuoteRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{"marker only", "-- foo --\n"},
+		{"marker mid", "hello\n-- foo --\nworld\n"},
+		{"leading newline", "\n-- foo --\n"},
+		{"no marker", "just text\nmore text\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := quote([]byte(tt.in))
+			if err != nil {
+				t.Fatalf("quote: %v", err)
+			}
+			u, err := unquote(q)
+			if err != nil {
+				t.Fatalf("unquote: %v", err)
+			}
+			if string(u) != tt.in {
+				t.Errorf("round trip mismatch: got %q want %q", u, tt.in)
+			}
+		})
+	}
+}
+
+func TestNeedsQuote(t *testing.T) {
+	tests := []struct {
+		in   string
+		want bool
+	}{
+		{"hello\nworld\n", false},
+		{"hello\n-- foo --\n", true},
+		{"-- foo --\n", true},
+		{"not-- foo --\n", false},
+	}
+	for _, tt := range tests {
+		if got := needsQuote([]byte(tt.in)); got != tt.want {
+			t.Errorf("needsQuote(%q) = %v, want %v", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestResolveName(t *testing.T) {
 	dir := t.TempDir()
 	tests := []struct {

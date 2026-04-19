@@ -46,6 +46,29 @@ func (o *Options) maxBytes() int {
 	return o.MaxBytes
 }
 
+// Pack discovers files, bundles them into txtar chunks, and returns the
+// chunk bytes and their corresponding source names. It runs the same
+// discover/quote/bundle pipeline as Run but performs no network I/O.
+// Intended for preview (`nlm sync-pack`) and for tests.
+func Pack(paths []string, opts Options) (chunks [][]byte, names []string, err error) {
+	name, err := resolveName(opts.Name, paths)
+	if err != nil {
+		return nil, nil, err
+	}
+	files, err := discoverFiles(paths)
+	if err != nil {
+		return nil, nil, fmt.Errorf("discover files: %w", err)
+	}
+	if len(files) == 0 {
+		return nil, nil, fmt.Errorf("no files found")
+	}
+	chunks, err = bundle(files, opts.maxBytes())
+	if err != nil {
+		return nil, nil, fmt.Errorf("bundle: %w", err)
+	}
+	return chunks, chunkNames(name, len(chunks)), nil
+}
+
 // Run syncs a single named source to a notebook.
 //
 // paths is a list of files and/or directories. Directories are expanded
@@ -254,6 +277,11 @@ func readStdinPaths() ([]string, error) {
 
 // bundle groups files into txtar chunks, each under maxBytes.
 // Files larger than maxBytes get their own chunk (unavoidable).
+//
+// Files whose contents contain lines that look like txtar markers
+// ("-- name --") are quoted with a '>'-prefix scheme matching
+// txtar-c -quote, and the archive comment records "unquote NAME"
+// directives so readers can recover the original bytes.
 func bundle(files []string, maxBytes int) ([][]byte, error) {
 	var chunks [][]byte
 	var ar txtar.Archive
@@ -278,6 +306,21 @@ func bundle(files []string, maxBytes int) ([][]byte, error) {
 			continue
 		}
 
+		// Quote files that contain embedded txtar markers so they
+		// don't break the outer archive boundaries.
+		quoted := false
+		if needsQuote(data) {
+			if len(data) > 0 && data[len(data)-1] != '\n' {
+				data = append(data, '\n')
+			}
+			q, qerr := quote(data)
+			if qerr != nil {
+				return nil, fmt.Errorf("quote %s: %w", f, qerr)
+			}
+			data = q
+			quoted = true
+		}
+
 		entrySize := len(f) + len(data) + 20 // approximate txtar overhead
 
 		// Flush current chunk if adding this file would exceed the limit.
@@ -285,6 +328,9 @@ func bundle(files []string, maxBytes int) ([][]byte, error) {
 			flush()
 		}
 
+		if quoted {
+			ar.Comment = append(ar.Comment, []byte("unquote "+f+"\n")...)
+		}
 		ar.Files = append(ar.Files, txtar.File{
 			Name: f,
 			Data: data,

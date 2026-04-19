@@ -129,6 +129,16 @@ var commands = []command{
 		},
 	},
 	{
+		name: "sync-pack", argsUsage: "[paths...]",
+		usage:    "Preview the txtar bytes that sync would upload (offline)",
+		section:  "Source",
+		minArgs:  0, maxArgs: -1,
+		noClient: true,
+		run: func(_ *api.Client, args []string) error {
+			return runSyncPack(args)
+		},
+	},
+	{
 		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id|-|a,b,c>",
 		usage: "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)", section: "Source",
 		minArgs: 2, maxArgs: 2,

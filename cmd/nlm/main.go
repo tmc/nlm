@@ -57,6 +57,7 @@ var (
 	dryRun            bool   // Show what would change without uploading
 	maxBytes          int    // Chunk threshold for sync
 	jsonOutput        bool   // NDJSON output for sync
+	packChunk         int    // 1-indexed chunk to emit (sync-pack); 0 = auto (single chunk) or list
 	reportPrompt       string // Per-section prompt template for generate-report ({topic} replaced)
 	reportInstructions string // Notebook instructions to set before generate-report
 	reportSections     int    // Max sections for generate-report (0 = all)
@@ -119,6 +120,7 @@ func init() {
 	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync)")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync)")
 	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
+	flag.IntVar(&packChunk, "chunk", 0, "1-indexed chunk to emit (sync-pack); omit to list or emit sole chunk")
 	flag.StringVar(&reportPrompt, "prompt", "", "per-section prompt template for generate-report ({topic} is replaced)")
 	flag.StringVar(&reportInstructions, "instructions", "", "set notebook instructions before generate-report")
 	flag.IntVar(&reportSections, "sections", 0, "max sections to generate (generate-report, 0=all)")
