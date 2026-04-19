@@ -29,15 +29,30 @@ type command struct {
 }
 
 // actOnSourcesCmd builds a command entry for the 14 content transform commands.
+// Source IDs come from positional args OR --source-ids/--source-match;
+// at least one of those must be provided.
 func actOnSourcesCmd(name, action, usage string) command {
 	return command{
 		name:      name,
 		usage:     usage,
-		argsUsage: "<notebook-id> <source-id> [source-id...]",
+		argsUsage: "<notebook-id> [source-id...]",
 		section:   "Content Transformation",
-		minArgs:   2, maxArgs: -1,
+		minArgs:   1, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
-			return actOnSources(c, args[0], action, args[1:])
+			notebookID := args[0]
+			sourceIDs := args[1:]
+			if len(sourceIDs) == 0 {
+				if sourceIDsFlag == "" && sourceMatchFlag == "" {
+					return fmt.Errorf("usage: nlm %s <notebook-id> <source-id> [source-id...]"+
+						" (or pass --source-ids / --source-match)", name)
+				}
+				resolved, err := resolveSourceSelectors(c, notebookID)
+				if err != nil {
+					return err
+				}
+				sourceIDs = resolved
+			}
+			return actOnSources(c, notebookID, action, sourceIDs)
 		},
 	}
 }
@@ -878,6 +893,13 @@ func validateCommandArgs(cmd *command, cmdName string, args []string) error {
 		return errBadArgs
 	}
 	if cmd.maxArgs >= 0 && n > cmd.maxArgs {
+		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
+		return errBadArgs
+	}
+	// Content-transformation commands accept positional source IDs OR a
+	// selector flag. Reject the no-source case before we reach auth so the
+	// user gets a usage message rather than an auth prompt.
+	if cmd.section == "Content Transformation" && n < 2 && sourceIDsFlag == "" && sourceMatchFlag == "" {
 		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
 		return errBadArgs
 	}

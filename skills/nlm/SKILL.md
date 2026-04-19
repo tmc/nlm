@@ -60,6 +60,20 @@ nlm sync-pack src/ > preview.txtar
 nlm sync-pack src/ --chunk 2 > pt2.txtar         # pick one chunk of many
 ```
 
+**Focus on specific sources** — `--source-ids` and `--source-match` scope chat,
+report, and transform commands to a subset of a notebook's sources. The flags
+apply to `chat`, `generate-chat`, `create-report`, `generate-report`, and every
+content transform (`summarize`, `briefing`, `timeline`, etc.). They union when
+both are passed:
+```bash
+nlm chat <nb> "what does sync do?" --source-match 'internal/sync'
+nlm generate-report <nb> "Deep dive" --source-match '^nlm '
+nlm summarize <nb> --source-ids a,b,c
+nlm chat <nb> "..." --source-match '^132af'          # UUID-prefix match
+```
+`--source-match` is a Go regex matched against titles AND UUIDs; an empty match
+fails fast and lists available titles.
+
 **Rename after stdin upload** — stdin sources appear as "Pasted Text". Either use `--name` during add, or rename after:
 ```bash
 nlm rename-source <source-id> "descriptive name"

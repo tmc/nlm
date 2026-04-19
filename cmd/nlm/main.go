@@ -65,6 +65,7 @@ var (
 	useWebChat        bool   // Use most recent server-side conversation (generate-chat)
 	citationMode      string // Citation rendering mode: off|block|overlay (default block-on-TTY)
 	sourceIDsFlag     string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
+	sourceMatchFlag   string // Regex matched against source titles and UUIDs; unioned with --source-ids
 	promptFile        string // Read prompt from file (nlm chat). "-" reads from stdin.
 )
 
@@ -134,7 +135,8 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay (default: block on TTY, off when piped)")
-	flag.StringVar(&sourceIDsFlag, "source-ids", "", "restrict chat to these source IDs (comma-separated, or '-' to read newline-delimited from stdin)")
+	flag.StringVar(&sourceIDsFlag, "source-ids", "", "focus on these source IDs (e.g. 'a,b,c' or '-' for newline-delimited stdin); applies to chat, report, and transform commands")
+	flag.StringVar(&sourceMatchFlag, "source-match", "", "focus on sources whose title or UUID matches this regex (e.g. '^nlm internal/' or '^132af'); unioned with --source-ids")
 	flag.StringVar(&promptFile, "prompt-file", "", "read prompt from file for one-shot chat ('-' reads stdin). Reliable for long/automated prompts.")
 	flag.StringVar(&promptFile, "f", "", "read prompt from file for one-shot chat ('-' reads stdin) (shorthand)")
 	flag.StringVar(&researchMode, "mode", "", "research mode: fast|deep (default: deep; used by nlm research)")
@@ -2058,9 +2060,9 @@ func newListWriter(w *os.File) (io.Writer, func() error) {
 func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
-	sourceIDs, err := resolveIDList(sourceIDsFlag)
+	sourceIDs, err := resolveSourceSelectors(c, projectID)
 	if err != nil {
-		return fmt.Errorf("--source-ids: %w", err)
+		return err
 	}
 
 	chatReq := api.ChatRequest{
@@ -2297,9 +2299,9 @@ func createReport(c *api.Client, notebookID, reportType string, extra []string) 
 		instructions = strings.Join(extra[1:], " ")
 	}
 
-	flagIDs, err := resolveIDList(sourceIDsFlag)
+	flagIDs, err := resolveSourceSelectors(c, notebookID)
 	if err != nil {
-		return fmt.Errorf("--source-ids: %w", err)
+		return err
 	}
 
 	// Try to match reportType against suggestions for targeted source_ids.
@@ -2338,9 +2340,9 @@ func generateReport(c *api.Client, notebookID string) error {
 		}
 	}
 
-	flagIDs, err := resolveIDList(sourceIDsFlag)
+	flagIDs, err := resolveSourceSelectors(c, notebookID)
 	if err != nil {
-		return fmt.Errorf("--source-ids: %w", err)
+		return err
 	}
 
 	// Read suggestions from stdin or API.
@@ -2505,6 +2507,11 @@ func isConversationID(s string) bool {
 
 // oneShotChat sends a single prompt and streams the response without entering interactive mode.
 func oneShotChat(c *api.Client, notebookID, prompt string) error {
+	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+	if err != nil {
+		return err
+	}
+
 	// Load or create session for history continuity
 	session, err := loadChatSession(notebookID)
 	if err != nil {
@@ -2529,6 +2536,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 	chatReq := api.ChatRequest{
 		ProjectID:      notebookID,
 		Prompt:         prompt,
+		SourceIDs:      sourceIDs,
 		ConversationID: session.ConversationID,
 		History:        wireHistory,
 		SeqNum:         len(session.Messages)/2 + 1,
@@ -2594,6 +2602,10 @@ func readPromptFile(path string) (string, error) {
 // Mirrors oneShotChat but preserves the server-side conversation ID so callers
 // can chain turns via automation.
 func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string) error {
+	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+	if err != nil {
+		return err
+	}
 	conversationID = resolveConversationID(c, notebookID, conversationID)
 	session, err := loadChatSessionForConv(notebookID, conversationID)
 	if err != nil {
@@ -2613,6 +2625,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string)
 	chatReq := api.ChatRequest{
 		ProjectID:      notebookID,
 		Prompt:         prompt,
+		SourceIDs:      sourceIDs,
 		ConversationID: conversationID,
 		History:        wireHistory,
 		SeqNum:         len(session.Messages)/2 + 1,
@@ -2650,6 +2663,10 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string)
 
 // interactiveChatWithConv starts or resumes an interactive chat with a specific conversation ID.
 func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) error {
+	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+	if err != nil {
+		return err
+	}
 	// Expand partial IDs (chat-list prints the first 8 chars of the UUID).
 	conversationID = resolveConversationID(c, notebookID, conversationID)
 
@@ -2689,7 +2706,7 @@ func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) e
 	// Override the conversation ID (the loaded session might have an old one)
 	session.ConversationID = conversationID
 
-	return runInteractiveChat(c, session)
+	return runInteractiveChat(c, session, sourceIDs)
 }
 
 // printChatHistory prints conversation history, trying the server first then
@@ -3345,6 +3362,10 @@ func getFallbackResponse(input, notebookID string) string {
 
 // interactiveChat starts a new or resumes the default interactive chat session for a notebook.
 func interactiveChat(c *api.Client, notebookID string) error {
+	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+	if err != nil {
+		return err
+	}
 	session, err := loadChatSession(notebookID)
 	if err != nil {
 		session = &ChatSession{
@@ -3358,11 +3379,12 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	if session.ConversationID == "" {
 		session.ConversationID = uuid.New().String()
 	}
-	return runInteractiveChat(c, session)
+	return runInteractiveChat(c, session, sourceIDs)
 }
 
 // runInteractiveChat runs the interactive chat loop with the given session.
-func runInteractiveChat(c *api.Client, session *ChatSession) error {
+// sourceIDs, when non-empty, scopes every request in the loop to that subset.
+func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string) error {
 	notebookID := session.NotebookID
 
 	fmt.Println("\nNotebookLM Interactive Chat")
@@ -3593,6 +3615,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession) error {
 		chatReq := api.ChatRequest{
 			ProjectID:      notebookID,
 			Prompt:         input,
+			SourceIDs:      sourceIDs,
 			ConversationID: session.ConversationID,
 			History:        wireHistory,
 			SeqNum:         session.SeqNum,
