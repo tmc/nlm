@@ -55,8 +55,8 @@ var (
 	replaceSourceID   string // Source ID to replace when adding
 	force             bool   // Force re-upload even if unchanged
 	dryRun            bool   // Show what would change without uploading
-	maxBytes          int    // Chunk threshold for sync-source
-	jsonOutput        bool   // NDJSON output for sync-source
+	maxBytes          int    // Chunk threshold for sync
+	jsonOutput        bool   // NDJSON output for sync
 	reportPrompt       string // Per-section prompt template for generate-report ({topic} replaced)
 	reportInstructions string // Notebook instructions to set before generate-report
 	reportSections     int    // Max sections for generate-report (0 = all)
@@ -116,9 +116,9 @@ func init() {
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 	flag.StringVar(&replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
 	flag.BoolVar(&jsonOutput, "json", false, "output in JSON format")
-	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync-source)")
-	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync-source)")
-	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync-source, default 5120000)")
+	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync)")
+	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync)")
+	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
 	flag.StringVar(&reportPrompt, "prompt", "", "per-section prompt template for generate-report ({topic} is replaced)")
 	flag.StringVar(&reportInstructions, "instructions", "", "set notebook instructions before generate-report")
 	flag.IntVar(&reportSections, "sections", 0, "max sections to generate (generate-report, 0=all)")
@@ -849,7 +849,7 @@ func (a *syncClientAdapter) ListSources(ctx context.Context, notebookID string) 
 }
 
 func (a *syncClientAdapter) AddSource(ctx context.Context, notebookID string, title string, r io.Reader) (string, error) {
-	// Always use text path — sync-source content is txtar, never binary.
+	// Always use text path — sync content is txtar, never binary.
 	// AddSourceFromReader would MIME-detect and route large content to
 	// the binary resumable upload, which the server rejects for text.
 	data, err := io.ReadAll(r)

@@ -102,7 +102,7 @@ var commands = []command{
 		},
 	},
 	{
-		name: "sync-source", argsUsage: "<notebook-id> [paths...]",
+		name: "sync", argsUsage: "<notebook-id> [paths...]",
 		usage: "Sync files into a named source (use --force to re-upload unchanged)", section: "Source",
 		minArgs: 1, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
