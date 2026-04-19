@@ -2297,21 +2297,28 @@ func createReport(c *api.Client, notebookID, reportType string, extra []string) 
 		instructions = strings.Join(extra[1:], " ")
 	}
 
+	flagIDs, err := resolveIDList(sourceIDsFlag)
+	if err != nil {
+		return fmt.Errorf("--source-ids: %w", err)
+	}
+
 	// Try to match reportType against suggestions for targeted source_ids.
-	var sourceIDs []string
-	resp, err := c.GenerateReportSuggestions(notebookID)
-	if err == nil {
+	var suggestionIDs []string
+	resp, suggErr := c.GenerateReportSuggestions(notebookID)
+	if suggErr == nil {
 		for _, s := range resp.GetSuggestions() {
 			if strings.EqualFold(s.GetTitle(), reportType) {
 				if description == "" {
 					description = s.GetDescription()
 				}
-				sourceIDs = s.GetSourceIds()
-				fmt.Fprintf(os.Stderr, "Matched suggestion %q (%d sources)\n", s.GetTitle(), len(sourceIDs))
+				suggestionIDs = s.GetSourceIds()
+				fmt.Fprintf(os.Stderr, "Matched suggestion %q (%d sources)\n", s.GetTitle(), len(suggestionIDs))
 				break
 			}
 		}
 	}
+
+	sourceIDs := unionIDs(flagIDs, suggestionIDs)
 
 	artifactID, err := c.CreateReport(notebookID, reportType, description, instructions, sourceIDs...)
 	if err != nil {
@@ -2329,6 +2336,11 @@ func generateReport(c *api.Client, notebookID string) error {
 		if err := c.SetInstructions(notebookID, reportInstructions); err != nil {
 			return fmt.Errorf("set instructions: %w", err)
 		}
+	}
+
+	flagIDs, err := resolveIDList(sourceIDsFlag)
+	if err != nil {
+		return fmt.Errorf("--source-ids: %w", err)
 	}
 
 	// Read suggestions from stdin or API.
@@ -2362,7 +2374,7 @@ func generateReport(c *api.Client, notebookID string) error {
 		chatReq := api.ChatRequest{
 			ProjectID: notebookID,
 			Prompt:    prompt,
-			SourceIDs: s.GetSourceIds(),
+			SourceIDs: unionIDs(flagIDs, s.GetSourceIds()),
 		}
 		res, err := streamChatResponse(c, chatReq)
 		if err != nil {

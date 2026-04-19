@@ -36,6 +36,24 @@ func readLinesFromReader(r io.Reader) ([]string, error) {
 	return out, nil
 }
 
+// unionIDs returns the de-duplicated union of two ID slices, preserving
+// the order of first appearance. Used where a CLI flag and a
+// server-provided list (e.g. report suggestions) both contribute IDs.
+func unionIDs(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, ids := range [][]string{a, b} {
+		for _, id := range ids {
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
 // resolveIDList expands a CLI argument into a concrete []string. The argument
 // may be:
 //   - "-"           read newline-separated IDs from stdin
