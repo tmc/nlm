@@ -1049,6 +1049,104 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 	return nil
 }
 
+// sourceGuideCacheDir returns the on-disk cache directory for per-source
+// guides, creating it on first use. Guides are cached because tr032e is a
+// generate call (see --force to re-populate).
+func sourceGuideCacheDir() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "nlm", "source-guides")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// loadCachedSourceGuide returns the cached guide for sourceID, or
+// (nil, nil) on cache miss.
+func loadCachedSourceGuide(sourceID string) (*api.SourceGuide, error) {
+	dir, err := sourceGuideCacheDir()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, sourceID+".json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var g api.SourceGuide
+	if err := json.Unmarshal(data, &g); err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
+func saveCachedSourceGuide(sourceID string, g *api.SourceGuide) error {
+	dir, err := sourceGuideCacheDir()
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(g, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, sourceID+".json"), data, 0o644)
+}
+
+func generateSourceGuides(c *api.Client, sourceIDs []string) error {
+	enc := json.NewEncoder(os.Stdout)
+	for i, sourceID := range sourceIDs {
+		var guide *api.SourceGuide
+		if !force {
+			cached, err := loadCachedSourceGuide(sourceID)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "cache read %s: %v\n", sourceID, err)
+			}
+			guide = cached
+		}
+		if guide == nil {
+			fmt.Fprintf(os.Stderr, "Generating source guide for %s...\n", sourceID)
+			g, err := c.GenerateSourceGuide(sourceID)
+			if err != nil {
+				return fmt.Errorf("generate source guide %s: %w", sourceID, err)
+			}
+			guide = g
+			if err := saveCachedSourceGuide(sourceID, guide); err != nil {
+				fmt.Fprintf(os.Stderr, "cache write %s: %v\n", sourceID, err)
+			}
+		}
+		if jsonOutput {
+			type envelope struct {
+				SourceID  string   `json:"source_id"`
+				Summary   string   `json:"summary"`
+				KeyTopics []string `json:"key_topics"`
+			}
+			if err := enc.Encode(envelope{SourceID: sourceID, Summary: guide.Summary, KeyTopics: guide.KeyTopics}); err != nil {
+				return err
+			}
+			continue
+		}
+		if len(sourceIDs) > 1 {
+			if i > 0 {
+				fmt.Println()
+			}
+			fmt.Printf("── %s ──\n", sourceID)
+		}
+		if guide.Summary != "" {
+			fmt.Println(guide.Summary)
+		}
+		if len(guide.KeyTopics) > 0 {
+			fmt.Println()
+			fmt.Println(strings.Join(guide.KeyTopics, ", "))
+		}
+	}
+	return nil
+}
+
 func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
 	fmt.Fprintf(os.Stderr, "Generating magic view...\n")
 	magicView, err := c.GenerateMagicView(notebookID, sourceIDs)

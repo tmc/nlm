@@ -542,6 +542,27 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return generateNotebookGuide(c, args[0]) },
 	},
 	{
+		name: "source-guide", argsUsage: "<notebook-id> [source-id...]",
+		usage: "Show the per-source auto-summary and keyword chips (cached on disk)", section: "Generation",
+		minArgs: 1, maxArgs: -1,
+		run: func(c *api.Client, args []string) error {
+			notebookID := args[0]
+			sourceIDs := args[1:]
+			if len(sourceIDs) == 0 {
+				if sourceIDsFlag == "" && sourceMatchFlag == "" {
+					return fmt.Errorf("usage: nlm source-guide <notebook-id> <source-id> [source-id...]" +
+						" (or pass --source-ids / --source-match)")
+				}
+				resolved, err := resolveSourceSelectors(c, notebookID)
+				if err != nil {
+					return err
+				}
+				sourceIDs = resolved
+			}
+			return generateSourceGuides(c, sourceIDs)
+		},
+	},
+	{
 		name: "generate-mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
 		usage: "Generate interactive mindmap (alias for mindmap)", section: "Generation",
 		hidden: true, minArgs: 2, maxArgs: -1,
