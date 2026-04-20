@@ -570,10 +570,11 @@ service LabsTailwindOrchestrationService {
     }
     
     // Generation operations
-    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
-        option (rpc_id) = "tr032e";
-        option (arg_format) = "[%project_id%]";
-    }
+    //
+    // Per-source guide generation (tr032e) is not declared here; the wire
+    // call is keyed by source_id with a 4-level-nested arg shape that the
+    // [%project_id%]-style arg_format cannot express. It's invoked directly
+    // via rpc.Do in the api package (see api.Client.GenerateSourceGuide).
     rpc GenerateFreeFormStreamed(GenerateFreeFormStreamedRequest) returns (stream GenerateFreeFormStreamedResponse) {
         // gRPC-Web stream — NOT batchexecute. Requires:
         //   x-goog-ext-353267353-jspb: [null,null,null,282611]

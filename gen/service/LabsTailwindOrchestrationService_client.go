@@ -757,30 +757,6 @@ func (c *LabsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx
 	return &result, nil
 }
 
-// GenerateDocumentGuides calls the GenerateDocumentGuides RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx context.Context, req *notebooklmv1alpha1.GenerateDocumentGuidesRequest) (*notebooklmv1alpha1.GenerateDocumentGuidesResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "tr032e",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeGenerateDocumentGuidesArgs(req),
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
-	if err != nil {
-		return nil, fmt.Errorf("GenerateDocumentGuides: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.GenerateDocumentGuidesResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("GenerateDocumentGuides: unmarshal response: %w", err)
-	}
-
-	return &result, nil
-}
-
 // GenerateFreeFormStreamed calls the GenerateFreeFormStreamed RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamed(ctx context.Context, req *notebooklmv1alpha1.GenerateFreeFormStreamedRequest) (*notebooklmv1alpha1.GenerateFreeFormStreamedResponse, error) {
 	// No RPC ID defined for this method

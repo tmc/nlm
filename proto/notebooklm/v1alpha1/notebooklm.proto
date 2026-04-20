@@ -292,10 +292,10 @@ service NotebookLM {
     }
 
     // Generation operations
-    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
-        option (rpc_id) = "tr032e";
-        option (arg_format) = "[%project_id%, %document_id%]";
-    }
+    //
+    // Per-source guide generation (tr032e) lives in the api package, not
+    // here — its wire shape is keyed by source_id, not project_id, and
+    // does not round-trip through the %project_id%-style arg_format.
     rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {
         option (rpc_id) = "VfAZjd";
         option (arg_format) = "[%project_id%]";

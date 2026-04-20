@@ -2903,16 +2903,60 @@ func (c *Client) GenerateArtifactSuggestions(projectID string, kind int, variati
 
 // Generation operations
 
-func (c *Client) GenerateDocumentGuides(projectID string) (*pb.GenerateDocumentGuidesResponse, error) {
-	req := &pb.GenerateDocumentGuidesRequest{
-		ProjectId: projectID,
-	}
-	ctx := context.Background()
-	guides, err := c.orchestrationService.GenerateDocumentGuides(ctx, req)
+// SourceGuide is the per-source summary + key-topic chips the web UI shows
+// next to each source. The frontend JS fires a `keyTopicAsked` event when a
+// chip is clicked, so we call them key topics rather than keywords or
+// prompts. The wire response is positional JSON; no proto round-trips.
+type SourceGuide struct {
+	Summary   string   `json:"summary"`
+	KeyTopics []string `json:"key_topics"`
+}
+
+// GenerateSourceGuide returns the per-source guide (auto-summary + key-topic
+// chips) that the web UI shows next to each source. The wire call is the
+// same tr032e RPC that post-upload processing fires, but keyed by source_id
+// with the 4-level nested shape [[[["source_id"]]]]. The response shape is
+// [[[null, ["summary"], [["topic", "topic", ...]], []]]].
+func (c *Client) GenerateSourceGuide(sourceID string) (*SourceGuide, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCGenerateDocumentGuides,
+		Args: []interface{}{
+			[]interface{}{
+				[]interface{}{
+					[]interface{}{sourceID},
+				},
+			},
+		},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("generate document guides: %w", err)
+		return nil, fmt.Errorf("generate source guide: %w", err)
 	}
-	return guides, nil
+	var outer [][]interface{}
+	if err := json.Unmarshal(resp, &outer); err != nil {
+		return nil, fmt.Errorf("generate source guide: unmarshal response: %w", err)
+	}
+	g := &SourceGuide{}
+	if len(outer) == 0 || len(outer[0]) == 0 {
+		return g, nil
+	}
+	inner, _ := outer[0][0].([]interface{})
+	if len(inner) >= 2 {
+		if sumArr, ok := inner[1].([]interface{}); ok && len(sumArr) > 0 {
+			g.Summary, _ = sumArr[0].(string)
+		}
+	}
+	if len(inner) >= 3 {
+		if topicOuter, ok := inner[2].([]interface{}); ok && len(topicOuter) > 0 {
+			if topicArr, ok := topicOuter[0].([]interface{}); ok {
+				for _, t := range topicArr {
+					if s, ok := t.(string); ok {
+						g.KeyTopics = append(g.KeyTopics, s)
+					}
+				}
+			}
+		}
+	}
+	return g, nil
 }
 
 func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGuideResponse, error) {
