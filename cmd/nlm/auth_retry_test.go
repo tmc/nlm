@@ -160,8 +160,9 @@ func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
 	t.Setenv("NLM_SESSION_ID", "")
 	t.Setenv("NLM_BL_PARAM", "")
 	t.Setenv("NLM_SIGNALER_AUTH", "")
+	t.Setenv("NLM_AUTHUSER", "")
 
-	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a", ""); err != nil {
+	if _, _, err := persistAuthToDisk("cookie-a", "token-a", "Default", "session-a", "bl-a", "1"); err != nil {
 		t.Fatalf("persistAuthToDisk() initial error = %v", err)
 	}
 	if err := persistSignalerAuthorization("Bearer signaler-token"); err != nil {
@@ -174,6 +175,9 @@ func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
 	if got := os.Getenv("NLM_SIGNALER_AUTH"); got != "Bearer signaler-token" {
 		t.Fatalf("NLM_SIGNALER_AUTH = %q, want Bearer signaler-token", got)
 	}
+	if got := os.Getenv("NLM_AUTHUSER"); got != "1" {
+		t.Fatalf("NLM_AUTHUSER = %q, want 1", got)
+	}
 
 	data, err := os.ReadFile(filepath.Join(home, ".nlm", "env"))
 	if err != nil {
@@ -182,6 +186,9 @@ func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
 	text := string(data)
 	if !strings.Contains(text, `NLM_SIGNALER_AUTH="Bearer signaler-token"`) {
 		t.Fatalf("env file missing persisted signaler auth\n%s", text)
+	}
+	if !strings.Contains(text, `NLM_AUTHUSER="1"`) {
+		t.Fatalf("env file missing persisted authuser\n%s", text)
 	}
 }
 

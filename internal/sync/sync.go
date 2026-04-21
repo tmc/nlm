@@ -111,15 +111,13 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 	hc := newHashCache(notebookID)
 	sc := newSourceCache()
 
-	// Fetch source list (with cache).
-	sources, ok := sc.load(notebookID)
-	if !ok {
-		sources, err = c.ListSources(ctx, notebookID)
-		if err != nil {
-			return fmt.Errorf("list sources: %w", err)
-		}
-		_ = sc.save(notebookID, sources)
+	// Always fetch the live source list before a mutating sync. Hash-cache
+	// skips are only correct if the remote source still exists.
+	sources, err := c.ListSources(ctx, notebookID)
+	if err != nil {
+		return fmt.Errorf("list sources: %w", err)
 	}
+	_ = sc.save(notebookID, sources)
 
 	// Build title→source index.
 	byTitle := make(map[string]Source)
@@ -137,8 +135,9 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 
 		existing, exists := byTitle[chunkName]
 
-		// Skip if unchanged.
-		if !opts.Force && !hc.changed(chunkName, hash) {
+		// Skip only when the hash is unchanged and the remote source is still
+		// present under the expected title.
+		if !opts.Force && exists && !hc.changed(chunkName, hash) {
 			out.emit(event{Action: "skip", Name: chunkName, Reason: "unchanged"})
 			continue
 		}

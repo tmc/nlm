@@ -18,6 +18,7 @@ func setupTestHome(t *testing.T) {
 
 type fakeClient struct {
 	sources  []Source
+	listed   int
 	uploaded []struct {
 		title   string
 		content string
@@ -30,6 +31,7 @@ type fakeClient struct {
 }
 
 func (f *fakeClient) ListSources(_ context.Context, _ string) ([]Source, error) {
+	f.listed++
 	return f.sources, nil
 }
 
@@ -139,6 +141,37 @@ func TestRunSkipUnchanged(t *testing.T) {
 	}
 	if len(fc2.uploaded) != 0 {
 		t.Errorf("expected 0 uploads on second run, got %d", len(fc2.uploaded))
+	}
+}
+
+func TestRunReuploadsWhenSourceMissingRemotely(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("same"), 0o644)
+
+	fc := &fakeClient{}
+	var buf bytes.Buffer
+
+	// First run seeds the hash cache and the source cache.
+	if err := Run(context.Background(), fc, "nb-missing", []string{dir}, Options{Name: "test"}, &buf); err != nil {
+		t.Fatal(err)
+	}
+	if len(fc.uploaded) != 1 {
+		t.Fatalf("expected 1 upload on first run, got %d", len(fc.uploaded))
+	}
+
+	// Second run sees the same content hash, but the source is gone on the
+	// server. Sync must upload it again instead of trusting local caches.
+	fc2 := &fakeClient{}
+	buf.Reset()
+	if err := Run(context.Background(), fc2, "nb-missing", []string{dir}, Options{Name: "test"}, &buf); err != nil {
+		t.Fatal(err)
+	}
+	if fc2.listed == 0 {
+		t.Fatal("expected live source list fetch on second run")
+	}
+	if len(fc2.uploaded) != 1 {
+		t.Fatalf("expected re-upload when remote source is missing, got %d uploads", len(fc2.uploaded))
 	}
 }
 

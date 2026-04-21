@@ -43,6 +43,7 @@ func TestPrintAuthEnvFromEnvOnly(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("NLM_AUTH_TOKEN", "tok-123")
 	t.Setenv("NLM_COOKIES", "SID=abc; HSID=xyz")
+	t.Setenv("NLM_AUTHUSER", "1")
 
 	var buf bytes.Buffer
 	_, _, err := printAuthEnv(&buf)
@@ -50,7 +51,7 @@ func TestPrintAuthEnvFromEnvOnly(t *testing.T) {
 		t.Fatalf("printAuthEnv() error = %v", err)
 	}
 	got := buf.String()
-	want := "export NLM_AUTH_TOKEN='tok-123'\nexport NLM_COOKIES='SID=abc; HSID=xyz'\n"
+	want := "export NLM_AUTH_TOKEN='tok-123'\nexport NLM_COOKIES='SID=abc; HSID=xyz'\nexport NLM_AUTHUSER='1'\n"
 	if got != want {
 		t.Fatalf("printAuthEnv() output mismatch\n got: %q\nwant: %q", got, want)
 	}

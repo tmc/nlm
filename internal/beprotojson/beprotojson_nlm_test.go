@@ -160,7 +160,6 @@ func TestUnmarshal(t *testing.T) {
 		})
 	}
 }
-
 func TestUnmarshalProjectAnalytics(t *testing.T) {
 	got := &pb.ProjectAnalytics{}
 	if err := Unmarshal([]byte(`[[335], [12], [1], [1731910459, 665561000]]`), got); err != nil {
@@ -451,4 +450,3 @@ func TestMarshalProject(t *testing.T) {
 		})
 	}
 }
-

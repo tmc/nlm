@@ -1,5 +1,5 @@
 httprr trace v1
-719 1376
+704 1350
 POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=00000000000000000000&hl=en&rpcids=AHyHrd&source-path=%2F HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
@@ -8,7 +8,7 @@ Accept: */*
 Accept-Language: en-US,en;q=0.9
 Cache-Control: no-cache
 Content-Type: application/x-www-form-urlencoded;charset=UTF-8
-Cookie: 
+Cookie:
 Origin: https://notebooklm.google.com
 Pragma: no-cache
 Referer: https://notebooklm.google.com/

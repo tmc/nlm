@@ -288,6 +288,7 @@ func handleAuth(args []string, debug bool) (string, string, error) {
 func printAuthEnv(w io.Writer) (string, string, error) {
 	authToken := firstNonEmpty(os.Getenv("NLM_AUTH_TOKEN"))
 	cookies := firstNonEmpty(os.Getenv("NLM_COOKIES"))
+	authUser := firstNonEmpty(os.Getenv("NLM_AUTHUSER"))
 	if authToken == "" || cookies == "" {
 		stored := readStoredEnv()
 		if authToken == "" {
@@ -296,17 +297,23 @@ func printAuthEnv(w io.Writer) (string, string, error) {
 		if cookies == "" {
 			cookies = stored["NLM_COOKIES"]
 		}
+		if authUser == "" {
+			authUser = stored["NLM_AUTHUSER"]
+		}
 	}
 	if authToken == "" || cookies == "" {
 		return "", "", fmt.Errorf("no authenticated session found; run 'nlm auth' or export NLM_AUTH_TOKEN and NLM_COOKIES")
 	}
 	fmt.Fprintf(w, "export NLM_AUTH_TOKEN=%s\n", shellQuote(authToken))
 	fmt.Fprintf(w, "export NLM_COOKIES=%s\n", shellQuote(cookies))
+	if authUser != "" {
+		fmt.Fprintf(w, "export NLM_AUTHUSER=%s\n", shellQuote(authUser))
+	}
 	return authToken, cookies, nil
 }
 
 // shellQuote returns s quoted so it survives a POSIX shell unchanged.
-// It uses single-quote wrapping with embedded single quotes escaped as '\''.
+// It uses single-quote wrapping with embedded single quotes escaped as '\”.
 func shellQuote(s string) string {
 	if s == "" {
 		return "''"
@@ -373,28 +380,20 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, auth
 
 	// Create or update env file
 	envFile := filepath.Join(nlmDir, "env")
-	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\nNLM_AUTHUSER=%q\n",
-		cookies,
-		authToken,
-		profileName,
-		sessionID,
-		blParam,
-		signalerAuth,
-		authUser,
-	)
-
-	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
-		return "", "", fmt.Errorf("write env file: %w", err)
-	}
-
-	for key, value := range map[string]string{
+	values := map[string]string{
 		"NLM_COOKIES":         cookies,
 		"NLM_AUTH_TOKEN":      authToken,
 		"NLM_BROWSER_PROFILE": profileName,
 		"NLM_SESSION_ID":      sessionID,
 		"NLM_BL_PARAM":        blParam,
 		"NLM_SIGNALER_AUTH":   signalerAuth,
-	} {
+		"NLM_AUTHUSER":        authUser,
+	}
+	if err := writeStoredEnvFile(envFile, values); err != nil {
+		return "", "", err
+	}
+
+	for key, value := range values {
 		if err := os.Setenv(key, value); err != nil {
 			return "", "", fmt.Errorf("set %s: %w", key, err)
 		}
@@ -423,20 +422,30 @@ func persistSignalerAuthorization(authz string) error {
 	values["NLM_BROWSER_PROFILE"] = firstNonEmpty(os.Getenv("NLM_BROWSER_PROFILE"), values["NLM_BROWSER_PROFILE"])
 	values["NLM_SESSION_ID"] = firstNonEmpty(os.Getenv("NLM_SESSION_ID"), values["NLM_SESSION_ID"])
 	values["NLM_BL_PARAM"] = firstNonEmpty(os.Getenv("NLM_BL_PARAM"), values["NLM_BL_PARAM"])
+	values["NLM_AUTHUSER"] = firstNonEmpty(os.Getenv("NLM_AUTHUSER"), values["NLM_AUTHUSER"])
 	values["NLM_SIGNALER_AUTH"] = authz
-	content := fmt.Sprintf("NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\n",
+	if err := writeStoredEnvFile(envFile, values); err != nil {
+		return err
+	}
+	if err := os.Setenv("NLM_SIGNALER_AUTH", authz); err != nil {
+		return fmt.Errorf("set NLM_SIGNALER_AUTH: %w", err)
+	}
+	return nil
+}
+
+func writeStoredEnvFile(path string, values map[string]string) error {
+	content := fmt.Sprintf(
+		"NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\nNLM_AUTHUSER=%q\n",
 		values["NLM_COOKIES"],
 		values["NLM_AUTH_TOKEN"],
 		values["NLM_BROWSER_PROFILE"],
 		values["NLM_SESSION_ID"],
 		values["NLM_BL_PARAM"],
 		values["NLM_SIGNALER_AUTH"],
+		values["NLM_AUTHUSER"],
 	)
-	if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
 		return fmt.Errorf("write env file: %w", err)
-	}
-	if err := os.Setenv("NLM_SIGNALER_AUTH", authz); err != nil {
-		return fmt.Errorf("set NLM_SIGNALER_AUTH: %w", err)
 	}
 	return nil
 }
