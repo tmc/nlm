@@ -429,7 +429,6 @@ func run() error {
 	for i := 0; i < maxAttempts; i++ {
 		if i > 0 {
 			fmt.Fprintln(os.Stderr, "nlm: authentication expired, refreshing credentials...")
-			debug = true
 		}
 
 		client := api.New(authToken, cookies, opts...)
