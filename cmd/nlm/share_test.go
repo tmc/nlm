@@ -56,3 +56,28 @@ func TestPrintShareDetailsNil(t *testing.T) {
 		t.Fatalf("unexpected output:\n%s", out)
 	}
 }
+
+func TestPrintShareDetailsPartial(t *testing.T) {
+	details := &pb.ProjectDetails{
+		OwnerName: "Owner",
+		IsPublic:  false,
+	}
+
+	var buf bytes.Buffer
+	printShareDetails(&buf, "share-123", details)
+	out := buf.String()
+
+	for _, want := range []string{
+		"Share ID: share-123",
+		"Owner: Owner",
+		"Visibility: private",
+		"Note: current share-details responses only include owner/visibility metadata.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output missing %q\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Sources: 0") {
+		t.Fatalf("unexpected zero-source line:\n%s", out)
+	}
+}

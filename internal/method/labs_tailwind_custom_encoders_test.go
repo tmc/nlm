@@ -132,6 +132,43 @@ func TestEncodeShareAudioArgsV2(t *testing.T) {
 	}
 }
 
+func TestEncodeShareProjectArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		req  *notebooklmv1alpha1.ShareProjectRequest
+		want string
+	}{
+		{
+			name: "private",
+			req: &notebooklmv1alpha1.ShareProjectRequest{
+				ProjectId: "project-123",
+				Settings:  &notebooklmv1alpha1.ShareSettings{},
+			},
+			want: `[[["project-123",null,[1,0],[0,""]]],1,null,[2]]`,
+		},
+		{
+			name: "public",
+			req: &notebooklmv1alpha1.ShareProjectRequest{
+				ProjectId: "project-123",
+				Settings: &notebooklmv1alpha1.ShareSettings{
+					IsPublic: true,
+				},
+			},
+			want: `[[["project-123",null,[1,1],[0,""]]],1,null,[2]]`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := EncodeShareProjectArgs(tt.req)
+			gotJSON := mustJSON(t, got)
+			if gotJSON != tt.want {
+				t.Errorf("EncodeShareProjectArgs:\n got: %s\nwant: %s", gotJSON, tt.want)
+			}
+		})
+	}
+}
+
 func TestEncodeGetProjectAnalyticsArgsV2(t *testing.T) {
 	req := &notebooklmv1alpha1.GetProjectAnalyticsRequest{
 		ProjectId: "00000000-0000-4000-8000-000000000005",

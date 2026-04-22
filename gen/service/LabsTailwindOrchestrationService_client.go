@@ -12,6 +12,7 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
+	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -113,9 +114,9 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Context, req *notebooklmv1alpha1.RenameArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "rc3d8d",
+		ID:         rpc.RPCRenameArtifact,
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       intmethod.EncodeRenameArtifactArgs(req),
 	}
 
 	// Execute the RPC
@@ -137,9 +138,9 @@ func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Context, req *notebooklmv1alpha1.DeleteArtifactRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "WxBZtb",
+		ID:         rpc.RPCDeleteArtifact,
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeDeleteArtifactArgs(req),
+		Args:       intmethod.EncodeDeleteArtifactArgs(req),
 	}
 
 	// Execute the RPC
@@ -401,9 +402,9 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewRequest) (*notebooklmv1alpha1.AudioOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "R7cb6c",
+		ID:         rpc.RPCCreateUniversalArtifact,
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       intmethod.EncodeCreateAudioOverviewArgs(req),
 	}
 
 	// Execute the RPC
@@ -449,9 +450,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GetAudioOverview(ctx context.Co
 func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context.Context, req *notebooklmv1alpha1.DeleteAudioOverviewRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "sJDbic",
+		ID:         rpc.RPCDeleteAudioOverview,
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeDeleteAudioOverviewArgs(req),
+		Args:       intmethod.EncodeDeleteAudioOverviewArgsV2(req),
 	}
 
 	// Execute the RPC
@@ -473,9 +474,9 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, req *notebooklmv1alpha1.CreateVideoOverviewRequest) (*notebooklmv1alpha1.VideoOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "R7cb6c",
+		ID:         rpc.RPCCreateUniversalArtifact,
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       intmethod.EncodeCreateVideoOverviewArgs(req),
 	}
 
 	// Execute the RPC
@@ -935,9 +936,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateMagicView(ctx context.C
 func (c *LabsTailwindOrchestrationServiceClient) GetProjectAnalytics(ctx context.Context, req *notebooklmv1alpha1.GetProjectAnalyticsRequest) (*notebooklmv1alpha1.ProjectAnalytics, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "AUrzMb",
+		ID:         rpc.RPCGetProjectAnalytics,
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeGetProjectAnalyticsArgs(req),
+		Args:       intmethod.EncodeGetProjectAnalyticsArgsV2(req),
 	}
 
 	// Execute the RPC

@@ -3,8 +3,11 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
 // TestValidateSourceInputs covers the pre-RPC fail-fast rules. The bulk
@@ -64,5 +67,37 @@ func TestAddSourceInputs_PassThrough(t *testing.T) {
 	}
 	if len(got) != 2 || got[0] != "https://a/x" || got[1] != "topic" {
 		t.Fatalf("pass-through mismatch: %#v", got)
+	}
+}
+
+func TestStaleFailedAddSourceIDs(t *testing.T) {
+	before := map[string]struct{}{
+		"existing": {},
+	}
+	project := &pb.Project{
+		Sources: []*pb.Source{
+			{
+				SourceId: &pb.SourceId{SourceId: "existing"},
+				Settings: &pb.SourceSettings{Status: pb.SourceSettings_SOURCE_STATUS_ERROR},
+			},
+			{
+				SourceId: &pb.SourceId{SourceId: "new-error"},
+				Settings: &pb.SourceSettings{Status: pb.SourceSettings_SOURCE_STATUS_ERROR},
+			},
+			{
+				SourceId: &pb.SourceId{SourceId: "new-ok"},
+				Settings: &pb.SourceSettings{Status: pb.SourceSettings_SOURCE_STATUS_ENABLED},
+			},
+			{
+				SourceId: &pb.SourceId{SourceId: "new-error-metadata"},
+				Metadata: &pb.SourceMetadata{Status: pb.SourceSettings_SOURCE_STATUS_ERROR},
+			},
+		},
+	}
+
+	got := staleFailedAddSourceIDs(before, project)
+	want := []string{"new-error", "new-error-metadata"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("staleFailedAddSourceIDs() = %v, want %v", got, want)
 	}
 }

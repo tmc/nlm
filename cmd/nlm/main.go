@@ -33,40 +33,40 @@ import (
 
 // Global flags
 var (
-	showVersion       bool
-	experimental      bool // surface experimental commands in help + allow them to run
-	authToken         string
-	cookies           string
-	debug             bool
-	debugDumpPayload  bool
-	debugParsing      bool
-	debugFieldMapping bool
-	chromeProfile     string
-	mimeType          string
-	chunkedResponse   bool   // Control rt=c parameter for chunked vs JSON array response
-	useDirectRPC      bool   // Use direct RPC calls instead of orchestration service
-	skipSources       bool   // Skip fetching sources for chat (useful when project is inaccessible)
-	yes               bool   // Skip confirmation prompts
-	sourceName        string // Custom name for added sources
-	showChatHistory   bool   // Show previous chat conversation on start
-	showThinking      bool   // Show thinking headers while streaming responses
-	thinkingJSONL     bool   // Emit chat events (thinking/answer/citation/followup) as JSON-lines on stdout
-	verbose           bool   // Show full thinking traces while streaming responses
-	replaceSourceID   string // Source ID to replace when adding
-	force             bool   // Force re-upload even if unchanged
-	dryRun            bool   // Show what would change without uploading
-	maxBytes          int    // Chunk threshold for sync
-	jsonOutput        bool   // NDJSON output for sync
-	packChunk         int    // 1-indexed chunk to emit (sync-pack); 0 = auto (single chunk) or list
+	showVersion        bool
+	experimental       bool // surface experimental commands in help + allow them to run
+	authToken          string
+	cookies            string
+	debug              bool
+	debugDumpPayload   bool
+	debugParsing       bool
+	debugFieldMapping  bool
+	chromeProfile      string
+	mimeType           string
+	chunkedResponse    bool   // Control rt=c parameter for chunked vs JSON array response
+	useDirectRPC       bool   // Use direct RPC calls instead of orchestration service
+	skipSources        bool   // Skip fetching sources for chat (useful when project is inaccessible)
+	yes                bool   // Skip confirmation prompts
+	sourceName         string // Custom name for added sources
+	showChatHistory    bool   // Show previous chat conversation on start
+	showThinking       bool   // Show thinking headers while streaming responses
+	thinkingJSONL      bool   // Emit chat events (thinking/answer/citation/followup) as JSON-lines on stdout
+	verbose            bool   // Show full thinking traces while streaming responses
+	replaceSourceID    string // Source ID to replace when adding
+	force              bool   // Force re-upload even if unchanged
+	dryRun             bool   // Show what would change without uploading
+	maxBytes           int    // Chunk threshold for sync
+	jsonOutput         bool   // NDJSON output for sync
+	packChunk          int    // 1-indexed chunk to emit (sync-pack); 0 = auto (single chunk) or list
 	reportPrompt       string // Per-section prompt template for generate-report ({topic} replaced)
 	reportInstructions string // Notebook instructions to set before generate-report
 	reportSections     int    // Max sections for generate-report (0 = all)
-	conversationID    string // Conversation ID to continue (generate-chat)
-	useWebChat        bool   // Use most recent server-side conversation (generate-chat)
-	citationMode      string // Citation rendering mode: off|block|overlay (default block-on-TTY)
-	sourceIDsFlag     string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
-	sourceMatchFlag   string // Regex matched against source titles and UUIDs; unioned with --source-ids
-	promptFile        string // Read prompt from file (nlm chat). "-" reads from stdin.
+	conversationID     string // Conversation ID to continue (generate-chat)
+	useWebChat         bool   // Use most recent server-side conversation (generate-chat)
+	citationMode       string // Citation rendering mode: off|block|overlay (default block-on-TTY)
+	sourceIDsFlag      string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
+	sourceMatchFlag    string // Regex matched against source titles and UUIDs; unioned with --source-ids
+	promptFile         string // Read prompt from file (nlm chat). "-" reads from stdin.
 )
 
 // ChatSession represents a persistent chat conversation
@@ -1344,18 +1344,26 @@ func listFeaturedProjects(c *api.Client) error {
 	fmt.Fprintln(w, "ID\tTITLE\tDESCRIPTION")
 
 	for _, project := range resp.Projects {
-		description := ""
-		if project.Presentation != nil && strings.TrimSpace(project.Presentation.Description) != "" {
-			description = strings.TrimSpace(project.Presentation.Description)
-		} else if len(project.Sources) > 0 {
-			description = fmt.Sprintf("%d sources", len(project.Sources))
-		}
 		fmt.Fprintf(w, "%s\t%s\t%s\n",
 			project.ProjectId,
-			strings.TrimSpace(project.Emoji)+" "+project.Title,
-			description)
+			featuredProjectTitle(project),
+			featuredProjectDescription(project))
 	}
 	return flush()
+}
+
+func featuredProjectTitle(project *pb.FeaturedProject) string {
+	return collapseWhitespace(strings.TrimSpace(strings.TrimSpace(project.Emoji) + " " + project.Title))
+}
+
+func featuredProjectDescription(project *pb.FeaturedProject) string {
+	if desc := collapseWhitespace(project.GetPresentation().GetDescription()); desc != "" {
+		return desc
+	}
+	if n := len(project.GetSources()); n > 0 {
+		return fmt.Sprintf("%d sources", n)
+	}
+	return ""
 }
 
 // Enhanced source operations
@@ -1776,13 +1784,13 @@ func (r *chatStreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
 			for i := r.jsonlCitationsSeen; i < len(chunk.Citations); i++ {
 				c := chunk.Citations[i]
 				r.emitJSONLEvent(map[string]any{
-					"phase":        "citation",
-					"index":        c.SourceIndex,
-					"source_id":    c.SourceID,
-					"title":        c.Title,
-					"start_char":   c.StartChar,
-					"end_char":     c.EndChar,
-					"confidence":   c.Confidence,
+					"phase":      "citation",
+					"index":      c.SourceIndex,
+					"source_id":  c.SourceID,
+					"title":      c.Title,
+					"start_char": c.StartChar,
+					"end_char":   c.EndChar,
+					"confidence": c.Confidence,
 				})
 			}
 			r.jsonlCitationsSeen = len(chunk.Citations)
@@ -1967,12 +1975,16 @@ func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
 
 // truncateExcerpt collapses whitespace and clips to max runes with an ellipsis.
 func truncateExcerpt(s string, max int) string {
-	s = strings.Join(strings.Fields(s), " ")
+	s = collapseWhitespace(s)
 	runes := []rune(s)
 	if len(runes) <= max {
 		return s
 	}
 	return string(runes[:max]) + "…"
+}
+
+func collapseWhitespace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // insertSuperscripts splices citation markers at each citation's EndChar.
@@ -3216,7 +3228,7 @@ func printShareDetails(w io.Writer, shareID string, details *pb.ProjectDetails) 
 	if details.ProjectId != "" {
 		fmt.Fprintf(w, "Project ID: %s\n", details.ProjectId)
 	}
-	title := strings.TrimSpace(strings.TrimSpace(details.Emoji) + " " + details.Title)
+	title := collapseWhitespace(strings.TrimSpace(strings.TrimSpace(details.Emoji) + " " + details.Title))
 	if title != "" {
 		fmt.Fprintf(w, "Title: %s\n", title)
 	}
@@ -3230,6 +3242,12 @@ func printShareDetails(w io.Writer, shareID string, details *pb.ProjectDetails) 
 	fmt.Fprintf(w, "Visibility: %s\n", visibility)
 	if ts := details.SharedAt; ts != nil && ts.IsValid() {
 		fmt.Fprintf(w, "Shared At: %s\n", ts.AsTime().Format(time.RFC3339))
+	}
+	if len(details.Sources) == 0 {
+		if details.ProjectId == "" && title == "" {
+			fmt.Fprintln(w, "Note: current share-details responses only include owner/visibility metadata.")
+		}
+		return
 	}
 	fmt.Fprintf(w, "Sources: %d\n", len(details.Sources))
 	for _, src := range details.Sources {

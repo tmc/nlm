@@ -1,0 +1,10 @@
+# Test removal of deprecated create-artifact command
+
+# Help output should no longer advertise the deprecated command.
+exec ./nlm_test help
+! stderr 'create-artifact'
+
+# Invoking the deprecated command should now fail as an unknown command.
+! exec ./nlm_test create-artifact
+stderr 'Usage: nlm <command>'
+! stderr 'usage: nlm create-artifact'

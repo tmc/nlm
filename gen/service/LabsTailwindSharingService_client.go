@@ -12,6 +12,7 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
+	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
@@ -42,7 +43,7 @@ func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *
 	call := rpc.Call{
 		ID:         "RGP97b",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeShareAudioArgs(req),
+		Args:       intmethod.EncodeShareAudioArgsV2(req),
 	}
 
 	// Execute the RPC
@@ -90,7 +91,7 @@ func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req
 	call := rpc.Call{
 		ID:         "QDyure",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       method.EncodeShareProjectArgs(req),
+		Args:       intmethod.EncodeShareProjectArgs(req),
 	}
 
 	// Execute the RPC

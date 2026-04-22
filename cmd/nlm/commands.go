@@ -269,19 +269,6 @@ var commands = []command{
 		},
 	},
 
-	{
-		name: "create-artifact", argsUsage: "<notebook-id> <type> [instructions]",
-		usage: "Create artifact of the given type (audio, video, slides, report)", section: "Create",
-		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			instructions := ""
-			if len(args) > 2 {
-				instructions = strings.Join(args[2:], " ")
-			}
-			return createArtifact(c, args[0], args[1], instructions)
-		},
-	},
-
 	// Audio operations
 	{
 		name: "audio-list", argsUsage: "<notebook-id>",
