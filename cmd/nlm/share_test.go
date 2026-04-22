@@ -81,3 +81,52 @@ func TestPrintShareDetailsPartial(t *testing.T) {
 		t.Fatalf("unexpected zero-source line:\n%s", out)
 	}
 }
+
+func TestPrintPrivateShareResult(t *testing.T) {
+	tests := []struct {
+		name string
+		resp *pb.ShareProjectResponse
+		want []string
+	}{
+		{
+			name: "url returned",
+			resp: &pb.ShareProjectResponse{ShareUrl: "https://notebooklm.google.com/share/abc"},
+			want: []string{"Private Share URL: https://notebooklm.google.com/share/abc"},
+		},
+		{
+			name: "share id only",
+			resp: &pb.ShareProjectResponse{ShareId: "share-123"},
+			want: []string{
+				"Private Share ID: share-123",
+				"Open https://notebooklm.google.com/notebook/notebook-123 in the browser to copy the invite link.",
+			},
+		},
+		{
+			name: "no metadata",
+			resp: &pb.ShareProjectResponse{},
+			want: []string{
+				"Project shared privately, but the server returned no share URL or share ID.",
+			},
+		},
+		{
+			name: "nil response",
+			resp: nil,
+			want: []string{
+				"Project shared privately, but the server returned no share metadata.",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			printPrivateShareResult(&buf, "notebook-123", tt.resp)
+			out := buf.String()
+			for _, want := range tt.want {
+				if !strings.Contains(out, want) {
+					t.Fatalf("output missing %q\n%s", want, out)
+				}
+			}
+		})
+	}
+}

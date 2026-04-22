@@ -193,7 +193,7 @@ var errorCodeDictionary = map[int]ErrorCode{
 		Code:        9,
 		Type:        ErrorTypeInvalidInput,
 		Message:     "Failed precondition",
-		Description: "Operation was rejected because the system is not in a state required for the operation's execution.",
+		Description: "Operation was rejected for a state reason. Common causes include a notebook at the source limit, a transient artifact state, or the upstream service being busy.",
 		Retryable:   false,
 	},
 	10: {

@@ -91,7 +91,7 @@ var commands = []command{
 		},
 	},
 	{
-		name: "list-featured",
+		name:  "list-featured",
 		usage: "List featured notebooks", section: "Notebook",
 		minArgs: 0, maxArgs: 0,
 		run: func(c *api.Client, args []string) error { return listFeaturedProjects(c) },
@@ -145,9 +145,9 @@ var commands = []command{
 	},
 	{
 		name: "sync-pack", argsUsage: "[paths...]",
-		usage:    "Preview the txtar bytes that sync would upload (offline)",
-		section:  "Source",
-		minArgs:  0, maxArgs: -1,
+		usage:   "Preview the txtar bytes that sync would upload (offline)",
+		section: "Source",
+		minArgs: 0, maxArgs: -1,
 		noClient: true,
 		run: func(_ *api.Client, args []string) error {
 			return runSyncPack(args)
@@ -396,7 +396,7 @@ var commands = []command{
 		usage: "Rename artifact (alias: update-artifact)", section: "Artifact",
 		minArgs: 2, maxArgs: 2,
 		hidden: true, // superseded by update-artifact
-		run: func(c *api.Client, args []string) error { return renameArtifact(c, args[0], args[1]) },
+		run:    func(c *api.Client, args []string) error { return renameArtifact(c, args[0], args[1]) },
 	},
 	{
 		name: "delete-artifact", argsUsage: "<artifact-id>",
@@ -407,7 +407,7 @@ var commands = []command{
 
 	// Guidebook operations
 	{
-		name: "guidebooks",
+		name:  "guidebooks",
 		usage: "List all guidebooks", section: "Guidebook",
 		minArgs: 0, maxArgs: 0,
 		run: func(c *api.Client, args []string) error {
@@ -558,13 +558,6 @@ var commands = []command{
 		},
 	},
 	{
-		name: "generate-magic", argsUsage: "<notebook-id> <source-id> [source-id...]",
-		usage: "Generate magic view from sources", section: "Generation",
-		minArgs: 2, maxArgs: -1,
-		hidden: true, // untested, may not produce usable output
-		run: func(c *api.Client, args []string) error { return generateMagicView(c, args[0], args[1:]) },
-	},
-	{
 		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",
 		usage: "Stream a one-shot chat answer (use --conversation to follow up)", section: "Generation",
 		minArgs: 2, maxArgs: -1,
@@ -620,20 +613,6 @@ var commands = []command{
 			return generateReport(c, args[0])
 		},
 	},
-	{
-		name: "start-draft", argsUsage: "<notebook-id>",
-		usage: "Start draft (deprecated: use create-report)", section: "Generation",
-		minArgs: 1, maxArgs: 1, hidden: true,
-		run: func(c *api.Client, args []string) error {
-			_, err := c.StartDraft(args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Fprintf(os.Stderr, "Draft started.\n")
-			return nil
-		},
-	},
-
 	// Chat operations
 	{
 		name: "chat", argsUsage: "<notebook-id> [conversation-id | prompt]",
@@ -778,7 +757,7 @@ var commands = []command{
 
 	// Other operations
 	{
-		name: "mcp",
+		name:  "mcp",
 		usage: "Run the MCP server on stdin/stdout", section: "Other",
 		minArgs: 0, maxArgs: 0,
 		run: func(c *api.Client, args []string) error { return runMCP(c) },
@@ -794,7 +773,7 @@ var commands = []command{
 		},
 	},
 	{
-		name: "refresh",
+		name:  "refresh",
 		usage: "Refresh stored authentication credentials", section: "Other",
 		minArgs: 0, maxArgs: -1,
 		noAuth: true, noClient: true,
@@ -807,7 +786,7 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return submitFeedback(c, args[0]) },
 	},
 	{
-		name: "hb",
+		name:  "hb",
 		usage: "Send a session heartbeat", section: "Other",
 		minArgs: 0, maxArgs: 0,
 		run: func(c *api.Client, args []string) error { return heartbeat(c) },

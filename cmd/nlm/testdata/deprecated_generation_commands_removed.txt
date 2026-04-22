@@ -1,0 +1,9 @@
+# Removed hidden generation commands should now be unknown commands.
+
+! exec ./nlm_test generate-magic
+stderr 'Usage: nlm <command>'
+! stderr 'usage: nlm generate-magic'
+
+! exec ./nlm_test start-draft
+stderr 'Usage: nlm <command>'
+! stderr 'usage: nlm start-draft'

@@ -26,7 +26,6 @@ import (
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/nlmmcp"
 	"github.com/tmc/nlm/internal/notebooklm/api"
-	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	nlmsync "github.com/tmc/nlm/internal/sync"
 	"golang.org/x/term"
 )
@@ -279,6 +278,9 @@ func main() {
 // operation failed. If err is not a batchexecute APIError the return value
 // is err.Error() unchanged.
 func friendlyError(err error) string {
+	if errors.Is(err, api.ErrSourceCapReached) {
+		return friendlyTypedError(err, api.ErrSourceCapReached, "notebook is at the source limit; remove unused sources before adding more")
+	}
 	var apiErr *batchexecute.APIError
 	if !errors.As(err, &apiErr) {
 		return err.Error()
@@ -295,6 +297,24 @@ func friendlyError(err error) string {
 		return msg
 	}
 	return prefix + ": " + msg
+}
+
+func friendlyTypedError(err, target error, msg string) string {
+	full := err.Error()
+
+	var apiErr *batchexecute.APIError
+	if errors.As(err, &apiErr) {
+		full = strings.TrimSuffix(full, apiErr.Error())
+		full = strings.TrimRight(full, ": ")
+	}
+
+	full = strings.TrimSuffix(full, target.Error())
+	full = strings.TrimRight(full, ": ")
+
+	if full == "" {
+		return msg
+	}
+	return full + ": " + msg
 }
 
 // friendlyAPIMessage returns a human-readable description for an APIError.
@@ -1146,23 +1166,6 @@ func generateSourceGuides(c *api.Client, sourceIDs []string) error {
 	return nil
 }
 
-func generateMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
-	fmt.Fprintf(os.Stderr, "Generating magic view...\n")
-	magicView, err := c.GenerateMagicView(notebookID, sourceIDs)
-	if err != nil {
-		return fmt.Errorf("generate magic view: %w", err)
-	}
-
-	fmt.Printf("Magic View: %s\n", magicView.Title)
-	if len(magicView.Items) > 0 {
-		fmt.Printf("\nItems:\n")
-		for i, item := range magicView.Items {
-			fmt.Printf("%d. %s\n", i+1, item.Title)
-		}
-	}
-	return nil
-}
-
 func actOnSourcesMindmap(c *api.Client, notebookID string, sourceIDs []string) error {
 	fmt.Fprintf(os.Stderr, "Generating interactive mindmap...\n")
 	content, err := c.ActOnSources(notebookID, "interactive_mindmap", sourceIDs)
@@ -1207,39 +1210,6 @@ func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []s
 		fmt.Print(content)
 	}
 	return nil
-}
-
-// Other operations
-// createArtifact dispatches to the type-specific creation methods.
-// All types use R7cb6c under the hood.
-func createArtifact(c *api.Client, notebookID, artifactType, instructions string) error {
-	switch strings.ToLower(artifactType) {
-	case "audio":
-		return createAudioOverview(c, notebookID, instructions)
-	case "video":
-		return createVideoOverview(c, notebookID, instructions)
-	case "slides":
-		artifactID, err := c.CreateSlideDeck(notebookID, instructions)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stderr, "Created slide deck: %s\n", artifactID)
-		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", notebookID)
-		return nil
-	case "report":
-		if instructions == "" {
-			return fmt.Errorf("report type requires instructions: nlm create-artifact <nb> report <topic> [description]")
-		}
-		parts := strings.SplitN(instructions, " ", 2)
-		topic := parts[0]
-		desc := ""
-		if len(parts) > 1 {
-			desc = parts[1]
-		}
-		return createReport(c, notebookID, topic, []string{desc})
-	default:
-		return fmt.Errorf("unknown artifact type %q (audio, video, slides, report)", artifactType)
-	}
 }
 
 func createAudioOverview(c *api.Client, projectID string, instructions string) error {
@@ -1444,7 +1414,7 @@ func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
 
 func discoverSources(c *api.Client, projectID, query string) error {
 	fmt.Fprintf(os.Stderr, "DiscoverSources is deprecated upstream; using deep research workflow instead.\n")
-	if err := deepResearch(c, projectID, query); err == nil {
+	if err := runDeepResearch(c, projectID, query); err == nil {
 		return nil
 	}
 
@@ -3004,85 +2974,6 @@ func listChatConversations(c *api.Client, notebookID string) error {
 	return flush()
 }
 
-func deepResearch(c *api.Client, notebookID, query string) error {
-	project, err := c.GetProject(notebookID)
-	if err != nil {
-		return fmt.Errorf("look up notebook: %w", err)
-	}
-	if len(project.Sources) == 0 {
-		return fmt.Errorf("notebook has no sources; add at least one with 'nlm add-source %s <path-or-url>' before running research", notebookID)
-	}
-
-	rpcClient := rpc.New(authToken, cookies)
-
-	// Start deep research
-	fmt.Fprintf(os.Stderr, "Starting deep research: %s\n", query)
-	startResp, err := rpcClient.Do(rpc.Call{
-		ID:         rpc.RPCStartDeepResearch,
-		NotebookID: notebookID,
-		Args:       []interface{}{notebookID, query, []interface{}{2}},
-	})
-	if err != nil {
-		return fmt.Errorf("start deep research: %w", err)
-	}
-
-	// Extract research ID from response
-	var startData []interface{}
-	if err := json.Unmarshal(startResp, &startData); err != nil {
-		return fmt.Errorf("parse start response: %w", err)
-	}
-
-	// Research ID is typically at position [0]
-	researchID := ""
-	if len(startData) > 0 {
-		if id, ok := startData[0].(string); ok {
-			researchID = id
-		}
-	}
-	if researchID == "" {
-		// Print raw response for debugging
-		fmt.Fprintf(os.Stderr, "Research started (raw response: %s)\n", string(startResp))
-		researchID = notebookID // fallback: use notebook ID for polling
-	} else {
-		fmt.Fprintf(os.Stderr, "Research ID: %s\n", researchID)
-	}
-
-	// Poll for results
-	fmt.Fprintf(os.Stderr, "Polling for results")
-	for i := 0; i < 120; i++ { // max 10 minutes (120 * 5s)
-		time.Sleep(5 * time.Second)
-		fmt.Fprintf(os.Stderr, ".")
-
-		pollResp, err := rpcClient.Do(rpc.Call{
-			ID:         rpc.RPCPollDeepResearch,
-			NotebookID: notebookID,
-			Args:       []interface{}{notebookID, researchID, []interface{}{2}},
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "\n")
-			return fmt.Errorf("poll deep research: %w", err)
-		}
-
-		var pollData []interface{}
-		if err := json.Unmarshal(pollResp, &pollData); err != nil {
-			continue // response may not be parseable yet
-		}
-
-		// Check if research is complete — look for content in response
-		// The response payload grows as the research progresses
-		if len(pollResp) > 1000 {
-			fmt.Fprintf(os.Stderr, "\nResearch complete.\n\n")
-			// Extract and print the research content
-			// The content is typically a large text blob in the response
-			fmt.Println(string(pollResp))
-			return nil
-		}
-	}
-
-	fmt.Fprintf(os.Stderr, "\nResearch timed out after 10 minutes.\n")
-	return fmt.Errorf("research timed out")
-}
-
 func setInstructions(c *api.Client, notebookID, prompt string) error {
 	if err := c.SetChatConfig(notebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault); err != nil {
 		return fmt.Errorf("set instructions: %w", err)
@@ -3121,68 +3012,15 @@ func getInstructions(c *api.Client, notebookID string) error {
 // Utility functions for commented-out operations
 func shareNotebook(c *api.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating public share link...\n")
-
-	// Create RPC client directly for sharing project
-	rpcClient := rpc.New(authToken, cookies)
-	// Wire format from JS analysis (mAb function):
-	//   field 1: repeated YM [{field 1: projectId, field 3: Uzb{field 1: true} (link sharing)}]
-	//   field 2: bool (M3 flag)
-	//   field 4: ProjectContext [2]
-	// HAR-verified wire format:
-	// [  [["notebook-id", null, [1, 1], [0, ""]]]  , 1, null, [2] ]
-	// linkSettings [1, 1] = enabled + public; [1, 0] = enabled + private
-	call := rpc.Call{
-		ID: "QDyure", // ShareProject RPC ID
-		Args: []interface{}{
-			[]interface{}{[]interface{}{notebookID, nil, []interface{}{1, 1}, []interface{}{0, ""}}},
-			1,                // int, not bool
-			nil,              // gap
-			[]interface{}{2}, // ProjectContext
-		},
-	}
-
-	resp, err := rpcClient.Do(call)
+	resp, err := c.ShareProject(notebookID, &pb.ShareSettings{IsPublic: true})
 	if err != nil {
 		return fmt.Errorf("share project: %w", err)
 	}
-
-	// Parse response to extract share URL
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return fmt.Errorf("parse response: %w", err)
+	if resp.GetShareUrl() == "" {
+		return fmt.Errorf("share project: server did not return a public share URL")
 	}
-
-	if debug {
-		raw, _ := json.MarshalIndent(data, "", "  ")
-		fmt.Fprintf(os.Stderr, "DEBUG: share response: %s\n", raw)
-	}
-
-	// Search for a URL string in the response (may be nested at various depths)
-	if url := findShareURL(data); url != "" {
-		fmt.Printf("Share URL: %s\n", url)
-		return nil
-	}
-
-	// If no URL in response, the share succeeded but URL is constructed from project ID
-	fmt.Printf("Share URL: https://notebooklm.google.com/notebook/%s\n", notebookID)
+	fmt.Printf("Share URL: %s\n", resp.GetShareUrl())
 	return nil
-}
-
-// findShareURL recursively searches a JSON structure for a URL string.
-func findShareURL(v interface{}) string {
-	switch val := v.(type) {
-	case string:
-		if strings.HasPrefix(val, "http") && strings.Contains(val, "notebooklm") {
-			return val
-		}
-	case []interface{}:
-		for _, item := range val {
-			if url := findShareURL(item); url != "" {
-				return url
-			}
-		}
-	}
-	return ""
 }
 
 func submitFeedback(c *api.Client, message string) error {
@@ -3200,12 +3038,25 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 	if err != nil {
 		return fmt.Errorf("share project privately: %w", err)
 	}
-	if resp.GetShareUrl() != "" {
-		fmt.Printf("Private Share URL: %s\n", resp.GetShareUrl())
-		return nil
-	}
-	fmt.Printf("Project shared privately (URL format not recognized)\n")
+	printPrivateShareResult(os.Stdout, notebookID, resp)
 	return nil
+}
+
+func printPrivateShareResult(w io.Writer, notebookID string, resp *pb.ShareProjectResponse) {
+	if resp == nil {
+		fmt.Fprintf(w, "Project shared privately, but the server returned no share metadata. Open https://notebooklm.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
+		return
+	}
+	if resp.GetShareUrl() != "" {
+		fmt.Fprintf(w, "Private Share URL: %s\n", resp.GetShareUrl())
+		return
+	}
+	if resp.GetShareId() != "" {
+		fmt.Fprintf(w, "Private Share ID: %s\n", resp.GetShareId())
+		fmt.Fprintf(w, "Open https://notebooklm.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
+		return
+	}
+	fmt.Fprintf(w, "Project shared privately, but the server returned no share URL or share ID. Open https://notebooklm.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
 }
 
 func getShareDetails(c *api.Client, shareID string) error {

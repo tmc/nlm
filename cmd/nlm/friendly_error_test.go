@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 // TestFriendlyError verifies that raw gRPC error codes never reach the user
@@ -14,9 +15,9 @@ import (
 // friendly description.
 func TestFriendlyError(t *testing.T) {
 	tests := []struct {
-		name          string
-		err           error
-		wantContains  []string
+		name           string
+		err            error
+		wantContains   []string
 		wantNotContain []string
 	}{
 		{
@@ -44,6 +45,22 @@ func TestFriendlyError(t *testing.T) {
 			}),
 			wantContains:   []string{"get project", "valid authentication credentials"},
 			wantNotContain: []string{"API error 16", "error 16:"},
+		},
+		{
+			name: "source cap sentinel hides wrapper noise",
+			err: fmt.Errorf("add source from URL: %w: %w",
+				api.ErrSourceCapReached,
+				&batchexecute.APIError{
+					ErrorCode: &batchexecute.ErrorCode{
+						Code:        9,
+						Type:        batchexecute.ErrorTypeInvalidInput,
+						Message:     "Failed precondition",
+						Description: "Operation was rejected for a state reason.",
+					},
+				},
+			),
+			wantContains:   []string{"add source from URL", "source limit"},
+			wantNotContain: []string{"notebook source cap reached", "API error 9"},
 		},
 		{
 			name:         "plain error passes through unchanged",

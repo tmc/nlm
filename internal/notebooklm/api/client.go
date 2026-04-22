@@ -242,10 +242,7 @@ func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Pr
 	ctx := context.Background()
 	project, err := c.orchestrationService.AddSources(ctx, req)
 	if err != nil {
-		if isFailedPrecondition(err) {
-			return nil, fmt.Errorf("add sources: %w: %w", ErrSourceCapReached, err)
-		}
-		return nil, fmt.Errorf("add sources: %w", err)
+		return nil, wrapSourceAddError("add sources", err)
 	}
 	return project, nil
 }
@@ -502,7 +499,7 @@ func (c *Client) AddSourceFromText(projectID string, content, title string) (str
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("add text source: %w", err)
+		return "", wrapSourceAddError("add text source", err)
 	}
 
 	sourceID, err := extractSourceID(resp)
@@ -529,7 +526,7 @@ func (c *Client) AddSourceFromBase64(projectID string, content, filename, conten
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("add binary source: %w", err)
+		return "", wrapSourceAddError("add binary source", err)
 	}
 
 	sourceID, err := extractSourceID(resp)
@@ -721,7 +718,7 @@ func (c *Client) registerFileSource(projectID, filename, sourceID string) (strin
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("register file source RPC: %w", err)
+		return "", wrapSourceAddError("register file source RPC", err)
 	}
 
 	registeredID, err := extractSourceID(resp)
@@ -830,7 +827,7 @@ func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) 
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("add source from URL: %w", err)
+		return "", wrapSourceAddError("add source from URL", err)
 	}
 
 	sourceID, err := extractSourceID(resp)
@@ -871,7 +868,7 @@ func (c *Client) AddYouTubeSource(projectID, videoID string) (string, error) {
 		Args:       payload,
 	})
 	if err != nil {
-		return "", fmt.Errorf("add YouTube source: %w", err)
+		return "", wrapSourceAddError("add YouTube source", err)
 	}
 
 	if c.rpc.Config.Debug {
@@ -887,6 +884,13 @@ func (c *Client) AddYouTubeSource(projectID, videoID string) (string, error) {
 		return "", fmt.Errorf("extract source ID: %w", err)
 	}
 	return sourceID, nil
+}
+
+func wrapSourceAddError(op string, err error) error {
+	if isFailedPrecondition(err) {
+		return fmt.Errorf("%s: %w: %w", op, ErrSourceCapReached, err)
+	}
+	return fmt.Errorf("%s: %w", op, err)
 }
 
 // Helper function to extract source ID with better error handling
@@ -2142,160 +2146,15 @@ func (c *Client) DownloadVideoOverview(projectID string) (*VideoOverviewResult, 
 		return nil, fmt.Errorf("get video overview: %w", err)
 	}
 
-	// Check if we have video data
 	if result.VideoData == "" {
-		// Try different approaches to get video download URL
-		if err := c.tryGetVideoDownloadURL(result); err != nil {
-			return nil, fmt.Errorf("no video data found - video may not be ready yet or may need web interface: %w", err)
-		}
+		return nil, manualVideoDownloadError(projectID)
 	}
 
 	return result, nil
 }
 
-// tryGetVideoDownloadURL attempts to find the video download URL using various methods
-func (c *Client) tryGetVideoDownloadURL(result *VideoOverviewResult) error {
-	if result.VideoID == "" {
-		return fmt.Errorf("no video ID available")
-	}
-
-	// Method 1: Try to get video URL by requesting detailed video data
-	if videoUrl, err := c.getVideoURLFromAPI(result.ProjectID, result.VideoID); err == nil {
-		result.VideoData = videoUrl
-		return nil
-	} else if c.config.Debug {
-		fmt.Printf("API video URL lookup failed: %v\n", err)
-	}
-
-	// Method 2: Check if the video ID itself is a URL or contains URL components
-	if strings.HasPrefix(result.VideoID, "http") {
-		result.VideoData = result.VideoID
-		return nil
-	}
-
-	// Method 3: Provide instructions for manual download
-	return fmt.Errorf("automatic video download not available - please visit https://notebooklm.google.com/notebook/%s to download manually", result.ProjectID)
-}
-
-// getVideoURLFromAPI attempts to get video URL from various API endpoints
-func (c *Client) getVideoURLFromAPI(projectID, videoID string) (string, error) {
-	// Try to get project details which might contain video URLs
-	project, err := c.GetProject(projectID)
-	if err != nil {
-		return "", fmt.Errorf("get project details: %w", err)
-	}
-
-	// Look for video metadata in project that might contain URLs
-	if project.Metadata != nil && c.config.Debug {
-		fmt.Printf("Project metadata: %+v\n", project.Metadata)
-	}
-
-	// Try to use the CreateVideoOverview with different parameters to get existing video data
-	// This might return the URL in the response
-	if videoUrl, err := c.tryGetExistingVideoURL(projectID, videoID); err == nil {
-		return videoUrl, nil
-	}
-
-	return "", fmt.Errorf("no video URL found in API responses")
-}
-
-// tryGetExistingVideoURL attempts to get video URL by querying for existing video
-func (c *Client) tryGetExistingVideoURL(projectID, videoID string) (string, error) {
-	// Get sources from the project
-	project, err := c.GetProject(projectID)
-	if err != nil {
-		return "", fmt.Errorf("get sources: %w", err)
-	}
-
-	if len(project.Sources) == 0 {
-		return "", fmt.Errorf("no sources in project")
-	}
-
-	// Use first source ID
-	sourceID := project.Sources[0].SourceId
-	sourceIDs := []interface{}{[]interface{}{sourceID}}
-
-	// Try a "status" or "get" request for existing video
-	// Mode 0 might be for getting existing data
-	videoArgs := []interface{}{
-		[]interface{}{0}, // Mode 0 = status/get instead of create
-		projectID,        // Notebook ID
-		[]interface{}{
-			nil, nil, 3,
-			[]interface{}{sourceIDs}, // Source IDs array
-			nil, nil, nil, nil,
-			[]interface{}{
-				nil, nil,
-				[]interface{}{
-					sourceIDs, // Source IDs again
-					"en",      // Language
-					videoID,   // Video ID instead of instructions
-				},
-			},
-		},
-	}
-
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCCreateVideoOverview, // Reuse the same endpoint
-		NotebookID: projectID,
-		Args:       videoArgs,
-	})
-	if err != nil {
-		return "", fmt.Errorf("video status RPC: %w", err)
-	}
-
-	// Parse response looking for URLs
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return "", fmt.Errorf("parse video status response: %w", err)
-	}
-
-	// Look through response for URLs that match the googleusercontent.com pattern
-	if url := c.extractVideoURLFromResponse(responseData); url != "" {
-		return url, nil
-	}
-
-	return "", fmt.Errorf("no video URL found in response")
-}
-
-// extractVideoURLFromResponse looks for video URLs in API response data
-func (c *Client) extractVideoURLFromResponse(data []interface{}) string {
-	// Recursively search through the response data for URLs
-	for _, item := range data {
-		if url := c.findVideoURL(item); url != "" {
-			return url
-		}
-	}
-	return ""
-}
-
-// findVideoURL recursively searches for video URLs in response data
-func (c *Client) findVideoURL(item interface{}) string {
-	switch v := item.(type) {
-	case string:
-		// Check if this string is a video URL
-		if strings.Contains(v, "googleusercontent.com") && (strings.Contains(v, "notebooklm") || strings.Contains(v, "rd-notebooklm")) {
-			if c.config.Debug {
-				fmt.Printf("Found potential video URL: %s\n", v)
-			}
-			return v
-		}
-	case []interface{}:
-		// Recursively search arrays
-		for _, subItem := range v {
-			if url := c.findVideoURL(subItem); url != "" {
-				return url
-			}
-		}
-	case map[string]interface{}:
-		// Recursively search maps
-		for _, subItem := range v {
-			if url := c.findVideoURL(subItem); url != "" {
-				return url
-			}
-		}
-	}
-	return ""
+func manualVideoDownloadError(projectID string) error {
+	return fmt.Errorf("direct video download URL is not exposed by the current API response; download manually from https://notebooklm.google.com/notebook/%s", projectID)
 }
 
 // SaveVideoToFile saves video data to a file
