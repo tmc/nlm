@@ -227,12 +227,17 @@ func resolveName(name string, paths []string) (string, error) {
 		return name, nil
 	}
 	if len(paths) == 1 {
-		info, err := os.Stat(paths[0])
-		if err == nil && info.IsDir() {
-			return filepath.Base(paths[0]), nil
+		base := filepath.Base(paths[0])
+		// "." / ".." / "" resolve to the CWD's basename, which is almost
+		// always what the user meant.
+		if base == "." || base == ".." || base == "" || base == string(filepath.Separator) {
+			abs, err := filepath.Abs(paths[0])
+			if err != nil {
+				return "", fmt.Errorf("resolve default name from %q: %w", paths[0], err)
+			}
+			base = filepath.Base(abs)
 		}
-		// Single file: use its basename without extension.
-		return filepath.Base(paths[0]), nil
+		return base, nil
 	}
 	return "", fmt.Errorf("--name is required when multiple paths or stdin are used")
 }

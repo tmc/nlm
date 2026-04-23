@@ -372,6 +372,10 @@ func TestNeedsQuote(t *testing.T) {
 
 func TestResolveName(t *testing.T) {
 	dir := t.TempDir()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("os.Getwd: %v", err)
+	}
 	tests := []struct {
 		name    string
 		paths   []string
@@ -381,6 +385,7 @@ func TestResolveName(t *testing.T) {
 		{"explicit", []string{"/any"}, "explicit", false},
 		{"", []string{dir}, filepath.Base(dir), false},
 		{"", []string{"/a", "/b"}, "", true},
+		{"", []string{"."}, filepath.Base(cwd), false},
 	}
 	for _, tt := range tests {
 		got, err := resolveName(tt.name, tt.paths)
