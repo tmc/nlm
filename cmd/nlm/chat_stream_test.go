@@ -499,6 +499,7 @@ func TestChatStreamRendererJSONLEmitsTypedEvents(t *testing.T) {
 	var out, status bytes.Buffer
 	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
 	r.jsonl = true
+	r.jsonlIncludeThinking = true
 
 	r.WriteChunk(api.ChatChunk{
 		Phase:  api.ChatChunkThinking,
@@ -576,6 +577,7 @@ func TestChatStreamRendererJSONLCumulativeThinkingNotDuplicated(t *testing.T) {
 	var out, status bytes.Buffer
 	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
 	r.jsonl = true
+	r.jsonlIncludeThinking = true
 
 	// Thinking arrives as cumulative snapshots; jsonl must emit once per
 	// change, not once per snapshot.
@@ -606,5 +608,43 @@ func TestChatStreamRendererJSONLIsOptIn(t *testing.T) {
 
 	if got := out.String(); got != "plain answer" {
 		t.Fatalf("non-jsonl stdout = %q, want plain answer (jsonl mode leaked into default path)", got)
+	}
+}
+
+func TestChatStreamRendererJSONLGatesThinking(t *testing.T) {
+	// --citations=json without --thinking suppresses thinking events on stdout
+	// while still emitting answer + citation JSON-lines events.
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeJSON)
+	r.jsonl = true
+	// jsonlIncludeThinking intentionally left false.
+
+	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "hidden trace"})
+	r.WriteChunk(api.ChatChunk{
+		Phase: api.ChatChunkAnswer,
+		Text:  "answer body",
+		Citations: []api.Citation{
+			{SourceIndex: 1, SourceID: "s1", Title: "t", StartChar: 0, EndChar: 6},
+		},
+	})
+	r.Finish()
+
+	events := parseJSONLEvents(t, out.String())
+	for _, ev := range events {
+		if ev["phase"] == "thinking" {
+			t.Fatalf("thinking event leaked into jsonl output without --thinking: %v", ev)
+		}
+	}
+	sawAnswer, sawCitation := false, false
+	for _, ev := range events {
+		switch ev["phase"] {
+		case "answer":
+			sawAnswer = true
+		case "citation":
+			sawCitation = true
+		}
+	}
+	if !sawAnswer || !sawCitation {
+		t.Fatalf("expected answer + citation events, got %+v", events)
 	}
 }

@@ -130,10 +130,10 @@ func init() {
 	flag.BoolVar(&showChatHistory, "history", false, "show previous chat conversation on start")
 	flag.BoolVar(&showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
 	flag.BoolVar(&showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
-	flag.BoolVar(&thinkingJSONL, "thinking-jsonl", false, "emit chat stream as JSON-lines events on stdout (thinking/answer/citation/followup); pairs with jq")
+	flag.BoolVar(&thinkingJSONL, "thinking-jsonl", false, "deprecated: equivalent to --citations=json --thinking; emits thinking+answer+citation+followup JSON-lines events")
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
-	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay (default: block on TTY, off when piped)")
+	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay|json (default: stream on TTY, off when piped; json emits answer+citation JSON-lines)")
 	flag.StringVar(&sourceIDsFlag, "source-ids", "", "focus on these source IDs (e.g. 'a,b,c' or '-' for newline-delimited stdin); applies to chat, report, and transform commands")
 	flag.StringVar(&sourceMatchFlag, "source-match", "", "focus on sources whose title or UUID matches this regex (e.g. '^nlm internal/' or '^132af'); unioned with --source-ids")
 	flag.StringVar(&promptFile, "prompt-file", "", "read prompt from file for one-shot chat ('-' reads stdin). Reliable for long/automated prompts.")
@@ -1575,6 +1575,7 @@ const (
 	citationModeStream                            // Stream live; trailing footer lists citations with their char ranges.
 	citationModeTail                              // Stream live, hold a bounded tail window; splice inline superscripts where possible.
 	citationModeOverlay                           // Buffer the whole answer; at Finish, splice inline superscripts at exact positions.
+	citationModeJSON                              // Emit answer deltas and citations as JSON-lines events on stdout.
 )
 
 // resolveCitationMode maps the user-facing --citations flag to a mode.
@@ -1591,6 +1592,8 @@ func resolveCitationMode(flag string, outIsTTY bool) citationRenderMode {
 		return citationModeTail
 	case "overlay", "footnote":
 		return citationModeOverlay
+	case "json", "jsonl":
+		return citationModeJSON
 	}
 	if outIsTTY {
 		return citationModeStream
@@ -1642,8 +1645,9 @@ type chatStreamRenderer struct {
 	status          io.Writer
 	showThinking    bool
 	verbose         bool
-	jsonl           bool // when true, emit typed JSON-lines events on r.out instead of human output
-	citationMode    citationRenderMode
+	jsonl                bool // when true, emit typed JSON-lines events on r.out instead of human output
+	jsonlIncludeThinking bool // when true, thinking chunks are emitted as JSON-lines events (otherwise skipped)
+	citationMode         citationRenderMode
 	tailWindow      int                          // tail mode: max bytes held back for splicing
 	resolveTitle    func(sourceID string) string // optional; returns "" if unknown
 	lastThinkingLen int
@@ -1732,6 +1736,9 @@ func (r *chatStreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
 	switch chunk.Phase {
 	case api.ChatChunkThinking:
 		r.thinking = chunk.Text
+		if !r.jsonlIncludeThinking {
+			return
+		}
 		if chunk.Text == r.jsonlThinkingSeen {
 			return
 		}
@@ -2070,8 +2077,15 @@ type chatResult struct {
 
 func streamChatResponse(c *api.Client, req api.ChatRequest) (chatResult, error) {
 	mode := resolveCitationMode(citationMode, isTerminal(os.Stdout))
-	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, showThinking || verbose || isTerminal(os.Stdout), verbose, mode)
-	renderer.jsonl = thinkingJSONL
+	// --thinking-jsonl is the legacy form of `--citations=json --thinking`.
+	// Keep it working by folding its effects into the cleaner flags.
+	wantThinking := showThinking || verbose || thinkingJSONL
+	if thinkingJSONL {
+		mode = citationModeJSON
+	}
+	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, wantThinking || (mode != citationModeJSON && isTerminal(os.Stdout)), verbose, mode)
+	renderer.jsonl = mode == citationModeJSON
+	renderer.jsonlIncludeThinking = wantThinking
 	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
 
 	err := c.StreamChat(req, func(chunk api.ChatChunk) bool {
