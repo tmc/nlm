@@ -145,6 +145,27 @@ func (c *Client) authUserOrDefault() string {
 	return "0"
 }
 
+// setChromeClientHints sets User-Agent and the sec-ch-ua-* client hint headers,
+// plus the Sec-Fetch-* trio and Origin. Scotty's /upload/_/ endpoint rejects
+// requests without browser-style headers with 500 + X-Goog-Upload-Status: final.
+// Values mirror a current Brave/Chromium build.
+func setChromeClientHints(h http.Header) {
+	h.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36")
+	h.Set("sec-ch-ua", `"Brave";v="147", "Not.A/Brand";v="8", "Chromium";v="147"`)
+	h.Set("sec-ch-ua-arch", `"arm"`)
+	h.Set("sec-ch-ua-bitness", `"64"`)
+	h.Set("sec-ch-ua-full-version-list", `"Brave";v="147.0.0.0", "Not.A/Brand";v="8.0.0.0", "Chromium";v="147.0.0.0"`)
+	h.Set("sec-ch-ua-mobile", "?0")
+	h.Set("sec-ch-ua-model", `""`)
+	h.Set("sec-ch-ua-platform", `"macOS"`)
+	h.Set("sec-ch-ua-platform-version", `"26.4.1"`)
+	h.Set("sec-ch-ua-wow64", "?0")
+	h.Set("Origin", "https://notebooklm.google.com")
+	h.Set("Sec-Fetch-Site", "same-origin")
+	h.Set("Sec-Fetch-Mode", "cors")
+	h.Set("Sec-Fetch-Dest", "empty")
+}
+
 // Project/Notebook operations
 
 func (c *Client) ListRecentlyViewedProjects() ([]*Notebook, error) {
@@ -329,6 +350,37 @@ func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
 		return nil, fmt.Errorf("load source: %w", err)
 	}
 	return source, nil
+}
+
+// LoadSourceRaw calls the LoadSource RPC (hizoJc) and returns the raw JSON
+// wire response. The generated pb.Source struct does not model every field
+// the server returns — most notably the indexed full-text body — so callers
+// that need to inspect or parse the full payload can read it directly.
+//
+// The observed wire shape (HAR-verified against the web UI) is:
+//
+//	f.req=[[["hizoJc","[[\"SOURCE_ID\"],[2],[2]]",null,"generic"]]]
+//
+// i.e. args = [[source_id], [2], [2]]. The trailing [2] arrays appear to be
+// view/mode enums; they are required — single-arg forms return
+// "One or more arguments are invalid".
+//
+// notebookID is optional but is forwarded in the `source-path` URL param
+// (`/notebook/<project_id>`) when provided, matching the web UI.
+func (c *Client) LoadSourceRaw(sourceID, notebookID string) (json.RawMessage, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCLoadSource,
+		NotebookID: notebookID,
+		Args: []interface{}{
+			[]interface{}{sourceID},
+			[]interface{}{2},
+			[]interface{}{2},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("load source raw: %w", err)
+	}
+	return resp, nil
 }
 
 func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
@@ -536,22 +588,29 @@ func (c *Client) AddSourceFromBase64(projectID string, content, filename, conten
 	return sourceID, nil
 }
 
-// uploadFileSource uploads a binary file using Google's Resumable Upload Protocol,
-// then registers the uploaded file as a source in the notebook.
+// uploadFileSource uploads a binary file using Google's Resumable Upload Protocol.
 //
-// The protocol has three steps:
-//  1. Start upload: POST to /upload/_/ with metadata, get back an upload URL
-//  2. Upload bytes: POST raw file bytes to the upload URL
-//  3. Register source: RPC o4cbdc to associate the uploaded file with the notebook
+// The protocol order, per a fresh Chrome HAR, is:
+//  1. Register source via RPC o4cbdc; server returns the SOURCE_ID
+//  2. Start upload: POST to /upload/_/ with that SOURCE_ID, get back an upload URL
+//  3. Upload bytes: POST raw file bytes to the upload URL
+//
+// Doing (1) last (as earlier versions did) causes Scotty to reject (2) with
+// 500 + X-Goog-Upload-Status: final, because the SOURCE_ID in the metadata is
+// unknown to the server.
 func (c *Client) uploadFileSource(projectID, filename string, content []byte) (string, error) {
-	sourceID := uuid.New().String()
+	// Step 1: Register the source first so the server assigns a SOURCE_ID.
+	sourceID, err := c.registerFileSource(projectID, filename)
+	if err != nil {
+		return "", fmt.Errorf("register file source: %w", err)
+	}
 
 	if c.config.Debug {
 		fmt.Fprintf(os.Stderr, "DEBUG: uploading file %q (%d bytes) via resumable upload\n", filename, len(content))
-		fmt.Fprintf(os.Stderr, "DEBUG: generated source ID: %s\n", sourceID)
+		fmt.Fprintf(os.Stderr, "DEBUG: server-assigned source ID: %s\n", sourceID)
 	}
 
-	// Step 1: Start the resumable upload session
+	// Step 2: Start the resumable upload session with the server's SOURCE_ID.
 	uploadURL, err := c.startResumableUpload(projectID, filename, sourceID, len(content))
 	if err != nil {
 		return "", fmt.Errorf("start upload: %w", err)
@@ -561,7 +620,7 @@ func (c *Client) uploadFileSource(projectID, filename string, content []byte) (s
 		fmt.Fprintf(os.Stderr, "DEBUG: got upload URL: %s\n", uploadURL)
 	}
 
-	// Step 2: Upload the file bytes
+	// Step 3: Upload the file bytes.
 	if err := c.uploadFileBytes(uploadURL, content); err != nil {
 		return "", fmt.Errorf("upload file bytes: %w", err)
 	}
@@ -570,30 +629,22 @@ func (c *Client) uploadFileSource(projectID, filename string, content []byte) (s
 		fmt.Fprintf(os.Stderr, "DEBUG: file bytes uploaded successfully\n")
 	}
 
-	// Step 3: Register the uploaded file as a source via RPC
-	registeredID, err := c.registerFileSource(projectID, filename, sourceID)
-	if err != nil {
-		return "", fmt.Errorf("register file source: %w", err)
-	}
-
-	// Step 4: Process the source (generate document guides)
-	if err := c.processFileSource(registeredID); err != nil {
-		if c.config.Debug {
-			fmt.Fprintf(os.Stderr, "DEBUG: process source warning: %v\n", err)
-		}
-		// Non-fatal: source is registered but processing may happen async
-	}
-
-	return registeredID, nil
+	return sourceID, nil
 }
 
 // startResumableUpload initiates a resumable upload session and returns the upload URL.
 func (c *Client) startResumableUpload(projectID, filename, sourceID string, contentLength int) (string, error) {
-	// Build metadata payload: base64-encoded JSON
-	metadata := map[string]string{
-		"PROJECT_ID":  projectID,
-		"SOURCE_NAME": filename,
-		"SOURCE_ID":   sourceID,
+	// Build metadata payload: base64-encoded JSON.
+	// Field order matches Chrome's upload (PROJECT_ID, SOURCE_NAME, SOURCE_ID);
+	// Go's map marshaling sorts keys alphabetically, which Scotty rejects with 500.
+	metadata := struct {
+		ProjectID  string `json:"PROJECT_ID"`
+		SourceName string `json:"SOURCE_NAME"`
+		SourceID   string `json:"SOURCE_ID"`
+	}{
+		ProjectID:  projectID,
+		SourceName: filename,
+		SourceID:   sourceID,
 	}
 	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
@@ -607,8 +658,8 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 		return "", fmt.Errorf("create request: %w", err)
 	}
 
-	// Set required headers for resumable upload initiation
-	// Per HAR capture: no X-Goog-Upload-Header-Content-Type is sent
+	// Required headers for resumable upload initiation per Scotty's protocol.
+	// Matches a fresh Chrome HAR: no X-Goog-Upload-Header-Content-Type sent.
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
 	req.Header.Set("X-Goog-Upload-Command", "start")
 	req.Header.Set("X-Goog-Upload-Protocol", "resumable")
@@ -620,7 +671,7 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 		req.Header.Set("Cookie", cookies)
 	}
 	req.Header.Set("Referer", "https://notebooklm.google.com/")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
+	setChromeClientHints(req.Header)
 
 	if c.config.Debug {
 		fmt.Fprintf(os.Stderr, "DEBUG: upload init URL: %s\n", uploadInitURL)
@@ -649,7 +700,24 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("upload init failed (status %d): %s", resp.StatusCode, string(body))
+		msg := strings.TrimSpace(string(body))
+		if msg == "" {
+			// Scotty frequently returns 5xx with an empty body; the real signal
+			// lives in response headers (X-Goog-Upload-Status, upload id, etc.).
+			if status := resp.Header.Get("X-Goog-Upload-Status"); status != "" {
+				msg = "X-Goog-Upload-Status=" + status
+			}
+			if id := resp.Header.Get("X-Guploader-Uploadid"); id != "" {
+				if msg != "" {
+					msg += " "
+				}
+				msg += "X-Guploader-Uploadid=" + id
+			}
+			if msg == "" {
+				msg = "(empty body)"
+			}
+		}
+		return "", fmt.Errorf("upload init failed (status %d): %s", resp.StatusCode, msg)
 	}
 
 	// The upload URL is returned in the X-Goog-Upload-URL header
@@ -683,7 +751,7 @@ func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
 		req.Header.Set("Cookie", cookies)
 	}
 	req.Header.Set("Referer", "https://notebooklm.google.com/")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36")
+	setChromeClientHints(req.Header)
 
 	client := httpClientWithTimeout(5 * time.Minute)
 	resp, err := client.Do(req)
@@ -694,14 +762,31 @@ func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, string(body))
+		msg := strings.TrimSpace(string(body))
+		if msg == "" {
+			if status := resp.Header.Get("X-Goog-Upload-Status"); status != "" {
+				msg = "X-Goog-Upload-Status=" + status
+			}
+			if id := resp.Header.Get("X-Guploader-Uploadid"); id != "" {
+				if msg != "" {
+					msg += " "
+				}
+				msg += "X-Guploader-Uploadid=" + id
+			}
+			if msg == "" {
+				msg = "(empty body)"
+			}
+		}
+		return fmt.Errorf("upload failed (status %d): %s", resp.StatusCode, msg)
 	}
 
 	return nil
 }
 
-// registerFileSource registers an uploaded file as a notebook source via RPC.
-func (c *Client) registerFileSource(projectID, filename, sourceID string) (string, error) {
+// registerFileSource registers a file as a notebook source via RPC o4cbdc and
+// returns the server-assigned SOURCE_ID. Called before the Scotty upload so the
+// upload init can reference a SOURCE_ID Scotty knows about.
+func (c *Client) registerFileSource(projectID, filename string) (string, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCAddFileSource,
 		NotebookID: projectID,
@@ -723,29 +808,12 @@ func (c *Client) registerFileSource(projectID, filename, sourceID string) (strin
 
 	registeredID, err := extractSourceID(resp)
 	if err != nil {
-		// If we can't extract an ID from the response, use the one we generated
 		if c.config.Debug {
-			fmt.Fprintf(os.Stderr, "DEBUG: could not extract source ID from register response, using generated ID\n")
 			fmt.Fprintf(os.Stderr, "DEBUG: register response: %s\n", string(resp))
 		}
-		return sourceID, nil
+		return "", fmt.Errorf("extract source ID from register response: %w", err)
 	}
 	return registeredID, nil
-}
-
-// processFileSource triggers document guide generation for a newly uploaded source.
-func (c *Client) processFileSource(sourceID string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGenerateDocumentGuides,
-		Args: []interface{}{
-			[]interface{}{
-				[]interface{}{
-					[]interface{}{sourceID},
-				},
-			},
-		},
-	})
-	return err
 }
 
 // setAuthHeaders adds authentication headers to an HTTP request.

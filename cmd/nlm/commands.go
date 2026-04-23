@@ -195,6 +195,47 @@ var commands = []command{
 			return discoverSources(c, args[0], args[1])
 		},
 	},
+	{
+		name: "dump-load-source", argsUsage: "<source-id> [notebook-id]",
+		usage: "Print the raw JSON wire response of LoadSource (hizoJc) for a source", section: "Source",
+		minArgs: 1, maxArgs: 2,
+		hidden: true, // developer tool; exposes unmodeled fields (text body fragments, etc.)
+		run: func(c *api.Client, args []string) error {
+			nb := ""
+			if len(args) == 2 {
+				nb = args[1]
+			}
+			raw, err := c.LoadSourceRaw(args[0], nb)
+			if err != nil {
+				return err
+			}
+			_, err = os.Stdout.Write(raw)
+			if err == nil {
+				fmt.Fprintln(os.Stdout)
+			}
+			return err
+		},
+	},
+	{
+		name: "read-source", argsUsage: "<source-id> [notebook-id]",
+		usage: "Print the server-indexed text body of a source (native offsets preserved)", section: "Source",
+		minArgs: 1, maxArgs: 2,
+		run: func(c *api.Client, args []string) error {
+			nb := ""
+			if len(args) == 2 {
+				nb = args[1]
+			}
+			body, err := c.LoadSourceText(args[0], nb)
+			if err != nil {
+				return err
+			}
+			if len(body.Fragments) == 0 {
+				return fmt.Errorf("source %s has no text body (non-text source, or body not indexed)", args[0])
+			}
+			_, err = fmt.Fprint(os.Stdout, body.Full())
+			return err
+		},
+	},
 
 	// Note operations
 	{
