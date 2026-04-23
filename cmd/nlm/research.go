@@ -28,11 +28,11 @@ var (
 //	report_chunk     — a chunk of the markdown report (deep only)
 //	complete         — terminal event with the final report and source list
 type researchEvent struct {
-	Type    string           `json:"type"`
-	Mode    string           `json:"mode,omitempty"`
-	Query   string           `json:"query,omitempty"`
-	Report  string           `json:"report,omitempty"`
-	Delta   string           `json:"report_delta,omitempty"`
+	Type    string               `json:"type"`
+	Mode    string               `json:"mode,omitempty"`
+	Query   string               `json:"query,omitempty"`
+	Report  string               `json:"report,omitempty"`
+	Delta   string               `json:"report_delta,omitempty"`
 	Sources []api.ResearchSource `json:"sources,omitempty"`
 	// Deep-only: surface the researchID so a caller that needs to resume a
 	// poll later can persist it.
@@ -51,22 +51,22 @@ type researchEvent struct {
 // the request and poll response shapes are captured. Exit-code wiring
 // via ErrResearchPolling is in place so the taxonomy (exit 7) applies the
 // moment the polling shape is known.
-func runResearch(c *api.Client, notebookID, query string) error {
-	mode := strings.ToLower(strings.TrimSpace(researchMode))
+func runResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
+	mode := strings.ToLower(strings.TrimSpace(opts.Mode))
 	if mode == "" {
 		mode = "deep"
 	}
 	switch mode {
 	case "fast":
-		return runFastResearch(c, notebookID, query)
+		return runFastResearch(c, notebookID, query, opts)
 	case "deep":
-		return runDeepResearch(c, notebookID, query)
+		return runDeepResearch(c, notebookID, query, opts)
 	default:
-		return fmt.Errorf("--mode=%q: want fast or deep", researchMode)
+		return fmt.Errorf("--mode=%q: want fast or deep", opts.Mode)
 	}
 }
 
-func runFastResearch(c *api.Client, notebookID, query string) error {
+func runFastResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
 	fmt.Fprintf(os.Stderr, "Fast research: %s\n", query)
 
 	result, err := c.FastResearch(notebookID, query)
@@ -74,11 +74,11 @@ func runFastResearch(c *api.Client, notebookID, query string) error {
 		return fmt.Errorf("fast research: %w", err)
 	}
 
-	if err := maybeImportResearch(c, notebookID, result, query, "fast"); err != nil {
+	if err := maybeImportResearch(c, notebookID, result, query, "fast", opts); err != nil {
 		return err
 	}
 
-	if researchMD {
+	if opts.MD {
 		fmt.Print(result.Report)
 		if !strings.HasSuffix(result.Report, "\n") {
 			fmt.Println()
@@ -100,8 +100,8 @@ func runFastResearch(c *api.Client, notebookID, query string) error {
 // if --import was passed. Progress lines go to stderr; the set of
 // imported source ids is logged so scripts can extract via stderr
 // parsing if needed. Returns nil (non-fatal) when --import is off.
-func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResearchResult, query, mode string) error {
-	if !researchImport {
+func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResearchResult, query, mode string, opts researchOptions) error {
+	if !opts.Import {
 		return nil
 	}
 	if result.ConversationID == "" {
@@ -133,7 +133,7 @@ func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResea
 	return nil
 }
 
-func runDeepResearch(c *api.Client, notebookID, query string) error {
+func runDeepResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
 	project, err := c.GetProject(notebookID)
 	if err != nil {
 		return fmt.Errorf("look up notebook: %w", err)
@@ -151,8 +151,8 @@ func runDeepResearch(c *api.Client, notebookID, query string) error {
 	fmt.Fprintf(os.Stderr, "Research ID: %s\n", start.ResearchID)
 
 	pollInterval := 5 * time.Second
-	if researchPollMs > 0 {
-		pollInterval = time.Duration(researchPollMs) * time.Millisecond
+	if opts.PollMS > 0 {
+		pollInterval = time.Duration(opts.PollMS) * time.Millisecond
 	}
 	const maxPolls = 120 // cap at ~10min default
 
@@ -176,10 +176,10 @@ func runDeepResearch(c *api.Client, notebookID, query string) error {
 			return fmt.Errorf("poll deep research: %w", err)
 		}
 		if result.Done {
-			if err := maybeImportResearch(c, notebookID, result, query, "deep"); err != nil {
+			if err := maybeImportResearch(c, notebookID, result, query, "deep", opts); err != nil {
 				return err
 			}
-			if researchMD {
+			if opts.MD {
 				fmt.Print(result.Report)
 				if !strings.HasSuffix(result.Report, "\n") {
 					fmt.Println()

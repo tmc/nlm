@@ -110,10 +110,6 @@ func TestRunResearchModeValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prev := researchMode
-			researchMode = tt.mode
-			defer func() { researchMode = prev }()
-
 			if tt.wantErr == "" {
 				// Mode validation alone passes; we don't wire a real api.Client
 				// here (the scaffolded encoders are HAR-blocked and would hit
@@ -124,11 +120,31 @@ func TestRunResearchModeValidation(t *testing.T) {
 				// client in a subprocess — skip unless mode is bogus.
 				return
 			}
-			err := runResearch(nil, "nb", "q")
+			err := runResearch(nil, "nb", "q", researchOptions{Mode: tt.mode})
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Errorf("want error containing %q; got %v", tt.wantErr, err)
 			}
 		})
+	}
+}
+
+func TestParseResearchArgs(t *testing.T) {
+	researchMode, researchMD, researchPollMs, researchImport = "", false, 0, false
+	got, gotPos, err := parseResearchArgs([]string{"nb", "--mode", "fast", "--md", "--poll-ms", "1500", "--import", "query", "terms"})
+	if err != nil {
+		t.Fatalf("parseResearchArgs error = %v", err)
+	}
+	if got.Mode != "fast" || !got.MD || got.PollMS != 1500 || !got.Import {
+		t.Fatalf("parseResearchArgs opts = %+v", got)
+	}
+	wantPos := []string{"nb", "query", "terms"}
+	if len(gotPos) != len(wantPos) {
+		t.Fatalf("parseResearchArgs positional = %q, want %q", gotPos, wantPos)
+	}
+	for i := range gotPos {
+		if gotPos[i] != wantPos[i] {
+			t.Fatalf("parseResearchArgs positional = %q, want %q", gotPos, wantPos)
+		}
 	}
 }
 

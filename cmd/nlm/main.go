@@ -381,6 +381,7 @@ func run() error {
 		flag.Usage()
 		os.Exit(exitBadArgs)
 	}
+	warnCompatibilityCommand(cmdName, entry)
 
 	// Check for help flags in subcommand args.
 	for _, a := range args {
@@ -746,18 +747,18 @@ func formatSourceTime(src *pb.Source) string {
 	return "-"
 }
 
-func addSource(c *api.Client, notebookID, input string) (string, error) {
+func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (string, error) {
 	// Handle special input designators
 	switch input {
 	case "-": // stdin
 		fmt.Fprintln(os.Stderr, "Reading from stdin...")
 		name := "Pasted Text"
-		if sourceName != "" {
-			name = sourceName
+		if opts.Name != "" {
+			name = opts.Name
 		}
-		if mimeType != "" {
-			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", mimeType)
-			return c.AddSourceFromReader(notebookID, os.Stdin, name, mimeType)
+		if opts.MIMEType != "" {
+			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
+			return c.AddSourceFromReader(notebookID, os.Stdin, name, opts.MIMEType)
 		}
 		return c.AddSourceFromReader(notebookID, os.Stdin, name)
 	case "": // empty input
@@ -774,19 +775,19 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	if _, err := os.Stat(input); err == nil {
 		fmt.Fprintf(os.Stderr, "Adding source from file: %s\n", input)
 		name := filepath.Base(input)
-		if sourceName != "" {
-			name = sourceName
+		if opts.Name != "" {
+			name = opts.Name
 		}
-		if mimeType != "" {
-			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", mimeType)
+		if opts.MIMEType != "" {
+			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
 			file, err := os.Open(input)
 			if err != nil {
 				return "", fmt.Errorf("open file: %w", err)
 			}
 			defer file.Close()
-			return c.AddSourceFromReader(notebookID, file, name, mimeType)
+			return c.AddSourceFromReader(notebookID, file, name, opts.MIMEType)
 		}
-		if sourceName != "" {
+		if opts.Name != "" {
 			// Use AddSourceFromReader to pass the custom name
 			file, err := os.Open(input)
 			if err != nil {
@@ -801,8 +802,8 @@ func addSource(c *api.Client, notebookID, input string) (string, error) {
 	// If it's not a URL or file, treat as direct text content
 	fmt.Fprintln(os.Stderr, "Adding text content as source...")
 	textName := "Text Source"
-	if sourceName != "" {
-		textName = sourceName
+	if opts.Name != "" {
+		textName = opts.Name
 	}
 	return c.AddSourceFromText(notebookID, input, textName)
 }
@@ -1370,7 +1371,7 @@ func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
 
 func discoverSources(c *api.Client, projectID, query string) error {
 	fmt.Fprintf(os.Stderr, "DiscoverSources is deprecated upstream; using deep research workflow instead.\n")
-	if err := runDeepResearch(c, projectID, query); err == nil {
+	if err := runDeepResearch(c, projectID, query, currentResearchOptions()); err == nil {
 		return nil
 	}
 
@@ -1378,7 +1379,7 @@ func discoverSources(c *api.Client, projectID, query string) error {
 	res, err := streamChatResponse(c, api.ChatRequest{
 		ProjectID: projectID,
 		Prompt:    fmt.Sprintf("Suggest sources to add for this query: %s. Respond with a short bullet list of specific documents, sites, or search directions.", query),
-	})
+	}, currentChatRenderOptions())
 	if err != nil {
 		return fmt.Errorf("discover sources fallback: %w", err)
 	}
@@ -1597,20 +1598,20 @@ func isWordByte(b byte) bool {
 const defaultTailWindow = 512
 
 type chatStreamRenderer struct {
-	out             io.Writer
-	status          io.Writer
-	showThinking    bool
-	verbose         bool
+	out                  io.Writer
+	status               io.Writer
+	showThinking         bool
+	verbose              bool
 	jsonl                bool // when true, emit typed JSON-lines events on r.out instead of human output
 	jsonlIncludeThinking bool // when true, thinking chunks are emitted as JSON-lines events (otherwise skipped)
 	citationMode         citationRenderMode
-	tailWindow      int                          // tail mode: max bytes held back for splicing
-	resolveTitle    func(sourceID string) string // optional; returns "" if unknown
-	lastThinkingLen int
-	answerBuf       strings.Builder
-	thinking        string
-	citations       []api.Citation
-	followUps       []string
+	tailWindow           int                          // tail mode: max bytes held back for splicing
+	resolveTitle         func(sourceID string) string // optional; returns "" if unknown
+	lastThinkingLen      int
+	answerBuf            strings.Builder
+	thinking             string
+	citations            []api.Citation
+	followUps            []string
 
 	// tail-mode bookkeeping
 	flushedLen int // absolute cumulative-answer offset of bytes already written to r.out
@@ -2031,15 +2032,15 @@ type chatResult struct {
 	FollowUps []string
 }
 
-func streamChatResponse(c *api.Client, req api.ChatRequest) (chatResult, error) {
-	mode := resolveCitationMode(citationMode, isTerminal(os.Stdout))
+func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptions) (chatResult, error) {
+	mode := resolveCitationMode(opts.CitationMode, isTerminal(os.Stdout))
 	// --thinking-jsonl is the legacy form of `--citations=json --thinking`.
 	// Keep it working by folding its effects into the cleaner flags.
-	wantThinking := showThinking || verbose || thinkingJSONL
-	if thinkingJSONL {
+	wantThinking := opts.ShowThinking || opts.Verbose || opts.ThinkingJSONL
+	if opts.ThinkingJSONL {
 		mode = citationModeJSON
 	}
-	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, wantThinking || (mode != citationModeJSON && isTerminal(os.Stdout)), verbose, mode)
+	renderer := newChatStreamRenderer(os.Stdout, os.Stderr, wantThinking || (mode != citationModeJSON && isTerminal(os.Stdout)), opts.Verbose, mode)
 	renderer.jsonl = mode == citationModeJSON
 	renderer.jsonlIncludeThinking = wantThinking
 	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
@@ -2106,10 +2107,10 @@ func newListWriter(w *os.File) (io.Writer, func() error) {
 }
 
 // Generation operations
-func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
+func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generateChatOptions) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
-	sourceIDs, err := resolveSourceSelectors(c, projectID)
+	sourceIDs, err := resolveSourceSelectorsWithOptions(c, projectID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -2121,7 +2122,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	}
 
 	// Resolve conversation context from flags.
-	convID, history, seqNum, err := resolveGenerateChatConversation(c, projectID)
+	convID, history, seqNum, err := resolveGenerateChatConversation(c, projectID, opts)
 	if err != nil {
 		return err
 	}
@@ -2136,7 +2137,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string) error {
 	chatReq.History = history
 	chatReq.SeqNum = seqNum
 
-	res, streamErr := streamChatResponse(c, chatReq)
+	res, streamErr := streamChatResponse(c, chatReq, opts.Render)
 	if streamErr != nil {
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
 		response, chatErr := c.ChatWithHistory(chatReq)
@@ -2225,8 +2226,9 @@ func printContinuationHint(w *os.File, projectID, convID string, isNew bool) {
 // resolveGenerateChatConversation resolves --conversation and --web flags into
 // a conversation ID, wire history, and sequence number for generate-chat.
 // Returns empty values when neither flag is set (fresh conversation).
-func resolveGenerateChatConversation(c *api.Client, projectID string) (string, []api.ChatMessage, int, error) {
-	if useWebChat {
+func resolveGenerateChatConversation(c *api.Client, projectID string, opts generateChatOptions) (string, []api.ChatMessage, int, error) {
+	conversationID := opts.ConversationID
+	if opts.UseWebChat {
 		// Fetch the most recent server-side conversation.
 		convIDs, err := c.GetConversations(projectID)
 		if err != nil {
@@ -2380,16 +2382,16 @@ func createReport(c *api.Client, notebookID, reportType string, extra []string) 
 	return nil
 }
 
-func generateReport(c *api.Client, notebookID string) error {
+func generateReport(c *api.Client, notebookID string, opts reportOptions) error {
 	// Optionally set notebook instructions.
-	if reportInstructions != "" {
+	if opts.Instructions != "" {
 		fmt.Fprintf(os.Stderr, "Setting instructions...\n")
-		if err := c.SetInstructions(notebookID, reportInstructions); err != nil {
+		if err := c.SetInstructions(notebookID, opts.Instructions); err != nil {
 			return fmt.Errorf("set instructions: %w", err)
 		}
 	}
 
-	flagIDs, err := resolveSourceSelectors(c, notebookID)
+	flagIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -2401,14 +2403,14 @@ func generateReport(c *api.Client, notebookID string) error {
 	}
 
 	// Limit sections if requested.
-	if reportSections > 0 && reportSections < len(suggestions) {
-		suggestions = suggestions[:reportSections]
+	if opts.Sections > 0 && opts.Sections < len(suggestions) {
+		suggestions = suggestions[:opts.Sections]
 	}
 
 	// Resolve per-section prompt template.
 	tmpl := defaultReportPrompt
-	if reportPrompt != "" {
-		tmpl = reportPrompt
+	if opts.Prompt != "" {
+		tmpl = opts.Prompt
 	}
 
 	fmt.Fprintf(os.Stderr, "Generating %d sections...\n", len(suggestions))
@@ -2419,7 +2421,7 @@ func generateReport(c *api.Client, notebookID string) error {
 
 		prompt := strings.ReplaceAll(tmpl, "{topic}", title)
 		// Use suggestion-specific prompt if available and no custom template set.
-		if reportPrompt == "" && s.GetPrompt() != "" {
+		if opts.Prompt == "" && s.GetPrompt() != "" {
 			prompt = s.GetPrompt()
 		}
 		chatReq := api.ChatRequest{
@@ -2427,7 +2429,7 @@ func generateReport(c *api.Client, notebookID string) error {
 			Prompt:    prompt,
 			SourceIDs: unionIDs(flagIDs, s.GetSourceIds()),
 		}
-		res, err := streamChatResponse(c, chatReq)
+		res, err := streamChatResponse(c, chatReq, opts.Render)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: section %q failed: %v\n", title, err)
 			continue
@@ -2555,8 +2557,8 @@ func isConversationID(s string) bool {
 }
 
 // oneShotChat sends a single prompt and streams the response without entering interactive mode.
-func oneShotChat(c *api.Client, notebookID, prompt string) error {
-	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) error {
+	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -2591,7 +2593,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string) error {
 		SeqNum:         len(session.Messages)/2 + 1,
 	}
 
-	res, err := streamChatResponse(c, chatReq)
+	res, err := streamChatResponse(c, chatReq, opts.Render)
 	if err != nil {
 		response, chatErr := c.ChatWithHistory(chatReq)
 		if chatErr != nil {
@@ -2650,8 +2652,8 @@ func readPromptFile(path string) (string, error) {
 // oneShotChatInConv sends a single prompt to an existing conversation, then exits.
 // Mirrors oneShotChat but preserves the server-side conversation ID so callers
 // can chain turns via automation.
-func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string) error {
-	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string, opts chatOptions) error {
+	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -2679,7 +2681,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string)
 		History:        wireHistory,
 		SeqNum:         len(session.Messages)/2 + 1,
 	}
-	res, err := streamChatResponse(c, chatReq)
+	res, err := streamChatResponse(c, chatReq, opts.Render)
 	if err != nil {
 		response, chatErr := c.ChatWithHistory(chatReq)
 		if chatErr != nil {
@@ -2711,8 +2713,8 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string)
 }
 
 // interactiveChatWithConv starts or resumes an interactive chat with a specific conversation ID.
-func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) error {
-	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+func interactiveChatWithConv(c *api.Client, notebookID, conversationID string, opts chatOptions) error {
+	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -2755,7 +2757,7 @@ func interactiveChatWithConv(c *api.Client, notebookID, conversationID string) e
 	// Override the conversation ID (the loaded session might have an old one)
 	session.ConversationID = conversationID
 
-	return runInteractiveChat(c, session, sourceIDs)
+	return runInteractiveChat(c, session, sourceIDs, opts)
 }
 
 // printChatHistory prints conversation history, trying the server first then
@@ -2821,7 +2823,7 @@ func resolveConversationID(c *api.Client, notebookID, partial string) string {
 // Unlike chat-history (which prefers server-side), chat-show reads only the
 // local session so it can surface persisted citation metadata (char ranges,
 // source IDs) that the server doesn't return in conversation history.
-func chatShow(notebookID, conversationID string) error {
+func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 	session, err := loadChatSessionForConv(notebookID, conversationID)
 	if err != nil {
 		// Fall back to the single-session-per-notebook path (older layout).
@@ -2836,7 +2838,7 @@ func chatShow(notebookID, conversationID string) error {
 		return nil
 	}
 
-	mode := resolveCitationMode(citationMode, isTerminal(os.Stdout))
+	mode := resolveCitationMode(opts.CitationMode, isTerminal(os.Stdout))
 	for i, m := range session.Messages {
 		if i > 0 {
 			fmt.Println()
@@ -2847,7 +2849,7 @@ func chatShow(notebookID, conversationID string) error {
 			fmt.Println(m.Content)
 			continue
 		}
-		if showThinking && m.Thinking != "" {
+		if opts.ShowThinking && m.Thinking != "" {
 			fmt.Fprintf(os.Stderr, "%s%s%s\n", ansiGrey, m.Thinking, ansiReset)
 		}
 		renderPersistedAssistant(os.Stdout, os.Stderr, m, mode)
@@ -3297,8 +3299,8 @@ func getFallbackResponse(input, notebookID string) string {
 }
 
 // interactiveChat starts a new or resumes the default interactive chat session for a notebook.
-func interactiveChat(c *api.Client, notebookID string) error {
-	sourceIDs, err := resolveSourceSelectors(c, notebookID)
+func interactiveChat(c *api.Client, notebookID string, opts chatOptions) error {
+	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -3315,12 +3317,12 @@ func interactiveChat(c *api.Client, notebookID string) error {
 	if session.ConversationID == "" {
 		session.ConversationID = uuid.New().String()
 	}
-	return runInteractiveChat(c, session, sourceIDs)
+	return runInteractiveChat(c, session, sourceIDs, opts)
 }
 
 // runInteractiveChat runs the interactive chat loop with the given session.
 // sourceIDs, when non-empty, scopes every request in the loop to that subset.
-func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string) error {
+func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string, opts chatOptions) error {
 	notebookID := session.NotebookID
 
 	fmt.Println("\nNotebookLM Interactive Chat")
@@ -3336,7 +3338,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string)
 		fmt.Printf("Chat history: %d messages (started %s)\n",
 			len(session.Messages),
 			session.CreatedAt.Format("Jan 2 15:04"))
-		if !showChatHistory {
+		if !opts.ShowHistory {
 			fmt.Println("  (use -history flag to show previous conversation)")
 		}
 	}
@@ -3364,7 +3366,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string)
 
 	multiline := false
 
-	if showChatHistory && len(session.Messages) > 0 {
+	if opts.ShowHistory && len(session.Messages) > 0 {
 		fmt.Println("\n--- Recent Chat History ---")
 		showRecentHistory(session, 10)
 		fmt.Println("---------------------------")
@@ -3559,7 +3561,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string)
 		session.SeqNum++
 
 		fmt.Println()
-		res, err := streamChatResponse(c, chatReq)
+		res, err := streamChatResponse(c, chatReq, opts.Render)
 
 		if err != nil {
 			response, chatErr := c.ChatWithHistory(chatReq)

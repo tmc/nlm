@@ -232,6 +232,131 @@ func TestHelpCommand(t *testing.T) {
 	}
 }
 
+func TestCommandLocalHelp(t *testing.T) {
+	tmpHome, err := os.MkdirTemp("", "nlm-test-home-*")
+	if err != nil {
+		t.Fatalf("failed to create temp home: %v", err)
+	}
+	defer os.RemoveAll(tmpHome)
+
+	tests := []struct {
+		name     string
+		args     []string
+		contains []string
+	}{
+		{
+			name: "source add help",
+			args: []string{"source", "add", "--help"},
+			contains: []string{
+				"Usage: nlm source add [flags]",
+				"--mime, --mime-type <t>",
+				"--replace <source-id>",
+			},
+		},
+		{
+			name: "source sync help",
+			args: []string{"source", "sync", "--help"},
+			contains: []string{
+				"Usage: nlm source sync [flags]",
+				"--force",
+				"--max-bytes <n>",
+			},
+		},
+		{
+			name: "generate chat help",
+			args: []string{"generate-chat", "--help"},
+			contains: []string{
+				"Usage: nlm generate-chat [flags]",
+				"--conversation, -c <id>",
+				"--source-match <regex>",
+			},
+		},
+		{
+			name: "chat help",
+			args: []string{"chat", "--help"},
+			contains: []string{
+				"Usage: nlm chat [flags]",
+				"--prompt-file, -f <path>",
+				"--history",
+			},
+		},
+		{
+			name: "research help",
+			args: []string{"research", "--help"},
+			contains: []string{
+				"Usage: nlm research [flags]",
+				"--mode <fast|deep>",
+				"--poll-ms <n>",
+			},
+		},
+		{
+			name: "content transform help",
+			args: []string{"summarize", "--help"},
+			contains: []string{
+				"Usage: nlm summarize [flags]",
+				"--source-ids <ids>",
+				"--source-match <regex>",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := exec.Command("./nlm_test", tt.args...)
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + tmpHome}
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("command failed: %v\n%s", err, output)
+			}
+			outputStr := string(output)
+			for _, want := range tt.contains {
+				if !strings.Contains(outputStr, want) {
+					t.Fatalf("output missing %q\n%s", want, outputStr)
+				}
+			}
+		})
+	}
+}
+
+func TestCompatibilityCommandsWarn(t *testing.T) {
+	tmpHome, err := os.MkdirTemp("", "nlm-test-home-*")
+	if err != nil {
+		t.Fatalf("failed to create temp home: %v", err)
+	}
+	defer os.RemoveAll(tmpHome)
+
+	tests := []struct {
+		name     string
+		args     []string
+		wantWarn string
+	}{
+		{
+			name:     "ls warning",
+			args:     []string{"ls"},
+			wantWarn: "nlm: 'ls' is deprecated; use 'notebook list'",
+		},
+		{
+			name:     "sources warning",
+			args:     []string{"sources", "notebook123"},
+			wantWarn: "nlm: 'sources' is deprecated; use 'source list'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := exec.Command("./nlm_test", tt.args...)
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + tmpHome}
+			output, err := cmd.CombinedOutput()
+			if err == nil {
+				t.Fatalf("expected command to fail\n%s", output)
+			}
+			if !strings.Contains(string(output), tt.wantWarn) {
+				t.Fatalf("missing compatibility warning %q\n%s", tt.wantWarn, output)
+			}
+		})
+	}
+}
+
 // Test command validation using direct exec
 func TestCommandValidation(t *testing.T) {
 	// Create a temporary home directory for test isolation

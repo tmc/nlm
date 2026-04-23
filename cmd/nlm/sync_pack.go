@@ -16,7 +16,7 @@ import (
 // When the bundle fits in a single chunk, the bytes go to stdout.
 // Multi-chunk bundles list their names on stderr and require --chunk N
 // to select which one to emit on stdout.
-func runSyncPack(args []string) error {
+func runSyncPack(args []string, opts syncPackOptions) error {
 	paths := args
 	if len(paths) == 0 {
 		paths = []string{"."}
@@ -25,21 +25,21 @@ func runSyncPack(args []string) error {
 		paths = nil
 	}
 
-	opts := nlmsync.Options{
-		MaxBytes: maxBytes,
-		Name:     sourceName,
+	packOpts := nlmsync.Options{
+		MaxBytes: opts.MaxBytes,
+		Name:     opts.Name,
 	}
-	chunks, names, err := nlmsync.Pack(paths, opts)
+	chunks, names, err := nlmsync.Pack(paths, packOpts)
 	if err != nil {
 		return err
 	}
 
 	switch {
-	case packChunk > 0:
-		if packChunk > len(chunks) {
-			return fmt.Errorf("--chunk %d out of range (have %d chunks)", packChunk, len(chunks))
+	case opts.Chunk > 0:
+		if opts.Chunk > len(chunks) {
+			return fmt.Errorf("--chunk %d out of range (have %d chunks)", opts.Chunk, len(chunks))
 		}
-		_, err := os.Stdout.Write(chunks[packChunk-1])
+		_, err := os.Stdout.Write(chunks[opts.Chunk-1])
 		return err
 	case len(chunks) == 1:
 		_, err := os.Stdout.Write(chunks[0])

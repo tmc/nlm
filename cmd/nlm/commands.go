@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
-	nlmsync "github.com/tmc/nlm/internal/sync"
 )
 
 type commandSurface int
@@ -30,11 +28,11 @@ type command struct {
 	argsUsage string // positional args hint for "usage: nlm <name> <argsUsage>"
 	section   string // help section header
 	surface   commandSurface
-	minArgs   int    // minimum positional args (after command name)
-	maxArgs   int    // maximum positional args; -1 = unlimited
-	noAuth    bool   // true if command does not require authentication
-	noClient  bool   // true if command does not need an API client (implies noAuth)
-	hidden    bool   // true to hide from help text (experimental)
+	minArgs   int  // minimum positional args (after command name)
+	maxArgs   int  // maximum positional args; -1 = unlimited
+	noAuth    bool // true if command does not require authentication
+	noClient  bool // true if command does not need an API client (implies noAuth)
+	hidden    bool // true to hide from help text (experimental)
 	validate  func(cmdName string, args []string) error
 	help      func(cmdName string)
 	run       func(c *api.Client, args []string) error
@@ -50,21 +48,10 @@ func actOnSourcesCmd(name, action, usage string) command {
 		argsUsage: "<notebook-id> [source-id...]",
 		section:   "Content Transformation",
 		minArgs:   1, maxArgs: -1,
+		validate: validateSourceSelectionArgs,
+		help:     printSourceSelectionUsage,
 		run: func(c *api.Client, args []string) error {
-			notebookID := args[0]
-			sourceIDs := args[1:]
-			if len(sourceIDs) == 0 {
-				if sourceIDsFlag == "" && sourceMatchFlag == "" {
-					return fmt.Errorf("usage: nlm %s <notebook-id> <source-id> [source-id...]"+
-						" (or pass --source-ids / --source-match)", name)
-				}
-				resolved, err := resolveSourceSelectors(c, notebookID)
-				if err != nil {
-					return err
-				}
-				sourceIDs = resolved
-			}
-			return actOnSources(c, notebookID, action, sourceIDs)
+			return runSourceSelectionAction(c, args, action)
 		},
 	}
 }
@@ -134,7 +121,7 @@ var commands = []command{
 		name: "list", aliases: []string{"ls"},
 		usage: "List all notebooks", section: "Notebook",
 		argsUsage: "[flags]",
-		minArgs: 0, maxArgs: -1,
+		minArgs:   0, maxArgs: -1,
 		validate: validateNotebookListArgs,
 		help:     printNotebookListUsage,
 		run:      func(c *api.Client, args []string) error { return runNotebookList(c, args) },
@@ -181,40 +168,17 @@ var commands = []command{
 		name: "add", argsUsage: "<notebook-id> <source|-> [source...]",
 		usage: "Add one or more sources (files, URLs, or text; pass '-' to read newline-delimited entries from stdin)", section: "Source",
 		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			inputs, err := addSourceInputs(args[1:])
-			if err != nil {
-				return err
-			}
-			return addSources(c, args[0], inputs)
-		},
+		validate: validateSourceAddArgs,
+		help:     printSourceAddUsage,
+		run:      func(c *api.Client, args []string) error { return runSourceAdd(c, args) },
 	},
 	{
 		name: "sync", argsUsage: "<notebook-id> [paths...]",
 		usage: "Sync files into a named source (use --force to re-upload unchanged)", section: "Source",
 		minArgs: 1, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			notebookID := args[0]
-			var paths []string
-			if len(args) > 1 {
-				if args[1] == "-" {
-					paths = nil // stdin mode
-				} else {
-					paths = args[1:]
-				}
-			} else {
-				paths = []string{"."}
-			}
-			opts := nlmsync.Options{
-				MaxBytes: maxBytes,
-				Name:     sourceName,
-				Force:    force,
-				DryRun:   dryRun,
-				JSON:     jsonOutput,
-			}
-			adapter := &syncClientAdapter{client: c}
-			return nlmsync.Run(context.Background(), adapter, notebookID, paths, opts, os.Stdout)
-		},
+		validate: validateSourceSyncArgs,
+		help:     printSourceSyncUsage,
+		run:      func(c *api.Client, args []string) error { return runSourceSync(c, args) },
 	},
 	{
 		name: "sync-pack", argsUsage: "[paths...]",
@@ -222,9 +186,9 @@ var commands = []command{
 		section: "Source",
 		minArgs: 0, maxArgs: -1,
 		noClient: true,
-		run: func(_ *api.Client, args []string) error {
-			return runSyncPack(args)
-		},
+		validate: validateSourcePackArgs,
+		help:     printSourcePackUsage,
+		run:      func(_ *api.Client, args []string) error { return runSourcePack(args) },
 	},
 	{
 		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id|-|a,b,c>",
@@ -424,7 +388,7 @@ var commands = []command{
 		name: "audio-interactive", argsUsage: "<notebook-id> [flags]",
 		usage: "Start interactive audio session (experimental, limited functionality)", section: "Audio",
 		minArgs: 0, maxArgs: -1,
-		hidden: true, // requires NLM_EXPERIMENTAL
+		hidden:   true, // requires NLM_EXPERIMENTAL
 		validate: func(cmdName string, args []string) error { return validateInteractiveAudioArgs(args) },
 		help:     printInteractiveAudioUsage,
 		run: func(c *api.Client, args []string) error {
@@ -648,22 +612,9 @@ var commands = []command{
 		name: "source-guide", argsUsage: "<notebook-id> [source-id...]",
 		usage: "Show the per-source auto-summary and keyword chips (cached on disk)", section: "Generation",
 		minArgs: 1, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			notebookID := args[0]
-			sourceIDs := args[1:]
-			if len(sourceIDs) == 0 {
-				if sourceIDsFlag == "" && sourceMatchFlag == "" {
-					return fmt.Errorf("usage: nlm source-guide <notebook-id> <source-id> [source-id...]" +
-						" (or pass --source-ids / --source-match)")
-				}
-				resolved, err := resolveSourceSelectors(c, notebookID)
-				if err != nil {
-					return err
-				}
-				sourceIDs = resolved
-			}
-			return generateSourceGuides(c, sourceIDs)
-		},
+		validate: validateSourceSelectionArgs,
+		help:     printSourceSelectionUsage,
+		run:      func(c *api.Client, args []string) error { return runSourceGuide(c, args) },
 	},
 	{
 		name: "generate-mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
@@ -677,9 +628,9 @@ var commands = []command{
 		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",
 		usage: "Stream a one-shot chat answer (use --conversation to follow up)", section: "Generation",
 		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			return generateFreeFormChat(c, args[0], strings.Join(args[1:], " "))
-		},
+		validate: validateGenerateChatArgs,
+		help:     printGenerateChatUsage,
+		run:      func(c *api.Client, args []string) error { return runGenerateChat(c, args) },
 	},
 	{
 		name: "report-suggestions", argsUsage: "<notebook-id>",
@@ -725,39 +676,18 @@ var commands = []command{
 		name: "generate-report", argsUsage: "<notebook-id>",
 		usage: "Generate multi-section report via chat (see --prompt, --sections)", section: "Generation",
 		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			return generateReport(c, args[0])
-		},
+		validate: validateGenerateReportArgs,
+		help:     printGenerateReportUsage,
+		run:      func(c *api.Client, args []string) error { return runGenerateReport(c, args) },
 	},
 	// Chat operations
 	{
 		name: "chat", argsUsage: "<notebook-id> [conversation-id | prompt]",
 		usage: "Open interactive chat (one-shot if a prompt is given; -f <file> reads a long prompt from file)", section: "Chat",
 		minArgs: 1, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			// -f/--prompt-file overrides positional prompt: reliable for long
-			// prompts that terminals truncate when pasted interactively.
-			if promptFile != "" {
-				prompt, err := readPromptFile(promptFile)
-				if err != nil {
-					return fmt.Errorf("read prompt: %w", err)
-				}
-				if len(args) >= 2 && isConversationID(args[1]) {
-					// chat <nb> <conv-id> -f prompt.txt: one-shot into an
-					// existing conversation.
-					return oneShotChatInConv(c, args[0], args[1], prompt)
-				}
-				return oneShotChat(c, args[0], prompt)
-			}
-			if len(args) >= 2 {
-				rest := strings.Join(args[1:], " ")
-				if isConversationID(rest) {
-					return interactiveChatWithConv(c, args[0], rest)
-				}
-				return oneShotChat(c, args[0], rest)
-			}
-			return interactiveChat(c, args[0])
-		},
+		validate: validateChatArgs,
+		help:     printChatUsage,
+		run:      func(c *api.Client, args []string) error { return runChat(c, args) },
 	},
 	{
 		name: "chat-list", argsUsage: "[notebook-id]",
@@ -784,9 +714,9 @@ var commands = []command{
 		usage: "Render a local chat transcript (see --citations)", section: "Chat",
 		minArgs: 2, maxArgs: 2,
 		noAuth: true, noClient: true,
-		run: func(_ *api.Client, args []string) error {
-			return chatShow(args[0], args[1])
-		},
+		validate: validateChatShowArgs,
+		help:     printChatShowUsage,
+		run:      func(_ *api.Client, args []string) error { return runChatShow(args) },
 	},
 	{
 		name: "delete-chat", argsUsage: "<notebook-id>",
@@ -845,10 +775,9 @@ var commands = []command{
 		name: "research", argsUsage: "<notebook-id> \"query\"",
 		usage: "Run fast or deep research (JSON-lines by default; --md for markdown; --mode=fast|deep)", section: "Research",
 		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			query := strings.Join(args[1:], " ")
-			return runResearch(c, args[0], query)
-		},
+		validate: validateResearchArgs,
+		help:     printResearchUsage,
+		run:      func(c *api.Client, args []string) error { return runResearchCommand(c, args) },
 	},
 
 	// Sharing operations
@@ -915,8 +844,8 @@ var commandStarts map[string]bool
 var maxCommandWords int
 
 var experimentalCommands = map[string]bool{
-	"analytics":        true,
-	"discover-sources": true,
+	"analytics":         true,
+	"discover-sources":  true,
 	"audio-interactive": true,
 }
 
@@ -956,6 +885,43 @@ var compatibilityCommands = map[string]bool{
 	"chat-config":      true,
 	"set-instructions": true,
 	"get-instructions": true,
+}
+
+var compatibilityReplacements = map[string]string{
+	"list":             "notebook list",
+	"ls":               "notebook list",
+	"create":           "notebook create",
+	"rm":               "notebook delete",
+	"list-featured":    "notebook featured",
+	"sources":          "source list",
+	"add":              "source add",
+	"sync":             "source sync",
+	"sync-pack":        "source pack",
+	"rm-source":        "source delete",
+	"source-rm":        "source delete",
+	"rename-source":    "source rename",
+	"refresh-source":   "source refresh",
+	"check-source":     "source check",
+	"read-source":      "source read",
+	"notes":            "note list",
+	"read-note":        "note read",
+	"new-note":         "note create",
+	"update-note":      "note update",
+	"rm-note":          "note delete",
+	"note-rm":          "note delete",
+	"artifacts":        "artifact list",
+	"list-artifacts":   "artifact list",
+	"get-artifact":     "artifact get",
+	"update-artifact":  "artifact update",
+	"delete-artifact":  "artifact delete",
+	"rename-artifact":  "artifact update",
+	"chat-list":        "chat list",
+	"chat-history":     "chat history",
+	"chat-show":        "chat show",
+	"delete-chat":      "chat delete",
+	"chat-config":      "chat config",
+	"set-instructions": "chat instructions set",
+	"get-instructions": "chat instructions get",
 }
 
 func init() {
@@ -1070,6 +1036,17 @@ func shouldShowInHelp(cmd *command) bool {
 	}
 }
 
+func warnCompatibilityCommand(name string, cmd *command) {
+	if cmd.surface != surfaceCompatibility {
+		return
+	}
+	replacement := compatibilityReplacements[name]
+	if replacement == "" {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "nlm: '%s' is deprecated; use '%s'\n", name, replacement)
+}
+
 // validateCommandArgs checks positional argument count for a command.
 // cmdName is the name the user typed (may be an alias).
 // errBadArgs is returned by argument-validation paths so the exit-code
@@ -1088,13 +1065,6 @@ func validateCommandArgs(cmd *command, cmdName string, args []string) error {
 		return errBadArgs
 	}
 	if cmd.maxArgs >= 0 && n > cmd.maxArgs {
-		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
-		return errBadArgs
-	}
-	// Content-transformation commands accept positional source IDs OR a
-	// selector flag. Reject the no-source case before we reach auth so the
-	// user gets a usage message rather than an auth prompt.
-	if cmd.section == "Content Transformation" && n < 2 && sourceIDsFlag == "" && sourceMatchFlag == "" {
 		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
 		return errBadArgs
 	}

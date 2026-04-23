@@ -81,13 +81,13 @@ func validateSourceInputs(inputs []string) error {
 // not the izAoDd AddSources bulk envelope — see api.Client.AddSources for
 // why. When HAR evidence lands for the bulk wire, this function becomes the
 // single switch point.
-func addSources(c *api.Client, notebookID string, inputs []string) error {
+func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAddOptions) error {
 	if err := validateSourceInputs(inputs); err != nil {
 		return err
 	}
 	knownSourceIDs, _ := sourceIDSet(c, notebookID) // Best-effort cleanup guard.
 	for _, in := range inputs {
-		id, err := addSource(c, notebookID, in)
+		id, err := addSource(c, notebookID, in, opts)
 		if err != nil {
 			if cleanupErr := cleanupFailedAdd(c, notebookID, knownSourceIDs); cleanupErr != nil {
 				fmt.Fprintf(os.Stderr, "warning: %v\n", cleanupErr)
@@ -97,9 +97,9 @@ func addSources(c *api.Client, notebookID string, inputs []string) error {
 		if knownSourceIDs != nil {
 			knownSourceIDs[id] = struct{}{}
 		}
-		if replaceSourceID != "" && len(inputs) == 1 {
-			fmt.Fprintf(os.Stderr, "Replacing source %s...\n", replaceSourceID)
-			if delErr := c.DeleteSources(notebookID, []string{replaceSourceID}); delErr != nil {
+		if opts.ReplaceSourceID != "" && len(inputs) == 1 {
+			fmt.Fprintf(os.Stderr, "Replacing source %s...\n", opts.ReplaceSourceID)
+			if delErr := c.DeleteSources(notebookID, []string{opts.ReplaceSourceID}); delErr != nil {
 				fmt.Fprintf(os.Stderr, "warning: uploaded new source but failed to delete old: %v\n", delErr)
 			}
 		}
