@@ -190,7 +190,7 @@ func reorderArgs() {
 					if i+1 < len(os.Args) {
 						next := os.Args[i+1]
 						isFlag := strings.HasPrefix(next, "-") && next != "-"
-						if _, isCmd := lookupCommand(next); !isCmd && !isFlag {
+						if !isCommandStart(next) && !isFlag {
 							flags = append(flags, arg, next)
 							i += 2
 							continue
@@ -366,8 +366,8 @@ func run() error {
 		os.Exit(exitBadArgs)
 	}
 
-	cmdName := flag.Arg(0)
-	args := flag.Args()[1:]
+	rawArgs := flag.Args()
+	cmdName := rawArgs[0]
 
 	// Handle help aliases.
 	if helpAliases[cmdName] {
@@ -375,8 +375,8 @@ func run() error {
 		os.Exit(exitSuccess)
 	}
 
-	// Look up command in the table.
-	entry, ok := lookupCommand(cmdName)
+	// Look up command in the table, preferring the longest multi-token match.
+	cmdName, entry, args, ok := findCommand(rawArgs)
 	if !ok {
 		flag.Usage()
 		os.Exit(exitBadArgs)
@@ -385,7 +385,11 @@ func run() error {
 	// Check for help flags in subcommand args.
 	for _, a := range args {
 		if a == "--help" || a == "-h" || a == "-help" {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n  %s\n", cmdName, entry.argsUsage, entry.usage)
+			if entry.help != nil {
+				entry.help(cmdName)
+			} else {
+				fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n  %s\n", cmdName, entry.argsUsage, entry.usage)
+			}
 			return nil
 		}
 	}
@@ -639,54 +643,6 @@ func confirmActionDefaultYes(prompt string) bool {
 }
 
 // Notebook operations
-func list(c *api.Client) error {
-	notebooks, err := c.ListRecentlyViewedProjects()
-	if err != nil {
-		return err
-	}
-
-	total := len(notebooks)
-	// Default: show first 10 when printing for a human; when piped, emit all
-	// rows so downstream filters don't lose data to an arbitrary cap.
-	limit := total
-	tty := isTerminal(os.Stdout)
-	if tty {
-		fmt.Fprintf(os.Stderr, "Total notebooks: %d (showing first 10)\n\n", total)
-		limit = 10
-		if total < limit {
-			limit = total
-		}
-	}
-
-	w, flush := newListWriter(os.Stdout)
-	fmt.Fprintln(w, "ID\tTITLE\tSOURCES\tLAST UPDATED")
-	for i := 0; i < limit; i++ {
-		nb := notebooks[i]
-		title := nb.Title
-		if tty {
-			// Emoji backspace compensation is a terminal-render hack that
-			// corrupts piped output (literal \b bytes break `awk`). Only
-			// apply when stdout is a TTY.
-			if emoji := strings.TrimSpace(nb.Emoji); emoji != "" {
-				title = emoji + " \b" + nb.Title
-			}
-			if len(title) > 45 {
-				title = title[:42] + "..."
-			}
-		}
-		sourceCount := len(nb.Sources)
-		ts := nb.GetMetadata().GetModifiedTime()
-		if ts == nil {
-			ts = nb.GetMetadata().GetCreateTime()
-		}
-		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
-			nb.ProjectId, title, sourceCount,
-			ts.AsTime().Format(time.RFC3339),
-		)
-	}
-	return flush()
-}
-
 func create(c *api.Client, title string) error {
 	notebook, err := c.CreateProject(title, "📙")
 	if err != nil {

@@ -53,6 +53,24 @@ func validateInteractiveAudioArgs(args []string) error {
 	return err
 }
 
+func printInteractiveAudioUsage(cmdName string) {
+	fmt.Fprintf(os.Stderr, "Usage: nlm %s <notebook-id> [flags]\n\n", cmdName)
+	fmt.Fprintln(os.Stderr, "Flags:")
+	fmt.Fprintln(os.Stderr, "  --audio-id <id>     Specific audio overview to launch")
+	fmt.Fprintln(os.Stderr, "  --transcript-only   Print transcript only; audio playback and microphone stay off")
+	fmt.Fprintln(os.Stderr, "  --no-mic            Disable microphone input entirely for this session")
+	fmt.Fprintln(os.Stderr, "  --mic-app           Show a small AppKit mic controller window")
+	fmt.Fprintln(os.Stderr, "  --speaker <device>  Audio output device (default: system default)")
+	fmt.Fprintln(os.Stderr, "  --mic <device>      Audio input device (default: system default)")
+	fmt.Fprintln(os.Stderr, "  --timeout <dur>     Session timeout (default: 30m)")
+	fmt.Fprintln(os.Stderr, "  --help              Show help for audio-interactive")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Examples:")
+	fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id>           Start with mic muted; press 'm' to toggle it")
+	fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --no-mic  Start in listen-only mode with no mic control")
+	fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --mic-app Start with the AppKit mic controller window")
+}
+
 func parseInteractiveAudioArgs(args []string) (interactiveAudioOptions, string, error) {
 	const defaultTimeout = 30 * time.Minute
 
@@ -68,23 +86,7 @@ func parseInteractiveAudioArgs(args []string) (interactiveAudioOptions, string, 
 	flags.DurationVar(&opts.Timeout, "timeout", defaultTimeout, "session timeout")
 	flags.BoolVar(&opts.Help, "help", false, "show help for audio-interactive")
 	flags.BoolVar(&opts.Help, "h", false, "show help for audio-interactive")
-	flags.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: nlm audio-interactive <notebook-id> [flags]\n\n")
-		fmt.Fprintln(os.Stderr, "Flags:")
-		fmt.Fprintln(os.Stderr, "  --audio-id <id>     Specific audio overview to launch")
-		fmt.Fprintln(os.Stderr, "  --transcript-only   Print transcript only; audio playback and microphone stay off")
-		fmt.Fprintln(os.Stderr, "  --no-mic            Disable microphone input entirely for this session")
-		fmt.Fprintln(os.Stderr, "  --mic-app           Show a small AppKit mic controller window")
-		fmt.Fprintln(os.Stderr, "  --speaker <device>  Audio output device (default: system default)")
-		fmt.Fprintln(os.Stderr, "  --mic <device>      Audio input device (default: system default)")
-		fmt.Fprintln(os.Stderr, "  --timeout <dur>     Session timeout (default: 30m)")
-		fmt.Fprintln(os.Stderr, "  --help              Show help for audio-interactive")
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Examples:")
-		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id>           Start with mic muted; press 'm' to toggle it")
-		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --no-mic  Start in listen-only mode with no mic control")
-		fmt.Fprintln(os.Stderr, "  nlm audio-interactive <notebook-id> --mic-app Start with the AppKit mic controller window")
-	}
+	flags.Usage = func() { printInteractiveAudioUsage("audio-interactive") }
 
 	flagArgs, notebookID, err := splitInteractiveAudioArgs(args)
 	if err != nil {

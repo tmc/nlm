@@ -13,6 +13,12 @@ stderr 'nlm: authentication required'
 ! stderr 'DEBUG: Raw response'
 ! stderr 'Attempting to manually extract'
 
+# Test list command with a local limit flag - should still reach the auth check
+! exec ./nlm_test ls --limit 5
+stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
+stderr 'nlm: authentication required'
+! stderr 'invalid arguments'
+
 # Test with invalid auth tokens - should make API call and fail with parsing errors
 # (this is expected behavior when auth tokens are provided but invalid)
 env NLM_AUTH_TOKEN=invalid-token

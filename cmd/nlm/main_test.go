@@ -203,6 +203,31 @@ func TestHelpCommand(t *testing.T) {
 					t.Errorf("output missing expected string %q\nOutput:\n%s", want, outputStr)
 				}
 			}
+
+			if tt.name == "help command" {
+				for _, want := range []string{
+					"notebook list",
+					"source list",
+					"note list",
+					"artifact list",
+					"chat list",
+					"chat instructions set",
+				} {
+					if !strings.Contains(outputStr, want) {
+						t.Errorf("grouped help missing %q\nOutput:\n%s", want, outputStr)
+					}
+				}
+				for _, unwanted := range []string{
+					"  list, ls",
+					"  sources ",
+					"  notes ",
+					"update-artifact",
+				} {
+					if strings.Contains(outputStr, unwanted) {
+						t.Errorf("grouped help unexpectedly contains legacy entry %q\nOutput:\n%s", unwanted, outputStr)
+					}
+				}
+			}
 		})
 	}
 }
@@ -257,6 +282,24 @@ func TestCommandValidation(t *testing.T) {
 			args:     []string{"add", "notebook123"},
 			wantExit: true,
 			contains: "usage: nlm add",
+		},
+		{
+			name:     "grouped notebook create without title",
+			args:     []string{"notebook", "create"},
+			wantExit: true,
+			contains: "usage: nlm notebook create",
+		},
+		{
+			name:     "grouped source list without notebook id",
+			args:     []string{"source", "list"},
+			wantExit: true,
+			contains: "usage: nlm source list",
+		},
+		{
+			name:     "grouped artifact list without notebook id",
+			args:     []string{"artifact", "list"},
+			wantExit: true,
+			contains: "usage: nlm artifact list",
 		},
 	}
 

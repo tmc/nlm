@@ -12,6 +12,17 @@ stderr 'invalid arguments'
 stderr 'Authentication required'
 ! stderr 'panic'
 
+# Test list with limit flag without authentication
+! exec ./nlm_test ls --limit 5
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test list with invalid zero limit
+! exec ./nlm_test ls --limit 0
+stderr '--limit must be greater than 0'
+stderr 'Usage: nlm ls \[flags\]'
+! stderr 'panic'
+
 # === CREATE COMMAND ===
 # Test create without arguments
 ! exec ./nlm_test create

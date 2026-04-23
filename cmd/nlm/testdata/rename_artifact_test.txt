@@ -136,14 +136,16 @@ stderr 'Authentication required'
 ! stderr 'panic'
 
 # === HELP INTEGRATION ===
-# Test that help shows update-artifact command (rename-artifact is now hidden)
+# Test that help shows the grouped artifact update command (rename-artifact is hidden)
 exec ./nlm_test help
-stderr 'update-artifact'
+stderr 'artifact update'
+! stderr 'rename-artifact'
 ! stderr 'panic'
 
-# Test that -h shows update-artifact command
+# Test that -h shows the grouped artifact update command
 exec ./nlm_test -h
-stderr 'update-artifact'
+stderr 'artifact update'
+! stderr 'rename-artifact'
 ! stderr 'panic'
 
 # === CASE SENSITIVITY ===

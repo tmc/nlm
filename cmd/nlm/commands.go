@@ -13,6 +13,15 @@ import (
 	nlmsync "github.com/tmc/nlm/internal/sync"
 )
 
+type commandSurface int
+
+const (
+	surfaceStable commandSurface = iota
+	surfaceExperimental
+	surfaceInternal
+	surfaceCompatibility
+)
+
 // command describes a single CLI command.
 type command struct {
 	name      string
@@ -20,11 +29,14 @@ type command struct {
 	usage     string // one-line description for help text
 	argsUsage string // positional args hint for "usage: nlm <name> <argsUsage>"
 	section   string // help section header
+	surface   commandSurface
 	minArgs   int    // minimum positional args (after command name)
 	maxArgs   int    // maximum positional args; -1 = unlimited
 	noAuth    bool   // true if command does not require authentication
 	noClient  bool   // true if command does not need an API client (implies noAuth)
 	hidden    bool   // true to hide from help text (experimental)
+	validate  func(cmdName string, args []string) error
+	help      func(cmdName string)
 	run       func(c *api.Client, args []string) error
 }
 
@@ -57,14 +69,75 @@ func actOnSourcesCmd(name, action, usage string) command {
 	}
 }
 
+func mustCommand(byName map[string]command, name string) command {
+	cmd, ok := byName[name]
+	if !ok {
+		panic("missing command: " + name)
+	}
+	return cmd
+}
+
+func cloneCommand(base command, name string) command {
+	base.name = name
+	base.aliases = nil
+	base.hidden = false
+	base.surface = surfaceStable
+	return base
+}
+
+func groupedCommandsFromExisting(existing []command) []command {
+	byName := make(map[string]command, len(existing))
+	for _, cmd := range existing {
+		byName[cmd.name] = cmd
+	}
+	return []command{
+		cloneCommand(mustCommand(byName, "list"), "notebook list"),
+		cloneCommand(mustCommand(byName, "create"), "notebook create"),
+		cloneCommand(mustCommand(byName, "rm"), "notebook delete"),
+		cloneCommand(mustCommand(byName, "list-featured"), "notebook featured"),
+
+		cloneCommand(mustCommand(byName, "sources"), "source list"),
+		cloneCommand(mustCommand(byName, "add"), "source add"),
+		cloneCommand(mustCommand(byName, "sync"), "source sync"),
+		cloneCommand(mustCommand(byName, "sync-pack"), "source pack"),
+		cloneCommand(mustCommand(byName, "rm-source"), "source delete"),
+		cloneCommand(mustCommand(byName, "rename-source"), "source rename"),
+		cloneCommand(mustCommand(byName, "refresh-source"), "source refresh"),
+		cloneCommand(mustCommand(byName, "check-source"), "source check"),
+		cloneCommand(mustCommand(byName, "read-source"), "source read"),
+
+		cloneCommand(mustCommand(byName, "notes"), "note list"),
+		cloneCommand(mustCommand(byName, "read-note"), "note read"),
+		cloneCommand(mustCommand(byName, "new-note"), "note create"),
+		cloneCommand(mustCommand(byName, "update-note"), "note update"),
+		cloneCommand(mustCommand(byName, "rm-note"), "note delete"),
+
+		cloneCommand(mustCommand(byName, "artifacts"), "artifact list"),
+		cloneCommand(mustCommand(byName, "get-artifact"), "artifact get"),
+		cloneCommand(mustCommand(byName, "update-artifact"), "artifact update"),
+		cloneCommand(mustCommand(byName, "delete-artifact"), "artifact delete"),
+
+		cloneCommand(mustCommand(byName, "chat-list"), "chat list"),
+		cloneCommand(mustCommand(byName, "chat-history"), "chat history"),
+		cloneCommand(mustCommand(byName, "chat-show"), "chat show"),
+		cloneCommand(mustCommand(byName, "delete-chat"), "chat delete"),
+		cloneCommand(mustCommand(byName, "chat-config"), "chat config"),
+		cloneCommand(mustCommand(byName, "set-instructions"), "chat instructions set"),
+		cloneCommand(mustCommand(byName, "get-instructions"), "chat instructions get"),
+	}
+}
+
 // commands is the single source of truth for all CLI commands.
 var commands = []command{
 	// Notebook operations
 	{
 		name: "list", aliases: []string{"ls"},
 		usage: "List all notebooks", section: "Notebook",
-		minArgs: 0, maxArgs: 0,
-		run: func(c *api.Client, args []string) error { return list(c) },
+		argsUsage: "[flags]",
+		minArgs: 0, maxArgs: -1,
+		validate: validateNotebookListArgs,
+		help:     printNotebookListUsage,
+		run:      func(c *api.Client, args []string) error { return runNotebookList(c, args) },
 	},
 	{
 		name: "create", argsUsage: "<title>",
@@ -352,6 +425,8 @@ var commands = []command{
 		usage: "Start interactive audio session (experimental, limited functionality)", section: "Audio",
 		minArgs: 0, maxArgs: -1,
 		hidden: true, // requires NLM_EXPERIMENTAL
+		validate: func(cmdName string, args []string) error { return validateInteractiveAudioArgs(args) },
+		help:     printInteractiveAudioUsage,
 		run: func(c *api.Client, args []string) error {
 			if !experimentalEnabled() {
 				return fmt.Errorf("audio-interactive is experimental (limited functionality); pass --experimental or set NLM_EXPERIMENTAL=1")
@@ -836,22 +911,104 @@ var commands = []command{
 
 // commandIndex maps command names (including aliases) to their command entry.
 var commandIndex map[string]*command
+var commandStarts map[string]bool
+var maxCommandWords int
+
+var experimentalCommands = map[string]bool{
+	"analytics":        true,
+	"discover-sources": true,
+	"audio-interactive": true,
+}
+
+var internalCommands = map[string]bool{
+	"dump-load-source": true,
+	"hb":               true,
+}
+
+var compatibilityCommands = map[string]bool{
+	"list":             true,
+	"create":           true,
+	"rm":               true,
+	"list-featured":    true,
+	"sources":          true,
+	"add":              true,
+	"sync":             true,
+	"sync-pack":        true,
+	"rm-source":        true,
+	"rename-source":    true,
+	"refresh-source":   true,
+	"check-source":     true,
+	"read-source":      true,
+	"notes":            true,
+	"read-note":        true,
+	"new-note":         true,
+	"update-note":      true,
+	"rm-note":          true,
+	"get-artifact":     true,
+	"artifacts":        true,
+	"update-artifact":  true,
+	"delete-artifact":  true,
+	"rename-artifact":  true,
+	"chat-list":        true,
+	"chat-history":     true,
+	"chat-show":        true,
+	"delete-chat":      true,
+	"chat-config":      true,
+	"set-instructions": true,
+	"get-instructions": true,
+}
 
 func init() {
+	commands = append(groupedCommandsFromExisting(commands), commands...)
 	commandIndex = make(map[string]*command, len(commands)*2)
+	commandStarts = make(map[string]bool, len(commands))
 	for i := range commands {
 		cmd := &commands[i]
+		switch {
+		case experimentalCommands[cmd.name]:
+			cmd.surface = surfaceExperimental
+		case internalCommands[cmd.name]:
+			cmd.surface = surfaceInternal
+		case compatibilityCommands[cmd.name]:
+			cmd.surface = surfaceCompatibility
+		}
 		commandIndex[cmd.name] = cmd
+		registerCommandStart(cmd.name)
 		for _, alias := range cmd.aliases {
 			commandIndex[alias] = cmd
+			registerCommandStart(alias)
 		}
 	}
+}
+
+func registerCommandStart(name string) {
+	parts := strings.Fields(name)
+	if len(parts) == 0 {
+		return
+	}
+	commandStarts[parts[0]] = true
+	maxCommandWords = max(maxCommandWords, len(parts))
 }
 
 // lookupCommand returns the command for a given name or alias.
 func lookupCommand(name string) (*command, bool) {
 	cmd, ok := commandIndex[name]
 	return cmd, ok
+}
+
+func findCommand(args []string) (string, *command, []string, bool) {
+	limit := min(len(args), maxCommandWords)
+	for n := limit; n >= 1; n-- {
+		name := strings.Join(args[:n], " ")
+		if cmd, ok := lookupCommand(name); ok {
+			return name, cmd, args[n:], true
+		}
+	}
+	return "", nil, nil, false
+}
+
+func isCommandStart(name string) bool {
+	return commandStarts[name] || helpAliases[name]
 }
 
 // experimentalEnabled reports whether experimental (hidden) commands should
@@ -880,7 +1037,7 @@ func printUsage() {
 			if cmd.section != section {
 				continue
 			}
-			if cmd.hidden && !experimentalEnabled() {
+			if !shouldShowInHelp(cmd) {
 				continue
 			}
 			if !printed {
@@ -888,7 +1045,7 @@ func printUsage() {
 				printed = true
 			}
 			label := cmd.name
-			if len(cmd.aliases) > 0 {
+			if len(cmd.aliases) > 0 && cmd.surface == surfaceStable {
 				label += ", " + strings.Join(cmd.aliases, ", ")
 			}
 			if cmd.argsUsage != "" {
@@ -902,6 +1059,17 @@ func printUsage() {
 	}
 }
 
+func shouldShowInHelp(cmd *command) bool {
+	switch cmd.surface {
+	case surfaceStable:
+		return !cmd.hidden
+	case surfaceExperimental:
+		return experimentalEnabled()
+	default:
+		return false
+	}
+}
+
 // validateCommandArgs checks positional argument count for a command.
 // cmdName is the name the user typed (may be an alias).
 // errBadArgs is returned by argument-validation paths so the exit-code
@@ -910,9 +1078,8 @@ func printUsage() {
 var errBadArgs = errors.New("invalid arguments")
 
 func validateCommandArgs(cmd *command, cmdName string, args []string) error {
-	// Special case: audio-interactive has its own validation.
-	if cmd.name == "audio-interactive" {
-		return validateInteractiveAudioArgs(args)
+	if cmd.validate != nil {
+		return cmd.validate(cmdName, args)
 	}
 
 	n := len(args)
