@@ -38,6 +38,38 @@ func TestParseChatResponseChunked(t *testing.T) {
 	}
 }
 
+func TestParseChatResponseChunkedUsesWirePhaseForBoldAnswer(t *testing.T) {
+	stream := mockChatStreamPayloads(t,
+		mockChatPayload("**Thinking**\nWorking", chatWirePhaseThinking),
+		mockChatPayload("**[Architect Persona]**\nYes", chatWirePhaseAnswer),
+		mockChatPayload("**[Architect Persona]**\nYes.", chatWirePhaseAnswer),
+	)
+
+	var got []ChatChunk
+	c := &Client{}
+	err := c.parseChatResponseChunked(strings.NewReader(stream), nil, func(chunk ChatChunk) bool {
+		got = append(got, chunk)
+		return true
+	})
+	if err != nil {
+		t.Fatalf("parseChatResponseChunked() error = %v", err)
+	}
+
+	want := []ChatChunk{
+		{Phase: ChatChunkThinking, Header: "**Thinking**", Text: "**Thinking**\nWorking"},
+		{Phase: ChatChunkAnswer, Text: "**[Architect Persona]**\nYes"},
+		{Phase: ChatChunkAnswer, Text: "."},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d chunks, want %d: %#v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i].Phase != want[i].Phase || got[i].Header != want[i].Header || got[i].Text != want[i].Text {
+			t.Fatalf("chunk %d = %#v, want %#v", i, got[i], want[i])
+		}
+	}
+}
+
 func TestAnswerOnlyCallback(t *testing.T) {
 	var got []string
 	callback := answerOnlyCallback(func(chunk string) bool {
@@ -123,10 +155,20 @@ func TestBuildChatArgsUsesProtoBackedConversationState(t *testing.T) {
 func mockChatStream(t *testing.T, texts ...string) string {
 	t.Helper()
 
+	payloads := make([]interface{}, 0, len(texts))
+	for _, text := range texts {
+		payloads = append(payloads, []interface{}{[]interface{}{text}})
+	}
+	return mockChatStreamPayloads(t, payloads...)
+}
+
+func mockChatStreamPayloads(t *testing.T, payloads ...interface{}) string {
+	t.Helper()
+
 	var b strings.Builder
 	b.WriteString(")]}'\n")
-	for _, text := range texts {
-		inner, err := json.Marshal([]interface{}{[]interface{}{text}})
+	for _, payload := range payloads {
+		inner, err := json.Marshal(payload)
 		if err != nil {
 			t.Fatalf("marshal inner chunk: %v", err)
 		}
@@ -139,4 +181,20 @@ func mockChatStream(t *testing.T, texts ...string) string {
 		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+func mockChatPayload(text string, phase int) interface{} {
+	return []interface{}{
+		[]interface{}{
+			text,
+			nil,
+			[]interface{}{"conv", "resp", float64(1)},
+			nil,
+			[]interface{}{},
+			nil,
+			nil,
+			nil,
+			phase,
+		},
+	}
 }

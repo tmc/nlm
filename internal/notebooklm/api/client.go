@@ -204,7 +204,7 @@ func (c *Client) GetProject(projectID string) (*Notebook, error) {
 	}
 
 	if c.config.Debug && project.Sources != nil {
-		fmt.Printf("DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
+		fmt.Fprintf(os.Stderr, "DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
 	}
 	return project, nil
 }
@@ -3451,12 +3451,15 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 			debugDumpChatWirePositions(innerStr)
 		}
 
-		isThinkingText := strings.HasPrefix(strings.TrimSpace(text), "**")
+		isThinking := strings.HasPrefix(strings.TrimSpace(text), "**")
+		if payload.hasWirePhase {
+			isThinking = payload.wirePhase == chatWirePhaseThinking
+		}
 
 		// Thinking updates are full replacements. Track them separately from
 		// answer text so a growing reasoning trace does not get misclassified
 		// as the start of the final answer.
-		if isThinkingText && !answerStarted {
+		if isThinking && !answerStarted {
 			if text == lastThinking {
 				continue
 			}
@@ -3650,7 +3653,15 @@ type chatPayload struct {
 	Text      string
 	Citations []Citation
 	FollowUps []string
+
+	wirePhase    int
+	hasWirePhase bool
 }
+
+const (
+	chatWirePhaseThinking = 0
+	chatWirePhaseAnswer   = 1
+)
 
 func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
 	var data interface{}
@@ -3669,6 +3680,12 @@ func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
 	if inner, ok := arr[0].([]interface{}); ok && len(inner) > 0 {
 		if text, ok := inner[0].(string); ok {
 			p.Text = text
+		}
+		if len(inner) > 8 {
+			if phase, ok := inner[8].(float64); ok {
+				p.wirePhase = int(phase)
+				p.hasWirePhase = true
+			}
 		}
 	}
 
@@ -4110,7 +4127,7 @@ func (c *Client) GetProjectWithContext(ctx context.Context, projectID string) (*
 	}
 
 	if c.config.Debug && project.Sources != nil {
-		fmt.Printf("DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
+		fmt.Fprintf(os.Stderr, "DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
 	}
 	return project, nil
 }
