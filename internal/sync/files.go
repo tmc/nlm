@@ -10,6 +10,10 @@ import (
 
 // gitFiles returns tracked files under dir using git ls-files.
 // Falls back to filepath.WalkDir if dir is not in a git repo.
+//
+// Index entries whose working-tree file is missing (deleted but not yet
+// staged) are skipped with a stderr warning, so a single stale entry does
+// not abort a multi-thousand-file sync.
 func gitFiles(dir string) ([]string, error) {
 	cmd := exec.Command("git", "ls-files", "-z")
 	cmd.Dir = dir
@@ -17,12 +21,30 @@ func gitFiles(dir string) ([]string, error) {
 	if err != nil {
 		return walkFiles(dir)
 	}
-	var files []string
+	var files, missing []string
 	for _, f := range strings.Split(string(out), "\000") {
 		if f == "" {
 			continue
 		}
-		files = append(files, filepath.Join(dir, f))
+		p := filepath.Join(dir, f)
+		info, err := os.Lstat(p)
+		if err != nil {
+			if os.IsNotExist(err) {
+				missing = append(missing, p)
+				continue
+			}
+			return nil, fmt.Errorf("stat %s: %w", p, err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+		files = append(files, p)
+	}
+	if len(missing) > 0 {
+		fmt.Fprintf(os.Stderr, "warning: skipping %d file(s) tracked by git but missing in working tree (deleted but not staged):\n", len(missing))
+		for _, p := range missing {
+			fmt.Fprintf(os.Stderr, "  %s\n", p)
+		}
 	}
 	if len(files) == 0 {
 		return walkFiles(dir)
