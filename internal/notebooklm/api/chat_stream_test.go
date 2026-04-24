@@ -198,3 +198,49 @@ func mockChatPayload(text string, phase int) interface{} {
 		},
 	}
 }
+
+// TestParseCitationsV2SlotOrdering locks in the invariant that Citation.SourceIndex
+// is the 1-based *slot* number (matching [N] in the narrative), not the project
+// index of the cited source. Regression: a run with a 100+-source notebook had
+// narrative [1] referring to the first thing the model cited (e.g. slot-1 was
+// src at project-index 99), while the footer printed "[1] = project-index-0"
+// because SourceIndex was srcIdx+1. See /tmp/nlm-impl-count.log for the repro.
+func TestParseCitationsV2SlotOrdering(t *testing.T) {
+	// Three sources in the project list, and three emitted citation slots
+	// that reference project indices in a non-monotonic order:
+	//   slot 0 (narrative [1]) → project-index 2 (src_c)
+	//   slot 1 (narrative [2]) → project-index 0 (src_a)
+	//   slot 2 (narrative [3]) → project-indices 1,2 (src_b AND src_c together)
+	sourceIDs := []string{"src_a", "src_b", "src_c"}
+	mappingData := []interface{}{
+		[]interface{}{[]interface{}{nil, float64(0), float64(10)}, []interface{}{float64(2)}},
+		[]interface{}{[]interface{}{nil, float64(11), float64(20)}, []interface{}{float64(0)}},
+		[]interface{}{[]interface{}{nil, float64(21), float64(30)}, []interface{}{float64(1), float64(2)}},
+	}
+	citationData := []interface{}{
+		[]interface{}{nil, nil, float64(0.9), nil, nil},
+		[]interface{}{nil, nil, float64(0.8), nil, nil},
+		[]interface{}{nil, nil, float64(0.7), nil, nil},
+	}
+
+	got := parseCitationsV2(citationData, mappingData, sourceIDs)
+	// One citation per (slot, srcIdx) pair: slots 0+1 have one src each,
+	// slot 2 has two → 4 total.
+	if len(got) != 4 {
+		t.Fatalf("got %d citations, want 4: %+v", len(got), got)
+	}
+	want := []Citation{
+		{SourceIndex: 1, SourceID: "src_c", StartChar: 0, EndChar: 10, Confidence: 0.9},
+		{SourceIndex: 2, SourceID: "src_a", StartChar: 11, EndChar: 20, Confidence: 0.8},
+		{SourceIndex: 3, SourceID: "src_b", StartChar: 21, EndChar: 30, Confidence: 0.7},
+		{SourceIndex: 3, SourceID: "src_c", StartChar: 21, EndChar: 30, Confidence: 0.7},
+	}
+	for i, w := range want {
+		g := got[i]
+		if g.SourceIndex != w.SourceIndex || g.SourceID != w.SourceID ||
+			g.StartChar != w.StartChar || g.EndChar != w.EndChar ||
+			g.Confidence != w.Confidence {
+			t.Errorf("citation %d = %+v, want %+v", i, g, w)
+		}
+	}
+}

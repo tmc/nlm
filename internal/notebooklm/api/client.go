@@ -2993,10 +2993,15 @@ const (
 	ChatChunkAnswer                         // Final answer text (cumulative delta)
 )
 
-// Citation represents a source citation from the chat response.
+// Citation represents a source citation from the chat response. SourceIndex
+// is the 1-based *citation slot* — it matches the [N] the model wrote into
+// the narrative, not a position in the project's source list. Two citations
+// with different SourceIndex values can share a SourceID (the model cited
+// the same source twice), and one slot can emit multiple Citations (the
+// model cited multiple sources together under a single [N]).
 type Citation struct {
-	SourceIndex int     // 1-based index as shown in the response text [1], [2], etc.
-	SourceID    string  // Source identifier
+	SourceIndex int     // 1-based citation slot; matches [N] in the response text.
+	SourceID    string  // Project source identifier behind this citation.
 	Title       string  // Source title or excerpt
 	StartChar   int     // Start character offset in the response text
 	EndChar     int     // End character offset in the response text
@@ -3735,106 +3740,90 @@ func debugDumpChatWirePositions(innerJSON string) {
 //
 // Wire layout (inner chat payload):
 //
-//	[1] = citation details array, each entry:
+//	[1] = citation details array, each entry (one per slot, i-th slot == [i+1]
+//	      in the narrative text):
 //	  [2] = confidence (float64)
 //	  [3] = ranges array
 //	  [4] = excerpts array → nested text segments
 //
-//	[2] = source mappings array, each entry is [charRange, srcIndices]:
+//	[2] = source mappings array, same length and ordering as [1]. Each entry
+//	      is [charRange, srcIndices]:
 //	  [0] = char range: [null, start, end]
-//	  [1] = source_indices ([]int, zero-based into request's source_ids)
+//	  [1] = source_indices ([]int, zero-based into request's source_ids). A
+//	        single slot can cite more than one source.
 //
-// sourceIDs are the source IDs from the original ChatRequest, used to resolve
-// integer indices back to source identifiers.
+// The narrative's `[N]` markers index into this *slot* ordering — [1] is
+// citationData[0] / mappingData[0], regardless of which project source that
+// slot happens to reference. SourceIndex therefore carries the slot number
+// (1-based), and SourceID carries the resolved project source behind it.
+// sourceIDs is the source-id list from the original ChatRequest, used to
+// turn per-slot srcIndices into stable identifiers.
 func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string) []Citation {
-	// Build a map of source_index → Citation from the source mappings at [2].
-	// Each mapping entry tells us which source indices are cited at which char range.
-	seen := make(map[int]*Citation)
+	mapArr, _ := mappingData.([]interface{})
+	citArr, _ := citationData.([]interface{})
 
-	if mapArr, ok := mappingData.([]interface{}); ok {
-		for _, entry := range mapArr {
-			entryArr, ok := entry.([]interface{})
-			if !ok || len(entryArr) < 2 {
-				continue
+	citations := make([]Citation, 0, len(mapArr))
+	for i, entry := range mapArr {
+		entryArr, ok := entry.([]interface{})
+		if !ok || len(entryArr) < 2 {
+			continue
+		}
+
+		// [0] = char range [null, start, end]
+		var startChar, endChar int
+		if rangeArr, ok := entryArr[0].([]interface{}); ok && len(rangeArr) >= 3 {
+			if v, ok := rangeArr[1].(float64); ok {
+				startChar = int(v)
 			}
-
-			// [0] = char range [null, start, end]
-			var startChar, endChar int
-			if rangeArr, ok := entryArr[0].([]interface{}); ok && len(rangeArr) >= 3 {
-				if v, ok := rangeArr[1].(float64); ok {
-					startChar = int(v)
-				}
-				if v, ok := rangeArr[2].(float64); ok {
-					endChar = int(v)
-				}
+			if v, ok := rangeArr[2].(float64); ok {
+				endChar = int(v)
 			}
+		}
 
-			// [1] = source_indices (zero-based into sourceIDs)
-			if idxArr, ok := entryArr[1].([]interface{}); ok {
-				for _, idx := range idxArr {
-					srcIdx := -1
-					if v, ok := idx.(float64); ok {
-						srcIdx = int(v)
+		// [1] = source_indices (zero-based into sourceIDs). Emit one
+		// Citation per (slot, srcIdx) pair so callers can render the
+		// full "[3] cites src_a, src_b" case; all share SourceIndex=i+1.
+		idxArr, ok := entryArr[1].([]interface{})
+		if !ok || len(idxArr) == 0 {
+			continue
+		}
+
+		// Pre-compute shared slot-level metadata (confidence, excerpt) from
+		// citationData[i] so every emitted Citation for this slot carries it.
+		var confidence float64
+		var excerpt string
+		if i < len(citArr) {
+			if slotArr, ok := citArr[i].([]interface{}); ok {
+				if len(slotArr) > 2 {
+					if v, ok := slotArr[2].(float64); ok {
+						confidence = v
 					}
-					if srcIdx < 0 {
-						continue
-					}
-					if _, exists := seen[srcIdx]; !exists {
-						c := &Citation{
-							SourceIndex: srcIdx + 1, // 1-based for display
-							StartChar:   startChar,
-							EndChar:     endChar,
-						}
-						if srcIdx < len(sourceIDs) {
-							c.SourceID = sourceIDs[srcIdx]
-						}
-						seen[srcIdx] = c
-					}
+				}
+				if len(slotArr) > 4 {
+					excerpt = extractExcerptText(slotArr[4])
 				}
 			}
 		}
-	}
 
-	// Extract excerpts from citation details at [1] to enrich titles.
-	if citArr, ok := citationData.([]interface{}); ok {
-		for i, entry := range citArr {
-			entryArr, ok := entry.([]interface{})
-			if !ok {
+		for _, idx := range idxArr {
+			srcIdx := -1
+			if v, ok := idx.(float64); ok {
+				srcIdx = int(v)
+			}
+			if srcIdx < 0 {
 				continue
 			}
-			c, exists := seen[i]
-			if !exists {
-				continue
+			c := Citation{
+				SourceIndex: i + 1, // 1-based slot — matches narrative's [N]
+				StartChar:   startChar,
+				EndChar:     endChar,
+				Confidence:  confidence,
+				Title:       excerpt,
 			}
-
-			// [2] = confidence score (float64). Missing or non-numeric leaves 0.
-			if len(entryArr) > 2 {
-				if v, ok := entryArr[2].(float64); ok {
-					c.Confidence = v
-				}
+			if srcIdx < len(sourceIDs) {
+				c.SourceID = sourceIDs[srcIdx]
 			}
-
-			// [4] = excerpts: navigate to excerpt text
-			// [4][N][2][M][2] = text string
-			if len(entryArr) > 4 {
-				if excerpts := extractExcerptText(entryArr[4]); excerpts != "" {
-					c.Title = excerpts
-				}
-			}
-		}
-	}
-
-	// Collect into sorted slice.
-	var citations []Citation
-	for _, c := range seen {
-		citations = append(citations, *c)
-	}
-	// Sort by source index for stable output.
-	for i := 0; i < len(citations); i++ {
-		for j := i + 1; j < len(citations); j++ {
-			if citations[j].SourceIndex < citations[i].SourceIndex {
-				citations[i], citations[j] = citations[j], citations[i]
-			}
+			citations = append(citations, c)
 		}
 	}
 	return citations
