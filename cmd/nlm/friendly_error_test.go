@@ -63,6 +63,16 @@ func TestFriendlyError(t *testing.T) {
 			wantNotContain: []string{"notebook source cap reached", "API error 9"},
 		},
 		{
+			name: "source too large sentinel replaces wrapper noise",
+			err: fmt.Errorf("add text source %q (%d bytes > %d limit): %w",
+				"big.jsonl", 13_815_499, 10*1024*1024, api.ErrSourceTooLarge),
+			// The sentinel's own literal message is stripped; the friendly
+			// rewrite must not double-surface it or leak the cap-reached
+			// label users mistook size failures for.
+			wantContains:   []string{"add text source", "per-request size limit", "nlm sync"},
+			wantNotContain: []string{"notebook source cap reached", "source exceeds per-request size limit:"},
+		},
+		{
 			name:         "plain error passes through unchanged",
 			err:          errors.New("open file: no such file"),
 			wantContains: []string{"open file: no such file"},

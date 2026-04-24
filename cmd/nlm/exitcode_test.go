@@ -61,6 +61,7 @@ func TestExitCodeFor(t *testing.T) {
 		{"ErrArtifactGenerating", fmt.Errorf("poll: %w", api.ErrArtifactGenerating), exitBusy},
 		{"ErrResearchPolling", fmt.Errorf("poll: %w", api.ErrResearchPolling), exitBusy},
 		{"ErrSourceCapReached wrapped twice", fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", api.ErrSourceCapReached)), exitPrecondition},
+		{"ErrSourceTooLarge", fmt.Errorf("add text source: %w", api.ErrSourceTooLarge), exitPrecondition},
 
 		// Structured batchexecute.APIError by ErrorType (exhaustive over
 		// every enumerant in internal/batchexecute/errors.go).

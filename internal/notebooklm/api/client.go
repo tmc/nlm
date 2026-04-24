@@ -531,7 +531,20 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 	return c.uploadFileSource(projectID, filepath.Base(filename), content)
 }
 
+// MaxTextSourceBytes is the client-side ceiling for AddSourceFromText
+// payloads. The server accepts text sources well under 3MB and rejects
+// payloads ≥13MB with a misleading "failed precondition" code that the
+// wire client would otherwise mislabel as ErrSourceCapReached (see
+// the source cap. Failing fast at 10MB keeps headroom above
+// the safe band while staying below the known-fail band; callers with
+// larger content should split it or use `nlm sync` / `nlm sync-pack`,
+// which chunk automatically at 5MB boundaries.
+const MaxTextSourceBytes = 10 * 1024 * 1024
+
 func (c *Client) AddSourceFromText(projectID string, content, title string) (string, error) {
+	if n := len(content); n > MaxTextSourceBytes {
+		return "", fmt.Errorf("add text source %q (%d bytes > %d limit): %w", title, n, MaxTextSourceBytes, ErrSourceTooLarge)
+	}
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCAddSources,
 		NotebookID: projectID,

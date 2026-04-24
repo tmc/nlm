@@ -281,6 +281,9 @@ func friendlyError(err error) string {
 	if errors.Is(err, api.ErrSourceCapReached) {
 		return friendlyTypedError(err, api.ErrSourceCapReached, "notebook is at the source limit; remove unused sources before adding more")
 	}
+	if errors.Is(err, api.ErrSourceTooLarge) {
+		return friendlyTypedError(err, api.ErrSourceTooLarge, "source exceeds the per-request size limit; split it, or use `nlm sync` / `nlm sync-pack` which chunk automatically")
+	}
 	var apiErr *batchexecute.APIError
 	if !errors.As(err, &apiErr) {
 		return err.Error()

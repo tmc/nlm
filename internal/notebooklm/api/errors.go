@@ -21,6 +21,15 @@ var (
 	// Maps to exit code 5 (permanent precondition).
 	ErrSourceCapReached = errors.New("notebook source cap reached")
 
+	// ErrSourceTooLarge indicates a single source payload exceeded the per-
+	// request limit the server accepts. The observed failure band is 13MB+
+	// for the text path; client-side we trip at MaxTextSourceBytes to keep
+	// a deterministic error ahead of the server's ambiguous response (which
+	// it otherwise mislabels as code 9 "failed precondition"). Split the
+	// content or use `nlm sync`/`nlm sync-pack` which chunks automatically.
+	// Maps to exit code 5 (permanent precondition).
+	ErrSourceTooLarge = errors.New("source exceeds per-request size limit")
+
 	// ErrArtifactGenerating indicates an artifact is still in the
 	// ARTIFACT_STATUS_GENERATING transient state and a caller that wanted a
 	// finished artifact should retry. Maps to exit code 7 (resource busy).
