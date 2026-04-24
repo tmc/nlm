@@ -420,6 +420,9 @@ var commands = []command{
 		usage: "Get video overview details", section: "Video",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
+			// GetVideoOverview requires the direct-RPC path; enable it
+			// transparently so callers don't have to pass --direct-rpc.
+			c.SetUseDirectRPC(true)
 			result, err := c.GetVideoOverview(args[0])
 			if err != nil {
 				return err
