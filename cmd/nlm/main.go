@@ -2055,6 +2055,42 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	}, err
 }
 
+// promoteThinkingToAnswer handles the case where the stream parser classified
+// the entire response as thinking-phase (typical when the server never
+// emitted a wirePhase tag, and the model's answer text happened to start
+// with a bold header that the text heuristic also treats as a thinking
+// marker). res.Answer is empty but res.Thinking contains what is actually
+// a complete answer. Print it on stdout and mirror it into res.Answer so
+// downstream session persistence sees a real answer, not a thinking trace.
+//
+// This is not an error condition — the user got the content they asked for
+// — so we stay silent on stderr and only surface the reclassification when
+// --debug is set. In JSONL mode, emit a typed event instead of raw text so
+// we don't corrupt the event stream.
+func promoteThinkingToAnswer(res *chatResult, debug, jsonl bool) {
+	if res.Answer != "" {
+		return
+	}
+	thinking := strings.TrimSpace(res.Thinking)
+	if thinking == "" {
+		return
+	}
+	if debug {
+		fmt.Fprintln(os.Stderr, "nlm: stream had no answer-phase chunks; using thinking trace as answer")
+	}
+	if jsonl {
+		buf, _ := json.Marshal(map[string]any{
+			"phase": "answer",
+			"text":  thinking,
+			"note":  "promoted from thinking trace",
+		})
+		fmt.Println(string(buf))
+	} else {
+		fmt.Println(thinking)
+	}
+	res.Answer = thinking
+}
+
 // printStreamFallback prints the non-streaming fallback response without
 // duplicating what streamChatResponse already wrote to stdout. The streaming
 // renderer appends each answer chunk to an internal buffer and also prints
@@ -2179,9 +2215,8 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 	}
 	if res.Answer != "" {
 		fmt.Println()
-	} else if thinking := strings.TrimSpace(res.Thinking); thinking != "" {
-		fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
-		fmt.Println(thinking)
+	} else if strings.TrimSpace(res.Thinking) != "" {
+		promoteThinkingToAnswer(&res, debug, opts.Render.ThinkingJSONL)
 	} else {
 		// Empty answer with no streaming error usually means the conversation
 		// was rejected server-side, every source is in an error/indexing state,
@@ -2630,10 +2665,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 		res.Answer = response
 	}
 	if res.Answer == "" {
-		if thinking := strings.TrimSpace(res.Thinking); thinking != "" {
-			fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
-			fmt.Println(thinking)
-		}
+		promoteThinkingToAnswer(&res, debug, opts.Render.ThinkingJSONL)
 	}
 	fmt.Println()
 
@@ -2718,10 +2750,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 		res.Answer = response
 	}
 	if res.Answer == "" {
-		if thinking := strings.TrimSpace(res.Thinking); thinking != "" {
-			fmt.Fprintln(os.Stderr, "nlm: no answer token received; printing thinking trace")
-			fmt.Println(thinking)
-		}
+		promoteThinkingToAnswer(&res, debug, opts.Render.ThinkingJSONL)
 	}
 	fmt.Println()
 	response := strings.TrimSpace(res.Answer)
