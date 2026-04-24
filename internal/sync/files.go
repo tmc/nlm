@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,4 +50,49 @@ func walkFiles(dir string) ([]string, error) {
 		return nil
 	})
 	return files, err
+}
+
+// applyExcludes removes paths matching any of the given filepath.Match
+// patterns. Each pattern is tried against both the full path and the
+// basename, so "*.pb.go" and "vendor/*" both work intuitively. Returns
+// an error if a pattern is malformed.
+func applyExcludes(files, patterns []string) ([]string, error) {
+	if len(patterns) == 0 {
+		return files, nil
+	}
+	// Validate patterns up front so a typo fails fast instead of silently
+	// matching nothing.
+	for _, p := range patterns {
+		if _, err := filepath.Match(p, ""); err != nil {
+			return nil, fmt.Errorf("invalid --exclude pattern %q: %w", p, err)
+		}
+	}
+	out := files[:0]
+	for _, f := range files {
+		if excluded(f, patterns) {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
+func excluded(path string, patterns []string) bool {
+	base := filepath.Base(path)
+	for _, p := range patterns {
+		if ok, _ := filepath.Match(p, path); ok {
+			return true
+		}
+		if ok, _ := filepath.Match(p, base); ok {
+			return true
+		}
+		// Directory-style prefix match: "vendor/", "docs", or "pkg/internal".
+		prefix := strings.TrimSuffix(p, "/")
+		if prefix != "" && !strings.ContainsAny(prefix, "*?[") {
+			if path == prefix || strings.HasPrefix(path, prefix+string(filepath.Separator)) {
+				return true
+			}
+		}
+	}
+	return false
 }

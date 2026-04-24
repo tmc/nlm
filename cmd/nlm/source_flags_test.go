@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestParseSourceAddArgs(t *testing.T) {
 	tests := []struct {
@@ -87,6 +90,12 @@ func TestParseSourceSyncArgs(t *testing.T) {
 			args:        []string{"nb", "--max-bytes", "-1"},
 			wantErrText: "--max-bytes must be >= 0",
 		},
+		{
+			name:     "repeated exclude",
+			args:     []string{"nb", "--exclude", "*.pb.go", "-x", "vendor/", "./src"},
+			wantOpts: syncOptions{Exclude: []string{"*.pb.go", "vendor/"}},
+			wantPos:  []string{"nb", "./src"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -102,7 +111,7 @@ func TestParseSourceSyncArgs(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseSourceSyncArgs(%q) error = %v", tt.args, err)
 			}
-			if gotOpts != tt.wantOpts {
+			if !reflect.DeepEqual(gotOpts, tt.wantOpts) {
 				t.Fatalf("parseSourceSyncArgs(%q) opts = %+v, want %+v", tt.args, gotOpts, tt.wantOpts)
 			}
 			if len(gotPos) != len(tt.wantPos) {
@@ -124,7 +133,7 @@ func TestParseSourcePackArgs(t *testing.T) {
 		t.Fatalf("parseSourcePackArgs() error = %v", err)
 	}
 	wantOpts := syncPackOptions{Name: "bundle", Chunk: 2}
-	if gotOpts != wantOpts {
+	if !reflect.DeepEqual(gotOpts, wantOpts) {
 		t.Fatalf("parseSourcePackArgs() opts = %+v, want %+v", gotOpts, wantOpts)
 	}
 	if len(gotPaths) != 1 || gotPaths[0] != "./docs" {

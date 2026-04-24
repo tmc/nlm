@@ -6,10 +6,21 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	nlmsync "github.com/tmc/nlm/internal/sync"
 )
+
+// stringSliceFlag collects repeated --flag values into a slice.
+type stringSliceFlag []string
+
+func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
+
+func (s *stringSliceFlag) Set(v string) error {
+	*s = append(*s, v)
+	return nil
+}
 
 type sourceAddOptions struct {
 	Name            string
@@ -23,12 +34,14 @@ type syncOptions struct {
 	DryRun   bool
 	MaxBytes int
 	JSON     bool
+	Exclude  []string
 }
 
 type syncPackOptions struct {
 	Name     string
 	MaxBytes int
 	Chunk    int
+	Exclude  []string
 }
 
 func printSourceAddUsage(cmdName string) {
@@ -74,6 +87,10 @@ func printSourceSyncUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "                            contacting the server")
 	fmt.Fprintln(os.Stderr, "  --max-bytes <n>           Per-chunk size threshold (default 5120000)")
 	fmt.Fprintln(os.Stderr, "  --json                    Emit NDJSON progress records instead of text")
+	fmt.Fprintln(os.Stderr, "  --exclude <pattern>       Skip files matching a filepath.Match pattern;")
+	fmt.Fprintln(os.Stderr, "                            tested against the full path and basename. May")
+	fmt.Fprintln(os.Stderr, "                            be repeated. Trailing '/' or '/'-bearing patterns")
+	fmt.Fprintln(os.Stderr, "                            match as path prefixes (e.g. 'vendor/')")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Hash cache: ~/.cache/nlm/sync/<notebook-id>/")
 	fmt.Fprintln(os.Stderr)
@@ -82,6 +99,7 @@ func printSourceSyncUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s -n docs <notebook-id> ./docs ./notes\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s --dry-run <notebook-id>          # preview without uploading\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s --force <notebook-id> README.md  # force re-upload\n", cmdName)
+	fmt.Fprintf(os.Stderr, "  nlm %s --exclude '*.pb.go' --exclude 'vendor/' <notebook-id>\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  git ls-files '*.go' | nlm %s -n go-src <notebook-id> -\n", cmdName)
 }
 
@@ -102,11 +120,14 @@ func printSourcePackUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --name, -n <name>         Source title (same rules as sync)")
 	fmt.Fprintln(os.Stderr, "  --max-bytes <n>           Per-chunk size threshold (default 5120000)")
 	fmt.Fprintln(os.Stderr, "  --chunk <n>               Emit the Nth chunk (1-indexed) when multiple")
+	fmt.Fprintln(os.Stderr, "  --exclude <pattern>       Skip files matching the pattern (repeatable;")
+	fmt.Fprintln(os.Stderr, "                            same rules as sync)")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s                                  # pack the current directory\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s ./docs > docs.txtar\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s --chunk 2 ./docs\n", cmdName)
+	fmt.Fprintf(os.Stderr, "  nlm %s --exclude '*.pb.go' ./src\n", cmdName)
 }
 
 func validateSourceAddArgs(cmdName string, args []string) error {
@@ -181,9 +202,13 @@ func parseSourceSyncArgs(args []string) (syncOptions, []string, error) {
 	flags.BoolVar(&opts.DryRun, "dry-run", opts.DryRun, "")
 	flags.IntVar(&opts.MaxBytes, "max-bytes", opts.MaxBytes, "")
 	flags.BoolVar(&opts.JSON, "json", opts.JSON, "")
+	excludes := (*stringSliceFlag)(&opts.Exclude)
+	flags.Var(excludes, "exclude", "")
+	flags.Var(excludes, "x", "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "force": true, "dry-run": true, "max-bytes": true, "json": true,
+		"exclude": true, "x": true,
 	}, map[string]bool{
 		"force": true, "dry-run": true, "json": true,
 	})
@@ -214,9 +239,13 @@ func parseSourcePackArgs(args []string) (syncPackOptions, []string, error) {
 	flags.StringVar(&opts.Name, "n", opts.Name, "")
 	flags.IntVar(&opts.MaxBytes, "max-bytes", opts.MaxBytes, "")
 	flags.IntVar(&opts.Chunk, "chunk", opts.Chunk, "")
+	excludes := (*stringSliceFlag)(&opts.Exclude)
+	flags.Var(excludes, "exclude", "")
+	flags.Var(excludes, "x", "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "max-bytes": true, "chunk": true,
+		"exclude": true, "x": true,
 	}, nil)
 	if err != nil {
 		return opts, nil, err
@@ -267,6 +296,7 @@ func runSourceSync(c *api.Client, args []string) error {
 		Force:    opts.Force,
 		DryRun:   opts.DryRun,
 		JSON:     opts.JSON,
+		Exclude:  opts.Exclude,
 	}
 	adapter := &syncClientAdapter{client: c}
 	return nlmsync.Run(context.Background(), adapter, notebookID, paths, syncOpts, os.Stdout)

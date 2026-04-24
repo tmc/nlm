@@ -32,11 +32,12 @@ type Client interface {
 
 // Options controls sync behavior.
 type Options struct {
-	MaxBytes int    // chunk threshold; 0 means 5120000
-	Name     string // source name; required if ambiguous
-	Force    bool   // re-upload even if hash unchanged
-	DryRun   bool   // print plan, don't upload
-	JSON     bool   // NDJSON output
+	MaxBytes int      // chunk threshold; 0 means 5120000
+	Name     string   // source name; required if ambiguous
+	Force    bool     // re-upload even if hash unchanged
+	DryRun   bool     // print plan, don't upload
+	JSON     bool     // NDJSON output
+	Exclude  []string // filepath.Match patterns; files whose basename or full path matches are skipped
 }
 
 func (o *Options) maxBytes() int {
@@ -58,6 +59,10 @@ func Pack(paths []string, opts Options) (chunks [][]byte, names []string, err er
 	files, err := discoverFiles(paths)
 	if err != nil {
 		return nil, nil, fmt.Errorf("discover files: %w", err)
+	}
+	files, err = applyExcludes(files, opts.Exclude)
+	if err != nil {
+		return nil, nil, err
 	}
 	if len(files) == 0 {
 		return nil, nil, fmt.Errorf("no files found")
@@ -86,6 +91,10 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 	files, err := discoverFiles(paths)
 	if err != nil {
 		return fmt.Errorf("discover files: %w", err)
+	}
+	files, err = applyExcludes(files, opts.Exclude)
+	if err != nil {
+		return err
 	}
 	if len(files) == 0 {
 		return fmt.Errorf("no files found")

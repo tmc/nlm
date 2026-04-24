@@ -28,6 +28,7 @@ func runSyncPack(args []string, opts syncPackOptions) error {
 	packOpts := nlmsync.Options{
 		MaxBytes: opts.MaxBytes,
 		Name:     opts.Name,
+		Exclude:  opts.Exclude,
 	}
 	chunks, names, err := nlmsync.Pack(paths, packOpts)
 	if err != nil {
