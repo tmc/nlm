@@ -46,6 +46,10 @@ type syncPackOptions struct {
 
 func printSourceAddUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "Usage: nlm %s [flags] <notebook-id> <source|-> [source...]\n\n", cmdName)
+	fmt.Fprintln(os.Stderr, "Sources may be files, URLs, or text literals. A sole '-' streams all of")
+	fmt.Fprintln(os.Stderr, "stdin in as a single source (pair with --name and --mime-type). To add a")
+	fmt.Fprintln(os.Stderr, "list of sources from stdin, compose with xargs.")
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Flags:")
 	fmt.Fprintln(os.Stderr, "  --name, -n <name>         Custom name for the added source")
 	fmt.Fprintln(os.Stderr, "  --mime, --mime-type <t>   Override MIME detection for file/stdin content")
@@ -54,7 +58,8 @@ func printSourceAddUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id> https://example.com/article\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s --name \"API notes\" <notebook-id> ./notes.txt\n", cmdName)
-	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id> -\n", cmdName)
+	fmt.Fprintf(os.Stderr, "  cat notes.md | nlm %s --name \"April notes\" <notebook-id> -\n", cmdName)
+	fmt.Fprintf(os.Stderr, "  cat urls.txt | xargs nlm %s <notebook-id>\n", cmdName)
 }
 
 func printSourceSyncUsage(cmdName string) {

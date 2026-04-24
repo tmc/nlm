@@ -166,7 +166,7 @@ var commands = []command{
 	},
 	{
 		name: "add", argsUsage: "<notebook-id> <source|-> [source...]",
-		usage: "Add one or more sources (files, URLs, or text; pass '-' to read newline-delimited entries from stdin)", section: "Source",
+		usage: "Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)", section: "Source",
 		minArgs: 2, maxArgs: -1,
 		validate: validateSourceAddArgs,
 		help:     printSourceAddUsage,

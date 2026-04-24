@@ -58,15 +58,29 @@ func TestValidateSourceInputs(t *testing.T) {
 }
 
 // TestAddSourceInputs_PassThrough ensures literal argument lists are
-// returned as-is (no accidental stdin consumption when the user passed
-// explicit values).
+// returned as-is — including a sole "-", which addSource interprets as
+// "stream stdin as one source" (not as a line-delimited list).
 func TestAddSourceInputs_PassThrough(t *testing.T) {
-	got, err := addSourceInputs([]string{"https://a/x", "topic"})
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"url and text literal", []string{"https://a/x", "topic"}, []string{"https://a/x", "topic"}},
+		{"sole dash preserved for stdin blob", []string{"-"}, []string{"-"}},
+		{"mixed with dash preserved (validation rejects later)", []string{"https://a/x", "-"}, []string{"https://a/x", "-"}},
+		{"single file arg", []string{"./notes.md"}, []string{"./notes.md"}},
 	}
-	if len(got) != 2 || got[0] != "https://a/x" || got[1] != "topic" {
-		t.Fatalf("pass-through mismatch: %#v", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := addSourceInputs(tt.in)
+			if err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("addSourceInputs(%v) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
 	}
 }
 

@@ -9,28 +9,15 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-// addSourceInputs expands the positional source arguments of `nlm add`. A
-// single `-` is replaced with newline-delimited entries read from stdin
-// (same rules as readLinesFromReader: blank and `#`-prefixed lines dropped,
-// first whitespace field wins). Any other value, or a mix, is returned as-is.
+// addSourceInputs is the identity function today: positional source args
+// pass through unchanged to addSources, which dispatches per entry. The
+// single-arg `-` case (stream all of stdin as one source) is handled in
+// addSource itself via AddSourceFromReader, preserving the pre-bulk
+// semantics where piped input became one blob rather than many lines.
 //
-// The stdin form is only consumed when args is exactly []string{"-"} so that
-// literal arguments are never silently replaced by piped input, and so that
-// readers like `cat urls.txt | nlm add <nb> -` compose cleanly.
+// Users who want to add a list of sources from stdin should compose with
+// xargs: `cat urls.txt | xargs nlm add <notebook-id>`.
 func addSourceInputs(args []string) ([]string, error) {
-	if len(args) == 1 && args[0] == "-" {
-		if isTerminal(os.Stdin) {
-			return nil, fmt.Errorf("refusing to read sources from an interactive stdin; pipe input or pass arguments instead")
-		}
-		lines, err := readLinesFromReader(os.Stdin)
-		if err != nil {
-			return nil, err
-		}
-		if len(lines) == 0 {
-			return nil, fmt.Errorf("no sources read from stdin")
-		}
-		return lines, nil
-	}
 	return args, nil
 }
 
@@ -38,9 +25,8 @@ func addSourceInputs(args []string) ([]string, error) {
 // RPC call fires. Partial success on batches would be lying — the all-or-
 // nothing shape preserves shell-pipe semantics (one non-zero exit = retry
 // the whole batch). Rules:
-//   - "-" inside a multi-item batch is rejected (stdin can only appear as
-//     the sole argument; once we've already expanded it we know we're not
-//     in that path).
+//   - "-" is only valid as the sole argument; it means "stream stdin as
+//     one source." Mixing it with other args is rejected.
 //   - Inputs looking like URLs (http/https) are accepted as-is; DNS/HTTP
 //     failures surface from the RPC.
 //   - Inputs with a path separator or that os.Stat can open are treated as
@@ -51,6 +37,12 @@ func addSourceInputs(args []string) ([]string, error) {
 func validateSourceInputs(inputs []string) error {
 	if len(inputs) == 0 {
 		return fmt.Errorf("no sources provided")
+	}
+	if len(inputs) == 1 && inputs[0] == "-" {
+		if isTerminal(os.Stdin) {
+			return fmt.Errorf("refusing to read source from an interactive stdin; pipe input or pass arguments instead")
+		}
+		return nil
 	}
 	for _, in := range inputs {
 		if in == "" {
