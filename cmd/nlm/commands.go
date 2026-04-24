@@ -174,8 +174,9 @@ var commands = []command{
 	},
 	{
 		name: "sync", argsUsage: "<notebook-id> [paths...]",
-		usage: "Sync files into a named source (use --force to re-upload unchanged)", section: "Source",
+		usage: "Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)", section: "Source",
 		minArgs: 1, maxArgs: -1,
+		hidden:   true, // top-level shortcut for `source sync`; kept first-class but de-duplicated from help
 		validate: validateSourceSyncArgs,
 		help:     printSourceSyncUsage,
 		run:      func(c *api.Client, args []string) error { return runSourceSync(c, args) },
@@ -185,6 +186,7 @@ var commands = []command{
 		usage:   "Preview the txtar bytes that sync would upload (offline)",
 		section: "Source",
 		minArgs: 0, maxArgs: -1,
+		hidden:   true, // top-level shortcut for `source pack`; kept first-class but de-duplicated from help
 		noClient: true,
 		validate: validateSourcePackArgs,
 		help:     printSourcePackUsage,
@@ -861,8 +863,6 @@ var compatibilityCommands = map[string]bool{
 	"list-featured":    true,
 	"sources":          true,
 	"add":              true,
-	"sync":             true,
-	"sync-pack":        true,
 	"rm-source":        true,
 	"rename-source":    true,
 	"refresh-source":   true,
@@ -895,8 +895,6 @@ var compatibilityReplacements = map[string]string{
 	"list-featured":    "notebook featured",
 	"sources":          "source list",
 	"add":              "source add",
-	"sync":             "source sync",
-	"sync-pack":        "source pack",
 	"rm-source":        "source delete",
 	"source-rm":        "source delete",
 	"rename-source":    "source rename",
