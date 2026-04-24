@@ -1,13 +1,37 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"strings"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
+
+// runPreProcess pipes r through `sh -c cmd` and returns the command's stdout.
+// A non-zero exit propagates as an error, including stderr for diagnosis. The
+// input is fully consumed before the command runs so we can report clean
+// errors for the (common) case of a small source; streaming support is a
+// deliberate non-goal for now.
+func runPreProcess(cmd string, label string, r io.Reader) (io.Reader, error) {
+	c := exec.Command("sh", "-c", cmd)
+	c.Stdin = r
+	var stdout, stderr bytes.Buffer
+	c.Stdout = &stdout
+	c.Stderr = &stderr
+	if err := c.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			return nil, fmt.Errorf("pre-process %q for %s: %w", cmd, label, err)
+		}
+		return nil, fmt.Errorf("pre-process %q for %s: %w: %s", cmd, label, err, msg)
+	}
+	return bytes.NewReader(stdout.Bytes()), nil
+}
 
 // addSourceInputs is the identity function today: positional source args
 // pass through unchanged to addSources, which dispatches per entry. The

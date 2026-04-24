@@ -26,6 +26,10 @@ type sourceAddOptions struct {
 	Name            string
 	MIMEType        string
 	ReplaceSourceID string
+	// PreProcess is a shell command run for each non-URL source. The source
+	// content is piped to its stdin; stdout replaces what gets uploaded. A
+	// non-zero exit status aborts the batch.
+	PreProcess string
 }
 
 type syncOptions struct {
@@ -54,12 +58,16 @@ func printSourceAddUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --name, -n <name>         Custom name for the added source")
 	fmt.Fprintln(os.Stderr, "  --mime, --mime-type <t>   Override MIME detection for file/stdin content")
 	fmt.Fprintln(os.Stderr, "  --replace <source-id>     Upload a replacement, then delete the old source")
+	fmt.Fprintln(os.Stderr, "  --pre-process <cmd>       Pipe each non-URL source through 'sh -c cmd' before")
+	fmt.Fprintln(os.Stderr, "                            upload; stdout replaces the content. Non-zero exit")
+	fmt.Fprintln(os.Stderr, "                            aborts the batch. URL sources are passed through.")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id> https://example.com/article\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s --name \"API notes\" <notebook-id> ./notes.txt\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  cat notes.md | nlm %s --name \"April notes\" <notebook-id> -\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  cat urls.txt | xargs nlm %s <notebook-id>\n", cmdName)
+	fmt.Fprintf(os.Stderr, "  nlm %s --pre-process 'pandoc -f docx -t markdown' <notebook-id> brief.docx\n", cmdName)
 }
 
 func printSourceSyncUsage(cmdName string) {
@@ -175,9 +183,11 @@ func parseSourceAddArgs(args []string) (sourceAddOptions, string, []string, erro
 	flags.StringVar(&opts.MIMEType, "mime", opts.MIMEType, "")
 	flags.StringVar(&opts.MIMEType, "mime-type", opts.MIMEType, "")
 	flags.StringVar(&opts.ReplaceSourceID, "replace", opts.ReplaceSourceID, "")
+	flags.StringVar(&opts.PreProcess, "pre-process", opts.PreProcess, "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "mime": true, "mime-type": true, "replace": true,
+		"pre-process": true,
 	}, nil)
 	if err != nil {
 		return opts, "", nil, err

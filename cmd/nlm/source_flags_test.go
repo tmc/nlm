@@ -29,6 +29,13 @@ func TestParseSourceAddArgs(t *testing.T) {
 			wantInputs:   []string{"./notes.txt"},
 		},
 		{
+			name:         "pre-process flag",
+			args:         []string{"--pre-process", "tr a-z A-Z", "nb", "./notes.txt"},
+			wantOpts:     sourceAddOptions{PreProcess: "tr a-z A-Z"},
+			wantNotebook: "nb",
+			wantInputs:   []string{"./notes.txt"},
+		},
+		{
 			name:    "missing source",
 			args:    []string{"nb"},
 			wantErr: "missing notebook id or source",

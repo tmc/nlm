@@ -756,11 +756,20 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 		if opts.Name != "" {
 			name = opts.Name
 		}
+		var reader io.Reader = os.Stdin
+		if opts.PreProcess != "" {
+			fmt.Fprintf(os.Stderr, "Pre-processing stdin through: %s\n", opts.PreProcess)
+			piped, err := runPreProcess(opts.PreProcess, "stdin", reader)
+			if err != nil {
+				return "", err
+			}
+			reader = piped
+		}
 		if opts.MIMEType != "" {
 			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
-			return c.AddSourceFromReader(notebookID, os.Stdin, name, opts.MIMEType)
+			return c.AddSourceFromReader(notebookID, reader, name, opts.MIMEType)
 		}
-		return c.AddSourceFromReader(notebookID, os.Stdin, name)
+		return c.AddSourceFromReader(notebookID, reader, name)
 	case "": // empty input
 		return "", fmt.Errorf("input required (file, URL, or '-' for stdin)")
 	}
@@ -768,6 +777,9 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 	// Check if input is a URL
 	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
 		fmt.Fprintf(os.Stderr, "Adding source from URL: %s\n", input)
+		if opts.PreProcess != "" {
+			fmt.Fprintf(os.Stderr, "(--pre-process ignored for URL source)\n")
+		}
 		return c.AddSourceFromURL(notebookID, input)
 	}
 
@@ -777,6 +789,23 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 		name := filepath.Base(input)
 		if opts.Name != "" {
 			name = opts.Name
+		}
+		if opts.PreProcess != "" {
+			fmt.Fprintf(os.Stderr, "Pre-processing file through: %s\n", opts.PreProcess)
+			file, err := os.Open(input)
+			if err != nil {
+				return "", fmt.Errorf("open file: %w", err)
+			}
+			defer file.Close()
+			piped, err := runPreProcess(opts.PreProcess, input, file)
+			if err != nil {
+				return "", err
+			}
+			if opts.MIMEType != "" {
+				fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
+				return c.AddSourceFromReader(notebookID, piped, name, opts.MIMEType)
+			}
+			return c.AddSourceFromReader(notebookID, piped, name)
 		}
 		if opts.MIMEType != "" {
 			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
@@ -804,6 +833,18 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 	textName := "Text Source"
 	if opts.Name != "" {
 		textName = opts.Name
+	}
+	if opts.PreProcess != "" {
+		fmt.Fprintf(os.Stderr, "Pre-processing text through: %s\n", opts.PreProcess)
+		piped, err := runPreProcess(opts.PreProcess, "text", strings.NewReader(input))
+		if err != nil {
+			return "", err
+		}
+		data, err := io.ReadAll(piped)
+		if err != nil {
+			return "", fmt.Errorf("read pre-process output: %w", err)
+		}
+		return c.AddSourceFromText(notebookID, string(data), textName)
 	}
 	return c.AddSourceFromText(notebookID, input, textName)
 }

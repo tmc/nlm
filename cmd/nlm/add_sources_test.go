@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -9,6 +10,50 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
+
+func TestRunPreProcess(t *testing.T) {
+	t.Run("stdout replaces content", func(t *testing.T) {
+		out, err := runPreProcess("tr a-z A-Z", "test", strings.NewReader("hello"))
+		if err != nil {
+			t.Fatalf("runPreProcess error = %v", err)
+		}
+		got, err := io.ReadAll(out)
+		if err != nil {
+			t.Fatalf("read out: %v", err)
+		}
+		if string(got) != "HELLO" {
+			t.Fatalf("got %q, want %q", string(got), "HELLO")
+		}
+	})
+
+	t.Run("non-zero exit surfaces stderr", func(t *testing.T) {
+		_, err := runPreProcess("echo oops >&2; exit 3", "test", strings.NewReader("hello"))
+		if err == nil {
+			t.Fatalf("want error, got nil")
+		}
+		if !strings.Contains(err.Error(), "oops") {
+			t.Fatalf("error %q does not mention stderr %q", err.Error(), "oops")
+		}
+		if !strings.Contains(err.Error(), "test") {
+			t.Fatalf("error %q does not mention label %q", err.Error(), "test")
+		}
+	})
+
+	t.Run("binary-safe passthrough", func(t *testing.T) {
+		input := string([]byte{0x00, 0x01, 0x02, 0xff, 0xfe})
+		out, err := runPreProcess("cat", "test", strings.NewReader(input))
+		if err != nil {
+			t.Fatalf("runPreProcess error = %v", err)
+		}
+		got, err := io.ReadAll(out)
+		if err != nil {
+			t.Fatalf("read out: %v", err)
+		}
+		if string(got) != input {
+			t.Fatalf("got %x, want %x", got, input)
+		}
+	})
+}
 
 // TestValidateSourceInputs covers the pre-RPC fail-fast rules. The bulk
 // path is value only if callers can rely on an all-or-nothing contract; a
