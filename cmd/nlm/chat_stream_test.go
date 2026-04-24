@@ -321,12 +321,17 @@ func TestChatStreamRendererCitationModeTail(t *testing.T) {
 	}
 
 	s := status.String()
-	// Footer marker: aged-out = bracket, still-held = superscript.
+	// Footer consistently uses [N] brackets for all entries — the inline
+	// superscript in the answer already marks which ones got spliced, and a
+	// single superscript among brackets reads as a bug.
 	if !strings.Contains(s, "[1] src_aged") {
 		t.Fatalf("footer missing aged-out entry with bracket marker: %q", s)
 	}
-	if !strings.Contains(s, "² src_tail") {
-		t.Fatalf("footer missing held entry with superscript marker: %q", s)
+	if !strings.Contains(s, "[2] src_tail") {
+		t.Fatalf("footer missing held entry with bracket marker: %q", s)
+	}
+	if strings.Contains(s, "² src_tail") {
+		t.Fatalf("footer should not mix superscript markers: %q", s)
 	}
 }
 

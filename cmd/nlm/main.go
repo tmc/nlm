@@ -1814,19 +1814,14 @@ func (r *chatStreamRenderer) emitTail() {
 	if len(r.citations) == 0 {
 		return
 	}
-	// Footer: show inline entries as superscripts, spilled as bracket indices.
+	// Footer always uses [N] — the inline superscript in the answer body
+	// already marks which ones got spliced. Mixing bracket and superscript
+	// in the footer itself makes the odd-one-out look like a rendering bug.
 	fmt.Fprintln(r.status)
 	fmt.Fprintln(r.status, ansiGrey+strings.Repeat("─", 3)+ansiReset)
 	for _, c := range r.citations {
 		label := r.citationLabel(c)
-		marker := superscript(c.SourceIndex)
-		for _, s := range spilled {
-			if s.SourceIndex == c.SourceIndex {
-				marker = fmt.Sprintf("[%d]", c.SourceIndex)
-				break
-			}
-		}
-		fmt.Fprintf(r.status, "%s%s %s%s\n", ansiGrey, marker, label, ansiReset)
+		fmt.Fprintf(r.status, "%s[%d] %s%s\n", ansiGrey, c.SourceIndex, label, ansiReset)
 	}
 }
 
