@@ -2783,7 +2783,7 @@ func printChatHistory(c *api.Client, notebookID, conversationID string) error {
 	}
 
 	// Fall back to local session.
-	session, localErr := loadChatSessionForConv(notebookID, conversationID)
+	session, localErr := loadChatSessionByConversation(notebookID, conversationID)
 	if localErr != nil {
 		if err != nil {
 			return fmt.Errorf("server: %w; no local session found", err)
@@ -2819,19 +2819,36 @@ func resolveConversationID(c *api.Client, notebookID, partial string) string {
 	return partial
 }
 
+func loadChatSessionByConversation(notebookID, conversationID string) (*ChatSession, error) {
+	if session, err := loadChatSessionForConv(notebookID, conversationID); err == nil {
+		return session, nil
+	}
+
+	sessions, _ := listLocalChatSessions(notebookID)
+	for i := range sessions {
+		if sessions[i].ConversationID == conversationID || strings.HasPrefix(sessions[i].ConversationID, conversationID) {
+			return &sessions[i], nil
+		}
+	}
+
+	legacy, err := loadChatSession(notebookID)
+	if err != nil {
+		return nil, err
+	}
+	if legacy.ConversationID == conversationID || strings.HasPrefix(legacy.ConversationID, conversationID) {
+		return legacy, nil
+	}
+	return nil, os.ErrNotExist
+}
+
 // chatShow renders a locally-stored conversation with full citation modes.
 // Unlike chat-history (which prefers server-side), chat-show reads only the
 // local session so it can surface persisted citation metadata (char ranges,
 // source IDs) that the server doesn't return in conversation history.
 func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
-	session, err := loadChatSessionForConv(notebookID, conversationID)
+	session, err := loadChatSessionByConversation(notebookID, conversationID)
 	if err != nil {
-		// Fall back to the single-session-per-notebook path (older layout).
-		legacy, legacyErr := loadChatSession(notebookID)
-		if legacyErr != nil || legacy.ConversationID != conversationID {
-			return fmt.Errorf("load local session: %w", err)
-		}
-		session = legacy
+		return fmt.Errorf("load local session: %w", err)
 	}
 	if len(session.Messages) == 0 {
 		fmt.Fprintln(os.Stderr, "No messages in local session.")
@@ -3178,7 +3195,13 @@ func saveChatSession(session *ChatSession) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0600)
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return err
+	}
+	if session.ConversationID == "" {
+		return nil
+	}
+	return os.WriteFile(getChatSessionPathForConv(session.NotebookID, session.ConversationID), data, 0600)
 }
 
 func listChatSessions() error {

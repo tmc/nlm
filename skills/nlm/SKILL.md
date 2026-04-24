@@ -1,101 +1,133 @@
 ---
 name: nlm
-description: "Manages Google NotebookLM notebooks via the nlm CLI. Creates notebooks, uploads sources (files, URLs, stdin), generates audio/video/slides, runs chat sessions, and transforms content. Use when interacting with NotebookLM or uploading project files to a notebook."
-when_to_use: "User mentions NotebookLM, wants to create a notebook, upload files to a notebook, generate audio or video overviews, create slides or presentations, chat with sources, summarize documents, or manage notebook content."
+description: "Manages Google NotebookLM notebooks via the nlm CLI. Use for creating notebooks, listing and syncing sources, uploading files/URLs/text, chatting with sources, generating reports/audio/video/slides, running research, and managing notebook content."
+when_to_use: "User mentions NotebookLM, nlm, notebook IDs, source upload/sync, chat with sources, report/audio/video/slides generation, research, or managing NotebookLM notes/artifacts."
 allowed-tools: Bash(*), Read, Glob, Grep, Write
 argument-hint: "[action] [args...]"
 ---
 
 # nlm — NotebookLM CLI
 
-## Commands and Flags
+## Command Discovery
 
-```
-!`nlm --help 2>&1`
-```
+Run `nlm --help` for the canonical command tree. Run `nlm <command> --help`
+for command-local flags. The stable surface is noun-first: `notebook`,
+`source`, `note`, `artifact`, and `chat` groups.
 
-Run `nlm <command>` with no args to see usage for that command. IDs are UUIDs.
+For a compact command map, read `reference/commands.md` only when needed.
+Always prefer live help output when it disagrees with the reference.
 
 ## Interpreting $ARGUMENTS
 
 | Argument | Action |
 |----------|--------|
-| (empty) | Run `nlm list`, ask what to do |
-| `create` or `new` | Create notebook workflow |
-| `upload` or `add` | Upload sources workflow |
-| `chat` | Start or resume chat |
-| `audio` / `video` / `slides` | Content creation workflow |
-| `status` | Show notebook + sources overview |
+| (empty) | Run `nlm notebook list`, then ask what to do |
+| `create` or `new` | Create a notebook with `nlm notebook create` |
+| `upload` or `add` | Add one-off sources with `nlm source add` |
+| `sync` | Sync a directory as a managed source with `nlm source sync` |
+| `chat` | Start, resume, or run one-shot chat |
+| `research` | Run `nlm research` and choose fast/deep mode if needed |
+| `audio` / `video` / `slides` / `report` | Use the corresponding create or generation command |
+| `status` | Show notebook, sources, artifacts, and recent chats |
 | a notebook ID | Show details for that notebook |
 | a file path or glob | Upload that file/pattern to a notebook |
 
-## Critical Flags
+## Critical Practices
 
-- **`-y`** — Skip confirmation prompts. Always use `-y` with `rm`, `rm-source`, `rm-note` etc. in non-interactive contexts: `nlm -y rm <id>`. Without `-y`, these commands require interactive TTY input that cannot be piped.
-- **`--direct-rpc`** — Required for `audio-download` and `video-download`.
-- **`--authuser N`** — Select Google account (0-indexed). Also via `NLM_AUTHUSER=N`.
+- Surface full UUIDs for notebooks, sources, conversations, notes, and artifacts in responses. Follow-up commands need them.
+- Use `-y` for destructive operations in non-interactive contexts, for example `nlm -y notebook delete <id>`.
+- Use `nlm auth --authuser N` or `NLM_AUTHUSER=N` for non-default Google accounts.
+- Use `--direct-rpc` for `audio-download` and `video-download`.
+- Treat compatibility aliases (`nlm list`, `nlm sources`, `nlm rm-source`) as runnable but prefer canonical forms in new guidance.
 
-## Things `--help` Won't Tell You
+## Common Workflows
 
-**Sync a directory as one source** — `nlm sync` packs files into txtar natively
-(no external tools), quotes files containing txtar markers so they round-trip,
-chunks at 5MB, and is idempotent via a content-hash cache. Re-running only
-uploads what changed:
+**List notebooks**
 ```bash
-nlm sync <notebook-id> src/                      # name derives from dir
-nlm sync <notebook-id> src/ --name "project: src/"
-nlm sync <notebook-id> --dry-run                 # preview plan, no upload
-nlm sync <notebook-id> --force                   # re-upload even if unchanged
-nlm sync <notebook-id> --json                    # NDJSON progress for scripts
+nlm notebook list
+nlm notebook list --limit 25
+nlm notebook list --all
 ```
-Use `sync` over `add` whenever you'll re-upload the same tree. Use `add` for
-one-shot single-file/URL uploads.
 
-**Preview what sync will upload** — `nlm sync-pack` writes the exact txtar
+**Add one-off sources** — use `source add` for files, URLs, and direct text.
+Pass `-` to read newline-delimited source references from stdin.
+```bash
+nlm source add <notebook-id> https://example.com/article
+nlm source add <notebook-id> ./paper.pdf
+nlm source add --name "API notes" <notebook-id> ./notes.txt
+printf '%s\n' ./a.pdf https://example.com/b | nlm source add <notebook-id> -
+```
+
+**Sync a directory as one source** — `source sync` packs files into txtar,
+quotes nested txtar markers, chunks large payloads, and skips unchanged chunks
+using a content-hash cache. Use it whenever the same tree will be re-uploaded.
+Use `source add` for one-shot single-file/URL uploads.
+```bash
+nlm source sync <notebook-id> src/
+nlm source sync --name "project: src/" <notebook-id> src/
+nlm source sync --dry-run <notebook-id> .
+nlm source sync --force <notebook-id> ./docs ./notes
+nlm source sync --json <notebook-id> .
+```
+
+**Preview what sync will upload** — `source pack` writes the exact txtar
 bytes sync would upload, no network. Pipe through `txtar --list` or `txtar -x`
 to inspect:
 ```bash
-nlm sync-pack src/ | txtar --list
-nlm sync-pack src/ > preview.txtar
-nlm sync-pack src/ --chunk 2 > pt2.txtar         # pick one chunk of many
+nlm source pack src/ | txtar --list
+nlm source pack src/ > preview.txtar
+nlm source pack --chunk 2 src/ > pt2.txtar
 ```
 
-**Focus on specific sources** — `--source-ids` and `--source-match` scope chat,
-report, and transform commands to a subset of a notebook's sources. The flags
-apply to `chat`, `generate-chat`, `create-report`, `generate-report`, and every
-content transform (`summarize`, `briefing`, `timeline`, etc.). They union when
-both are passed:
+**Focus on specific sources** — `--source-ids` and `--source-match` scope
+chat, `generate-chat`, `generate-report`, `source-guide`, and content
+transforms. `--source-match` is a Go regex matched against titles and UUIDs.
 ```bash
-nlm chat <nb> "what does sync do?" --source-match 'internal/sync'
-nlm generate-report <nb> "Deep dive" --source-match '^nlm '
-nlm summarize <nb> --source-ids a,b,c
-nlm chat <nb> "..." --source-match '^132af'          # UUID-prefix match
+nlm chat --source-match 'internal/sync' <notebook-id> "What changed?"
+nlm generate-chat --source-ids a,b,c <notebook-id> "Summarize these"
+nlm summarize --source-match '^spec/' <notebook-id>
+nlm source list <notebook-id> | grep Q3 | nlm chat --source-ids - <notebook-id> "Risks?"
 ```
-`--source-match` is a Go regex matched against titles AND UUIDs; an empty match
-fails fast and lists available titles.
 
-**Rename after stdin upload** — stdin sources appear as "Pasted Text". Either use `--name` during add, or rename after:
+**Chat and continuation**
 ```bash
-nlm rename-source <source-id> "descriptive name"
+nlm chat <notebook-id>
+nlm chat <notebook-id> "What are the main conclusions?"
+nlm generate-chat --conversation <conversation-id> <notebook-id> "Follow up"
+nlm chat show --citations tail <notebook-id> <conversation-id>
 ```
 
-**Binary upload workarounds** — if PDF/plist upload fails with 500:
+**Research**
 ```bash
-pdftotext paper.pdf - | nlm add <notebook-id> -
-plutil -convert xml1 -o - file.plist | nlm add <notebook-id> -
+nlm research <notebook-id> "What changed in the source set?"
+nlm research --mode fast <notebook-id> "Which docs should I read first?"
+nlm research --md <notebook-id> "Write a concise brief" > report.md
+nlm research --import <notebook-id> "Find source material"
 ```
 
-**Content creation takes time** — after `create-audio`, `create-video`, or `create-slides`, poll status with `nlm artifacts <id>` until ready.
-
-**Download requires `--direct-rpc`**:
+**Content creation** — creation may take time. Poll with `artifact list`,
+`audio-list`, or `video-list`.
 ```bash
-nlm --direct-rpc audio-download <id> output.wav
-nlm --direct-rpc video-download <id> output.mp4
+nlm create-audio <notebook-id> "Conversational, focus on key decisions"
+nlm create-video <notebook-id> "Whiteboard walkthrough"
+nlm create-slides <notebook-id> "Presentation summary"
+nlm generate-report --sections 3 <notebook-id>
+nlm artifact list <notebook-id>
+nlm --direct-rpc audio-download <notebook-id> output.wav
+nlm --direct-rpc video-download <notebook-id> output.mp4
 ```
 
-**Multi-account auth** — use `--authuser N` or `NLM_AUTHUSER=N` for non-default Google accounts.
+**Rename after stdin upload** — stdin text defaults to "Pasted Text"; use
+`--name` during upload or rename after:
+```bash
+nlm source rename <source-id> "descriptive name"
+```
 
-**Always surface IDs** — EVERY time you display notebooks or sources, include the full UUID in your output. The user needs these IDs for follow-up commands. Never hide IDs behind a formatted table that omits them.
+**Binary upload workarounds** — if a binary upload fails, convert to text:
+```bash
+pdftotext paper.pdf - | nlm source add --name "paper text" <notebook-id> -
+plutil -convert xml1 -o - file.plist | nlm source add --name "plist text" <notebook-id> -
+```
 
 ## Error Recovery
 
@@ -103,5 +135,6 @@ nlm --direct-rpc video-download <id> output.mp4
 |-------|-----|
 | "Authentication required" | Run `nlm auth` |
 | "Service unavailable" on upload | Retry after a few seconds (rate limit) |
-| "Failed precondition" | Convert binary to text first (see above) |
+| "source limit reached" or "Failed precondition" on add | Remove unused sources or use a smaller target notebook |
 | "upload init failed (status 500)" | Try text extraction workaround |
+| `--source-match matched no sources` | Re-run `nlm source list <notebook-id>` and adjust the regex |

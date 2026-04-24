@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestParseSourceSelectionArgs(t *testing.T) {
 	tests := []struct {
@@ -129,5 +134,50 @@ func TestParseGenerateReportArgs(t *testing.T) {
 	}
 	if len(gotPos) != 1 || gotPos[0] != "nb" {
 		t.Fatalf("parseGenerateReportArgs positional = %q, want [nb]", gotPos)
+	}
+}
+
+func TestSaveChatSessionWritesConversationFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	session := &ChatSession{
+		NotebookID:     "nb",
+		ConversationID: "12345678-1234-1234-1234-123456789abc",
+		Messages:       []ChatMessage{{Role: "user", Content: "hello"}},
+	}
+	if err := saveChatSession(session); err != nil {
+		t.Fatalf("saveChatSession: %v", err)
+	}
+	if _, err := os.Stat(getChatSessionPath("nb")); err != nil {
+		t.Fatalf("legacy session file missing: %v", err)
+	}
+	if _, err := os.Stat(getChatSessionPathForConv("nb", session.ConversationID)); err != nil {
+		t.Fatalf("conversation session file missing: %v", err)
+	}
+}
+
+func TestLoadChatSessionByConversationPrefixFallsBackToLegacy(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	session := `{
+  "notebook_id": "nb",
+  "conversation_id": "abcdef12-3456-7890-abcd-ef1234567890",
+  "messages": [{"role": "assistant", "content": "smoke ok"}]
+}`
+	path := filepath.Join(home, ".nlm")
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "chat-nb.json"), []byte(session), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadChatSessionByConversation("nb", "abcdef12")
+	if err != nil {
+		t.Fatalf("loadChatSessionByConversation: %v", err)
+	}
+	if got.ConversationID != "abcdef12-3456-7890-abcd-ef1234567890" {
+		t.Fatalf("conversation = %q", got.ConversationID)
+	}
+	if len(got.Messages) != 1 || !strings.Contains(got.Messages[0].Content, "smoke") {
+		t.Fatalf("messages = %+v", got.Messages)
 	}
 }
