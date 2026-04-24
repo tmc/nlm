@@ -2060,6 +2060,38 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	}, err
 }
 
+// printStreamFallback prints the non-streaming fallback response without
+// duplicating what streamChatResponse already wrote to stdout. The streaming
+// renderer appends each answer chunk to an internal buffer and also prints
+// it live, so streamed holds the exact bytes already on stdout (in stream,
+// block, and off citation modes). If full starts with streamed we emit only
+// the unseen suffix; otherwise — e.g. overlay mode spliced superscripts, or
+// the fallback diverged — we emit a boundary marker and the full response so
+// the duplication is at least labeled.
+//
+// In JSONL mode raw printing would corrupt the event stream, so we write a
+// single typed fallback event instead.
+func printStreamFallback(out io.Writer, streamed, full string, jsonl bool) {
+	if jsonl {
+		buf, _ := json.Marshal(map[string]any{
+			"phase": "fallback",
+			"text":  full,
+		})
+		fmt.Fprintln(out, string(buf))
+		return
+	}
+	if streamed == "" {
+		fmt.Fprint(out, full)
+		return
+	}
+	if strings.HasPrefix(full, streamed) {
+		fmt.Fprint(out, full[len(streamed):])
+		return
+	}
+	fmt.Fprint(out, "\n--- streaming failed, re-rendering full response ---\n")
+	fmt.Fprint(out, full)
+}
+
 // notebookSourceTitles returns a lazy lookup from source ID to source title.
 // The project fetch happens at most once, on first lookup, and failures are
 // silently suppressed (callers fall back to the server's citation excerpt).
@@ -2144,7 +2176,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 		if chatErr != nil {
 			return fmt.Errorf("generate chat: stream: %w; fallback: %v", streamErr, chatErr)
 		}
-		fmt.Print(response)
+		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.ThinkingJSONL)
 		res.Answer = response
 		// Surface the streaming error even when fallback succeeded, so users
 		// can diagnose flaky streams rather than silently degrading.
@@ -2599,7 +2631,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 		if chatErr != nil {
 			return fmt.Errorf("chat: %w", err)
 		}
-		fmt.Print(response)
+		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.ThinkingJSONL)
 		res.Answer = response
 	}
 	if res.Answer == "" {
@@ -2687,7 +2719,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 		if chatErr != nil {
 			return fmt.Errorf("chat: %w", err)
 		}
-		fmt.Print(response)
+		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.ThinkingJSONL)
 		res.Answer = response
 	}
 	if res.Answer == "" {
