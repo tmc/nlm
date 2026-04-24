@@ -36,6 +36,23 @@ func TestParseSourceAddArgs(t *testing.T) {
 			wantInputs:   []string{"./notes.txt"},
 		},
 		{
+			name:         "chunk flag",
+			args:         []string{"--chunk", "5242880", "nb", "big.log"},
+			wantOpts:     sourceAddOptions{Chunk: 5242880},
+			wantNotebook: "nb",
+			wantInputs:   []string{"big.log"},
+		},
+		{
+			name:    "chunk above limit",
+			args:    []string{"--chunk", "99999999", "nb", "x"},
+			wantErr: "--chunk 99999999 exceeds per-request limit 10485760",
+		},
+		{
+			name:    "chunk negative",
+			args:    []string{"--chunk", "-1", "nb", "x"},
+			wantErr: "--chunk must be >= 0",
+		},
+		{
 			name:    "missing source",
 			args:    []string{"nb"},
 			wantErr: "missing notebook id or source",

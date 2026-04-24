@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
@@ -31,6 +32,59 @@ func runPreProcess(cmd string, label string, r io.Reader) (io.Reader, error) {
 		return nil, fmt.Errorf("pre-process %q for %s: %w: %s", cmd, label, err, msg)
 	}
 	return bytes.NewReader(stdout.Bytes()), nil
+}
+
+// splitIntoChunks divides content into parts of at most chunkSize bytes each.
+// The last part may be smaller. chunkSize must be > 0.
+func splitIntoChunks(content []byte, chunkSize int) [][]byte {
+	if len(content) == 0 {
+		return nil
+	}
+	n := (len(content) + chunkSize - 1) / chunkSize
+	parts := make([][]byte, 0, n)
+	for i := 0; i < len(content); i += chunkSize {
+		end := min(i+chunkSize, len(content))
+		parts = append(parts, content[i:end])
+	}
+	return parts
+}
+
+// chunkedSourceNames returns names for n chunks: the first is base, the rest
+// are "base (pt2)", "base (pt3)", ... Matches the naming scheme used by
+// `nlm sync` so chunked sources from either path are visually consistent in
+// the notebook.
+func chunkedSourceNames(base string, n int) []string {
+	names := make([]string, n)
+	for i := range names {
+		if i == 0 {
+			names[i] = base
+		} else {
+			names[i] = fmt.Sprintf("%s (pt%d)", base, i+1)
+		}
+	}
+	return names
+}
+
+// addSourceChunked uploads content as text sources in chunkSize-byte parts.
+// Used when the caller passed --chunk N and the source is not a URL. Returns
+// one source ID per uploaded part, in order. The first error aborts remaining
+// uploads.
+func addSourceChunked(c *api.Client, notebookID string, content []byte, baseName string, chunkSize int) ([]string, error) {
+	parts := splitIntoChunks(content, chunkSize)
+	if len(parts) == 0 {
+		return nil, fmt.Errorf("nothing to upload: source is empty")
+	}
+	names := chunkedSourceNames(baseName, len(parts))
+	ids := make([]string, 0, len(parts))
+	for i, part := range parts {
+		id, err := c.AddSourceFromText(notebookID, string(part), names[i])
+		if err != nil {
+			return ids, fmt.Errorf("upload %s (part %d/%d): %w", names[i], i+1, len(parts), err)
+		}
+		fmt.Fprintf(os.Stderr, "  uploaded %s (%d bytes) -> %s\n", names[i], len(part), id)
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // addSourceInputs is the identity function today: positional source args
@@ -103,25 +157,103 @@ func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAd
 	}
 	knownSourceIDs, _ := sourceIDSet(c, notebookID) // Best-effort cleanup guard.
 	for _, in := range inputs {
-		id, err := addSource(c, notebookID, in, opts)
+		ids, err := addSourceEntry(c, notebookID, in, opts)
 		if err != nil {
 			if cleanupErr := cleanupFailedAdd(c, notebookID, knownSourceIDs); cleanupErr != nil {
 				fmt.Fprintf(os.Stderr, "warning: %v\n", cleanupErr)
 			}
 			return err
 		}
-		if knownSourceIDs != nil {
-			knownSourceIDs[id] = struct{}{}
+		for _, id := range ids {
+			if knownSourceIDs != nil {
+				knownSourceIDs[id] = struct{}{}
+			}
+			fmt.Println(id)
 		}
-		if opts.ReplaceSourceID != "" && len(inputs) == 1 {
+		if opts.ReplaceSourceID != "" && len(inputs) == 1 && len(ids) == 1 {
 			fmt.Fprintf(os.Stderr, "Replacing source %s...\n", opts.ReplaceSourceID)
 			if delErr := c.DeleteSources(notebookID, []string{opts.ReplaceSourceID}); delErr != nil {
 				fmt.Fprintf(os.Stderr, "warning: uploaded new source but failed to delete old: %v\n", delErr)
 			}
 		}
-		fmt.Println(id)
 	}
 	return nil
+}
+
+// addSourceEntry dispatches a single positional input to the appropriate
+// upload path and returns one or more source IDs. Non-chunked inputs return
+// a single-element slice; chunked inputs return one ID per part.
+func addSourceEntry(c *api.Client, notebookID, input string, opts sourceAddOptions) ([]string, error) {
+	if opts.Chunk > 0 && !isURL(input) {
+		content, name, err := collectChunkedInput(input, opts)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Fprintf(os.Stderr, "Chunking %q into parts of %d bytes (total %d bytes)\n", name, opts.Chunk, len(content))
+		return addSourceChunked(c, notebookID, content, name, opts.Chunk)
+	}
+	id, err := addSource(c, notebookID, input, opts)
+	if err != nil {
+		return nil, err
+	}
+	return []string{id}, nil
+}
+
+func isURL(s string) bool {
+	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+}
+
+// collectChunkedInput resolves the input (stdin/file/text) into a byte slice
+// and a base name, applying --pre-process when set. URL inputs are excluded
+// by the caller.
+func collectChunkedInput(input string, opts sourceAddOptions) ([]byte, string, error) {
+	var (
+		content []byte
+		name    string
+	)
+	switch input {
+	case "-":
+		fmt.Fprintln(os.Stderr, "Reading from stdin...")
+		name = "Pasted Text"
+		if opts.Name != "" {
+			name = opts.Name
+		}
+		b, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, "", fmt.Errorf("read stdin: %w", err)
+		}
+		content = b
+	default:
+		if _, err := os.Stat(input); err == nil {
+			name = filepath.Base(input)
+			if opts.Name != "" {
+				name = opts.Name
+			}
+			b, err := os.ReadFile(input)
+			if err != nil {
+				return nil, "", fmt.Errorf("read %s: %w", input, err)
+			}
+			content = b
+		} else {
+			name = "Text Source"
+			if opts.Name != "" {
+				name = opts.Name
+			}
+			content = []byte(input)
+		}
+	}
+	if opts.PreProcess != "" {
+		fmt.Fprintf(os.Stderr, "Pre-processing through: %s\n", opts.PreProcess)
+		piped, err := runPreProcess(opts.PreProcess, name, bytes.NewReader(content))
+		if err != nil {
+			return nil, "", err
+		}
+		content, err = io.ReadAll(piped)
+		if err != nil {
+			return nil, "", fmt.Errorf("read pre-process output: %w", err)
+		}
+	}
+	return content, name, nil
 }
 
 func sourceIDSet(c *api.Client, notebookID string) (map[string]struct{}, error) {

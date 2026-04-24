@@ -129,6 +129,54 @@ func TestAddSourceInputs_PassThrough(t *testing.T) {
 	}
 }
 
+func TestSplitIntoChunks(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   string
+		chunkSize int
+		want      []string
+	}{
+		{"empty", "", 5, nil},
+		{"smaller than chunk", "abc", 5, []string{"abc"}},
+		{"exact multiple", "aaaabbbb", 4, []string{"aaaa", "bbbb"}},
+		{"ragged last chunk", "aaaabbbbc", 4, []string{"aaaa", "bbbb", "c"}},
+		{"single byte chunks", "abc", 1, []string{"a", "b", "c"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitIntoChunks([]byte(tt.content), tt.chunkSize)
+			if len(got) != len(tt.want) {
+				t.Fatalf("splitIntoChunks(%q, %d) got %d parts, want %d", tt.content, tt.chunkSize, len(got), len(tt.want))
+			}
+			for i := range tt.want {
+				if string(got[i]) != tt.want[i] {
+					t.Errorf("part %d = %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestChunkedSourceNames(t *testing.T) {
+	tests := []struct {
+		base string
+		n    int
+		want []string
+	}{
+		{"notes", 1, []string{"notes"}},
+		{"notes", 3, []string{"notes", "notes (pt2)", "notes (pt3)"}},
+		{"big.log", 2, []string{"big.log", "big.log (pt2)"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.base, func(t *testing.T) {
+			got := chunkedSourceNames(tt.base, tt.n)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("chunkedSourceNames(%q, %d) = %v, want %v", tt.base, tt.n, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestStaleFailedAddSourceIDs(t *testing.T) {
 	before := map[string]struct{}{
 		"existing": {},

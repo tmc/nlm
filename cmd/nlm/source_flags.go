@@ -30,6 +30,11 @@ type sourceAddOptions struct {
 	// content is piped to its stdin; stdout replaces what gets uploaded. A
 	// non-zero exit status aborts the batch.
 	PreProcess string
+	// Chunk, if > 0, splits each non-URL source into parts of at most this
+	// many bytes each. The first part keeps the source name; subsequent
+	// parts are named "<name> (pt2)", "<name> (pt3)", ... Matches the
+	// naming scheme `nlm sync` uses for bundle chunks.
+	Chunk int
 }
 
 type syncOptions struct {
@@ -61,6 +66,10 @@ func printSourceAddUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --pre-process <cmd>       Pipe each non-URL source through 'sh -c cmd' before")
 	fmt.Fprintln(os.Stderr, "                            upload; stdout replaces the content. Non-zero exit")
 	fmt.Fprintln(os.Stderr, "                            aborts the batch. URL sources are passed through.")
+	fmt.Fprintln(os.Stderr, "  --chunk <bytes>           Split each non-URL source into parts of at most <bytes>")
+	fmt.Fprintln(os.Stderr, "                            each. Parts upload as \"name\", \"name (pt2)\", ... Use for")
+	fmt.Fprintln(os.Stderr, "                            content that exceeds the per-request size limit without")
+	fmt.Fprintln(os.Stderr, "                            switching to `nlm sync` txtar bundling.")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id> https://example.com/article\n", cmdName)
@@ -68,6 +77,7 @@ func printSourceAddUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  cat notes.md | nlm %s --name \"April notes\" <notebook-id> -\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  cat urls.txt | xargs nlm %s <notebook-id>\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s --pre-process 'pandoc -f docx -t markdown' <notebook-id> brief.docx\n", cmdName)
+	fmt.Fprintf(os.Stderr, "  nlm %s --chunk 5242880 <notebook-id> huge.log\n", cmdName)
 }
 
 func printSourceSyncUsage(cmdName string) {
@@ -184,10 +194,11 @@ func parseSourceAddArgs(args []string) (sourceAddOptions, string, []string, erro
 	flags.StringVar(&opts.MIMEType, "mime-type", opts.MIMEType, "")
 	flags.StringVar(&opts.ReplaceSourceID, "replace", opts.ReplaceSourceID, "")
 	flags.StringVar(&opts.PreProcess, "pre-process", opts.PreProcess, "")
+	flags.IntVar(&opts.Chunk, "chunk", opts.Chunk, "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "mime": true, "mime-type": true, "replace": true,
-		"pre-process": true,
+		"pre-process": true, "chunk": true,
 	}, nil)
 	if err != nil {
 		return opts, "", nil, err
@@ -197,6 +208,12 @@ func parseSourceAddArgs(args []string) (sourceAddOptions, string, []string, erro
 	}
 	if len(positional) < 2 {
 		return opts, "", nil, fmt.Errorf("missing notebook id or source")
+	}
+	if opts.Chunk < 0 {
+		return opts, "", nil, fmt.Errorf("--chunk must be >= 0")
+	}
+	if opts.Chunk > api.MaxTextSourceBytes {
+		return opts, "", nil, fmt.Errorf("--chunk %d exceeds per-request limit %d", opts.Chunk, api.MaxTextSourceBytes)
 	}
 	return opts, positional[0], positional[1:], nil
 }
