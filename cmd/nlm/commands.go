@@ -81,6 +81,7 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "list"), "notebook list"),
 		cloneCommand(mustCommand(byName, "create"), "notebook create"),
 		cloneCommand(mustCommand(byName, "rm"), "notebook delete"),
+		cloneCommand(mustCommand(byName, "rename-notebook"), "notebook rename"),
 		cloneCommand(mustCommand(byName, "list-featured"), "notebook featured"),
 
 		cloneCommand(mustCommand(byName, "sources"), "source list"),
@@ -137,6 +138,18 @@ var commands = []command{
 		usage: "Delete a notebook", section: "Notebook",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error { return remove(c, args[0]) },
+	},
+	{
+		name: "rename-notebook", argsUsage: "<notebook-id> [new-title]",
+		usage: "Rename notebook (title positional, --emoji optional; experimental: wire format unverified by HAR)", section: "Notebook",
+		minArgs: 1, maxArgs: 2,
+		run: func(c *api.Client, args []string) error {
+			title := ""
+			if len(args) > 1 {
+				title = args[1]
+			}
+			return renameNotebook(c, args[0], title, notebookEmoji)
+		},
 	},
 	{
 		name: "analytics", argsUsage: "<notebook-id>",
@@ -863,6 +876,7 @@ var compatibilityCommands = map[string]bool{
 	"list":             true,
 	"create":           true,
 	"rm":               true,
+	"rename-notebook":  true,
 	"list-featured":    true,
 	"sources":          true,
 	"add":              true,
@@ -895,6 +909,7 @@ var compatibilityReplacements = map[string]string{
 	"ls":               "notebook list",
 	"create":           "notebook create",
 	"rm":               "notebook delete",
+	"rename-notebook":  "notebook rename",
 	"list-featured":    "notebook featured",
 	"sources":          "source list",
 	"add":              "source add",

@@ -66,6 +66,7 @@ var (
 	sourceIDsFlag      string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
 	sourceMatchFlag    string // Regex matched against source titles and UUIDs; unioned with --source-ids
 	promptFile         string // Read prompt from file (nlm chat). "-" reads from stdin.
+	notebookEmoji      string // Optional emoji for notebook rename
 )
 
 // ChatSession represents a persistent chat conversation
@@ -116,6 +117,7 @@ func init() {
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 	flag.StringVar(&replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
+	flag.StringVar(&notebookEmoji, "emoji", "", "notebook emoji for rename-notebook (optional; pass alone to update emoji without changing title)")
 	flag.BoolVar(&jsonOutput, "json", false, "output in JSON format")
 	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync)")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync)")
@@ -661,6 +663,30 @@ func remove(c *api.Client, id string) error {
 		return fmt.Errorf("operation cancelled")
 	}
 	return c.DeleteProjects([]string{id})
+}
+
+func renameNotebook(c *api.Client, notebookID, newTitle, newEmoji string) error {
+	if newTitle == "" && newEmoji == "" {
+		return fmt.Errorf("provide a new title (positional) or --emoji")
+	}
+	updates := &pb.Project{}
+	if newTitle != "" {
+		updates.Title = newTitle
+	}
+	if newEmoji != "" {
+		updates.Emoji = newEmoji
+	}
+	fmt.Fprintf(os.Stderr, "Renaming notebook %s...\n", notebookID)
+	if _, err := c.MutateProject(notebookID, updates); err != nil {
+		return fmt.Errorf("rename notebook: %w", err)
+	}
+	if newTitle != "" {
+		fmt.Fprintf(os.Stderr, "Renamed notebook to: %s\n", newTitle)
+	}
+	if newEmoji != "" {
+		fmt.Fprintf(os.Stderr, "Updated emoji to: %s\n", newEmoji)
+	}
+	return nil
 }
 
 // Source operations
