@@ -66,7 +66,6 @@ var (
 	sourceIDsFlag      string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
 	sourceMatchFlag    string // Regex matched against source titles and UUIDs; unioned with --source-ids
 	promptFile         string // Read prompt from file (nlm chat). "-" reads from stdin.
-	notebookEmoji      string // Optional emoji for notebook rename
 )
 
 // ChatSession represents a persistent chat conversation
@@ -117,7 +116,6 @@ func init() {
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 	flag.StringVar(&replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
-	flag.StringVar(&notebookEmoji, "emoji", "", "notebook emoji for rename-notebook (optional; pass alone to update emoji without changing title)")
 	flag.BoolVar(&jsonOutput, "json", false, "output in JSON format")
 	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync)")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync)")
@@ -665,27 +663,59 @@ func remove(c *api.Client, id string) error {
 	return c.DeleteProjects([]string{id})
 }
 
-func renameNotebook(c *api.Client, notebookID, newTitle, newEmoji string) error {
-	if newTitle == "" && newEmoji == "" {
-		return fmt.Errorf("provide a new title (positional) or --emoji")
-	}
-	updates := &pb.Project{}
-	if newTitle != "" {
-		updates.Title = newTitle
-	}
-	if newEmoji != "" {
-		updates.Emoji = newEmoji
+func renameNotebook(c *api.Client, notebookID, newTitle string) error {
+	if newTitle == "" {
+		return fmt.Errorf("provide a new title")
 	}
 	fmt.Fprintf(os.Stderr, "Renaming notebook %s...\n", notebookID)
-	if _, err := c.MutateProject(notebookID, updates); err != nil {
+	if _, err := c.MutateProject(notebookID, &pb.Project{Title: newTitle}); err != nil {
 		return fmt.Errorf("rename notebook: %w", err)
 	}
-	if newTitle != "" {
-		fmt.Fprintf(os.Stderr, "Renamed notebook to: %s\n", newTitle)
+	fmt.Fprintf(os.Stderr, "Renamed notebook to: %s\n", newTitle)
+	return nil
+}
+
+func setNotebookEmoji(c *api.Client, notebookID, emoji string) error {
+	if emoji == "" {
+		return fmt.Errorf("provide an emoji")
 	}
-	if newEmoji != "" {
-		fmt.Fprintf(os.Stderr, "Updated emoji to: %s\n", newEmoji)
+	fmt.Fprintf(os.Stderr, "Updating notebook %s emoji...\n", notebookID)
+	if _, err := c.MutateProject(notebookID, &pb.Project{Emoji: emoji}); err != nil {
+		return fmt.Errorf("set notebook emoji: %w", err)
 	}
+	fmt.Fprintf(os.Stderr, "Set emoji to: %s\n", emoji)
+	return nil
+}
+
+func setNotebookDescription(c *api.Client, notebookID, description string) error {
+	fmt.Fprintf(os.Stderr, "Updating notebook %s description...\n", notebookID)
+	if err := c.SetProjectDescription(notebookID, description); err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, "Description updated.")
+	return nil
+}
+
+func setNotebookCover(c *api.Client, notebookID string, coverID int) error {
+	fmt.Fprintf(os.Stderr, "Setting notebook %s cover to preset %d...\n", notebookID, coverID)
+	if err := c.SetProjectCover(notebookID, coverID); err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, "Cover updated.")
+	return nil
+}
+
+func uploadNotebookCoverImage(c *api.Client, notebookID, imagePath string) error {
+	data, err := os.ReadFile(imagePath)
+	if err != nil {
+		return fmt.Errorf("read image: %w", err)
+	}
+	displayName := filepath.Base(imagePath)
+	fmt.Fprintf(os.Stderr, "Uploading cover image %s (%d bytes) to notebook %s...\n", displayName, len(data), notebookID)
+	if err := c.UploadProjectCoverImage(notebookID, displayName, data); err != nil {
+		return err
+	}
+	fmt.Fprintln(os.Stderr, "Cover image uploaded.")
 	return nil
 }
 

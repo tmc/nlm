@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -82,6 +83,10 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "create"), "notebook create"),
 		cloneCommand(mustCommand(byName, "rm"), "notebook delete"),
 		cloneCommand(mustCommand(byName, "rename-notebook"), "notebook rename"),
+		cloneCommand(mustCommand(byName, "notebook-emoji"), "notebook emoji"),
+		cloneCommand(mustCommand(byName, "notebook-description"), "notebook description"),
+		cloneCommand(mustCommand(byName, "notebook-cover"), "notebook cover"),
+		cloneCommand(mustCommand(byName, "notebook-cover-image"), "notebook cover-image"),
 		cloneCommand(mustCommand(byName, "list-featured"), "notebook featured"),
 
 		cloneCommand(mustCommand(byName, "sources"), "source list"),
@@ -140,16 +145,53 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return remove(c, args[0]) },
 	},
 	{
-		name: "rename-notebook", argsUsage: "<notebook-id> [new-title]",
-		usage: "Rename notebook (title positional, --emoji optional; experimental: wire format unverified by HAR)", section: "Notebook",
+		name: "rename-notebook", argsUsage: "<notebook-id> <new-title>",
+		usage: "Rename a notebook", section: "Notebook",
+		minArgs: 2, maxArgs: 2,
+		run: func(c *api.Client, args []string) error { return renameNotebook(c, args[0], args[1]) },
+	},
+	{
+		name: "notebook-emoji", argsUsage: "<notebook-id> <emoji>",
+		usage: "Change notebook emoji", section: "Notebook",
+		minArgs: 2, maxArgs: 2,
+		run: func(c *api.Client, args []string) error { return setNotebookEmoji(c, args[0], args[1]) },
+	},
+	{
+		name: "notebook-description", aliases: []string{"notebook-notes"},
+		argsUsage: "<notebook-id> [text]",
+		usage:     "Set notebook description / creator notes (text via arg or stdin; empty clears)", section: "Notebook",
 		minArgs: 1, maxArgs: 2,
 		run: func(c *api.Client, args []string) error {
-			title := ""
+			text := ""
 			if len(args) > 1 {
-				title = args[1]
+				text = args[1]
+			} else if fi, stErr := os.Stdin.Stat(); stErr == nil && fi.Mode()&os.ModeCharDevice == 0 {
+				data, readErr := io.ReadAll(os.Stdin)
+				if readErr != nil {
+					return readErr
+				}
+				text = string(data)
 			}
-			return renameNotebook(c, args[0], title, notebookEmoji)
+			return setNotebookDescription(c, args[0], text)
 		},
+	},
+	{
+		name: "notebook-cover", argsUsage: "<notebook-id> <preset-id>",
+		usage: "Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)", section: "Notebook",
+		minArgs: 2, maxArgs: 2,
+		run: func(c *api.Client, args []string) error {
+			id, err := strconv.Atoi(args[1])
+			if err != nil {
+				return fmt.Errorf("preset-id must be an integer: %w", err)
+			}
+			return setNotebookCover(c, args[0], id)
+		},
+	},
+	{
+		name: "notebook-cover-image", argsUsage: "<notebook-id> <image-path>",
+		usage: "Upload a custom cover image and associate it with the notebook", section: "Notebook",
+		minArgs: 2, maxArgs: 2,
+		run: func(c *api.Client, args []string) error { return uploadNotebookCoverImage(c, args[0], args[1]) },
 	},
 	{
 		name: "analytics", argsUsage: "<notebook-id>",
@@ -877,6 +919,10 @@ var compatibilityCommands = map[string]bool{
 	"create":           true,
 	"rm":               true,
 	"rename-notebook":  true,
+	"notebook-emoji":   true,
+	"notebook-description": true,
+	"notebook-cover":   true,
+	"notebook-cover-image": true,
 	"list-featured":    true,
 	"sources":          true,
 	"add":              true,
@@ -910,6 +956,11 @@ var compatibilityReplacements = map[string]string{
 	"create":           "notebook create",
 	"rm":               "notebook delete",
 	"rename-notebook":  "notebook rename",
+	"notebook-emoji":   "notebook emoji",
+	"notebook-description": "notebook description",
+	"notebook-notes":   "notebook description",
+	"notebook-cover":   "notebook cover",
+	"notebook-cover-image": "notebook cover-image",
 	"list-featured":    "notebook featured",
 	"sources":          "source list",
 	"add":              "source add",

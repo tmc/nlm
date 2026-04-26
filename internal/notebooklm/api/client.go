@@ -227,13 +227,163 @@ func (c *Client) MutateProject(projectID string, updates *pb.Project) (*Notebook
 		ProjectId: projectID,
 		Updates:   updates,
 	}
-
-	ctx := context.Background()
-	project, err := c.orchestrationService.MutateProject(ctx, req)
+	// Bypass the service client: its generated argbuilder encoder serializes
+	// the Project submessage as a JSON object, which the server rejects. Use
+	// the HAR-verified positional encoder from internal/method.
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateProject,
+		NotebookID: projectID,
+		Args:       intmethod.EncodeMutateProjectArgs(req),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("mutate project: %w", err)
 	}
-	return project, nil
+	var project pb.Project
+	if err := beprotojson.Unmarshal(resp, &project); err != nil {
+		return nil, fmt.Errorf("mutate project: unmarshal response: %w", err)
+	}
+	return &project, nil
+}
+
+// SetProjectDescription updates the notebook "creator notes" / description
+// via the s0tc2d MutateProject RPC. Wire format is HAR-verified
+// (2026-04-25); see internal/method/LabsTailwindOrchestrationService_MutateProject_encoder.go.
+func (c *Client) SetProjectDescription(projectID, description string) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateProject,
+		NotebookID: projectID,
+		Args:       intmethod.MutateProjectDescriptionArgs(projectID, description),
+	})
+	if err != nil {
+		return fmt.Errorf("set project description: %w", err)
+	}
+	return nil
+}
+
+// UploadProjectCoverImage uploads a custom cover image and associates it with
+// the notebook. The flow is HAR-verified (2026-04-25 nb-images):
+//
+//  1. Client generates an image UUID.
+//  2. Start a resumable upload to /upload/_/ with UPLOAD_TYPE=CUSTOMIZATION
+//     metadata, IMAGE_UUID set to the client-generated value, and
+//     X-Goog-Upload-Header-Content-Length matching the image bytes.
+//  3. POST the bytes to the upload URL returned in X-Goog-Upload-Url.
+//  4. Send s0tc2d MutateProject to associate the IMAGE_UUID.
+//
+// imageBytes is consumed in full; the caller should pass the full file
+// contents (Scotty's resumable protocol is used in single-chunk mode here).
+// displayName surfaces in the upload metadata (browser sends the original
+// filename); pass any short label.
+func (c *Client) UploadProjectCoverImage(projectID, displayName string, imageBytes []byte) error {
+	if projectID == "" {
+		return fmt.Errorf("project ID is required")
+	}
+	if len(imageBytes) == 0 {
+		return fmt.Errorf("image bytes are empty")
+	}
+	imageUUID := strings.ToUpper(uuid.New().String())
+
+	uploadURL, err := c.startCustomizationUpload(projectID, displayName, imageUUID, len(imageBytes))
+	if err != nil {
+		return fmt.Errorf("start cover upload: %w", err)
+	}
+	if err := c.uploadFileBytes(uploadURL, imageBytes); err != nil {
+		return fmt.Errorf("upload cover bytes: %w", err)
+	}
+
+	if _, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateProject,
+		NotebookID: projectID,
+		Args:       intmethod.MutateProjectCustomImageArgs(projectID, imageUUID),
+	}); err != nil {
+		return fmt.Errorf("associate cover image: %w", err)
+	}
+	return nil
+}
+
+// startCustomizationUpload initiates the CUSTOMIZATION-flavored resumable
+// upload used for notebook cover images. Unlike source uploads, the metadata
+// body is sent as raw JSON (not base64) and includes UPLOAD_TYPE,
+// IMAGE_TYPE, IMAGE_UUID, and DISPLAY_NAME instead of SOURCE_ID.
+func (c *Client) startCustomizationUpload(projectID, displayName, imageUUID string, contentLength int) (string, error) {
+	metadata := struct {
+		ProjectID   string `json:"PROJECT_ID"`
+		UploadType  string `json:"UPLOAD_TYPE"`
+		ImageType   int    `json:"IMAGE_TYPE"`
+		ImageUUID   string `json:"IMAGE_UUID"`
+		DisplayName string `json:"DISPLAY_NAME"`
+	}{
+		ProjectID:   projectID,
+		UploadType:  "CUSTOMIZATION",
+		ImageType:   1,
+		ImageUUID:   imageUUID,
+		DisplayName: displayName,
+	}
+	metadataJSON, err := json.Marshal(metadata)
+	if err != nil {
+		return "", fmt.Errorf("marshal metadata: %w", err)
+	}
+
+	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=" + c.authUserOrDefault()
+	req, err := http.NewRequest("POST", uploadInitURL, bytes.NewReader(metadataJSON))
+	if err != nil {
+		return "", fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+	req.Header.Set("X-Goog-Upload-Command", "start")
+	req.Header.Set("X-Goog-Upload-Protocol", "resumable")
+	req.Header.Set("X-Goog-Upload-Header-Content-Length", fmt.Sprintf("%d", contentLength))
+	req.Header.Set("X-Goog-AuthUser", c.authUserOrDefault())
+	if cookies := c.rpc.Config.Cookies; cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
+	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	setChromeClientHints(req.Header)
+
+	client := httpClientWithTimeout(30 * time.Second)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("upload init request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		msg := strings.TrimSpace(string(body))
+		if msg == "" {
+			if status := resp.Header.Get("X-Goog-Upload-Status"); status != "" {
+				msg = "X-Goog-Upload-Status=" + status
+			}
+		}
+		if msg == "" {
+			msg = "(empty body)"
+		}
+		return "", fmt.Errorf("upload init failed (status %d): %s", resp.StatusCode, msg)
+	}
+
+	uploadURL := resp.Header.Get("X-Goog-Upload-Url")
+	if uploadURL == "" {
+		uploadURL = resp.Header.Get("x-goog-upload-url")
+	}
+	if uploadURL == "" {
+		return "", fmt.Errorf("no upload URL in response headers")
+	}
+	return uploadURL, nil
+}
+
+// SetProjectCover selects a built-in cover image for the notebook by preset
+// ID. Wire format is HAR-verified (2026-04-25); the captured request used
+// preset 4. Other valid IDs have not been catalogued.
+func (c *Client) SetProjectCover(projectID string, coverID int) error {
+	_, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateProject,
+		NotebookID: projectID,
+		Args:       intmethod.MutateProjectCoverArgs(projectID, coverID),
+	})
+	if err != nil {
+		return fmt.Errorf("set project cover: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
