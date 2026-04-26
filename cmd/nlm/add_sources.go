@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -181,8 +182,10 @@ func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAd
 }
 
 // addSourceEntry dispatches a single positional input to the appropriate
-// upload path and returns one or more source IDs. Non-chunked inputs return
-// a single-element slice; chunked inputs return one ID per part.
+// upload path and returns one or more source IDs. URLs and binary files
+// upload as a single source (one ID); text content auto-chunks on server-
+// side rejection via api.AddSourceFromTextAuto, returning one ID per part.
+// Passing --chunk N forces fixed-size splitting and skips auto-chunking.
 func addSourceEntry(c *api.Client, notebookID, input string, opts sourceAddOptions) ([]string, error) {
 	if opts.Chunk > 0 && !isURL(input) {
 		content, name, err := collectChunkedInput(input, opts)
@@ -192,9 +195,84 @@ func addSourceEntry(c *api.Client, notebookID, input string, opts sourceAddOptio
 		fmt.Fprintf(os.Stderr, "Chunking %q into parts of %d bytes (total %d bytes)\n", name, opts.Chunk, len(content))
 		return addSourceChunked(c, notebookID, content, name, opts.Chunk)
 	}
+	if shouldAutoChunk(input, opts) {
+		content, name, err := collectChunkedInput(input, opts)
+		if err != nil {
+			return nil, err
+		}
+		if isProbablyText(content, name) {
+			return addSourceAuto(c, notebookID, content, name)
+		}
+		// Binary content (PDF, etc.) — fall back to the legacy single-source
+		// path, which routes through the resumable upload protocol. Re-using
+		// addSource means re-reading stdin/files, which is fine: stdin was
+		// already drained so we wrap the bytes; files re-open cheaply.
+		return addSourceBinaryFallback(c, notebookID, input, content, name, opts)
+	}
 	id, err := addSource(c, notebookID, input, opts)
 	if err != nil {
 		return nil, err
+	}
+	return []string{id}, nil
+}
+
+// shouldAutoChunk reports whether an input qualifies for automatic chunking.
+// URLs always upload as a single remote-fetched source. Stdin, files, and
+// text literals are eligible.
+func shouldAutoChunk(input string, _ sourceAddOptions) bool {
+	return !isURL(input)
+}
+
+// isProbablyText classifies content as text-or-not for routing to the auto-
+// chunk path. The check matches the logic AddSourceFromReader uses to decide
+// the text vs. binary upload path: text/* MIME, application/json, or a name
+// ending in .json. For local files the name carries the original extension
+// so .txt/.md/.go/etc. all get sniffed as text/plain by net/http.
+func isProbablyText(content []byte, name string) bool {
+	if strings.HasSuffix(strings.ToLower(name), ".json") {
+		return true
+	}
+	mt := http.DetectContentType(content)
+	if strings.HasPrefix(mt, "text/") {
+		return true
+	}
+	if strings.HasPrefix(mt, "application/json") {
+		return true
+	}
+	return false
+}
+
+// addSourceAuto uploads text content via the auto-chunking helper, emitting
+// per-part progress to stderr so the user can see how many parts went up
+// when content is large enough to be split.
+func addSourceAuto(c *api.Client, notebookID string, content []byte, baseName string) ([]string, error) {
+	progress := func(p api.AutoChunkProgress) {
+		switch {
+		case p.SourceID != "":
+			fmt.Fprintf(os.Stderr, "  uploaded %s (%d bytes) -> %s\n", p.PartName, p.SizeBytes, p.SourceID)
+		case p.Descending:
+			fmt.Fprintf(os.Stderr, "  %s (%d bytes at offset %d) rejected; re-splitting smaller: %v\n", p.PartName, p.SizeBytes, p.ByteOffset, p.Err)
+		}
+	}
+	ids, err := c.AddSourceFromTextAuto(notebookID, content, baseName, progress)
+	if err != nil {
+		return ids, err
+	}
+	return ids, nil
+}
+
+// addSourceBinaryFallback handles the binary branch of auto-chunking: collect
+// already happened (so we have the bytes), but the content isn't text. We
+// upload as a single binary source via the resumable upload path, paying
+// the cost of holding the whole file in memory once. URLs never reach here.
+func addSourceBinaryFallback(c *api.Client, notebookID, input string, content []byte, name string, opts sourceAddOptions) ([]string, error) {
+	mt := opts.MIMEType
+	if mt == "" {
+		mt = http.DetectContentType(content)
+	}
+	id, err := c.AddSourceFromReader(notebookID, bytes.NewReader(content), name, mt)
+	if err != nil {
+		return nil, fmt.Errorf("upload %s: %w", input, err)
 	}
 	return []string{id}, nil
 }
