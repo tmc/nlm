@@ -1111,8 +1111,18 @@ func deleteAudioOverview(c *api.Client, notebookID string) error {
 }
 
 func shareAudioOverview(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Generating share link...\n")
-	return shareNotebook(c, notebookID)
+	fmt.Fprintf(os.Stderr, "Generating audio share link...\n")
+	res, err := c.ShareAudio(notebookID, api.SharePublic)
+	if err != nil {
+		return err
+	}
+	if res.ShareURL != "" {
+		fmt.Println(res.ShareURL)
+	}
+	if res.ShareID != "" {
+		fmt.Fprintf(os.Stderr, "Share ID: %s\n", res.ShareID)
+	}
+	return nil
 }
 
 // Generation operations

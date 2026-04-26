@@ -4617,18 +4617,41 @@ type ShareAudioResult struct {
 	IsPublic bool
 }
 
-// ShareAudio shares an audio overview with optional public access
+// ShareAudio publishes an audio overview's share link by dispatching
+// the RGP97b RPC on the LabsTailwindSharingService. arg_format =
+// "[%share_options%, %project_id%]" per proto; share_options is
+// [0] for private, [1] for public.
+//
+// Earlier this method delegated to shareProjectDirect (the ShareProject
+// path), which actually shared the entire notebook rather than just
+// the audio. This implementation routes
+// the call to the correct LabsTailwindSharingService.ShareAudio
+// endpoint. The ShareOption argument is preserved for back-compat.
 func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAudioResult, error) {
-	response, err := c.shareProjectDirect(projectID, shareOption == SharePublic)
+	options := []int32{0}
+	if shareOption == SharePublic {
+		options[0] = 1
+	}
+	req := &pb.ShareAudioRequest{
+		ProjectId:    projectID,
+		ShareOptions: options,
+	}
+	resp, err := c.sharingService.ShareAudio(context.Background(), req)
 	if err != nil {
 		return nil, fmt.Errorf("share audio: %w", err)
 	}
-
-	return &ShareAudioResult{
-		ShareURL: response.ShareUrl,
-		ShareID:  response.ShareId,
+	// ShareAudioResponse.share_info is [share_url, share_id] (per proto).
+	info := resp.GetShareInfo()
+	out := &ShareAudioResult{
 		IsPublic: shareOption == SharePublic,
-	}, nil
+	}
+	if len(info) >= 1 {
+		out.ShareURL = info[0]
+	}
+	if len(info) >= 2 {
+		out.ShareID = info[1]
+	}
+	return out, nil
 }
 
 // ShareProject shares a project with specified settings
