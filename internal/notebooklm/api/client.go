@@ -1747,6 +1747,81 @@ func (c *Client) DeleteAudioOverview(projectID string) error {
 	return nil
 }
 
+// AudioFormat is a typed view of one entry in the GetAudioFormats
+// response. The proto-generated AudioFormat lives behind a pending
+// gen/ regeneration; this local mirror exists so callers don't have
+// to wait for that to use the shape.
+type AudioFormat struct {
+	ID          int32
+	Name        string
+	Description string
+}
+
+// GetAudioFormats dispatches the sqTeoe RPC to retrieve the available
+// audio-overview kinds (Deep Dive, Brief, Critique, Debate, …). The
+// request is a fixed sentinel payload — no parameters — and the
+// response carries video/slide/document-template variants alongside
+// audio. We surface just the audio kinds; other inner arrays are
+// reachable via the raw payload but have no typed parsers yet.
+//
+// HAR-verified against 11+ NotebookLM web UI captures (2026-04-19+);
+// see proto/notebooklm/v1alpha1/orchestration.proto:1505 for the
+// canonical shape and the four observed kinds.
+func (c *Client) GetAudioFormats() ([]AudioFormat, error) {
+	// Fixed sentinel: [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+	sentinel := []interface{}{
+		[]interface{}{
+			2, nil, nil,
+			[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+			[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+		},
+		nil,
+		1,
+	}
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCGetAudioFormats,
+		Args: sentinel,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get audio formats: %w", err)
+	}
+	var raw []interface{}
+	if err := json.Unmarshal(resp, &raw); err != nil {
+		return nil, fmt.Errorf("parse audio formats: %w", err)
+	}
+	// Response: [[<audio_kinds>], [<video_kinds>], [<slide_kinds>], ...]
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	audioKinds, ok := raw[0].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("audio formats: unexpected response shape")
+	}
+	out := make([]AudioFormat, 0, len(audioKinds))
+	for _, k := range audioKinds {
+		row, ok := k.([]interface{})
+		if !ok || len(row) < 1 {
+			continue
+		}
+		var f AudioFormat
+		if id, ok := row[0].(float64); ok {
+			f.ID = int32(id)
+		}
+		if len(row) >= 2 {
+			if name, ok := row[1].(string); ok {
+				f.Name = name
+			}
+		}
+		if len(row) >= 3 {
+			if desc, ok := row[2].(string); ok {
+				f.Description = desc
+			}
+		}
+		out = append(out, f)
+	}
+	return out, nil
+}
+
 // Video operations
 
 type VideoOverviewResult struct {
