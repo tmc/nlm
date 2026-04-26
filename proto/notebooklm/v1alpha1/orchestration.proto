@@ -935,31 +935,39 @@ service LabsTailwindOrchestrationService {
     }
 
     // UpsertArtifactUserState (Fxmvse). JS bundle binds this to
-    // /LabsTailwindOrchestrationService.UpsertArtifactUserState.
-    // Earlier rounds named this UnknownFxmvse — the JS bundle gives a
-    // canonical name. The companion read RPC is GetArtifactUserState
-    // (ulBSjf, also in the JS bundle but not yet wired here).
+    // /LabsTailwindOrchestrationService.UpsertArtifactUserState. The
+    // companion read RPC is GetArtifactUserState (ulBSjf).
     //
-    // No HAR yet — the upsert path is fired by user actions on
-    // generated artifacts (e.g., starring, marking as viewed). The
-    // request shape is speculative until captured.
-    // TODO(har): trigger by interacting with an artifact's user-state
-    // affordance (star, viewed, dismiss, etc.).
+    // HAR-verified 2026-04-25 against
+    // NotebookLM web UI interactive-audio capture set
+    // (22 samples). The web UI fires this every ~5s during interactive
+    // audio-overview playback to persist the listener's playback
+    // position. The request body is
+    //   [%context%, %artifact_id%, %state%]
+    // where state encodes a single PlaybackPosition (seconds + nanos)
+    // wrapped as [[[seconds, nanos]]] — see ArtifactUserState below.
     rpc UpsertArtifactUserState(UpsertArtifactUserStateRequest) returns (UpsertArtifactUserStateResponse) {
         option (rpc_id) = "Fxmvse";
-        // wire shape unverified; capture HAR before encoding
+        option (arg_format) = "[%context%, %artifact_id%, %state%]";
     }
 
     // GetArtifactUserState (ulBSjf). Read companion to
     // UpsertArtifactUserState (Fxmvse). Both are bound by the JS bundle
-    // to /LabsTailwindOrchestrationService.GetArtifactUserState. No HAR
-    // observed yet — the read path runs whenever the artifact list is
-    // rendered with per-user decoration.
-    // TODO(har): capture by visiting any project page that has at least
-    // one generated artifact.
+    // to /LabsTailwindOrchestrationService.GetArtifactUserState.
+    //
+    // No standalone HAR observed: the read path is rolled into the
+    // gArtLc (ListArtifacts) response — each artifact tuple already
+    // carries the saved ArtifactUserState inline at a late field
+    // position (the same [[[seconds, nanos]]] shape that Fxmvse
+    // upserts). The dedicated ulBSjf read is reserved for hosts that
+    // need the per-artifact value without re-listing.
+    // TODO(har): capture a direct ulBSjf request to confirm the
+    // request body shape; the read response is expected to mirror
+    // UpsertArtifactUserStateResponse (a single ArtifactUserState).
     rpc GetArtifactUserState(GetArtifactUserStateRequest) returns (GetArtifactUserStateResponse) {
         option (rpc_id) = "ulBSjf";
-        // wire shape unverified; capture HAR before encoding
+        // arg_format unverified; the ListArtifacts inline copy is the
+        // load-bearing read path today.
     }
 
     // CreateLabel / MutateLabel / DeleteLabels — write companions to
@@ -1688,29 +1696,72 @@ message Label {
     repeated string source_ids = 3;  // members of this cluster
 }
 
-// UpsertArtifactUserState (Fxmvse). JS-bundle-canonical name; no
-// captured traffic yet. Fields below are placeholders until the wire
-// shape is observed.
-// TODO(har): triggering UI path is artifact-state interaction
-// (star/view/dismiss); the companion read RPC is GetArtifactUserState
-// (ulBSjf).
+// PlaybackPosition is a positional (seconds, nanos) tuple that mirrors
+// google.protobuf.Duration's two int fields. Used inside ArtifactUserState
+// to record the listener's place in an interactive audio overview.
+message PlaybackPosition {
+    int64 seconds = 1;
+    int32 nanos = 2;
+}
+
+// ArtifactUserState is the per-user, per-artifact state the orchestration
+// service persists. Today the only observed payload is a single repeated
+// PlaybackPosition recording the user's last playback position in an
+// audio overview; the field is repeated to leave room for additional
+// markers (resume points, chapter offsets) that the UI may emit later.
+//
+// Wire shape (HAR-verified 2026-04-25): [[[seconds, nanos]]]
+//
+// That is: ArtifactUserState is a message with field 1 = repeated
+// PlaybackPosition, and a single PlaybackPosition encodes positionally
+// as [seconds, nanos].
+message ArtifactUserState {
+    repeated PlaybackPosition playback_position = 1;
+}
+
+// UpsertArtifactUserState (Fxmvse). HAR-verified 2026-04-25 against
+// NotebookLM web UI interactive-audio capture set
+// (22 samples; web UI fires this every ~5s during interactive
+// audio-overview playback to persist the listener's playback position).
+//
+// Wire request: [%context%, %artifact_id%, %state%]
+//   - context: standard project_context request envelope
+//   - artifact_id: UUID of the artifact (audio overview)
+//   - state: ArtifactUserState — encodes [[[seconds, nanos]]]
+//
+// The same ArtifactUserState value is also emitted inline in each
+// gArtLc (ListArtifacts) artifact tuple at a late field position; that
+// inline copy is what the UI reads on page load.
 message UpsertArtifactUserStateRequest {
-    // wire shape unverified; capture HAR before encoding
-    string artifact_id = 1;
+    Context context = 1;
+    string artifact_id = 2;
+    ArtifactUserState state = 3;
 }
 
+// UpsertArtifactUserStateResponse echoes the persisted state.
+//
+// Wire response: [[[[seconds, nanos]]]]  — a single ArtifactUserState
+// value (which is itself [[[seconds, nanos]]]) wrapped at field 1.
 message UpsertArtifactUserStateResponse {
-    // wire shape unverified; capture HAR before encoding
+    ArtifactUserState state = 1;
 }
 
-// GetArtifactUserState (ulBSjf). Read companion to UpsertArtifactUserState.
+// GetArtifactUserState (ulBSjf). Read companion to
+// UpsertArtifactUserState (Fxmvse).
+//
+// No HAR observed for the dedicated read path: the value is also
+// returned inline by gArtLc (ListArtifacts) as part of each artifact
+// tuple, and the UI reads it from there. The fields below mirror the
+// HAR-verified write side; the request likely sends only the
+// artifact_id, and the response is expected to wrap a single
+// ArtifactUserState the same way as UpsertArtifactUserStateResponse.
+// TODO(har): capture a standalone ulBSjf request to confirm.
 message GetArtifactUserStateRequest {
-    // wire shape unverified; capture HAR before encoding
     string artifact_id = 1;
 }
 
 message GetArtifactUserStateResponse {
-    // wire shape unverified; capture HAR before encoding
+    ArtifactUserState state = 1;
 }
 
 // Label write companions — wire shape unverified.
