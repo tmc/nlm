@@ -90,6 +90,11 @@ message CreateArtifactRequest {
     Artifact artifact = 3;
 }
 
+// GetArtifactRequest. The wire id is v9rmvd (per JS bundle binding to
+// /LabsTailwindOrchestrationService.GetArtifact). The web UI never
+// fires this RPC, preferring a gArtLc scan + filter, so the request
+// shape is unverified by HAR. arg_format = "[%artifact_id%]" is the
+// likely shape based on sibling artifact RPCs.
 message GetArtifactRequest {
     string artifact_id = 1;
 }
@@ -434,8 +439,23 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "xpWGLf";
         option (arg_format) = "[%context%, %project_id%, %artifact%]";
     }
+    // GetArtifact (v9rmvd). The JS bundle binds v9rmvd to
+    // /LabsTailwindOrchestrationService.GetArtifact, so the RPC does
+    // exist on the wire — it just isn't invoked by the live web UI,
+    // which prefers gArtLc (ListArtifacts) + client-side filter for
+    // its rendering path. The earlier BnLyuf id was a different,
+    // unreachable inference that returned 400.
+    //
+    // No HAR evidence in the surveyed corpus (the UI never fires this
+    // ID). api.Client.GetArtifact still uses the gArtLc scan fallback;
+    // a future direct caller can target v9rmvd once a wire shape is
+    // captured.
+    //
+    // TODO(har): capture the request/response shape by hitting v9rmvd
+    // directly (e.g., from a custom JS console snippet) and refine
+    // GetArtifactRequest/Response.
     rpc GetArtifact(GetArtifactRequest) returns (Artifact) {
-        option (rpc_id) = "BnLyuf";
+        option (rpc_id) = "v9rmvd";
         option (arg_format) = "[%artifact_id%]";
     }
     rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact) {
@@ -448,11 +468,27 @@ service LabsTailwindOrchestrationService {
         // Format: [[artifactID, newTitle], [["title"]]]
     }
     rpc DeleteArtifact(DeleteArtifactRequest) returns (google.protobuf.Empty) {
-        option (rpc_id) = "WxBZtb";
-        option (arg_format) = "[%artifact_id%]";
+        // HAR-verified 2026-04-07 against project
+        // 00000000-0000-4000-8000-000000000005 (two successive deletes,
+        // byte-identical options blob; both returned []). Earlier
+        // WxBZtb inference returned 400 against the live server.
+        // See rpc.go:125 and
+        // internal/method/LabsTailwindOrchestrationService_DeleteArtifact_encoder.go.
+        //
+        // Wire shape (custom Go encoder; arg_format cannot express the
+        // fixed-sentinel options blob):
+        //   [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]],
+        //    artifact_id]
+        // Position [0] is the same options blob carried by AddFileSource
+        // (o4cbdc) — Google's pattern for "this is a write-against-the-
+        // notebook" calls.
+        option (rpc_id) = "V5N4be";
     }
     rpc ListArtifacts(ListArtifactsRequest) returns (ListArtifactsResponse) {
-        option (rpc_id) = "LfTXoe";
+        // The web UI reads the artifact list via gArtLc (QueryArtifacts).
+        // No distinct LfTXoe wire call has been observed; the earlier ID
+        // is treated as dead. See rpc.go:126.
+        option (rpc_id) = "gArtLc";
         option (arg_format) = "[%project_id%, %page_size%, %page_token%]";
     }
     rpc QueryArtifacts(QueryArtifactsRequest) returns (QueryArtifactsResponse) {
@@ -477,8 +513,24 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "tGMBJ";
         option (arg_format) = "[[%source_ids%]]";
     }
+    // DiscoverSources (Es3dTe). Per the JS bundle binding to
+    // /LabsTailwindOrchestrationService.DiscoverSources. The previous
+    // rpc_id "qXyaNe" was a speculative inference that does not match
+    // any JS bundle entry or HAR capture; corrected to Es3dTe.
+    //
+    // No HAR yet for the wire shape. arg_format below is a likely
+    // shape based on sibling RPCs but is unverified — TODO(har):
+    // capture by triggering "Discover sources" from the source-add
+    // UI.
+    //
+    // Note: the related research-flow RPCs (Ljjv0c, QA9ei, e3bVqc,
+    // LBwxtb) are bound by the JS bundle to DiscoverSources*-family
+    // names (DiscoverSourcesManifold, DiscoverSourcesAsync,
+    // ListDiscoverSourcesJob, FinishDiscoverSourcesRun); the
+    // "research" feature is layered on top of the DiscoverSources job
+    // system.
     rpc DiscoverSources(DiscoverSourcesRequest) returns (DiscoverSourcesResponse) {
-        option (rpc_id) = "qXyaNe";
+        option (rpc_id) = "Es3dTe";
         option (arg_format) = "[%project_id%, %query%]";
     }
     rpc LoadSource(LoadSourceRequest) returns (Source) {
@@ -579,6 +631,11 @@ service LabsTailwindOrchestrationService {
         // gRPC-Web stream — NOT batchexecute. Requires:
         //   x-goog-ext-353267353-jspb: [null,null,null,282611]
         //   X-Same-Domain: 1
+        // The JS bundle binds the rpc_id laWbsf to this same method, but
+        // the production surface uses the gRPC-Web endpoint below
+        // because batchexecute does not stream. Annotation kept so the
+        // bundle->proto reconciliation stays complete.
+        option (rpc_id) = "laWbsf";
         option (grpc_endpoint) = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed";
         option (requires_sources) = true;
         // Source IDs use 3-level nesting: [[["source-id"]]]
@@ -592,6 +649,14 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "lCjAd";
         option (arg_format) = "[%project_id%]";
     }
+    // GenerateReportSuggestions (ciyUvf). HAR-verified; see
+    // internal/method/LabsTailwindOrchestrationService_GenerateReportSuggestions_encoder.go.
+    //
+    // GHsKob is a legacy/predecessor id for the same logical RPC. It
+    // is documented in docs/dev/cdp-capture-agent-prompt.md but does
+    // not appear in the current JS bundle (boq_labs-tailwind-frontend)
+    // and has no observed wire traffic. Treat GHsKob as dead; ciyUvf
+    // is the live id.
     rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse) {
         option (rpc_id) = "ciyUvf";
         option (arg_format) = "[%project_id%]";
@@ -646,6 +711,381 @@ service LabsTailwindOrchestrationService {
     rpc MutateAccount(MutateAccountRequest) returns (Account) {
         option (rpc_id) = "hT54vc";
         option (arg_format) = "[%account%, %update_mask%]";
+    }
+
+    // Source registration for Resumable Upload (rpc.go:31)
+    //
+    // Request shape, captured from api.Client.registerFileSource
+    // (internal/notebooklm/api/client.go:952):
+    //   [[[filename]], project_id, [2], [1, null × 9, [1]]]
+    // The arg_format directive cannot express the deeply-nested wrapper;
+    // a custom encoder lives at api.Client.registerFileSource. Returns
+    // the server-assigned source_id at response position [0][0][0].
+    rpc AddFileSource(AddFileSourceRequest) returns (AddFileSourceResponse) {
+        option (rpc_id) = "o4cbdc";
+        // Wire shape encoded in api/client.go; arg_format omitted because
+        // the four-position payload uses fixed sentinel arrays the
+        // template language can't represent. Keep the encoder in Go.
+    }
+
+    // Conversation feedback (rpc.go:65)
+    //
+    // TODO(har): wire shape unverified — no rpcids=J7Gthc seen in any
+    // capture under NotebookLM web UI capture corpus or
+    // docs/captures/. To capture: (1) load a notebook with chat history,
+    // (2) click thumbs-up or thumbs-down on an assistant reply, (3) grab
+    // the resulting batchexecute POST. Until captured, do not call this
+    // RPC — the placeholder fields are speculative.
+    rpc RateConversationTurn(RateConversationTurnRequest) returns (RateConversationTurnResponse) {
+        option (rpc_id) = "J7Gthc";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // Research operations
+    //
+    // StartFastResearch — HAR-verified 2026-04-17 against notebook
+    // 00000000-0000-4000-8000-000000000006 (rpc.go:68). Request shape
+    // (api.startFastResearchArgs at client.go:4587):
+    //   [[query, 1], null, 1, project_id]
+    // Response is a one-element array: [conversation_id]. Mode enum at
+    // position [2] is 1 for fast (5 for deep, see StartDeepResearch).
+    rpc StartFastResearch(StartFastResearchRequest) returns (StartFastResearchResponse) {
+        option (rpc_id) = "Ljjv0c";
+        option (arg_format) = "[[%query%, 1], null, 1, %project_id%]";
+    }
+
+    // StartDeepResearch (rpc.go:70). Wire shape verified across three
+    // independent CDP captures spanning 2026-04-10 through 2026-04-17
+    // (api.Client.StartDeepResearch at client.go:4686). Request:
+    //   [null, [1], [query, 1], 5, project_id]
+    // Response is a two-element array: [research_id, conversation_id].
+    rpc StartDeepResearch(StartDeepResearchRequest) returns (StartDeepResearchResponse) {
+        option (rpc_id) = "QA9ei";
+        option (arg_format) = "[null, [1], [%query%, 1], 5, %project_id%]";
+    }
+
+    // GetDeepResearchSessions (rpc.go:71). Polymorphic with
+    // DeleteChatHistory: same e3bVqc id, server discriminates on
+    // request payload shape. The deep/fast-session list call uses
+    // [null, null, project_id] (api.Client.pollResearch at
+    // client.go:4758). Returns ALL deep + fast sessions for the
+    // notebook; the caller scans by (research_id, mode=5) for deep or
+    // (conversation_id, mode=1) for fast.
+    rpc GetDeepResearchSessions(GetDeepResearchSessionsRequest) returns (GetDeepResearchSessionsResponse) {
+        option (rpc_id) = "e3bVqc";
+        option (arg_format) = "[null, null, %project_id%]";
+    }
+
+    // DeleteDeepResearch (rpc.go:72). Soft-delete a research session;
+    // server transitions state 2 -> 5 (the row is retained, future poll
+    // queries skip state=5). HAR-verified 2026-04-17. Polymorphic with
+    // BulkImportFromResearch: same LBwxtb id, server discriminates on
+    // arg-4 presence (delete = 4-position, bulk-import = 5-position).
+    // Request shape (api.deleteDeepResearchArgs at client.go:5034):
+    //   [null, [1], conversation_id, project_id]
+    rpc DeleteDeepResearch(DeleteDeepResearchRequest) returns (DeleteDeepResearchResponse) {
+        option (rpc_id) = "LBwxtb";
+        option (arg_format) = "[null, [1], %conversation_id%, %project_id%]";
+    }
+
+    // BulkImportFromResearch (rpc.go:73). 5-position polymorphic
+    // variant of LBwxtb that imports a batch of URL+title pairs from a
+    // research session. HAR-verified 2026-04-17 against notebook
+    // 00000000-0000-4000-8000-000000000006, conversation
+    // 00000000-0000-4000-8000-000000000401, ten URL sources. Request
+    // shape (api.bulkImportArgs at client.go:5102):
+    //   [null, [1], conversation_id, project_id, [source_1, ..., source_N]]
+    // Each source tuple is 11-position; encoded by Go helper because
+    // arg_format cannot represent the inner [null, null, [url, title],
+    // null × 7, 2] tuple shape.
+    rpc BulkImportFromResearch(BulkImportFromResearchRequest) returns (BulkImportFromResearchResponse) {
+        option (rpc_id) = "LBwxtb";
+        // Custom encoder in api/client.go; arg_format omitted because
+        // the per-source 11-position tuple cannot be templated.
+    }
+
+    // GetAudioFormats (rpc.go:89). HAR-verified 2026-04-07 in
+    // docs/captures/notebooklm.google.com.jsonl. Request payload
+    // observed verbatim:
+    //   [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+    // Returns the audio-overview style menu (Deep Dive, Brief,
+    // Critique, Debate). The opaque inner [1, null × 9, [1]] and
+    // ordering vector [[1,4,2,3,6,5]] are bytes captured verbatim;
+    // semantics not yet decoded.
+    rpc GetAudioFormats(GetAudioFormatsRequest) returns (GetAudioFormatsResponse) {
+        option (rpc_id) = "sqTeoe";
+        // Custom encoder required: the request is a fixed sentinel
+        // payload, not a templatable arg map. See
+        // internal/method/labs_tailwind_custom_encoders.go.
+    }
+
+    // GenerateDocumentGuides (rpc.go:82). Per-source guide RPC: the
+    // wire call is keyed by source_id with a 4-level-nested arg shape
+    // [[[[source_id]]]] that the arg_format template cannot express.
+    // Invoked via api.Client.GenerateSourceGuide (client.go:3010);
+    // response is [[[null, [summary], [[topic, ...]], []]]]. The
+    // request message exists at line 709 (GenerateDocumentGuidesRequest).
+    rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
+        option (rpc_id) = "tr032e";
+        // Custom encoder; 4-level nesting is not expressible via
+        // arg_format. See api.Client.GenerateSourceGuide.
+    }
+
+    // LogEvent / GetPromoCampaign (rpc.go:98). The constant in rpc.go is
+    // labelled "LogEvent" but HAR evidence (notebooklm.google.com.jsonl
+    // hits across 12+ captures spanning 2026-04-19..2026-04-23) shows it
+    // is actually a promo/upsell-card placement lookup. The web UI fires
+    // it once per page load. Request shape:
+    //   [[[[null, "1", 627], [null × 9, [null, null, 2]], 1]]]
+    // The middle-positional 627 looks like the campaign/promo slot ID;
+    // "1" is locale or surface; the [null, null, 2] tail is opaque.
+    // Response carries the upsell card payload (icon URL, title, CTA
+    // link, the user's tier — e.g. "NOTEBOOKLM_TIER_PRO_CONSUMER_USER").
+    // The Go side does not call this RPC; it is documented here so the
+    // proto matches what the wire actually does.
+    rpc LogEvent(LogEventRequest) returns (LogEventResponse) {
+        option (rpc_id) = "ozz5Z";
+        // Wire shape is a fixed-sentinel triple-nested array; cannot be
+        // expressed via arg_format. See LogEventRequest comment.
+    }
+
+    // ReportContent. User-initiated abuse/safety report. The JS bundle
+    // binds the live ReportContent endpoint to OmVMXc; the historical
+    // rJKx8e id never surfaced in any HAR capture or in the bundle, so
+    // it is treated as stale (kept as RPCReportContentLegacy for
+    // compatibility, no proto entry).
+    // TODO(har): no rpcids=OmVMXc seen in any capture under
+    // the current web-UI corpus. To capture:
+    // open an artifact, click the kebab menu -> "Report", fill the
+    // dialog, submit. The placeholder fields are speculative.
+    rpc ReportContent(ReportContentRequest) returns (ReportContentResponse) {
+        option (rpc_id) = "OmVMXc";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // ReviseArtifact (rpc.go:131). Re-runs an artifact generator with a
+    // free-form revision instruction.
+    // TODO(har): no rpcids=KmcKPe seen in any capture. To capture: open
+    // a generated artifact (audio overview, briefing doc, mind map),
+    // click "Revise" or the equivalent edit affordance, type an
+    // instruction, submit. The placeholder fields are speculative.
+    rpc ReviseArtifact(ReviseArtifactRequest) returns (ReviseArtifactResponse) {
+        option (rpc_id) = "KmcKPe";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // GenerateArtifactSuggestions / AudioTopicSuggestions (rpc.go:133).
+    // The web UI calls this before R7cb6c (CreateUniversalArtifact) to
+    // get a list of AI-generated topic blueprints. Wire format
+    // verified against HAR (create-audio, 2026-04-14):
+    //   [[kind], project_id, [[src1], [src2], ...], variation]
+    // Only audio (kind=2) is HAR-verified; video and slide kinds are
+    // not covered. The variation int re-rolls suggestions (1, 2, 5, 6
+    // observed). See internal/method/labs_tailwind_artifact_suggestions.go.
+    rpc GenerateArtifactSuggestions(GenerateArtifactSuggestionsRequest) returns (GenerateArtifactSuggestionsResponse) {
+        option (rpc_id) = "otmP3b";
+        option (arg_format) = "[[%kind%], %project_id%, %source_refs%, %variation%]";
+    }
+
+    // FetchInteractivityToken (rpc.go:50). Voice-session auth + ICE
+    // server config for the WebRTC interactive-audio mode. Request is
+    // the empty payload []. Response is a positional JSON envelope
+    // whose [0] field is a JSON-encoded string carrying
+    // {lifetimeDuration, iceServers, blockStatus, iceTransportPolicy}.
+    // See internal/interactiveaudio/signaling.go:36 and the existing
+    // FetchInteractivityTokenRequest/Response messages at line 858+.
+    rpc FetchInteractivityToken(FetchInteractivityTokenRequest) returns (FetchInteractivityTokenResponse) {
+        option (rpc_id) = "Of0kDd";
+        option (arg_format) = "[]";
+    }
+
+    // SDPExchange (rpc.go:51). WebRTC SDP offer/answer exchange for
+    // the interactive-audio voice session. Request payload is a single
+    // string holding {"sdp": "...", "type": "offer"} JSON; the server
+    // returns the answer SDP wrapped the same way. See
+    // internal/interactiveaudio/signaling.go:52.
+    rpc SDPExchange(SDPExchangeRequest) returns (SDPExchangeResponse) {
+        option (rpc_id) = "eyWvXc";
+        option (arg_format) = "[%offer_payload%]";
+    }
+
+    // GetLabels (I3xc3c). JS bundle binds this to
+    // /LabsTailwindOrchestrationService.GetLabels. HAR-verified across
+    // 8+ NotebookLM web UI captures (2026-04-23).
+    // Returns the notebook's labels (a.k.a. autolabel/source-grouping
+    // clusters): per-label tuples carrying a label, a member source
+    // list, and a server-assigned group UUID.
+    //
+    // Most notebooks return [] (no labels computed yet). Notebooks
+    // where the user has invoked autolabel return populated entries.
+    //
+    // Wire request: [[2], project_id]
+    //   [0] = [2] is an opaque mode/operation enum (constant across
+    //         all captures); semantics not yet decoded.
+    //
+    // Wire response: [] OR [[label, [[src_id], ...], group_uuid, ""], ...]
+    //
+    // Earlier rounds of this proto called this method GetSourceGroups
+    // — the canonical service name (per JS bundle) is GetLabels, and
+    // the related operations CreateLabel (agX4Bc), MutateLabel (le8sX),
+    // and DeleteLabels (GyzE7e) confirm the labels framing.
+    rpc GetLabels(GetLabelsRequest) returns (GetLabelsResponse) {
+        option (rpc_id) = "I3xc3c";
+        option (arg_format) = "[[2], %project_id%]";
+    }
+
+    // UpsertArtifactUserState (Fxmvse). JS bundle binds this to
+    // /LabsTailwindOrchestrationService.UpsertArtifactUserState.
+    // Earlier rounds named this UnknownFxmvse — the JS bundle gives a
+    // canonical name. The companion read RPC is GetArtifactUserState
+    // (ulBSjf, also in the JS bundle but not yet wired here).
+    //
+    // No HAR yet — the upsert path is fired by user actions on
+    // generated artifacts (e.g., starring, marking as viewed). The
+    // request shape is speculative until captured.
+    // TODO(har): trigger by interacting with an artifact's user-state
+    // affordance (star, viewed, dismiss, etc.).
+    rpc UpsertArtifactUserState(UpsertArtifactUserStateRequest) returns (UpsertArtifactUserStateResponse) {
+        option (rpc_id) = "Fxmvse";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // GetArtifactUserState (ulBSjf). Read companion to
+    // UpsertArtifactUserState (Fxmvse). Both are bound by the JS bundle
+    // to /LabsTailwindOrchestrationService.GetArtifactUserState. No HAR
+    // observed yet — the read path runs whenever the artifact list is
+    // rendered with per-user decoration.
+    // TODO(har): capture by visiting any project page that has at least
+    // one generated artifact.
+    rpc GetArtifactUserState(GetArtifactUserStateRequest) returns (GetArtifactUserStateResponse) {
+        option (rpc_id) = "ulBSjf";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // CreateLabel / MutateLabel / DeleteLabels — write companions to
+    // GetLabels (I3xc3c). All three are bound by the JS bundle but no
+    // HAR has been captured yet; trigger by interacting with the
+    // labels affordance in the source-list UI.
+    rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse) {
+        option (rpc_id) = "agX4Bc";
+        // wire shape unverified; capture HAR before encoding
+    }
+    rpc MutateLabel(MutateLabelRequest) returns (MutateLabelResponse) {
+        option (rpc_id) = "le8sX";
+        // wire shape unverified; capture HAR before encoding
+    }
+    rpc DeleteLabels(DeleteLabelsRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "GyzE7e";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
+    // and CreateUniversalArtifact (R7cb6c). Likely the trigger that
+    // takes a SUGGESTED-state artifact (see ArtifactState.SUGGESTED) and
+    // promotes it to a generated one. JS-bundle-verified; no HAR yet.
+    // TODO(har): trigger by clicking a suggested-artifact card.
+    rpc GenerateArtifact(GenerateArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "Rytqqe";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // CancelDiscoverSourcesJob (Zbrupe). Cancels an in-flight
+    // DiscoverSources / DiscoverSourcesAsync / DiscoverSourcesManifold
+    // job. JS-bundle-verified; no HAR yet.
+    // TODO(har): trigger by canceling a running fast-research /
+    // deep-research / discover-sources flow before completion.
+    rpc CancelDiscoverSourcesJob(CancelDiscoverSourcesJobRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "Zbrupe";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // ExportToDrive (Krh3pd). Pushes notebook artifacts to the user's
+    // Drive. JS-bundle-verified; no HAR yet.
+    // TODO(har): trigger by clicking "Export to Drive" on a notebook.
+    rpc ExportToDrive(ExportToDriveRequest) returns (ExportToDriveResponse) {
+        option (rpc_id) = "Krh3pd";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // UpdateFeaturedNotebookStatus (DemIHe). Admin/internal. Fired only
+    // by the featured-notebook curation surface. JS-bundle-verified;
+    // unlikely to ever be exercised by an end-user account.
+    rpc UpdateFeaturedNotebookStatus(UpdateFeaturedNotebookStatusRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "DemIHe";
+        // wire shape unverified; admin-only RPC
+    }
+
+    // ListModelOptions (EnujNd). Returns the menu of available chat /
+    // generation models for the signed-in account. JS-bundle-verified;
+    // no HAR yet.
+    // TODO(har): trigger by opening the model-picker in chat.
+    rpc ListModelOptions(ListModelOptionsRequest) returns (ListModelOptionsResponse) {
+        option (rpc_id) = "EnujNd";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // UpdateProjectUserState (LQhfEb). Per-user notebook state —
+    // last-viewed-at, pinned, hidden, etc. JS-bundle-verified; no HAR.
+    // TODO(har): trigger by pinning/unpinning a notebook.
+    rpc UpdateProjectUserState(UpdateProjectUserStateRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "LQhfEb";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // ExecuteWritingFunction (likKIe). In-document writing assistant —
+    // rewrite, expand, summarize a selection inside an artifact.
+    // JS-bundle-verified; no HAR.
+    // TODO(har): trigger from the artifact editor's writing toolbar.
+    rpc ExecuteWritingFunction(ExecuteWritingFunctionRequest) returns (ExecuteWritingFunctionResponse) {
+        option (rpc_id) = "likKIe";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // ListExpertIntelligenceContent (mVtEUb). Curated featured-content
+    // surface (the "Expert intelligence" gallery). JS-bundle-verified;
+    // no HAR.
+    // TODO(har): visit the featured/expert-content tab to capture.
+    rpc ListExpertIntelligenceContent(ListExpertIntelligenceContentRequest) returns (ListExpertIntelligenceContentResponse) {
+        option (rpc_id) = "mVtEUb";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // GenerateAccessToken (preRPe). Per-session token mint — likely
+    // used by embed widgets or third-party surfaces that need a
+    // short-lived credential. JS-bundle-verified; no HAR.
+    rpc GenerateAccessToken(GenerateAccessTokenRequest) returns (GenerateAccessTokenResponse) {
+        option (rpc_id) = "preRPe";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // GetMagicView (rtY7md). Read companion to GenerateMagicView
+    // (uK8f7c). JS-bundle-verified; no HAR.
+    // TODO(har): trigger by opening a previously-generated Magic View.
+    rpc GetMagicView(GetMagicViewRequest) returns (GetMagicViewResponse) {
+        option (rpc_id) = "rtY7md";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // CopyProject (te3DCe). Duplicates an existing notebook (sources,
+    // artifacts, settings) into a new project. JS-bundle-verified; no
+    // HAR.
+    // TODO(har): trigger from the "Make a copy" notebook menu.
+    rpc CopyProject(CopyProjectRequest) returns (Project) {
+        option (rpc_id) = "te3DCe";
+        // wire shape unverified; capture HAR before encoding
+    }
+
+    // (GenerateFreeFormStreamed / laWbsf is wired via gRPC-Web above
+    //  with both rpc_id and grpc_endpoint annotations.)
+
+    // CreateAudioOverview (AHyHrd). The legacy audio-overview creator.
+    // The production surface now goes through CreateUniversalArtifact
+    // (R7cb6c with kind=2), but a direct AHyHrd path is still wired in
+    // api.Client.createAudioOverviewDirectRPC (client.go:1407) as a
+    // fallback. JS-bundle-verified; HAR-observed under that fallback.
+    rpc CreateAudioOverviewLegacy(CreateAudioOverviewLegacyRequest) returns (AudioOverview) {
+        option (rpc_id) = "AHyHrd";
+        option (arg_format) = "[%project_id%, %audio_type%, %instructions%]";
     }
 }
 
@@ -855,10 +1295,567 @@ message MicrophoneEvent {
     int32 status_code = 1;
 }
 
+// FetchInteractivityToken (Of0kDd). HAR-verified
+// (docs/captures/notebooklm.google.com.jsonl:24, 2026-04-06). Request
+// is the empty payload []. Response is a 1-element JSON array whose
+// [0] entry is a JSON-encoded string carrying the WebRTC bootstrap
+// blob: lifetimeDuration, iceServers (STUN+TURN credentials),
+// blockStatus, and iceTransportPolicy.
+//
+// Decoded by interactiveaudio.parseInteractivityTokenResponse
+// (signaling.go:72) which JSON-unmarshals the inner string into a
+// Go-side InteractivityToken struct that mirrors these fields.
 message FetchInteractivityTokenRequest {
     // Wire format: [] (empty payload)
 }
 
 message FetchInteractivityTokenResponse {
-    string token = 1;
+    string lifetime_duration = 1;     // e.g. "86400s"
+    repeated InteractivityICEServer ice_servers = 2;
+    string block_status = 3;          // e.g. "NOT_BLOCKED"
+    string ice_transport_policy = 4;  // e.g. "all"
+}
+
+message InteractivityICEServer {
+    repeated string urls = 1;   // stun: and turn: URIs
+    string username = 2;        // empty for STUN entries
+    string credential = 3;      // empty for STUN entries
+}
+
+// Request/response messages for newly declared RPCs.
+// Wire shapes are documented inline at the rpc declaration site.
+
+// AddFileSource (o4cbdc): register an uploaded file as a notebook
+// source. HAR-verified across two pdf-upload captures (2026-04-19,
+// pdf-upload/, pdf-upload-new/) — both byte-identical for the
+// trailing options blob.
+//
+// Wire request:
+//   [[[filename]], project_id, [2], [1, null × 9, [1]]]
+//
+// Position [0] is a 2-level-nested filename list (the inner [filename]
+// is a 1-element list). Position [2] is [2] = source_type=file_upload.
+// Position [3] is the same fixed options blob seen in DeleteArtifact's
+// V5N4be call. See api.Client.registerFileSource (client.go:952).
+message AddFileSourceRequest {
+    string project_id = 1;
+    string filename = 2;
+}
+
+// Wire response (HAR-verified):
+//   [[[[source_id], filename, [null, null, null, null, 0]]],
+//    null,
+//    [[[[source_id], filename, [null, null, null, null, 0]]]]]
+//
+// Positions [0] and [2] both echo the assigned source row; [1] is
+// always null in the captured calls. The inner metadata list at
+// position [2] of each row is [null × 4, status_int=0]. We surface
+// the source_id only.
+message AddFileSourceResponse {
+    string source_id = 1;
+    string filename = 2;
+}
+
+// RateConversationTurn (J7Gthc): thumbs-up/down on a chat turn.
+// TODO(har): no rpcids=J7Gthc seen in any current capture. To capture:
+// (1) load a notebook with chat history, (2) click a thumbs-up or
+// thumbs-down icon on an assistant reply. The fields below are
+// speculative — do NOT call this RPC until the wire is captured.
+message RateConversationTurnRequest {
+    string project_id = 1;
+    string conversation_id = 2;
+    string turn_id = 3;
+    int32 rating = 4;  // speculative: 1=up, 2=down
+}
+
+message RateConversationTurnResponse {
+    // wire shape unverified; capture HAR before encoding
+}
+
+// StartFastResearch (Ljjv0c): kick off a fast-research session. Wire
+// shape verified by api.startFastResearchArgs (client.go:4587), against
+// notebook 00000000-0000-4000-8000-000000000006, query
+// "har harl file formats" (NotebookLM web UI capture, 2026-04-17).
+// No HAR copy in this repo's capture set.
+//
+// JS bundle binding: Ljjv0c → DiscoverSourcesManifold. The
+// "research" feature is built on top of the DiscoverSources job
+// system; api.Client uses the StartFastResearch alias.
+//
+// Wire request: [[query, 1], null, 1, project_id]
+// Wire response: [conversation_id]
+//
+// Mode int at position [2] is 1 for fast, 5 for deep. The trailing 1
+// at position [0][1] is opaque (same byte the deep variant carries).
+message StartFastResearchRequest {
+    string project_id = 1;
+    string query = 2;
+}
+
+message StartFastResearchResponse {
+    string conversation_id = 1;
+}
+
+// StartDeepResearch (QA9ei): kick off a deep-research session. Wire
+// shape verified across three independent CDP captures spanning
+// 2026-04-10..2026-04-17 (api.Client.StartDeepResearch at
+// client.go:4686). No HAR copy in this repo's capture set; the
+// verification is the dedicated capture suite that gated this RPC
+// from speculative to first-class.
+//
+// Wire request: [null, [1], [query, 1], 5, project_id]
+// Wire response: [research_id, conversation_id]
+//
+// Position [3] = 5 distinguishes deep from fast (which uses 1 at the
+// same position structurally, though shifted because the leading null
+// + [1] are absent in fast). Both IDs are retained because different
+// downstream RPCs key on different ones (poll uses research_id, delete
+// uses conversation_id).
+message StartDeepResearchRequest {
+    string project_id = 1;
+    string query = 2;
+}
+
+message StartDeepResearchResponse {
+    string research_id = 1;
+    string conversation_id = 2;
+}
+
+// GetDeepResearchSessions (e3bVqc, polymorphic with DeleteChatHistory).
+// Wire shape: [null, null, project_id]
+// Response is a list of deep+fast research sessions; clients filter by
+// (research_id, mode=5) for deep or (conversation_id, mode=1) for fast.
+message GetDeepResearchSessionsRequest {
+    string project_id = 1;
+}
+
+message GetDeepResearchSessionsResponse {
+    repeated DeepResearchSession sessions = 1;
+}
+
+message DeepResearchSession {
+    string research_id = 1;
+    string conversation_id = 2;
+    int32 mode = 3;       // 1 = fast, 5 = deep
+    int32 state = 4;      // 1 = running, 2 = complete, 5 = deleted
+    string query = 5;
+    string plan = 6;
+    bytes main_blob = 7;  // opaque report+sources payload
+}
+
+// DeleteDeepResearch (LBwxtb, 4-position polymorphic variant).
+// Wire shape: [null, [1], conversation_id, project_id]
+message DeleteDeepResearchRequest {
+    string project_id = 1;
+    string conversation_id = 2;
+}
+
+message DeleteDeepResearchResponse {
+    // empty array on success
+}
+
+// BulkImportFromResearch (LBwxtb, 5-position polymorphic variant).
+// Wire shape:
+//   [null, [1], conversation_id, project_id, [source_1, ..., source_N]]
+//
+// HAR captures show two distinct per-source tuple shapes selected by
+// position [10]:
+//
+//   URL import (api.bulkImportArgs at client.go:5102, source_type=2):
+//     [null, null, [url, title], null × 7, 2]
+//
+//   Note/text import (HAR-observed in
+//   NotebookLM web UI capture, 2026-04-23, importing a 3.4kB markdown
+//   research report,
+//   source_type=3):
+//     [null, [title, content_markdown], null, 3, null × 5, 3]
+//
+// The Go side currently encodes only the URL variant; the note variant
+// is a follow-up. BulkImportSourceInput carries enough fields to model
+// both — content stays empty for URL imports, url stays empty for
+// note imports.
+message BulkImportFromResearchRequest {
+    string project_id = 1;
+    string conversation_id = 2;
+    repeated BulkImportSourceInput sources = 3;
+}
+
+message BulkImportSourceInput {
+    string url = 1;
+    string title = 2;
+    // content holds inline markdown when this source is a note/text
+    // import (type=3). Leave empty for URL imports (type=2).
+    string content = 3;
+    // source_type matches the trailing enum int in the wire tuple:
+    //   2 = URL  (url + title populated)
+    //   3 = NOTE (title + content populated)
+    int32 source_type = 4;
+}
+
+// BulkImportFromResearchResponse — per-source enriched metadata in
+// request order. HAR shows a wide layout; we surface the durable
+// subset (id, title, url) and leave the rest to future callers.
+message BulkImportFromResearchResponse {
+    repeated BulkImportResult results = 1;
+}
+
+message BulkImportResult {
+    string source_id = 1;
+    string title = 2;
+    string url = 3;
+}
+
+// GetAudioFormats (sqTeoe). HAR-verified against 11+ captures
+// (notebooklm.google.com.jsonl, 2026-04-19..2026-04-23). Returns the
+// full create-artifact menu — audio styles, video styles, slide
+// styles, AND the prebuilt briefing-doc/study-guide templates. The
+// request is a fixed-sentinel payload (no varying fields), so it has
+// no arg_format. The same RPC powers every "create X" picker the UI
+// shows.
+message GetAudioFormatsRequest {
+    // Wire shape: [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+    // Custom encoder; no field substitution.
+}
+
+// Response shape (HAR-verified):
+//   [
+//     [<audio_kinds>],     // [[id, name, description], ...]
+//     [<video_kinds>],
+//     [<slide_kinds>],
+//     [<doc_templates>],   // [title, subtitle, system_prompt]
+//     ...,
+//   ]
+//
+// We surface only the audio kinds today (the existing api.Client.GetAudioFormats
+// path); other inner arrays are accessible via the raw payload until
+// dedicated parsers exist.
+message GetAudioFormatsResponse {
+    repeated AudioFormat formats = 1;
+}
+
+// AudioFormat captured kinds (HAR 2026-04-19+):
+//   1 = "Deep Dive"  — two-host conversation
+//   2 = "Brief"      — bite-sized overview
+//   3 = "Critique"   — expert review w/ feedback
+//   4 = "Debate"     — two-host opposing perspectives
+message AudioFormat {
+    int32 id = 1;
+    string name = 2;
+    string description = 3;
+}
+
+// GenerateDocumentGuides (tr032e): per-source guide.
+// Wire shape: [[[[source_id]]]]
+// Response: [[[null, [summary], [[topic, ...]], []]]]
+// Note: the existing GenerateDocumentGuidesRequest at line ~709 keys
+// off project_id, but the live wire call keys off source_id. The
+// response message GenerateDocumentGuidesResponse is defined in
+// notebooklm.proto:163 and reused here.
+
+// LogEvent (ozz5Z) is a misnomer per rpc.go's constant; the wire RPC is
+// actually a promo/upsell-card placement lookup. HAR-verified across
+// 12+ captures (notebooklm.google.com.jsonl, 2026-04-19..2026-04-23).
+//
+// Wire request:
+//   [[[[null, "1", 627], [null × 9, [null, null, 2]], 1]]]
+//
+// 627 is the campaign/slot id (constant across all captures); "1" is
+// locale/surface; the [null, null, 2] tail at position [9] of the
+// inner array is opaque. The whole request is a fixed sentinel — the
+// only varying byte is the f.sid, which lives outside the f.req body.
+// No Go caller invokes this RPC today; the message exists so future
+// regenerated stubs match the wire reality rather than the rpc.go
+// label.
+message LogEventRequest {
+    // No fields: the request is a constant sentinel envelope.
+}
+
+// Wire response carries the upsell card payload. Captured layout
+// (heavily nested; only the surfaceable subset is decoded here):
+//   [[[
+//     [null, "1", 627],
+//     [[1601, [null × 9,
+//       [[null, "NotebookLM icon", "edit"],
+//        [[[null, null, "<settings_url>"], false], null, null,
+//         "Manage subscription", null, "Manage subscription",
+//         null, null, [<dismissal_blob>]]]],
+//      null × 8, "NOTEBOOKLM_TIER_PRO_CONSUMER_USER", null, null, false]],
+//     0]]]
+//
+// We surface the user-tier string (the only durable, human-meaningful
+// field). All other content is rendering metadata.
+message LogEventResponse {
+    string user_tier = 1;
+    // Example value: "NOTEBOOKLM_TIER_PRO_CONSUMER_USER".
+}
+
+// ReportContent (rJKx8e): user-initiated abuse/safety report.
+// wire shape unverified; capture HAR before encoding
+message ReportContentRequest {
+    // wire shape unverified; capture HAR before encoding
+    string project_id = 1;
+    string artifact_id = 2;
+    string reason = 3;
+    string detail = 4;
+}
+
+message ReportContentResponse {
+    // wire shape unverified; capture HAR before encoding
+}
+
+// ReviseArtifact (KmcKPe): revise an artifact with instructions.
+// wire shape unverified; capture HAR before encoding
+message ReviseArtifactRequest {
+    // wire shape unverified; capture HAR before encoding
+    string project_id = 1;
+    string artifact_id = 2;
+    string instructions = 3;
+}
+
+message ReviseArtifactResponse {
+    // wire shape unverified; capture HAR before encoding
+    Artifact artifact = 1;
+}
+
+// GenerateArtifactSuggestions / AudioTopicSuggestions (otmP3b).
+// HAR-verified for kind=2 (audio) via the create-audio capture used
+// for internal/method/labs_tailwind_artifact_suggestions.go (filed
+// 2026-04-14; not present in this repo's docs/captures/ but the
+// encoder is the durable record).
+//
+// Wire request: [[kind], project_id, [[src1], [src2], ...], variation]
+// Wire response: [[[title, description], [title, description], ...]]
+//
+// Each call returns three suggestion pairs. variation is a re-roll
+// seed (1, 2, 5, 6 observed); the UI bumps it on every "refresh"
+// click. Video and slide kinds are not yet HAR-verified.
+message GenerateArtifactSuggestionsRequest {
+    int32 kind = 1;            // 2 = audio (HAR-verified); 3,4 speculative
+    string project_id = 2;
+    repeated string source_refs = 3;
+    int32 variation = 4;       // re-roll seed
+}
+
+// One suggestion pair. Pass description (optionally edited) as the
+// instructions argument to CreateAudioOverview / CreateUniversalArtifact.
+message ArtifactSuggestion {
+    string title = 1;
+    string description = 2;
+}
+
+message GenerateArtifactSuggestionsResponse {
+    repeated ArtifactSuggestion suggestions = 1;
+}
+
+// SDPExchange (eyWvXc): WebRTC SDP offer/answer exchange. HAR-verified
+// (docs/captures/notebooklm.google.com.jsonl:25, 2026-04-06) — request
+// args = [json_str] where json_str is `{"sdp":"...","type":"offer"}`.
+// Response is `[json_str]` where json_str is the answer SDP wrapped
+// the same way, with `"type":"answer"` and an active fingerprint.
+//
+// Encoded/decoded by interactiveaudio.exchangeSDP (signaling.go:52).
+// The wire keeps the SDP as an opaque JSON-encoded string blob; this
+// proto exposes the decoded sdp+type pair for callers that prefer
+// structured access.
+message SDPExchangeRequest {
+    // Raw JSON string sent on the wire — kept as a string because the
+    // server treats it opaquely and round-trips byte-for-byte.
+    string offer_payload = 1;
+}
+
+message SDPExchangeResponse {
+    string answer_payload = 1;
+}
+
+// GetLabels (I3xc3c). HAR-verified label/autolabel query. The
+// notebook UI fires this on every notebook load to render the
+// source-list section headers; an empty response means the user
+// hasn't yet computed labels for this notebook.
+message GetLabelsRequest {
+    string project_id = 1;
+}
+
+message GetLabelsResponse {
+    repeated Label labels = 1;
+}
+
+// Label is one autolabel cluster. The trailing "" in the wire tuple
+// appears to be reserved for a per-label description (always empty
+// in captures); not modeled here until a populated case is observed.
+message Label {
+    string name = 1;             // e.g. "Generated Code", "Testing", "RPC and Networking"
+    string label_id = 2;         // server-assigned UUID
+    repeated string source_ids = 3;  // members of this cluster
+}
+
+// UpsertArtifactUserState (Fxmvse). JS-bundle-canonical name; no
+// captured traffic yet. Fields below are placeholders until the wire
+// shape is observed.
+// TODO(har): triggering UI path is artifact-state interaction
+// (star/view/dismiss); the companion read RPC is GetArtifactUserState
+// (ulBSjf).
+message UpsertArtifactUserStateRequest {
+    // wire shape unverified; capture HAR before encoding
+    string artifact_id = 1;
+}
+
+message UpsertArtifactUserStateResponse {
+    // wire shape unverified; capture HAR before encoding
+}
+
+// GetArtifactUserState (ulBSjf). Read companion to UpsertArtifactUserState.
+message GetArtifactUserStateRequest {
+    // wire shape unverified; capture HAR before encoding
+    string artifact_id = 1;
+}
+
+message GetArtifactUserStateResponse {
+    // wire shape unverified; capture HAR before encoding
+}
+
+// Label write companions — wire shape unverified.
+message CreateLabelRequest {
+    string project_id = 1;
+    string name = 2;
+}
+
+message CreateLabelResponse {
+    Label label = 1;
+}
+
+message MutateLabelRequest {
+    string label_id = 1;
+    string name = 2;
+}
+
+message MutateLabelResponse {
+    Label label = 1;
+}
+
+message DeleteLabelsRequest {
+    repeated string label_ids = 1;
+}
+
+// GenerateArtifact (Rytqqe) — distinct from CreateArtifact (xpWGLf)
+// and CreateUniversalArtifact (R7cb6c). Likely promotes a SUGGESTED
+// artifact to a generated one. wire shape unverified.
+message GenerateArtifactRequest {
+    string project_id = 1;
+    string artifact_id = 2;
+}
+
+// CancelDiscoverSourcesJob (Zbrupe).
+message CancelDiscoverSourcesJobRequest {
+    string project_id = 1;
+    string job_id = 2;
+}
+
+// ExportToDrive (Krh3pd). wire shape unverified.
+message ExportToDriveRequest {
+    string project_id = 1;
+    repeated string artifact_ids = 2;
+}
+
+message ExportToDriveResponse {
+    string drive_url = 1;
+    string drive_file_id = 2;
+}
+
+// UpdateFeaturedNotebookStatus (DemIHe). Admin-only.
+message UpdateFeaturedNotebookStatusRequest {
+    string project_id = 1;
+    bool featured = 2;
+}
+
+// ListModelOptions (EnujNd). wire shape unverified.
+message ListModelOptionsRequest {
+    string project_id = 1;
+}
+
+message ListModelOptionsResponse {
+    repeated ModelOption models = 1;
+}
+
+message ModelOption {
+    string model_id = 1;
+    string display_name = 2;
+    bool default_for_chat = 3;
+}
+
+// UpdateProjectUserState (LQhfEb). wire shape unverified.
+message UpdateProjectUserStateRequest {
+    string project_id = 1;
+    bool pinned = 2;
+    google.protobuf.Timestamp last_viewed_at = 3;
+}
+
+// ExecuteWritingFunction (likKIe). In-document writing assistant.
+message ExecuteWritingFunctionRequest {
+    string project_id = 1;
+    string artifact_id = 2;
+    string selection_text = 3;
+    string function = 4;     // e.g. "rewrite", "expand", "summarize"
+}
+
+message ExecuteWritingFunctionResponse {
+    string transformed_text = 1;
+}
+
+// ListExpertIntelligenceContent (mVtEUb). Curated featured surface.
+message ListExpertIntelligenceContentRequest {
+    int32 page_size = 1;
+    string page_token = 2;
+}
+
+message ListExpertIntelligenceContentResponse {
+    repeated ExpertIntelligenceItem items = 1;
+    string next_page_token = 2;
+}
+
+message ExpertIntelligenceItem {
+    string item_id = 1;
+    string title = 2;
+    string description = 3;
+    string thumbnail_url = 4;
+}
+
+// GenerateAccessToken (preRPe). Per-session token mint.
+message GenerateAccessTokenRequest {
+    string project_id = 1;
+}
+
+message GenerateAccessTokenResponse {
+    string access_token = 1;
+    google.protobuf.Timestamp expires_at = 2;
+}
+
+// GetMagicView (rtY7md). Read companion to GenerateMagicView (uK8f7c).
+message GetMagicViewRequest {
+    string project_id = 1;
+    string magic_view_id = 2;
+}
+
+message GetMagicViewResponse {
+    string magic_view_id = 1;
+    string content = 2;
+    google.protobuf.Timestamp generated_at = 3;
+}
+
+// CopyProject (te3DCe). Duplicates a notebook.
+message CopyProjectRequest {
+    string source_project_id = 1;
+    string new_title = 2;
+}
+
+// (GenerateFreeFormStreamed/Response are defined earlier in this file
+//  alongside the gRPC-Web stream rpc.)
+
+// CreateAudioOverviewLegacy (AHyHrd). Direct-RPC fallback that
+// api.Client.createAudioOverviewDirectRPC still uses; the live UI now
+// goes through R7cb6c. The "Legacy" suffix avoids a name collision
+// with the modern CreateAudioOverview rpc that targets R7cb6c above.
+message CreateAudioOverviewLegacyRequest {
+    string project_id = 1;
+    int32 audio_type = 2;
+    repeated string instructions = 3;
 }

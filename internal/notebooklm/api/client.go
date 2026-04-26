@@ -4601,9 +4601,13 @@ func startFastResearchArgs(query, projectID string) []interface{} {
 // Wire-verified 2026-04-17 against notebook
 // 00000000-0000-4000-8000-000000000006 and query "har harl file formats"
 // (NotebookLM web UI capture, 2026-04-17).
-// Retracts the speculative Es3dTe stub from commit b7b04e7; the real
-// RPC is Ljjv0c (the Es3dTe inference in the har-capture-queue was
-// forward-looking guesswork that never ran against a live server).
+// The JS bundle binds Ljjv0c to DiscoverSourcesManifold; the
+// "research" feature is built on top of the DiscoverSources job
+// system, so api.Client uses the StartFastResearch alias while the
+// service contract calls it DiscoverSourcesManifold.
+//
+// (Earlier commits speculated that Es3dTe was the fast-research RPC;
+// Es3dTe is actually a different DiscoverSources entry point.)
 func (c *Client) StartFastResearch(projectID, query string) (*DeepResearchResult, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCStartFastResearch,

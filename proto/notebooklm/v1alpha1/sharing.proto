@@ -22,18 +22,69 @@ message ShareAudioResponse {
     repeated string share_info = 1;  // [share_url, share_id]
 }
 
+// GetProjectDetailsRequest. JS bundle confirms the canonical service
+// name: JFMDGd → /LabsTailwindSharingService.GetProjectDetails. The
+// Go-side field name `share_id` is historical; HAR shows the wire
+// accepts the project_id (not a share-link slug). Captured against
+// 12+ notebooks in NotebookLM web UI captures (2026-04-06..2026-04-23).
+//
+// Wire request: [project_id, [2]]
+//   [1] = [2] is an opaque mode flag (constant across all observed
+//   calls); other modes might surface different response payload
+//   shapes but have not been observed.
 message GetProjectDetailsRequest {
+    // Field is named share_id for backwards compatibility with
+    // existing Go callers (api.Client.GetProjectDetails); on the wire
+    // this is the project UUID.
     string share_id = 1;
 }
 
+// ProjectDetails. The captured response in our corpus carries only
+// the collaborators payload, not the title/emoji/thumbnail that the
+// fields below also model. The legacy fields are retained for
+// backward compatibility with consumers of the generated protos and
+// may populate under request modes other than [2] (none observed
+// yet).
+//
+// HAR-verified shape:
+//
+//   [
+//     [<owner_entry>, <collaborator_entry>, ...],
+//     <flags|null>,         // [true,true] when fully public, null o/w
+//     1000,                 // opaque limit
+//     true,
+//     null,
+//     null,
+//     [3, true, true],      // permissions blob (newer captures only)
+//   ]
+//
+//   Entry per user:
+//     [email, role_int, [], [display_name, avatar_url]]
+//
+//     role_int 1 = OWNER (the only role observed in single-user captures)
+//
+// api.Client.parseProjectDetailsResponse (client.go:4463) extracts
+// only OwnerName + IsPublic.
 message ProjectDetails {
     string project_id = 1;
     string title = 2;
     string emoji = 3;
-    string owner_name = 4;
-    bool is_public = 5;
+    string owner_name = 4;       // populated from owner entry's display_name
+    bool is_public = 5;          // populated from response [1] flags array
     google.protobuf.Timestamp shared_at = 6;
     repeated SourceSummary sources = 7;
+    // Collaborator list reflects the wire's primary payload.
+    repeated ProjectCollaborator collaborators = 8;
+}
+
+// ProjectCollaborator captures the actual per-user wire entry.
+//   role_int observed values: 1 = OWNER. Other roles will appear once a
+//   notebook with multiple collaborators is captured.
+message ProjectCollaborator {
+    string email = 1;
+    int32 role = 2;
+    string display_name = 3;
+    string avatar_url = 4;
 }
 
 message SourceSummary {
@@ -59,6 +110,18 @@ message ShareProjectResponse {
     string share_url = 1;
     string share_id = 2;
     ShareSettings settings = 3;
+}
+
+// CreateAccessRequest (n3dkHd). Sent when a non-collaborator opens a
+// shared notebook URL and clicks "Request access". wire shape
+// unverified.
+message CreateAccessRequestRequest {
+    string project_id = 1;
+    string requester_message = 2;
+}
+
+message CreateAccessRequestResponse {
+    string request_id = 1;
 }
 
 // Guidebook-related messages
@@ -184,6 +247,16 @@ service LabsTailwindSharingService {
     rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse) {
         option (rpc_id) = "QDyure";
         option (arg_format) = "[%project_id%, %settings%]";
+    }
+
+    // CreateAccessRequest (n3dkHd). Sent when a non-collaborator opens
+    // a shared notebook URL and clicks "Request access". JS-bundle-
+    // verified; no HAR yet.
+    // TODO(har): trigger by opening a private share link from a logged-
+    // in account that lacks access.
+    rpc CreateAccessRequest(CreateAccessRequestRequest) returns (CreateAccessRequestResponse) {
+        option (rpc_id) = "n3dkHd";
+        // wire shape unverified; capture HAR before encoding
     }
 }
 
