@@ -490,6 +490,29 @@ func (c *Client) RefreshSource(projectID, sourceID string) (*pb.Source, error) {
 	return source, nil
 }
 
+// DiscoverSources dispatches the Es3dTe RPC. arg_format is
+// [%project_id%, %query%] per the proto. Returns the suggested
+// sources the server thinks are relevant to the query.
+//
+// Distinct from Ljjv0c (StartFastResearch) — the JS bundle binds
+// Es3dTe to a discovery job that returns concrete source candidates,
+// while Ljjv0c kicks off a research session that streams a synthesis.
+// Earlier commits routed the CLI's discover-sources subcommand
+// through fast-research as a workaround; this method gives callers
+// the actual Es3dTe path.
+func (c *Client) DiscoverSources(projectID, query string) (*pb.DiscoverSourcesResponse, error) {
+	req := &pb.DiscoverSourcesRequest{
+		ProjectId: projectID,
+		Query:     query,
+	}
+	ctx := context.Background()
+	resp, err := c.orchestrationService.DiscoverSources(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("discover sources: %w", err)
+	}
+	return resp, nil
+}
+
 func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
 	req := &pb.LoadSourceRequest{
 		SourceId: sourceID,

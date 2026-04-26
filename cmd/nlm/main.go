@@ -1487,25 +1487,51 @@ func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
 }
 
 func discoverSources(c *api.Client, projectID, query string) error {
-	fmt.Fprintf(os.Stderr, "DiscoverSources is deprecated upstream; using deep research workflow instead.\n")
-	if err := runDeepResearch(c, projectID, query, currentResearchOptions()); err == nil {
-		return nil
-	}
-
-	fmt.Fprintf(os.Stderr, "Deep research is unavailable; falling back to notebook suggestions.\n")
-	res, err := streamChatResponse(c, api.ChatRequest{
-		ProjectID: projectID,
-		Prompt:    fmt.Sprintf("Suggest sources to add for this query: %s. Respond with a short bullet list of specific documents, sites, or search directions.", query),
-	}, currentChatRenderOptions())
+	resp, err := c.DiscoverSources(projectID, query)
 	if err != nil {
-		return fmt.Errorf("discover sources fallback: %w", err)
-	}
-	if res.Answer == "" {
-		fmt.Println("(No source suggestions returned)")
+		// Earlier rounds routed this through deep-research as a
+		// workaround when Es3dTe was thought to be deprecated. The
+		// JS bundle still binds Es3dTe and the proto carries an
+		// arg_format, so we now hit it directly. If the server
+		// rejects the call, fall back to a chat suggestion so
+		// users still get something usable.
+		fmt.Fprintf(os.Stderr, "DiscoverSources (Es3dTe) returned %v; falling back to chat suggestions.\n", err)
+		res, fbErr := streamChatResponse(c, api.ChatRequest{
+			ProjectID: projectID,
+			Prompt:    fmt.Sprintf("Suggest sources to add for this query: %s. Respond with a short bullet list of specific documents, sites, or search directions.", query),
+		}, currentChatRenderOptions())
+		if fbErr != nil {
+			return fmt.Errorf("discover sources fallback: %w", fbErr)
+		}
+		if res.Answer == "" {
+			fmt.Println("(No source suggestions returned)")
+		}
+		fmt.Println()
 		return nil
 	}
-	fmt.Println()
-	return nil
+	sources := resp.GetSources()
+	if len(sources) == 0 {
+		fmt.Fprintln(os.Stderr, "(No source candidates returned)")
+		return nil
+	}
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, s := range sources {
+			if err := enc.Encode(s); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	w, flush := newListWriter(os.Stdout)
+	fmt.Fprintln(w, "ID\tTITLE")
+	for _, s := range sources {
+		fmt.Fprintf(w, "%s\t%s\n",
+			s.GetSourceId().GetSourceId(),
+			s.GetTitle(),
+		)
+	}
+	return flush()
 }
 
 // Artifact management

@@ -293,13 +293,9 @@ var commands = []command{
 	},
 	{
 		name: "discover-sources", argsUsage: "<notebook-id> <query>",
-		usage: "Discover relevant sources (experimental; upstream RPC deprecated, fallback may return prose)", section: "Source",
+		usage: "Discover relevant sources via Es3dTe (chat fallback if the server rejects)", section: "Source",
 		minArgs: 2, maxArgs: 2,
-		hidden: true, // upstream qXyaNe deprecated; Ljjv0c (HAR-verified 2026-04-17) is now wired via nlm research --mode=fast
 		run: func(c *api.Client, args []string) error {
-			if !experimentalEnabled() {
-				return fmt.Errorf("discover-sources is experimental (upstream RPC deprecated, fallback may return prose instead of links); pass --experimental or set NLM_EXPERIMENTAL=1")
-			}
 			return discoverSources(c, args[0], args[1])
 		},
 	},
@@ -957,7 +953,6 @@ var maxCommandWords int
 
 var experimentalCommands = map[string]bool{
 	"analytics":         true,
-	"discover-sources":  true,
 	"audio-interactive": true,
 }
 
