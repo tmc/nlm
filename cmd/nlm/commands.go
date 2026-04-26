@@ -939,6 +939,12 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return submitFeedback(c, args[0]) },
 	},
 	{
+		name: "account", argsUsage: "[set <key> <value>]",
+		usage: "Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)", section: "Other",
+		minArgs: 0, maxArgs: 3,
+		run: func(c *api.Client, args []string) error { return runAccount(c, args) },
+	},
+	{
 		name:  "hb",
 		usage: "Send a session heartbeat", section: "Other",
 		minArgs: 0, maxArgs: 0,

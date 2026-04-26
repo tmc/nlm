@@ -27,6 +27,7 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type Notebook = pb.Project
@@ -580,6 +581,33 @@ func (c *Client) SubmitFeedback(projectID, feedbackType, feedbackText string) er
 		return fmt.Errorf("submit feedback: %w", err)
 	}
 	return nil
+}
+
+// GetOrCreateAccount dispatches the ZwVcOc RPC. Returns the
+// authenticated user's NotebookLM account record. Empty request body
+// (the auth token identifies the user). Doubles as a "can the CLI
+// talk to the server" sanity check.
+func (c *Client) GetOrCreateAccount() (*pb.Account, error) {
+	resp, err := c.orchestrationService.GetOrCreateAccount(context.Background(), &pb.GetOrCreateAccountRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("get or create account: %w", err)
+	}
+	return resp, nil
+}
+
+// MutateAccount dispatches the hT54vc RPC to update an Account
+// record. update_mask gates which AccountSettings fields are
+// applied; pass nil to update everything in account.
+func (c *Client) MutateAccount(account *pb.Account, updateMask *fieldmaskpb.FieldMask) (*pb.Account, error) {
+	req := &pb.MutateAccountRequest{
+		Account:    account,
+		UpdateMask: updateMask,
+	}
+	resp, err := c.orchestrationService.MutateAccount(context.Background(), req)
+	if err != nil {
+		return nil, fmt.Errorf("mutate account: %w", err)
+	}
+	return resp, nil
 }
 
 // ActOnSources performs a content transformation and returns the raw response.

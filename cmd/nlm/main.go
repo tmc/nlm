@@ -28,6 +28,7 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	nlmsync "github.com/tmc/nlm/internal/sync"
 	"golang.org/x/term"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 // Global flags
@@ -3217,6 +3218,69 @@ func submitFeedback(c *api.Client, message string) error {
 	}
 
 	fmt.Fprintln(os.Stderr, "Feedback submitted")
+	return nil
+}
+
+// runAccount implements 'nlm account' (read) and
+// 'nlm account set <key> <value>' (write).
+//
+// Supported keys for set: 'emoji' (default_project_emoji) and
+// 'email-notifications' (true/false).
+func runAccount(c *api.Client, args []string) error {
+	if len(args) == 0 {
+		acct, err := c.GetOrCreateAccount()
+		if err != nil {
+			return err
+		}
+		if jsonOutput {
+			data, mErr := json.MarshalIndent(acct, "", "  ")
+			if mErr != nil {
+				return mErr
+			}
+			fmt.Println(string(data))
+			return nil
+		}
+		fmt.Printf("Account: %s\n", acct.GetAccountId())
+		fmt.Printf("Email:   %s\n", acct.GetEmail())
+		if s := acct.GetSettings(); s != nil {
+			fmt.Printf("Default emoji:        %s\n", s.GetDefaultProjectEmoji())
+			fmt.Printf("Email notifications:  %v\n", s.GetEmailNotifications())
+		}
+		return nil
+	}
+	if args[0] != "set" {
+		return fmt.Errorf("account: unknown subcommand %q (try 'set')", args[0])
+	}
+	if len(args) != 3 {
+		return fmt.Errorf("account set: usage 'nlm account set <key> <value>'")
+	}
+	key, value := args[1], args[2]
+	acct, err := c.GetOrCreateAccount()
+	if err != nil {
+		return fmt.Errorf("read current account: %w", err)
+	}
+	if acct.Settings == nil {
+		acct.Settings = &pb.AccountSettings{}
+	}
+	var maskPath string
+	switch key {
+	case "emoji":
+		acct.Settings.DefaultProjectEmoji = value
+		maskPath = "settings.default_project_emoji"
+	case "email-notifications":
+		v := strings.EqualFold(value, "true") || value == "1"
+		acct.Settings.EmailNotifications = v
+		maskPath = "settings.email_notifications"
+	default:
+		return fmt.Errorf("account set: unknown key %q (try 'emoji' or 'email-notifications')", key)
+	}
+	mask := &fieldmaskpb.FieldMask{Paths: []string{maskPath}}
+	updated, err := c.MutateAccount(acct, mask)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "Account updated: %s=%s\n", key, value)
+	_ = updated
 	return nil
 }
 
