@@ -2791,6 +2791,30 @@ func (c *Client) ReviseArtifact(artifactID, instructions string) (*pb.Artifact, 
 	return &pb.Artifact{ArtifactId: artifactID}, nil
 }
 
+// ReportContent submits an abuse/safety report against an artifact.
+// Dispatches the OmVMXc RPC (JS-bundle-canonical).
+//
+// TODO(har): wire shape unverified. Encoding mirrors the in-file
+// "[%context%, %artifact_id%, %reason%, %detail%]" convention used by
+// sibling artifact RPCs. Capture HAR by opening an artifact's kebab
+// menu and submitting a "Report" before promoting this off
+// best-effort. The response is not parsed beyond success/failure.
+func (c *Client) ReportContent(artifactID, reason, detail string) error {
+	projectContext := []interface{}{
+		2, nil, nil,
+		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+	}
+	_, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCReportContent,
+		Args: []interface{}{projectContext, artifactID, reason, detail},
+	})
+	if err != nil {
+		return fmt.Errorf("report content: %w", err)
+	}
+	return nil
+}
+
 func (c *Client) parseArtifactsResponse(resp []byte) ([]*pb.Artifact, error) {
 	var responseData []interface{}
 	if err := json.Unmarshal(resp, &responseData); err != nil {

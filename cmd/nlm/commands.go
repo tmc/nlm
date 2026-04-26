@@ -573,6 +573,23 @@ var commands = []command{
 			return nil
 		},
 	},
+	{
+		name: "report-content", argsUsage: "<artifact-id> <reason> [detail]",
+		usage: "Submit an abuse/safety report against an artifact (OmVMXc; HAR-unverified)", section: "Artifact",
+		minArgs: 2, maxArgs: 3,
+		hidden: true, // wire shape unverified; mostly relevant to operators of nlm-driven services
+		run: func(c *api.Client, args []string) error {
+			detail := ""
+			if len(args) > 2 {
+				detail = args[2]
+			}
+			if err := c.ReportContent(args[0], args[1], detail); err != nil {
+				return err
+			}
+			fmt.Fprintln(os.Stderr, "Report submitted.")
+			return nil
+		},
+	},
 
 	// Guidebook operations
 	{
