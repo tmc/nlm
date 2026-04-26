@@ -1125,6 +1125,23 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 	return nil
 }
 
+func runMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
+	fmt.Fprintf(os.Stderr, "Generating magic view...\n")
+	resp, err := c.GenerateMagicView(notebookID, sourceIDs)
+	if err != nil {
+		return fmt.Errorf("generate magic view: %w", err)
+	}
+	if title := resp.GetTitle(); title != "" {
+		fmt.Println(title)
+	}
+	for _, item := range resp.GetItems() {
+		if t := item.GetTitle(); t != "" {
+			fmt.Printf("- %s\n", t)
+		}
+	}
+	return nil
+}
+
 // sourceGuideCacheDir returns the on-disk cache directory for per-source
 // guides, creating it on first use. Guides are cached because tr032e is a
 // generate call (see --force to re-populate).

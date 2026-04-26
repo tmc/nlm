@@ -669,6 +669,12 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return generateNotebookGuide(c, args[0]) },
 	},
 	{
+		name: "magic", argsUsage: "<notebook-id> [source-id...]",
+		usage: "Generate the notebook 'Magic View' (uK8f7c)", section: "Generation",
+		minArgs: 1, maxArgs: -1,
+		run: func(c *api.Client, args []string) error { return runMagicView(c, args[0], args[1:]) },
+	},
+	{
 		name: "source-guide", argsUsage: "<notebook-id> [source-id...]",
 		usage: "Show the per-source auto-summary and keyword chips (cached on disk)", section: "Generation",
 		minArgs: 1, maxArgs: -1,
@@ -1058,7 +1064,7 @@ func printUsage() {
 
 	// Ordered sections matching the original help layout.
 	sections := []string{
-		"Notebook", "Source", "Note", "Create", "Audio", "Video",
+		"Notebook", "Source", "Note", "Label", "Create", "Audio", "Video",
 		"Artifact", "Guidebook", "Generation", "Chat",
 		"Content Transformation", "Research", "Sharing", "Other",
 	}
