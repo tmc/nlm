@@ -87,6 +87,7 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "notebook-description"), "notebook description"),
 		cloneCommand(mustCommand(byName, "notebook-cover"), "notebook cover"),
 		cloneCommand(mustCommand(byName, "notebook-cover-image"), "notebook cover-image"),
+		cloneCommand(mustCommand(byName, "notebook-unrecent"), "notebook unrecent"),
 		cloneCommand(mustCommand(byName, "list-featured"), "notebook featured"),
 
 		cloneCommand(mustCommand(byName, "sources"), "source list"),
@@ -192,6 +193,18 @@ var commands = []command{
 		usage: "Upload a custom cover image and associate it with the notebook", section: "Notebook",
 		minArgs: 2, maxArgs: 2,
 		run: func(c *api.Client, args []string) error { return uploadNotebookCoverImage(c, args[0], args[1]) },
+	},
+	{
+		name: "notebook-unrecent", argsUsage: "<notebook-id>",
+		usage: "Remove a notebook from the recently-viewed list (does not delete it)", section: "Notebook",
+		minArgs: 1, maxArgs: 1,
+		run: func(c *api.Client, args []string) error {
+			if err := c.RemoveRecentlyViewedProject(args[0]); err != nil {
+				return fmt.Errorf("remove recently viewed: %w", err)
+			}
+			fmt.Fprintf(os.Stderr, "Removed %s from recently viewed.\n", args[0])
+			return nil
+		},
 	},
 	{
 		name: "analytics", argsUsage: "<notebook-id>",
@@ -929,6 +942,7 @@ var compatibilityCommands = map[string]bool{
 	"notebook-description": true,
 	"notebook-cover":   true,
 	"notebook-cover-image": true,
+	"notebook-unrecent": true,
 	"list-featured":    true,
 	"sources":          true,
 	"add":              true,
@@ -967,6 +981,7 @@ var compatibilityReplacements = map[string]string{
 	"notebook-notes":   "notebook description",
 	"notebook-cover":   "notebook cover",
 	"notebook-cover-image": "notebook cover-image",
+	"notebook-unrecent": "notebook unrecent",
 	"list-featured":    "notebook featured",
 	"sources":          "source list",
 	"add":              "source add",
