@@ -2642,14 +2642,21 @@ func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
 
 // GetArtifact returns a single artifact by ID.
 //
-// There is no dedicated GetArtifact RPC: the NotebookLM web UI reads
-// individual artifacts by calling ListArtifacts (gArtLc) and filtering
-// client-side. HAR evidence: NotebookLM web UI batchexecute capture
-// (2026-04-07) — V5N4be is the delete operation, not get, and there is no
-// other single-artifact read RPC in the capture. This implementation
-// mirrors the web UI by scanning ListRecentlyViewedProjects +
-// ListArtifacts.
+// First tries the JS-bundle-canonical v9rmvd RPC (one-shot direct
+// read; arg_format = "[%artifact_id%]"). If that fails for any reason
+// — the web UI never fires v9rmvd in captured HARs, so server-side
+// support is unverified — falls back to scanning
+// ListRecentlyViewedProjects + ListArtifacts (gArtLc), which is what
+// the UI actually does today.
+//
+// The fallback path is unconditional on parse failure, so the worst
+// case is the same scan-and-filter that callers got before this
+// commit. The fast path is exercised first because, when it works,
+// it cuts a fan-out call to N notebooks down to a single RPC.
 func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
+	if artifact, err := c.getArtifactDirect(artifactID); err == nil && artifact != nil {
+		return artifact, nil
+	}
 	projects, listErr := c.ListRecentlyViewedProjects()
 	if listErr != nil {
 		return nil, fmt.Errorf("list projects for artifact lookup: %w", listErr)
@@ -2666,6 +2673,32 @@ func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
 		}
 	}
 	return nil, fmt.Errorf("artifact %q not found", artifactID)
+}
+
+// getArtifactDirect tries the v9rmvd RPC. The wire is JS-bundle-verified
+// but never observed on the wire in our HAR corpus, so failure is
+// expected on some accounts; callers should fall back to the gArtLc
+// list-scan when this returns an error or nil artifact.
+func (c *Client) getArtifactDirect(artifactID string) (*pb.Artifact, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCGetArtifact,
+		Args: []interface{}{artifactID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		return nil, err
+	}
+	if len(responseData) == 0 {
+		return nil, fmt.Errorf("empty response")
+	}
+	artifact := c.parseArtifactFromResponse(responseData[0])
+	if artifact == nil {
+		return nil, fmt.Errorf("could not parse artifact from response")
+	}
+	return artifact, nil
 }
 
 // DeleteArtifact deletes an artifact by ID using the V5N4be RPC.
