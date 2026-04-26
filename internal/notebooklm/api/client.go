@@ -2648,6 +2648,41 @@ func (c *Client) parseRenameArtifactResponse(resp []byte, artifactID string) (*p
 	return &pb.Artifact{ArtifactId: artifactID}, nil
 }
 
+// ReviseArtifact re-runs an artifact generator with a free-form
+// revision instruction. It dispatches the KmcKPe RPC (JS bundle:
+// "DeriveArtifact"). The response carries the revised artifact;
+// non-trivial responses are decoded via parseArtifactFromResponse.
+//
+// TODO(har): The wire body for KmcKPe is unverified. The encoding
+// here mirrors the in-file "[%context%, %artifact_id%, %instructions%]"
+// convention used by sibling RPCs (CreateArtifact, GenerateReportSuggestions).
+// Capture HAR by clicking "Revise" on a generated artifact and
+// confirm before promoting this off best-effort.
+func (c *Client) ReviseArtifact(artifactID, instructions string) (*pb.Artifact, error) {
+	projectContext := []interface{}{
+		2, nil, nil,
+		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+	}
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCReviseArtifact,
+		Args: []interface{}{projectContext, artifactID, instructions},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("revise artifact: %w", err)
+	}
+	var responseData []interface{}
+	if jsonErr := json.Unmarshal(resp, &responseData); jsonErr == nil && len(responseData) > 0 {
+		if artifact := c.parseArtifactFromResponse(responseData[0]); artifact != nil {
+			return artifact, nil
+		}
+	}
+	// Fall back: report success with the existing artifact_id so callers
+	// that just want a "did it run" signal can use this method until the
+	// response shape is locked down.
+	return &pb.Artifact{ArtifactId: artifactID}, nil
+}
+
 func (c *Client) parseArtifactsResponse(resp []byte) ([]*pb.Artifact, error) {
 	var responseData []interface{}
 	if err := json.Unmarshal(resp, &responseData); err != nil {

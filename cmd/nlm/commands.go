@@ -110,6 +110,7 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "get-artifact"), "artifact get"),
 		cloneCommand(mustCommand(byName, "update-artifact"), "artifact update"),
 		cloneCommand(mustCommand(byName, "delete-artifact"), "artifact delete"),
+		cloneCommand(mustCommand(byName, "revise-artifact"), "artifact revise"),
 
 		cloneCommand(mustCommand(byName, "chat-list"), "chat list"),
 		cloneCommand(mustCommand(byName, "chat-history"), "chat history"),
@@ -557,6 +558,21 @@ var commands = []command{
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error { return deleteArtifact(c, args[0]) },
 	},
+	{
+		name: "revise-artifact", argsUsage: "<artifact-id> <instructions>",
+		usage: "Re-run an artifact generator with revision instructions (KmcKPe; HAR-unverified)", section: "Artifact",
+		minArgs: 2, maxArgs: -1,
+		run: func(c *api.Client, args []string) error {
+			instructions := strings.Join(args[1:], " ")
+			art, err := c.ReviseArtifact(args[0], instructions)
+			if err != nil {
+				return err
+			}
+			fmt.Println(art.GetArtifactId())
+			fmt.Fprintf(os.Stderr, "Revision submitted. Use 'nlm artifact get %s' to check status.\n", art.GetArtifactId())
+			return nil
+		},
+	},
 
 	// Guidebook operations
 	{
@@ -961,6 +977,7 @@ var compatibilityCommands = map[string]bool{
 	"update-artifact":  true,
 	"delete-artifact":  true,
 	"rename-artifact":  true,
+	"revise-artifact":  true,
 	"chat-list":        true,
 	"chat-history":     true,
 	"chat-show":        true,
@@ -1003,6 +1020,7 @@ var compatibilityReplacements = map[string]string{
 	"update-artifact":  "artifact update",
 	"delete-artifact":  "artifact delete",
 	"rename-artifact":  "artifact update",
+	"revise-artifact":  "artifact revise",
 	"chat-list":        "chat list",
 	"chat-history":     "chat history",
 	"chat-show":        "chat show",
