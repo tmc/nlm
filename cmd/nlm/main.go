@@ -735,15 +735,31 @@ func listSources(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list sources: %w", err)
 	}
 
+	// labelsBySource is empty when GetLabels fails or the notebook has no
+	// labels. We don't fail the list on label errors; missing labels are a
+	// strictly-additive view.
+	labelsBySource := make(map[string][]string)
+	hasAnyLabels := false
+	if labels, err := c.GetLabels(notebookID); err == nil {
+		for _, l := range labels {
+			for _, sid := range l.SourceIDs {
+				labelsBySource[sid] = append(labelsBySource[sid], l.Name)
+			}
+		}
+		hasAnyLabels = len(labels) > 0
+	}
+
 	if jsonOutput {
 		enc := json.NewEncoder(os.Stdout)
 		for _, src := range p.Sources {
+			id := src.SourceId.GetSourceId()
 			rec := sourceListRecord{
-				SourceID:    src.SourceId.GetSourceId(),
+				SourceID:    id,
 				Title:       strings.TrimSpace(src.Title),
 				Type:        formatSourceType(src),
 				Status:      formatSourceStatus(src),
 				LastUpdated: sourceTimeRFC3339(src),
+				Labels:      labelsBySource[id],
 			}
 			if err := enc.Encode(rec); err != nil {
 				return err
@@ -753,19 +769,35 @@ func listSources(c *api.Client, notebookID string) error {
 	}
 
 	w, flush := newListWriter(os.Stdout)
-	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
+	if hasAnyLabels {
+		fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED\tLABELS")
+	} else {
+		fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
+	}
 	for _, src := range p.Sources {
+		id := src.SourceId.GetSourceId()
 		status := formatSourceStatus(src)
 		lastUpdated := formatSourceTime(src)
 		sourceType := formatSourceType(src)
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			src.SourceId.GetSourceId(),
-			strings.TrimSpace(src.Title),
-			sourceType,
-			status,
-			lastUpdated,
-		)
+		if hasAnyLabels {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				id,
+				strings.TrimSpace(src.Title),
+				sourceType,
+				status,
+				lastUpdated,
+				strings.Join(labelsBySource[id], ", "),
+			)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				id,
+				strings.TrimSpace(src.Title),
+				sourceType,
+				status,
+				lastUpdated,
+			)
+		}
 	}
 	return flush()
 }

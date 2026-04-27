@@ -14,11 +14,12 @@ type notebookListRecord struct {
 }
 
 type sourceListRecord struct {
-	SourceID    string `json:"source_id"`
-	Title       string `json:"title"`
-	Type        string `json:"type"`
-	Status      string `json:"status"`
-	LastUpdated string `json:"last_updated,omitempty"`
+	SourceID    string   `json:"source_id"`
+	Title       string   `json:"title"`
+	Type        string   `json:"type"`
+	Status      string   `json:"status"`
+	LastUpdated string   `json:"last_updated,omitempty"`
+	Labels      []string `json:"labels,omitempty"`
 }
 
 type noteListRecord struct {
