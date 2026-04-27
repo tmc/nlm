@@ -117,7 +117,7 @@ func init() {
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 	flag.StringVar(&replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
-	flag.BoolVar(&jsonOutput, "json", false, "output in JSON format")
+	flag.BoolVar(&jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (list/sources/notes/list-featured/artifacts/audio-list/video-list/guidebooks/chat-list/label-list); also enables NDJSON progress for sync")
 	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync)")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync)")
 	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
@@ -727,6 +727,23 @@ func listSources(c *api.Client, notebookID string) error {
 		return fmt.Errorf("list sources: %w", err)
 	}
 
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, src := range p.Sources {
+			rec := sourceListRecord{
+				SourceID:    src.SourceId.GetSourceId(),
+				Title:       strings.TrimSpace(src.Title),
+				Type:        formatSourceType(src),
+				Status:      formatSourceStatus(src),
+				LastUpdated: sourceTimeRFC3339(src),
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tTYPE\tSTATUS\tLAST UPDATED")
 	for _, src := range p.Sources {
@@ -798,13 +815,24 @@ func formatSourceType(src *pb.Source) string {
 }
 
 func formatSourceTime(src *pb.Source) string {
+	if t := sourceTimeRFC3339(src); t != "" {
+		return t
+	}
+	return "-"
+}
+
+// sourceTimeRFC3339 returns the source's last-modified timestamp as RFC3339,
+// or the empty string if no timestamp is set. The table renderer wraps this
+// with "-" for human readability; JSON callers leave it as "" so the field
+// can be omitted.
+func sourceTimeRFC3339(src *pb.Source) string {
 	if src.Metadata != nil && src.Metadata.LastModifiedTime != nil {
 		return src.Metadata.LastModifiedTime.AsTime().Format(time.RFC3339)
 	}
 	if src.Metadata != nil && src.Metadata.LastUpdateTimeSeconds != nil {
 		return time.Unix(int64(src.Metadata.LastUpdateTimeSeconds.GetValue()), 0).Format(time.RFC3339)
 	}
-	return "-"
+	return ""
 }
 
 func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (string, error) {
@@ -1025,6 +1053,29 @@ func listNotes(c *api.Client, notebookID string) error {
 	notes, err := c.GetNotes(notebookID)
 	if err != nil {
 		return fmt.Errorf("list notes: %w", err)
+	}
+
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, note := range notes {
+			content := note.GetRichText()
+			if content == "" {
+				content = note.GetContentText()
+			}
+			content = strings.Join(strings.Fields(content), " ")
+			if len(content) > 80 {
+				content = content[:77] + "..."
+			}
+			rec := noteListRecord{
+				NoteID:         note.GetNoteId(),
+				Title:          note.GetTitle(),
+				ContentPreview: content,
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	w, flush := newListWriter(os.Stdout)
@@ -1395,6 +1446,23 @@ func listFeaturedProjects(c *api.Client) error {
 		return fmt.Errorf("list featured projects: %w", err)
 	}
 
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, project := range resp.Projects {
+			rec := featuredProjectRecord{
+				ProjectID:   project.ProjectId,
+				Title:       collapseWhitespace(project.GetTitle()),
+				Emoji:       strings.TrimSpace(project.GetEmoji()),
+				Description: collapseWhitespace(project.GetPresentation().GetDescription()),
+				SourceCount: len(project.GetSources()),
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tDESCRIPTION")
 
@@ -1623,6 +1691,21 @@ func listArtifacts(c *api.Client, projectID string) error {
 
 // displayArtifacts shows artifacts in a formatted table
 func displayArtifacts(artifacts []*pb.Artifact) error {
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, artifact := range artifacts {
+			rec := artifactListRecord{
+				ArtifactID:  artifact.ArtifactId,
+				Type:        artifact.Type.String(),
+				State:       artifact.State.String(),
+				SourceCount: len(artifact.Sources),
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	if len(artifacts) == 0 {
 		fmt.Fprintln(os.Stderr, "No artifacts found in project.")
@@ -3129,6 +3212,41 @@ func listChatConversations(c *api.Client, notebookID string) error {
 		}
 	}
 
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		seen := make(map[string]bool)
+		for _, id := range convIDs {
+			seen[id] = true
+			rec := chatConversationRecord{
+				ConversationID: id,
+				Status:         "server",
+			}
+			if local, ok := localByConv[id]; ok {
+				rec.Status = "synced"
+				rec.MessageCount = len(local.Messages)
+				rec.LastUpdated = local.UpdatedAt.Format(time.RFC3339)
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		for _, s := range localSessions {
+			if s.ConversationID == "" || seen[s.ConversationID] {
+				continue
+			}
+			rec := chatConversationRecord{
+				ConversationID: s.ConversationID,
+				MessageCount:   len(s.Messages),
+				Status:         "local",
+				LastUpdated:    s.UpdatedAt.Format(time.RFC3339),
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	if len(convIDs) == 0 && len(localSessions) == 0 {
 		fmt.Fprintln(os.Stderr, "No conversations found.")
 		return nil
@@ -3985,11 +4103,32 @@ func createVideoOverview(c *api.Client, projectID string, instructions string) e
 }
 
 func listAudioOverviews(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Listing audio overviews for notebook %s...\n", notebookID)
+	if !jsonOutput {
+		fmt.Fprintf(os.Stderr, "Listing audio overviews for notebook %s...\n", notebookID)
+	}
 
 	audioOverviews, err := c.ListAudioOverviews(notebookID)
 	if err != nil {
 		return fmt.Errorf("list audio overviews: %w", err)
+	}
+
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, audio := range audioOverviews {
+			status := "pending"
+			if audio.IsReady {
+				status = "ready"
+			}
+			rec := audioOverviewRecord{
+				AudioID: audio.AudioID,
+				Title:   audio.Title,
+				Status:  status,
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	if len(audioOverviews) == 0 {
@@ -4022,11 +4161,32 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 }
 
 func listVideoOverviews(c *api.Client, notebookID string) error {
-	fmt.Fprintf(os.Stderr, "Listing video overviews for notebook %s...\n", notebookID)
+	if !jsonOutput {
+		fmt.Fprintf(os.Stderr, "Listing video overviews for notebook %s...\n", notebookID)
+	}
 
 	videoOverviews, err := c.ListVideoOverviews(notebookID)
 	if err != nil {
 		return fmt.Errorf("list video overviews: %w", err)
+	}
+
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		for _, video := range videoOverviews {
+			status := "pending"
+			if video.IsReady {
+				status = "ready"
+			}
+			rec := videoOverviewRecord{
+				VideoID: video.VideoID,
+				Title:   video.Title,
+				Status:  status,
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	if len(videoOverviews) == 0 {

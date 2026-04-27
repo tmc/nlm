@@ -597,6 +597,20 @@ var commands = []command{
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				enc := json.NewEncoder(os.Stdout)
+				for _, gb := range guidebooks {
+					rec := guidebookListRecord{
+						GuidebookID: gb.GetGuidebookId(),
+						Title:       gb.GetTitle(),
+						Status:      gb.GetStatus().String(),
+					}
+					if err := enc.Encode(rec); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
 			w, flush := newListWriter(os.Stdout)
 			fmt.Fprintln(w, "ID\tTITLE\tSTATUS")
 			for _, gb := range guidebooks {

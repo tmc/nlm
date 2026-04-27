@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -78,6 +79,31 @@ func list(c *api.Client, opts notebookListOptions) error {
 func renderNotebookList(out io.Writer, status io.Writer, notebooks []*api.Notebook, opts notebookListOptions, tty bool) error {
 	total := len(notebooks)
 	limit := notebookListLimit(total, opts, tty)
+
+	if jsonOutput {
+		enc := json.NewEncoder(out)
+		for i := 0; i < limit; i++ {
+			nb := notebooks[i]
+			rec := notebookListRecord{
+				NotebookID:  nb.ProjectId,
+				Title:       nb.Title,
+				Emoji:       strings.TrimSpace(nb.Emoji),
+				SourceCount: len(nb.Sources),
+			}
+			ts := nb.GetMetadata().GetModifiedTime()
+			if ts == nil {
+				ts = nb.GetMetadata().GetCreateTime()
+			}
+			if ts != nil {
+				rec.LastUpdated = ts.AsTime().Format(time.RFC3339)
+			}
+			if err := enc.Encode(rec); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	if tty {
 		switch {
 		case total == 0:
