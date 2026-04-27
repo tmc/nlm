@@ -234,8 +234,13 @@ var errorCodeDictionary = map[int]ErrorCode{
 	13: {
 		Code:        13,
 		Type:        ErrorTypeServerError,
+		// gRPC INTERNAL — the server hit an unexpected condition. For
+		// AddSourceFromText this most often means the payload tripped a
+		// content-shape limit (single chunk too large, embedded markers
+		// confused the parser); retry usually works after re-splitting,
+		// which `nlm sync` and AddSourceFromTextAuto already do.
 		Message:     "Internal error",
-		Description: "Internal errors that shouldn't be exposed to clients.",
+		Description: "server returned an internal error; this is usually transient — retry, or for large text uploads let nlm split into smaller chunks (nlm sync, or source add --chunk).",
 		Retryable:   true,
 	},
 	14: {

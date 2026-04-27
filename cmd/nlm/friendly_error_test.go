@@ -10,6 +10,16 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
+// getCode13 returns the dictionary entry for gRPC INTERNAL so the test
+// exercises the same Description text users see in the wild instead of a
+// hand-rolled stub that could drift.
+func getCode13() *batchexecute.ErrorCode {
+	if ec, ok := batchexecute.GetErrorCode(13); ok {
+		return ec
+	}
+	return nil
+}
+
 // TestFriendlyError verifies that raw gRPC error codes never reach the user
 // message and that outer fmt.Errorf context is preserved in front of the
 // friendly description.
@@ -76,6 +86,21 @@ func TestFriendlyError(t *testing.T) {
 			name:         "plain error passes through unchanged",
 			err:          errors.New("open file: no such file"),
 			wantContains: []string{"open file: no such file"},
+		},
+		{
+			// Regression: code 13 used to surface the verbatim dictionary
+			// string "Internal errors that shouldn't be exposed to clients."
+			// via friendlyAPIMessage — useless to a user trying to act on
+			// it. The replacement names the operation, hints at retry, and
+			// points at the chunking workaround.
+			name: "internal error rewrites unhelpful stock description",
+			err: fmt.Errorf("upload %q: add text source: execute rpc: %w",
+				"docs",
+				&batchexecute.APIError{
+					ErrorCode: getCode13(),
+				}),
+			wantContains:   []string{"upload \"docs\"", "internal error", "retry", "nlm sync"},
+			wantNotContain: []string{"shouldn't be exposed to clients"},
 		},
 	}
 	for _, tt := range tests {
