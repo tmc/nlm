@@ -257,22 +257,34 @@ const (
 	// boq_labs-tailwind-frontend bundle but has no HAR capture in our corpus. Wire shapes for
 	// these are unverified; capture HAR before encoding by exercising
 	// the corresponding UI flow.
-	RPCCreateLabel                   = "agX4Bc" // CreateLabel (write companion to GetLabels). TODO(har).
-	RPCMutateLabel                   = "le8sX"  // MutateLabel (rename / re-categorize). TODO(har).
-	RPCDeleteLabels                  = "GyzE7e" // DeleteLabels (bulk delete by label_id). TODO(har).
-	RPCGenerateArtifact              = "Rytqqe" // GenerateArtifact — distinct from CreateArtifact (R7cb6c). TODO(har).
-	RPCCancelDiscoverSourcesJob      = "Zbrupe" // CancelDiscoverSourcesJob (cancels the in-flight Es3dTe/Ljjv0c job). TODO(har).
-	RPCExportToDrive                 = "Krh3pd" // ExportToDrive (export notebook artifacts to user's Drive). TODO(har).
-	RPCUpdateFeaturedNotebookStatus  = "DemIHe" // UpdateFeaturedNotebookStatus (admin/internal). TODO(har).
-	RPCListModelOptions              = "EnujNd" // ListModelOptions (returns the available chat/generation models). TODO(har).
-	RPCUpdateProjectUserState        = "LQhfEb" // UpdateProjectUserState (per-user notebook state — last-viewed, pinned, etc.). TODO(har).
-	RPCExecuteWritingFunction        = "likKIe" // ExecuteWritingFunction (in-document writing assistant — rewrite/expand/summarize). TODO(har).
-	RPCListExpertIntelligenceContent = "mVtEUb" // ListExpertIntelligenceContent (curated featured-content surface). TODO(har).
-	RPCGenerateAccessToken           = "preRPe" // GenerateAccessToken (per-session token mint, possibly for embed widgets). TODO(har).
-	RPCGetMagicView                  = "rtY7md" // GetMagicView (companion to uK8f7c GenerateMagicView). TODO(har).
-	RPCCopyProject                   = "te3DCe" // CopyProject (duplicate a notebook). TODO(har).
-	RPCStreamGenerateFreeForm        = "laWbsf" // GenerateFreeFormStreamed (chat path; the live UI uses gRPC-Web — not batchexecute — but the JS bundle still maps the rpc_id).
-	RPCCreateAccessRequest           = "n3dkHd" // CreateAccessRequest (LabsTailwindSharingService — request access to a shared notebook). TODO(har).
+	// RPCMutateLabels (agX4Bc): a multi-mode endpoint the JS bundle calls
+	// "CreateLabel". NotebookLM web UI captures (2026-04-26) show
+	// at least four wire shapes, all returning [null, [[label-row, ...]]]:
+	//   create:             [[2], pid, null, null, null, [[name, emoji]]]
+	//   relabel-resources:  [[2], pid, null, null, [0]]
+	//   relabel-all:        [[2], pid, null, null, [1]]
+	//   recompute (legacy): [[2], pid, null, null, []]
+	// The legacy [] form is what GenerateLabels has historically sent; on
+	// large notebooks it routinely hits the 60s server deadline. The [1]
+	// variant is the modern UI's "Relabel all" button.
+	RPCMutateLabels                  = "agX4Bc"
+	RPCGenerateLabels                = RPCMutateLabels // legacy alias; see RPCMutateLabels for the full overload.
+	RPCCreateLabel                   = RPCMutateLabels // DEPRECATED: misnamed in JS bundle. Use RPCMutateLabels with a [[name,emoji]] arg.
+	RPCMutateLabel                   = "le8sX"         // MutateLabel — rename and/or set emoji on an existing label. HAR-verified 2026-04-26.
+	RPCDeleteLabels                  = "GyzE7e"        // DeleteLabels — bulk delete by label_id. HAR-verified 2026-04-26.
+	RPCGenerateArtifact              = "Rytqqe"        // GenerateArtifact — distinct from CreateArtifact (R7cb6c). TODO(har).
+	RPCCancelDiscoverSourcesJob      = "Zbrupe"        // CancelDiscoverSourcesJob (cancels the in-flight Es3dTe/Ljjv0c job). TODO(har).
+	RPCExportToDrive                 = "Krh3pd"        // ExportToDrive (export notebook artifacts to user's Drive). TODO(har).
+	RPCUpdateFeaturedNotebookStatus  = "DemIHe"        // UpdateFeaturedNotebookStatus (admin/internal). TODO(har).
+	RPCListModelOptions              = "EnujNd"        // ListModelOptions (returns the available chat/generation models). TODO(har).
+	RPCUpdateProjectUserState        = "LQhfEb"        // UpdateProjectUserState (per-user notebook state — last-viewed, pinned, etc.). TODO(har).
+	RPCExecuteWritingFunction        = "likKIe"        // ExecuteWritingFunction (in-document writing assistant — rewrite/expand/summarize). TODO(har).
+	RPCListExpertIntelligenceContent = "mVtEUb"        // ListExpertIntelligenceContent (curated featured-content surface). TODO(har).
+	RPCGenerateAccessToken           = "preRPe"        // GenerateAccessToken (per-session token mint, possibly for embed widgets). TODO(har).
+	RPCGetMagicView                  = "rtY7md"        // GetMagicView (companion to uK8f7c GenerateMagicView). TODO(har).
+	RPCCopyProject                   = "te3DCe"        // CopyProject (duplicate a notebook). TODO(har).
+	RPCStreamGenerateFreeForm        = "laWbsf"        // GenerateFreeFormStreamed (chat path; the live UI uses gRPC-Web — not batchexecute — but the JS bundle still maps the rpc_id).
+	RPCCreateAccessRequest           = "n3dkHd"        // CreateAccessRequest (LabsTailwindSharingService — request access to a shared notebook). TODO(har).
 )
 
 // Call represents a NotebookLM RPC call
