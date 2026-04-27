@@ -3743,8 +3743,13 @@ func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk)
 	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
 	defer idleBody.Close()
 
-	// Resolve source IDs so citation index lookups work.
-	sourceIDs := c.resolveSourceIDs(req.ProjectID, req.SourceIDs)
+	// Citation srcIdx values index into the project's full source list,
+	// not the (possibly narrowed) set we sent in req.SourceIDs. Always
+	// expand to the full project sources so we can resolve every slot
+	// the model emits — without this, a chat using --source-ids would
+	// drop any citation referencing a project source outside that
+	// subset.
+	sourceIDs := c.resolveSourceIDs(req.ProjectID, nil)
 	return c.parseChatResponseChunked(idleBody, sourceIDs, callback)
 }
 
@@ -4191,20 +4196,22 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 			if v, ok := idx.(float64); ok {
 				srcIdx = int(v)
 			}
-			if srcIdx < 0 {
+			// Skip srcIdx values we can't resolve to a project source.
+			// Observed when the request narrowed --source-ids and the
+			// server still returned a slot indexing past that subset:
+			// emitting a Citation with an empty SourceID would just
+			// render as a blank footer line nobody can act on.
+			if srcIdx < 0 || srcIdx >= len(sourceIDs) {
 				continue
 			}
-			c := Citation{
+			citations = append(citations, Citation{
 				SourceIndex: i + 1, // 1-based slot — matches narrative's [N]
+				SourceID:    sourceIDs[srcIdx],
 				StartChar:   startChar,
 				EndChar:     endChar,
 				Confidence:  confidence,
 				Title:       excerpt,
-			}
-			if srcIdx < len(sourceIDs) {
-				c.SourceID = sourceIDs[srcIdx]
-			}
-			citations = append(citations, c)
+			})
 		}
 	}
 	return citations

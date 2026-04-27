@@ -244,3 +244,48 @@ func TestParseCitationsV2SlotOrdering(t *testing.T) {
 		}
 	}
 }
+
+// TestParseCitationsV2SkipsUnresolvableSrcIdx exercises the case where
+// the server emits a srcIdx past the end of the request's source list —
+// observed when --source-ids narrows to a subset and the server still
+// references the original full set. A Citation we can't resolve to a
+// SourceID is unusable downstream, so the parser drops it rather than
+// emitting a blank footer line.
+func TestParseCitationsV2SkipsUnresolvableSrcIdx(t *testing.T) {
+	sourceIDs := []string{"src_a"} // request narrowed to one source
+	mappingData := []interface{}{
+		// Slot 0: srcIdx 0 (resolves to src_a).
+		[]interface{}{[]interface{}{nil, float64(0), float64(10)}, []interface{}{float64(0)}},
+		// Slot 1: srcIdx 5 (out of range — must be dropped).
+		[]interface{}{[]interface{}{nil, float64(11), float64(20)}, []interface{}{float64(5)}},
+		// Slot 2: mixes valid (0) and invalid (3) — the valid one survives.
+		[]interface{}{[]interface{}{nil, float64(21), float64(30)}, []interface{}{float64(0), float64(3)}},
+	}
+	citationData := []interface{}{
+		[]interface{}{nil, nil, float64(0.9), nil, nil},
+		[]interface{}{nil, nil, float64(0.8), nil, nil},
+		[]interface{}{nil, nil, float64(0.7), nil, nil},
+	}
+
+	got := parseCitationsV2(citationData, mappingData, sourceIDs)
+	want := []Citation{
+		{SourceIndex: 1, SourceID: "src_a", StartChar: 0, EndChar: 10, Confidence: 0.9},
+		{SourceIndex: 3, SourceID: "src_a", StartChar: 21, EndChar: 30, Confidence: 0.7},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %d citations, want %d: %+v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		g := got[i]
+		if g.SourceIndex != w.SourceIndex || g.SourceID != w.SourceID ||
+			g.StartChar != w.StartChar || g.EndChar != w.EndChar ||
+			g.Confidence != w.Confidence {
+			t.Errorf("citation %d = %+v, want %+v", i, g, w)
+		}
+	}
+	for _, c := range got {
+		if c.SourceID == "" {
+			t.Errorf("citation with empty SourceID leaked through: %+v", c)
+		}
+	}
+}
