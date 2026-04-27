@@ -51,6 +51,10 @@ func currentChatRenderOptions() chatRenderOptions {
 func appendSelectorFlags(flags *flag.FlagSet, opts *selectorOptions) {
 	flags.StringVar(&opts.SourceIDs, "source-ids", opts.SourceIDs, "")
 	flags.StringVar(&opts.SourceMatch, "source-match", opts.SourceMatch, "")
+	flags.StringVar(&opts.SourceExclude, "source-exclude", opts.SourceExclude, "")
+	flags.StringVar(&opts.LabelIDs, "label-ids", opts.LabelIDs, "")
+	flags.StringVar(&opts.LabelMatch, "label-match", opts.LabelMatch, "")
+	flags.StringVar(&opts.LabelExclude, "label-exclude", opts.LabelExclude, "")
 }
 
 func appendRenderFlags(flags *flag.FlagSet, opts *chatRenderOptions) {
@@ -73,6 +77,10 @@ func printGenerateChatUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
+	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
+	fmt.Fprintln(os.Stderr, "  --label-ids <ids>        Include sources tagged with any of these label IDs")
+	fmt.Fprintln(os.Stderr, "  --label-match <regex>    Include sources tagged with any label whose name matches the regex")
+	fmt.Fprintln(os.Stderr, "  --label-exclude <regex>  Exclude sources tagged with any label whose name matches the regex")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id> \"Summarize the architecture\"\n", cmdName)
@@ -115,6 +123,10 @@ func parseGenerateChatArgs(args []string) (generateChatOptions, []string, error)
 		"citations":      true,
 		"source-ids":     true,
 		"source-match":   true,
+		"source-exclude": true,
+		"label-ids":      true,
+		"label-match":    true,
+		"label-exclude":  true,
 	}, map[string]bool{
 		"web":            true,
 		"thinking":       true,
@@ -154,6 +166,10 @@ func printChatUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
+	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
+	fmt.Fprintln(os.Stderr, "  --label-ids <ids>        Include sources tagged with any of these label IDs")
+	fmt.Fprintln(os.Stderr, "  --label-match <regex>    Include sources tagged with any label whose name matches the regex")
+	fmt.Fprintln(os.Stderr, "  --label-exclude <regex>  Exclude sources tagged with any label whose name matches the regex")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id>\n", cmdName)
@@ -197,6 +213,10 @@ func parseChatArgs(args []string) (chatOptions, []string, error) {
 		"citations":      true,
 		"source-ids":     true,
 		"source-match":   true,
+		"source-exclude": true,
+		"label-ids":      true,
+		"label-match":    true,
+		"label-exclude":  true,
 	}, map[string]bool{
 		"history":        true,
 		"thinking":       true,
@@ -307,6 +327,10 @@ func printGenerateReportUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
+	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
+	fmt.Fprintln(os.Stderr, "  --label-ids <ids>        Include sources tagged with any of these label IDs")
+	fmt.Fprintln(os.Stderr, "  --label-match <regex>    Include sources tagged with any label whose name matches the regex")
+	fmt.Fprintln(os.Stderr, "  --label-exclude <regex>  Exclude sources tagged with any label whose name matches the regex")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id>\n", cmdName)
@@ -351,6 +375,10 @@ func parseGenerateReportArgs(args []string) (reportOptions, []string, error) {
 		"citations":      true,
 		"source-ids":     true,
 		"source-match":   true,
+		"source-exclude": true,
+		"label-ids":      true,
+		"label-match":    true,
+		"label-exclude":  true,
 	}, map[string]bool{
 		"thinking":       true,
 		"reasoning":      true,

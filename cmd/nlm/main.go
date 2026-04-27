@@ -66,6 +66,10 @@ var (
 	citationMode       string // Citation rendering mode: off|block|overlay (default block-on-TTY)
 	sourceIDsFlag      string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
 	sourceMatchFlag    string // Regex matched against source titles and UUIDs; unioned with --source-ids
+	sourceExcludeFlag  string // Regex matched against source titles and UUIDs; subtracted from the include set
+	labelIDsFlag       string // Comma-separated label IDs; their member sources are added to the include set
+	labelMatchFlag     string // Regex matched against label names; member sources of matching labels are included
+	labelExcludeFlag   string // Regex matched against label names; member sources of matching labels are subtracted
 	promptFile         string // Read prompt from file (nlm chat). "-" reads from stdin.
 )
 
@@ -137,6 +141,10 @@ func init() {
 	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay|json (default: stream on TTY, off when piped; json emits answer+citation JSON-lines)")
 	flag.StringVar(&sourceIDsFlag, "source-ids", "", "focus on these source IDs (e.g. 'a,b,c' or '-' for newline-delimited stdin); applies to chat, report, and transform commands")
 	flag.StringVar(&sourceMatchFlag, "source-match", "", "focus on sources whose title or UUID matches this regex (e.g. '^nlm internal/' or '^132af'); unioned with --source-ids")
+	flag.StringVar(&sourceExcludeFlag, "source-exclude", "", "exclude sources whose title or UUID matches this regex; applied after include selectors")
+	flag.StringVar(&labelIDsFlag, "label-ids", "", "include sources tagged with any of these label IDs ('a,b,c'); requires labels to be computed for the notebook")
+	flag.StringVar(&labelMatchFlag, "label-match", "", "include sources tagged with any label whose name matches this regex (e.g. '^Testing$')")
+	flag.StringVar(&labelExcludeFlag, "label-exclude", "", "exclude sources tagged with any label whose name matches this regex; applied after include selectors")
 	flag.StringVar(&promptFile, "prompt-file", "", "read prompt from file for one-shot chat ('-' reads stdin). Reliable for long/automated prompts.")
 	flag.StringVar(&promptFile, "f", "", "read prompt from file for one-shot chat ('-' reads stdin) (shorthand)")
 	flag.StringVar(&researchMode, "mode", "", "research mode: fast|deep (default: deep; used by nlm research)")
