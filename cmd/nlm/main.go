@@ -987,6 +987,14 @@ func (a *syncClientAdapter) RenameSource(ctx context.Context, sourceID string, t
 	return err
 }
 
+func (a *syncClientAdapter) LabelsForSource(ctx context.Context, notebookID, sourceID string) ([]string, error) {
+	return labelsForSource(a.client, notebookID, sourceID)
+}
+
+func (a *syncClientAdapter) AttachLabelSource(ctx context.Context, notebookID, labelID, sourceID string) error {
+	return a.client.AttachLabelSource(notebookID, labelID, sourceID)
+}
+
 func removeSource(c *api.Client, notebookID, sourceArg string) error {
 	sourceIDs, err := resolveIDList(sourceArg)
 	if err != nil {

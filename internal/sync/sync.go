@@ -30,6 +30,14 @@ type Client interface {
 	RenameSource(ctx context.Context, sourceID string, title string) error
 }
 
+// LabelPreserver is an optional capability: clients that implement it let
+// sync carry label assignments across the replace path. The two-call shape
+// matches the underlying RPCs (read all labels, attach one source per call).
+type LabelPreserver interface {
+	LabelsForSource(ctx context.Context, notebookID, sourceID string) ([]string, error)
+	AttachLabelSource(ctx context.Context, notebookID, labelID, sourceID string) error
+}
+
 // Options controls sync behavior.
 type Options struct {
 	MaxBytes int      // chunk threshold; 0 means 5120000
@@ -167,6 +175,16 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 				return fmt.Errorf("rename %q: %w", chunkName, err)
 			}
 
+			// Snapshot labels before delete; reattach after upload succeeds.
+			var labelIDs []string
+			if lp, ok := c.(LabelPreserver); ok {
+				if got, err := lp.LabelsForSource(ctx, notebookID, existing.ID); err != nil {
+					fmt.Fprintf(os.Stderr, "warning: read labels for %s: %v\n", existing.ID, err)
+				} else {
+					labelIDs = got
+				}
+			}
+
 			newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
 			if err != nil {
 				// Try to restore the old name on failure.
@@ -176,6 +194,21 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 
 			if err := c.DeleteSources(ctx, notebookID, []string{existing.ID}); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: uploaded %s but failed to delete old %s: %v\n", newID, existing.ID, err)
+			}
+
+			if len(labelIDs) > 0 {
+				lp := c.(LabelPreserver)
+				attached := 0
+				for _, lid := range labelIDs {
+					if err := lp.AttachLabelSource(ctx, notebookID, lid, newID); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: attach label %s to %s: %v\n", lid, newID, err)
+						continue
+					}
+					attached++
+				}
+				if attached > 0 {
+					fmt.Fprintf(os.Stderr, "  preserved %d label assignment(s) on %s\n", attached, chunkName)
+				}
 			}
 
 			_ = hc.save(chunkName, hash)

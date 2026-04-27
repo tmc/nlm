@@ -115,6 +115,83 @@ func TestRunReplaceSource(t *testing.T) {
 	}
 }
 
+// fakeLabelClient extends fakeClient with the LabelPreserver capability. Each
+// source carries its own label assignments; replace-on-existing must read
+// before delete and reattach to the new ID.
+type fakeLabelClient struct {
+	*fakeClient
+	labelsBySource map[string][]string // sourceID -> []labelID
+	attachCalls    []struct {
+		labelID  string
+		sourceID string
+	}
+}
+
+func (f *fakeLabelClient) LabelsForSource(_ context.Context, _, sourceID string) ([]string, error) {
+	return f.labelsBySource[sourceID], nil
+}
+
+func (f *fakeLabelClient) AttachLabelSource(_ context.Context, _, labelID, sourceID string) error {
+	f.attachCalls = append(f.attachCalls, struct {
+		labelID  string
+		sourceID string
+	}{labelID, sourceID})
+	f.labelsBySource[sourceID] = append(f.labelsBySource[sourceID], labelID)
+	return nil
+}
+
+func TestRunReplacePreservesLabels(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("updated"), 0o644)
+
+	fc := &fakeLabelClient{
+		fakeClient: &fakeClient{
+			sources: []Source{{ID: "old-123", Title: "test"}},
+		},
+		labelsBySource: map[string][]string{
+			"old-123": {"label-A", "label-B"},
+		},
+	}
+	var buf bytes.Buffer
+	err := Run(context.Background(), fc, "nb-123", []string{dir}, Options{Name: "test", Force: true}, &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(fc.uploaded) != 1 {
+		t.Fatalf("expected 1 upload, got %d", len(fc.uploaded))
+	}
+	newID := "src-test"
+	if len(fc.attachCalls) != 2 {
+		t.Fatalf("expected 2 label attachments, got %d", len(fc.attachCalls))
+	}
+	for _, call := range fc.attachCalls {
+		if call.sourceID != newID {
+			t.Errorf("attach went to %q, want %q", call.sourceID, newID)
+		}
+	}
+	got := append([]string(nil), fc.attachCalls[0].labelID, fc.attachCalls[1].labelID)
+	if got[0] != "label-A" || got[1] != "label-B" {
+		t.Errorf("attached labels = %v, want [label-A label-B]", got)
+	}
+}
+
+func TestRunReplaceWithoutLabelPreserverIsBackcompat(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("updated"), 0o644)
+
+	fc := &fakeClient{sources: []Source{{ID: "old-123", Title: "test"}}}
+	var buf bytes.Buffer
+	if err := Run(context.Background(), fc, "nb-123", []string{dir}, Options{Name: "test", Force: true}, &buf); err != nil {
+		t.Fatal(err)
+	}
+	if len(fc.uploaded) != 1 || len(fc.deleted) != 1 {
+		t.Fatalf("plain replace path broken: uploads=%d deletes=%d", len(fc.uploaded), len(fc.deleted))
+	}
+}
+
 func TestRunSkipUnchanged(t *testing.T) {
 	setupTestHome(t)
 	dir := t.TempDir()
