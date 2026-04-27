@@ -63,8 +63,9 @@ var (
 	reportSections     int    // Max sections for generate-report (0 = all)
 	conversationID     string // Conversation ID to continue (generate-chat)
 	useWebChat         bool   // Use most recent server-side conversation (generate-chat)
-	citationMode       string // Citation rendering mode: off|block|overlay (default block-on-TTY)
-	sourceIDsFlag      string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
+	citationMode         string // Citation rendering mode: off|block|overlay (default block-on-TTY)
+	resolveCitationsFlag bool   // When true, resolve txtar-aware "file:line" coordinates for each citation
+	sourceIDsFlag        string // Comma-separated list, or "-" to read newline-delimited IDs from stdin
 	sourceMatchFlag    string // Regex matched against source titles and UUIDs; unioned with --source-ids
 	sourceExcludeFlag  string // Regex matched against source titles and UUIDs; subtracted from the include set
 	labelIDsFlag       string // Comma-separated label IDs; their member sources are added to the include set
@@ -139,6 +140,7 @@ func init() {
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
 	flag.StringVar(&citationMode, "citations", "", "citation rendering: auto|off|block|stream|tail|overlay|json (default: block — answer + trailing Sources list; json emits answer+citation JSON-lines)")
+	flag.BoolVar(&resolveCitationsFlag, "resolve-citations", false, "resolve each citation back to file:line when the source is a txtar archive (one extra LoadSourceText fetch per cited source)")
 	flag.StringVar(&sourceIDsFlag, "source-ids", "", "focus on these source IDs (e.g. 'a,b,c' or '-' for newline-delimited stdin); applies to chat, report, and transform commands")
 	flag.StringVar(&sourceMatchFlag, "source-match", "", "focus on sources whose title or UUID matches this regex (e.g. '^nlm internal/' or '^132af'); unioned with --source-ids")
 	flag.StringVar(&sourceExcludeFlag, "source-exclude", "", "exclude sources whose title or UUID matches this regex; applied after include selectors")
@@ -1895,7 +1897,9 @@ type chatStreamRenderer struct {
 	jsonlIncludeThinking bool // when true, thinking chunks are emitted as JSON-lines events (otherwise skipped)
 	citationMode         citationRenderMode
 	tailWindow           int                          // tail mode: max bytes held back for splicing
-	resolveTitle         func(sourceID string) string // optional; returns "" if unknown
+	resolveTitle         func(sourceID string) string                       // optional; returns "" if unknown
+	loadSource           func(sourceID string) (api.LoadSourceText, error) // optional; populated when --resolve-citations is set
+	resolvedLocations    map[citationKey]string                             // computed once at Finish; keyed by citationKey
 	lastThinkingLen      int
 	answerBuf            strings.Builder
 	thinking             string
@@ -2047,6 +2051,9 @@ func (r *chatStreamRenderer) Finish() {
 		return
 	}
 	r.clearThinkingLine()
+	if r.loadSource != nil && len(r.citations) > 0 {
+		r.resolvedLocations = resolveCitationLocations(r.loadSource, r.citations)
+	}
 	switch r.citationMode {
 	case citationModeOverlay:
 		r.emitOverlay()
@@ -2111,6 +2118,9 @@ func (r *chatStreamRenderer) emitTail() {
 	for _, c := range r.citations {
 		label := r.citationLabel(c)
 		fmt.Fprintf(r.status, "%s[%d] %s%s\n", ansiGrey, c.SourceIndex, label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s    → %s%s\n", ansiGrey, loc, ansiReset)
+		}
 	}
 }
 
@@ -2126,6 +2136,9 @@ func (r *chatStreamRenderer) printCitationsFootnotes() {
 		label := r.citationLabel(c)
 		fmt.Fprintf(r.status, "%s%s%s %s%s\n",
 			ansiGrey, superscript(c.SourceIndex), formatConfidence(c.Confidence), label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s    → %s%s\n", ansiGrey, loc, ansiReset)
+		}
 	}
 }
 
@@ -2141,6 +2154,9 @@ func (r *chatStreamRenderer) printCitationsFooter() {
 		fmt.Fprintf(r.status, "%s  [%d]%s chars %d-%d — %s%s\n",
 			ansiGrey, c.SourceIndex, formatConfidence(c.Confidence),
 			c.StartChar, c.EndChar, label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s      → %s%s\n", ansiGrey, loc, ansiReset)
+		}
 	}
 }
 
@@ -2154,6 +2170,9 @@ func (r *chatStreamRenderer) printCitationsBlock() {
 		label := r.citationLabel(c)
 		fmt.Fprintf(r.status, "%s  [%d]%s %s%s\n",
 			ansiGrey, c.SourceIndex, formatConfidence(c.Confidence), label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s      → %s%s\n", ansiGrey, loc, ansiReset)
+		}
 	}
 }
 
@@ -2169,7 +2188,9 @@ func formatConfidence(conf float64) string {
 
 // citationLabel formats a single citation line: "<source-id> — <title/excerpt>".
 // Prefers a resolved notebook title; falls back to the server-supplied excerpt;
-// falls back to the raw source ID.
+// falls back to the raw source ID. The resolved file:line:col coordinate, when
+// available, is rendered separately by the footer printers on a second line —
+// see resolvedLocationFor.
 func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
 	id := c.SourceID
 	var title string
@@ -2189,6 +2210,17 @@ func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
 		return fmt.Sprintf("%q", title)
 	}
 	return ""
+}
+
+// resolvedLocationFor returns the editor-style "file:line:col" coordinate for
+// citation c when --resolve-citations resolved it, or "" otherwise. Footer
+// printers render this on a continuation line beneath the citation label so
+// the original source name stays visible.
+func (r *chatStreamRenderer) resolvedLocationFor(c api.Citation) string {
+	if r.resolvedLocations == nil {
+		return ""
+	}
+	return r.resolvedLocations[keyFor(c)]
 }
 
 // truncateExcerpt collapses whitespace and clips to max runes with an ellipsis.
@@ -2328,6 +2360,11 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	renderer.jsonl = mode == citationModeJSON
 	renderer.jsonlIncludeThinking = wantThinking
 	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
+	if opts.ResolveCitations && c != nil && req.ProjectID != "" {
+		renderer.loadSource = func(sourceID string) (api.LoadSourceText, error) {
+			return c.LoadSourceText(sourceID, req.ProjectID)
+		}
+	}
 
 	err := c.StreamChat(req, func(chunk api.ChatChunk) bool {
 		renderer.WriteChunk(chunk)

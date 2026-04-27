@@ -11,10 +11,11 @@ import (
 )
 
 type chatRenderOptions struct {
-	ShowThinking  bool
-	ThinkingJSONL bool
-	Verbose       bool
-	CitationMode  string
+	ShowThinking     bool
+	ThinkingJSONL    bool
+	Verbose          bool
+	CitationMode     string
+	ResolveCitations bool
 }
 
 type generateChatOptions struct {
@@ -41,10 +42,11 @@ type reportOptions struct {
 
 func currentChatRenderOptions() chatRenderOptions {
 	return chatRenderOptions{
-		ShowThinking:  showThinking,
-		ThinkingJSONL: thinkingJSONL,
-		Verbose:       verbose,
-		CitationMode:  citationMode,
+		ShowThinking:     showThinking,
+		ThinkingJSONL:    thinkingJSONL,
+		Verbose:          verbose,
+		CitationMode:     citationMode,
+		ResolveCitations: resolveCitationsFlag,
 	}
 }
 
@@ -64,6 +66,7 @@ func appendRenderFlags(flags *flag.FlagSet, opts *chatRenderOptions) {
 	flags.BoolVar(&opts.Verbose, "verbose", opts.Verbose, "")
 	flags.BoolVar(&opts.Verbose, "v", opts.Verbose, "")
 	flags.StringVar(&opts.CitationMode, "citations", opts.CitationMode, "")
+	flags.BoolVar(&opts.ResolveCitations, "resolve-citations", opts.ResolveCitations, "")
 }
 
 func printGenerateChatUsage(cmdName string) {
@@ -75,6 +78,7 @@ func printGenerateChatUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --thinking-jsonl         Emit thinking/answer/citation JSON-lines events")
 	fmt.Fprintln(os.Stderr, "  --verbose, -v            Show full thinking traces while streaming")
 	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
 	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
@@ -117,11 +121,12 @@ func parseGenerateChatArgs(args []string) (generateChatOptions, []string, error)
 		"web":            true,
 		"thinking":       true,
 		"reasoning":      true,
-		"thinking-jsonl": true,
-		"verbose":        true,
-		"v":              true,
-		"citations":      true,
-		"source-ids":     true,
+		"thinking-jsonl":    true,
+		"verbose":           true,
+		"v":                 true,
+		"citations":         true,
+		"resolve-citations": true,
+		"source-ids":        true,
 		"source-match":   true,
 		"source-exclude": true,
 		"label-ids":      true,
@@ -131,9 +136,10 @@ func parseGenerateChatArgs(args []string) (generateChatOptions, []string, error)
 		"web":            true,
 		"thinking":       true,
 		"reasoning":      true,
-		"thinking-jsonl": true,
-		"verbose":        true,
-		"v":              true,
+		"thinking-jsonl":    true,
+		"verbose":           true,
+		"v":                 true,
+		"resolve-citations": true,
 	})
 	if err != nil {
 		return opts, nil, err
@@ -164,6 +170,7 @@ func printChatUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --thinking-jsonl         Emit thinking/answer/citation JSON-lines events")
 	fmt.Fprintln(os.Stderr, "  --verbose, -v            Show full thinking traces while streaming")
 	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
 	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
@@ -207,11 +214,12 @@ func parseChatArgs(args []string) (chatOptions, []string, error) {
 		"history":        true,
 		"thinking":       true,
 		"reasoning":      true,
-		"thinking-jsonl": true,
-		"verbose":        true,
-		"v":              true,
-		"citations":      true,
-		"source-ids":     true,
+		"thinking-jsonl":    true,
+		"verbose":           true,
+		"v":                 true,
+		"citations":         true,
+		"resolve-citations": true,
+		"source-ids":        true,
 		"source-match":   true,
 		"source-exclude": true,
 		"label-ids":      true,
@@ -221,9 +229,10 @@ func parseChatArgs(args []string) (chatOptions, []string, error) {
 		"history":        true,
 		"thinking":       true,
 		"reasoning":      true,
-		"thinking-jsonl": true,
-		"verbose":        true,
-		"v":              true,
+		"thinking-jsonl":    true,
+		"verbose":           true,
+		"v":                 true,
+		"resolve-citations": true,
 	})
 	if err != nil {
 		return opts, nil, err
@@ -268,6 +277,7 @@ func printChatShowUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "Flags:")
 	fmt.Fprintln(os.Stderr, "  --thinking, --reasoning  Show persisted thinking traces on stderr")
 	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
 }
 
 func validateChatShowArgs(cmdName string, args []string) error {
@@ -325,6 +335,7 @@ func printGenerateReportUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --thinking-jsonl         Emit thinking/answer/citation JSON-lines events")
 	fmt.Fprintln(os.Stderr, "  --verbose, -v            Show full thinking traces while streaming")
 	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
 	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
@@ -369,11 +380,12 @@ func parseGenerateReportArgs(args []string) (reportOptions, []string, error) {
 		"sections":       true,
 		"thinking":       true,
 		"reasoning":      true,
-		"thinking-jsonl": true,
-		"verbose":        true,
-		"v":              true,
-		"citations":      true,
-		"source-ids":     true,
+		"thinking-jsonl":    true,
+		"verbose":           true,
+		"v":                 true,
+		"citations":         true,
+		"resolve-citations": true,
+		"source-ids":        true,
 		"source-match":   true,
 		"source-exclude": true,
 		"label-ids":      true,
@@ -382,9 +394,10 @@ func parseGenerateReportArgs(args []string) (reportOptions, []string, error) {
 	}, map[string]bool{
 		"thinking":       true,
 		"reasoning":      true,
-		"thinking-jsonl": true,
-		"verbose":        true,
-		"v":              true,
+		"thinking-jsonl":    true,
+		"verbose":           true,
+		"v":                 true,
+		"resolve-citations": true,
 	})
 	if err != nil {
 		return opts, nil, err
