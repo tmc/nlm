@@ -777,10 +777,9 @@ func formatSourceStatus(src *pb.Source) string {
 	//     server-side constant, not a user-facing state.
 	//   - Metadata.status ([3][4]) reads 1 on healthy sources; 2 is
 	//     unreachable through any UI path.
-	// We render enabled/error/warnings based on what the server actually sends.
-	if src.Metadata != nil && src.Metadata.Status == 1 {
-		return "enabled"
-	}
+	// Order matters: a source can carry Metadata.Status=1 (parsed metadata)
+	// alongside Settings.Status=3 (post-parse error) — the UI shows the red
+	// error chip in that case, so error/warnings must win over "enabled".
 	if src.Settings != nil && src.Settings.Status == 3 {
 		return "error"
 	}
@@ -790,6 +789,9 @@ func formatSourceStatus(src *pb.Source) string {
 			codes = append(codes, fmt.Sprintf("warn:%d", w.GetValue()))
 		}
 		return strings.Join(codes, ",")
+	}
+	if src.Metadata != nil && src.Metadata.Status == 1 {
+		return "enabled"
 	}
 	return "ok"
 }
