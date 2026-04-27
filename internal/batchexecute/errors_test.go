@@ -42,8 +42,15 @@ func TestGetErrorCode(t *testing.T) {
 			exists:   true,
 		},
 		{
-			name:     "Permission denied",
+			name:     "Deadline exceeded",
 			code:     4,
+			wantType: ErrorTypeDeadlineExceeded,
+			wantMsg:  "Deadline exceeded",
+			exists:   true,
+		},
+		{
+			name:     "Permission denied",
+			code:     7,
 			wantType: ErrorTypePermissionDenied,
 			wantMsg:  "Permission denied",
 			exists:   true,
@@ -167,11 +174,11 @@ func TestIsErrorResponse(t *testing.T) {
 			name: "Object with error_code field",
 			response: &Response{
 				ID:   "test",
-				Data: json.RawMessage(`{"error_code": 4, "message": "Access denied"}`),
+				Data: json.RawMessage(`{"error_code": 7, "message": "Access denied"}`),
 			},
 			wantError:    true,
 			wantErrorMsg: "Permission denied",
-			wantCode:     4,
+			wantCode:     7,
 		},
 		{
 			name: "String numeric error code",
@@ -403,6 +410,8 @@ func TestErrorType_String(t *testing.T) {
 		{ErrorTypePermissionDenied, "PermissionDenied"},
 		{ErrorTypeResourceExhausted, "ResourceExhausted"},
 		{ErrorTypeUnavailable, "Unavailable"},
+		{ErrorTypeDeadlineExceeded, "DeadlineExceeded"},
+		{ErrorTypeAlreadyExists, "AlreadyExists"},
 		{ErrorTypeUnknown, "Unknown"},
 		{ErrorType(999), "Unknown"}, // Test unknown error type
 	}

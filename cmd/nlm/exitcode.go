@@ -94,12 +94,14 @@ func exitCodeFor(err error) int {
 				return exitAuth
 			case batchexecute.ErrorTypeNotFound:
 				return exitNotFound
-			case batchexecute.ErrorTypeResourceExhausted:
+			case batchexecute.ErrorTypeResourceExhausted,
+				batchexecute.ErrorTypeAlreadyExists:
 				return exitPrecondition
 			case batchexecute.ErrorTypeRateLimit,
 				batchexecute.ErrorTypeServerError,
 				batchexecute.ErrorTypeUnavailable,
-				batchexecute.ErrorTypeNetworkError:
+				batchexecute.ErrorTypeNetworkError,
+				batchexecute.ErrorTypeDeadlineExceeded:
 				return exitTransient
 			case batchexecute.ErrorTypeInvalidInput:
 				return exitBadArgs

@@ -22,6 +22,8 @@ const (
 	ErrorTypePermissionDenied
 	ErrorTypeResourceExhausted
 	ErrorTypeUnavailable
+	ErrorTypeDeadlineExceeded
+	ErrorTypeAlreadyExists
 )
 
 // String returns the string representation of the ErrorType
@@ -47,6 +49,10 @@ func (e ErrorType) String() string {
 		return "ResourceExhausted"
 	case ErrorTypeUnavailable:
 		return "Unavailable"
+	case ErrorTypeDeadlineExceeded:
+		return "DeadlineExceeded"
+	case ErrorTypeAlreadyExists:
+		return "AlreadyExists"
 	default:
 		return "Unknown"
 	}
@@ -136,31 +142,25 @@ var errorCodeDictionary = map[int]ErrorCode{
 		Retryable:   false,
 	},
 
-	// Permission denied
-	4: {
-		Code:        4,
-		Type:        ErrorTypePermissionDenied,
-		Message:     "Permission denied",
-		Description: "You do not have permission to access this resource.",
-		Retryable:   false,
-	},
-
-	// Additional common error codes
+	// gRPC canonical error codes (verified against frontend JS loa function
+	// and google.golang.org/grpc/codes). Code 4 is DEADLINE_EXCEEDED, NOT
+	// PermissionDenied — PermissionDenied is code 7. The autolabel RPC
+	// (agX4Bc) routinely returns code 4 with di~60000ms when the server-side
+	// clustering job times out (e.g., on note-only or oversized notebooks).
 	1: {
 		Code:        1,
-		Type:        ErrorTypeInvalidInput,
-		Message:     "Invalid request",
-		Description: "The request contains invalid parameters or data.",
+		Type:        ErrorTypeServerError,
+		Message:     "Cancelled",
+		Description: "The operation was cancelled.",
 		Retryable:   false,
 	},
 	2: {
 		Code:        2,
 		Type:        ErrorTypeServerError,
-		Message:     "Internal server error",
-		Description: "An internal server error occurred. Please try again later.",
+		Message:     "Unknown error",
+		Description: "An unknown server error occurred. Please try again later.",
 		Retryable:   true,
 	},
-	// gRPC canonical error codes (verified against frontend JS loa function)
 	3: {
 		Code:        3,
 		Type:        ErrorTypeInvalidInput,
@@ -168,11 +168,25 @@ var errorCodeDictionary = map[int]ErrorCode{
 		Description: "One or more arguments are invalid.",
 		Retryable:   false,
 	},
+	4: {
+		Code:        4,
+		Type:        ErrorTypeDeadlineExceeded,
+		Message:     "Deadline exceeded",
+		Description: "The server-side operation took too long to complete. For autolabel this typically means the notebook is too large or the clustering job timed out; for other RPCs, the upstream is slow.",
+		Retryable:   true,
+	},
 	5: {
 		Code:        5,
 		Type:        ErrorTypeNotFound,
 		Message:     "Not found",
 		Description: "The requested item was not found.",
+		Retryable:   false,
+	},
+	6: {
+		Code:        6,
+		Type:        ErrorTypeAlreadyExists,
+		Message:     "Already exists",
+		Description: "The resource the caller attempted to create already exists.",
 		Retryable:   false,
 	},
 	7: {
