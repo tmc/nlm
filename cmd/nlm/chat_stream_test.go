@@ -228,25 +228,24 @@ func TestChatStreamRendererCitationModeOff(t *testing.T) {
 func TestResolveCitationMode(t *testing.T) {
 	cases := []struct {
 		flag    string
-		outTTY  bool
 		want    citationRenderMode
 		wantStr string
 	}{
-		{"", true, citationModeStream, "tty default = stream"},
-		{"", false, citationModeOff, "pipe default = off"},
-		{"block", false, citationModeBlock, "explicit block overrides pipe"},
-		{"stream", true, citationModeStream, "stream"},
-		{"inline-footer", true, citationModeStream, "inline-footer alias"},
-		{"tail", true, citationModeTail, "tail"},
-		{"overlay", true, citationModeOverlay, "overlay"},
-		{"footnote", true, citationModeOverlay, "footnote alias"},
-		{"off", true, citationModeOff, "explicit off"},
-		{"none", true, citationModeOff, "none alias"},
-		{"nonsense", true, citationModeStream, "unknown falls through to tty default"},
+		{"", citationModeBlock, "empty default = block"},
+		{"auto", citationModeBlock, "auto = block"},
+		{"block", citationModeBlock, "explicit block"},
+		{"stream", citationModeStream, "stream"},
+		{"inline-footer", citationModeStream, "inline-footer alias"},
+		{"tail", citationModeTail, "tail"},
+		{"overlay", citationModeOverlay, "overlay"},
+		{"footnote", citationModeOverlay, "footnote alias"},
+		{"off", citationModeOff, "explicit off"},
+		{"none", citationModeOff, "none alias"},
+		{"nonsense", citationModeBlock, "unknown falls through to default"},
 	}
 	for _, tc := range cases {
-		if got := resolveCitationMode(tc.flag, tc.outTTY); got != tc.want {
-			t.Errorf("%s: resolveCitationMode(%q, %v) = %v, want %v", tc.wantStr, tc.flag, tc.outTTY, got, tc.want)
+		if got := resolveCitationMode(tc.flag); got != tc.want {
+			t.Errorf("%s: resolveCitationMode(%q) = %v, want %v", tc.wantStr, tc.flag, got, tc.want)
 		}
 	}
 }

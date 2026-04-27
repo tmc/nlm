@@ -138,7 +138,7 @@ func init() {
 	flag.BoolVar(&thinkingJSONL, "thinking-jsonl", false, "deprecated: equivalent to --citations=json --thinking; emits thinking+answer+citation+followup JSON-lines events")
 	flag.BoolVar(&verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flag.BoolVar(&verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
-	flag.StringVar(&citationMode, "citations", "", "citation rendering: off|block|stream|tail|overlay|json (default: stream on TTY, off when piped; json emits answer+citation JSON-lines)")
+	flag.StringVar(&citationMode, "citations", "", "citation rendering: auto|off|block|stream|tail|overlay|json (default: block — answer + trailing Sources list; json emits answer+citation JSON-lines)")
 	flag.StringVar(&sourceIDsFlag, "source-ids", "", "focus on these source IDs (e.g. 'a,b,c' or '-' for newline-delimited stdin); applies to chat, report, and transform commands")
 	flag.StringVar(&sourceMatchFlag, "source-match", "", "focus on sources whose title or UUID matches this regex (e.g. '^nlm internal/' or '^132af'); unioned with --source-ids")
 	flag.StringVar(&sourceExcludeFlag, "source-exclude", "", "exclude sources whose title or UUID matches this regex; applied after include selectors")
@@ -1823,8 +1823,13 @@ const (
 )
 
 // resolveCitationMode maps the user-facing --citations flag to a mode.
-// Empty flag defaults to stream when stdout is a TTY, off when piped.
-func resolveCitationMode(flag string, outIsTTY bool) citationRenderMode {
+// Empty or "auto" picks block: stream the answer cleanly, then print a
+// trailing Sources block. tail/overlay would be richer (inline
+// superscripts) but currently render duplicate same-position citations
+// as "[2,2,2,2]" clusters that collide with the model's own bracket
+// refs; block is the safest readable default. Pass --citations=tail or
+// --citations=overlay to opt into inline markers.
+func resolveCitationMode(flag string) citationRenderMode {
 	switch strings.ToLower(flag) {
 	case "off", "none":
 		return citationModeOff
@@ -1839,10 +1844,7 @@ func resolveCitationMode(flag string, outIsTTY bool) citationRenderMode {
 	case "json", "jsonl":
 		return citationModeJSON
 	}
-	if outIsTTY {
-		return citationModeStream
-	}
-	return citationModeOff
+	return citationModeBlock
 }
 
 // snapToWordBoundary advances pos forward within text until it lies after a
@@ -2315,7 +2317,7 @@ type chatResult struct {
 }
 
 func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptions) (chatResult, error) {
-	mode := resolveCitationMode(opts.CitationMode, isTerminal(os.Stdout))
+	mode := resolveCitationMode(opts.CitationMode)
 	// --thinking-jsonl is the legacy form of `--citations=json --thinking`.
 	// Keep it working by folding its effects into the cleaner flags.
 	wantThinking := opts.ShowThinking || opts.Verbose || opts.ThinkingJSONL
@@ -3198,7 +3200,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 		return nil
 	}
 
-	mode := resolveCitationMode(opts.CitationMode, isTerminal(os.Stdout))
+	mode := resolveCitationMode(opts.CitationMode)
 	for i, m := range session.Messages {
 		if i > 0 {
 			fmt.Println()
