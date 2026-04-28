@@ -1280,17 +1280,32 @@ func isUUID(s string) bool {
 
 // Note operations
 
+// CreateNote creates a note in projectID with the given title and content.
+//
+// The web UI does this in two steps and so does this method: CYK0Xb allocates
+// an empty "New Note" shell on the server, then cYAfTb fills in the title and
+// body against the new note_id. Calling only the first step leaves a literal
+// "New Note" with no body in the notebook, which is why the chain lives at the
+// api.Client layer — every caller (CLI, MCP, future SDK consumers) gets the
+// populated note in one call.
+//
+// Content is sent verbatim as Markdown (the wire format the rich-text editor
+// converts to on save); callers do not need to convert from HTML.
 func (c *Client) CreateNote(projectID string, title string, initialContent string) (*Note, error) {
 	req := &pb.CreateNoteRequest{
 		ProjectId: projectID,
 		Content:   initialContent,
-		NoteType:  []int32{1}, // note type
+		NoteType:  []int32{1},
 		Title:     title,
 	}
 	ctx := context.Background()
-	note, err := c.orchestrationService.CreateNote(ctx, req)
+	shell, err := c.orchestrationService.CreateNote(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create note: %w", err)
+	}
+	note, err := c.MutateNote(projectID, shell.NoteId, initialContent, title)
+	if err != nil {
+		return nil, fmt.Errorf("create note: set title/body: %w", err)
 	}
 	return note, nil
 }
