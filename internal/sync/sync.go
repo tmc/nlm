@@ -284,13 +284,18 @@ func resolveName(name string, paths []string) (string, error) {
 	return "", fmt.Errorf("--name is required when multiple paths or stdin are used")
 }
 
-// discoverFiles expands paths into a flat file list.
+// discoverFiles expands paths into a flat list of discovered files. Each
+// entry carries both the on-disk path (for reading) and the member name
+// (used as the txtar entry name on the wire). Directories are expanded via
+// gitFiles, which keeps names repo-root-relative; explicit files use their
+// basename so a single-file sync still produces a clean member name.
+//
 // nil paths means read from stdin.
-func discoverFiles(paths []string) ([]string, error) {
+func discoverFiles(paths []string) ([]discovered, error) {
 	if paths == nil {
 		return readStdinPaths()
 	}
-	var files []string
+	var files []discovered
 	for _, p := range paths {
 		info, err := os.Stat(p)
 		if err != nil {
@@ -303,22 +308,25 @@ func discoverFiles(paths []string) ([]string, error) {
 			}
 			files = append(files, dirFiles...)
 		} else {
-			files = append(files, p)
+			files = append(files, discovered{Path: p, Name: filepath.ToSlash(filepath.Base(p))})
 		}
 	}
 	return files, nil
 }
 
-func readStdinPaths() ([]string, error) {
-	var paths []string
+// readStdinPaths reads one path per line from stdin. Each line is treated
+// as both the on-disk path and the member name, since the user has chosen
+// the layout explicitly.
+func readStdinPaths() ([]discovered, error) {
+	var files []discovered
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {
-			paths = append(paths, line)
+			files = append(files, discovered{Path: line, Name: filepath.ToSlash(line)})
 		}
 	}
-	return paths, scanner.Err()
+	return files, scanner.Err()
 }
 
 // bundle groups files into txtar chunks, each under maxBytes.
@@ -328,7 +336,7 @@ func readStdinPaths() ([]string, error) {
 // ("-- name --") are quoted with a '>'-prefix scheme matching
 // txtar-c -quote, and the archive comment records "unquote NAME"
 // directives so readers can recover the original bytes.
-func bundle(files []string, maxBytes int) ([][]byte, error) {
+func bundle(files []discovered, maxBytes int) ([][]byte, error) {
 	var chunks [][]byte
 	var ar txtar.Archive
 	currentSize := 0
@@ -342,9 +350,9 @@ func bundle(files []string, maxBytes int) ([][]byte, error) {
 	}
 
 	for _, f := range files {
-		data, err := os.ReadFile(f)
+		data, err := os.ReadFile(f.Path)
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", f, err)
+			return nil, fmt.Errorf("read %s: %w", f.Path, err)
 		}
 
 		// Skip binary files — txtar is text-only.
@@ -361,13 +369,13 @@ func bundle(files []string, maxBytes int) ([][]byte, error) {
 			}
 			q, qerr := quote(data)
 			if qerr != nil {
-				return nil, fmt.Errorf("quote %s: %w", f, qerr)
+				return nil, fmt.Errorf("quote %s: %w", f.Path, qerr)
 			}
 			data = q
 			quoted = true
 		}
 
-		entrySize := len(f) + len(data) + 20 // approximate txtar overhead
+		entrySize := len(f.Name) + len(data) + 20 // approximate txtar overhead
 
 		// Flush current chunk if adding this file would exceed the limit.
 		if currentSize+entrySize > maxBytes {
@@ -375,10 +383,10 @@ func bundle(files []string, maxBytes int) ([][]byte, error) {
 		}
 
 		if quoted {
-			ar.Comment = append(ar.Comment, []byte("unquote "+f+"\n")...)
+			ar.Comment = append(ar.Comment, []byte("unquote "+f.Name+"\n")...)
 		}
 		ar.Files = append(ar.Files, txtar.File{
-			Name: f,
+			Name: f.Name,
 			Data: data,
 		})
 		currentSize += entrySize
