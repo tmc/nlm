@@ -2213,7 +2213,7 @@ func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
 		if c.config.Debug {
 			fmt.Printf("Got HTML auth redirect, falling back to browser download\n")
 		}
-		return nil, fmt.Errorf("Google CDN requires browser authentication - use 'nlm audio-download' to open in browser")
+		return nil, fmt.Errorf("Google CDN requires browser authentication - use 'nlm audio download' to open in browser")
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {

@@ -88,15 +88,15 @@ nlm audio-suggestions <notebook-id>                 # Audio blueprint JSON lines
 ## Audio And Video
 
 ```bash
-nlm audio-list <notebook-id>             # List audio overviews
-nlm audio-get <notebook-id>              # Get audio details
-nlm --direct-rpc audio-download <notebook-id> [file]
-nlm audio-rm <notebook-id>               # Delete audio overview
-nlm audio-share <notebook-id>            # Share audio overview
+nlm audio list <notebook-id>             # List audio overviews
+nlm audio get <notebook-id>              # Get audio details
+nlm --direct-rpc audio download <notebook-id> [file]
+nlm audio delete <notebook-id>           # Delete audio overview
+nlm audio share <notebook-id>            # Share audio overview
 
-nlm video-list <notebook-id>             # List video overviews
-nlm video-get <notebook-id>              # Get video details
-nlm --direct-rpc video-download <notebook-id> [file]
+nlm video list <notebook-id>             # List video overviews
+nlm video get <notebook-id>              # Get video details
+nlm --direct-rpc video download <notebook-id> [file]
 ```
 
 ## Artifacts
@@ -214,35 +214,3 @@ nlm feedback <message>
 | `--auth PATH` | Use explicit auth file |
 | `--cookies PATH` | Use explicit cookies file |
 | `--experimental` | Enable experimental commands or behavior |
-
-## Compatibility Aliases
-
-These still run, but new guidance should use the canonical noun-first forms:
-
-```bash
-nlm list, nlm ls                    # notebook list
-nlm create                          # notebook create
-nlm rm                              # notebook delete
-nlm sources                         # source list
-nlm add                             # source add
-nlm sync                            # source sync
-nlm sync-pack                       # source pack
-nlm rm-source, nlm source-rm        # source delete
-nlm rename-source                   # source rename
-nlm refresh-source                  # source refresh
-nlm check-source                    # source check
-nlm notes                           # note list
-nlm read-note                       # note read
-nlm new-note                        # note create
-nlm update-note                     # note update
-nlm rm-note                         # note delete
-nlm artifacts                       # artifact list
-nlm get-artifact                    # artifact get
-nlm rename-artifact                 # artifact update
-nlm delete-artifact                 # artifact delete
-nlm chat-list                       # chat list
-nlm delete-chat                     # chat delete
-nlm chat-config                     # chat config
-nlm set-instructions                # chat instructions set
-nlm get-instructions                # chat instructions get
-```

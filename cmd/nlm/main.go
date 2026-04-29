@@ -122,7 +122,7 @@ func init() {
 	flag.StringVar(&sourceName, "name", "", "custom name for added source")
 	flag.StringVar(&sourceName, "n", "", "custom name for added source (shorthand)")
 	flag.StringVar(&replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
-	flag.BoolVar(&jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (list/sources/notes/list-featured/artifacts/audio-list/video-list/guidebooks/chat-list/label-list); also enables NDJSON progress for sync")
+	flag.BoolVar(&jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (notebook list/source list/note list/notebook featured/artifact list/audio list/video list/guidebooks/chat list/label list); also enables NDJSON progress for sync")
 	flag.BoolVar(&force, "force", false, "force re-upload even if unchanged (sync)")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would change without uploading (sync)")
 	flag.IntVar(&maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
@@ -1427,7 +1427,7 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 			fmt.Fprintf(os.Stderr, "Waiting for delete to propagate...\n")
 			time.Sleep(3 * time.Second)
 		} else {
-			fmt.Fprintf(os.Stderr, "Notebook already has an audio overview. Use -y to replace it, or 'nlm audio-rm %s' first.\n", projectID)
+			fmt.Fprintf(os.Stderr, "Notebook already has an audio overview. Use -y to replace it, or 'nlm audio delete %s' first.\n", projectID)
 			return fmt.Errorf("existing audio overview")
 		}
 	}
@@ -1441,7 +1441,7 @@ func createAudioOverview(c *api.Client, projectID string, instructions string) e
 	}
 
 	if !result.IsReady {
-		fmt.Fprintln(os.Stderr, "Audio overview creation started. Use 'nlm audio-get' to check status.")
+		fmt.Fprintln(os.Stderr, "Audio overview creation started. Use 'nlm audio get' to check status.")
 		return nil
 	}
 

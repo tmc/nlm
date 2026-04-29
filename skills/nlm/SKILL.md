@@ -37,8 +37,8 @@ Always prefer live help output when it disagrees with the reference.
 - Surface full UUIDs for notebooks, sources, conversations, notes, and artifacts in responses. Follow-up commands need them.
 - Use `-y` for destructive operations in non-interactive contexts, for example `nlm -y notebook delete <id>`.
 - Use `nlm auth --authuser N` or `NLM_AUTHUSER=N` for non-default Google accounts.
-- Use `--direct-rpc` for `audio-download` and `video-download`.
-- Treat compatibility aliases (`nlm list`, `nlm sources`, `nlm rm-source`) as runnable but prefer canonical forms in new guidance.
+- Use `--direct-rpc` for `audio download` and `video download`.
+- Prefer canonical grouped commands in all new guidance.
 
 ## Common Workflows
 
@@ -106,15 +106,15 @@ nlm research --import <notebook-id> "Find source material"
 ```
 
 **Content creation** — creation may take time. Poll with `artifact list`,
-`audio-list`, or `video-list`.
+`audio list`, or `video list`.
 ```bash
 nlm create-audio <notebook-id> "Conversational, focus on key decisions"
 nlm create-video <notebook-id> "Whiteboard walkthrough"
 nlm create-slides <notebook-id> "Presentation summary"
 nlm generate-report --sections 3 <notebook-id>
 nlm artifact list <notebook-id>
-nlm --direct-rpc audio-download <notebook-id> output.wav
-nlm --direct-rpc video-download <notebook-id> output.mp4
+nlm --direct-rpc audio download <notebook-id> output.wav
+nlm --direct-rpc video download <notebook-id> output.mp4
 ```
 
 **Rename after stdin upload** — stdin text defaults to "Pasted Text"; use

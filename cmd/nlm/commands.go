@@ -129,6 +129,16 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "chat-config"), "chat config"),
 		cloneCommand(mustCommand(byName, "set-instructions"), "chat instructions set"),
 		cloneCommand(mustCommand(byName, "get-instructions"), "chat instructions get"),
+
+		cloneCommand(mustCommand(byName, "audio-list"), "audio list"),
+		cloneCommand(mustCommand(byName, "audio-get"), "audio get"),
+		cloneCommand(mustCommand(byName, "audio-download"), "audio download"),
+		cloneCommand(mustCommand(byName, "audio-rm"), "audio delete"),
+		cloneCommand(mustCommand(byName, "audio-share"), "audio share"),
+
+		cloneCommand(mustCommand(byName, "video-list"), "video list"),
+		cloneCommand(mustCommand(byName, "video-get"), "video get"),
+		cloneCommand(mustCommand(byName, "video-download"), "video download"),
 	}
 }
 
@@ -1120,6 +1130,14 @@ var compatibilityCommands = map[string]bool{
 	"chat-config":      true,
 	"set-instructions": true,
 	"get-instructions": true,
+	"audio-list":       true,
+	"audio-get":        true,
+	"audio-download":   true,
+	"audio-rm":         true,
+	"audio-share":      true,
+	"video-list":       true,
+	"video-get":        true,
+	"video-download":   true,
 }
 
 var compatibilityReplacements = map[string]string{
@@ -1174,6 +1192,14 @@ var compatibilityReplacements = map[string]string{
 	"chat-config":      "chat config",
 	"set-instructions": "chat instructions set",
 	"get-instructions": "chat instructions get",
+	"audio-list":       "audio list",
+	"audio-get":        "audio get",
+	"audio-download":   "audio download",
+	"audio-rm":         "audio delete",
+	"audio-share":      "audio share",
+	"video-list":       "video list",
+	"video-get":        "video get",
+	"video-download":   "video download",
 }
 
 func init() {
