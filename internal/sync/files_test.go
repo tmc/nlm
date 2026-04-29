@@ -112,7 +112,7 @@ func TestGitFilesSkipsDeletedUnstaged(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	files, err := gitFiles(dir)
+	files, err := gitFiles(dir, false)
 	if err != nil {
 		t.Fatalf("gitFiles: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestGitFilesNamesAreRepoRootRelative(t *testing.T) {
 	run(dir, "add", "-A")
 	run(dir, "commit", "-q", "-m", "init")
 
-	files, err := gitFiles(sub)
+	files, err := gitFiles(sub, false)
 	if err != nil {
 		t.Fatalf("gitFiles: %v", err)
 	}
@@ -203,4 +203,106 @@ func TestGitFilesNamesAreRepoRootRelative(t *testing.T) {
 	if got.Name != "cmd/nlm/main.go" {
 		t.Errorf("Name = %q, want %q", got.Name, "cmd/nlm/main.go")
 	}
+}
+
+func TestDiscoverFilesIncludeUntracked(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	dir := t.TempDir()
+
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	run("init", "-q", "-b", "main")
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("ignored.txt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "tracked.txt"), []byte("tracked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "untracked.txt"), []byte("untracked\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ignored.txt"), []byte("ignored\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", ".gitignore", "tracked.txt")
+	run("commit", "-q", "-m", "init")
+
+	t.Run("tracked file included by default", func(t *testing.T) {
+		files, err := discoverFiles([]string{dir}, false)
+		if err != nil {
+			t.Fatalf("discoverFiles: %v", err)
+		}
+		if !containsName(files, "tracked.txt") {
+			t.Fatalf("tracked.txt not found in %+v", files)
+		}
+	})
+
+	t.Run("untracked file excluded by default", func(t *testing.T) {
+		files, err := discoverFiles([]string{dir}, false)
+		if err != nil {
+			t.Fatalf("discoverFiles: %v", err)
+		}
+		if containsName(files, "untracked.txt") {
+			t.Fatalf("untracked.txt unexpectedly found in %+v", files)
+		}
+	})
+
+	t.Run("untracked file included with flag", func(t *testing.T) {
+		files, err := discoverFiles([]string{dir}, true)
+		if err != nil {
+			t.Fatalf("discoverFiles: %v", err)
+		}
+		if !containsName(files, "untracked.txt") {
+			t.Fatalf("untracked.txt not found in %+v", files)
+		}
+	})
+
+	t.Run("ignored file excluded with flag", func(t *testing.T) {
+		files, err := discoverFiles([]string{dir}, true)
+		if err != nil {
+			t.Fatalf("discoverFiles: %v", err)
+		}
+		if containsName(files, "ignored.txt") {
+			t.Fatalf("ignored.txt unexpectedly found in %+v", files)
+		}
+	})
+
+	t.Run("explicit untracked path works without flag", func(t *testing.T) {
+		p := filepath.Join(dir, "untracked-explicit.txt")
+		if err := os.WriteFile(p, []byte("explicit\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		files, err := discoverFiles([]string{p}, false)
+		if err != nil {
+			t.Fatalf("discoverFiles: %v", err)
+		}
+		if len(files) != 1 {
+			t.Fatalf("got %d files, want 1: %+v", len(files), files)
+		}
+		if files[0].Name != "untracked-explicit.txt" {
+			t.Fatalf("Name = %q, want %q", files[0].Name, "untracked-explicit.txt")
+		}
+	})
+}
+
+func containsName(files []discovered, name string) bool {
+	for _, f := range files {
+		if f.Name == name {
+			return true
+		}
+	}
+	return false
 }

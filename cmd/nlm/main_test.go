@@ -260,6 +260,7 @@ func TestCommandLocalHelp(t *testing.T) {
 				"Usage: nlm source sync [flags]",
 				"--force",
 				"--max-bytes <n>",
+				"--include-untracked",
 			},
 		},
 		{

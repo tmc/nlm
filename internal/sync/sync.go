@@ -40,12 +40,13 @@ type LabelPreserver interface {
 
 // Options controls sync behavior.
 type Options struct {
-	MaxBytes int      // chunk threshold; 0 means 5120000
-	Name     string   // source name; required if ambiguous
-	Force    bool     // re-upload even if hash unchanged
-	DryRun   bool     // print plan, don't upload
-	JSON     bool     // NDJSON output
-	Exclude  []string // filepath.Match patterns; files whose basename or full path matches are skipped
+	MaxBytes         int      // chunk threshold; 0 means 5120000
+	Name             string   // source name; required if ambiguous
+	Force            bool     // re-upload even if hash unchanged
+	DryRun           bool     // print plan, don't upload
+	JSON             bool     // NDJSON output
+	Exclude          []string // filepath.Match patterns; files whose basename or full path matches are skipped
+	IncludeUntracked bool     // when expanding git directories, include untracked non-ignored files
 }
 
 func (o *Options) maxBytes() int {
@@ -64,7 +65,7 @@ func Pack(paths []string, opts Options) (chunks [][]byte, names []string, err er
 	if err != nil {
 		return nil, nil, err
 	}
-	files, err := discoverFiles(paths)
+	files, err := discoverFiles(paths, opts.IncludeUntracked)
 	if err != nil {
 		return nil, nil, fmt.Errorf("discover files: %w", err)
 	}
@@ -96,7 +97,7 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 	}
 
 	// Discover files.
-	files, err := discoverFiles(paths)
+	files, err := discoverFiles(paths, opts.IncludeUntracked)
 	if err != nil {
 		return fmt.Errorf("discover files: %w", err)
 	}
@@ -291,7 +292,7 @@ func resolveName(name string, paths []string) (string, error) {
 // basename so a single-file sync still produces a clean member name.
 //
 // nil paths means read from stdin.
-func discoverFiles(paths []string) ([]discovered, error) {
+func discoverFiles(paths []string, includeUntracked bool) ([]discovered, error) {
 	if paths == nil {
 		return readStdinPaths()
 	}
@@ -302,7 +303,7 @@ func discoverFiles(paths []string) ([]discovered, error) {
 			return nil, fmt.Errorf("stat %s: %w", p, err)
 		}
 		if info.IsDir() {
-			dirFiles, err := gitFiles(p)
+			dirFiles, err := gitFiles(p, includeUntracked)
 			if err != nil {
 				return nil, fmt.Errorf("list files in %s: %w", p, err)
 			}

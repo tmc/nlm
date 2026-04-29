@@ -19,6 +19,7 @@ type discovered struct {
 }
 
 // gitFiles returns tracked files under dir using git ls-files.
+// If includeUntracked is true, untracked non-ignored files are included too.
 // Falls back to filepath.WalkDir if dir is not in a git repo.
 //
 // Member names are relative to the git repo root when available, so a
@@ -28,29 +29,34 @@ type discovered struct {
 // Index entries whose working-tree file is missing (deleted but not yet
 // staged) are skipped with a stderr warning, so a single stale entry does
 // not abort a multi-thousand-file sync.
-func gitFiles(dir string) ([]discovered, error) {
+func gitFiles(dir string, includeUntracked bool) ([]discovered, error) {
 	// --full-name returns paths relative to the repo root regardless of
 	// where ls-files is invoked from, so a sync from cmd/nlm/ produces
 	// "cmd/nlm/main.go" rather than "main.go". Pairing it with `git
 	// rev-parse --show-toplevel` lets us reconstruct an absolute on-disk
 	// path without depending on the caller's symlink resolution (macOS
 	// /var vs /private/var) matching what git resolves internally.
-	cmd := exec.Command("git", "ls-files", "--full-name", "-z")
-	cmd.Dir = dir
-	out, err := cmd.Output()
+	tracked, err := gitLsFiles(dir, "--full-name")
 	if err != nil {
 		return walkFiles(dir)
 	}
+	var names []string
+	names = append(names, tracked...)
+	if includeUntracked {
+		untracked, err := gitLsFiles(dir, "--full-name", "--others", "--exclude-standard")
+		if err != nil {
+			return nil, fmt.Errorf("list untracked files in %s: %w", dir, err)
+		}
+		names = append(names, untracked...)
+	}
+	names = uniqueStrings(names)
 	root := gitRoot(dir)
 	if root == "" {
 		root = dir
 	}
 	var files []discovered
 	var missing []string
-	for _, f := range strings.Split(string(out), "\000") {
-		if f == "" {
-			continue
-		}
+	for _, f := range names {
 		path := filepath.Join(root, f)
 		info, err := os.Lstat(path)
 		if err != nil {
@@ -75,6 +81,39 @@ func gitFiles(dir string) ([]discovered, error) {
 		return walkFiles(dir)
 	}
 	return files, nil
+}
+
+func gitLsFiles(dir string, args ...string) ([]string, error) {
+	argv := []string{"ls-files"}
+	argv = append(argv, args...)
+	argv = append(argv, "-z")
+	cmd := exec.Command("git", argv...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var files []string
+	for _, f := range strings.Split(string(out), "\000") {
+		if f == "" {
+			continue
+		}
+		files = append(files, f)
+	}
+	return files, nil
+}
+
+func uniqueStrings(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 // gitRoot returns the absolute path of the enclosing git repo's working

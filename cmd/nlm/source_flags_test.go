@@ -100,8 +100,8 @@ func TestParseSourceSyncArgs(t *testing.T) {
 	}{
 		{
 			name:     "flags after notebook",
-			args:     []string{"nb", "./docs", "--force", "--json"},
-			wantOpts: syncOptions{Force: true, JSON: true},
+			args:     []string{"nb", "./docs", "--force", "--json", "--include-untracked"},
+			wantOpts: syncOptions{Force: true, JSON: true, IncludeUntracked: true},
 			wantPos:  []string{"nb", "./docs"},
 		},
 		{

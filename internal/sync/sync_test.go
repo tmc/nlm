@@ -377,7 +377,7 @@ func TestBundleQuotesNestedTxtar(t *testing.T) {
 	body := "top line\n-- trap.go --\npackage trap\n"
 	os.WriteFile(filepath.Join(dir, "nested.md"), []byte(body), 0o644)
 
-	files, err := gitFiles(dir)
+	files, err := gitFiles(dir, false)
 	if err != nil || len(files) == 0 {
 		files, _ = walkFiles(dir)
 	}

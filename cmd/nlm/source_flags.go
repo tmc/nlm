@@ -38,12 +38,13 @@ type sourceAddOptions struct {
 }
 
 type syncOptions struct {
-	Name     string
-	Force    bool
-	DryRun   bool
-	MaxBytes int
-	JSON     bool
-	Exclude  []string
+	Name             string
+	Force            bool
+	DryRun           bool
+	MaxBytes         int
+	JSON             bool
+	Exclude          []string
+	IncludeUntracked bool
 }
 
 type syncPackOptions struct {
@@ -114,6 +115,8 @@ func printSourceSyncUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "                            tested against the full path and basename. May")
 	fmt.Fprintln(os.Stderr, "                            be repeated. Trailing '/' or '/'-bearing patterns")
 	fmt.Fprintln(os.Stderr, "                            match as path prefixes (e.g. 'vendor/')")
+	fmt.Fprintln(os.Stderr, "  --include-untracked       Include untracked, non-ignored files when syncing")
+	fmt.Fprintln(os.Stderr, "                            git directories")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Hash cache: ~/.cache/nlm/sync/<notebook-id>/")
 	fmt.Fprintln(os.Stderr)
@@ -234,15 +237,16 @@ func parseSourceSyncArgs(args []string) (syncOptions, []string, error) {
 	flags.BoolVar(&opts.DryRun, "dry-run", opts.DryRun, "")
 	flags.IntVar(&opts.MaxBytes, "max-bytes", opts.MaxBytes, "")
 	flags.BoolVar(&opts.JSON, "json", opts.JSON, "")
+	flags.BoolVar(&opts.IncludeUntracked, "include-untracked", opts.IncludeUntracked, "")
 	excludes := (*stringSliceFlag)(&opts.Exclude)
 	flags.Var(excludes, "exclude", "")
 	flags.Var(excludes, "x", "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "force": true, "dry-run": true, "max-bytes": true, "json": true,
-		"exclude": true, "x": true,
+		"exclude": true, "x": true, "include-untracked": true,
 	}, map[string]bool{
-		"force": true, "dry-run": true, "json": true,
+		"force": true, "dry-run": true, "json": true, "include-untracked": true,
 	})
 	if err != nil {
 		return opts, nil, err
@@ -323,12 +327,13 @@ func runSourceSync(c *api.Client, args []string) error {
 		paths = []string{"."}
 	}
 	syncOpts := nlmsync.Options{
-		MaxBytes: opts.MaxBytes,
-		Name:     opts.Name,
-		Force:    opts.Force,
-		DryRun:   opts.DryRun,
-		JSON:     opts.JSON,
-		Exclude:  opts.Exclude,
+		MaxBytes:         opts.MaxBytes,
+		Name:             opts.Name,
+		Force:            opts.Force,
+		DryRun:           opts.DryRun,
+		JSON:             opts.JSON,
+		Exclude:          opts.Exclude,
+		IncludeUntracked: opts.IncludeUntracked,
 	}
 	adapter := &syncClientAdapter{client: c}
 	return nlmsync.Run(context.Background(), adapter, notebookID, paths, syncOpts, os.Stdout)
