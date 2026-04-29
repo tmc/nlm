@@ -6,10 +6,16 @@ This is a compact map of the current CLI surface. Prefer `nlm --help` and
 ## Notebooks
 
 ```bash
-nlm notebook list [--limit N|--all]     # List notebooks
-nlm notebook create <title>             # Create notebook
-nlm -y notebook delete <id>             # Delete notebook
-nlm notebook featured                   # List featured notebooks
+nlm notebook list [--limit N|--all]                 # List notebooks
+nlm notebook create <title>                         # Create notebook
+nlm -y notebook delete <id>                         # Delete notebook
+nlm notebook rename <notebook-id> <new-title>       # Rename a notebook
+nlm notebook emoji <notebook-id> <emoji>            # Change notebook emoji
+nlm notebook description <notebook-id> [text]       # Set description (arg or stdin; empty clears)
+nlm notebook cover <notebook-id> <preset-id>        # Pick a built-in cover preset
+nlm notebook cover-image <notebook-id> <image-path> # Upload a custom cover image
+nlm notebook unrecent <notebook-id>                 # Hide from recently-viewed (does not delete)
+nlm notebook featured                               # List featured notebooks
 ```
 
 ## Sources
@@ -22,9 +28,15 @@ nlm source pack [--chunk N] [paths...]                # Preview sync payload
 nlm source delete <notebook-id> <source-id|-|a,b,c>   # Delete sources
 nlm source rename <source-id> <new-name>              # Rename source
 nlm source refresh <notebook-id> <source-id>          # Refresh source
-nlm source check <source-id> [notebook-id]            # Check freshness
+nlm source check <source-id> [notebook-id]            # Check freshness (Drive-only)
 nlm source read <source-id> [notebook-id]             # Print indexed text
+nlm discover-sources <notebook-id> <query>            # Server-side source discovery (Es3dTe; chat fallback on reject)
 ```
+
+`source check` and `source refresh` only work for Google Drive sources. For
+files, URLs, and pasted text, re-upload via `source delete` + `source add`,
+or rebuild a synced tree with `source sync` (`--force` to re-upload
+unchanged content).
 
 Useful `source sync` flags:
 
@@ -44,6 +56,22 @@ nlm note read <notebook-id> <note-id>               # Read note
 nlm note create <notebook-id> <title> [content]     # Create note
 nlm note update <notebook-id> <note-id> <content> <title>
 nlm note delete <notebook-id> <note-id>             # Delete note
+```
+
+## Labels
+
+Labels are server-side autolabel clusters over a notebook's sources.
+
+```bash
+nlm label list <notebook-id>                                   # List labels
+nlm label generate <notebook-id>                               # Recompute clusters (server job)
+nlm label create <notebook-id> <name> [emoji]                  # Create manual label
+nlm label rename <notebook-id> <label-id> <new-name>           # Rename label
+nlm label emoji <notebook-id> <label-id> <emoji>               # Set emoji ("" clears)
+nlm label delete <notebook-id> <label-id> [<label-id>...]      # Delete one or more labels
+nlm label unlabeled <notebook-id>                              # Apply labels to currently-unlabeled sources
+nlm label relabel-all <notebook-id>                            # Full re-cluster (UI's "Relabel all"; can hit 60s deadline)
+nlm label attach <notebook-id> <label-id|name> <source-id|name> # Attach one source to a label
 ```
 
 ## Content Creation
@@ -78,6 +106,7 @@ nlm artifact list <notebook-id>                    # List artifacts
 nlm artifact get <artifact-id>                     # Get artifact details
 nlm artifact update <artifact-id> [new-title]      # Rename artifact
 nlm artifact delete <artifact-id>                  # Delete artifact
+nlm artifact revise <artifact-id> <instructions>   # Re-run generator with revision instructions (KmcKPe)
 ```
 
 ## Chat And Generation
@@ -93,6 +122,7 @@ nlm chat config <notebook-id> <setting> [value]     # Configure chat
 nlm chat instructions set <notebook-id> "prompt"    # Set instructions
 nlm chat instructions get <notebook-id>             # Show instructions
 nlm generate-guide <notebook-id>                    # Generate notebook guide
+nlm magic <notebook-id> [source-id...]              # Generate notebook 'Magic View' (uK8f7c)
 nlm source-guide <notebook-id> [source-id...]       # Per-source summaries
 nlm generate-report [flags] <notebook-id>           # Multi-section report via chat
 ```

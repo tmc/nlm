@@ -1,7 +1,7 @@
 ---
 name: nlm
-description: "Manages Google NotebookLM notebooks via the nlm CLI. Use for creating notebooks, listing and syncing sources, uploading files/URLs/text, chatting with sources, generating reports/audio/video/slides, running research, and managing notebook content."
-when_to_use: "User mentions NotebookLM, nlm, notebook IDs, source upload/sync, chat with sources, report/audio/video/slides generation, research, or managing NotebookLM notes/artifacts."
+description: "Manages Google NotebookLM notebooks via the nlm CLI. Use for creating notebooks, listing and syncing sources, uploading files/URLs/text, chatting with sources, generating reports/audio/video/slides, running research, managing labels, editing notebook metadata (title/emoji/description/cover), and managing notebook content."
+when_to_use: "User mentions NotebookLM, nlm, notebook IDs, source upload/sync, chat with sources, report/audio/video/slides generation, research, labels/autolabel clusters, notebook metadata (rename/emoji/description/cover), or managing NotebookLM notes/artifacts."
 allowed-tools: Bash(*), Read, Glob, Grep, Write
 argument-hint: "[action] [args...]"
 ---
@@ -122,6 +122,60 @@ nlm --direct-rpc video-download <notebook-id> output.mp4
 ```bash
 nlm source rename <source-id> "descriptive name"
 ```
+
+**Notebook metadata** — title, emoji, description, and cover are separate
+commands. `cover` takes a built-in preset ID; `cover-image` uploads a custom
+image. `unrecent` only hides from the recents list, it does not delete.
+```bash
+nlm notebook rename <notebook-id> "New Title"
+nlm notebook emoji <notebook-id> "📓"
+nlm notebook description <notebook-id> "One-line summary"
+echo "long description" | nlm notebook description <notebook-id>
+nlm notebook cover <notebook-id> 4
+nlm notebook cover-image <notebook-id> ./cover.png
+nlm notebook unrecent <notebook-id>
+```
+
+**Labels (autolabel clusters)** — labels are server-side clusters over
+sources. `generate` and `relabel-all` are heavy server jobs (relabel-all can
+exceed the 60s deadline on large notebooks); `unlabeled` only touches
+sources without a label. `attach` takes one source per call.
+```bash
+nlm label list <notebook-id>
+nlm label generate <notebook-id>
+nlm label create <notebook-id> "Important" "⭐"
+nlm label rename <notebook-id> <label-id> "New Name"
+nlm label emoji <notebook-id> <label-id> "🐛"
+nlm label delete <notebook-id> <label-id> [<label-id>...]
+nlm label unlabeled <notebook-id>
+nlm label relabel-all <notebook-id>
+nlm label attach <notebook-id> <label-id|name> <source-id|name>
+```
+
+**Discover sources vs chat** — `discover-sources` calls a server-driven
+source-discovery RPC (Es3dTe) that returns ranked source IDs for a query.
+If the server rejects it (error or transient code-13), the CLI falls back
+to a regular chat call asking the model to list relevant sources. Use it
+to pick `--source-ids` for a follow-up; use `nlm chat` when you want a
+narrative answer rather than just IDs.
+```bash
+nlm discover-sources <notebook-id> "Q3 revenue assumptions"
+```
+
+## Source Freshness Strategy
+
+Pick the lightest tool that does the job:
+
+- `nlm source check <source-id> [notebook-id]` — Drive-only. Asks Google
+  whether the indexed copy is still current. No re-index, no upload.
+  Use to decide whether anything else is needed.
+- `nlm source refresh <notebook-id> <source-id>` — Drive-only. Re-indexes
+  the existing source in place. Use when `check` reports stale and the
+  source is still a Google Drive document.
+- Re-upload — for non-Drive sources (files, URLs, pasted text) `check`
+  and `refresh` do not apply. Use `nlm source delete` then `nlm source add`,
+  or for a synced tree run `nlm source sync` (it auto-detects changed
+  chunks; `--force` to re-upload unchanged content).
 
 **Binary upload workarounds** — if a binary upload fails, convert to text:
 ```bash
