@@ -392,6 +392,20 @@ func run() error {
 	// Look up command in the table, preferring the longest multi-token match.
 	cmdName, entry, args, ok := findCommand(rawArgs)
 	if !ok {
+		// `nlm <noun>` or `nlm <noun> --help` with no matching command
+		// narrows help to the matching section so agents can drill in
+		// without dumping the full table.
+		if section := nounSectionFromArgs(rawArgs); section != "" {
+			printSectionUsage(section)
+			os.Exit(exitSuccess)
+		}
+		// "did you mean" hint for likely typos: check the closest
+		// top-level command, and if the first arg looks like a section
+		// noun, also try verbs in that section. The hint goes to stderr
+		// before the usual help dump; exit code is unchanged.
+		if guess := suggestionForArgs(rawArgs); guess != "" {
+			fmt.Fprintf(os.Stderr, "nlm: unknown command %q. Did you mean %q?\n\n", strings.Join(rawArgs, " "), guess)
+		}
 		flag.Usage()
 		os.Exit(exitBadArgs)
 	}

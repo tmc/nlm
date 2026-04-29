@@ -1237,17 +1237,37 @@ func experimentalEnabled() bool {
 	return experimental || os.Getenv("NLM_EXPERIMENTAL") != ""
 }
 
-// printUsage prints the full help text derived from the command table.
+// helpSections lists the help groupings in the order they should be printed.
+// The display order matches the original help layout; new sections appended
+// here also become valid arguments for `nlm <noun> --help` narrowing.
+var helpSections = []string{
+	"Notebook", "Source", "Note", "Label", "Create", "Audio", "Video",
+	"Artifact", "Guidebook", "Generation", "Chat",
+	"Content Transformation", "Research", "Sharing", "Other",
+}
+
+// printUsage prints the full help text derived from the command table,
+// preceded by a preamble and followed by the exit-code reference.
 func printUsage() {
-	fmt.Fprintf(os.Stderr, "Usage: nlm <command> [arguments]\n\n")
+	printPreamble()
+	printSections(helpSections)
+	printExitCodes()
+}
 
-	// Ordered sections matching the original help layout.
-	sections := []string{
-		"Notebook", "Source", "Note", "Label", "Create", "Audio", "Video",
-		"Artifact", "Guidebook", "Generation", "Chat",
-		"Content Transformation", "Research", "Sharing", "Other",
-	}
+// printPreamble emits the program tagline, one-line summary, and a quick
+// pointer to authentication setup. The preamble runs before any command
+// listing so a fresh agent reading `nlm --help` sees orientation first.
+func printPreamble() {
+	fmt.Fprint(os.Stderr,
+		"nlm — Command-line interface to Google's NotebookLM.\n"+
+			"Manage notebooks, sources, chat, and generated content from the terminal.\n\n"+
+			"First run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\n"+
+			"Usage: nlm <command> [arguments]\n\n")
+}
 
+// printSections renders the command table for the given sections in order.
+// Commands not visible per shouldShowInHelp are skipped.
+func printSections(sections []string) {
 	for _, section := range sections {
 		printed := false
 		for i := range commands {
@@ -1275,6 +1295,169 @@ func printUsage() {
 			fmt.Fprintf(os.Stderr, "\n")
 		}
 	}
+}
+
+// printExitCodes documents the exit-code taxonomy from exitcode.go so
+// scripts and agents can branch on numeric codes without reading source.
+func printExitCodes() {
+	fmt.Fprint(os.Stderr,
+		"Exit Codes:\n"+
+			"  0  success\n"+
+			"  2  bad arguments\n"+
+			"  3  authentication required or invalid\n"+
+			"  4  not found (notebook, source, artifact)\n"+
+			"  5  precondition failed (quota, source cap, wrong source type)\n"+
+			"  6  transient error (rate limit, 5xx, connection)\n"+
+			"  7  resource busy (still generating)\n")
+}
+
+// sectionForNoun resolves a user-supplied noun to a section name from
+// helpSections. Matching is case-insensitive on the section's first word
+// (e.g. "content" matches "Content Transformation"). Returns "" if no
+// section matches.
+func sectionForNoun(noun string) string {
+	noun = strings.ToLower(strings.TrimSpace(noun))
+	if noun == "" {
+		return ""
+	}
+	for _, s := range helpSections {
+		first := strings.ToLower(strings.Fields(s)[0])
+		if first == noun {
+			return s
+		}
+	}
+	return ""
+}
+
+// printSectionUsage renders just one section's commands, framed by the
+// preamble so the output stays self-contained. Used for `nlm <noun> --help`
+// narrowing.
+func printSectionUsage(section string) {
+	printPreamble()
+	printSections([]string{section})
+}
+
+// suggestCommand returns the closest top-level command name (or section
+// noun) to query, provided the Levenshtein distance is at most 2. Empty
+// string means no suggestion is worth printing.
+func suggestCommand(query string) string {
+	return suggestFromPool(query, topLevelSuggestionPool())
+}
+
+// suggestVerb returns the closest verb in a section (e.g. for
+// `nlm notebook bogos-verb` we suggest `notebook list`). The pool is
+// every command whose name begins with "<section> ". Distance threshold
+// matches suggestCommand.
+func suggestVerb(section, query string) string {
+	prefix := section + " "
+	var pool []string
+	for i := range commands {
+		cmd := &commands[i]
+		if !strings.HasPrefix(cmd.name, prefix) {
+			continue
+		}
+		if !shouldShowInHelp(cmd) {
+			continue
+		}
+		// Suggest just the verb, not the full multi-word command, so the
+		// hint matches what the user would type after the noun.
+		pool = append(pool, strings.TrimPrefix(cmd.name, prefix))
+	}
+	return suggestFromPool(query, pool)
+}
+
+// topLevelSuggestionPool returns all visible top-level command names plus
+// the section nouns. Multi-word commands are reduced to their first token
+// (the noun) so suggestions stay short and stable.
+func topLevelSuggestionPool() []string {
+	seen := map[string]bool{}
+	pool := make([]string, 0, len(commands)+len(helpSections))
+	add := func(s string) {
+		if s == "" || seen[s] {
+			return
+		}
+		seen[s] = true
+		pool = append(pool, s)
+	}
+	for i := range commands {
+		cmd := &commands[i]
+		if !shouldShowInHelp(cmd) {
+			continue
+		}
+		// Single-word commands suggest as-is; multi-word commands reduce
+		// to the noun so e.g. "audi" suggests "audio" not "audio-list".
+		first := strings.Fields(cmd.name)[0]
+		if first == cmd.name {
+			add(cmd.name)
+		} else {
+			add(first)
+		}
+		for _, a := range cmd.aliases {
+			add(a)
+		}
+	}
+	for _, s := range helpSections {
+		add(strings.ToLower(strings.Fields(s)[0]))
+	}
+	return pool
+}
+
+// suggestFromPool picks the closest pool entry to query and returns it
+// only if the edit distance is small enough to be a likely typo. The
+// threshold scales loosely with query length: very short tokens require
+// distance 1; longer tokens allow up to 2.
+func suggestFromPool(query string, pool []string) string {
+	query = strings.ToLower(strings.TrimSpace(query))
+	if query == "" || len(pool) == 0 {
+		return ""
+	}
+	limit := 2
+	if len(query) <= 3 {
+		limit = 1
+	}
+	best := ""
+	bestDist := limit + 1
+	for _, cand := range pool {
+		d := levenshtein(query, strings.ToLower(cand))
+		if d < bestDist {
+			bestDist = d
+			best = cand
+		}
+	}
+	if bestDist > limit {
+		return ""
+	}
+	return best
+}
+
+// levenshtein returns the edit distance between a and b. The
+// implementation uses a single rolling row to keep allocations small;
+// good enough for short command names.
+func levenshtein(a, b string) int {
+	ar, br := []rune(a), []rune(b)
+	if len(ar) == 0 {
+		return len(br)
+	}
+	if len(br) == 0 {
+		return len(ar)
+	}
+	prev := make([]int, len(br)+1)
+	curr := make([]int, len(br)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ar); i++ {
+		curr[0] = i
+		for j := 1; j <= len(br); j++ {
+			cost := 1
+			if ar[i-1] == br[j-1] {
+				cost = 0
+			}
+			curr[j] = min(min(curr[j-1]+1, prev[j]+1), prev[j-1]+cost)
+		}
+		prev, curr = curr, prev
+	}
+	return prev[len(br)]
 }
 
 func shouldShowInHelp(cmd *command) bool {
@@ -1331,4 +1514,41 @@ func commandTableEntries() []command {
 // helpAliases are recognized as valid commands but handled before table lookup.
 var helpAliases = map[string]bool{
 	"help": true, "-h": true, "--help": true,
+}
+
+// nounSectionFromArgs returns the help section that matches when the user
+// runs `nlm <noun>` or `nlm <noun> --help` with no further arguments and
+// no matching command. Returns "" if the args don't match that exact
+// shape. Multi-word commands fall through to the regular not-found path.
+func nounSectionFromArgs(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	if len(args) >= 2 && !helpAliases[args[1]] {
+		return ""
+	}
+	if len(args) > 2 {
+		return ""
+	}
+	return sectionForNoun(args[0])
+}
+
+// suggestionForArgs computes the best-guess command name for a misspelled
+// invocation. For single-arg misses it uses the top-level pool; for
+// `nlm <known-noun> <verb>` shapes it searches verbs within that section
+// (and does not fall back to top-level matches, since the typo is in the
+// verb, not the noun).
+func suggestionForArgs(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	if len(args) >= 2 {
+		if section := sectionForNoun(args[0]); section != "" {
+			if v := suggestVerb(strings.ToLower(strings.Fields(section)[0]), args[1]); v != "" {
+				return args[0] + " " + v
+			}
+			return ""
+		}
+	}
+	return suggestCommand(args[0])
 }
