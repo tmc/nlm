@@ -5,561 +5,230 @@ title: Command Reference
 
 Usage: `nlm [flags] <command> [arguments]`
 
-## Global Flags
-
-| Flag | Env Var | Description |
-|------|---------|-------------|
-| `--debug` | `NLM_DEBUG` | Enable debug output to stderr |
-| `--auth TOKEN` | `NLM_AUTH_TOKEN` | Authentication token |
-| `--cookies COOKIES` | `NLM_COOKIES` | Session cookies |
-| `--profile NAME` | `NLM_BROWSER_PROFILE` | Chrome profile name |
-| `--chunked` | | Use chunked response format |
-| `--direct-rpc` | | Use direct RPC calls (required for audio/video download) |
-| `-y`, `--yes` | | Skip confirmation prompts |
-| `--mime TYPE` | | MIME type for source content |
-| `--name NAME`, `-n` | | Custom name for added sources |
-| `--thinking` | | Show thinking headers in chat responses |
-| `--verbose`, `-v` | | Show full thinking traces in chat responses |
-| `--history` | | Show previous chat conversation on start |
-| `--debug-dump-payload` | | Dump raw JSON payload and exit |
-| `--debug-parsing` | | Show protobuf parsing details |
-| `--debug-field-mapping` | | Show JSON-to-protobuf field mapping |
-| `--skip-sources` | `NLM_SKIP_SOURCES` | Skip source fetching for chat |
-
-## Notebooks
-
-### list, ls
-
-List all notebooks.
-
-```bash
-nlm list
-nlm ls
-```
-
-### create
-
-Create a new notebook.
-
-```bash
-nlm create "My Research"
-```
-
-### rm
-
-Delete a notebook.
-
-```bash
-nlm rm NOTEBOOK_ID
-nlm -y rm NOTEBOOK_ID  # skip confirmation
-```
-
-### analytics
-
-Show notebook analytics.
-
-```bash
-nlm analytics NOTEBOOK_ID
-```
-
-### list-featured
-
-List featured/recommended notebooks.
-
-```bash
-nlm list-featured
-```
-
-## Sources
-
-### sources
-
-List sources in a notebook.
-
-```bash
-nlm sources NOTEBOOK_ID
-```
-
-### add
-
-Add a source to a notebook. Accepts URLs, file paths, or `-` for stdin.
-
-```bash
-nlm add NOTEBOOK_ID "https://example.com/article"
-nlm add NOTEBOOK_ID ./paper.pdf
-nlm add NOTEBOOK_ID - --mime text/plain < notes.txt
-nlm add NOTEBOOK_ID -n "Custom Name" ./data.csv
-```
-
-Supported inputs:
-- URLs (web pages, YouTube, Google Docs)
-- Local files (PDF, DOCX, PPTX, XLSX, TXT, etc.)
-- Stdin with `-` (use `--mime` to set content type)
-- Plain text strings
-
-### rm-source
-
-Remove a source from a notebook.
-
-```bash
-nlm rm-source NOTEBOOK_ID SOURCE_ID
-```
-
-### rename-source
-
-Rename a source.
-
-```bash
-nlm rename-source SOURCE_ID "New Name"
-```
-
-### refresh-source
-
-Refresh a URL source's content.
-
-```bash
-nlm refresh-source NOTEBOOK_ID SOURCE_ID
-```
-
-### check-source
-
-Check whether a source's content is up to date.
-
-```bash
-nlm check-source SOURCE_ID
-```
-
-### discover-sources
-
-Discover relevant sources based on a query.
-
-```bash
-nlm discover-sources NOTEBOOK_ID "machine learning"
-```
-
-## Notes
-
-### notes
-
-List notes in a notebook.
-
-```bash
-nlm notes NOTEBOOK_ID
-```
-
-### read-note
-
-Display the full content of a specific note.
-
-```bash
-nlm read-note NOTEBOOK_ID NOTE_ID
-```
-
-### new-note
-
-Create a new note. Content can be passed as an argument or piped via stdin.
-
-```bash
-nlm new-note NOTEBOOK_ID "Title" "Content here"
-nlm new-note NOTEBOOK_ID "Title" < content.md
-```
-
-### update-note
-
-Update a note's content and title.
-
-```bash
-nlm update-note NOTEBOOK_ID NOTE_ID "New content" "New Title"
-```
-
-### rm-note
-
-Delete a note.
-
-```bash
-nlm rm-note NOTEBOOK_ID NOTE_ID
-```
-
-## Content Creation
-
-### create-audio
-
-Create an audio overview with generation instructions.
-
-```bash
-nlm create-audio NOTEBOOK_ID "Conversational tone, focus on key findings"
-```
-
-### create-video
-
-Create a video overview.
-
-```bash
-nlm create-video NOTEBOOK_ID "Educational style with key charts"
-```
-
-### create-slides
-
-Create a slide deck presentation.
-
-```bash
-nlm create-slides NOTEBOOK_ID "Make a detailed presentation on the key findings"
-```
-
-## Audio
-
-### audio-list
-
-List audio overviews for a notebook.
-
-```bash
-nlm audio-list NOTEBOOK_ID
-```
-
-### audio-get
-
-Get audio overview details and status.
-
-```bash
-nlm audio-get NOTEBOOK_ID
-```
-
-### audio-download
-
-Download the audio file. Requires `--direct-rpc`.
-
-```bash
-nlm --direct-rpc audio-download NOTEBOOK_ID
-nlm --direct-rpc audio-download NOTEBOOK_ID output.mp3
-```
-
-### audio-rm
-
-Delete an audio overview.
-
-```bash
-nlm audio-rm NOTEBOOK_ID
-```
-
-### audio-share
-
-Share an audio overview publicly.
-
-```bash
-nlm audio-share NOTEBOOK_ID
-```
-
-### audio-interactive
-
-Start a live interactive audio session via WebRTC. Requires `NLM_EXPERIMENTAL=1`.
-
-```bash
-NLM_EXPERIMENTAL=1 nlm audio-interactive NOTEBOOK_ID
-```
-
-## Video
-
-### video-list
-
-List video overviews for a notebook.
-
-```bash
-nlm video-list NOTEBOOK_ID
-```
-
-### video-download
-
-Download a video file. Requires `--direct-rpc`.
-
-```bash
-nlm --direct-rpc video-download NOTEBOOK_ID
-nlm --direct-rpc video-download NOTEBOOK_ID output.mp4
-```
-
-## Artifacts
-
-### artifacts, list-artifacts
-
-List artifacts in a notebook.
-
-```bash
-nlm artifacts NOTEBOOK_ID
-```
-
-### get-artifact
-
-Get artifact details.
-
-```bash
-nlm get-artifact ARTIFACT_ID
-```
-
-### rename-artifact
-
-Rename an artifact.
-
-```bash
-nlm rename-artifact ARTIFACT_ID "New Title"
-```
-
-### delete-artifact
-
-Delete an artifact.
-
-```bash
-nlm delete-artifact ARTIFACT_ID
-```
-
-## Guidebooks
-
-### guidebooks
-
-List all guidebooks.
-
-```bash
-nlm guidebooks
-```
-
-### guidebook
-
-Get guidebook content and details.
-
-```bash
-nlm guidebook GUIDEBOOK_ID
-```
-
-### guidebook-publish
-
-Publish a guidebook.
-
-```bash
-nlm guidebook-publish GUIDEBOOK_ID
-```
-
-### guidebook-share
-
-Share a guidebook.
-
-```bash
-nlm guidebook-share GUIDEBOOK_ID
-```
-
-### guidebook-ask
-
-Ask a guidebook a question.
-
-```bash
-nlm guidebook-ask GUIDEBOOK_ID "What are the key findings?"
-```
-
-### guidebook-rm
-
-Delete a guidebook.
-
-```bash
-nlm guidebook-rm GUIDEBOOK_ID
-```
-
-## Chat & Generation
-
-### chat
-
-Interactive chat with a notebook's sources. Supports persistent sessions with history.
-
-```bash
-nlm chat NOTEBOOK_ID                    # new session
-nlm chat NOTEBOOK_ID CONVERSATION_ID    # resume session
-nlm chat NOTEBOOK_ID "one-shot question" # single question, no session
-nlm chat --history NOTEBOOK_ID          # show previous messages
-nlm chat --thinking NOTEBOOK_ID         # show reasoning headers
-nlm chat --verbose NOTEBOOK_ID          # show full reasoning traces
-```
-
-### generate-chat
-
-One-shot chat generation (non-interactive).
-
-```bash
-nlm generate-chat NOTEBOOK_ID "What are the main themes?"
-```
-
-### chat-list
-
-List chat sessions. Without a notebook ID, lists local sessions; with one, lists server-side conversations.
-
-```bash
-nlm chat-list
-nlm chat-list NOTEBOOK_ID
-```
-
-### delete-chat
-
-Delete server-side chat history.
-
-```bash
-nlm delete-chat NOTEBOOK_ID
-```
-
-### chat-config
-
-Configure chat settings for a notebook.
-
-```bash
-nlm chat-config NOTEBOOK_ID goal "Research analysis"
-nlm chat-config NOTEBOOK_ID length "detailed"
-```
-
-### set-instructions
-
-Set system instructions for a notebook's chat.
-
-```bash
-nlm set-instructions NOTEBOOK_ID "Always cite sources and be concise"
-```
-
-### get-instructions
-
-Show current system instructions.
-
-```bash
-nlm get-instructions NOTEBOOK_ID
-```
-
-### generate-guide
-
-Generate a comprehensive notebook guide.
-
-```bash
-nlm generate-guide NOTEBOOK_ID
-```
-
-### generate-outline
-
-Generate a content outline.
-
-```bash
-nlm generate-outline NOTEBOOK_ID
-```
-
-### generate-section
-
-Generate a new section.
-
-```bash
-nlm generate-section NOTEBOOK_ID
-```
-
-### generate-magic
-
-Generate a "magic view" from specific sources.
-
-```bash
-nlm generate-magic NOTEBOOK_ID SOURCE_ID1 SOURCE_ID2
-```
-
-## Content Transformation
-
-These commands operate on specific sources within a notebook. All accept one or more source IDs.
-
-```bash
-nlm <command> NOTEBOOK_ID SOURCE_ID [SOURCE_ID...]
-```
+Default help teaches grouped noun-first commands for notebooks, sources,
+notes, artifacts, and chat administration. Legacy top-level aliases remain
+available for existing scripts, but the forms below are the canonical surface.
+
+Run `nlm <command> -h` for exact per-command usage.
+
+## Shared flags
+
+| Flag | Applies to | Purpose |
+|------|------------|---------|
+| `--auth TOKEN`, `--cookies COOKIES` | most commands | Supply credentials non-interactively |
+| `--debug` | most commands | Print debug output to stderr |
+| `--json` | list and sync output | Emit JSON / JSON-lines output |
+| `--experimental` | hidden commands | Enable experimental commands in help and execution |
+| `-y`, `--yes` | destructive commands | Skip confirmation prompts |
+| `--source-ids IDS`, `--source-match REGEX` | chat, report, transforms | Limit work to selected sources |
+| `--citations MODE`, `--thinking`, `--prompt-file PATH` | chat | Control streaming format and prompt input |
+| `--mode MODE`, `--md`, `--import` | research | Control research mode and output |
+
+## Notebook
 
 | Command | Description |
 |---------|-------------|
-| `summarize` | Create a concise summary |
-| `rephrase` | Rephrase for clarity |
-| `expand` | Expand with more detail |
-| `critique` | Critical analysis |
-| `brainstorm` | Generate ideas |
-| `verify` | Fact-check content |
-| `explain` | Explain concepts |
-| `outline` | Create a structured outline |
+| `nlm notebook list` | List notebooks |
+| `nlm notebook list --limit 25` | Show only the first 25 notebooks |
+| `nlm notebook list --all` | Show every notebook on a TTY |
+| `nlm notebook create "Title"` | Create a notebook |
+| `nlm notebook delete NOTEBOOK_ID` | Delete a notebook |
+| `nlm notebook featured` | List featured notebooks |
+| `nlm notebook rename NOTEBOOK_ID "New Title"` | Rename a notebook |
+| `nlm notebook emoji NOTEBOOK_ID "📚"` | Set the notebook emoji |
+| `nlm notebook description NOTEBOOK_ID "Text"` | Set creator notes (text via arg or stdin; empty clears) |
+| `nlm notebook cover NOTEBOOK_ID PRESET_ID` | Pick a built-in cover image by preset ID |
+| `nlm notebook cover-image NOTEBOOK_ID ./image.png` | Upload a custom cover image |
+| `nlm notebook unrecent NOTEBOOK_ID` | Remove from the recently-viewed list (does not delete) |
+
+`notebook list` shows the first 10 notebooks on a TTY by default. When stdout
+is piped, it emits the full list unless you pass `--limit`.
+
+## Source
+
+| Command | Description |
+|---------|-------------|
+| `nlm source list NOTEBOOK_ID` | List sources in a notebook |
+| `nlm source add NOTEBOOK_ID https://example.com/article` | Add a URL source |
+| `nlm source add NOTEBOOK_ID ./paper.pdf` | Add a file source |
+| `nlm source add NOTEBOOK_ID "Meeting notes from March 5"` | Add a text source |
+| `nlm source add NOTEBOOK_ID -` | Read newline-delimited source references from stdin |
+| `nlm source sync NOTEBOOK_ID .` | Sync files into one managed source |
+| `nlm source pack .` | Preview the txtar payload `source sync` would upload |
+| `nlm source delete NOTEBOOK_ID SOURCE_ID` | Remove one source |
+| `nlm source delete NOTEBOOK_ID -` | Remove sources from stdin |
+| `nlm source rename SOURCE_ID "New Name"` | Rename a source |
+| `nlm source refresh NOTEBOOK_ID SOURCE_ID` | Refresh source content |
+| `nlm source check SOURCE_ID [NOTEBOOK_ID]` | Check source freshness |
+| `nlm source read SOURCE_ID [NOTEBOOK_ID]` | Print the indexed text body |
+
+`source add` accepts URLs, file paths, or literal text. When you pass `-`,
+stdin is treated as one source reference per line. For multi-line text, pass a
+file path or use notes instead. Use `--name` to override the title, `--replace`
+to swap in a new upload, and `--mime` to override MIME detection for file
+uploads.
+
+`source sync` expands directories with tracked files by default. Add
+`--include-untracked` to also include untracked, non-ignored files.
+
+## Note
+
+| Command | Description |
+|---------|-------------|
+| `nlm note list NOTEBOOK_ID` | List notes in a notebook |
+| `nlm note read NOTEBOOK_ID NOTE_ID` | Show note content |
+| `nlm note create NOTEBOOK_ID "Title" "Content"` | Create a note |
+| `nlm note create NOTEBOOK_ID "Title" < content.md` | Create a note from stdin |
+| `nlm note update NOTEBOOK_ID NOTE_ID "Content" "Title"` | Update note content and title |
+| `nlm note delete NOTEBOOK_ID NOTE_ID` | Delete a note |
+
+Note bodies are sent verbatim as Markdown; the rich-text editor in the web
+UI converts to Markdown on save, so piping a `.md` file in via stdin produces
+the rendering you expect without any conversion step.
+
+## Label
+
+Labels are NotebookLM's source-clustering primitive. The autolabel suite
+generates clusters; the manual suite lets you create, rename, and attach
+labels yourself.
+
+| Command | Description |
+|---------|-------------|
+| `nlm label list NOTEBOOK_ID` | List labels (autolabel clusters) in a notebook |
+| `nlm label generate NOTEBOOK_ID` | Recompute autolabel clusters |
+| `nlm label create NOTEBOOK_ID "Name" [emoji]` | Create a manual label |
+| `nlm label rename NOTEBOOK_ID LABEL_ID "New Name"` | Rename a label |
+| `nlm label emoji NOTEBOOK_ID LABEL_ID "🏷️"` | Set or clear a label's emoji |
+| `nlm label delete NOTEBOOK_ID LABEL_ID [LABEL_ID...]` | Delete one or more labels |
+| `nlm label attach NOTEBOOK_ID LABEL_ID SOURCE_ID` | Attach a source to a label |
+| `nlm label unlabeled NOTEBOOK_ID` | Apply existing labels to currently-unlabeled sources |
+| `nlm label relabel-all NOTEBOOK_ID` | Re-cluster everything (the UI's "Relabel all") |
+
+## Create
+
+| Command | Description |
+|---------|-------------|
+| `nlm create-audio NOTEBOOK_ID "Conversational summary"` | Create an audio overview |
+| `nlm create-video NOTEBOOK_ID "Whiteboard walkthrough"` | Create a video overview |
+| `nlm create-slides NOTEBOOK_ID "Presentation summary"` | Create a slide deck |
+| `nlm report-suggestions NOTEBOOK_ID` | Suggest report topics |
+| `nlm create-report NOTEBOOK_ID REPORT_TYPE "Focused brief"` | Create a report artifact |
+
+## Audio and Video
+
+| Command | Description |
+|---------|-------------|
+| `nlm audio list NOTEBOOK_ID` | List audio overviews |
+| `nlm audio get NOTEBOOK_ID` | Get audio overview details |
+| `nlm --direct-rpc audio download NOTEBOOK_ID [FILE]` | Download the audio file |
+| `nlm audio delete NOTEBOOK_ID` | Delete an audio overview |
+| `nlm audio share NOTEBOOK_ID` | Share an audio overview |
+| `nlm video list NOTEBOOK_ID` | List video overviews |
+| `nlm video get NOTEBOOK_ID` | Get video overview details |
+| `nlm --direct-rpc video download NOTEBOOK_ID [FILE]` | Download the video file |
+
+## Artifact
+
+| Command | Description |
+|---------|-------------|
+| `nlm artifact list NOTEBOOK_ID` | List artifacts in a notebook |
+| `nlm artifact get ARTIFACT_ID` | Show artifact details |
+| `nlm artifact update ARTIFACT_ID [NEW_TITLE]` | Rename an artifact |
+| `nlm artifact delete ARTIFACT_ID` | Delete an artifact |
+
+`artifact update` also accepts `--name` instead of a positional title.
+
+## Guidebook
+
+| Command | Description |
+|---------|-------------|
+| `nlm guidebooks` | List guidebooks |
+| `nlm guidebook GUIDEBOOK_ID` | Show guidebook details |
+| `nlm guidebook-details GUIDEBOOK_ID` | Show guidebook details with sections and analytics |
+| `nlm guidebook-publish GUIDEBOOK_ID` | Publish a guidebook |
+| `nlm guidebook-share GUIDEBOOK_ID` | Share a guidebook |
+| `nlm guidebook-ask GUIDEBOOK_ID "Question"` | Ask a guidebook a question |
+| `nlm guidebook-rm GUIDEBOOK_ID` | Delete a guidebook |
+
+## Generation
+
+| Command | Description |
+|---------|-------------|
+| `nlm generate-guide NOTEBOOK_ID` | Generate a notebook guide |
+| `nlm source-guide NOTEBOOK_ID SOURCE_ID...` | Show source summaries and keyword chips |
+| `nlm generate-chat NOTEBOOK_ID "Prompt"` | Stream a one-shot chat answer |
+| `nlm audio-suggestions NOTEBOOK_ID` | Suggest audio-overview prompts |
+| `nlm generate-report NOTEBOOK_ID` | Generate a multi-section report via chat |
+
+## Chat
+
+| Command | Description |
+|---------|-------------|
+| `nlm chat NOTEBOOK_ID` | Start an interactive chat session |
+| `nlm chat NOTEBOOK_ID CONVERSATION_ID` | Resume an existing conversation |
+| `nlm chat NOTEBOOK_ID "One-shot question"` | Ask one question without entering interactive mode |
+| `nlm chat list` | List local chat sessions |
+| `nlm chat list NOTEBOOK_ID` | List server-side conversations for a notebook |
+| `nlm chat history NOTEBOOK_ID CONVERSATION_ID` | Show server-side conversation history |
+| `nlm chat show NOTEBOOK_ID CONVERSATION_ID` | Render a local chat transcript |
+| `nlm chat delete NOTEBOOK_ID` | Delete server-side chat history |
+| `nlm chat config NOTEBOOK_ID SETTING [VALUE]` | Configure chat settings |
+| `nlm chat instructions set NOTEBOOK_ID "Prompt"` | Set chat instructions |
+| `nlm chat instructions get NOTEBOOK_ID` | Show current chat instructions |
+
+For structured chat output, use `--citations=json`; add `--thinking` if you
+also want reasoning events in the JSON-lines stream.
+
+## Content Transformation
+
+These commands all use:
+
+```bash
+nlm <command> NOTEBOOK_ID [SOURCE_ID...]
+```
+
+If you omit source IDs, pass `--source-ids` or `--source-match`.
+
+| Command | Description |
+|---------|-------------|
+| `summarize` | Summarize content from sources |
+| `rephrase` | Rephrase content from sources |
+| `expand` | Expand on content from sources |
+| `critique` | Critique source content |
+| `brainstorm` | Brainstorm from source material |
+| `verify` | Verify facts in sources |
+| `explain` | Explain concepts from sources |
+| `outline` | Create an outline from sources |
 | `study-guide` | Generate a study guide |
-| `faq` | Generate FAQ |
-| `briefing-doc` | Create an executive briefing |
-| `mindmap` | Generate an interactive mind map |
-| `timeline` | Create a chronological timeline |
+| `faq` | Generate a FAQ |
+| `briefing-doc` | Create a briefing document |
+| `mindmap` | Generate an interactive mindmap |
+| `timeline` | Create a timeline |
 | `toc` | Generate a table of contents |
 
 ## Research
 
-### research
-
-Start deep research on a topic and poll for results.
-
-```bash
-nlm research NOTEBOOK_ID "What are the implications of these findings?"
-```
+| Command | Description |
+|---------|-------------|
+| `nlm research NOTEBOOK_ID "Question"` | Run research and emit JSON-lines events |
+| `nlm research NOTEBOOK_ID --mode=fast "Question"` | Use fast research mode |
+| `nlm research NOTEBOOK_ID --md "Question"` | Emit the final report as markdown |
+| `nlm research NOTEBOOK_ID --import "Question"` | Import discovered sources after completion |
 
 ## Sharing
 
-### share
+| Command | Description |
+|---------|-------------|
+| `nlm share NOTEBOOK_ID` | Share a notebook publicly |
+| `nlm share-private NOTEBOOK_ID` | Share a notebook privately |
+| `nlm share-details SHARE_ID` | Show sharing details |
 
-Share a notebook publicly.
+## Other
 
-```bash
-nlm share NOTEBOOK_ID
-```
-
-### share-private
-
-Share a notebook privately.
-
-```bash
-nlm share-private NOTEBOOK_ID
-```
-
-### share-details
-
-Get details about a shared notebook.
-
-```bash
-nlm share-details SHARE_ID
-```
-
-## System
-
-### auth
-
-Set up authentication by extracting browser cookies.
-
-```bash
-nlm auth
-nlm auth --profile "Work"
-nlm auth --all
-nlm auth --cdp-url ws://localhost:9222
-nlm auth --authuser 1  # use secondary Google account
-```
-
-### refresh
-
-Refresh authentication credentials.
-
-```bash
-nlm refresh
-```
-
-### hb
-
-Send a heartbeat to verify connectivity.
-
-```bash
-nlm hb
-```
-
-### feedback
-
-Submit feedback to NotebookLM.
-
-```bash
-nlm feedback "Great tool!"
-```
-
-### mcp
-
-Start the MCP server on stdin/stdout. See [MCP Server](mcp.md).
-
-```bash
-nlm mcp
-```
+| Command | Description |
+|---------|-------------|
+| `nlm auth` | Set up authentication from a browser profile |
+| `nlm auth --print-env` | Print shell export lines for the current session |
+| `nlm refresh` | Refresh stored credentials |
+| `nlm feedback "Message"` | Submit feedback to NotebookLM |
+| `nlm mcp` | Run the MCP server on stdin/stdout |

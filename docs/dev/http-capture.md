@@ -24,7 +24,7 @@ go test ./cmd/nlm -run TestCLICommands -export-txtar -v
 
 ```bash
 # View the txtar file
-cat internal/api/testdata/TestName.txtar
+cat internal/notebooklm/api/testdata/TestName.txtar
 ```
 
 ## Txtar Format
@@ -84,7 +84,7 @@ go test -run TestAudioCreate -httprecord=. -export-txtar
 go test -run TestFailingCommand -httprecord=. -export-txtar
 
 # Inspect the exact request/response
-cat internal/api/testdata/TestFailingCommand_01_RPCId_request.http
+cat internal/notebooklm/api/testdata/TestFailingCommand_01_RPCId_request.http
 ```
 
 ### 3. Document API Behavior
@@ -94,7 +94,7 @@ cat internal/api/testdata/TestFailingCommand_01_RPCId_request.http
 go test -run TestAllCommands -httprecord=. -export-txtar
 
 # Commit the txtar files as documentation
-git add internal/api/testdata/*.txtar
+git add internal/notebooklm/api/testdata/*.txtar
 ```
 
 ## Programmatic Usage
@@ -170,8 +170,8 @@ go test ./cmd/nlm \
 
 ## File Locations
 
-- **HTTP recordings**: `internal/api/testdata/*.httprr`
-- **Txtar exports**: `internal/api/testdata/*.txtar`
+- **HTTP recordings**: `internal/notebooklm/api/testdata/*.httprr`
+- **Txtar exports**: `internal/notebooklm/api/testdata/*.txtar`
 - **Test scripts**: `cmd/nlm/testdata/*.txt`
 
 ## Integration with Scripts
@@ -183,7 +183,7 @@ The scripttest framework automatically exports HTTP recordings when `-export-txt
 go test ./cmd/nlm -export-txtar -v
 
 # All httprr files are automatically converted to txtar
-ls internal/api/testdata/*.txtar
+ls internal/notebooklm/api/testdata/*.txtar
 ```
 
 ## Troubleshooting
@@ -213,14 +213,14 @@ Check file permissions and paths:
 
 ```bash
 # Ensure testdata directory exists
-mkdir -p internal/api/testdata
+mkdir -p internal/notebooklm/api/testdata
 
 # Check file permissions
-ls -la internal/api/testdata/*.httprr
+ls -la internal/notebooklm/api/testdata/*.httprr
 ```
 
 ## See Also
 
-- [httprr Package Documentation](../internal/httprr/)
-- [Script Test Framework](../cmd/nlm/testdata/)
-- [Testing Guide](./testing.md)
+- [httprr Package Documentation](../../internal/httprr/)
+- [Script Test Framework](../../cmd/nlm/testdata/)
+- [Test Conventions](test-conventions.md)

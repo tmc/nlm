@@ -20,9 +20,11 @@
       "title": "Development",
       "items": [
         {"title": "Developer Guide", "path": "/dev/index"},
-        {"title": "Debugging", "path": "/dev/debugging"},
+        {"title": "Remaining Gaps", "path": "/dev/remaining-gaps"},
+        {"title": "Codegen Split", "path": "/dev/codegen"},
+        {"title": "Test Conventions", "path": "/dev/test-conventions"},
         {"title": "HTTP Capture", "path": "/dev/http-capture"},
-        {"title": "Protocol Analysis", "path": "/dev/capture-analysis"}
+        {"title": "Interactive Audio Spec", "path": "/dev/spec-interactive-audio"}
       ]
     }
   ]

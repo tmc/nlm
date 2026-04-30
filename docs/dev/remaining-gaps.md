@@ -1,175 +1,109 @@
 ---
-title: Remaining Gaps and Agent Implementation Plan
-date: 2026-04-14
+title: Remaining Gaps and Audit Notes
+date: 2026-04-21
 ---
 
 # nlm Remaining Gaps
 
-Prioritized list of gaps identified by NotebookLM self-analysis after the R7cb6c wire format fixes, beprotojson.Marshal improvements, and HAR fixture tests.
+This file was re-audited against the current tree on 2026-04-21. It tracks
+only gaps that still matter after checking the live CLI, API, and MCP code
+paths.
 
-## High Impact
+### 1. Analytics remains experimental and misleading
 
-### 1. Broken argbuilder Encoders
+`AUrzMb` returns time-series metrics, but the generated `ProjectAnalytics`
+shape still expects scalar counts. The command is intentionally hidden
+behind `--experimental` in `cmd/nlm/commands.go`, and `cmd/nlm/main.go`
+prints a warning that the output is unreliable.
 
-Many RPC encoders use the generic `argbuilder.EncodeRPCArgs` with flat formats like `[%project_id%]`, missing null padding and ProjectContext suffix that Google's batchexecute endpoints require. These commands will return gRPC error 3 (UNAVAILABLE).
+Status: open, not HAR-blocked.
 
-**Affected files and commands:**
+Next step: redesign the response model and CLI UX around metric series, not
+another encoder tweak.
 
-| Command | Encoder File | RPC ID | Current Format |
-|---------|-------------|--------|----------------|
-| `guidebook-publish` | `gen/method/LabsTailwindGuidebooksService_PublishGuidebook_encoder.go` | `khqZz` | `[%guidebook_id%, %settings%]` |
-| `guidebook-share` | `gen/method/LabsTailwindGuidebooksService_ShareGuidebook_encoder.go` | `sqTeoe` | flat |
-| `guidebook-rm` | `gen/method/LabsTailwindGuidebooksService_DeleteGuidebook_encoder.go` | `ozz5Z` | flat |
-| `guidebook-ask` | `gen/method/LabsTailwindGuidebooksService_GenerateAnswer_encoder.go` | `eyWvXc` | flat |
-| `delete-artifact` | `gen/method/LabsTailwindOrchestrationService_DeleteArtifact_encoder.go` | varies | `[%artifact_id%]` |
-| `audio-rm` | via `EncodeDeleteAudioOverviewArgs` | `hizoJc` | `[%project_id%]` |
-| `audio-share` | via `EncodeShareAudioArgs` | `hPTbtc` | `[%share_options%, %project_id%]` |
-| `analytics` | via `EncodeGetProjectAnalyticsArgs` | `cFji9` | `[%project_id%]` |
+### 2. Video download is still manual-fallback only
 
-**Fix approach:** Capture HAR samples for each RPC, extract the correct positional array format, and replace the argbuilder calls with hand-verified encoders (or use beprotojson.Marshal once wire-format protos are defined). Mark each with `// Wire format verified against HAR capture`.
+`video download` still relies on the direct-RPC-only path in
+`internal/notebooklm/api/client.go`. When the API response does not expose
+direct media bytes or a CDN URL, the command now fails explicitly with a
+manual-browser fallback instead of probing speculative RPC shapes.
 
-### 2. Dead/Deprecated CLI Commands
+Status: open. This is not an MCP gap. HAR would help automation, but the
+current user-visible limitation is the lack of a verified automated download
+path plus
+CDN browser-auth requirements.
 
-These commands hit deprecated endpoints that return 400 errors:
+### 3. Weakly verified encoder paths still exist
 
-| Command | RPC ID | Issue |
-|---------|--------|-------|
-| `create-artifact` (generic) | `xpWGLf` | Deprecated; should route through R7cb6c |
-| `generate-outline` | `lCjAd` | Deprecated endpoint |
-| `generate-section` | `BeTrYd` | Deprecated endpoint |
+Dead-path RPCs such as `xpWGLf`, `lCjAd`, and `BeTrYd` still exist in
+codegen output / compatibility paths even though the current CLI does
+not route through them. A few low-use argbuilder encoders are also still
+weakly verified:
 
-**Fix approach:** Remove or migrate these. `create-artifact` should be refactored to dispatch to the type-specific `create-audio`/`create-video`/`create-slides` code paths via R7cb6c. `generate-outline` and `generate-section` should be replaced with the `ciyUvf` (GenerateReportSuggestions) -> R7cb6c pipeline, or removed if the functionality is redundant with other generation commands.
+- `SubmitFeedback` (`uNyJKe`) works in practice but still uses the generic
+  `[%project_id%, %feedback_type%, %feedback_text%]` shape.
+- `DeleteNotes` (`AH0mwd`) works in practice but is not pinned by a
+  HAR-backed encoder test.
+- `GenerateFreeFormStreamed` exists as a gRPC-Web chat path in
+  `internal/notebooklm/api`; the batchexecute method encoder is not a live
+  CLI path.
 
-### 3. MCP Server Missing Capabilities
+Status: low priority cleanup / verification work.
 
-`internal/nlmmcp/tools.go` does not expose the newly fixed artifact creation or several other high-value capabilities:
+### 4. `artifact get` returns API endpoint errors
 
-| Missing MCP Tool | CLI Equivalent | Priority |
-|-----------------|----------------|----------|
-| `create_audio_overview` | `create-audio` | High |
-| `create_video_overview` | `create-video` | High |
-| `create_slide_deck` | `create-slides` | High |
-| `start_deep_research` | `research` | High |
-| `set_instructions` | `set-instructions` | Medium |
-| `get_instructions` | `get-instructions` | Medium |
-| `list_artifacts` | `artifacts` | Medium |
-| `read_note` | `read-note` | Medium |
+`nlm artifact get <artifact-id>` returns API endpoint errors against the
+live service. The RPC wire format has not been re-captured since the
+2026-04-07 session and the current encoder may not match. May need a
+direct-RPC fallback or a fresh HAR to derive the right shape.
 
-**Fix approach:** Add MCP tool definitions in `internal/nlmmcp/tools.go` and handlers that call the existing `api.Client` methods. Follow the pattern of existing tools (e.g., `generate_chat`, `create_notebook`).
+Status: open, HAR helpful but not strictly required.
 
-## Medium Impact
+### 5. `chat config` server semantics unverified
 
-### 4. Response Parsing Issues
+`nlm chat config <id> <setting> [value]` rides on `MutateProject`
+(`s0tc2d`) to apply chat goal/length settings. The CLI accepts
+`goal default`, `goal custom "prompt"`, and `length default|longer|shorter`,
+but none of these paths have been verified end-to-end against the live
+service, and the `ChatGoal` enum values may not match server expectations.
 
-| Command | RPC | Issue |
-|---------|-----|-------|
-| `list-featured` | `ub2Bae` | Bool/int field misalignment in beprotojson mapping |
-| `share-details` | `JFMDGd` | Incomplete parsing, returns empty data |
+Status: open. Low usage; verify when there is a real caller.
 
-**Fix approach:** Use `--debug` to dump raw responses, compare field positions against proto definitions, fix field numbers in proto or add custom unmarshaling.
+### 6. Auth-expiry mid-session gives unclear errors
 
-### 5. Media Download Broken
+When the session cookies expire during a long-running command, the user
+sees an opaque error rather than a clear "re-run `nlm auth`" prompt.
+Consider auto-refresh on 401/Unauthenticated responses, or at minimum
+detect the failure mode and surface a targeted message.
 
-`audio-download` and `video-download` (both require `--direct-rpc`) have response parsing that returns 0 elements. The CDN URL extraction from the deep protobuf structure needs to be verified against live payloads.
+Status: open, UX polish.
 
-**Fix approach:** Capture HAR for audio-download and video-download operations, identify the array position holding the CDN URL, fix the extraction logic in `internal/notebooklm/api/client.go`.
+## Truly HAR-Blocked
 
-## Low Impact
+### 1. `izAoDd` drag-drop bulk add shape
 
-### 6. Unexposed Proto Functionality
+The generic bulk-add RPC still has no verified drag-drop capture. This no
+longer blocks the main programmatic bulk-import use case, because
+`nlm research --import` already uses the HAR-verified `LBwxtb`
+bulk-import variant instead.
 
-| Proto Message | RPC | Description |
-|--------------|-----|-------------|
-| `StartDraftRequest` | `exXvGf` | Generative writing workflow |
-| `StartSectionRequest` | `pGC7gf` | Section generation |
-| `GenerateMagicViewRequest` | varies | Magic view from sources (CLI has command but untested) |
+Status: HAR-blocked, low value until there is a real CLI caller.
 
-**Fix approach:** Low priority. Wire up if/when HAR captures become available, or if users request these features.
+### 2. Deep-research session state `6`
 
----
+The active parser in `api.Client.pollResearch` safely treats unknown
+states as still-running, but the semantics of observed state `6`
+remain unknown.
 
-## Agent Team Implementation Prompt
+Status: HAR-blocked for semantics only. The current fallback is safe.
 
-Use the following prompt to launch an agent team that addresses all high and medium impact gaps:
+## Next Work
 
-```
-Launch an agent team to fix the remaining gaps in the nlm codebase. The work is divided into 4 parallel workstreams. Each agent works in an isolated worktree.
-
-### Agent 1: Fix Broken Encoders (worktree)
-
-Read docs/dev/remaining-gaps.md for context. The argbuilder-based encoders for guidebook operations, artifact deletion, audio deletion/sharing, and analytics use flat formats that are missing null padding. These need to be fixed.
-
-For each broken encoder listed in the "Broken argbuilder Encoders" section:
-
-1. Read the current encoder in gen/method/ to understand the RPC ID and current format
-2. Read the corresponding service client in gen/service/ to understand how it's called
-3. Check if HAR samples exist in /Users/tmc/go/src/github.com/tmc/misc/chrome-to-har/logs/nlm-capture/sources/notebooklm.google.com/_rpc-samples/ for the RPC ID
-4. If HAR samples exist, extract the correct wire format and rewrite the encoder as a hand-coded function in a new file gen/method/labs_tailwind_custom_encoders.go (following the pattern in labs_tailwind_overview_custom.go)
-5. If no HAR samples exist, add the ProjectContext suffix pattern: the most common fix is changing [project_id] to [nil, nil, project_id, [2]] or similar. Look at working encoders for the same service to infer the pattern.
-6. Add fixture-based tests for each fixed encoder
-
-Run go test ./gen/method/... and go build ./... to verify.
-
-### Agent 2: Fix MCP Server (worktree)
-
-Read docs/dev/remaining-gaps.md for context. The MCP server in internal/nlmmcp/tools.go is missing several high-value capabilities.
-
-1. Read internal/nlmmcp/tools.go to understand the existing tool registration pattern
-2. Read internal/nlmmcp/handler.go to understand how tools dispatch to api.Client methods
-3. Add these MCP tools following the existing patterns:
-   - create_audio_overview (calls api.Client.CreateAudioOverview)
-   - create_video_overview (calls api.Client.CreateVideoOverview)  
-   - create_slide_deck (calls api.Client.CreateSlideDeck)
-   - list_artifacts (calls api.Client.ListArtifacts)
-   - read_note (calls api.Client.GetNotes + filter)
-   - set_instructions / get_instructions (calls api.Client.SetInstructions / GetInstructions)
-4. For deep research, read cmd/nlm/main.go to understand the research polling loop, then add a start_deep_research tool that initiates research (the polling can be done by the AI agent calling the tool repeatedly)
-
-Run go test ./internal/nlmmcp/... and go build ./... to verify.
-
-### Agent 3: Remove Dead Commands + Fix Media Download (worktree)
-
-Read docs/dev/remaining-gaps.md for context.
-
-Part A — Dead commands:
-1. In cmd/nlm/main.go, find the create-artifact generic command (uses xpWGLf RPC)
-2. Remove it from the command dispatch and help text — users should use create-audio/create-video/create-slides instead
-3. Find generate-outline and generate-section commands
-4. Either remove them or rewire to use working RPCs. Check if generate-guide covers the same use case — if so, just remove with a helpful error message pointing to generate-guide.
-5. Update help text and validCommands list
-
-Part B — Media download:
-1. Read the audio-download and video-download handlers in cmd/nlm/main.go and internal/notebooklm/api/client.go
-2. Run nlm --debug --direct-rpc audio-download <notebook-id> to see the raw response
-3. Fix the CDN URL extraction based on what the response actually contains
-4. If audio-download/video-download can't be fixed without HAR captures, add clear error messages about what's wrong
-
-Run go test ./cmd/nlm/... and go build ./... to verify.
-
-### Agent 4: Fix Response Parsing (worktree)
-
-Read docs/dev/remaining-gaps.md for context.
-
-1. Run nlm --debug list-featured to see the raw response for the ub2Bae RPC
-2. Compare the array positions against the FeaturedProject proto definition in gen/notebooklm/v1alpha1/
-3. Fix any field number misalignment in the proto or add custom unmarshaling
-4. Run nlm --debug share-details <share-id> (you may need to first run nlm share <notebook-id> to get a share ID)
-5. Fix the JFMDGd response parsing
-
-Run go test ./... and go build ./... to verify.
-
-IMPORTANT for all agents:
-- Use notebook 00000000-0000-4000-8000-000000000003 for any live API testing
-- Do NOT modify proto files (they require buf generate to regenerate)
-- Follow the patterns in existing code (Russ Cox style — minimal, clear, no panics)
-- Run go vet ./... before finishing
-- Stage changes but do not commit
-```
-
-This prompt can be used with:
-```
-# In the nlm project directory:
-# Launch all 4 agents in parallel with isolated worktrees
-```
-
-Each agent gets its own worktree so changes don't conflict. After all complete, review and merge the changes, resolve any conflicts, then run the full test suite.
+1. Keep `analytics` experimental until its proto and CLI UX are redesigned.
+2. Decide whether `video download` should keep the current manual-fallback
+   UX or get a real CDN capture and a browser-assisted path.
+3. Remove dead generated RPC stubs so future audits do not
+   mistake them for live command paths.
+4. Re-capture `artifact get` against the live service and fix the encoder.
+5. Verify `chat config` end-to-end (or hide it until there is a real caller).
+6. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.

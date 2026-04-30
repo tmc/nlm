@@ -653,8 +653,7 @@ service LabsTailwindOrchestrationService {
     // internal/method/LabsTailwindOrchestrationService_GenerateReportSuggestions_encoder.go.
     //
     // GHsKob is a legacy/predecessor id for the same logical RPC. It
-    // is documented in docs/dev/cdp-capture-agent-prompt.md but does
-    // not appear in the current JS bundle (boq_labs-tailwind-frontend)
+    // does not appear in the current JS bundle (boq_labs-tailwind-frontend)
     // and has no observed wire traffic. Treat GHsKob as dead; ciyUvf
     // is the live id.
     rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse) {

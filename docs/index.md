@@ -26,8 +26,8 @@ go install github.com/tmc/nlm/cmd/nlm@latest
 nlm auth
 
 # Create a notebook and add a source
-nlm create "Research Notes"
-nlm add NOTEBOOK_ID "https://example.com/paper.pdf"
+nlm notebook create "Research Notes"
+nlm source add NOTEBOOK_ID "https://example.com/paper.pdf"
 
 # Chat with your sources
 nlm chat NOTEBOOK_ID
