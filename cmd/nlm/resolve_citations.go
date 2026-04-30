@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/tmc/nlm/internal/designreview"
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 // resolveCitationLocations resolves chat citations to txtar-aware
-// "file:line[-endLine]" coordinates. Returns nil if no citations or no
+// "file:line:col" coordinates. Returns nil if no citations or no
 // loader. On per-source load failures the affected entries are simply
 // missing from the result map (callers degrade to the unresolved label).
 func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cites []api.Citation) map[citationKey]string {
@@ -56,34 +59,49 @@ func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cit
 	return out
 }
 
-// formatLocation renders a resolved citation as an editor-style path string:
+// formatLocation renders a resolved citation as a vim/quickfix-clickable
+// "file:line:col" string. The span's end isn't included — vim, gopls, gcc,
+// and editor cmd-click handlers parse only the leading triple, and the
+// snippet shown alongside already conveys what's cited.
 //
-//	file:line:col                          (citation fits on one line)
-//	file:line:col-endLine:endCol           (multi-line span)
-//	file:line                              (column missing — degraded)
-//
-// gopls, vim, gcc and most editors recognize the file:line:col form, so it
-// pastes into a terminal and jumps straight to the right offset.
+// Absolute paths get shortened to a path relative to the current working
+// directory when possible, so the output pastes cleanly under a repo root.
 func formatLocation(r designreview.Resolved) string {
+	file := shortenPath(r.File)
 	if r.Line <= 0 {
-		return r.File
+		return file
 	}
 	if r.Column <= 0 {
-		if r.EndLine > r.Line {
-			return fmt.Sprintf("%s:%d-%d", r.File, r.Line, r.EndLine)
-		}
-		return fmt.Sprintf("%s:%d", r.File, r.Line)
+		return fmt.Sprintf("%s:%d", file, r.Line)
 	}
-	if r.EndLine > r.Line {
-		if r.EndColumn > 0 {
-			return fmt.Sprintf("%s:%d:%d-%d:%d", r.File, r.Line, r.Column, r.EndLine, r.EndColumn)
-		}
-		return fmt.Sprintf("%s:%d:%d-%d", r.File, r.Line, r.Column, r.EndLine)
+	return fmt.Sprintf("%s:%d:%d", file, r.Line, r.Column)
+}
+
+// shortenPath returns p relative to the current working directory when p is
+// absolute and lives inside it (or in a sibling reachable via "..").
+// Falls back to p unchanged on any error or when the relative form would be
+// longer/uglier than the absolute one.
+func shortenPath(p string) string {
+	if p == "" || !filepath.IsAbs(p) {
+		return p
 	}
-	if r.EndColumn > r.Column {
-		return fmt.Sprintf("%s:%d:%d-%d", r.File, r.Line, r.Column, r.EndColumn)
+	cwd, err := os.Getwd()
+	if err != nil {
+		return p
 	}
-	return fmt.Sprintf("%s:%d:%d", r.File, r.Line, r.Column)
+	rel, err := filepath.Rel(cwd, p)
+	if err != nil {
+		return p
+	}
+	// A relative path that climbs out of cwd more than once is harder to
+	// click than the absolute form; keep absolute in that case.
+	if strings.HasPrefix(rel, ".."+string(filepath.Separator)+"..") || rel == ".." {
+		return p
+	}
+	if len(rel) >= len(p) {
+		return p
+	}
+	return rel
 }
 
 // citationKey identifies a Citation uniquely enough to look up its

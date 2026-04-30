@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/tmc/nlm/internal/designreview"
@@ -52,22 +54,19 @@ func TestResolveCitationLocations(t *testing.T) {
 		t.Fatalf("got %d locations, want 2: %+v", len(got), got)
 	}
 
-	// "Hello()" inside `func Hello() string {` lives on member main.go's
-	// line 3, columns 6 through 12 (inclusive: "Hello()" is 7 chars; the
-	// resolver reports end-column at the last char inside the span).
-	wantHello := "main.go:3:6-12"
+	// "Hello()" sits at member main.go's line 3, column 6.
+	wantHello := "main.go:3:6"
 	if loc := got[keyFor(cites[0])]; loc != wantHello {
 		t.Errorf("hello location = %q, want %q", loc, wantHello)
 	}
-	// "two lines" sits on README.md's line 2 starting at column 8.
-	wantReadme := "README.md:2:8-16"
+	// "two lines" sits on README.md's line 2, column 8.
+	wantReadme := "README.md:2:8"
 	if loc := got[keyFor(cites[1])]; loc != wantReadme {
 		t.Errorf("readme location = %q, want %q", loc, wantReadme)
 	}
 }
 
-// TestFormatLocation pins the editor-style file:line:col rendering across
-// the shapes formatLocation handles.
+// TestFormatLocation pins the vim/quickfix-clickable file:line:col rendering.
 func TestFormatLocation(t *testing.T) {
 	cases := []struct {
 		name string
@@ -76,10 +75,8 @@ func TestFormatLocation(t *testing.T) {
 	}{
 		{"line only (column missing)", designreview.Resolved{File: "main.go", Line: 5}, "main.go:5"},
 		{"line and col", designreview.Resolved{File: "main.go", Line: 5, Column: 7}, "main.go:5:7"},
-		{"single line span", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndColumn: 12}, "main.go:5:7-12"},
-		{"multi-line span", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndLine: 9, EndColumn: 4}, "main.go:5:7-9:4"},
-		{"multi-line span, end col missing", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndLine: 9}, "main.go:5:7-9"},
-		{"multi-line, both columns missing", designreview.Resolved{File: "main.go", Line: 5, EndLine: 9}, "main.go:5-9"},
+		{"end col is dropped", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndColumn: 12}, "main.go:5:7"},
+		{"end line is dropped", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndLine: 9, EndColumn: 4}, "main.go:5:7"},
 		{"line zero degrades to file", designreview.Resolved{File: "main.go"}, "main.go"},
 	}
 	for _, tc := range cases {
@@ -87,6 +84,22 @@ func TestFormatLocation(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("%s: formatLocation = %q, want %q", tc.name, got, tc.want)
 		}
+	}
+}
+
+// TestFormatLocationShortenAbsolutePath checks that an absolute path inside
+// the current working directory is rendered as a relative path so the
+// rendered citation is clickable from a terminal launched at that cwd.
+func TestFormatLocationShortenAbsolutePath(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	abs := filepath.Join(cwd, "subdir", "file.go")
+	got := formatLocation(designreview.Resolved{File: abs, Line: 5, Column: 7})
+	want := "subdir/file.go:5:7"
+	if got != want {
+		t.Errorf("formatLocation(abs in cwd) = %q, want %q", got, want)
 	}
 }
 
