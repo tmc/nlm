@@ -151,17 +151,50 @@ func TestResolveHeaderSpan(t *testing.T) {
 	}
 }
 
-func TestResolveTxtarWithoutHeaderNewlines(t *testing.T) {
-	const full = "" +
-		"-- alpha.txt --first line\n" +
-		"second line -- dir/beta.go --package beta\n"
+// TestResolveTxtarHeadersStripped covers the real-world shape produced when
+// the server collapses newlines and renders multiple members on one "line":
+// `-- a.md --content...-- b.md --content...`. Headers terminated only by
+// content (rather than newline/space/EOF) are not real txtar headers, so
+// the resolver must not greedy-match across them. The citation falls back
+// to plain-text reporting against the source's title.
+func TestResolveTxtarHeadersStripped(t *testing.T) {
+	const full = "-- a.md --content one -- b.md --content two\n"
 	body := api.LoadSourceText{
 		SourceID: "src-1",
+		Title:    "stripped.txtar",
 		Fragments: []api.TextFragment{{
 			Start: 0,
 			End:   len([]rune(full)),
 			Text:  full,
 		}},
+	}
+	start := strings.Index(full, "content one")
+	got := Resolve(body, NativeCitation{
+		SourceID:  body.SourceID,
+		StartChar: start,
+		EndChar:   start + len([]rune("content one")),
+	})
+	if got.Status != StatusOK {
+		t.Fatalf("status = %s, want ok", got.Status)
+	}
+	if got.File != "stripped.txtar" {
+		t.Fatalf("file = %q, want stripped.txtar (no member matched)", got.File)
+	}
+}
+
+// TestResolveTxtarHeaderTrailingContent is the structural pin: a line that
+// looks like `-- name --extra` is NOT a valid header (the closing `--` must
+// be followed by a header-boundary or EOF), so the resolver should treat
+// the whole source as plain text. Previous behavior greedy-matched and
+// produced names like `a.md --extra blah`.
+func TestResolveTxtarHeaderTrailingContent(t *testing.T) {
+	const full = "" +
+		"-- alpha.txt --first line\n" +
+		"second line\n"
+	body := api.LoadSourceText{
+		SourceID:  "src-1",
+		Title:     "x.txt",
+		Fragments: []api.TextFragment{{Start: 0, End: len([]rune(full)), Text: full}},
 	}
 	start := strings.Index(full, "first line")
 	got := Resolve(body, NativeCitation{
@@ -172,11 +205,8 @@ func TestResolveTxtarWithoutHeaderNewlines(t *testing.T) {
 	if got.Status != StatusOK {
 		t.Fatalf("status = %s, want ok", got.Status)
 	}
-	if got.File != "alpha.txt" {
-		t.Fatalf("file = %q, want alpha.txt", got.File)
-	}
-	if got.Line != 1 || got.Column != 1 {
-		t.Fatalf("start = %d:%d, want 1:1", got.Line, got.Column)
+	if got.File != "x.txt" {
+		t.Fatalf("file = %q, want x.txt (no greedy header match)", got.File)
 	}
 }
 

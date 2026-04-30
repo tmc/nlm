@@ -228,6 +228,13 @@ func (r *sourceResolver) nearestMemberName(off int) string {
 	if len(r.members) == 0 {
 		return r.defaultFile
 	}
+	// An offset that lands before any detected header belongs to a member
+	// we couldn't parse (typically a runaway header where the loose scanner
+	// rejected the name). Falling forward to the *next* member's name would
+	// misattribute the citation; degrade to the source title instead.
+	if off < r.members[0].HeaderStart {
+		return r.defaultFile
+	}
 	for _, m := range r.members {
 		if off <= m.HeaderEnd {
 			return m.Name
@@ -266,6 +273,17 @@ func scanTxtarMembers(text []rune) []txtarMember {
 	}
 	if len(out) == 0 {
 		out = scanLooseTxtarMembers(text)
+		// When the loose scanner finds a "first" member with substantive
+		// preceding content, the txtar interpretation isn't trustworthy —
+		// the content we'd be unable to attribute is probably a real
+		// member whose header had a malformed terminator. Drop everything
+		// and let the resolver fall back to plain-text reporting.
+		if len(out) > 0 && out[0].HeaderStart > 0 {
+			prefix := strings.TrimSpace(string(text[:out[0].HeaderStart]))
+			if prefix != "" {
+				return nil
+			}
+		}
 	}
 	finishTxtarMembers(out, len(text))
 	return out
@@ -286,6 +304,13 @@ func scanLooseTxtarMembers(text []rune) []txtarMember {
 		}
 		name := strings.TrimSpace(string(text[i+3 : end]))
 		if name == "" {
+			continue
+		}
+		// Reject names that contain " --" anywhere — that means we walked
+		// past an earlier closing marker (one not followed by a header
+		// boundary) and swallowed real content into the name. Treat the
+		// whole region as plain text rather than risk a runaway header.
+		if strings.Contains(name, " --") {
 			continue
 		}
 		headerEnd := consumeHeaderSeparator(text, end+3)
@@ -310,9 +335,20 @@ func finishTxtarMembers(members []txtarMember, textLen int) {
 	}
 }
 
+// findHeaderEnd locates the closing " --" of a txtar header beginning at
+// start. The returned index points at the leading space. The closing ` --`
+// only counts when followed by a header-boundary character (newline, space,
+// tab) or end-of-text — without that check the scanner walks straight past
+// the real terminator and into the next member's content (e.g. when a
+// newline-stripped server response renders headers as
+// `-- a.md --content...-- b.md --`).
 func findHeaderEnd(text []rune, start int) int {
 	for i := start; i+2 < len(text); i++ {
-		if text[i] == ' ' && text[i+1] == '-' && text[i+2] == '-' {
+		if text[i] != ' ' || text[i+1] != '-' || text[i+2] != '-' {
+			continue
+		}
+		next := i + 3
+		if next >= len(text) || isHeaderBoundary(text[next]) {
 			return i
 		}
 	}
@@ -346,6 +382,14 @@ func parseTxtarHeaderLine(line string) (string, bool) {
 	}
 	name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(line, "-- "), " --"))
 	if name == "" {
+		return "", false
+	}
+	// Reject names that contain " --" anywhere. Server responses that strip
+	// newlines collapse multiple members onto one "line"; without this guard
+	// the name swallows everything between the first and last header on the
+	// line. A real header line is "-- name --" with the name itself free of
+	// any "--" sequence (txtar-style paths never contain that).
+	if strings.Contains(name, " --") {
 		return "", false
 	}
 	return name, true
