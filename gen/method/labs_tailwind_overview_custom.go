@@ -52,13 +52,13 @@ func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRe
 			[]interface{}{
 				nil,
 				[]interface{}{
-					instructions,                // [0] custom instructions or nil
-					2,                           // [1] constant
-					nil,                         // [2]
-					innerSourceRefs,             // [3] 2-level nesting
-					req.GetLanguage(),           // [4] language
-					nil,                         // [5] nil (not true)
-					int32(req.GetAudioType()),   // [6] audio style enum
+					instructions,              // [0] custom instructions or nil
+					2,                         // [1] constant
+					nil,                       // [2]
+					innerSourceRefs,           // [3] 2-level nesting
+					req.GetLanguage(),         // [4] language
+					nil,                       // [5] nil (not true)
+					int32(req.GetAudioType()), // [6] audio style enum
 				},
 			},
 		},
@@ -101,11 +101,11 @@ func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRe
 				nil,
 				nil,
 				[]interface{}{
-					innerSourceRefs,             // [0] 2-level nesting
-					nil,                         // [1]
-					nil,                         // [2]
-					nil,                         // [3]
-					int32(req.GetVideoStyle()),  // [4] video style enum
+					innerSourceRefs,            // [0] 2-level nesting
+					nil,                        // [1]
+					nil,                        // [2]
+					nil,                        // [3]
+					int32(req.GetVideoStyle()), // [4] video style enum
 				},
 			},
 		},

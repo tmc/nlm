@@ -53,7 +53,7 @@ CAPDIR=~/go/src/github.com/tmc/misc/chrome-to-har/logs/nlm-capture
 
 ### Test Notebook
 ```
-NB=2ed71b32-63bb-4c22-a779-210d4f9bec5f
+NB=00000000-0000-4000-8000-000000000005
 URL=https://notebooklm.google.com/notebook/$NB
 ```
 

@@ -252,9 +252,9 @@ Defined in `/Volumes/tmc/go/src/github.com/tmc/nlm/internal/notebooklm/rpc/rpc.g
 
 ## Test Notebook
 
-Notebook ID: `2ed71b32-63bb-4c22-a779-210d4f9bec5f` ("nlm source code") — has 18 sources, good for testing source/notes/chat/generation operations.
+Notebook ID: `00000000-0000-4000-8000-000000000005` ("nlm source code") — has 18 sources, good for testing source/notes/chat/generation operations.
 
-URL: `https://notebooklm.google.com/notebook/2ed71b32-63bb-4c22-a779-210d4f9bec5f`
+URL: `https://notebooklm.google.com/notebook/00000000-0000-4000-8000-000000000005`
 
 ## Actions to Capture
 

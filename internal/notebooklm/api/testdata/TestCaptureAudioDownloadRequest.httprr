@@ -1,6 +1,6 @@
 httprr trace v1
 722 1231
-POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2Fc2a56c84-ec7b-4415-a550-849c887f28f3 HTTP/1.1
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=00000000000000000000&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2F00000000-0000-4000-8000-000000000001 HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
 Content-Length: 130
@@ -14,7 +14,7 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%22c2a56c84-ec7b-4415-a550-849c887f28f3%5C%22%2C0%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%2200000000-0000-4000-8000-000000000001%5C%22%2C0%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
 Content-Length: 109
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -37,7 +37,7 @@ X-Xss-Protection: 0
 )]}'
 
 [["wrb.fr","VUsiyb",null,null,null,[16],"generic"],["di",19],["af.httprm",19,"[TIMESTAMP]310494",20]]722 1233
-POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2Fc2a56c84-ec7b-4415-a550-849c887f28f3 HTTP/1.1
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=00000000000000000000&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2F00000000-0000-4000-8000-000000000001 HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
 Content-Length: 130
@@ -51,7 +51,7 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%22c2a56c84-ec7b-4415-a550-849c887f28f3%5C%22%2C1%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%2200000000-0000-4000-8000-000000000001%5C%22%2C1%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
 Content-Length: 111
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -74,7 +74,7 @@ X-Xss-Protection: 0
 )]}'
 
 [["wrb.fr","VUsiyb",null,null,null,[16],"generic"],["di",105],["af.httprm",105,"[TIMESTAMP]700908",20]]722 1231
-POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2Fc2a56c84-ec7b-4415-a550-849c887f28f3 HTTP/1.1
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=00000000000000000000&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2F00000000-0000-4000-8000-000000000001 HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
 Content-Length: 130
@@ -88,7 +88,7 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%22c2a56c84-ec7b-4415-a550-849c887f28f3%5C%22%2C2%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%2200000000-0000-4000-8000-000000000001%5C%22%2C2%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
 Content-Length: 109
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -111,7 +111,7 @@ X-Xss-Protection: 0
 )]}'
 
 [["wrb.fr","VUsiyb",null,null,null,[16],"generic"],["di",20],["af.httprm",20,"-[TIMESTAMP]23802",22]]722 1232
-POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2Fc2a56c84-ec7b-4415-a550-849c887f28f3 HTTP/1.1
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=00000000000000000000&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2F00000000-0000-4000-8000-000000000001 HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
 Content-Length: 130
@@ -125,7 +125,7 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%22c2a56c84-ec7b-4415-a550-849c887f28f3%5C%22%2C3%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%2200000000-0000-4000-8000-000000000001%5C%22%2C3%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
 Content-Length: 110
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -148,7 +148,7 @@ X-Xss-Protection: 0
 )]}'
 
 [["wrb.fr","VUsiyb",null,null,null,[16],"generic"],["di",19],["af.httprm",18,"-[TIMESTAMP]405612",22]]722 1232
-POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2Fc2a56c84-ec7b-4415-a550-849c887f28f3 HTTP/1.1
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=00000000000000000000&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2F00000000-0000-4000-8000-000000000001 HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
 Content-Length: 130
@@ -162,7 +162,7 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%22c2a56c84-ec7b-4415-a550-849c887f28f3%5C%22%2C4%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%2200000000-0000-4000-8000-000000000001%5C%22%2C4%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
 Content-Length: 110
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
@@ -185,7 +185,7 @@ X-Xss-Protection: 0
 )]}'
 
 [["wrb.fr","VUsiyb",null,null,null,[16],"generic"],["di",24],["af.httprm",23,"-[TIMESTAMP]222412",22]]722 1231
-POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=-7121977511756781186&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2Fc2a56c84-ec7b-4415-a550-849c887f28f3 HTTP/1.1
+POST https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute?_reqid=00000&bl=boq_labs-tailwind-frontend_20250129.00_p0&f.sid=00000000000000000000&hl=en&rpcids=VUsiyb&source-path=%2Fnotebook%2F00000000-0000-4000-8000-000000000001 HTTP/1.1
 Host: notebooklm.google.com
 User-Agent: Go-http-client/1.1
 Content-Length: 130
@@ -199,7 +199,7 @@ Pragma: no-cache
 Referer: https://notebooklm.google.com/
 X-Same-Domain: 1
 
-at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%22c2a56c84-ec7b-4415-a550-849c887f28f3%5C%22%2C5%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
+at=&f.req=%5B%5B%5B%22VUsiyb%22%2C%22%5B%5C%2200000000-0000-4000-8000-000000000001%5C%22%2C5%5D%22%2Cnull%2C%22generic%22%5D%5D%5DHTTP/2.0 200 OK
 Content-Length: 109
 Accept-Ch: Sec-CH-UA-Arch, Sec-CH-UA-Bitness, Sec-CH-UA-Full-Version, Sec-CH-UA-Full-Version-List, Sec-CH-UA-Model, Sec-CH-UA-WoW64, Sec-CH-UA-Form-Factors, Sec-CH-UA-Platform, Sec-CH-UA-Platform-Version
 Alt-Svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000

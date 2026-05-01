@@ -30,7 +30,7 @@ func TestCaptureAudioCreateRequest(t *testing.T) {
 	)
 
 	// Use a test notebook ID (or create one)
-	testProjectID := "8826219b-1c40-4513-a2ab-affc3f2b56eb"
+	testProjectID := "00000000-0000-4000-8000-000000000002"
 
 	// Try to create audio overview
 	t.Logf("Creating audio overview for project: %s", testProjectID)

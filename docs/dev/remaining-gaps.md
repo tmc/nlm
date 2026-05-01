@@ -159,7 +159,7 @@ Read docs/dev/remaining-gaps.md for context.
 Run go test ./... and go build ./... to verify.
 
 IMPORTANT for all agents:
-- Use notebook 0c020dc2-3250-47c3-ad6a-bd28d8e4ae5d for any live API testing
+- Use notebook 00000000-0000-4000-8000-000000000003 for any live API testing
 - Do NOT modify proto files (they require buf generate to regenerate)
 - Follow the patterns in existing code (Russ Cox style — minimal, clear, no panics)
 - Run go vet ./... before finishing

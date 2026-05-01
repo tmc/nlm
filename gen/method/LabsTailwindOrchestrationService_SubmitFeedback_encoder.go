@@ -11,11 +11,13 @@ import (
 // Wire format verified against HAR capture — do not regenerate.
 //
 // Wire format for general feedback (thumbs up/down on note/artifact):
-//   [contextOneof, [rating, text, categories], textPair, audioCtx, ...]
+//
+//	[contextOneof, [rating, text, categories], textPair, audioCtx, ...]
 //
 // For simple text feedback submission:
-//   field 2: R2a {field 1: rating (1=up, 4=down), field 2: text}
-//   field 9: P2a {field 1: noteId, field 2: projectId} (for note context)
+//
+//	field 2: R2a {field 1: rating (1=up, 4=down), field 2: text}
+//	field 9: P2a {field 1: noteId, field 2: projectId} (for note context)
 //
 // Note: SubmitFeedback does NOT use a ProjectContext wrapper.
 // The project ID is embedded in the context oneof messages.

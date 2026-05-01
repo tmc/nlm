@@ -25,7 +25,7 @@ func TestCaptureAudioDownloadRequest(t *testing.T) {
 	client.SetUseDirectRPC(true)
 
 	// Use the test notebook that has audio ready
-	testProjectID := "c2a56c84-ec7b-4415-a550-849c887f28f3"
+	testProjectID := "00000000-0000-4000-8000-000000000001"
 
 	// Try each request type to see which one returns audio data
 	for requestType := 0; requestType <= 5; requestType++ {

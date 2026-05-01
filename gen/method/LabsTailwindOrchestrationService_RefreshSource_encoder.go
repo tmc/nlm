@@ -11,8 +11,9 @@ import (
 // Wire format verified against HAR capture — do not regenerate.
 //
 // Wire format: [null, ["source-id"], [2]]
-//   Field 2: SourceRevision sub-message with field 1 = source ID
-//   Field 3: ProjectContext {field 1: 2}
+//
+//	Field 2: SourceRevision sub-message with field 1 = source ID
+//	Field 3: ProjectContext {field 1: 2}
 func EncodeRefreshSourceArgs(req *notebooklmv1alpha1.RefreshSourceRequest) []interface{} {
 	sourceRevision := []interface{}{req.GetSourceId()}
 	projectContext := []interface{}{2}

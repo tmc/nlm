@@ -9,13 +9,13 @@ import (
 
 func TestEncodePublishGuidebookArgsV2(t *testing.T) {
 	req := &notebooklmv1alpha1.PublishGuidebookRequest{
-		GuidebookId: "1de64af8-457f-443d-a211-0fcde82dcbc0",
+		GuidebookId: "00000000-0000-4000-8000-000000000301",
 	}
 	got := EncodePublishGuidebookArgsV2(req)
 	gotJSON := mustJSON(t, got)
 
-	// HAR fixture: [[], null, null, "1de64af8-457f-443d-a211-0fcde82dcbc0", 20]
-	want := `[[],null,null,"1de64af8-457f-443d-a211-0fcde82dcbc0",20]`
+	// HAR fixture: [[], null, null, "00000000-0000-4000-8000-000000000301", 20]
+	want := `[[],null,null,"00000000-0000-4000-8000-000000000301",20]`
 	if gotJSON != want {
 		t.Errorf("EncodePublishGuidebookArgsV2:\n got: %s\nwant: %s", gotJSON, want)
 	}
@@ -52,13 +52,13 @@ func TestEncodeDeleteGuidebookArgsV2(t *testing.T) {
 
 func TestEncodeGuidebookGenerateAnswerArgsV2(t *testing.T) {
 	req := &notebooklmv1alpha1.GuidebookGenerateAnswerRequest{
-		GuidebookId: "acef30f3-f01c-4fe9-be33-a3c171b45168",
+		GuidebookId: "00000000-0000-4000-8000-000000000302",
 		Question:    "What is the API?",
 	}
 	got := EncodeGuidebookGenerateAnswerArgsV2(req)
 	gotJSON := mustJSON(t, got)
 
-	want := `["What is the API?","acef30f3-f01c-4fe9-be33-a3c171b45168",0,""]`
+	want := `["What is the API?","00000000-0000-4000-8000-000000000302",0,""]`
 	if gotJSON != want {
 		t.Errorf("EncodeGuidebookGenerateAnswerArgsV2:\n got: %s\nwant: %s", gotJSON, want)
 	}
@@ -79,13 +79,13 @@ func TestEncodeDeleteArtifactArgsV2(t *testing.T) {
 
 func TestEncodeDeleteAudioOverviewArgsV2(t *testing.T) {
 	req := &notebooklmv1alpha1.DeleteAudioOverviewRequest{
-		ProjectId: "cca7d573-3305-481b-8dc1-3b829b9e45df",
+		ProjectId: "00000000-0000-4000-8000-000000000004",
 	}
 	got := EncodeDeleteAudioOverviewArgsV2(req)
 	gotJSON := mustJSON(t, got)
 
-	// HAR fixture: [["cca7d573-3305-481b-8dc1-3b829b9e45df"],[2],[2]]
-	want := `[["cca7d573-3305-481b-8dc1-3b829b9e45df"],[2],[2]]`
+	// HAR fixture: [["00000000-0000-4000-8000-000000000004"],[2],[2]]
+	want := `[["00000000-0000-4000-8000-000000000004"],[2],[2]]`
 	if gotJSON != want {
 		t.Errorf("EncodeDeleteAudioOverviewArgsV2:\n got: %s\nwant: %s", gotJSON, want)
 	}
@@ -93,13 +93,13 @@ func TestEncodeDeleteAudioOverviewArgsV2(t *testing.T) {
 
 func TestEncodeShareAudioArgsV2(t *testing.T) {
 	req := &notebooklmv1alpha1.ShareAudioRequest{
-		ProjectId: "2ed71b32-63bb-4c22-a779-210d4f9bec5f",
+		ProjectId: "00000000-0000-4000-8000-000000000005",
 	}
 	got := EncodeShareAudioArgsV2(req)
 	gotJSON := mustJSON(t, got)
 
-	// HAR fixture: [[],null,"2ed71b32-63bb-4c22-a779-210d4f9bec5f",20]
-	want := `[[],null,"2ed71b32-63bb-4c22-a779-210d4f9bec5f",20]`
+	// HAR fixture: [[],null,"00000000-0000-4000-8000-000000000005",20]
+	want := `[[],null,"00000000-0000-4000-8000-000000000005",20]`
 	if gotJSON != want {
 		t.Errorf("EncodeShareAudioArgsV2:\n got: %s\nwant: %s", gotJSON, want)
 	}
@@ -107,7 +107,7 @@ func TestEncodeShareAudioArgsV2(t *testing.T) {
 
 func TestEncodeGetProjectAnalyticsArgsV2(t *testing.T) {
 	req := &notebooklmv1alpha1.GetProjectAnalyticsRequest{
-		ProjectId: "2ed71b32-63bb-4c22-a779-210d4f9bec5f",
+		ProjectId: "00000000-0000-4000-8000-000000000005",
 	}
 	got := EncodeGetProjectAnalyticsArgsV2(req)
 
@@ -115,7 +115,7 @@ func TestEncodeGetProjectAnalyticsArgsV2(t *testing.T) {
 	if len(got) != 4 {
 		t.Fatalf("expected 4 elements, got %d", len(got))
 	}
-	if got[0] != "2ed71b32-63bb-4c22-a779-210d4f9bec5f" {
+	if got[0] != "00000000-0000-4000-8000-000000000005" {
 		t.Errorf("field 0: got %v, want project ID", got[0])
 	}
 	if got[1] != nil {

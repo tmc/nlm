@@ -9,7 +9,8 @@ import (
 // EncodePublishGuidebookArgs encodes arguments for LabsTailwindGuidebooksService.PublishGuidebook
 // RPC ID: R6smae
 // Wire format verified against HAR capture (khqZz):
-//   [[], null, null, "<guidebook_id>", 20]
+//
+//	[[], null, null, "<guidebook_id>", 20]
 func EncodePublishGuidebookArgs(req *notebooklmv1alpha1.PublishGuidebookRequest) []interface{} {
 	return EncodePublishGuidebookArgsV2(req)
 }
