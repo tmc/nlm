@@ -113,6 +113,11 @@ type createSlideDeckInput struct {
 	Instructions string `json:"instructions"`
 }
 
+type createInfographicInput struct {
+	NotebookID   string `json:"notebook_id"`
+	Instructions string `json:"instructions"`
+}
+
 type readNoteInput struct {
 	NotebookID string `json:"notebook_id"`
 	NoteID     string `json:"note_id"`
@@ -383,6 +388,18 @@ func registerTools(server *mcp.Server, client *api.Client) {
 			return errorResult(fmt.Sprintf("failed to create slide deck: %v", err)), nil, nil
 		}
 		return textResult(fmt.Sprintf("started slide deck creation (artifact id: %s)", artifactID)), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "create_infographic",
+		Description: "Create an infographic from notebook sources.",
+		Annotations: mutatingAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input createInfographicInput) (*mcp.CallToolResult, any, error) {
+		artifactID, err := client.CreateInfographic(input.NotebookID, input.Instructions)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to create infographic: %v", err)), nil, nil
+		}
+		return textResult(fmt.Sprintf("started infographic creation (artifact id: %s)", artifactID)), nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{

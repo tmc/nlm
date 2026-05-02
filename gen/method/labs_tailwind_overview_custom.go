@@ -52,13 +52,13 @@ func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRe
 			[]interface{}{
 				nil,
 				[]interface{}{
-					instructions,                // [0] custom instructions or nil
-					2,                           // [1] constant
-					nil,                         // [2]
-					innerSourceRefs,             // [3] 2-level nesting
-					req.GetLanguage(),           // [4] language
-					nil,                         // [5] nil (not true)
-					int32(req.GetAudioType()),   // [6] audio style enum
+					instructions,              // [0] custom instructions or nil
+					2,                         // [1] constant
+					nil,                       // [2]
+					innerSourceRefs,           // [3] 2-level nesting
+					req.GetLanguage(),         // [4] language
+					nil,                       // [5] nil (not true)
+					int32(req.GetAudioType()), // [6] audio style enum
 				},
 			},
 		},
@@ -83,6 +83,23 @@ func EncodeCreateSlideDeckArgs(projectID string, sourceIDs []string, instruction
 	}
 }
 
+// EncodeCreateInfographicArgs encodes the R7cb6c infographic payload.
+func EncodeCreateInfographicArgs(projectID string, sourceIDs []string, instructions, language string) []interface{} {
+	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
+	return []interface{}{
+		artifactTypeDescriptor,
+		projectID,
+		[]interface{}{
+			nil,
+			nil,
+			7, // artifact type 7 = infographic
+			sourceRefs,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			[]interface{}{[]interface{}{instructions, language, nil, nil, nil, nil}},
+		},
+	}
+}
+
 // EncodeCreateVideoOverviewArgs encodes the observed R7cb6c video-overview payload.
 func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRequest) []interface{} {
 	// Wire format verified against HAR capture (2026-04-14) — do not regenerate.
@@ -101,11 +118,11 @@ func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRe
 				nil,
 				nil,
 				[]interface{}{
-					innerSourceRefs,             // [0] 2-level nesting
-					nil,                         // [1]
-					nil,                         // [2]
-					nil,                         // [3]
-					int32(req.GetVideoStyle()),  // [4] video style enum
+					innerSourceRefs,            // [0] 2-level nesting
+					nil,                        // [1]
+					nil,                        // [2]
+					nil,                        // [3]
+					int32(req.GetVideoStyle()), // [4] video style enum
 				},
 			},
 		},

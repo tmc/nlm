@@ -34,6 +34,9 @@ nlm chat NOTEBOOK_ID
 
 # Generate an audio overview
 nlm create-audio NOTEBOOK_ID "Focus on key findings"
+
+# Generate an infographic
+nlm create-infographic NOTEBOOK_ID "Visual summary of key findings"
 ```
 
 ## Next steps

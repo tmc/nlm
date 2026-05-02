@@ -35,10 +35,10 @@ func TestEncodeCreateAudioOverviewArgs(t *testing.T) {
 		{
 			name: "deep_dive_no_instructions",
 			req: &notebooklmv1alpha1.CreateAudioOverviewRequest{
-				ProjectId:  harProjectID,
-				AudioType:  notebooklmv1alpha1.AudioType_AUDIO_TYPE_DEEP_DIVE,
-				SourceIds:  harSourceIDs,
-				Language:   "en",
+				ProjectId: harProjectID,
+				AudioType: notebooklmv1alpha1.AudioType_AUDIO_TYPE_DEEP_DIVE,
+				SourceIds: harSourceIDs,
+				Language:  "en",
 			},
 			fixtureFile: "testdata/r7cb6c_audio_request.json",
 			knownDiffs:  []string{"instructions: encoder emits null, HAR has empty string"},
@@ -139,6 +139,44 @@ func TestEncodeCreateSlideDeckArgs(t *testing.T) {
 			mustUnmarshal(t, wantJSON, &wantVal)
 
 			assertJSONStructure(t, gotVal, wantVal, tt.knownDiffs, "")
+		})
+	}
+}
+
+func TestEncodeCreateInfographicArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		projectID    string
+		sourceIDs    []string
+		instructions string
+		language     string
+		fixtureFile  string
+	}{
+		{
+			name:         "default_infographic",
+			projectID:    harProjectID,
+			sourceIDs:    harSourceIDs,
+			instructions: "Create an executive summary infographic",
+			language:     "en",
+			fixtureFile:  "testdata/r7cb6c_infographic_request.json",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := EncodeCreateInfographicArgs(tt.projectID, tt.sourceIDs, tt.instructions, tt.language)
+			gotJSON := mustMarshal(t, got)
+
+			wantJSON := mustReadFixture(t, tt.fixtureFile)
+
+			var gotVal, wantVal interface{}
+			mustUnmarshal(t, gotJSON, &gotVal)
+			mustUnmarshal(t, wantJSON, &wantVal)
+
+			assertJSONStructure(t, gotVal, wantVal, nil, "")
 		})
 	}
 }

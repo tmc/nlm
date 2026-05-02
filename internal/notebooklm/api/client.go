@@ -2661,6 +2661,56 @@ func (c *Client) CreateSlideDeck(projectID, instructions string) (string, error)
 	return "", fmt.Errorf("unexpected slide deck response format")
 }
 
+func (c *Client) CreateInfographic(projectID, instructions string) (string, error) {
+	if projectID == "" {
+		return "", fmt.Errorf("project ID required")
+	}
+	if instructions == "" {
+		return "", fmt.Errorf("instructions required")
+	}
+
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return "", fmt.Errorf("get project sources: %w", err)
+	}
+	var sourceIDs []string
+	for _, src := range project.Sources {
+		if src.SourceId != nil {
+			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+		}
+	}
+	if len(sourceIDs) == 0 {
+		return "", fmt.Errorf("notebook has no sources")
+	}
+
+	args := method.EncodeCreateInfographicArgs(projectID, sourceIDs, instructions, "en")
+	call := rpc.Call{
+		ID:         rpc.RPCCreateUniversalArtifact,
+		NotebookID: projectID,
+		Args:       args,
+	}
+	resp, err := c.rpc.Do(call)
+	if err != nil {
+		return "", fmt.Errorf("create infographic: %w", err)
+	}
+
+	var raw []interface{}
+	if err := json.Unmarshal(resp, &raw); err != nil {
+		return "", fmt.Errorf("parse infographic response: %w", err)
+	}
+	if len(raw) > 0 {
+		if id, ok := raw[0].(string); ok {
+			return id, nil
+		}
+		if inner, ok := raw[0].([]interface{}); ok && len(inner) > 0 {
+			if id, ok := inner[0].(string); ok {
+				return id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("unexpected infographic response format")
+}
+
 // Generation operations
 
 func (c *Client) GenerateDocumentGuides(projectID string) (*pb.GenerateDocumentGuidesResponse, error) {

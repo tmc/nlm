@@ -206,6 +206,14 @@ Create a slide deck presentation.
 nlm create-slides NOTEBOOK_ID "Make a detailed presentation on the key findings"
 ```
 
+### create-infographic
+
+Create an infographic from notebook sources.
+
+```bash
+nlm create-infographic NOTEBOOK_ID "Create a visual summary of the key findings"
+```
+
 ## Audio
 
 ### audio-list
