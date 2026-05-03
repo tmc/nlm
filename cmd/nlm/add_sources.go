@@ -156,6 +156,9 @@ func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAd
 	if err := validateSourceInputs(inputs); err != nil {
 		return err
 	}
+	if opts.ReplaceSourceID != "" && len(inputs) != 1 {
+		return fmt.Errorf("--replace requires exactly one source")
+	}
 	knownSourceIDs, _ := sourceIDSet(c, notebookID) // Best-effort cleanup guard.
 	for _, in := range inputs {
 		ids, err := addSourceEntry(c, notebookID, in, opts)
@@ -171,27 +174,43 @@ func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAd
 			}
 			fmt.Println(id)
 		}
-		if opts.ReplaceSourceID != "" && len(inputs) == 1 && len(ids) == 1 {
-			fmt.Fprintf(os.Stderr, "Replacing source %s...\n", opts.ReplaceSourceID)
-			// Snapshot label assignments before delete; the new source ID
-			// has no labels yet and the old ID becomes invalid after delete.
-			labelIDs, lerr := labelsForSource(c, notebookID, opts.ReplaceSourceID)
-			if lerr != nil {
-				fmt.Fprintf(os.Stderr, "warning: could not read labels for %s: %v\n", opts.ReplaceSourceID, lerr)
-			}
-			if delErr := c.DeleteSources(notebookID, []string{opts.ReplaceSourceID}); delErr != nil {
-				fmt.Fprintf(os.Stderr, "warning: uploaded new source but failed to delete old: %v\n", delErr)
-			}
-			if len(labelIDs) > 0 {
-				if aerr := attachLabels(c, notebookID, ids[0], labelIDs); aerr != nil {
-					fmt.Fprintf(os.Stderr, "warning: %v\n", aerr)
-				} else {
-					fmt.Fprintf(os.Stderr, "  preserved %d label assignment(s)\n", len(labelIDs))
-				}
-			}
+		if opts.ReplaceSourceID != "" {
+			replaceUploadedSource(c, notebookID, opts.ReplaceSourceID, ids)
 		}
 	}
 	return nil
+}
+
+type sourceReplaceClient interface {
+	DeleteSources(projectID string, sourceIDs []string) error
+	labelReader
+	labelAttacher
+}
+
+func replaceUploadedSource(c sourceReplaceClient, notebookID, oldSourceID string, newSourceIDs []string) {
+	if len(newSourceIDs) == 0 {
+		fmt.Fprintf(os.Stderr, "warning: no replacement source uploaded for %s\n", oldSourceID)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "Replacing source %s...\n", oldSourceID)
+
+	// Snapshot label assignments before delete; the new source IDs have no
+	// labels yet and the old ID becomes invalid after delete.
+	labelIDs, lerr := labelsForSource(c, notebookID, oldSourceID)
+	if lerr != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not read labels for %s: %v\n", oldSourceID, lerr)
+	}
+	if delErr := c.DeleteSources(notebookID, []string{oldSourceID}); delErr != nil {
+		fmt.Fprintf(os.Stderr, "warning: uploaded new source but failed to delete old: %v\n", delErr)
+	}
+	if len(labelIDs) == 0 {
+		return
+	}
+	if aerr := attachLabelsToSources(c, notebookID, newSourceIDs, labelIDs); aerr != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", aerr)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "  preserved %d label assignment(s) on %d source(s)\n", len(labelIDs), len(newSourceIDs))
 }
 
 // addSourceEntry dispatches a single positional input to the appropriate

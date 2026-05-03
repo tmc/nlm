@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 func TestRunPreProcess(t *testing.T) {
@@ -174,6 +175,60 @@ func TestChunkedSourceNames(t *testing.T) {
 				t.Errorf("chunkedSourceNames(%q, %d) = %v, want %v", tt.base, tt.n, got, tt.want)
 			}
 		})
+	}
+}
+
+type fakeSourceReplaceClient struct {
+	labels   []api.Label
+	deleted  []string
+	attached []struct {
+		labelID  string
+		sourceID string
+	}
+}
+
+func (f *fakeSourceReplaceClient) GetLabels(string) ([]api.Label, error) {
+	return f.labels, nil
+}
+
+func (f *fakeSourceReplaceClient) DeleteSources(_ string, ids []string) error {
+	f.deleted = append(f.deleted, ids...)
+	return nil
+}
+
+func (f *fakeSourceReplaceClient) AttachLabelSource(_, labelID, sourceID string) error {
+	f.attached = append(f.attached, struct {
+		labelID  string
+		sourceID string
+	}{labelID, sourceID})
+	return nil
+}
+
+func TestReplaceUploadedSourceDeletesOldAndLabelsAllParts(t *testing.T) {
+	fc := &fakeSourceReplaceClient{
+		labels: []api.Label{
+			{LabelID: "label-a", SourceIDs: []string{"old-src"}},
+			{LabelID: "label-b", SourceIDs: []string{"other", "old-src"}},
+			{LabelID: "label-c", SourceIDs: []string{"other"}},
+		},
+	}
+
+	replaceUploadedSource(fc, "nb", "old-src", []string{"new-1", "new-2"})
+
+	if !reflect.DeepEqual(fc.deleted, []string{"old-src"}) {
+		t.Fatalf("deleted = %v, want [old-src]", fc.deleted)
+	}
+	want := []struct {
+		labelID  string
+		sourceID string
+	}{
+		{"label-a", "new-1"},
+		{"label-b", "new-1"},
+		{"label-a", "new-2"},
+		{"label-b", "new-2"},
+	}
+	if !reflect.DeepEqual(fc.attached, want) {
+		t.Fatalf("attached = %v, want %v", fc.attached, want)
 	}
 }
 

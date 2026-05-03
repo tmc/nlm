@@ -53,6 +53,11 @@ func TestParseSourceAddArgs(t *testing.T) {
 			wantErr: "--chunk must be >= 0",
 		},
 		{
+			name:    "replace multiple sources",
+			args:    []string{"nb", "a", "b", "--replace", "src-1"},
+			wantErr: "--replace requires exactly one source",
+		},
+		{
 			name:    "missing source",
 			args:    []string{"nb"},
 			wantErr: "missing notebook id or source",
