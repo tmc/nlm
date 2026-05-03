@@ -1,0 +1,21 @@
+# Test create-infographic command validation only (no network calls)
+
+# Test create-infographic without arguments (should fail with usage)
+! exec ./nlm_test create-infographic
+stderr 'usage: nlm create-infographic <notebook-id> <instructions>'
+! stderr 'panic'
+
+# Test create-infographic with only one argument (should fail with usage)
+! exec ./nlm_test create-infographic notebook123
+stderr 'usage: nlm create-infographic <notebook-id> <instructions>'
+! stderr 'panic'
+
+# Test create-infographic without authentication (should fail)
+! exec ./nlm_test create-infographic notebook123 'Create an infographic'
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test create-infographic with multi-word prompt parsing
+! exec ./nlm_test create-infographic notebook123 create an infographic
+stderr 'Authentication required'
+! stderr 'panic'

@@ -10,6 +10,14 @@ var artifactTypeDescriptor = []interface{}{
 	[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
 }
 
+// infographicArtifactTypeDescriptor is the observed descriptor for infographic
+// R7cb6c calls. Unlike audio/video/slides, the UI omits the final type 5 flag.
+var infographicArtifactTypeDescriptor = []interface{}{
+	2, nil, nil,
+	[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+	[]interface{}{[]interface{}{1, 4, 2, 3, 6}},
+}
+
 // encodeOverviewSourceRefs returns 3-level nesting: [[[id1]], [[id2]], ...]
 // Used for the outer source refs at arg[2][3].
 func encodeOverviewSourceRefs(sourceIDs []string) []interface{} {
@@ -52,13 +60,13 @@ func EncodeCreateAudioOverviewArgs(req *notebooklmv1alpha1.CreateAudioOverviewRe
 			[]interface{}{
 				nil,
 				[]interface{}{
-					instructions,                // [0] custom instructions or nil
-					2,                           // [1] constant
-					nil,                         // [2]
-					innerSourceRefs,             // [3] 2-level nesting
-					req.GetLanguage(),           // [4] language
-					nil,                         // [5] nil (not true)
-					int32(req.GetAudioType()),   // [6] audio style enum
+					instructions,              // [0] custom instructions or nil
+					2,                         // [1] constant
+					nil,                       // [2]
+					innerSourceRefs,           // [3] 2-level nesting
+					req.GetLanguage(),         // [4] language
+					nil,                       // [5] nil (not true)
+					int32(req.GetAudioType()), // [6] audio style enum
 				},
 			},
 		},
@@ -83,6 +91,48 @@ func EncodeCreateSlideDeckArgs(projectID string, sourceIDs []string, instruction
 	}
 }
 
+// EncodeCreateInfographicArgs encodes the R7cb6c infographic payload.
+func EncodeCreateInfographicArgs(projectID string, sourceIDs []string, instructions, language string) []interface{} {
+	_ = language
+	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
+	var customInstructions interface{}
+	if instructions != "" {
+		customInstructions = instructions
+	}
+	return []interface{}{
+		infographicArtifactTypeDescriptor,
+		projectID,
+		[]interface{}{
+			nil,
+			nil,
+			7, // artifact type 7 = infographic
+			sourceRefs,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			[]interface{}{[]interface{}{customInstructions, nil, nil, 1, 2}},
+		},
+	}
+}
+
+// EncodeCreateFlashcardsArgs encodes the observed R7cb6c flashcards payload.
+func EncodeCreateFlashcardsArgs(projectID string, sourceIDs []string) []interface{} {
+	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
+	return []interface{}{
+		infographicArtifactTypeDescriptor,
+		projectID,
+		[]interface{}{
+			nil,
+			nil,
+			4, // artifact type 4 covers generated report-style artifacts, including flashcards
+			sourceRefs,
+			nil, nil, nil, nil, nil,
+			[]interface{}{
+				nil,
+				[]interface{}{1, nil, nil, nil, nil, nil, []interface{}{2, 2}},
+			},
+		},
+	}
+}
+
 // EncodeCreateVideoOverviewArgs encodes the observed R7cb6c video-overview payload.
 func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRequest) []interface{} {
 	// Wire format verified against HAR capture (2026-04-14) — do not regenerate.
@@ -101,11 +151,11 @@ func EncodeCreateVideoOverviewArgs(req *notebooklmv1alpha1.CreateVideoOverviewRe
 				nil,
 				nil,
 				[]interface{}{
-					innerSourceRefs,             // [0] 2-level nesting
-					nil,                         // [1]
-					nil,                         // [2]
-					nil,                         // [3]
-					int32(req.GetVideoStyle()),  // [4] video style enum
+					innerSourceRefs,            // [0] 2-level nesting
+					nil,                        // [1]
+					nil,                        // [2]
+					nil,                        // [3]
+					int32(req.GetVideoStyle()), // [4] video style enum
 				},
 			},
 		},

@@ -9,16 +9,16 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
-// Test source IDs extracted from HAR captures (2026-04-14).
+// Sanitized source IDs modeled after HAR captures (2026-04-14).
 var harSourceIDs = []string{
-	"a0c8e082-2e21-4b99-8bcb-00b55e69b7e7",
-	"ade43ebd-0c78-47a4-913f-351913a7461e",
-	"75e37fb4-def2-43d3-97bd-a8fac30f3295",
-	"e72a540f-5e5b-488a-ba47-8f72c6edf557",
-	"cbdf1d72-07b7-4a58-aa96-2118a54fa1ba",
+	"00000000-0000-4000-8000-000000000101",
+	"00000000-0000-4000-8000-000000000102",
+	"00000000-0000-4000-8000-000000000103",
+	"00000000-0000-4000-8000-000000000104",
+	"00000000-0000-4000-8000-000000000105",
 }
 
-const harProjectID = "0c020dc2-3250-47c3-ad6a-bd28d8e4ae5d"
+const harProjectID = "00000000-0000-4000-8000-000000000001"
 
 func TestEncodeCreateAudioOverviewArgs(t *testing.T) {
 	t.Parallel()
@@ -35,10 +35,10 @@ func TestEncodeCreateAudioOverviewArgs(t *testing.T) {
 		{
 			name: "deep_dive_no_instructions",
 			req: &notebooklmv1alpha1.CreateAudioOverviewRequest{
-				ProjectId:  harProjectID,
-				AudioType:  notebooklmv1alpha1.AudioType_AUDIO_TYPE_DEEP_DIVE,
-				SourceIds:  harSourceIDs,
-				Language:   "en",
+				ProjectId: harProjectID,
+				AudioType: notebooklmv1alpha1.AudioType_AUDIO_TYPE_DEEP_DIVE,
+				SourceIds: harSourceIDs,
+				Language:  "en",
 			},
 			fixtureFile: "testdata/r7cb6c_audio_request.json",
 			knownDiffs:  []string{"instructions: encoder emits null, HAR has empty string"},
@@ -141,6 +141,56 @@ func TestEncodeCreateSlideDeckArgs(t *testing.T) {
 			assertJSONStructure(t, gotVal, wantVal, tt.knownDiffs, "")
 		})
 	}
+}
+
+func TestEncodeCreateInfographicArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		projectID    string
+		sourceIDs    []string
+		instructions string
+		language     string
+		fixtureFile  string
+	}{
+		{
+			name:         "default_infographic",
+			projectID:    harProjectID,
+			sourceIDs:    harSourceIDs,
+			instructions: "Create an executive summary infographic",
+			language:     "en",
+			fixtureFile:  "testdata/r7cb6c_infographic_request.json",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := EncodeCreateInfographicArgs(tt.projectID, tt.sourceIDs, tt.instructions, tt.language)
+			gotJSON := mustMarshal(t, got)
+
+			wantJSON := mustReadFixture(t, tt.fixtureFile)
+
+			var gotVal, wantVal interface{}
+			mustUnmarshal(t, gotJSON, &gotVal)
+			mustUnmarshal(t, wantJSON, &wantVal)
+
+			assertJSONStructure(t, gotVal, wantVal, nil, "")
+		})
+	}
+}
+
+func TestEncodeCreateFlashcardsArgs(t *testing.T) {
+	t.Parallel()
+
+	got := EncodeCreateFlashcardsArgs(harProjectID, []string{"source-1"})
+	gotJSON := string(mustMarshal(t, got))
+	want := `[ [2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,2,3,6]]], "` + harProjectID + `", [null,null,4,[[["source-1"]]],null,null,null,null,null,[null,[1,null,null,null,null,null,[2,2]]]] ]`
+	var gotVal, wantVal interface{}
+	mustUnmarshal(t, []byte(gotJSON), &gotVal)
+	mustUnmarshal(t, []byte(want), &wantVal)
+	assertJSONStructure(t, gotVal, wantVal, nil, "")
 }
 
 // TestEncodeOverviewSourceRefs verifies 3-level nesting: [[[id1]], [[id2]], ...]

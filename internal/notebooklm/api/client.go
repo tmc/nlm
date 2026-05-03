@@ -23,12 +23,35 @@ import (
 	"github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
+	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
 type Notebook = pb.Project
 type Note = pb.Note
+
+type ArtifactDetails struct {
+	Artifact    *pb.Artifact
+	Title       string
+	Description string
+	ImageURL    string
+	URLs        []string
+}
+
+type ArtifactDownloadResult struct {
+	ArtifactID  string
+	Filename    string
+	ContentType string
+	Bytes       int64
+	ImageURL    string
+}
+
+type ArtifactFilesDownloadResult struct {
+	ArtifactID string
+	OutputPath string
+	Files      []*ArtifactDownloadResult
+}
 
 // httpClientWithTimeout returns an IPv4-preferring HTTP client with the given timeout.
 func httpClientWithTimeout(timeout time.Duration) *http.Client {
@@ -44,9 +67,10 @@ type Client struct {
 	sharingService       *service.LabsTailwindSharingServiceClient
 	guidebooksService    *service.LabsTailwindGuidebooksServiceClient
 	config               struct {
-		Debug        bool
-		UseDirectRPC bool   // Use direct RPC calls instead of orchestration service
-		AuthUser     string // Google account index for multi-account profiles
+		Debug          bool
+		UseDirectRPC   bool   // Use direct RPC calls instead of orchestration service
+		AuthUser       string // Google account index for multi-account profiles
+		BrowserProfile string // Browser profile to use for CDN downloads
 	}
 }
 
@@ -88,6 +112,10 @@ func (c *Client) SetDebug(debug bool) {
 // SetAuthUser sets the Google account index for multi-account profiles.
 func (c *Client) SetAuthUser(authUser string) {
 	c.config.AuthUser = authUser
+}
+
+func (c *Client) SetBrowserProfile(profile string) {
+	c.config.BrowserProfile = profile
 }
 
 // authUserOrDefault returns the configured authuser value or "0".
@@ -2412,6 +2440,616 @@ func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
 	return nil, fmt.Errorf("artifact %q not found", artifactID)
 }
 
+// GetArtifactDetails returns parsed metadata plus generated content URLs when
+// the raw artifact payload contains them.
+func (c *Client) GetArtifactDetails(artifactID string) (*ArtifactDetails, error) {
+	var directDetails *ArtifactDetails
+	resp, err := c.rpc.Do(rpc.Call{
+		ID:   rpc.RPCGetArtifact,
+		Args: []interface{}{artifactID},
+	})
+	if err == nil {
+		if details, parseErr := c.parseArtifactDetailsResponse(resp, artifactID); parseErr == nil {
+			if details.ImageURL != "" {
+				return details, nil
+			}
+			directDetails = details
+		} else if c.config.Debug {
+			fmt.Printf("Error parsing artifact details response: %v\n", parseErr)
+		}
+	}
+
+	projects, listErr := c.ListRecentlyViewedProjects()
+	if listErr != nil {
+		if directDetails != nil {
+			return directDetails, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("get artifact details RPC: %w", err)
+		}
+		return nil, fmt.Errorf("list projects for artifact lookup: %w", listErr)
+	}
+	for _, project := range projects {
+		artifacts, listArtifactsErr := c.ListArtifactDetails(project.GetProjectId())
+		if listArtifactsErr != nil {
+			continue
+		}
+		for _, details := range artifacts {
+			if details.Artifact.GetArtifactId() == artifactID {
+				return details, nil
+			}
+		}
+	}
+	if directDetails != nil {
+		return directDetails, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get artifact details RPC: %w", err)
+	}
+	return nil, fmt.Errorf("artifact %q not found", artifactID)
+}
+
+func (c *Client) GetArtifactDetailsInProject(projectID, artifactID string) (*ArtifactDetails, error) {
+	if projectID == "" {
+		return nil, fmt.Errorf("project ID required")
+	}
+	if artifactID == "" {
+		return nil, fmt.Errorf("artifact ID required")
+	}
+
+	artifacts, err := c.ListArtifactDetails(projectID)
+	if err != nil {
+		return nil, err
+	}
+	for _, details := range artifacts {
+		if details.Artifact.GetArtifactId() == artifactID {
+			return details, nil
+		}
+	}
+	return nil, fmt.Errorf("artifact %q not found in notebook %q", artifactID, projectID)
+}
+
+// ListArtifactDetails returns artifacts for a project with any URL/title data
+// present in the raw list-artifacts response.
+func (c *Client) ListArtifactDetails(projectID string) ([]*ArtifactDetails, error) {
+	resp, err := c.rpc.Do(rpc.Call{
+		ID: rpc.RPCListArtifacts,
+		Args: []interface{}{
+			[]interface{}{2},
+			projectID,
+		},
+		NotebookID: projectID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list artifact details RPC: %w", err)
+	}
+
+	return c.parseArtifactDetailsListResponse(resp)
+}
+
+func (c *Client) parseArtifactDetailsListResponse(resp []byte) ([]*ArtifactDetails, error) {
+	var responseData []interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		return nil, fmt.Errorf("parse artifact details list response: %w", err)
+	}
+
+	items := responseData
+	if wrapped, ok := interfaceSliceAt(responseData, 0); ok {
+		if len(wrapped) == 0 {
+			items = wrapped
+		} else if _, ok := wrapped[0].([]interface{}); ok {
+			items = wrapped
+		}
+	}
+
+	details := make([]*ArtifactDetails, 0, len(items))
+	for _, item := range items {
+		artifactData, ok := item.([]interface{})
+		if !ok {
+			continue
+		}
+		artifactDetails := c.artifactDetailsFromData(artifactData)
+		if artifactDetails != nil {
+			details = append(details, artifactDetails)
+		}
+	}
+	return details, nil
+}
+
+func (c *Client) parseArtifactDetailsResponse(resp []byte, artifactID string) (*ArtifactDetails, error) {
+	var responseData interface{}
+	if err := json.Unmarshal(resp, &responseData); err != nil {
+		return nil, fmt.Errorf("parse artifact details response: %w", err)
+	}
+
+	artifactData, ok := findArtifactData(responseData, artifactID)
+	if !ok {
+		return nil, fmt.Errorf("artifact %q not found in response", artifactID)
+	}
+	details := c.artifactDetailsFromData(artifactData)
+	if details == nil {
+		return nil, fmt.Errorf("invalid artifact data for %q", artifactID)
+	}
+	return details, nil
+}
+
+func findArtifactData(value interface{}, artifactID string) ([]interface{}, bool) {
+	values, ok := value.([]interface{})
+	if !ok {
+		return nil, false
+	}
+	if len(values) > 0 {
+		if id, ok := values[0].(string); ok && id != "" && (artifactID == "" || id == artifactID) {
+			return values, true
+		}
+	}
+	for _, child := range values {
+		if artifactData, ok := findArtifactData(child, artifactID); ok {
+			return artifactData, true
+		}
+	}
+	return nil, false
+}
+
+func (c *Client) artifactDetailsFromData(artifactData []interface{}) *ArtifactDetails {
+	artifact := c.parseArtifactFromResponse(artifactData)
+	if artifact == nil {
+		return nil
+	}
+
+	title := stringAt(artifactData, 1)
+	urls := artifactURLs(artifactData)
+	return &ArtifactDetails{
+		Artifact:    artifact,
+		Title:       title,
+		Description: artifactDescription(artifactData, artifact.GetArtifactId(), title, urls),
+		ImageURL:    pickArtifactImageURL(urls),
+		URLs:        urls,
+	}
+}
+
+func artifactURLs(value interface{}) []string {
+	var stringsFound []string
+	collectStrings(value, &stringsFound)
+
+	var urls []string
+	seen := make(map[string]bool)
+	for _, s := range stringsFound {
+		if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
+			continue
+		}
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		urls = append(urls, s)
+	}
+	return urls
+}
+
+func collectStrings(value interface{}, out *[]string) {
+	switch v := value.(type) {
+	case string:
+		*out = append(*out, v)
+	case []interface{}:
+		for _, child := range v {
+			collectStrings(child, out)
+		}
+	case map[string]interface{}:
+		for _, child := range v {
+			collectStrings(child, out)
+		}
+	}
+}
+
+func pickArtifactImageURL(urls []string) string {
+	for _, u := range urls {
+		lower := strings.ToLower(u)
+		if strings.Contains(lower, "googleusercontent.com/notebooklm/") {
+			return u
+		}
+	}
+	for _, u := range urls {
+		lower := strings.ToLower(u)
+		if strings.Contains(lower, ".png") || strings.Contains(lower, ".jpg") ||
+			strings.Contains(lower, ".jpeg") || strings.Contains(lower, ".webp") {
+			return u
+		}
+	}
+	if len(urls) == 0 {
+		return ""
+	}
+	return urls[0]
+}
+
+func artifactDescription(value interface{}, artifactID, title string, urls []string) string {
+	urlSet := make(map[string]bool)
+	for _, u := range urls {
+		urlSet[u] = true
+	}
+
+	var stringsFound []string
+	collectStrings(value, &stringsFound)
+	for _, s := range stringsFound {
+		trimmed := strings.TrimSpace(s)
+		if trimmed == "" || trimmed == artifactID || trimmed == title || urlSet[trimmed] {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "http://") || strings.HasPrefix(trimmed, "https://") {
+			continue
+		}
+		if len(trimmed) < 24 || looksLikeUUID(trimmed) {
+			continue
+		}
+		return trimmed
+	}
+	return ""
+}
+
+func looksLikeUUID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, r := range s {
+		switch i {
+		case 8, 13, 18, 23:
+			if r != '-' {
+				return false
+			}
+		default:
+			if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (c *Client) DownloadArtifactImage(artifactID, filename string) (*ArtifactDownloadResult, error) {
+	details, err := c.GetArtifactDetails(artifactID)
+	if err != nil {
+		return nil, err
+	}
+	return c.downloadArtifactImage(details, artifactID, filename)
+}
+
+func (c *Client) DownloadArtifactImageFromProject(projectID, artifactID, filename string) (*ArtifactDownloadResult, error) {
+	details, err := c.GetArtifactDetailsInProject(projectID, artifactID)
+	if err != nil {
+		return nil, err
+	}
+	return c.downloadArtifactImage(details, artifactID, filename)
+}
+
+func (c *Client) DownloadArtifactFilesFromProject(projectID, artifactID, outputPath string) (*ArtifactFilesDownloadResult, error) {
+	details, err := c.GetArtifactDetailsInProject(projectID, artifactID)
+	if err != nil {
+		return nil, err
+	}
+
+	urls := artifactMediaURLs(details)
+	if len(urls) == 0 {
+		return nil, fmt.Errorf("artifact %q does not expose downloadable media URLs", artifactID)
+	}
+
+	if len(urls) == 1 {
+		filename := outputPath
+		result, err := c.downloadArtifactURL(urls[0], details, artifactID, filename)
+		if err != nil {
+			return nil, err
+		}
+		return &ArtifactFilesDownloadResult{
+			ArtifactID: artifactID,
+			OutputPath: result.Filename,
+			Files:      []*ArtifactDownloadResult{result},
+		}, nil
+	}
+
+	outputDir := outputPath
+	if outputDir == "" {
+		outputDir = defaultArtifactDirectory(details)
+	}
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("create artifact output directory: %w", err)
+	}
+
+	results := make([]*ArtifactDownloadResult, 0, len(urls))
+	baseName := slugFilename(details.Title)
+	if baseName == "artifact" {
+		baseName = slugFilename(artifactID)
+	}
+	for i, mediaURL := range urls {
+		outputName := artifactFilenameFromURL(mediaURL)
+		if outputName == "" {
+			outputName = baseName
+		}
+		filename := filepath.Join(outputDir, fmt.Sprintf("%02d-%s", i+1, outputName))
+		result, err := c.downloadArtifactURL(mediaURL, details, artifactID, filename)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, result)
+	}
+
+	return &ArtifactFilesDownloadResult{
+		ArtifactID: artifactID,
+		OutputPath: outputDir,
+		Files:      results,
+	}, nil
+}
+
+func (c *Client) downloadArtifactImage(details *ArtifactDetails, artifactID, filename string) (*ArtifactDownloadResult, error) {
+	if details.ImageURL == "" {
+		return nil, fmt.Errorf("artifact %q does not expose an image URL", artifactID)
+	}
+	return c.downloadArtifactURL(details.ImageURL, details, artifactID, filename)
+}
+
+func (c *Client) downloadArtifactURL(mediaURL string, details *ArtifactDetails, artifactID, filename string) (*ArtifactDownloadResult, error) {
+	mediaURL = c.mediaURLWithAuthUser(mediaURL)
+	client := httpClientWithTimeout(2 * time.Minute)
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("stopped after 10 redirects")
+		}
+		if len(via) > 0 {
+			if cookies := via[0].Header.Get("Cookie"); cookies != "" {
+				req.Header.Set("Cookie", cookies)
+			}
+			if auth := via[0].Header.Get("Authorization"); auth != "" {
+				req.Header.Set("Authorization", auth)
+			}
+			if ua := via[0].Header.Get("User-Agent"); ua != "" {
+				req.Header.Set("User-Agent", ua)
+			}
+		}
+		return nil
+	}
+
+	req, err := http.NewRequest(http.MethodGet, mediaURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create artifact image request: %w", err)
+	}
+	c.setArtifactMediaHeaders(req, mediaURL)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download artifact image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read artifact image response: %w", err)
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if resp.StatusCode != http.StatusOK || looksLikeHTML(body, contentType) {
+		browserBody, browserContentType, browserErr := c.downloadArtifactImageWithBrowser(mediaURL)
+		if browserErr != nil {
+			if resp.StatusCode != http.StatusOK {
+				return nil, fmt.Errorf("download artifact media failed with status %s; browser fallback failed: %w", resp.Status, browserErr)
+			}
+			return nil, fmt.Errorf("download returned HTML instead of media data; browser fallback failed: %w", browserErr)
+		}
+		body = browserBody
+		contentType = browserContentType
+	}
+
+	if filename == "" {
+		filename = defaultArtifactFilename(details, mediaURL, contentType)
+	}
+	if filepath.Ext(filename) == "" {
+		filename += artifactFileExtension(contentType)
+	}
+	if err := os.WriteFile(filename, body, 0644); err != nil {
+		return nil, fmt.Errorf("write artifact media: %w", err)
+	}
+
+	return &ArtifactDownloadResult{
+		ArtifactID:  artifactID,
+		Filename:    filename,
+		ContentType: contentType,
+		Bytes:       int64(len(body)),
+		ImageURL:    mediaURL,
+	}, nil
+}
+
+func (c *Client) mediaURLWithAuthUser(mediaURL string) string {
+	parsed, err := url.Parse(mediaURL)
+	if err != nil {
+		return mediaURL
+	}
+	query := parsed.Query()
+	if query.Get("authuser") == "" {
+		query.Set("authuser", c.authUserOrDefault())
+		parsed.RawQuery = query.Encode()
+	}
+	return parsed.String()
+}
+
+func (c *Client) setArtifactMediaHeaders(req *http.Request, mediaURL string) {
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
+	if cookies := c.rpc.Config.Cookies; cookies != "" {
+		req.Header.Set("Cookie", cookies)
+	}
+
+	if isArtifactDownloadURL(mediaURL) {
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,*/*;q=0.8")
+		req.Header.Set("Sec-Fetch-Dest", "document")
+		req.Header.Set("Sec-Fetch-Mode", "navigate")
+		req.Header.Set("Sec-Fetch-Site", "same-site")
+		req.Header.Set("Sec-Fetch-User", "?1")
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
+		return
+	}
+
+	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+	req.Header.Set("Sec-Fetch-Dest", "image")
+	req.Header.Set("Sec-Fetch-Mode", "no-cors")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
+}
+
+func artifactMediaURLs(details *ArtifactDetails) []string {
+	var downloadURLs []string
+	seenDownloads := make(map[string]bool)
+	for _, mediaURL := range details.URLs {
+		if !isArtifactDownloadURL(mediaURL) || seenDownloads[mediaURL] {
+			continue
+		}
+		seenDownloads[mediaURL] = true
+		downloadURLs = append(downloadURLs, mediaURL)
+	}
+	if len(downloadURLs) > 0 {
+		return downloadURLs
+	}
+
+	var previewURLs []string
+	seen := make(map[string]bool)
+	for _, mediaURL := range details.URLs {
+		if !isArtifactPreviewURL(mediaURL) || seen[mediaURL] {
+			continue
+		}
+		seen[mediaURL] = true
+		previewURLs = append(previewURLs, mediaURL)
+	}
+	if len(previewURLs) == 0 && details.ImageURL != "" {
+		previewURLs = append(previewURLs, details.ImageURL)
+	}
+	return previewURLs
+}
+
+func isArtifactDownloadURL(mediaURL string) bool {
+	lower := strings.ToLower(mediaURL)
+	return strings.Contains(lower, "contribution.usercontent.google.com/download")
+}
+
+func isArtifactPreviewURL(mediaURL string) bool {
+	lower := strings.ToLower(mediaURL)
+	return strings.Contains(lower, "googleusercontent.com/notebooklm/")
+}
+
+func (c *Client) downloadArtifactImageWithBrowser(imageURL string) ([]byte, string, error) {
+	profile := c.config.BrowserProfile
+	if profile == "" {
+		profile = os.Getenv("NLM_BROWSER_PROFILE")
+	}
+
+	browserAuth := auth.New(c.config.Debug)
+	body, err := browserAuth.DownloadWithBrowser(imageURL, profile)
+	if err != nil {
+		return nil, "", err
+	}
+
+	contentType := http.DetectContentType(body)
+	if looksLikeHTML(body, contentType) {
+		return nil, "", fmt.Errorf("browser download returned HTML instead of image data")
+	}
+	return body, contentType, nil
+}
+
+func looksLikeHTML(body []byte, contentType string) bool {
+	if strings.Contains(strings.ToLower(contentType), "text/html") {
+		return true
+	}
+	prefix := strings.ToLower(strings.TrimSpace(string(body[:min(len(body), 256)])))
+	return strings.HasPrefix(prefix, "<!doctype html") || strings.HasPrefix(prefix, "<html")
+}
+
+func defaultArtifactImageFilename(details *ArtifactDetails) string {
+	return defaultArtifactFilename(details, "", "image/png")
+}
+
+func defaultArtifactFilename(details *ArtifactDetails, mediaURL, contentType string) string {
+	if mediaURL != "" {
+		if filename := artifactFilenameFromURL(mediaURL); filename != "" {
+			return filename
+		}
+	}
+
+	name := details.Title
+	if name == "" && details.Artifact != nil {
+		name = details.Artifact.GetArtifactId()
+	}
+	if name == "" {
+		name = "artifact"
+	}
+	return slugFilename(name) + artifactFileExtension(contentType)
+}
+
+func artifactFilenameFromURL(mediaURL string) string {
+	parsed, err := url.Parse(mediaURL)
+	if err != nil {
+		return ""
+	}
+	filename := parsed.Query().Get("filename")
+	if filename == "" {
+		return ""
+	}
+	return filepath.Base(filename)
+}
+
+func defaultArtifactDirectory(details *ArtifactDetails) string {
+	name := details.Title
+	if name == "" && details.Artifact != nil {
+		name = details.Artifact.GetArtifactId()
+	}
+	if name == "" {
+		name = "artifact"
+	}
+	return slugFilename(name)
+}
+
+func slugFilename(value string) string {
+	var b strings.Builder
+	lastDash := false
+	for _, r := range strings.ToLower(value) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastDash = false
+			continue
+		}
+		if !lastDash && b.Len() > 0 {
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	slug := strings.Trim(b.String(), "-")
+	if slug == "" {
+		return "artifact"
+	}
+	return slug
+}
+
+func artifactImageExtension(contentType string) string {
+	return artifactFileExtension(contentType)
+}
+
+func artifactFileExtension(contentType string) string {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err == nil {
+		switch mediaType {
+		case "image/jpeg":
+			return ".jpg"
+		case "image/png":
+			return ".png"
+		case "image/webp":
+			return ".webp"
+		case "image/svg+xml":
+			return ".svg"
+		case "application/pdf":
+			return ".pdf"
+		case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+			return ".pptx"
+		}
+	}
+	if strings.Contains(strings.ToLower(contentType), "presentationml.presentation") {
+		return ".pptx"
+	}
+	return ".bin"
+}
+
 // RenameArtifact renames an artifact using the rc3d8d RPC endpoint
 func (c *Client) RenameArtifact(artifactID, newTitle string) (*pb.Artifact, error) {
 	resp, err := c.rpc.Do(rpc.Call{
@@ -2659,6 +3297,103 @@ func (c *Client) CreateSlideDeck(projectID, instructions string) (string, error)
 		}
 	}
 	return "", fmt.Errorf("unexpected slide deck response format")
+}
+
+func (c *Client) CreateInfographic(projectID, instructions string) (string, error) {
+	if projectID == "" {
+		return "", fmt.Errorf("project ID required")
+	}
+	if instructions == "" {
+		return "", fmt.Errorf("instructions required")
+	}
+
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return "", fmt.Errorf("get project sources: %w", err)
+	}
+	var sourceIDs []string
+	for _, src := range project.Sources {
+		if src.SourceId != nil {
+			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+		}
+	}
+	if len(sourceIDs) == 0 {
+		return "", fmt.Errorf("notebook has no sources")
+	}
+
+	args := method.EncodeCreateInfographicArgs(projectID, sourceIDs, instructions, "en")
+	call := rpc.Call{
+		ID:         rpc.RPCCreateUniversalArtifact,
+		NotebookID: projectID,
+		Args:       args,
+	}
+	resp, err := c.rpc.Do(call)
+	if err != nil {
+		return "", fmt.Errorf("create infographic: %w", err)
+	}
+
+	var raw []interface{}
+	if err := json.Unmarshal(resp, &raw); err != nil {
+		return "", fmt.Errorf("parse infographic response: %w", err)
+	}
+	if len(raw) > 0 {
+		if id, ok := raw[0].(string); ok {
+			return id, nil
+		}
+		if inner, ok := raw[0].([]interface{}); ok && len(inner) > 0 {
+			if id, ok := inner[0].(string); ok {
+				return id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("unexpected infographic response format")
+}
+
+func (c *Client) CreateFlashcards(projectID string) (string, error) {
+	if projectID == "" {
+		return "", fmt.Errorf("project ID required")
+	}
+
+	project, err := c.GetProject(projectID)
+	if err != nil {
+		return "", fmt.Errorf("get project sources: %w", err)
+	}
+	var sourceIDs []string
+	for _, src := range project.Sources {
+		if src.SourceId != nil {
+			sourceIDs = append(sourceIDs, src.SourceId.SourceId)
+		}
+	}
+	if len(sourceIDs) == 0 {
+		return "", fmt.Errorf("notebook has no sources")
+	}
+
+	args := method.EncodeCreateFlashcardsArgs(projectID, sourceIDs)
+	call := rpc.Call{
+		ID:         rpc.RPCCreateUniversalArtifact,
+		NotebookID: projectID,
+		Args:       args,
+	}
+	resp, err := c.rpc.Do(call)
+	if err != nil {
+		return "", fmt.Errorf("create flashcards: %w", err)
+	}
+
+	var raw []interface{}
+	if err := json.Unmarshal(resp, &raw); err != nil {
+		return "", fmt.Errorf("parse flashcards response: %w", err)
+	}
+	if len(raw) > 0 {
+		if id, ok := raw[0].(string); ok {
+			return id, nil
+		}
+		if inner, ok := raw[0].([]interface{}); ok && len(inner) > 0 {
+			if id, ok := inner[0].(string); ok {
+				return id, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("unexpected flashcards response format")
 }
 
 // Generation operations

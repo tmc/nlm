@@ -62,6 +62,21 @@ nlm rm-note <note-id>                                      # delete note
 nlm create-audio <notebook-id> "deep dive on topic X"    # audio overview
 nlm create-video <notebook-id> "whiteboard walkthrough"   # video overview
 nlm create-slides <notebook-id> "presentation summary"    # slide deck
+nlm create-flashcards <notebook-id>                       # flashcards
+nlm create-infographic <notebook-id> "visual summary"     # infographic
+```
+
+### Artifacts
+
+```
+nlm artifacts <notebook-id>                         # list artifacts
+nlm get-artifact <artifact-id>                      # get artifact details
+nlm download-artifact <notebook-id> <artifact-id>   # download artifact files
+nlm download-infographic <notebook-id> <artifact-id>  # download infographic image
+nlm download-slides <notebook-id> <artifact-id>      # download slide deck files
+nlm download-flashcards <notebook-id> <artifact-id>  # download flashcard media
+nlm rename-artifact <artifact-id> "New Title"       # rename artifact
+nlm delete-artifact <artifact-id>                   # delete artifact
 ```
 
 ### Audio and Video
@@ -131,8 +146,10 @@ Configure it in your MCP client (e.g. Claude Code):
 
 Available MCP tools: `list_notebooks`, `list_sources`, `list_notes`, `list_artifacts`,
 `create_notebook`, `create_note`, `create_audio_overview`, `create_video_overview`,
-`create_slide_deck`, `generate_chat`, `read_note`, `set_instructions`,
-`get_instructions`, `start_deep_research`, `poll_deep_research`, and more.
+`create_slide_deck`, `create_infographic`, `create_flashcards`, `get_artifact`,
+`download_artifact`, `generate_chat`, `read_note`, `set_instructions`,
+`get_instructions`, `start_deep_research`,
+`poll_deep_research`, and more.
 
 ## Flags
 
