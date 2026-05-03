@@ -2,6 +2,7 @@ package sync
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -49,6 +51,13 @@ type Options struct {
 	Exclude          []string // filepath.Match patterns; files whose basename or full path matches are skipped
 	IncludeUntracked bool     // when expanding git directories, include untracked non-ignored files
 	Parallel         int      // max concurrent chunk uploads; 0 means 4, negative means serial
+	// PreProcess, if non-empty, is run as `sh -c cmd` for each discovered
+	// file before bundling. The file contents are piped to stdin and the
+	// command's stdout replaces what gets bundled (and hashed). Non-zero
+	// exit aborts the sync. Mirrors `nlm add --pre-process`. The original
+	// file name is preserved as the txtar entry name; the command can use
+	// $NLM_FILE_NAME to read the original path.
+	PreProcess string
 }
 
 func (o *Options) maxBytes() int {
@@ -88,7 +97,7 @@ func Pack(paths []string, opts Options) (chunks [][]byte, names []string, err er
 	if len(files) == 0 {
 		return nil, nil, fmt.Errorf("no files found")
 	}
-	chunks, err = bundle(files, opts.maxBytes())
+	chunks, err = bundle(files, opts.maxBytes(), opts.PreProcess)
 	if err != nil {
 		return nil, nil, fmt.Errorf("bundle: %w", err)
 	}
@@ -122,7 +131,7 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 	}
 
 	// Bundle into txtar chunks.
-	chunks, err := bundle(files, opts.maxBytes())
+	chunks, err := bundle(files, opts.maxBytes(), opts.PreProcess)
 	if err != nil {
 		return fmt.Errorf("bundle: %w", err)
 	}
@@ -405,7 +414,11 @@ func readStdinPaths() ([]discovered, error) {
 // across multiple chunks: each part becomes its own one-entry archive
 // named "<original> (part i/N)" so the server-side per-source size limit
 // is respected. Splits prefer line boundaries when possible.
-func bundle(files []discovered, maxBytes int) ([][]byte, error) {
+//
+// If preProcess is non-empty, each file's bytes are piped through `sh -c
+// preProcess` and the command's stdout replaces the bundled content.
+// $NLM_FILE_NAME is set to the original file name. Non-zero exit aborts.
+func bundle(files []discovered, maxBytes int, preProcess string) ([][]byte, error) {
 	// txtarOverhead is the approximate bytes added per entry: the marker
 	// line "-- name --\n" plus a trailing newline. The slack covers the
 	// archive-level newline and any small format quirks.
@@ -427,6 +440,14 @@ func bundle(files []discovered, maxBytes int) ([][]byte, error) {
 		data, err := os.ReadFile(f.Path)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", f.Path, err)
+		}
+
+		if preProcess != "" {
+			out, perr := runPreProcess(preProcess, f.Name, data)
+			if perr != nil {
+				return nil, perr
+			}
+			data = out
 		}
 
 		// Skip binary files — txtar is text-only.
@@ -484,6 +505,27 @@ func bundle(files []discovered, maxBytes int) ([][]byte, error) {
 	}
 	flush()
 	return chunks, nil
+}
+
+// runPreProcess pipes data through `sh -c cmd` and returns stdout. The
+// original file name is exported as $NLM_FILE_NAME so the command can
+// branch on extension or path. A non-zero exit aborts; stderr is included
+// in the error message for diagnosis.
+func runPreProcess(cmd, name string, data []byte) ([]byte, error) {
+	c := exec.Command("sh", "-c", cmd)
+	c.Stdin = bytes.NewReader(data)
+	c.Env = append(os.Environ(), "NLM_FILE_NAME="+name)
+	var stdout, stderr bytes.Buffer
+	c.Stdout = &stdout
+	c.Stderr = &stderr
+	if err := c.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			return nil, fmt.Errorf("pre-process %q for %s: %w", cmd, name, err)
+		}
+		return nil, fmt.Errorf("pre-process %q for %s: %w: %s", cmd, name, err, msg)
+	}
+	return stdout.Bytes(), nil
 }
 
 // splitFileData splits data into pieces no larger than maxPart bytes each.

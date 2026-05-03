@@ -509,7 +509,7 @@ func TestBundleSplitsOversizeSingleFile(t *testing.T) {
 
 	files, _ := walkFiles(dir)
 	const maxBytes = 10 * 1024
-	chunks, err := bundle(files, maxBytes)
+	chunks, err := bundle(files, maxBytes, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +548,7 @@ func TestBundleQuotesNestedTxtar(t *testing.T) {
 	if err != nil || len(files) == 0 {
 		files, _ = walkFiles(dir)
 	}
-	chunks, err := bundle(files, 5<<20)
+	chunks, err := bundle(files, 5<<20, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -567,6 +567,63 @@ func TestBundleQuotesNestedTxtar(t *testing.T) {
 	// Quoted form should appear.
 	if !bytes.Contains(chunk, []byte(">-- trap.go --")) {
 		t.Errorf("expected quoted marker in chunk: %q", chunk)
+	}
+}
+
+// TestBundlePreProcessTransformsContent locks in the --pre-process contract:
+// each file's bytes are piped through `sh -c cmd` and the command's stdout
+// replaces what gets bundled. The original file name must reach the entry
+// (not the command output's pseudo-name) and $NLM_FILE_NAME must carry the
+// file name into the command's environment.
+func TestBundlePreProcessTransformsContent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "lower.txt"), []byte("hello world\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, _ := walkFiles(dir)
+	chunks, err := bundle(files, 1<<20, `printf 'name=%s\n' "$NLM_FILE_NAME"; tr a-z A-Z`)
+	if err != nil {
+		t.Fatalf("bundle: %v", err)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("expected 1 chunk, got %d", len(chunks))
+	}
+	ar := txtar.Parse(chunks[0])
+	if len(ar.Files) != 1 {
+		t.Fatalf("expected 1 file in archive, got %d", len(ar.Files))
+	}
+	if ar.Files[0].Name != "lower.txt" {
+		t.Errorf("entry name = %q, want lower.txt", ar.Files[0].Name)
+	}
+	got := string(ar.Files[0].Data)
+	if !strings.Contains(got, "name=lower.txt") {
+		t.Errorf("bundled content missing $NLM_FILE_NAME signal: %q", got)
+	}
+	if !strings.Contains(got, "HELLO WORLD") {
+		t.Errorf("bundled content missing transformed body: %q", got)
+	}
+	// Raw original must be gone — the preprocess output replaces it.
+	if strings.Contains(got, "hello world") {
+		t.Errorf("bundled content still has untransformed body: %q", got)
+	}
+}
+
+// TestBundlePreProcessNonZeroExitAborts locks in the abort-on-failure
+// contract: a non-zero exit must stop the sync and surface the command's
+// stderr in the error message so users can debug.
+func TestBundlePreProcessNonZeroExitAborts(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "any.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := walkFiles(dir)
+	_, err := bundle(files, 1<<20, `echo "boom" >&2; exit 1`)
+	if err == nil {
+		t.Fatalf("expected error from failing pre-process, got nil")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Errorf("error %q does not surface stderr", err)
 	}
 }
 

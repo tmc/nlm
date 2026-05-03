@@ -46,13 +46,15 @@ type syncOptions struct {
 	Exclude          []string
 	IncludeUntracked bool
 	Parallel         int
+	PreProcess       string
 }
 
 type syncPackOptions struct {
-	Name     string
-	MaxBytes int
-	Chunk    int
-	Exclude  []string
+	Name       string
+	MaxBytes   int
+	Chunk      int
+	Exclude    []string
+	PreProcess string
 }
 
 func printSourceAddUsage(cmdName string) {
@@ -120,6 +122,10 @@ func printSourceSyncUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "                            git directories")
 	fmt.Fprintln(os.Stderr, "  --parallel <n>            Max concurrent chunk uploads (default 4; use a")
 	fmt.Fprintln(os.Stderr, "                            negative value to force serial)")
+	fmt.Fprintln(os.Stderr, "  --pre-process <cmd>       Pipe each discovered file through 'sh -c cmd' before")
+	fmt.Fprintln(os.Stderr, "                            bundling; stdout replaces the bundled bytes (and")
+	fmt.Fprintln(os.Stderr, "                            participates in the hash). $NLM_FILE_NAME holds the")
+	fmt.Fprintln(os.Stderr, "                            file name. Non-zero exit aborts the sync.")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Hash cache: ~/.cache/nlm/sync/<notebook-id>/")
 	fmt.Fprintln(os.Stderr)
@@ -130,6 +136,7 @@ func printSourceSyncUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s --force <notebook-id> README.md  # force re-upload\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s --exclude '*.pb.go' --exclude 'vendor/' <notebook-id>\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  git ls-files '*.go' | nlm %s -n go-src <notebook-id> -\n", cmdName)
+	fmt.Fprintf(os.Stderr, "  nlm %s --pre-process 'jq .' <notebook-id> ./logs   # reformat JSON before bundling\n", cmdName)
 }
 
 func printSourcePackUsage(cmdName string) {
@@ -151,6 +158,8 @@ func printSourcePackUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --chunk <n>               Emit the Nth chunk (1-indexed) when multiple")
 	fmt.Fprintln(os.Stderr, "  --exclude <pattern>       Skip files matching the pattern (repeatable;")
 	fmt.Fprintln(os.Stderr, "                            same rules as sync)")
+	fmt.Fprintln(os.Stderr, "  --pre-process <cmd>       Pipe each discovered file through 'sh -c cmd' before")
+	fmt.Fprintln(os.Stderr, "                            bundling (same semantics as sync)")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s                                  # pack the current directory\n", cmdName)
@@ -246,13 +255,14 @@ func parseSourceSyncArgs(args []string) (syncOptions, []string, error) {
 	flags.BoolVar(&opts.JSON, "json", opts.JSON, "")
 	flags.BoolVar(&opts.IncludeUntracked, "include-untracked", opts.IncludeUntracked, "")
 	flags.IntVar(&opts.Parallel, "parallel", opts.Parallel, "")
+	flags.StringVar(&opts.PreProcess, "pre-process", opts.PreProcess, "")
 	excludes := (*stringSliceFlag)(&opts.Exclude)
 	flags.Var(excludes, "exclude", "")
 	flags.Var(excludes, "x", "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "force": true, "dry-run": true, "max-bytes": true, "json": true,
-		"exclude": true, "x": true, "include-untracked": true, "parallel": true,
+		"exclude": true, "x": true, "include-untracked": true, "parallel": true, "pre-process": true,
 	}, map[string]bool{
 		"force": true, "dry-run": true, "json": true, "include-untracked": true,
 	})
@@ -283,13 +293,14 @@ func parseSourcePackArgs(args []string) (syncPackOptions, []string, error) {
 	flags.StringVar(&opts.Name, "n", opts.Name, "")
 	flags.IntVar(&opts.MaxBytes, "max-bytes", opts.MaxBytes, "")
 	flags.IntVar(&opts.Chunk, "chunk", opts.Chunk, "")
+	flags.StringVar(&opts.PreProcess, "pre-process", opts.PreProcess, "")
 	excludes := (*stringSliceFlag)(&opts.Exclude)
 	flags.Var(excludes, "exclude", "")
 	flags.Var(excludes, "x", "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "max-bytes": true, "chunk": true,
-		"exclude": true, "x": true,
+		"exclude": true, "x": true, "pre-process": true,
 	}, nil)
 	if err != nil {
 		return opts, nil, err
@@ -343,6 +354,7 @@ func runSourceSync(c *api.Client, args []string) error {
 		Exclude:          opts.Exclude,
 		IncludeUntracked: opts.IncludeUntracked,
 		Parallel:         opts.Parallel,
+		PreProcess:       opts.PreProcess,
 	}
 	adapter := &syncClientAdapter{client: c}
 	return nlmsync.Run(context.Background(), adapter, notebookID, paths, syncOpts, os.Stdout)
