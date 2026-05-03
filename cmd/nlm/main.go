@@ -288,7 +288,26 @@ func main() {
 // wrapping context (e.g. "get project: ...") so callers still see which
 // operation failed. If err is not a batchexecute APIError the return value
 // is err.Error() unchanged.
+//
+// errors.Join'd error trees (which sync produces when multiple chunk uploads
+// fail in parallel) are formatted per-branch so each independent failure
+// gets its own friendly rewrite, joined by newlines.
 func friendlyError(err error) string {
+	// Distinguish errors.Join (children are siblings, no shared prefix) from
+	// fmt.Errorf with double-%w (children share a wrapping prefix and the
+	// outer Error() is one line). errors.Join formats as child1\nchild2\n…;
+	// matching that exactly is the only reliable signal — both shapes
+	// implement Unwrap() []error.
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		children := joined.Unwrap()
+		if len(children) > 1 && isJoinShape(err, children) {
+			parts := make([]string, 0, len(children))
+			for _, c := range children {
+				parts = append(parts, friendlyError(c))
+			}
+			return strings.Join(parts, "\n")
+		}
+	}
 	if errors.Is(err, api.ErrSourceCapReached) {
 		return friendlyTypedError(err, api.ErrSourceCapReached, "notebook is at the source limit; remove unused sources before adding more")
 	}
@@ -313,6 +332,18 @@ func friendlyError(err error) string {
 	return prefix + ": " + msg
 }
 
+// isJoinShape reports whether err is the result of errors.Join (children
+// surfaced as parallel siblings) rather than fmt.Errorf with multiple %w
+// (children wrapped under a shared prefix). errors.Join produces an Error()
+// equal to children joined by "\n"; fmt.Errorf produces a single line.
+func isJoinShape(err error, children []error) bool {
+	want := make([]string, 0, len(children))
+	for _, c := range children {
+		want = append(want, c.Error())
+	}
+	return err.Error() == strings.Join(want, "\n")
+}
+
 func friendlyTypedError(err, target error, msg string) string {
 	full := err.Error()
 
@@ -335,6 +366,13 @@ func friendlyTypedError(err, target error, msg string) string {
 // Prefers ErrorCode.Description (from the dictionary) over raw Message, and
 // never surfaces the numeric code to the user.
 func friendlyAPIMessage(apiErr *batchexecute.APIError) string {
+	// Code 9 ("Failed precondition") arrives bare for AddSource* — no
+	// diagnostic text. The dictionary description ("Operation was rejected
+	// for a state reason.") is too vague to act on. Replace with a list of
+	// the actually-observed causes so users know what to check.
+	if apiErr.ErrorCode != nil && apiErr.ErrorCode.Code == 9 {
+		return "server rejected the request (code 9). Common causes: source content too large for one upload (split with `nlm sync` or `--chunk`), notebook at the 300-source cap (check with `nlm list-sources`), or transient server policy. The server does not return a diagnostic for this code."
+	}
 	if apiErr.ErrorCode != nil && apiErr.ErrorCode.Description != "" {
 		return apiErr.ErrorCode.Description
 	}

@@ -102,6 +102,43 @@ func TestFriendlyError(t *testing.T) {
 			wantContains:   []string{"upload \"docs\"", "internal error", "retry", "nlm sync"},
 			wantNotContain: []string{"shouldn't be exposed to clients"},
 		},
+		{
+			// Code-9 ("Failed precondition") used to be auto-classified as
+			// ErrSourceCapReached, which lied when the actual failure was an
+			// oversize payload or server policy. The replacement enumerates
+			// the actually-observed causes and explicitly disclaims the
+			// dictionary description ("Operation was rejected for a state
+			// reason.") so the user sees actionable text.
+			name: "code 9 rewrites to actionable list of causes",
+			err: fmt.Errorf("add text source: %w",
+				&batchexecute.APIError{
+					ErrorCode: &batchexecute.ErrorCode{
+						Code:        9,
+						Type:        batchexecute.ErrorTypeInvalidInput,
+						Message:     "Failed precondition",
+						Description: "Operation was rejected for a state reason.",
+					},
+				}),
+			wantContains:   []string{"add text source", "code 9", "300-source cap", "nlm sync"},
+			wantNotContain: []string{"notebook source cap reached", "Operation was rejected"},
+		},
+		{
+			// Regression: errors.Join'd parallel-upload failures used to get
+			// only one friendly rewrite — the others surfaced raw. Each
+			// branch of a join must be rewritten independently, joined with
+			// newlines so the user sees every distinct failure.
+			name: "errors.Join applies friendly rewrite per branch",
+			err: errors.Join(
+				fmt.Errorf("upload %q: %w", "docs (pt7)", &batchexecute.APIError{
+					ErrorCode: &batchexecute.ErrorCode{Code: 9, Type: batchexecute.ErrorTypeInvalidInput, Message: "Failed precondition"},
+				}),
+				fmt.Errorf("upload %q: %w", "docs (pt8)", &batchexecute.APIError{
+					ErrorCode: &batchexecute.ErrorCode{Code: 9, Type: batchexecute.ErrorTypeInvalidInput, Message: "Failed precondition"},
+				}),
+			),
+			wantContains:   []string{"docs (pt7)", "docs (pt8)", "code 9"},
+			wantNotContain: []string{"API error 9"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

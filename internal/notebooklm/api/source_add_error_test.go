@@ -11,14 +11,23 @@ import (
 func TestWrapSourceAddError(t *testing.T) {
 	t.Parallel()
 
+	// Code-9 ("Failed precondition") arrives from the server with no
+	// machine-readable discriminator — it can be cap-reached, oversize
+	// payload, malformed envelope, or server policy. The wrapper must not
+	// auto-classify; it should preserve the underlying APIError so the
+	// caller (which may have out-of-band evidence) decides.
 	precondition := &batchexecute.APIError{
 		ErrorCode: &batchexecute.ErrorCode{
 			Code: 9,
 		},
 	}
 	got := wrapSourceAddError("add source from URL", precondition)
-	if !errors.Is(got, ErrSourceCapReached) {
-		t.Fatalf("wrapSourceAddError() did not wrap ErrSourceCapReached: %v", got)
+	if errors.Is(got, ErrSourceCapReached) {
+		t.Fatalf("wrapSourceAddError() auto-wrapped code-9 as ErrSourceCapReached: %v", got)
+	}
+	var apiErr *batchexecute.APIError
+	if !errors.As(got, &apiErr) {
+		t.Fatalf("wrapSourceAddError() did not preserve APIError: %v", got)
 	}
 
 	other := &batchexecute.APIError{

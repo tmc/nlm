@@ -14,11 +14,15 @@ import "errors"
 // Callers wrap via fmt.Errorf("...: %w: %w", ErrX, underlying) and consumers
 // check via errors.Is(err, ErrX).
 var (
-	// ErrSourceCapReached indicates AddSources rejected because the notebook
-	// is at the per-notebook source-count cap (NotebookLM enforces ~300).
-	// The wire code is 9 ("Failed precondition") with no machine-readable
-	// discriminator; the AddSources callsite is what identifies the state.
-	// Maps to exit code 5 (permanent precondition).
+	// ErrSourceCapReached indicates an AddSource* call was rejected because
+	// the notebook is at the per-notebook source-count cap (NotebookLM
+	// enforces ~300). The wire code 9 ("Failed precondition") carries no
+	// machine-readable discriminator and is *not* by itself sufficient to
+	// classify a failure as cap-reached — code-9 also appears for oversize
+	// payloads, malformed envelopes, and server policy. Wrap with this
+	// sentinel only when out-of-band evidence (e.g. a fresh ListSources
+	// count at or near the cap) confirms the state. Maps to exit code 5
+	// (permanent precondition).
 	ErrSourceCapReached = errors.New("notebook source cap reached")
 
 	// ErrSourceTooLarge indicates a single source payload exceeded the per-

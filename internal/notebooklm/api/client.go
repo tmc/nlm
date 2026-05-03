@@ -419,20 +419,6 @@ func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Pr
 	return project, nil
 }
 
-// isFailedPrecondition reports whether err is a batchexecute.APIError with the
-// gRPC "failed precondition" code (9). AddSources uses this to convert a
-// polysemic code-9 into the ErrSourceCapReached sentinel — today every code-9
-// from AddSources is the 300-source cap.
-// If NotebookLM later returns code 9 for other AddSources failure modes, this
-// check will need a more discriminating signal (e.g. server message text).
-func isFailedPrecondition(err error) bool {
-	var apiErr *batchexecute.APIError
-	if !errors.As(err, &apiErr) {
-		return false
-	}
-	return apiErr.ErrorCode != nil && apiErr.ErrorCode.Code == 9
-}
-
 func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
 	// Wire format: [repeated_source_ids, project_context]
 	//   field 1: repeated SourceId — each ID wrapped as ["id"]
@@ -734,12 +720,12 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 
 // MaxTextSourceBytes is the client-side ceiling for AddSourceFromText
 // payloads. The server accepts text sources well under 3MB and rejects
-// payloads ≥13MB with a misleading "failed precondition" code that the
-// wire client would otherwise mislabel as ErrSourceCapReached (see
-// the source cap. Failing fast at 10MB keeps headroom above
-// the safe band while staying below the known-fail band; callers with
-// larger content should split it or use `nlm sync` / `nlm sync-pack`,
-// which chunk automatically at 5MB boundaries.
+// payloads ≥13MB with a generic "failed precondition" code that carries
+// no diagnostic text — indistinguishable on the wire from the source-cap
+// rejection. Failing fast at 10MB keeps headroom above the safe band
+// while staying below the known-fail band; callers with larger content
+// should split it or use `nlm sync` / `nlm sync-pack`, which chunk
+// automatically at 5MB boundaries.
 const MaxTextSourceBytes = 10 * 1024 * 1024
 
 func (c *Client) AddSourceFromText(projectID string, content, title string) (string, error) {
@@ -1168,10 +1154,13 @@ func (c *Client) AddYouTubeSource(projectID, videoID string) (string, error) {
 	return sourceID, nil
 }
 
+// wrapSourceAddError wraps an AddSource* failure with the operation name. It
+// does not auto-classify any wire error: code-9 ("Failed precondition") from
+// the server arrives with no discriminator, so we can't distinguish source-
+// cap from oversize/malformed/server-policy at this layer. Callers with
+// out-of-band evidence (e.g. a fresh ListSources count) wrap with the
+// ErrSourceCapReached sentinel themselves.
 func wrapSourceAddError(op string, err error) error {
-	if isFailedPrecondition(err) {
-		return fmt.Errorf("%s: %w: %w", op, ErrSourceCapReached, err)
-	}
 	return fmt.Errorf("%s: %w", op, err)
 }
 
