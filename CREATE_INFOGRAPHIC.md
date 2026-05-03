@@ -166,6 +166,7 @@ The MCP server now exposes:
 
 ```text
 create_infographic
+download_artifact
 ```
 
 Input:
@@ -176,6 +177,10 @@ Input:
   "instructions": "Create a visual summary of the key findings"
 }
 ```
+
+After the artifact is ready, MCP clients can download generated media with
+`download_artifact` by passing `notebook_id`, `artifact_id`, and an optional
+`output` path.
 
 ## Verification
 

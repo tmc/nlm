@@ -23,6 +23,7 @@ nlm artifacts NOTEBOOK_ID
 - Added a custom R7cb6c encoder for flashcards creation.
 - Added `api.Client.CreateFlashcards`.
 - Added the `create-flashcards` CLI command.
+- Added the `create_flashcards` MCP tool.
 - Added command validation coverage.
 - Added artifact state handling so observed ready flashcards show as ready.
 
@@ -84,6 +85,7 @@ Useful outcomes would be:
 Until one of those is found, the implemented behavior is:
 
 - `nlm create-flashcards NOTEBOOK_ID` creates flashcards
+- MCP `create_flashcards` creates flashcards
 - `nlm artifacts NOTEBOOK_ID` shows readiness
 - `nlm download-artifact NOTEBOOK_ID FLASHCARDS_ID` fails honestly when no
   downloadable media URL exists

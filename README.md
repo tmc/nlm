@@ -146,8 +146,9 @@ Configure it in your MCP client (e.g. Claude Code):
 
 Available MCP tools: `list_notebooks`, `list_sources`, `list_notes`, `list_artifacts`,
 `create_notebook`, `create_note`, `create_audio_overview`, `create_video_overview`,
-`create_slide_deck`, `create_infographic`, `generate_chat`, `read_note`,
-`set_instructions`, `get_instructions`, `start_deep_research`,
+`create_slide_deck`, `create_infographic`, `create_flashcards`, `get_artifact`,
+`download_artifact`, `generate_chat`, `read_note`, `set_instructions`,
+`get_instructions`, `start_deep_research`,
 `poll_deep_research`, and more.
 
 ## Flags

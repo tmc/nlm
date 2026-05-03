@@ -69,6 +69,17 @@ type renameArtifactInput struct {
 	NewTitle   string `json:"new_title"`
 }
 
+type getArtifactInput struct {
+	ArtifactID string `json:"artifact_id"`
+	NotebookID string `json:"notebook_id,omitempty" jsonschema:"Optional notebook ID for a project-scoped lookup"`
+}
+
+type downloadArtifactInput struct {
+	NotebookID string `json:"notebook_id"`
+	ArtifactID string `json:"artifact_id"`
+	Output     string `json:"output,omitempty" jsonschema:"Optional output file or directory path"`
+}
+
 type shareAudioInput struct {
 	NotebookID string `json:"notebook_id"`
 	Public     bool   `json:"public"`
@@ -118,6 +129,10 @@ type createInfographicInput struct {
 	Instructions string `json:"instructions"`
 }
 
+type createFlashcardsInput struct {
+	NotebookID string `json:"notebook_id"`
+}
+
 type readNoteInput struct {
 	NotebookID string `json:"notebook_id"`
 	NoteID     string `json:"note_id"`
@@ -163,6 +178,30 @@ type artifactSummary struct {
 	ID    string `json:"id"`
 	Type  string `json:"type"`
 	State string `json:"state"`
+}
+
+type artifactDetailsSummary struct {
+	ID          string   `json:"id"`
+	ProjectID   string   `json:"project_id,omitempty"`
+	Title       string   `json:"title,omitempty"`
+	Type        string   `json:"type"`
+	State       string   `json:"state"`
+	Description string   `json:"description,omitempty"`
+	ImageURL    string   `json:"image_url,omitempty"`
+	URLs        []string `json:"urls,omitempty"`
+	SourceIDs   []string `json:"source_ids,omitempty"`
+}
+
+type artifactDownloadSummary struct {
+	ArtifactID string                        `json:"artifact_id"`
+	OutputPath string                        `json:"output_path"`
+	Files      []artifactDownloadFileSummary `json:"files"`
+}
+
+type artifactDownloadFileSummary struct {
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type,omitempty"`
+	Bytes       int64  `json:"bytes"`
 }
 
 type audioOverviewSummary struct {
@@ -309,6 +348,36 @@ func registerTools(server *mcp.Server, client *api.Client) {
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_artifact",
+		Description: "Get artifact details, including generated media URLs when NotebookLM exposes them.",
+		Annotations: readOnlyAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input getArtifactInput) (*mcp.CallToolResult, any, error) {
+		var details *api.ArtifactDetails
+		var err error
+		if input.NotebookID != "" {
+			details, err = client.GetArtifactDetailsInProject(input.NotebookID, input.ArtifactID)
+		} else {
+			details, err = client.GetArtifactDetails(input.ArtifactID)
+		}
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to get artifact: %v", err)), nil, nil
+		}
+		return jsonResult(artifactDetailsSummaryFromDetails(details)), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "download_artifact",
+		Description: "Download generated artifact media to a local file or directory.",
+		Annotations: mutatingAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input downloadArtifactInput) (*mcp.CallToolResult, any, error) {
+		result, err := client.DownloadArtifactFilesFromProject(input.NotebookID, input.ArtifactID, input.Output)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to download artifact: %v", err)), nil, nil
+		}
+		return jsonResult(artifactDownloadSummaryFromResult(result)), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_audio_overview",
 		Description: "Create a new audio overview.",
 		Annotations: mutatingAnnotations,
@@ -400,6 +469,18 @@ func registerTools(server *mcp.Server, client *api.Client) {
 			return errorResult(fmt.Sprintf("failed to create infographic: %v", err)), nil, nil
 		}
 		return textResult(fmt.Sprintf("started infographic creation (artifact id: %s)", artifactID)), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "create_flashcards",
+		Description: "Create flashcards from notebook sources.",
+		Annotations: mutatingAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input createFlashcardsInput) (*mcp.CallToolResult, any, error) {
+		artifactID, err := client.CreateFlashcards(input.NotebookID)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to create flashcards: %v", err)), nil, nil
+		}
+		return textResult(fmt.Sprintf("started flashcards creation (artifact id: %s)", artifactID)), nil, nil
 	})
 
 	mcp.AddTool(server, &mcp.Tool{
@@ -594,6 +675,52 @@ func errorResult(text string) *mcp.CallToolResult {
 			&mcp.TextContent{Text: text},
 		},
 		IsError: true,
+	}
+}
+
+func artifactDetailsSummaryFromDetails(details *api.ArtifactDetails) artifactDetailsSummary {
+	if details == nil || details.Artifact == nil {
+		return artifactDetailsSummary{}
+	}
+	artifact := details.Artifact
+	sourceIDs := make([]string, 0, len(artifact.Sources))
+	for _, source := range artifact.Sources {
+		if source.SourceId != nil && source.SourceId.SourceId != "" {
+			sourceIDs = append(sourceIDs, source.SourceId.SourceId)
+		}
+	}
+	return artifactDetailsSummary{
+		ID:          artifact.ArtifactId,
+		ProjectID:   artifact.ProjectId,
+		Title:       details.Title,
+		Type:        artifactTypeLabel(artifact.Type),
+		State:       artifactStateLabel(artifact.State),
+		Description: details.Description,
+		ImageURL:    details.ImageURL,
+		URLs:        details.URLs,
+		SourceIDs:   sourceIDs,
+	}
+}
+
+func artifactDownloadSummaryFromResult(result *api.ArtifactFilesDownloadResult) artifactDownloadSummary {
+	if result == nil {
+		return artifactDownloadSummary{}
+	}
+	files := make([]artifactDownloadFileSummary, 0, len(result.Files))
+	for _, file := range result.Files {
+		if file == nil {
+			continue
+		}
+		files = append(files, artifactDownloadFileSummary{
+			Filename:    file.Filename,
+			ContentType: file.ContentType,
+			Bytes:       file.Bytes,
+		})
+	}
+	return artifactDownloadSummary{
+		ArtifactID: result.ArtifactID,
+		OutputPath: result.OutputPath,
+		Files:      files,
 	}
 }
 
