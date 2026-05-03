@@ -45,6 +45,7 @@ type syncOptions struct {
 	JSON             bool
 	Exclude          []string
 	IncludeUntracked bool
+	Parallel         int
 }
 
 type syncPackOptions struct {
@@ -117,6 +118,8 @@ func printSourceSyncUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "                            match as path prefixes (e.g. 'vendor/')")
 	fmt.Fprintln(os.Stderr, "  --include-untracked       Include untracked, non-ignored files when syncing")
 	fmt.Fprintln(os.Stderr, "                            git directories")
+	fmt.Fprintln(os.Stderr, "  --parallel <n>            Max concurrent chunk uploads (default 4; use a")
+	fmt.Fprintln(os.Stderr, "                            negative value to force serial)")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Hash cache: ~/.cache/nlm/sync/<notebook-id>/")
 	fmt.Fprintln(os.Stderr)
@@ -218,7 +221,11 @@ func parseSourceAddArgs(args []string) (sourceAddOptions, string, []string, erro
 	if opts.Chunk > api.MaxTextSourceBytes {
 		return opts, "", nil, fmt.Errorf("--chunk %d exceeds per-request limit %d", opts.Chunk, api.MaxTextSourceBytes)
 	}
-	return opts, positional[0], positional[1:], nil
+	inputs := positional[1:]
+	if opts.ReplaceSourceID != "" && len(inputs) != 1 {
+		return opts, "", nil, fmt.Errorf("--replace requires exactly one source")
+	}
+	return opts, positional[0], inputs, nil
 }
 
 func parseSourceSyncArgs(args []string) (syncOptions, []string, error) {
@@ -238,13 +245,14 @@ func parseSourceSyncArgs(args []string) (syncOptions, []string, error) {
 	flags.IntVar(&opts.MaxBytes, "max-bytes", opts.MaxBytes, "")
 	flags.BoolVar(&opts.JSON, "json", opts.JSON, "")
 	flags.BoolVar(&opts.IncludeUntracked, "include-untracked", opts.IncludeUntracked, "")
+	flags.IntVar(&opts.Parallel, "parallel", opts.Parallel, "")
 	excludes := (*stringSliceFlag)(&opts.Exclude)
 	flags.Var(excludes, "exclude", "")
 	flags.Var(excludes, "x", "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
 		"name": true, "n": true, "force": true, "dry-run": true, "max-bytes": true, "json": true,
-		"exclude": true, "x": true, "include-untracked": true,
+		"exclude": true, "x": true, "include-untracked": true, "parallel": true,
 	}, map[string]bool{
 		"force": true, "dry-run": true, "json": true, "include-untracked": true,
 	})
@@ -334,6 +342,7 @@ func runSourceSync(c *api.Client, args []string) error {
 		JSON:             opts.JSON,
 		Exclude:          opts.Exclude,
 		IncludeUntracked: opts.IncludeUntracked,
+		Parallel:         opts.Parallel,
 	}
 	adapter := &syncClientAdapter{client: c}
 	return nlmsync.Run(context.Background(), adapter, notebookID, paths, syncOpts, os.Stdout)

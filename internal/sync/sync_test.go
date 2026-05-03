@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+
+	"golang.org/x/tools/txtar"
 )
 
 func setupTestHome(t *testing.T) {
@@ -17,6 +21,7 @@ func setupTestHome(t *testing.T) {
 }
 
 type fakeClient struct {
+	mu       sync.Mutex
 	sources  []Source
 	listed   int
 	uploaded []struct {
@@ -31,12 +36,16 @@ type fakeClient struct {
 }
 
 func (f *fakeClient) ListSources(_ context.Context, _ string) ([]Source, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.listed++
-	return f.sources, nil
+	return append([]Source(nil), f.sources...), nil
 }
 
 func (f *fakeClient) AddSource(_ context.Context, _ string, title string, r io.Reader) (string, error) {
 	data, _ := io.ReadAll(r)
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.uploaded = append(f.uploaded, struct {
 		title   string
 		content string
@@ -47,11 +56,15 @@ func (f *fakeClient) AddSource(_ context.Context, _ string, title string, r io.R
 }
 
 func (f *fakeClient) DeleteSources(_ context.Context, _ string, ids []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.deleted = append(f.deleted, ids...)
 	return nil
 }
 
 func (f *fakeClient) RenameSource(_ context.Context, id string, title string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.renamed = append(f.renamed, struct {
 		id    string
 		title string
@@ -128,10 +141,14 @@ type fakeLabelClient struct {
 }
 
 func (f *fakeLabelClient) LabelsForSource(_ context.Context, _, sourceID string) ([]string, error) {
-	return f.labelsBySource[sourceID], nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.labelsBySource[sourceID]...), nil
 }
 
 func (f *fakeLabelClient) AttachLabelSource(_ context.Context, _, labelID, sourceID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.attachCalls = append(f.attachCalls, struct {
 		labelID  string
 		sourceID string
@@ -268,6 +285,35 @@ func TestRunDryRun(t *testing.T) {
 	}
 }
 
+func TestRunBinaryOnlyDoesNotDeleteExistingSources(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "image.bin"), []byte{0, 1, 2, 3}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fc := &fakeClient{
+		sources: []Source{
+			{ID: "old-1", Title: "test"},
+			{ID: "old-2", Title: "test (pt2)"},
+		},
+	}
+	var buf bytes.Buffer
+	err := Run(context.Background(), fc, "nb-123", []string{dir}, Options{Name: "test"}, &buf)
+	if err == nil {
+		t.Fatal("expected error for binary-only sync")
+	}
+	if !strings.Contains(err.Error(), "no text files found") {
+		t.Fatalf("error = %v, want no text files found", err)
+	}
+	if len(fc.uploaded) != 0 {
+		t.Fatalf("expected no uploads, got %d", len(fc.uploaded))
+	}
+	if len(fc.deleted) != 0 {
+		t.Fatalf("expected no deletes, got %v", fc.deleted)
+	}
+}
+
 func TestRunJSON(t *testing.T) {
 	setupTestHome(t)
 	dir := t.TempDir()
@@ -367,6 +413,127 @@ func TestChunkNames(t *testing.T) {
 				t.Errorf("chunkNames(%q, %d)[%d] = %q, want %q", tt.name, tt.n, i, got[i], tt.want[i])
 			}
 		}
+	}
+}
+
+// flakyClient fails uploads whose title matches a substring; all other
+// operations behave like fakeClient.
+type flakyClient struct {
+	*fakeClient
+	failOnTitle string // substring match
+}
+
+func (f *flakyClient) AddSource(ctx context.Context, notebookID, title string, r io.Reader) (string, error) {
+	if f.failOnTitle != "" && strings.Contains(title, f.failOnTitle) {
+		_, _ = io.ReadAll(r) // drain
+		return "", fmt.Errorf("simulated failure for %s", title)
+	}
+	return f.fakeClient.AddSource(ctx, notebookID, title, r)
+}
+
+func TestRunFailedChunkDoesNotCancelSiblings(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	for i := range 6 {
+		body := strings.Repeat(fmt.Sprintf("line %d\n", i), 200)
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("f%d.txt", i)), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Fail uploads of pt3 specifically. The other 5 chunks must still
+	// upload successfully — sibling failures cannot cancel them.
+	fc := &flakyClient{fakeClient: &fakeClient{}, failOnTitle: "(pt3)"}
+	var buf bytes.Buffer
+	err := Run(context.Background(), fc, "nb-flaky", []string{dir}, Options{Name: "test", MaxBytes: 2000, Parallel: 4}, &buf)
+	if err == nil {
+		t.Fatal("expected sync to surface the simulated failure")
+	}
+	if !strings.Contains(err.Error(), "simulated failure") {
+		t.Errorf("error chain missing simulated failure: %v", err)
+	}
+
+	// Every other chunk should have landed; pt3 stays unuploaded.
+	for _, u := range fc.uploaded {
+		if strings.Contains(u.title, "(pt3)") {
+			t.Errorf("flaky chunk %q should not have uploaded", u.title)
+		}
+	}
+	if len(fc.uploaded) < 4 {
+		t.Errorf("expected sibling chunks to complete despite pt3 failure; got %d uploads: %v", len(fc.uploaded), fc.uploaded)
+	}
+}
+
+func TestRunParallelUploadsAllChunks(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	// Create several smaller files; tight maxBytes pushes each into its
+	// own chunk so the upload loop dispatches them in parallel.
+	for i := range 6 {
+		body := strings.Repeat(fmt.Sprintf("file-%d content line\n", i), 200)
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("f%d.txt", i)), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fc := &fakeClient{}
+	var buf bytes.Buffer
+	err := Run(context.Background(), fc, "nb-par", []string{dir}, Options{Name: "test", MaxBytes: 5000, Parallel: 4}, &buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fc.uploaded) < 2 {
+		t.Fatalf("expected multiple chunks uploaded, got %d", len(fc.uploaded))
+	}
+	titles := make(map[string]bool, len(fc.uploaded))
+	for _, u := range fc.uploaded {
+		if titles[u.title] {
+			t.Errorf("duplicate upload title %q under parallel dispatch", u.title)
+		}
+		titles[u.title] = true
+	}
+}
+
+func TestBundleSplitsOversizeSingleFile(t *testing.T) {
+	dir := t.TempDir()
+	// 30KB of line-structured content; bundle at 10KB max so this file
+	// must split into multiple parts. Without splitting, sync would emit
+	// one chunk that exceeds the per-request server limit.
+	var b bytes.Buffer
+	for i := 0; b.Len() < 30*1024; i++ {
+		fmt.Fprintf(&b, "line %d: lorem ipsum dolor sit amet consectetur\n", i)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "big.txt"), b.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, _ := walkFiles(dir)
+	const maxBytes = 10 * 1024
+	chunks, err := bundle(files, maxBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) < 3 {
+		t.Fatalf("expected file to split into >=3 chunks at %d-byte limit, got %d", maxBytes, len(chunks))
+	}
+
+	var reassembled bytes.Buffer
+	for i, chunk := range chunks {
+		if len(chunk) > maxBytes {
+			t.Errorf("chunk %d size %d exceeds maxBytes %d", i, len(chunk), maxBytes)
+		}
+		want := fmt.Sprintf("big.txt (part %d/%d)", i+1, len(chunks))
+		if !bytes.Contains(chunk, []byte("-- "+want+" --")) {
+			t.Errorf("chunk %d missing entry %q", i, want)
+		}
+		ar := txtar.Parse(chunk)
+		if len(ar.Files) != 1 {
+			t.Fatalf("chunk %d has %d files, want 1", i, len(ar.Files))
+		}
+		reassembled.Write(ar.Files[0].Data)
+	}
+	if !bytes.Equal(reassembled.Bytes(), b.Bytes()) {
+		t.Errorf("reassembled content does not match original (got %d bytes, want %d)", reassembled.Len(), b.Len())
 	}
 }
 

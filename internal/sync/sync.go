@@ -5,13 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
+	"sync"
 
 	"golang.org/x/tools/txtar"
 )
@@ -47,6 +48,7 @@ type Options struct {
 	JSON             bool     // NDJSON output
 	Exclude          []string // filepath.Match patterns; files whose basename or full path matches are skipped
 	IncludeUntracked bool     // when expanding git directories, include untracked non-ignored files
+	Parallel         int      // max concurrent chunk uploads; 0 means 4, negative means serial
 }
 
 func (o *Options) maxBytes() int {
@@ -54,6 +56,16 @@ func (o *Options) maxBytes() int {
 		return 5120000
 	}
 	return o.MaxBytes
+}
+
+func (o *Options) parallel() int {
+	if o.Parallel == 0 {
+		return 4
+	}
+	if o.Parallel < 0 {
+		return 1
+	}
+	return o.Parallel
 }
 
 // Pack discovers files, bundles them into txtar chunks, and returns the
@@ -114,6 +126,9 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 	if err != nil {
 		return fmt.Errorf("bundle: %w", err)
 	}
+	if len(chunks) == 0 {
+		return fmt.Errorf("no text files found")
+	}
 
 	// Name each chunk.
 	names := chunkNames(name, len(chunks))
@@ -145,12 +160,29 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 
 	out := &outputWriter{w: w, json: opts.JSON}
 
-	// Upload each chunk. Brief pause between API calls to avoid server 500s.
-	uploaded := 0
+	// Plan: walk all chunks once and decide each chunk's action up front so
+	// skip/dry-run output stays ordered. Real uploads run concurrently with
+	// bounded parallelism. Each chunk targets a unique remote name, so
+	// parallel uploads do not collide. State writes (hash cache, source
+	// cache, output) go through mu.
+	//
+	// One chunk's failure must not abort the others: an in-flight rename or
+	// upload aborted by a sibling's error tends to leave the notebook in a
+	// half-renamed state ("name [old]" stranded). Independent chunks run to
+	// completion and their errors are collected and returned together. The
+	// caller's ctx (e.g. ^C) still cancels everything as expected — we only
+	// avoid manufacturing cancellation from within.
+	var (
+		mu     sync.Mutex
+		wg     sync.WaitGroup
+		errsMu sync.Mutex
+		errs   []error
+	)
+	sem := make(chan struct{}, opts.parallel())
+
 	for i, data := range chunks {
 		chunkName := names[i]
 		hash := hashes[i]
-
 		existing, exists := byTitle[chunkName]
 
 		// Skip only when the hash is unchanged and the remote source is still
@@ -169,70 +201,35 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 			continue
 		}
 
-		if exists {
-			// Gap-free replacement: rename old → upload new → delete old.
-			oldName := chunkName + " [old]"
-			if err := c.RenameSource(ctx, existing.ID, oldName); err != nil {
-				return fmt.Errorf("rename %q: %w", chunkName, err)
-			}
-
-			// Snapshot labels before delete; reattach after upload succeeds.
-			var labelIDs []string
-			if lp, ok := c.(LabelPreserver); ok {
-				if got, err := lp.LabelsForSource(ctx, notebookID, existing.ID); err != nil {
-					fmt.Fprintf(os.Stderr, "warning: read labels for %s: %v\n", existing.ID, err)
-				} else {
-					labelIDs = got
-				}
-			}
-
-			newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
-			if err != nil {
-				// Try to restore the old name on failure.
-				_ = c.RenameSource(ctx, existing.ID, chunkName)
-				return fmt.Errorf("upload %q: %w", chunkName, err)
-			}
-
-			if err := c.DeleteSources(ctx, notebookID, []string{existing.ID}); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: uploaded %s but failed to delete old %s: %v\n", newID, existing.ID, err)
-			}
-
-			if len(labelIDs) > 0 {
-				lp := c.(LabelPreserver)
-				attached := 0
-				for _, lid := range labelIDs {
-					if err := lp.AttachLabelSource(ctx, notebookID, lid, newID); err != nil {
-						fmt.Fprintf(os.Stderr, "warning: attach label %s to %s: %v\n", lid, newID, err)
-						continue
-					}
-					attached++
-				}
-				if attached > 0 {
-					fmt.Fprintf(os.Stderr, "  preserved %d label assignment(s) on %s\n", attached, chunkName)
-				}
-			}
-
-			_ = hc.save(chunkName, hash)
-			sc.remove(notebookID, existing.ID)
-			sc.append(notebookID, Source{ID: newID, Title: chunkName})
-			out.emit(event{Action: "replace", Name: chunkName, SourceID: newID, OldID: existing.ID, Bytes: len(data)})
-			uploaded++
-		} else {
-			// New source.
-			newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
-			if err != nil {
-				return fmt.Errorf("upload %q: %w", chunkName, err)
-			}
-
-			_ = hc.save(chunkName, hash)
-			sc.append(notebookID, Source{ID: newID, Title: chunkName})
-			out.emit(event{Action: "upload", Name: chunkName, SourceID: newID, Bytes: len(data)})
-			uploaded++
+		// Honor caller cancellation between dispatches without blocking on
+		// the semaphore if ctx is already done. ctx.Done firing here means
+		// the user (or a parent) cancelled us; record it once and stop
+		// scheduling new work, but let already-running goroutines finish.
+		select {
+		case <-ctx.Done():
+			errsMu.Lock()
+			errs = append(errs, ctx.Err())
+			errsMu.Unlock()
+			goto wait
+		case sem <- struct{}{}:
 		}
-		// Brief pause between sequential uploads to avoid server rate limits.
-		if uploaded > 0 && i < len(chunks)-1 {
-			time.Sleep(time.Second)
-		}
+
+		wg.Add(1)
+		data, chunkName, hash, existing, exists := data, chunkName, hash, existing, exists
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if err := uploadChunk(ctx, c, notebookID, chunkName, data, hash, existing, exists, hc, sc, out, &mu); err != nil {
+				errsMu.Lock()
+				errs = append(errs, err)
+				errsMu.Unlock()
+			}
+		}()
+	}
+wait:
+	wg.Wait()
+	if err := errors.Join(errs...); err != nil {
+		return err
 	}
 
 	// Delete orphaned parts. Scan all sources for parts beyond what we
@@ -261,6 +258,73 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		out.emit(event{Action: "delete", Name: title, OldID: src.ID, Reason: "orphan"})
 	}
 
+	return nil
+}
+
+// uploadChunk uploads or replaces a single chunk. It is safe to call from
+// multiple goroutines because each chunk targets a unique remote name and
+// shared state is updated under mu.
+func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, data []byte, hash string, existing Source, exists bool, hc *hashCache, sc *sourceCache, out *outputWriter, mu *sync.Mutex) error {
+	if !exists {
+		newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
+		if err != nil {
+			return fmt.Errorf("upload %q: %w", chunkName, err)
+		}
+		mu.Lock()
+		_ = hc.save(chunkName, hash)
+		sc.append(notebookID, Source{ID: newID, Title: chunkName})
+		out.emit(event{Action: "upload", Name: chunkName, SourceID: newID, Bytes: len(data)})
+		mu.Unlock()
+		return nil
+	}
+
+	// Gap-free replacement: rename old → upload new → delete old.
+	oldName := chunkName + " [old]"
+	if err := c.RenameSource(ctx, existing.ID, oldName); err != nil {
+		return fmt.Errorf("rename %q: %w", chunkName, err)
+	}
+
+	// Snapshot labels before delete; reattach after upload succeeds.
+	var labelIDs []string
+	if lp, ok := c.(LabelPreserver); ok {
+		if got, err := lp.LabelsForSource(ctx, notebookID, existing.ID); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: read labels for %s: %v\n", existing.ID, err)
+		} else {
+			labelIDs = got
+		}
+	}
+
+	newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
+	if err != nil {
+		_ = c.RenameSource(ctx, existing.ID, chunkName)
+		return fmt.Errorf("upload %q: %w", chunkName, err)
+	}
+
+	if err := c.DeleteSources(ctx, notebookID, []string{existing.ID}); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: uploaded %s but failed to delete old %s: %v\n", newID, existing.ID, err)
+	}
+
+	if len(labelIDs) > 0 {
+		lp := c.(LabelPreserver)
+		attached := 0
+		for _, lid := range labelIDs {
+			if err := lp.AttachLabelSource(ctx, notebookID, lid, newID); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: attach label %s to %s: %v\n", lid, newID, err)
+				continue
+			}
+			attached++
+		}
+		if attached > 0 {
+			fmt.Fprintf(os.Stderr, "  preserved %d label assignment(s) on %s\n", attached, chunkName)
+		}
+	}
+
+	mu.Lock()
+	_ = hc.save(chunkName, hash)
+	sc.remove(notebookID, existing.ID)
+	sc.append(notebookID, Source{ID: newID, Title: chunkName})
+	out.emit(event{Action: "replace", Name: chunkName, SourceID: newID, OldID: existing.ID, Bytes: len(data)})
+	mu.Unlock()
 	return nil
 }
 
@@ -331,13 +395,22 @@ func readStdinPaths() ([]discovered, error) {
 }
 
 // bundle groups files into txtar chunks, each under maxBytes.
-// Files larger than maxBytes get their own chunk (unavoidable).
 //
 // Files whose contents contain lines that look like txtar markers
 // ("-- name --") are quoted with a '>'-prefix scheme matching
 // txtar-c -quote, and the archive comment records "unquote NAME"
 // directives so readers can recover the original bytes.
+//
+// A single file whose serialized entry would exceed maxBytes is split
+// across multiple chunks: each part becomes its own one-entry archive
+// named "<original> (part i/N)" so the server-side per-source size limit
+// is respected. Splits prefer line boundaries when possible.
 func bundle(files []discovered, maxBytes int) ([][]byte, error) {
+	// txtarOverhead is the approximate bytes added per entry: the marker
+	// line "-- name --\n" plus a trailing newline. The slack covers the
+	// archive-level newline and any small format quirks.
+	const txtarOverhead = 20
+
 	var chunks [][]byte
 	var ar txtar.Archive
 	currentSize := 0
@@ -376,7 +449,24 @@ func bundle(files []discovered, maxBytes int) ([][]byte, error) {
 			quoted = true
 		}
 
-		entrySize := len(f.Name) + len(data) + 20 // approximate txtar overhead
+		entrySize := len(f.Name) + len(data) + txtarOverhead
+
+		// Oversize single file: flush whatever is pending, then emit one
+		// chunk per part with a "(part i/N)" suffix on the entry name.
+		if entrySize > maxBytes {
+			flush()
+			parts := splitFileData(data, maxBytes-len(f.Name)-len(" (part 99/99)")-txtarOverhead)
+			for i, part := range parts {
+				partName := fmt.Sprintf("%s (part %d/%d)", f.Name, i+1, len(parts))
+				var partAr txtar.Archive
+				if quoted {
+					partAr.Comment = []byte("unquote " + partName + "\n")
+				}
+				partAr.Files = []txtar.File{{Name: partName, Data: part}}
+				chunks = append(chunks, txtar.Format(&partAr))
+			}
+			continue
+		}
 
 		// Flush current chunk if adding this file would exceed the limit.
 		if currentSize+entrySize > maxBytes {
@@ -391,15 +481,44 @@ func bundle(files []discovered, maxBytes int) ([][]byte, error) {
 			Data: data,
 		})
 		currentSize += entrySize
-
-		// If this single file already exceeds maxBytes, flush it as
-		// its own chunk so subsequent files start a fresh one.
-		if currentSize >= maxBytes {
-			flush()
-		}
 	}
 	flush()
 	return chunks, nil
+}
+
+// splitFileData splits data into pieces no larger than maxPart bytes each.
+// It prefers to break on '\n' so a reader sees whole lines per part; if a
+// run has no newline within maxPart bytes, it falls back to a hard byte
+// split. maxPart must be at least 1.
+func splitFileData(data []byte, maxPart int) [][]byte {
+	if maxPart < 1 {
+		maxPart = 1
+	}
+	var parts [][]byte
+	for len(data) > maxPart {
+		cut := maxPart
+		// Walk back to the last newline within the window so the part
+		// ends on a line boundary. Keep the newline with the earlier
+		// part — the next part starts at the next byte.
+		if nl := lastNewline(data[:cut]); nl >= 0 {
+			cut = nl + 1
+		}
+		parts = append(parts, data[:cut])
+		data = data[cut:]
+	}
+	if len(data) > 0 {
+		parts = append(parts, data)
+	}
+	return parts
+}
+
+func lastNewline(data []byte) int {
+	for i := len(data) - 1; i >= 0; i-- {
+		if data[i] == '\n' {
+			return i
+		}
+	}
+	return -1
 }
 
 // isBinary reports whether data looks like binary content.
