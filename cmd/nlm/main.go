@@ -123,6 +123,7 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  create-audio <id> <instructions>   Create audio overview\n")
 		fmt.Fprintf(os.Stderr, "  create-video <id> <instructions>   Create video overview\n")
 		fmt.Fprintf(os.Stderr, "  create-slides <id> <instructions>  Create slide deck\n")
+		fmt.Fprintf(os.Stderr, "  create-flashcards <id>  Create flashcards\n")
 		fmt.Fprintf(os.Stderr, "  create-infographic <id> <instructions>  Create infographic\n\n")
 
 		fmt.Fprintf(os.Stderr, "Audio Commands:\n")
@@ -145,6 +146,12 @@ func init() {
 		fmt.Fprintf(os.Stderr, "  get-artifact <artifact-id>  Get artifact details\n")
 		fmt.Fprintf(os.Stderr, "  rename-artifact <artifact-id> <new-title>  Rename artifact\n")
 		fmt.Fprintf(os.Stderr, "  delete-artifact <artifact-id>  Delete artifact\n\n")
+
+		fmt.Fprintf(os.Stderr, "Artifact Download Commands:\n")
+		fmt.Fprintf(os.Stderr, "  download-artifact <notebook-id> <artifact-id> [output]  Download artifact media\n")
+		fmt.Fprintf(os.Stderr, "  download-infographic <notebook-id> <infographic-id> [filename]  Download infographic image\n")
+		fmt.Fprintf(os.Stderr, "  download-slides <notebook-id> <slide-deck-id> [output-dir]  Download slide deck media\n")
+		fmt.Fprintf(os.Stderr, "  download-flashcards <notebook-id> <flashcards-id> [output-dir]  Download flashcard media\n\n")
 
 		fmt.Fprintf(os.Stderr, "Guidebook Commands:\n")
 		fmt.Fprintf(os.Stderr, "  guidebooks          List all guidebooks\n")
@@ -486,6 +493,31 @@ func validateArgs(cmd string, args []string) error {
 			fmt.Fprintf(os.Stderr, "usage: nlm get-artifact <artifact-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
+	case "artifact-download":
+		if len(args) < 1 || len(args) > 2 {
+			fmt.Fprintf(os.Stderr, "usage: nlm artifact-download <artifact-id> [filename]\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "download-artifact":
+		if len(args) < 2 || len(args) > 3 {
+			fmt.Fprintf(os.Stderr, "usage: nlm download-artifact <notebook-id> <artifact-id> [output]\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "download-infographic":
+		if len(args) < 2 || len(args) > 3 {
+			fmt.Fprintf(os.Stderr, "usage: nlm download-infographic <notebook-id> <infographic-id> [filename]\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "download-slides":
+		if len(args) < 2 || len(args) > 3 {
+			fmt.Fprintf(os.Stderr, "usage: nlm download-slides <notebook-id> <slide-deck-id> [output-dir]\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "download-flashcards":
+		if len(args) < 2 || len(args) > 3 {
+			fmt.Fprintf(os.Stderr, "usage: nlm download-flashcards <notebook-id> <flashcards-id> [output-dir]\n")
+			return fmt.Errorf("invalid arguments")
+		}
 	case "list-artifacts", "artifacts":
 		if len(args) != 1 {
 			if cmd == "artifacts" {
@@ -513,6 +545,11 @@ func validateArgs(cmd string, args []string) error {
 	case "create-infographic":
 		if len(args) < 2 {
 			fmt.Fprintf(os.Stderr, "usage: nlm create-infographic <notebook-id> <instructions>\n")
+			return fmt.Errorf("invalid arguments")
+		}
+	case "create-flashcards":
+		if len(args) != 1 {
+			fmt.Fprintf(os.Stderr, "usage: nlm create-flashcards <notebook-id>\n")
 			return fmt.Errorf("invalid arguments")
 		}
 	case "guidebook":
@@ -581,10 +618,10 @@ func isValidCommand(cmd string) bool {
 		"list", "ls", "create", "rm", "analytics", "list-featured",
 		"sources", "add", "rm-source", "rename-source", "refresh-source", "check-source", "discover-sources",
 		"notes", "read-note", "new-note", "update-note", "rm-note",
-		"create-audio", "create-video", "create-slides", "create-infographic",
+		"create-audio", "create-video", "create-slides", "create-flashcards", "create-infographic",
 		"audio-get", "audio-rm", "audio-share", "audio-list", "audio-download", "audio-interactive",
 		"video-list", "video-download",
-		"get-artifact", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
+		"get-artifact", "download-artifact", "download-infographic", "download-slides", "download-flashcards", "artifact-download", "list-artifacts", "artifacts", "rename-artifact", "delete-artifact",
 		"guidebooks", "guidebook", "guidebook-publish", "guidebook-share", "guidebook-ask", "guidebook-rm",
 		"generate-guide", "generate-magic", "generate-mindmap", "generate-chat", "chat", "chat-list", "delete-chat", "chat-config", "set-instructions", "get-instructions",
 		"rephrase", "expand", "summarize", "critique", "brainstorm", "verify", "explain", "outline", "study-guide", "faq", "briefing-doc", "mindmap", "timeline", "toc",
@@ -735,6 +772,9 @@ func run() error {
 		// Set authuser for multi-account support
 		if v := os.Getenv("NLM_AUTHUSER"); v != "" {
 			client.SetAuthUser(v)
+		}
+		if chromeProfile != "" {
+			client.SetBrowserProfile(chromeProfile)
 		}
 		// Set direct RPC flag if specified
 		if useDirectRPC {
@@ -910,6 +950,18 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 	// Artifact operations
 	case "get-artifact":
 		err = getArtifact(client, args[0])
+	case "artifact-download":
+		filename := ""
+		if len(args) > 1 {
+			filename = args[1]
+		}
+		err = downloadArtifact(client, args[0], filename)
+	case "download-artifact", "download-infographic", "download-slides", "download-flashcards":
+		output := ""
+		if len(args) > 2 {
+			output = args[2]
+		}
+		err = downloadArtifactFromNotebook(client, args[0], args[1], output)
 	case "list-artifacts", "artifacts":
 		err = listArtifacts(client, args[0])
 	case "rename-artifact":
@@ -935,6 +987,14 @@ func runCmd(client *api.Client, cmd string, args ...string) error {
 			break
 		}
 		fmt.Printf("Created infographic: %s\n", artifactID)
+		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
+	case "create-flashcards":
+		artifactID, fErr := client.CreateFlashcards(args[0])
+		if fErr != nil {
+			err = fErr
+			break
+		}
+		fmt.Printf("Created flashcards: %s\n", artifactID)
 		fmt.Fprintf(os.Stderr, "Use 'nlm artifacts %s' to check status.\n", args[0])
 
 		// Guidebook operations
@@ -1677,16 +1737,26 @@ func discoverSources(c *api.Client, projectID, query string) error {
 
 // Artifact management
 func getArtifact(c *api.Client, artifactID string) error {
-	artifact, err := c.GetArtifact(artifactID)
+	details, err := c.GetArtifactDetails(artifactID)
 	if err != nil {
 		return fmt.Errorf("get artifact: %w", err)
 	}
+	artifact := details.Artifact
 
 	fmt.Printf("Artifact Details:\n")
 	fmt.Printf("  ID: %s\n", artifact.ArtifactId)
+	if details.Title != "" {
+		fmt.Printf("  Title: %s\n", details.Title)
+	}
 	fmt.Printf("  Project: %s\n", artifact.ProjectId)
 	fmt.Printf("  Type: %s\n", artifact.Type.String())
-	fmt.Printf("  State: %s\n", artifact.State.String())
+	fmt.Printf("  State: %s\n", artifactStateString(artifact.State))
+	if details.Description != "" {
+		fmt.Printf("  Description: %s\n", details.Description)
+	}
+	if details.ImageURL != "" {
+		fmt.Printf("  Image URL: %s\n", details.ImageURL)
+	}
 
 	if len(artifact.Sources) > 0 {
 		fmt.Printf("  Sources (%d):\n", len(artifact.Sources))
@@ -1696,6 +1766,48 @@ func getArtifact(c *api.Client, artifactID string) error {
 	}
 
 	return nil
+}
+
+func downloadArtifact(c *api.Client, artifactID, filename string) error {
+	result, err := c.DownloadArtifactImage(artifactID, filename)
+	if err != nil {
+		return fmt.Errorf("download artifact: %w", err)
+	}
+
+	printArtifactDownloadResult(result)
+	return nil
+}
+
+func downloadArtifactFromNotebook(c *api.Client, notebookID, artifactID, output string) error {
+	result, err := c.DownloadArtifactFilesFromProject(notebookID, artifactID, output)
+	if err != nil {
+		return fmt.Errorf("download artifact: %w", err)
+	}
+
+	printArtifactFilesDownloadResult(result)
+	return nil
+}
+
+func printArtifactFilesDownloadResult(result *api.ArtifactFilesDownloadResult) {
+	if len(result.Files) == 1 {
+		printArtifactDownloadResult(result.Files[0])
+		return
+	}
+	fmt.Printf("Downloaded artifact files: %s\n", result.OutputPath)
+	fmt.Printf("Artifact ID: %s\n", result.ArtifactID)
+	fmt.Printf("Files: %d\n", len(result.Files))
+	for _, file := range result.Files {
+		fmt.Printf("  - %s\n", file.Filename)
+	}
+}
+
+func printArtifactDownloadResult(result *api.ArtifactDownloadResult) {
+	fmt.Printf("Downloaded artifact: %s\n", result.Filename)
+	fmt.Printf("Artifact ID: %s\n", result.ArtifactID)
+	if result.ContentType != "" {
+		fmt.Printf("Content-Type: %s\n", result.ContentType)
+	}
+	fmt.Printf("Bytes: %d\n", result.Bytes)
 }
 
 func listArtifacts(c *api.Client, projectID string) error {
@@ -1736,10 +1848,19 @@ func displayArtifacts(artifacts []*pb.Artifact) error {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			artifact.ArtifactId,
 			artifact.Type.String(),
-			artifact.State.String(),
+			artifactStateString(artifact.State),
 			sourceCount)
 	}
 	return w.Flush()
+}
+
+func artifactStateString(state pb.ArtifactState) string {
+	// Current NotebookLM Studio artifacts return state 3 for completed items,
+	// even though the checked-in protobuf labels 3 as FAILED.
+	if int32(state) == 3 {
+		return "ARTIFACT_STATE_READY"
+	}
+	return state.String()
 }
 
 func renameArtifact(c *api.Client, artifactID, newTitle string) error {

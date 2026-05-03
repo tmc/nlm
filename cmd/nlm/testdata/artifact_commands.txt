@@ -12,6 +12,67 @@ stderr 'usage: nlm get-artifact <artifact-id>'
 stderr 'Authentication required'
 ! stderr 'panic'
 
+# === ARTIFACT-DOWNLOAD COMMAND ===
+# Test artifact-download without arguments
+! exec ./nlm_test artifact-download
+stderr 'usage: nlm artifact-download <artifact-id> \[filename\]'
+! stderr 'panic'
+
+# Test artifact-download without authentication
+! exec ./nlm_test artifact-download artifact123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test download-infographic without arguments
+! exec ./nlm_test download-infographic
+stderr 'usage: nlm download-infographic <notebook-id> <infographic-id> \[filename\]'
+! stderr 'panic'
+
+# Test download-infographic without authentication
+! exec ./nlm_test download-infographic notebook123 artifact123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test download-artifact without arguments
+! exec ./nlm_test download-artifact
+stderr 'usage: nlm download-artifact <notebook-id> <artifact-id> \[output\]'
+! stderr 'panic'
+
+# Test download-artifact without authentication
+! exec ./nlm_test download-artifact notebook123 artifact123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test download-slides without arguments
+! exec ./nlm_test download-slides
+stderr 'usage: nlm download-slides <notebook-id> <slide-deck-id> \[output-dir\]'
+! stderr 'panic'
+
+# Test download-slides without authentication
+! exec ./nlm_test download-slides notebook123 artifact123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test download-flashcards without arguments
+! exec ./nlm_test download-flashcards
+stderr 'usage: nlm download-flashcards <notebook-id> <flashcards-id> \[output-dir\]'
+! stderr 'panic'
+
+# Test download-flashcards without authentication
+! exec ./nlm_test download-flashcards notebook123 artifact123
+stderr 'Authentication required'
+! stderr 'panic'
+
+# Test create-flashcards without arguments
+! exec ./nlm_test create-flashcards
+stderr 'usage: nlm create-flashcards <notebook-id>'
+! stderr 'panic'
+
+# Test create-flashcards without authentication
+! exec ./nlm_test create-flashcards notebook123
+stderr 'Authentication required'
+! stderr 'panic'
+
 # === LIST-ARTIFACTS COMMAND ===
 # Test list-artifacts without arguments
 ! exec ./nlm_test list-artifacts

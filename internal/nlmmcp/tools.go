@@ -671,7 +671,9 @@ func artifactStateLabel(s pb.ArtifactState) string {
 	case pb.ArtifactState_ARTIFACT_STATE_READY:
 		return "ARTIFACT_STATE_READY"
 	case pb.ArtifactState_ARTIFACT_STATE_FAILED:
-		return "ARTIFACT_STATE_FAILED"
+		// Current NotebookLM Studio artifacts return state 3 for completed items,
+		// even though the checked-in protobuf labels 3 as FAILED.
+		return "ARTIFACT_STATE_READY"
 	case pb.ArtifactState_ARTIFACT_STATE_SUGGESTED:
 		return "ARTIFACT_STATE_SUGGESTED"
 	case pb.ArtifactState_ARTIFACT_STATE_7:

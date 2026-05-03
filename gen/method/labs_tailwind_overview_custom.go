@@ -10,6 +10,14 @@ var artifactTypeDescriptor = []interface{}{
 	[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
 }
 
+// infographicArtifactTypeDescriptor is the observed descriptor for infographic
+// R7cb6c calls. Unlike audio/video/slides, the UI omits the final type 5 flag.
+var infographicArtifactTypeDescriptor = []interface{}{
+	2, nil, nil,
+	[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
+	[]interface{}{[]interface{}{1, 4, 2, 3, 6}},
+}
+
 // encodeOverviewSourceRefs returns 3-level nesting: [[[id1]], [[id2]], ...]
 // Used for the outer source refs at arg[2][3].
 func encodeOverviewSourceRefs(sourceIDs []string) []interface{} {
@@ -85,9 +93,14 @@ func EncodeCreateSlideDeckArgs(projectID string, sourceIDs []string, instruction
 
 // EncodeCreateInfographicArgs encodes the R7cb6c infographic payload.
 func EncodeCreateInfographicArgs(projectID string, sourceIDs []string, instructions, language string) []interface{} {
+	_ = language
 	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
+	var customInstructions interface{}
+	if instructions != "" {
+		customInstructions = instructions
+	}
 	return []interface{}{
-		artifactTypeDescriptor,
+		infographicArtifactTypeDescriptor,
 		projectID,
 		[]interface{}{
 			nil,
@@ -95,7 +108,27 @@ func EncodeCreateInfographicArgs(projectID string, sourceIDs []string, instructi
 			7, // artifact type 7 = infographic
 			sourceRefs,
 			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
-			[]interface{}{[]interface{}{instructions, language, nil, nil, nil, nil}},
+			[]interface{}{[]interface{}{customInstructions, nil, nil, 1, 2}},
+		},
+	}
+}
+
+// EncodeCreateFlashcardsArgs encodes the observed R7cb6c flashcards payload.
+func EncodeCreateFlashcardsArgs(projectID string, sourceIDs []string) []interface{} {
+	sourceRefs := encodeOverviewSourceRefs(sourceIDs)
+	return []interface{}{
+		infographicArtifactTypeDescriptor,
+		projectID,
+		[]interface{}{
+			nil,
+			nil,
+			4, // artifact type 4 covers generated report-style artifacts, including flashcards
+			sourceRefs,
+			nil, nil, nil, nil, nil,
+			[]interface{}{
+				nil,
+				[]interface{}{1, nil, nil, nil, nil, nil, []interface{}{2, 2}},
+			},
 		},
 	}
 }

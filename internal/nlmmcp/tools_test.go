@@ -61,6 +61,9 @@ func TestArtifactLabels(t *testing.T) {
 	if got := artifactStateLabel(pb.ArtifactState(4)); got != "ARTIFACT_STATE_SUGGESTED" {
 		t.Fatalf("artifactStateLabel(4) = %q, want %q", got, "ARTIFACT_STATE_SUGGESTED")
 	}
+	if got := artifactStateLabel(pb.ArtifactState(3)); got != "ARTIFACT_STATE_READY" {
+		t.Fatalf("artifactStateLabel(3) = %q, want %q", got, "ARTIFACT_STATE_READY")
+	}
 	if got := artifactStateLabel(pb.ArtifactState(7)); got != "ARTIFACT_STATE_7" {
 		t.Fatalf("artifactStateLabel(7) = %q, want %q", got, "ARTIFACT_STATE_7")
 	}

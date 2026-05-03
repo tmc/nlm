@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
@@ -1434,6 +1435,10 @@ func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName str
 	if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
 		return nil, fmt.Errorf("copy profile: %w", err)
 	}
+	downloadDir := filepath.Join(tempDir, "downloads")
+	if err := os.MkdirAll(downloadDir, 0755); err != nil {
+		return nil, fmt.Errorf("create download dir: %w", err)
+	}
 
 	// Set up chromedp
 	opts := []chromedp.ExecAllocatorOption{
@@ -1460,7 +1465,7 @@ func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName str
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
 		switch ev := ev.(type) {
 		case *network.EventResponseReceived:
-			if ev.Response.URL == urlToDownload {
+			if ev.Response.URL == urlToDownload || isDownloadResponseForURL(ev.Response.URL, urlToDownload) {
 				responseReceived = true
 			}
 		case *network.EventLoadingFinished:
@@ -1477,19 +1482,68 @@ func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName str
 	})
 
 	// Enable network and navigate to URL
-	if err := chromedp.Run(ctx,
+	err = chromedp.Run(ctx,
 		network.Enable(),
+		browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllow).
+			WithDownloadPath(downloadDir).
+			WithEventsEnabled(true),
 		chromedp.Navigate(urlToDownload),
-	); err != nil {
+	)
+	if err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
 		return nil, fmt.Errorf("navigate to URL: %w", err)
 	}
 
-	// Wait for response or timeout
-	time.Sleep(2 * time.Second)
+	// Wait for response body capture or for Chrome to finish a file download.
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(responseBody) > 0 {
+			return responseBody, nil
+		}
+		if path := firstCompletedDownload(downloadDir); path != "" {
+			body, err := os.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("read downloaded file: %w", err)
+			}
+			return body, nil
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
 
 	if len(responseBody) == 0 {
 		return nil, fmt.Errorf("failed to download: no response body captured")
 	}
 
 	return responseBody, nil
+}
+
+func firstCompletedDownload(downloadDir string) string {
+	entries, err := os.ReadDir(downloadDir)
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || strings.HasSuffix(entry.Name(), ".crdownload") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil || info.Size() == 0 {
+			continue
+		}
+		return filepath.Join(downloadDir, entry.Name())
+	}
+	return ""
+}
+
+func isDownloadResponseForURL(responseURL, requestedURL string) bool {
+	if responseURL == "" || requestedURL == "" {
+		return false
+	}
+	if strings.Contains(responseURL, "accounts.google.com") {
+		return false
+	}
+	if strings.Contains(responseURL, "googleusercontent.com/notebooklm/") ||
+		strings.Contains(responseURL, "contribution.usercontent.google.com/download") {
+		return true
+	}
+	return false
 }

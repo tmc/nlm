@@ -84,6 +84,110 @@ func TestParseArtifactsResponseUsesObservedFieldPositions(t *testing.T) {
 	}
 }
 
+func TestParseArtifactDetailsResponseExtractsImageURL(t *testing.T) {
+	client := &Client{}
+	resp := []byte(`[[["artifact-1","Guide to Ensemble Learning",7,[[["src-1"]]],3,null,["payload",["https://lh3.googleusercontent.com/notebooklm/image-token=w2752-d-h1536-mp2"]],"Infographic comparing bagging and boosting."]]]`)
+
+	details, err := client.parseArtifactDetailsResponse(resp, "artifact-1")
+	if err != nil {
+		t.Fatalf("parseArtifactDetailsResponse() error = %v", err)
+	}
+	if details.Artifact.GetArtifactId() != "artifact-1" {
+		t.Fatalf("artifact id = %q, want artifact-1", details.Artifact.GetArtifactId())
+	}
+	if details.Title != "Guide to Ensemble Learning" {
+		t.Fatalf("Title = %q, want %q", details.Title, "Guide to Ensemble Learning")
+	}
+	if details.ImageURL != "https://lh3.googleusercontent.com/notebooklm/image-token=w2752-d-h1536-mp2" {
+		t.Fatalf("ImageURL = %q", details.ImageURL)
+	}
+	if details.Description != "Infographic comparing bagging and boosting." {
+		t.Fatalf("Description = %q", details.Description)
+	}
+}
+
+func TestParseArtifactDetailsListResponseExtractsImageURL(t *testing.T) {
+	client := &Client{}
+	resp := []byte(`[[["artifact-1","Guide to Ensemble Learning",7,[[["src-1"]]],3,null,["payload",["https://lh3.googleusercontent.com/notebooklm/image-token=w2752-d-h1536-mp2"]],"Infographic comparing bagging and boosting."]]]`)
+
+	details, err := client.parseArtifactDetailsListResponse(resp)
+	if err != nil {
+		t.Fatalf("parseArtifactDetailsListResponse() error = %v", err)
+	}
+	if len(details) != 1 {
+		t.Fatalf("len(details) = %d, want 1", len(details))
+	}
+	if details[0].ImageURL != "https://lh3.googleusercontent.com/notebooklm/image-token=w2752-d-h1536-mp2" {
+		t.Fatalf("ImageURL = %q", details[0].ImageURL)
+	}
+}
+
+func TestDefaultArtifactImageFilename(t *testing.T) {
+	got := defaultArtifactImageFilename(&ArtifactDetails{
+		Title: "Guide to Ensemble Learning Techniques!",
+	})
+	if got != "guide-to-ensemble-learning-techniques.png" {
+		t.Fatalf("defaultArtifactImageFilename() = %q", got)
+	}
+}
+
+func TestArtifactMediaURLsFiltersNotebookLMCDN(t *testing.T) {
+	got := artifactMediaURLs(&ArtifactDetails{
+		ImageURL: "https://lh3.googleusercontent.com/notebooklm/fallback=w2752",
+		URLs: []string{
+			"https://example.com/source",
+			"https://lh3.googleusercontent.com/notebooklm/image=w2752",
+			"https://lh3.googleusercontent.com/notebooklm/image=w2752",
+		},
+	})
+	if len(got) != 1 {
+		t.Fatalf("len(artifactMediaURLs) = %d, want 1", len(got))
+	}
+	if got[0] != "https://lh3.googleusercontent.com/notebooklm/image=w2752" {
+		t.Fatalf("artifactMediaURLs()[0] = %q", got[0])
+	}
+}
+
+func TestArtifactMediaURLsPrefersContributionDownloads(t *testing.T) {
+	got := artifactMediaURLs(&ArtifactDetails{
+		URLs: []string{
+			"https://lh3.googleusercontent.com/notebooklm/preview=w1376",
+			"https://contribution.usercontent.google.com/download?filename=Deck.pdf",
+			"https://contribution.usercontent.google.com/download?filename=Deck.pptx",
+		},
+	})
+	if len(got) != 2 {
+		t.Fatalf("len(artifactMediaURLs) = %d, want 2", len(got))
+	}
+	if got[0] != "https://contribution.usercontent.google.com/download?filename=Deck.pdf" {
+		t.Fatalf("artifactMediaURLs()[0] = %q", got[0])
+	}
+	if got[1] != "https://contribution.usercontent.google.com/download?filename=Deck.pptx" {
+		t.Fatalf("artifactMediaURLs()[1] = %q", got[1])
+	}
+}
+
+func TestDefaultArtifactFilenameUsesURLFilename(t *testing.T) {
+	got := defaultArtifactFilename(&ArtifactDetails{Title: "Ignored"}, "https://contribution.usercontent.google.com/download?filename=The_Deck.pptx", "application/octet-stream")
+	if got != "The_Deck.pptx" {
+		t.Fatalf("defaultArtifactFilename() = %q", got)
+	}
+}
+
+func TestMediaURLWithAuthUser(t *testing.T) {
+	client := &Client{}
+	got := client.mediaURLWithAuthUser("https://contribution.usercontent.google.com/download?filename=The_Deck.pptx")
+	if got != "https://contribution.usercontent.google.com/download?authuser=0&filename=The_Deck.pptx" {
+		t.Fatalf("mediaURLWithAuthUser() = %q", got)
+	}
+
+	client.SetAuthUser("2")
+	got = client.mediaURLWithAuthUser("https://contribution.usercontent.google.com/download?authuser=1&filename=The_Deck.pptx")
+	if got != "https://contribution.usercontent.google.com/download?authuser=1&filename=The_Deck.pptx" {
+		t.Fatalf("mediaURLWithAuthUser(existing) = %q", got)
+	}
+}
+
 func TestVideoOverviewResultFromArtifactData(t *testing.T) {
 	result := videoOverviewResultFromArtifactData("project-123", []interface{}{
 		"video-1",
