@@ -52,7 +52,7 @@ is piped, it emits the full list unless you pass `--limit`.
 | `nlm source add NOTEBOOK_ID https://example.com/article` | Add a URL source |
 | `nlm source add NOTEBOOK_ID ./paper.pdf` | Add a file source |
 | `nlm source add NOTEBOOK_ID "Meeting notes from March 5"` | Add a text source |
-| `nlm source add NOTEBOOK_ID -` | Read newline-delimited source references from stdin |
+| `nlm source add NOTEBOOK_ID -` | Read stdin as one source |
 | `nlm source sync NOTEBOOK_ID .` | Sync files into one managed source |
 | `nlm source pack .` | Preview the txtar payload `source sync` would upload |
 | `nlm source delete NOTEBOOK_ID SOURCE_ID` | Remove one source |
@@ -62,9 +62,9 @@ is piped, it emits the full list unless you pass `--limit`.
 | `nlm source check SOURCE_ID [NOTEBOOK_ID]` | Check source freshness |
 | `nlm source read SOURCE_ID [NOTEBOOK_ID]` | Print the indexed text body |
 
-`source add` accepts URLs, file paths, or literal text. When you pass `-`,
-stdin is treated as one source reference per line. For multi-line text, pass a
-file path or use notes instead. Use `--name` to override the title, `--replace`
+`source add` accepts URLs, file paths, literal text, or a sole `-`. A sole `-`
+uploads stdin as one source; use `--name` to give piped text a useful title. To
+add a list of URLs or paths from stdin, compose with `xargs`. Use `--replace`
 to swap in a new upload, and `--mime` to override MIME detection for file
 uploads.
 
