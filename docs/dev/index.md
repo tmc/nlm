@@ -47,4 +47,3 @@ nlm uses session cookies extracted from the browser via Chrome DevTools Protocol
 - [Codegen Split](codegen.md) — Why HAR-verified encoders live under `internal/method/`, not `gen/method/`
 - [Test Conventions](test-conventions.md) — `testdata/` vs `docs/captures/`, fixture-skip pattern, encoder guard comments
 - [HTTP Capture](http-capture.md) — Testing framework for recording and replaying HTTP
-- [Interactive Audio Spec](spec-interactive-audio.md) — WebRTC bidirectional audio wire-format reference

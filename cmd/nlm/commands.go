@@ -554,27 +554,6 @@ var commands = []command{
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error { return shareAudioOverview(c, args[0]) },
 	},
-	{
-		name: "audio-interactive", argsUsage: "<notebook-id> [flags]",
-		usage: "Start interactive audio session (experimental, limited functionality)", section: "Audio",
-		minArgs: 0, maxArgs: -1,
-		hidden:   true, // requires NLM_EXPERIMENTAL
-		validate: func(cmdName string, args []string) error { return validateInteractiveAudioArgs(args) },
-		help:     printInteractiveAudioUsage,
-		run: func(c *api.Client, args []string) error {
-			if !experimentalEnabled() {
-				return fmt.Errorf("audio-interactive is experimental (limited functionality); pass --experimental or set NLM_EXPERIMENTAL=1")
-			}
-			opts, notebookID, err := parseInteractiveAudioArgs(args)
-			if errors.Is(err, errInteractiveAudioHelp) {
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-			return runInteractiveAudioCommand(c, notebookID, opts)
-		},
-	},
 
 	// Video operations
 	{
@@ -1075,8 +1054,7 @@ var commandStarts map[string]bool
 var maxCommandWords int
 
 var experimentalCommands = map[string]bool{
-	"analytics":         true,
-	"audio-interactive": true,
+	"analytics": true,
 }
 
 var internalCommands = map[string]bool{

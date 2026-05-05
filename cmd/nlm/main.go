@@ -230,8 +230,6 @@ func reorderArgs() {
 }
 
 func main() {
-	lockInteractiveAudioAppThreadIfNeeded(os.Args[1:])
-
 	reorderArgs()
 	flag.Parse()
 
@@ -463,9 +461,6 @@ func run() error {
 
 	// Validate arguments.
 	if err := validateCommandArgs(entry, cmdName, args); err != nil {
-		if errors.Is(err, errInteractiveAudioHelp) {
-			return nil
-		}
 		return err
 	}
 

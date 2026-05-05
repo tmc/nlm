@@ -298,7 +298,6 @@ internal/
   beprotojson/              Proto <-> batchexecute JSON marshaling
   nlmmcp/                   MCP server implementation
   auth/                     Browser cookie extraction
-  interactiveaudio/         WebRTC interactive audio (experimental)
 gen/
   method/                   RPC argument encoders
   service/                  Generated service clients
