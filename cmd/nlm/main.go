@@ -869,6 +869,9 @@ func formatSourceStatus(src *pb.Source) string {
 	if src.Settings != nil && src.Settings.Status == 3 {
 		return "error"
 	}
+	if src.Metadata != nil && src.Metadata.Status == 3 {
+		return "error"
+	}
 	if len(src.Warnings) > 0 {
 		var codes []string
 		for _, w := range src.Warnings {

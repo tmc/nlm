@@ -45,12 +45,26 @@ func TestFormatSourceStatus(t *testing.T) {
 			want: "error",
 		},
 		{
+			name: "metadata only errored",
+			src: &pb.Source{
+				Metadata: &pb.SourceMetadata{Status: pb.SourceSettings_SOURCE_STATUS_ERROR},
+			},
+			want: "error",
+		},
+		{
 			name: "warnings beat enabled",
 			src: &pb.Source{
 				Metadata: &pb.SourceMetadata{Status: pb.SourceSettings_SOURCE_STATUS_ENABLED},
 				Warnings: []*wrapperspb.Int32Value{wrapperspb.Int32(7)},
 			},
 			want: "warn:7",
+		},
+		{
+			name: "multiple warnings",
+			src: &pb.Source{
+				Warnings: []*wrapperspb.Int32Value{wrapperspb.Int32(7), wrapperspb.Int32(9)},
+			},
+			want: "warn:7,warn:9",
 		},
 		{
 			name: "no metadata no settings",
