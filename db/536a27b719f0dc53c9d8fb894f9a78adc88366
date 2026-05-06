@@ -1,0 +1,9 @@
+claude-code: 2.1.126
+model: claude-opus-4-7[1m]
+tty: not a tty
+pid: 19666
+iterm-session: w1t11p4:55395BEE-6104-4F9E-8284-5E1B971B8EAC
+date: 2026-05-06T20:57:28Z
+context: follow-up doc note from session 64E7A275 review of b4280620
+- count from ListRecentlyViewedProjects can lag server after batch deletes
+- not a behavior bug; just clarifies what the displayed count means
