@@ -1,0 +1,10 @@
+claude-code: 2.1.126
+model: claude-opus-4-7[1m]
+tty: not a tty
+pid: 19666
+iterm-session: w1t11p4:55395BEE-6104-4F9E-8284-5E1B971B8EAC
+date: 2026-05-06T20:55:14Z
+context: bug report from session 64E7A275 (paper-veracity-checker)
+- nlm notebook create returned exit-class=bad-args at 492/500
+- root cause: ListRecentlyViewedProjects underreports vs server cap
+- fix: near-cap heuristic + NotebookCapError carries count/limit
