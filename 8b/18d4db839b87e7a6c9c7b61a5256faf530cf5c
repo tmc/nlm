@@ -1,0 +1,11 @@
+commit=8b18d4db839b87e7a6c9c7b61a5256faf530cf5c
+date=2026-05-17T23:55:12Z
+agent=codex
+codex_version=codex-cli 0.128.0
+model=GPT-5
+tty=not a tty
+pid=28136
+ITERM_SESSION_ID=w1t6p11:6A89541C-DF7B-4D92-BEA7-3803C15280B9
+history_audit=go-team-history-audit
+backup=backup/pre-history-audit-20260517T235202Z
+original_hashes=19907be3 8f676d8b bb5fdc1f 9937340f
