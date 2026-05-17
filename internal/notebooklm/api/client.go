@@ -946,7 +946,8 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 	req.Header.Set("X-Goog-Upload-Header-Content-Length", fmt.Sprintf("%d", contentLength))
 	req.Header.Set("X-Goog-AuthUser", c.authUserOrDefault())
 
-	// Upload uses cookies only — no Authorization, Origin, or X-Same-Domain headers
+	// Upload uses cookies only; no Authorization or X-Same-Domain headers.
+	// The current web upload init includes Origin and Referer.
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
 		req.Header.Set("Cookie", cookies)
 	}
@@ -4854,8 +4855,17 @@ func findStringMatching(v interface{}, match func(string) bool) string {
 }
 
 // Helper functions to identify and extract YouTube video IDs
-func isYouTubeURL(url string) bool {
-	return strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")
+func isYouTubeURL(urlStr string) bool {
+	u, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
+	return isYouTubeHost(u.Hostname())
+}
+
+func isYouTubeHost(host string) bool {
+	host = strings.ToLower(host)
+	return host == "youtu.be" || host == "youtube.com" || strings.HasSuffix(host, ".youtube.com")
 }
 
 func extractYouTubeVideoID(urlStr string) (string, error) {
@@ -4864,11 +4874,12 @@ func extractYouTubeVideoID(urlStr string) (string, error) {
 		return "", err
 	}
 
-	if u.Host == "youtu.be" {
+	host := strings.ToLower(u.Hostname())
+	if host == "youtu.be" {
 		return strings.TrimPrefix(u.Path, "/"), nil
 	}
 
-	if strings.Contains(u.Host, "youtube.com") && u.Path == "/watch" {
+	if (host == "youtube.com" || strings.HasSuffix(host, ".youtube.com")) && u.Path == "/watch" {
 		return u.Query().Get("v"), nil
 	}
 

@@ -39,6 +39,16 @@ func TestNormalizeYouTubeSourceURL(t *testing.T) {
 			input:   "https://example.com/watch?v=dyTIt1HQ_aw",
 			wantErr: true,
 		},
+		{
+			name:    "host containing youtube.com",
+			input:   "https://notyoutube.com/watch?v=dyTIt1HQ_aw",
+			wantErr: true,
+		},
+		{
+			name:    "youtube.com suffix impostor",
+			input:   "https://youtube.com.evil/watch?v=dyTIt1HQ_aw",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -58,6 +68,51 @@ func TestNormalizeYouTubeSourceURL(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Fatalf("normalizeYouTubeSourceURL(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsYouTubeURLRequiresYouTubeHost(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "youtube watch URL",
+			input: "https://www.youtube.com/watch?v=dyTIt1HQ_aw",
+			want:  true,
+		},
+		{
+			name:  "youtube subdomain",
+			input: "https://m.youtube.com/watch?v=dyTIt1HQ_aw",
+			want:  true,
+		},
+		{
+			name:  "short URL",
+			input: "https://youtu.be/dyTIt1HQ_aw",
+			want:  true,
+		},
+		{
+			name:  "host containing youtube.com",
+			input: "https://notyoutube.com/watch?v=dyTIt1HQ_aw",
+		},
+		{
+			name:  "youtube.com suffix impostor",
+			input: "https://youtube.com.evil/watch?v=dyTIt1HQ_aw",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := isYouTubeURL(tt.input); got != tt.want {
+				t.Fatalf("isYouTubeURL(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
