@@ -1,0 +1,10 @@
+commit=429bbf146b8a6135da5ede1008d335b6d71555d2
+date=2026-05-18T01:39:05Z
+agent=codex
+codex_version=codex-cli 0.128.0
+model=GPT-5
+tty=not a tty
+pid=37230
+ITERM_SESSION_ID=w1t6p11:6A89541C-DF7B-4D92-BEA7-3803C15280B9
+objective=implement full cli refactor
+scope=parser shell and cli surface contract tests
