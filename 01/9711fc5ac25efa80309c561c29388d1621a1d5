@@ -1,0 +1,12 @@
+commit=019711fc5ac25efa80309c561c29388d1621a1d5
+date=2026-05-18T02:23:12Z
+agent=codex
+codex_version=codex-cli 0.128.0
+model=GPT-5
+tty=not a tty
+not a tty
+pid=87779
+ITERM_SESSION_ID=w1t6p11:6A89541C-DF7B-4D92-BEA7-3803C15280B9
+objective=implement full cli refactor
+scope=command help surface cleanup after dropping standalone design doc
+rewritten_from=8b18d4db839b87e7a6c9c7b61a5256faf530cf5c
