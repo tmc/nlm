@@ -1,0 +1,12 @@
+commit=6956289a52ded03f4f345f3cfa7228c04e2b510d
+date=2026-05-18T02:23:12Z
+agent=codex
+codex_version=codex-cli 0.128.0
+model=GPT-5
+tty=not a tty
+not a tty
+pid=87779
+ITERM_SESSION_ID=w1t6p11:6A89541C-DF7B-4D92-BEA7-3803C15280B9
+objective=implement full cli refactor
+scope=command reference coverage check and docs command-table refresh
+rewritten_from=0f0bd0c61725f47924abfe70e7ebaa4d51ce35b1
