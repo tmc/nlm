@@ -1,0 +1,10 @@
+commit=569b740ff652ba21618c36b66ea7d1b75a56d01a
+date=2026-05-18T02:00:38Z
+agent=codex
+codex_version=codex-cli 0.128.0
+model=GPT-5
+tty=not a tty
+pid=87985
+ITERM_SESSION_ID=w1t6p11:6A89541C-DF7B-4D92-BEA7-3803C15280B9
+objective=implement full cli refactor
+scope=command-aware post-command flag ownership and option-aware command-local parser migration
