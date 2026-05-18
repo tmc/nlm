@@ -1,0 +1,11 @@
+commit=ff265e36b848f919654bb56bfc6d7ed426eccd08
+date=2026-05-18T02:47:30Z
+agent=codex
+codex_version=codex-cli 0.128.0
+model=GPT-5
+tty=not a tty
+pid=35441
+ITERM_SESSION_ID=w1t6p11:6A89541C-DF7B-4D92-BEA7-3803C15280B9
+objective=implement full cli refactor
+scope=preserve migrated parser compatibility for create-report selectors and chat show resolve-citations
+reviewed_by=9D2B7D55-68F5-4779-8380-AF43758E6943,C08B165A-AD0B-4618-9F1E-7C8302B1F19B
