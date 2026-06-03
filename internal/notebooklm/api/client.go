@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,48 +43,66 @@ func httpClientWithTimeout(timeout time.Duration) *http.Client {
 
 // idleTimeoutReader wraps a reader and enforces a per-read idle timeout.
 // Unlike http.Client.Timeout which limits the entire request/response,
-// this resets the deadline on each successful read — suitable for
+// this resets the deadline at the start of each Read — suitable for
 // long-running streaming responses where data arrives in chunks.
+//
+// When the idle timer fires, the underlying reader is closed, which
+// unblocks any in-flight Read on the same goroutine with an error.
+// This avoids the goroutine-per-Read pattern, which leaked goroutines
+// and produced concurrent reads on the same body when the timer
+// fired spuriously (a common consequence of time.Timer.Reset being
+// called without first stopping and draining the timer channel).
 type idleTimeoutReader struct {
 	r       io.ReadCloser
 	timeout time.Duration
 	timer   *time.Timer
-	done    chan struct{}
+
+	mu       sync.Mutex
+	timedOut bool
+	closed   bool
 }
 
 func newIdleTimeoutReader(r io.ReadCloser, timeout time.Duration) *idleTimeoutReader {
-	return &idleTimeoutReader{
+	itr := &idleTimeoutReader{
 		r:       r,
 		timeout: timeout,
-		timer:   time.NewTimer(timeout),
-		done:    make(chan struct{}),
 	}
+	itr.timer = time.AfterFunc(timeout, itr.onTimeout)
+	return itr
+}
+
+func (r *idleTimeoutReader) onTimeout() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return
+	}
+	r.timedOut = true
+	r.closed = true
+	_ = r.r.Close()
 }
 
 func (r *idleTimeoutReader) Read(p []byte) (int, error) {
-	// Reset the idle timer before each read.
 	r.timer.Reset(r.timeout)
-	type result struct {
-		n   int
-		err error
+	n, err := r.r.Read(p)
+
+	r.mu.Lock()
+	timedOut := r.timedOut
+	r.mu.Unlock()
+
+	if timedOut {
+		return n, fmt.Errorf("idle timeout: no data received for %s", r.timeout)
 	}
-	ch := make(chan result, 1)
-	go func() {
-		n, err := r.r.Read(p)
-		ch <- result{n, err}
-	}()
-	select {
-	case res := <-ch:
-		return res.n, res.err
-	case <-r.timer.C:
-		return 0, fmt.Errorf("idle timeout: no data received for %s", r.timeout)
-	case <-r.done:
-		return 0, fmt.Errorf("reader closed")
-	}
+	return n, err
 }
 
 func (r *idleTimeoutReader) Close() error {
-	close(r.done)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return nil
+	}
+	r.closed = true
 	r.timer.Stop()
 	return r.r.Close()
 }

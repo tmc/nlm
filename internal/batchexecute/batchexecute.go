@@ -723,25 +723,32 @@ func cloneHeader(h http.Header) http.Header {
 	return out
 }
 
-// NewIPv4HTTPClient creates an HTTP client that prefers IPv4 connections.
-// This works around environments where IPv6 sockets are broken (e.g., sandboxed terminals).
-// The key is resolving DNS to IPv4 addresses, not just dialing with "tcp4".
-func NewIPv4HTTPClient() *http.Client {
+// sharedIPv4Transport is a process-wide HTTP transport with an IPv4-preferring
+// dialer. Building a fresh Transport for every request (the previous pattern)
+// leaked idle TCP sockets: each Transport keeps its own pool alive for
+// IdleConnTimeout (90s) after the wrapping *http.Client goes out of scope, and
+// none of the call sites invoke CloseIdleConnections. Under a moderate burst
+// of API calls — especially the streaming chat path — fds accumulated until
+// the process could no longer dial, surfacing as "the first N calls work and
+// then everything hangs".
+//
+// Sharing the Transport also makes MaxIdleConnsPerHost meaningful: without
+// this it defaults to 2 and most idle slots in MaxIdleConns were unreachable
+// since every call has its own Transport.
+var sharedIPv4Transport = func() *http.Transport {
 	resolver := &net.Resolver{}
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	transport := &http.Transport{
+	return &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// Resolve hostname to IPv4 addresses and try those first.
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil {
 				return dialer.DialContext(ctx, network, addr)
 			}
 			ips, err := resolver.LookupIPAddr(ctx, host)
 			if err == nil {
-				// Try IPv4 addresses first
 				for _, ip := range ips {
 					if ip.IP.To4() != nil {
 						conn, err := dialer.DialContext(ctx, "tcp4", net.JoinHostPort(ip.IP.String(), port))
@@ -751,14 +758,21 @@ func NewIPv4HTTPClient() *http.Client {
 					}
 				}
 			}
-			// Fall back to default resolution
 			return dialer.DialContext(ctx, network, addr)
 		},
 		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 32,
 		IdleConnTimeout:     90 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
-	return &http.Client{Transport: transport}
+}()
+
+// NewIPv4HTTPClient returns an HTTP client that prefers IPv4 connections.
+// This works around environments where IPv6 sockets are broken (e.g., sandboxed
+// terminals). All clients share a single Transport so connections are pooled
+// across requests.
+func NewIPv4HTTPClient() *http.Client {
+	return &http.Client{Transport: sharedIPv4Transport}
 }
 
 // ReqIDGenerator generates sequential request IDs
