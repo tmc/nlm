@@ -1,0 +1,3 @@
+claude-code: Opus 4.8 (1M context) | model=claude-opus-4-8 | cc=2.1.157 | tty=not a tty | pid=55217 | iterm=w6t0p4:A4BB2C50-5588-4E04-A0AC-1CC5D5D8B619 | date=2026-06-06T16:23:29Z
+rebased: orig=17402346 -> 87a172dc (go-team history audit fold; bisect-safety fix 2026-06-08)
+orig-note:
