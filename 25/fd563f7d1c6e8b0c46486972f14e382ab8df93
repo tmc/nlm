@@ -1,0 +1,2 @@
+claude-code: Opus 4.8 | model=claude-opus-4-8 | cc=2.1.157 | pid=43666 | iterm=w6t0p4:A4BB2C50-5588-4E04-A0AC-1CC5D5D8B619 | date=2026-06-09T00:09:59Z
+fix: GitHub issue #31 (deck pdf/pptx download); 403-fix on usercontent host is live-unverified due to auth account rotation
