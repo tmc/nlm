@@ -1,0 +1,2 @@
+claude-code: Opus 4.8 | model=claude-opus-4-8 | cc=2.1.157 | tty=not a tty | pid=93424 | iterm=w6t0p4:A4BB2C50-5588-4E04-A0AC-1CC5D5D8B619 | date=2026-06-08T22:54:29Z
+fix: tmp-bugs.txt 2026-05-18 report (source add upload-path bugs)
