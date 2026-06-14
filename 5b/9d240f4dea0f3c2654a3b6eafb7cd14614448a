@@ -1,0 +1,3 @@
+claude-code | model=claude-opus-4-8 | tty=not a tty
+n/a | pid=69510 | iterm=w11t2p0:5057FB01-D81F-404D-B743-43A93DD04A0F | date=2026-06-14T22:27:29Z
+Added .nlmignore support to internal/sync (merged with --exclude, explicit flags win). Also fixed pre-existing test signing-passphrase failures by injecting -c commit.gpgsign=false / -c tag.gpgsign=false into all git test helpers in files_test.go. Removed resolved scratch file tmp-bugs.txt (both bugs fixed in 02a8b84b + a9bc3227). Build/vet/full repo test green.
