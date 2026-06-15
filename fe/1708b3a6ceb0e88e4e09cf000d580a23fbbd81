@@ -1,0 +1,3 @@
+claude-code | model=claude-opus-4-8 | tty=not a tty
+n/a | pid=4517 | iterm=w11t2p0:5057FB01-D81F-404D-B743-43A93DD04A0F | date=2026-06-15T00:02:34Z
+go-team-codebase-review (smells #6): added doc.go to sync + api packages.
