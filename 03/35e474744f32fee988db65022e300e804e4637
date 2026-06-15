@@ -1,0 +1,3 @@
+claude-code | model=claude-opus-4-8 | tty=not a tty
+n/a | pid=15983 | iterm=w11t2p0:5057FB01-D81F-404D-B743-43A93DD04A0F | date=2026-06-15T00:13:38Z
+Fixes #31. deck download resolves the signed .pdf/.pptx URL and attempts an authed fetch; the usercontent CDN host needs a browser session (403s even with cookies+SAPISIDHASH), so on direct-fetch failure it prints the signed URL to open while logged in. URL-print path verified live; HTTP file write not achievable via CLI.
