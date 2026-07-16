@@ -178,6 +178,38 @@ func TestChunkedSourceNames(t *testing.T) {
 	}
 }
 
+func TestPrepareTextSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{"plain text", "deadcode output\n", "deadcode output\n"},
+		{"markup fragment", "<article>text\n", "<article>text\n"},
+		{"prefixed markup", "Result:\n<result>text</result>\n", "Result:\n<result>text</result>\n"},
+		{
+			"markup envelope",
+			"<result command=\"check\">\n<output>\ntext\n</output>\n</result>\n",
+			"&lt;result command=\"check\">\n&lt;output>\ntext\n&lt;/output>\n&lt;/result>\n",
+		},
+		{
+			"markup envelope after whitespace",
+			"\n<tool.result>text</tool.result>\n",
+			"\n&lt;tool.result>text&lt;/tool.result>\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := string(prepareTextSource([]byte(tt.content)))
+			if got != tt.want {
+				t.Errorf("prepareTextSource(%q) = %q, want %q", tt.content, got, tt.want)
+			}
+		})
+	}
+}
+
 type fakeSourceReplaceClient struct {
 	labels   []api.Label
 	deleted  []string

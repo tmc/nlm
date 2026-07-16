@@ -278,6 +278,7 @@ func isProbablyText(content []byte, name string) bool {
 // per-part progress to stderr so the user can see how many parts went up
 // when content is large enough to be split.
 func addSourceAuto(c *api.Client, notebookID string, content []byte, baseName string) ([]string, error) {
+	content = prepareTextSource(content)
 	progress := func(p api.AutoChunkProgress) {
 		switch {
 		case p.SourceID != "":
@@ -291,6 +292,44 @@ func addSourceAuto(c *api.Client, notebookID string, content []byte, baseName st
 		return ids, err
 	}
 	return ids, nil
+}
+
+// prepareTextSource escapes a complete markup envelope. NotebookLM may reject
+// an enveloped text source or strip the envelope and its contents while
+// indexing. Escaping '<' preserves the document as literal text; source read
+// decodes the entities back to their original form.
+func prepareTextSource(content []byte) []byte {
+	text := bytes.TrimSpace(content)
+	if len(text) < 3 || text[0] != '<' {
+		return content
+	}
+	end := bytes.IndexByte(text, '>')
+	if end < 2 {
+		return content
+	}
+	name := text[1:end]
+	if i := bytes.IndexAny(name, " \t\r\n/"); i >= 0 {
+		name = name[:i]
+	}
+	if len(name) == 0 || !isMarkupName(name) {
+		return content
+	}
+	close := []byte("</" + string(name) + ">")
+	if !bytes.HasSuffix(text, close) {
+		return content
+	}
+	return bytes.ReplaceAll(content, []byte("<"), []byte("&lt;"))
+}
+
+func isMarkupName(name []byte) bool {
+	for _, c := range name {
+		if ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
+			('0' <= c && c <= '9') || c == '-' || c == '_' || c == ':' || c == '.' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // addSourceBinaryFallback handles the binary branch of auto-chunking: collect
