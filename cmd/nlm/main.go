@@ -749,10 +749,6 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 	// Try as local file
 	if _, err := os.Stat(input); err == nil {
 		fmt.Fprintf(os.Stderr, "Adding source from file: %s\n", input)
-		name := filepath.Base(input)
-		if opts.Name != "" {
-			name = opts.Name
-		}
 		if opts.PreProcess != "" {
 			fmt.Fprintf(os.Stderr, "Pre-processing file through: %s\n", opts.PreProcess)
 			file, err := os.Open(input)
@@ -764,31 +760,14 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 			if err != nil {
 				return "", err
 			}
-			if opts.MIMEType != "" {
-				fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
-				return c.AddSourceFromReader(notebookID, piped, name, opts.MIMEType)
-			}
-			return c.AddSourceFromReader(notebookID, piped, name)
+			return addLocalFileSource(c, notebookID, input, piped, opts)
 		}
-		if opts.MIMEType != "" {
-			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
-			file, err := os.Open(input)
-			if err != nil {
-				return "", fmt.Errorf("open file: %w", err)
-			}
-			defer file.Close()
-			return c.AddSourceFromReader(notebookID, file, name, opts.MIMEType)
+		file, err := os.Open(input)
+		if err != nil {
+			return "", fmt.Errorf("open file: %w", err)
 		}
-		if opts.Name != "" {
-			// Use AddSourceFromReader to pass the custom name
-			file, err := os.Open(input)
-			if err != nil {
-				return "", fmt.Errorf("open file: %w", err)
-			}
-			defer file.Close()
-			return c.AddSourceFromReader(notebookID, file, name)
-		}
-		return c.AddSourceFromFile(notebookID, input)
+		defer file.Close()
+		return addLocalFileSource(c, notebookID, input, file, opts)
 	}
 
 	// If it's not a URL or file, treat as direct text content
@@ -810,6 +789,39 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 		return c.AddSourceFromText(notebookID, string(data), textName)
 	}
 	return c.AddSourceFromText(notebookID, input, textName)
+}
+
+// addLocalFileSource uploads a local file using its basename. The resumable
+// upload service uses the filename extension to select a parser, so a display
+// name such as "paper" must not replace an input name such as "paper.pdf".
+// Rename the source after the upload instead.
+type localFileSourceClient interface {
+	AddSourceFromReader(projectID string, r io.Reader, filename string, contentType ...string) (string, error)
+	MutateSource(sourceID string, updates *pb.Source) (*pb.Source, error)
+}
+
+func addLocalFileSource(c localFileSourceClient, notebookID, path string, r io.Reader, opts sourceAddOptions) (string, error) {
+	filename := filepath.Base(path)
+	var (
+		id  string
+		err error
+	)
+	if opts.MIMEType != "" {
+		fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
+		id, err = c.AddSourceFromReader(notebookID, r, filename, opts.MIMEType)
+	} else {
+		id, err = c.AddSourceFromReader(notebookID, r, filename)
+	}
+	if err != nil {
+		return "", err
+	}
+	if opts.Name == "" || opts.Name == filename {
+		return id, nil
+	}
+	if _, err := c.MutateSource(id, &pb.Source{Title: opts.Name}); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: uploaded source %s but could not rename it to %q: %v\n", id, opts.Name, err)
+	}
+	return id, nil
 }
 
 // syncClientAdapter wraps *api.Client to satisfy nlmsync.Client.

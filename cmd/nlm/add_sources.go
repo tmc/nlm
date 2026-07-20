@@ -80,7 +80,13 @@ func addSourceChunked(c *api.Client, notebookID string, content []byte, baseName
 	for i, part := range parts {
 		id, err := c.AddSourceFromText(notebookID, string(part), names[i])
 		if err != nil {
-			return ids, fmt.Errorf("upload %s (part %d/%d): %w", names[i], i+1, len(parts), err)
+			fmt.Fprintf(os.Stderr, "  %s rejected; re-splitting smaller: %v\n", names[i], err)
+			childIDs, childErr := addSourceAuto(c, notebookID, part, names[i]+" [auto]")
+			if childErr != nil {
+				return ids, fmt.Errorf("upload %s (part %d/%d): %w", names[i], i+1, len(parts), childErr)
+			}
+			ids = append(ids, childIDs...)
+			continue
 		}
 		fmt.Fprintf(os.Stderr, "  uploaded %s (%d bytes) -> %s\n", names[i], len(part), id)
 		ids = append(ids, id)
@@ -337,6 +343,13 @@ func isMarkupName(name []byte) bool {
 // upload as a single binary source via the resumable upload path, paying
 // the cost of holding the whole file in memory once. URLs never reach here.
 func addSourceBinaryFallback(c *api.Client, notebookID, input string, content []byte, name string, opts sourceAddOptions) ([]string, error) {
+	if _, err := os.Stat(input); err == nil {
+		id, err := addLocalFileSource(c, notebookID, input, bytes.NewReader(content), opts)
+		if err != nil {
+			return nil, fmt.Errorf("upload %s: %w", input, err)
+		}
+		return []string{id}, nil
+	}
 	mt := opts.MIMEType
 	if mt == "" {
 		mt = http.DetectContentType(content)
