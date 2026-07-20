@@ -4051,7 +4051,10 @@ type ChatChunk struct {
 const chatEndpoint = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
 
 const (
-	chatInitialResponseTimeout = 60 * time.Second
+	// NotebookLM can take several minutes to begin a response for a large
+	// notebook. Keep this bounded, but do not reject a live request merely
+	// because its first parsed chunk takes longer than a minute.
+	chatInitialResponseTimeout = 5 * time.Minute
 	chatProgressTimeout        = 120 * time.Second
 )
 

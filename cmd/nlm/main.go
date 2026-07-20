@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -2266,6 +2267,8 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	renderer.jsonl = mode == citationModeJSON
 	renderer.jsonlIncludeThinking = wantThinking
 	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
+	responseReceived, stopWaiting := startInitialChatResponseWaiter(os.Stderr, 30*time.Second)
+	defer stopWaiting()
 	if opts.ResolveCitations && c != nil && req.ProjectID != "" {
 		renderer.loadSource = func(sourceID string) (api.LoadSourceText, error) {
 			return c.LoadSourceText(sourceID, req.ProjectID)
@@ -2273,6 +2276,7 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	}
 
 	err := c.StreamChat(req, func(chunk api.ChatChunk) bool {
+		responseReceived()
 		renderer.WriteChunk(chunk)
 		return true
 	})
@@ -2285,6 +2289,41 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 		Citations: renderer.citations,
 		FollowUps: renderer.followUps,
 	}, err
+}
+
+// startInitialChatResponseWaiter reports that the response stream remains open
+// while the server has not yet produced a parsed chat chunk. The notice is a
+// client-side liveness indicator, not evidence that NotebookLM has started
+// generating an answer.
+func startInitialChatResponseWaiter(status io.Writer, interval time.Duration) (received func(), stop func()) {
+	first := make(chan struct{})
+	done := make(chan struct{})
+	var firstOnce sync.Once
+	var stopOnce sync.Once
+	started := time.Now()
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		defer close(done)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Fprintf(status, "nlm: waiting for initial NotebookLM response (%s elapsed; stream is open)\n", time.Since(started).Round(time.Second))
+			case <-first:
+				return
+			}
+		}
+	}()
+
+	received = func() { firstOnce.Do(func() { close(first) }) }
+	stop = func() {
+		stopOnce.Do(func() {
+			firstOnce.Do(func() { close(first) })
+			<-done
+		})
+	}
+	return received, stop
 }
 
 // promoteThinkingToAnswer handles the case where the stream parser classified
