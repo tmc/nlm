@@ -24,9 +24,20 @@ type LoadSourceText struct {
 
 // TextFragment is one contiguous piece of the indexed text.
 type TextFragment struct {
-	Start int // inclusive start character offset.
-	End   int // exclusive end character offset. Text length == End - Start.
-	Text  string
+	Start      int // inclusive start character offset.
+	End        int // exclusive end character offset. Text length == End - Start.
+	Text       string
+	ImageURL   string // transient source image URL, if this is an image fragment.
+	ImageID    string // opaque source image ID, if this is an image fragment.
+	ListMarker string // list marker decoded from wrapper metadata, if present.
+	Bold       bool   // text was marked bold in the chunk attributes.
+	Italic     bool   // text was marked italic in the chunk attributes.
+	BlockStart bool   // fragment starts an outer hizoJc content block.
+}
+
+// IsImage reports whether f names an image payload rather than text.
+func (f TextFragment) IsImage() bool {
+	return f.ImageURL != ""
 }
 
 // Full returns the reconstructed full body text. Gaps between fragments
@@ -40,6 +51,12 @@ func (l LoadSourceText) Full() string {
 	var b strings.Builder
 	want := l.Fragments[0].Start
 	for _, f := range l.Fragments {
+		// Preserve the historical text-only representation. Before image
+		// fragments were decoded they were absent, so their offset range was
+		// rendered as a gap. Do not let an image change Full's byte output.
+		if f.IsImage() {
+			continue
+		}
 		for want < f.Start {
 			b.WriteByte(' ')
 			want++
@@ -60,6 +77,11 @@ func (l LoadSourceText) Slice(start, end int) string {
 	cursor := start
 	overlap := false
 	for _, f := range l.Fragments {
+		// See Full: source read's default text view continues to treat image
+		// offsets as gaps for compatibility with existing callers.
+		if f.IsImage() {
+			continue
+		}
 		if f.End <= start {
 			continue
 		}
@@ -253,8 +275,8 @@ func extractFragments(raw json.RawMessage) ([]TextFragment, error) {
 	}
 
 	var out []TextFragment
-	for _, fr := range fragments {
-		chunks, err := extractChunks(fr)
+	for i, fr := range fragments {
+		chunks, err := extractChunks(fr, i != 0)
 		if err != nil {
 			return nil, err
 		}
@@ -268,7 +290,7 @@ func extractFragments(raw json.RawMessage) ([]TextFragment, error) {
 //	[start, end, [[[sub_start, sub_end, ["text"]], ...], ...extras]]
 //
 // and returns the innermost text triples as flat TextFragments.
-func extractChunks(raw json.RawMessage) ([]TextFragment, error) {
+func extractChunks(raw json.RawMessage, blockStart bool) ([]TextFragment, error) {
 	var top []json.RawMessage
 	if err := json.Unmarshal(raw, &top); err != nil {
 		return nil, err
@@ -290,7 +312,9 @@ func extractChunks(raw json.RawMessage) ([]TextFragment, error) {
 		return nil, nil //nolint:nilerr // non-text source; skip silently.
 	}
 
+	marker := decodeListMarker(wrap[1:])
 	var out []TextFragment
+	first := true
 	for _, c := range chunks {
 		var triple []json.RawMessage
 		if err := json.Unmarshal(c, &triple); err != nil {
@@ -306,22 +330,107 @@ func extractChunks(raw json.RawMessage) ([]TextFragment, error) {
 		if err := json.Unmarshal(triple[1], &end); err != nil {
 			continue
 		}
-		var textArr []json.RawMessage
-		if err := json.Unmarshal(triple[2], &textArr); err != nil {
+		if isJSONNull(triple[2]) {
+			image, ok := decodeImageFragment(triple, start, end)
+			if ok {
+				image.ListMarker = marker
+				image.BlockStart = blockStart && first
+				out = append(out, image)
+				first = false
+			}
 			continue
 		}
-		if len(textArr) == 0 {
+		var textArr []json.RawMessage
+		if err := json.Unmarshal(triple[2], &textArr); err != nil || len(textArr) == 0 {
 			continue
 		}
 		var text string
 		if err := json.Unmarshal(textArr[0], &text); err != nil {
-			// Non-string payload (e.g. PDF image URL triples have a URL,
-			// not a plain text string at this position). Skip.
 			continue
 		}
-		out = append(out, TextFragment{Start: start, End: end, Text: text})
+		bold, italic := decodeTextStyle(textArr[1:])
+		out = append(out, TextFragment{
+			Start:      start,
+			End:        end,
+			Text:       text,
+			ListMarker: marker,
+			Bold:       bold,
+			Italic:     italic,
+			BlockStart: blockStart && first,
+		})
+		first = false
 	}
 	return out, nil
+}
+
+// decodeTextStyle decodes the compact style forms observed in hizoJc text
+// chunks: [true] for bold and [null, true] for italic.
+func decodeTextStyle(attrs []json.RawMessage) (bold, italic bool) {
+	if len(attrs) == 0 {
+		return false, false
+	}
+	if json.Unmarshal(attrs[0], &bold) == nil && bold {
+		return true, false
+	}
+	var values []json.RawMessage
+	if json.Unmarshal(attrs[0], &values) != nil || len(values) < 2 {
+		return false, false
+	}
+	_ = json.Unmarshal(values[1], &italic)
+	return false, italic
+}
+
+// decodeListMarker recognizes the list marker stored in a fragment wrapper's
+// extra metadata. The remaining wrapper metadata is intentionally left
+// opaque: captured traffic does not establish its semantics.
+func decodeListMarker(extras []json.RawMessage) string {
+	for _, raw := range extras {
+		if marker := findListMarker(raw); marker != "" {
+			return marker
+		}
+	}
+	return ""
+}
+
+func findListMarker(raw json.RawMessage) string {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err == nil {
+		var marker string
+		if err := json.Unmarshal(object["101"], &marker); err == nil {
+			return marker
+		}
+	}
+	var values []json.RawMessage
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return ""
+	}
+	for _, value := range values {
+		if marker := findListMarker(value); marker != "" {
+			return marker
+		}
+	}
+	return ""
+}
+
+// decodeImageFragment decodes the inline image shape captured from hizoJc:
+// [start, end, null, [url, null, opaque_image_id]]. The URL is transient;
+// callers must not assume it is durable or fetch it as part of source read.
+func decodeImageFragment(triple []json.RawMessage, start, end int) (TextFragment, bool) {
+	if len(triple) < 4 {
+		return TextFragment{}, false
+	}
+	var image []json.RawMessage
+	if err := json.Unmarshal(triple[3], &image); err != nil || len(image) < 3 {
+		return TextFragment{}, false
+	}
+	var url, id string
+	if err := json.Unmarshal(image[0], &url); err != nil || url == "" {
+		return TextFragment{}, false
+	}
+	if err := json.Unmarshal(image[2], &id); err != nil {
+		return TextFragment{}, false
+	}
+	return TextFragment{Start: start, End: end, ImageURL: url, ImageID: id}, true
 }
 
 func isJSONNull(raw json.RawMessage) bool {

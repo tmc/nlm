@@ -374,22 +374,13 @@ var commands = []command{
 	},
 	{
 		name: "read-source", argsUsage: "<source-id> [notebook-id]",
-		usage: "Print the server-indexed text body of a source (native offsets preserved)", section: "Source",
+		usage: "Print a server-indexed source body (--html/--markdown/--json support presentation views)", section: "Source",
 		minArgs: 1, maxArgs: 2,
 		run: func(c *api.Client, args []string) error {
-			nb := ""
-			if len(args) == 2 {
-				nb = args[1]
-			}
-			body, err := c.LoadSourceText(args[0], nb)
-			if err != nil {
-				return err
-			}
-			if len(body.Fragments) == 0 {
-				return fmt.Errorf("source %s has no text body (non-text source, or body not indexed)", args[0])
-			}
-			_, err = fmt.Fprint(os.Stdout, body.Full())
-			return err
+			return readSource(c, args, globalOptions{})
+		},
+		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
+			return readSource(c, args, opts)
 		},
 	},
 

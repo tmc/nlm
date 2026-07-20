@@ -34,6 +34,8 @@ type globalOptions struct {
 	dryRun               bool
 	maxBytes             int
 	jsonOutput           bool
+	sourceReadMarkdown   bool
+	sourceReadHTML       bool
 	packChunk            int
 	reportPrompt         string
 	reportInstructions   string
@@ -115,6 +117,8 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.StringVar(&opts.sourceName, "n", "", "custom name for added source (shorthand)")
 	flags.StringVar(&opts.replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
 	flags.BoolVar(&opts.jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (notebook list/source list/note list/notebook featured/artifact list/audio list/video list/guidebooks/chat list/label list); also enables NDJSON progress for sync")
+	flags.BoolVar(&opts.sourceReadMarkdown, "markdown", false, "render source read with inline image references (source read)")
+	flags.BoolVar(&opts.sourceReadHTML, "html", false, "render source read as a self-contained HTML document (source read)")
 	flags.BoolVar(&opts.force, "force", false, "force re-upload even if unchanged (sync)")
 	flags.BoolVar(&opts.dryRun, "dry-run", false, "show what would change without uploading (sync)")
 	flags.IntVar(&opts.maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
@@ -282,6 +286,8 @@ var postCommandGlobalFlags = map[string]bool{
 	"experimental":        true,
 	"force":               true,
 	"json":                true,
+	"markdown":            true,
+	"html":                true,
 	"skip-sources":        true,
 	"version":             true,
 	"y":                   true,

@@ -41,6 +41,9 @@ func TestDecodeLoadSourceText(t *testing.T) {
 	if got.Fragments[4].Text != "again" {
 		t.Errorf("fragments[4] = %+v", got.Fragments[4])
 	}
+	if got.Fragments[0].BlockStart || !got.Fragments[3].BlockStart || got.Fragments[4].BlockStart {
+		t.Errorf("block starts = %#v", got.Fragments)
+	}
 }
 
 func TestLoadSourceText_Full(t *testing.T) {
@@ -93,6 +96,78 @@ func TestLoadSourceText_NonTextSource(t *testing.T) {
 	}
 	if got.Title != "pdf.pdf" {
 		t.Errorf("title = %q", got.Title)
+	}
+}
+
+// TestDecodeLoadSourceText_ImageFragment locks the inline image tuple found
+// in the captured hizoJc response at
+// /tmp/nlm-traffic/.../batchexecute/_query/018.json. Other image nodes in
+// that source and in _query/017.json use the same tuple shape.
+func TestDecodeLoadSourceText_ImageFragment(t *testing.T) {
+	raw, err := os.ReadFile("testdata/load_source_text_image_fragment.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := decodeLoadSourceText(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Fragments) != 3 {
+		t.Fatalf("fragments = %d, want 3: %+v", len(got.Fragments), got.Fragments)
+	}
+	image := got.Fragments[1]
+	if image.Start != 7078 || image.End != 7079 {
+		t.Errorf("image offsets = [%d,%d), want [7078,7079)", image.Start, image.End)
+	}
+	if image.ImageURL != "https://lh3.googleusercontent.com/notebooklm/AKYWMX_PFTWg5K888vecw9YHdzxmksiR_RH7pjR4eCbsp7E5Mihlij63i536lVvN8AW4AgMxtQZZQDqCD6tGAMiZWIdbEeY2ppauxzpvaD4bgViNc4KQEKTXQmWRvcTh_ET7mHQIk8A4Kw=w868-h1280-v0" {
+		t.Errorf("image URL = %q", image.ImageURL)
+	}
+	if image.ImageID != "8ea2e3ac-4893-4d17-a831-5264e8e44fa1" {
+		t.Errorf("image ID = %q", image.ImageID)
+	}
+	if got, want := got.Full(), "2 Figure 1: The Transformer - model architecture. "; got != want {
+		t.Errorf("Full = %q, want %q", got, want)
+	}
+}
+
+func TestDecodeLoadSourceText_ListMarker(t *testing.T) {
+	raw := json.RawMessage(`[
+  [["source"], "title", [null, 1], [null, 2]], null, null,
+  [[[
+    [0, 4, [[[0, 4, ["item"]]], null, null, [null, null, 0, {"101":"•","102":1}]]]
+  ]]]
+]`)
+	got, err := decodeLoadSourceText(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Fragments) != 1 {
+		t.Fatalf("fragments = %d, want 1", len(got.Fragments))
+	}
+	if got, want := got.Fragments[0].ListMarker, "•"; got != want {
+		t.Errorf("list marker = %q, want %q", got, want)
+	}
+}
+
+func TestDecodeLoadSourceText_TextStyle(t *testing.T) {
+	raw := json.RawMessage(`[
+  [["source"], "title", [null, 1], [null, 2]], null, null,
+  [[[
+    [0, 4, [[[0, 2, ["bold", true]], [2, 4, ["italic", [null, true]]]]]]
+  ]]]
+]`)
+	got, err := decodeLoadSourceText(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Fragments) != 2 {
+		t.Fatalf("fragments = %d, want 2", len(got.Fragments))
+	}
+	if !got.Fragments[0].Bold || got.Fragments[0].Italic {
+		t.Errorf("bold fragment = %+v", got.Fragments[0])
+	}
+	if got.Fragments[1].Bold || !got.Fragments[1].Italic {
+		t.Errorf("italic fragment = %+v", got.Fragments[1])
 	}
 }
 
