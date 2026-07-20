@@ -130,6 +130,7 @@ func groupedCommandsFromExisting(existing []command) []command {
 
 		cloneCommand(mustCommand(byName, "artifacts"), "artifact list"),
 		cloneCommand(mustCommand(byName, "get-artifact"), "artifact get"),
+		cloneCommand(mustCommand(byName, "read-artifact"), "artifact read"),
 		cloneCommand(mustCommand(byName, "update-artifact"), "artifact update"),
 		cloneCommand(mustCommand(byName, "delete-artifact"), "artifact delete"),
 		cloneCommand(mustCommand(byName, "revise-artifact"), "artifact revise"),
@@ -397,6 +398,7 @@ var commands = []command{
 		minArgs: 2, maxArgs: 2,
 		run: func(c *api.Client, args []string) error { return readNote(c, args[0], args[1]) },
 	},
+
 	{
 		name: "new-note", argsUsage: "<notebook-id> <title> [content]",
 		usage: "Create new note (content via arg or stdin)", section: "Note",
@@ -700,6 +702,15 @@ var commands = []command{
 		usage: "Get artifact details", section: "Artifact",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error { return getArtifact(c, args[0]) },
+	},
+	{
+		name: "read-artifact", argsUsage: "<artifact-id>",
+		usage: "Print a text artifact", section: "Artifact",
+		minArgs: 1, maxArgs: 1,
+		run: func(c *api.Client, args []string) error { return readArtifact(c, args[0], globalOptions{}) },
+		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
+			return readArtifact(c, args[0], opts)
+		},
 	},
 	{
 		name: "artifacts", aliases: []string{"list-artifacts"}, argsUsage: "<notebook-id>",
@@ -1296,6 +1307,7 @@ var compatibilityReplacements = map[string]string{
 	"artifacts":            "artifact list",
 	"list-artifacts":       "artifact list",
 	"get-artifact":         "artifact get",
+	"read-artifact":        "artifact read",
 	"update-artifact":      "artifact update",
 	"delete-artifact":      "artifact delete",
 	"rename-artifact":      "artifact update",

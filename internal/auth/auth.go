@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
@@ -528,7 +529,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 
 		// If requested, check notebooks for each profile that has valid cookies
 		if o.CheckNotebooks {
-			fmt.Println("Checking notebook access for profiles...")
+			fmt.Fprintln(os.Stderr, "Checking notebook access for profiles...")
 
 			// Create a pool of profiles to check
 			var profilesToCheck []ProfileInfo
@@ -557,12 +558,12 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				}
 
 				if shouldCheck {
-					fmt.Printf("  Checking notebooks for %s [%s]...", p.Name, p.Browser)
+					fmt.Fprintf(os.Stderr, "  Checking notebooks for %s [%s]...", p.Name, p.Browser)
 
 					// Set up a temporary Chrome instance to authenticate
 					tempDir, err := os.MkdirTemp("", "nlm-notebook-check-*")
 					if err != nil {
-						fmt.Println(" Error: could not create temp dir")
+						fmt.Fprintln(os.Stderr, " Error: could not create temp dir")
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
@@ -577,7 +578,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					// Copy profile data
 					err = tempAuth.copyProfileDataFromPath(p.Path)
 					if err != nil {
-						fmt.Println(" Error: could not copy profile data")
+						fmt.Fprintln(os.Stderr, " Error: could not copy profile data")
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
@@ -606,7 +607,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					cancel()
 
 					if err != nil || token == "" {
-						fmt.Println(" Not authenticated")
+						fmt.Fprintln(os.Stderr, " Not authenticated")
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
@@ -619,13 +620,13 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					// Try to get notebooks
 					notebookCount, err := countNotebooks(token, cookies, o.AuthUser)
 					if err != nil {
-						fmt.Println(" Error counting notebooks")
+						fmt.Fprintln(os.Stderr, " Error counting notebooks")
 						updatedProfiles = append(updatedProfiles, profile)
 						continue
 					}
 
 					profile.NotebookCount = notebookCount
-					fmt.Printf(" Found %d notebooks\n", notebookCount)
+					fmt.Fprintf(os.Stderr, " Found %d notebooks\n", notebookCount)
 					updatedProfiles = append(updatedProfiles, profile)
 				} else {
 					// Skip notebook check for this profile
@@ -638,8 +639,8 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		}
 
 		// Show profile information
-		fmt.Println("Available browser profiles:")
-		fmt.Println("===========================")
+		fmt.Fprintln(os.Stderr, "Available browser profiles:")
+		fmt.Fprintln(os.Stderr, "===========================")
 		for _, p := range profiles {
 			cookieStatus := ""
 			if targetDomain != "" {
@@ -655,7 +656,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				notebookStatus = fmt.Sprintf(" [%d notebooks]", p.NotebookCount)
 			}
 
-			fmt.Printf("%d. %s [%s] - Last used: %s (%d files, %.1f MB)%s%s\n",
+			fmt.Fprintf(os.Stderr, "%d. %s [%s] - Last used: %s (%d files, %.1f MB)%s%s\n",
 				1, p.Name, p.Browser,
 				p.LastUsed.Format("2006-01-02 15:04:05"),
 				len(p.Files),
@@ -663,14 +664,14 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				cookieStatus,
 				notebookStatus)
 		}
-		fmt.Println("===========================")
+		fmt.Fprintln(os.Stderr, "===========================")
 
 		if o.TryAllProfiles {
-			fmt.Println("Will try profiles in order shown above...")
+			fmt.Fprintln(os.Stderr, "Will try profiles in order shown above...")
 		} else {
-			fmt.Printf("Using profile: %s\n", o.ProfileName)
+			fmt.Fprintf(os.Stderr, "Using profile: %s\n", o.ProfileName)
 		}
-		fmt.Println()
+		fmt.Fprintln(os.Stderr)
 	}
 
 	// If trying all profiles, try to find one that works
@@ -1452,7 +1453,6 @@ func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName str
 
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-
 	// Use CDP Network domain to capture the response
 	var responseBody []byte
 	var responseReceived bool
@@ -1492,4 +1492,58 @@ func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName str
 	}
 
 	return responseBody, nil
+}
+
+// ReadTextWithRemoteBrowser downloads a text URL through an existing browser
+// debugging session. It is useful when a download host requires the browser's
+// live session cookies rather than the copied cookie header used by the CLI.
+func (ba *BrowserAuth) ReadTextWithRemoteBrowser(urlToRead, remoteCDPURL string) ([]byte, error) {
+	if remoteCDPURL == "" {
+		return nil, fmt.Errorf("missing remote CDP URL")
+	}
+	allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), remoteCDPURL)
+	defer allocCancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	downloadDir, err := os.MkdirTemp("", "nlm-remote-download-*")
+	if err != nil {
+		return nil, fmt.Errorf("create download directory: %w", err)
+	}
+	defer os.RemoveAll(downloadDir)
+
+	if err := chromedp.Run(ctx, browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllowAndName).
+		WithDownloadPath(downloadDir).
+		WithEventsEnabled(true)); err != nil {
+		return nil, fmt.Errorf("configure browser download: %w", err)
+	}
+	if err := chromedp.Run(ctx, chromedp.Navigate(urlToRead)); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
+		return nil, fmt.Errorf("navigate to download: %w", err)
+	}
+	wake := time.NewTicker(100 * time.Millisecond)
+	defer wake.Stop()
+	for {
+		entries, err := os.ReadDir(downloadDir)
+		if err != nil {
+			return nil, fmt.Errorf("read download directory: %w", err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || strings.HasSuffix(entry.Name(), ".crdownload") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(downloadDir, entry.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("read downloaded file: %w", err)
+			}
+			return data, nil
+		}
+		select {
+		case <-wake.C:
+		case <-ctx.Done():
+			return nil, fmt.Errorf("wait for download: %w", ctx.Err())
+		}
+	}
 }

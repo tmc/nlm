@@ -17,6 +17,7 @@ Run `nlm <command> -h` for exact per-command usage.
 |------|------------|---------|
 | `--auth TOKEN`, `--cookies COOKIES` | most commands | Supply credentials non-interactively |
 | `--authuser N` | most commands | Select a Google account in a multi-account browser profile |
+| `--cdp-url URL` | most commands | Use an authenticated browser debugging session when needed |
 | `--debug` | most commands | Print debug output to stderr |
 | `--json` | list and sync output | Emit JSON / JSON-lines output |
 | `--experimental` | hidden commands | Enable experimental commands in help and execution |
@@ -161,6 +162,8 @@ source in the notebook is used. Instructions are optional.
 |---------|-------------|
 | `nlm artifact list NOTEBOOK_ID` | List artifacts in a notebook |
 | `nlm artifact get ARTIFACT_ID` | Show artifact details |
+| `nlm artifact read ARTIFACT_ID` | Print a text artifact |
+| `nlm read-artifact ARTIFACT_ID` | Print a text artifact |
 | `nlm artifact update ARTIFACT_ID [NEW_TITLE]` | Rename an artifact |
 | `nlm artifact delete ARTIFACT_ID` | Delete an artifact |
 | `nlm artifact revise ARTIFACT_ID "Instructions"` | Re-run an artifact generator with revision instructions |

@@ -1619,6 +1619,25 @@ func getArtifact(c *api.Client, artifactID string) error {
 	return nil
 }
 
+func readArtifact(c *api.Client, artifactID string, opts globalOptions) error {
+	if err := c.ReadArtifactFile(artifactID, "md", os.Stdout); err == nil {
+		return nil
+	}
+	if opts.cdpURL == "" {
+		return fmt.Errorf("read artifact: direct download failed")
+	}
+	url, err := c.ArtifactDownloadURLForFormat(artifactID, "md")
+	if err != nil {
+		return fmt.Errorf("read artifact: get download URL: %w", err)
+	}
+	data, err := auth.New(false).ReadTextWithRemoteBrowser(url, opts.cdpURL)
+	if err != nil {
+		return fmt.Errorf("read artifact: remote browser download: %w", err)
+	}
+	_, err = os.Stdout.Write(data)
+	return err
+}
+
 func listArtifacts(c *api.Client, projectID string) error {
 	artifacts, err := c.ListArtifacts(projectID)
 	if err != nil {

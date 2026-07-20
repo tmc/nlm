@@ -3223,7 +3223,23 @@ func (c *Client) DownloadArtifactFile(artifactID, format, filename string) error
 	if err != nil {
 		return err
 	}
-	return c.downloadAuthedFile(chosen, filename)
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("create output file: %w", err)
+	}
+	defer file.Close()
+	return c.downloadAuthed(chosen, file)
+}
+
+// ReadArtifactFile writes an artifact's rendered output to w, selecting the
+// output by filename extension. It is useful for text artifacts that callers
+// want to inspect without creating a local file.
+func (c *Client) ReadArtifactFile(artifactID, format string, w io.Writer) error {
+	chosen, err := c.ArtifactDownloadURLForFormat(artifactID, format)
+	if err != nil {
+		return err
+	}
+	return c.downloadAuthed(chosen, w)
 }
 
 // artifactDownloadExtension returns the lowercase ".ext" carried in a download
@@ -3243,12 +3259,12 @@ func artifactDownloadExtension(rawURL string) string {
 	return ""
 }
 
-// downloadAuthedFile GETs fileURL with the client's session cookies and writes
-// the body to filename. Used for contribution.usercontent.google.com artifact
+// downloadAuthed GETs fileURL with the client's session cookies and writes the
+// body to w. It is used for contribution.usercontent.google.com artifact
 // downloads, which are gated on the NotebookLM session cookie. The header set
 // and authuser query parameter mirror DownloadVideoWithAuth, which downloads
 // from the same usercontent host; without them the host answers 403.
-func (c *Client) downloadAuthedFile(fileURL, filename string) error {
+func (c *Client) downloadAuthed(fileURL string, w io.Writer) error {
 	if !strings.Contains(fileURL, "authuser=") {
 		sep := "?"
 		if strings.Contains(fileURL, "?") {
@@ -3304,13 +3320,8 @@ func (c *Client) downloadAuthedFile(fileURL, filename string) error {
 		return fmt.Errorf("download returned HTML, not a file (authentication may have expired)")
 	}
 
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("create output file: %w", err)
-	}
-	defer file.Close()
-	if _, err := io.Copy(file, resp.Body); err != nil {
-		return fmt.Errorf("write output file: %w", err)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return fmt.Errorf("write download: %w", err)
 	}
 	return nil
 }

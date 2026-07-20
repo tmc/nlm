@@ -19,6 +19,7 @@ type globalOptions struct {
 	debugParsing         bool
 	debugFieldMapping    bool
 	chromeProfile        string
+	cdpURL               string
 	mimeType             string
 	chunkedResponse      bool
 	useDirectRPC         bool
@@ -82,6 +83,7 @@ func defaultGlobalOptions(env func(string) string) globalOptions {
 	}
 	return globalOptions{
 		chromeProfile: env("NLM_BROWSER_PROFILE"),
+		cdpURL:        env("NLM_CDP_URL"),
 		authToken:     env("NLM_AUTH_TOKEN"),
 		cookies:       env("NLM_COOKIES"),
 		authUser:      env("NLM_AUTHUSER"),
@@ -108,6 +110,7 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.BoolVar(&opts.yes, "yes", false, "skip confirmation prompts")
 	flags.BoolVar(&opts.yes, "y", false, "skip confirmation prompts")
 	flags.StringVar(&opts.chromeProfile, "profile", opts.chromeProfile, "Chrome profile to use")
+	flags.StringVar(&opts.cdpURL, "cdp-url", opts.cdpURL, "remote CDP WebSocket URL")
 	flags.StringVar(&opts.authToken, "auth", opts.authToken, "auth token (or set NLM_AUTH_TOKEN)")
 	flags.StringVar(&opts.cookies, "cookies", opts.cookies, "cookies for authentication (or set NLM_COOKIES)")
 	flags.StringVar(&opts.authUser, "authuser", opts.authUser, "Google account index for multi-account profiles")

@@ -61,6 +61,16 @@ func TestCLISurface(t *testing.T) {
 		}
 	})
 
+	t.Run("artifact read", func(t *testing.T) {
+		inv, _, err := parse(t, "--cdp-url", "ws://localhost:9222", "artifact", "read", "artifact-1")
+		if err != nil {
+			t.Fatalf("parseInvocation: %v", err)
+		}
+		if inv.name != "artifact read" || inv.globals.cdpURL != "ws://localhost:9222" || !reflect.DeepEqual(inv.args, []string{"artifact-1"}) {
+			t.Fatalf("name, cdp URL, args = %q, %q, %v; want artifact read ws://localhost:9222 [artifact-1]", inv.name, inv.globals.cdpURL, inv.args)
+		}
+	})
+
 	t.Run("custom command help", func(t *testing.T) {
 		for _, args := range [][]string{{"auth", "-h"}, {"auth", "--help"}} {
 			inv, _, err := parse(t, args...)
