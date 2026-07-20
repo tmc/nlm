@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -80,6 +82,39 @@ func TestParseChatResponseChunkedUsesWirePhaseForBoldAnswer(t *testing.T) {
 			t.Fatalf("chunk %d = %#v, want %#v", i, got[i], want[i])
 		}
 	}
+}
+
+func TestParseChatResponseChunkedTimesOutWithoutResponse(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer reader.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if _, err := io.WriteString(writer, ")]}'\n"); err != nil {
+			return
+		}
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			if _, err := io.WriteString(writer, "1\n"); err != nil {
+				return
+			}
+		}
+	}()
+
+	c := &Client{}
+	err := c.parseChatResponseChunkedWithProgressTimeout(reader, nil, func(ChatChunk) bool {
+		t.Fatal("callback called for a stream with no response chunk")
+		return false
+	}, 20*time.Millisecond, time.Second)
+	if !IsChatStreamTimeout(err) {
+		t.Fatalf("error = %v, want chat stream timeout", err)
+	}
+	if !strings.Contains(err.Error(), "without an initial response") {
+		t.Fatalf("error = %q, want initial-response diagnostic", err)
+	}
+	<-done
 }
 
 func TestAnswerOnlyCallback(t *testing.T) {

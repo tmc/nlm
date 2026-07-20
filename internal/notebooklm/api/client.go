@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -127,10 +129,12 @@ func httpClientWithTimeout(timeout time.Duration) *http.Client {
 // this resets the deadline on each successful read — suitable for
 // long-running streaming responses where data arrives in chunks.
 type idleTimeoutReader struct {
-	r       io.ReadCloser
-	timeout time.Duration
-	timer   *time.Timer
-	done    chan struct{}
+	r        io.ReadCloser
+	timeout  time.Duration
+	timer    *time.Timer
+	done     chan struct{}
+	close    sync.Once
+	closeErr error
 }
 
 func newIdleTimeoutReader(r io.ReadCloser, timeout time.Duration) *idleTimeoutReader {
@@ -165,9 +169,12 @@ func (r *idleTimeoutReader) Read(p []byte) (int, error) {
 }
 
 func (r *idleTimeoutReader) Close() error {
-	close(r.done)
-	r.timer.Stop()
-	return r.r.Close()
+	r.close.Do(func() {
+		close(r.done)
+		r.timer.Stop()
+		r.closeErr = r.r.Close()
+	})
+	return r.closeErr
 }
 
 // Client handles NotebookLM API interactions.
@@ -4032,6 +4039,30 @@ type ChatChunk struct {
 // Chat does NOT use batchexecute — it uses a dedicated gRPC-Web endpoint.
 const chatEndpoint = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
 
+const (
+	chatInitialResponseTimeout = 60 * time.Second
+	chatProgressTimeout        = 120 * time.Second
+)
+
+type chatStreamTimeoutError struct {
+	timeout  time.Duration
+	progress bool
+}
+
+func (e *chatStreamTimeoutError) Error() string {
+	if e.progress {
+		return fmt.Sprintf("chat stream timed out after %s without response progress", e.timeout)
+	}
+	return fmt.Sprintf("chat stream timed out after %s without an initial response", e.timeout)
+}
+
+// IsChatStreamTimeout reports whether err was caused by a chat stream that
+// did not deliver a parsed response chunk before its deadline.
+func IsChatStreamTimeout(err error) bool {
+	var timeoutErr *chatStreamTimeoutError
+	return errors.As(err, &timeoutErr)
+}
+
 func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
 	var resp strings.Builder
 	err := c.StreamChat(ChatRequest{
@@ -4394,11 +4425,49 @@ func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk)
 		return fmt.Errorf("chat request failed: %d %s: %s", resp.StatusCode, resp.Status, string(respBody)[:min(500, len(respBody))])
 	}
 
-	// Wrap body with idle timeout: reset deadline on each chunk received.
+	// Wrap body with an idle timeout for blocked reads, then enforce a separate
+	// deadline for parsed response progress. The server can keep a connection
+	// alive with framing bytes that never produce a chat chunk.
 	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
 	defer idleBody.Close()
 
-	return c.parseChatResponseChunked(idleBody, sourceIDs, callback)
+	return c.parseChatResponseChunkedWithProgressTimeout(
+		idleBody, sourceIDs, callback, chatInitialResponseTimeout, chatProgressTimeout)
+}
+
+// parseChatResponseChunkedWithProgressTimeout closes r when the stream has not
+// produced an initial or subsequent parsed chat chunk within its deadline.
+// It deliberately tracks parsed chunks rather than socket reads: keep-alive
+// bytes and length prefixes are not useful progress to a command caller.
+func (c *Client) parseChatResponseChunkedWithProgressTimeout(r io.ReadCloser, sourceIDs []string, callback func(ChatChunk) bool, initialTimeout, progressTimeout time.Duration) error {
+	var (
+		timedOut atomic.Bool
+		sawChunk atomic.Bool
+		finished atomic.Bool
+	)
+	timeout := initialTimeout
+	timer := time.AfterFunc(timeout, func() {
+		if finished.Load() {
+			return
+		}
+		timedOut.Store(true)
+		_ = r.Close()
+	})
+
+	err := c.parseChatResponseChunked(r, sourceIDs, func(chunk ChatChunk) bool {
+		timeout = progressTimeout
+		sawChunk.Store(true)
+		if timer.Stop() {
+			timer.Reset(progressTimeout)
+		}
+		return callback(chunk)
+	})
+	finished.Store(true)
+	timer.Stop()
+	if timedOut.Load() {
+		return &chatStreamTimeoutError{timeout: timeout, progress: sawChunk.Load()}
+	}
+	return err
 }
 
 // parseChatResponseChunked reads the stream incrementally and emits phase-aware

@@ -2403,6 +2403,9 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 
 	res, streamErr := streamChatResponse(c, chatReq, opts.Render)
 	if streamErr != nil {
+		if api.IsChatStreamTimeout(streamErr) {
+			return fmt.Errorf("generate chat: %w; the streaming RPC produced no usable response; check 'nlm auth status' and 'nlm sources %s'", streamErr, projectID)
+		}
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
 		response, chatErr := c.ChatWithHistory(chatReq)
 		if chatErr != nil {
