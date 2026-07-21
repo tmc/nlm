@@ -1,0 +1,5 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+pid: 18416
+date: 2026-07-21
+note: e2e guard for null-in-repeated hint (wired-path). Completes FBFBB0AD integration-check item.
