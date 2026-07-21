@@ -1,0 +1,8 @@
+committed 2026-07-21 via claude-code
+version: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 41145
+iterm_session: w2t1p4:24F23B98-418B-4BDF-9D8D-0694DB528F29
+note: fixes F1/F2/F3 from peer session 20005147 adversarial html review; F1=excerpt whitespace-collapse (clipExcerpt split), F2=hovercard keep-alive, F3=pinned-card focus mgmt; F4/F5 noted-not-reachable; security core verified sound (peer used x/net/html tokenizer)
