@@ -1,0 +1,2 @@
+committed 2026-07-20 by claude-code (Opus 4.8 1M) pid=86025
+Label field layout fix (was label_id=2/source_ids=3, wire is sources=2/label_id=3). I3xc3c 6/6 lossless. Live path hand-parses, observability-only.
