@@ -1,0 +1,1 @@
+claude-code opus-4.8[1m] tty=not a tty pid=96784 iterm=w2t1p10:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4 date=2026-07-20 (argbuilder nested/loop + arg_format fixes; correct codegen, no hand-coded encoders; signed)
