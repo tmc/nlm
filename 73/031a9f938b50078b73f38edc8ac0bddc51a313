@@ -1,0 +1,8 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 51570
+iterm-session: w2t1p10:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+date: 2026-07-21
+rpc: wXbhsf REQUEST (ListRecentlyViewedProjectsRequest) decode-request lossless. First request-side commit. New shared RequestContext preamble + StringList present-empty wrapper. arg_format constant updated to full web-UI form (encoder-affecting but constant, empty filter = no filter). See project_request_side_modeling memory.
