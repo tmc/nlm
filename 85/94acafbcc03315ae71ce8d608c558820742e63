@@ -1,0 +1,5 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+pid: 13099
+date: 2026-07-21
+note: null-in-repeated diagnostic (FBFBB0AD ask). Self-contained new file, no edits to 86AC's betool_delta.go/beprotojson.go; 86AC wires the call site in betool.go. Vocabulary coordinated: kind='null-in-repeated'.
