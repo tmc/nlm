@@ -1,0 +1,2 @@
+committed 2026-07-20 by claude-code (Opus 4.8 1M) pid=80439 iterm=w2t1p10:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+codec fix: present wrapper zero round-trips (was dropping Int32Value{0} to null). Verified tree compiles+tests green at this commit via stash.
