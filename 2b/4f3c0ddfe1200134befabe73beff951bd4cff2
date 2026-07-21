@@ -1,0 +1,9 @@
+committed by claude-code
+version: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 53094
+iterm_session: w2t1p4:24F23B98-418B-4BDF-9D8D-0694DB528F29
+date: 2026-07-21
+verified: live against synced conversation d7f108fb (nb 6c313fd7); 66 citations, per-source excerpts+offsets, SOURCE=[965670,966914] matches proto oracle
