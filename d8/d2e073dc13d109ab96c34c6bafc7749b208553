@@ -1,0 +1,5 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+pid: 99375
+date: 2026-07-21
+rpc: wXbhsf RESPONSE now FULLY LOSSLESS. Root cause was Project.limits [null,500,600,500000,3] leading-null variant (3/491 notebooks) breaking repeated int64 decode -> whole-Project cascade. Fixed via ProjectLimits message. Test-first per FBFBB0AD; NOT a shape-union/codec issue (my earlier diagnosis was wrong).
