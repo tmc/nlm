@@ -1,0 +1,8 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 39992
+iterm-session: w2t1p10:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+date: 2026-07-21
+rpc: agX4Bc CreateLabel (lossless, real frame), sqTeoe GetAudioFormats (6/6 agent-verified, no frame in current capture), LQhfEb UpdateProjectUserState (lossless, real frame). Adds message defs that peer commit 67be5a15 left dangling (build was broken between 67be5a15 and here). agent ae1a6924.
