@@ -1,0 +1,5 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+pid: 61686
+date: 2026-07-21
+rpc: le8sX REQUEST (MutateLabelRequest) decode-request lossless. No encoder impact (hand-built by api.Client.mutateLabel). Flattened sources into MutateLabelEntry to dodge single-repeated-field unwrap ambiguity.
