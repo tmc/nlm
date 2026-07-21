@@ -1,0 +1,8 @@
+committed 2026-07-21 via claude-code
+version: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 64373
+iterm_session: w2t1p4:24F23B98-418B-4BDF-9D8D-0694DB528F29
+note: fixes [[2]2] marker-doubling reported by tmc; root cause = offset-derived inline spans + [N] superscript over answer that ALREADY has literal [N]; offsets were reply-spans, misaligned. Rewrote to linkify the answer's own [N] to a bottom Citations section; kept right rail + hover/underline + per-source excerpts per tmc steer. Deleted spanValid/spanWidth/coverage/Start-End-Valid
