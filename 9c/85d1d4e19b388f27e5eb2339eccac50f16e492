@@ -1,0 +1,2 @@
+claude-code session=8243f64e model=claude-opus-4-8[1m] pid=40986 date=2026-07-21T20:11:47Z iterm=w2t1p10:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+task: scan /tmp/nlm-traffic/requests — documented GetDeepResearchSessions wire shape; full remodel deferred (report_tree 334KB)
