@@ -1,0 +1,5 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+pid: 1370
+date: 2026-07-21
+note: R7cb6c CreateUniversalArtifact response deferral doc (overloaded, distinct per-type shape). Comment-only.
