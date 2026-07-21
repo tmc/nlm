@@ -1,0 +1,2 @@
+claude-code session=8243f64e model=claude-opus-4-8[1m] pid=35450 date=2026-07-21T20:04:09Z iterm=w2t1p10:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+task: scan /tmp/nlm-traffic/requests — remodeled JFMDGd ProjectDetails to wire shape (renumber, decode-only; live hand-parser preserved). RENUMBER: reviewer offline, safety documented in commit.
