@@ -1,0 +1,1 @@
+claude-code opus-4.8[1m] pid:59579 date:2026-07-21 :: relocated the net-new 'nlm sync' feature off the nlm-wt-betool worktree (where it was uncommitted foreign dirt) to its home branch work/nlm-sync-source-sets; files identical, base hashes matched
