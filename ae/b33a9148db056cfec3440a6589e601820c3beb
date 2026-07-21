@@ -1,0 +1,5 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+pid: 7139
+date: 2026-07-21
+rpc: gArtLc REQUEST (ListArtifactsRequest) decode-request lossless. RequestContext+project_id+filter. Live path hand-builds truncated form (no encoder impact). Fixture+golden added (ListArtifacts method selector for shared rpc_id).
