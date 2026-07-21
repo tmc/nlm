@@ -1,0 +1,5 @@
+claude-code: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+pid: 68424
+date: 2026-07-21
+rpc: wXbhsf RESPONSE leaf fields (SourceMetadata.language_detection, SourceSettingsDetail size/field_4/field_7, Project.field_9, ProjectMetadataExtraInner.field_1). Additive. Structural Source/Project shape-union variance remains.
