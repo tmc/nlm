@@ -41,3 +41,18 @@ func TestListAudioOverviewRequestUsesCorpusArtifactFilter(t *testing.T) {
 		t.Fatalf("audio-list args = %s, want %s", got, want)
 	}
 }
+
+func TestAudioOverviewProtoAdapterMatchesLegacyProjection(t *testing.T) {
+	raw := []byte(`[[["audio-1","Deep Dive",2,[[["source-1"]]],2]]]`)
+	legacy, err := audioOverviewResultsFromArtifacts("project-1", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := audioOverviewResultsFromProtoArtifacts("project-1", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(legacy) != 1 || len(got) != 1 || *legacy[0] != *got[0] {
+		t.Fatalf("proto audio projection = %#v, legacy = %#v", got, legacy)
+	}
+}

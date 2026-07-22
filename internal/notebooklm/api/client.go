@@ -2625,7 +2625,7 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 	})
 	if err == nil {
 		var parseErr error
-		overviews, parseErr = audioOverviewResultsFromArtifacts(projectID, resp)
+		overviews, parseErr = audioOverviewResultsFromProtoArtifacts(projectID, resp)
 		if c.config.Debug && parseErr != nil {
 			fmt.Printf("Error parsing audio overview artifacts: %v\n", parseErr)
 		}
@@ -2654,6 +2654,26 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 		return overviews, nil
 	}
 	return []*AudioOverviewResult{}, nil
+}
+
+func audioOverviewResultsFromProtoArtifacts(projectID string, raw []byte) ([]*AudioOverviewResult, error) {
+	var response pb.ListArtifactsResponse
+	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("decode artifact response: %w", err)
+	}
+	overviews := make([]*AudioOverviewResult, 0)
+	for _, artifact := range response.GetArtifacts() {
+		if artifact == nil || artifact.GetType() != pb.ArtifactType_ARTIFACT_TYPE_AUDIO_OVERVIEW {
+			continue
+		}
+		overviews = append(overviews, &AudioOverviewResult{
+			ProjectID: projectID,
+			AudioID:   artifact.GetArtifactId(),
+			Title:     artifact.GetTitle(),
+			IsReady:   artifact.GetState() == pb.ArtifactState_ARTIFACT_STATE_READY,
+		})
+	}
+	return overviews, nil
 }
 
 // ListVideoOverviews returns video overviews for a notebook
