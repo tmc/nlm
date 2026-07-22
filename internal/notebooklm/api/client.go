@@ -5894,7 +5894,7 @@ func (c *Client) pollResearch(
 		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
 
-	sessions, err := parseDeepResearchSessions(resp, c.rpc.Config.Debug)
+	sessions, err := parseDeepResearchSessionsProto(resp)
 	if err != nil {
 		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
@@ -5916,7 +5916,11 @@ func (c *Client) pollResearch(
 				Query:          s.Query,
 				Plan:           s.Plan,
 			}
-			result.Report, result.Sources = decode(s.MainBlob)
+			if s.Report != "" || len(s.Sources) > 0 {
+				result.Report, result.Sources = s.Report, s.Sources
+			} else {
+				result.Report, result.Sources = decode(s.MainBlob)
+			}
 			return result, nil
 		}
 		// State 1 (running) or an unrecognized state (6 observed but
@@ -5953,6 +5957,66 @@ type deepResearchSession struct {
 	ResearchID     string          // session inner[5][0]; empty for fast-mode
 	Plan           []byte          // base64-decoded protobuf of the LLM plan (deep only)
 	MainBlob       json.RawMessage // session inner[3]; null during RUNNING
+	Report         string
+	Sources        []ResearchSource
+}
+
+// parseDeepResearchSessionsProto decodes the e3bVqc session list through the
+// generated response model. The positional parser remains the test oracle;
+// this adapter preserves the public poll projection for both fast and deep
+// session variants.
+func parseDeepResearchSessionsProto(resp json.RawMessage) ([]deepResearchSession, error) {
+	var decoded pb.GetDeepResearchSessionsResponse
+	if err := beprotojson.Unmarshal(resp, &decoded); err != nil {
+		return nil, fmt.Errorf("decode sessions proto: %w", err)
+	}
+	sessions := make([]deepResearchSession, 0, len(decoded.GetSessions()))
+	for _, session := range decoded.GetSessions() {
+		if session == nil || session.GetDetails() == nil {
+			continue
+		}
+		details := session.GetDetails()
+		ds := deepResearchSession{
+			ConversationID: session.GetConversationId(),
+			ProjectID:      details.GetProjectId(),
+			Query:          details.GetQuery().GetText(),
+			Mode:           int(details.GetMode()),
+			State:          int(details.GetState()),
+		}
+		if metadata := details.GetMetadata(); metadata != nil {
+			ds.ResearchID = metadata.GetResearchId()
+			if plan, err := base64.StdEncoding.DecodeString(metadata.GetPlan()); err == nil {
+				ds.Plan = plan
+			}
+		}
+		main := details.GetMainBlob()
+		if main == nil {
+			sessions = append(sessions, ds)
+			continue
+		}
+		ds.MainBlob = json.RawMessage("{}")
+		entries := main.GetReportTree()
+		offset := 0
+		if ds.Mode == 5 {
+			offset = 1
+			if len(entries) > 0 && entries[0].GetDetail() != nil {
+				ds.Report = entries[0].GetDetail().GetMarkdown()
+			}
+		} else {
+			ds.Report = main.GetExtra()
+		}
+		for i, entry := range entries[offset:] {
+			if entry == nil {
+				continue
+			}
+			ds.Sources = append(ds.Sources, ResearchSource{
+				URL: entry.GetUrl(), Title: entry.GetTitle(),
+				Snippet: entry.GetSummary(), Rank: 1, CitationIndex: i + 1,
+			})
+		}
+		sessions = append(sessions, ds)
+	}
+	return sessions, nil
 }
 
 // parseDeepResearchSessions decodes the top-level e3bVqc response
