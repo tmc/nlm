@@ -230,7 +230,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Contex
 }
 
 // AddSources calls the AddSources RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) AddSources(ctx context.Context, req *notebooklmv1alpha1.AddSourceRequest) (*notebooklmv1alpha1.Project, error) {
+func (c *LabsTailwindOrchestrationServiceClient) AddSources(ctx context.Context, req *notebooklmv1alpha1.AddSourceRequest) (*notebooklmv1alpha1.AddSourcesResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "izAoDd",
@@ -245,7 +245,7 @@ func (c *LabsTailwindOrchestrationServiceClient) AddSources(ctx context.Context,
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.Project
+	var result notebooklmv1alpha1.AddSourcesResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("AddSources: unmarshal response: %w", err)
 	}
@@ -326,7 +326,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Con
 }
 
 // LoadSource calls the LoadSource RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context, req *notebooklmv1alpha1.LoadSourceRequest) (*notebooklmv1alpha1.Source, error) {
+func (c *LabsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context, req *notebooklmv1alpha1.LoadSourceRequest) (*notebooklmv1alpha1.LoadSourceResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "hizoJc",
@@ -341,7 +341,7 @@ func (c *LabsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context,
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.Source
+	var result notebooklmv1alpha1.LoadSourceResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("LoadSource: unmarshal response: %w", err)
 	}
@@ -1862,7 +1862,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetMagicView(ctx context.Contex
 }
 
 // CopyProject calls the CopyProject RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context, req *notebooklmv1alpha1.CopyProjectRequest) (*notebooklmv1alpha1.Project, error) {
+func (c *LabsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context, req *notebooklmv1alpha1.CopyProjectRequest) (*notebooklmv1alpha1.CopyProjectResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "te3DCe",
@@ -1877,7 +1877,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.Project
+	var result notebooklmv1alpha1.CopyProjectResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CopyProject: unmarshal response: %w", err)
 	}

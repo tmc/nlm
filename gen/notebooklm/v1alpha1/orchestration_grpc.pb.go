@@ -131,7 +131,13 @@ type LabsTailwindOrchestrationServiceClient interface {
 	QueryArtifacts(ctx context.Context, in *QueryArtifactsRequest, opts ...grpc.CallOption) (*QueryArtifactsResponse, error)
 	// Source operations
 	ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*Project, error)
+	// AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
+	// containing the same Source descriptor LoadSource (hizoJc) returns:
+	//
+	//	[ [source_id], title, [source_metadata], [null,2], ... ]
+	//
+	// not a Project envelope.
+	AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*AddSourcesResponse, error)
 	CheckSourceFreshness(ctx context.Context, in *CheckSourceFreshnessRequest, opts ...grpc.CallOption) (*CheckSourceFreshnessResponse, error)
 	DeleteSources(ctx context.Context, in *DeleteSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DiscoverSources (Es3dTe). Per the JS bundle binding to
@@ -151,7 +157,16 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// "research" feature is layered on top of the DiscoverSources job
 	// system.
 	DiscoverSources(ctx context.Context, in *DiscoverSourcesRequest, opts ...grpc.CallOption) (*DiscoverSourcesResponse, error)
-	LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*Source, error)
+	// LoadSource (hizoJc) returns a Source descriptor and loaded content. The
+	// HAR (more-requests3) source shape is
+	//
+	//	[ [source_id], title,
+	//	  [null, status, [added_ts], [origin_source_id, [origin_ts]], type,
+	//	   null, 1, null, byte_size, null×5, [indexed_ts], null×4, mime_type],
+	//	  [null, 2], null, download_url, viewer_url, ... ]
+	//
+	// AddSources (izAoDd) returns the same descriptor inside a list.
+	LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*LoadSourceResponse, error)
 	MutateSource(ctx context.Context, in *MutateSourceRequest, opts ...grpc.CallOption) (*Source, error)
 	RefreshSource(ctx context.Context, in *RefreshSourceRequest, opts ...grpc.CallOption) (*Source, error)
 	// Audio operations
@@ -455,10 +470,9 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// TODO(har): trigger by opening a previously-generated Magic View.
 	GetMagicView(ctx context.Context, in *GetMagicViewRequest, opts ...grpc.CallOption) (*GetMagicViewResponse, error)
 	// CopyProject (te3DCe). Duplicates an existing notebook (sources,
-	// artifacts, settings) into a new project. JS-bundle-verified; no
-	// HAR.
-	// TODO(har): trigger from the "Make a copy" notebook menu.
-	CopyProject(ctx context.Context, in *CopyProjectRequest, opts ...grpc.CallOption) (*Project, error)
+	// artifacts, settings) into a new project. Response HAR-observed as a
+	// single status int [3]; not consumed by any live caller.
+	CopyProject(ctx context.Context, in *CopyProjectRequest, opts ...grpc.CallOption) (*CopyProjectResponse, error)
 	// CreateAudioOverview (AHyHrd). The legacy audio-overview creator.
 	// The production surface now goes through CreateUniversalArtifact
 	// (R7cb6c with kind=2), but a direct AHyHrd path is still wired in
@@ -547,8 +561,8 @@ func (c *labsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Contex
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*Project, error) {
-	out := new(Project)
+func (c *labsTailwindOrchestrationServiceClient) AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*AddSourcesResponse, error) {
+	out := new(AddSourcesResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_AddSources_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -583,8 +597,8 @@ func (c *labsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Con
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*Source, error) {
-	out := new(Source)
+func (c *labsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*LoadSourceResponse, error) {
+	out := new(LoadSourceResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_LoadSource_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1182,8 +1196,8 @@ func (c *labsTailwindOrchestrationServiceClient) GetMagicView(ctx context.Contex
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context, in *CopyProjectRequest, opts ...grpc.CallOption) (*Project, error) {
-	out := new(Project)
+func (c *labsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context, in *CopyProjectRequest, opts ...grpc.CallOption) (*CopyProjectResponse, error) {
+	out := new(CopyProjectResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CopyProject_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1229,7 +1243,13 @@ type LabsTailwindOrchestrationServiceServer interface {
 	QueryArtifacts(context.Context, *QueryArtifactsRequest) (*QueryArtifactsResponse, error)
 	// Source operations
 	ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error)
-	AddSources(context.Context, *AddSourceRequest) (*Project, error)
+	// AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
+	// containing the same Source descriptor LoadSource (hizoJc) returns:
+	//
+	//	[ [source_id], title, [source_metadata], [null,2], ... ]
+	//
+	// not a Project envelope.
+	AddSources(context.Context, *AddSourceRequest) (*AddSourcesResponse, error)
 	CheckSourceFreshness(context.Context, *CheckSourceFreshnessRequest) (*CheckSourceFreshnessResponse, error)
 	DeleteSources(context.Context, *DeleteSourcesRequest) (*emptypb.Empty, error)
 	// DiscoverSources (Es3dTe). Per the JS bundle binding to
@@ -1249,7 +1269,16 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// "research" feature is layered on top of the DiscoverSources job
 	// system.
 	DiscoverSources(context.Context, *DiscoverSourcesRequest) (*DiscoverSourcesResponse, error)
-	LoadSource(context.Context, *LoadSourceRequest) (*Source, error)
+	// LoadSource (hizoJc) returns a Source descriptor and loaded content. The
+	// HAR (more-requests3) source shape is
+	//
+	//	[ [source_id], title,
+	//	  [null, status, [added_ts], [origin_source_id, [origin_ts]], type,
+	//	   null, 1, null, byte_size, null×5, [indexed_ts], null×4, mime_type],
+	//	  [null, 2], null, download_url, viewer_url, ... ]
+	//
+	// AddSources (izAoDd) returns the same descriptor inside a list.
+	LoadSource(context.Context, *LoadSourceRequest) (*LoadSourceResponse, error)
 	MutateSource(context.Context, *MutateSourceRequest) (*Source, error)
 	RefreshSource(context.Context, *RefreshSourceRequest) (*Source, error)
 	// Audio operations
@@ -1553,10 +1582,9 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// TODO(har): trigger by opening a previously-generated Magic View.
 	GetMagicView(context.Context, *GetMagicViewRequest) (*GetMagicViewResponse, error)
 	// CopyProject (te3DCe). Duplicates an existing notebook (sources,
-	// artifacts, settings) into a new project. JS-bundle-verified; no
-	// HAR.
-	// TODO(har): trigger from the "Make a copy" notebook menu.
-	CopyProject(context.Context, *CopyProjectRequest) (*Project, error)
+	// artifacts, settings) into a new project. Response HAR-observed as a
+	// single status int [3]; not consumed by any live caller.
+	CopyProject(context.Context, *CopyProjectRequest) (*CopyProjectResponse, error)
 	// CreateAudioOverview (AHyHrd). The legacy audio-overview creator.
 	// The production surface now goes through CreateUniversalArtifact
 	// (R7cb6c with kind=2), but a direct AHyHrd path is still wired in
@@ -1594,7 +1622,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) QueryArtifacts(contex
 func (UnimplementedLabsTailwindOrchestrationServiceServer) ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActOnSources not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) AddSources(context.Context, *AddSourceRequest) (*Project, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) AddSources(context.Context, *AddSourceRequest) (*AddSourcesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddSources not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CheckSourceFreshness(context.Context, *CheckSourceFreshnessRequest) (*CheckSourceFreshnessResponse, error) {
@@ -1606,7 +1634,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteSources(context
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DiscoverSources(context.Context, *DiscoverSourcesRequest) (*DiscoverSourcesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DiscoverSources not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) LoadSource(context.Context, *LoadSourceRequest) (*Source, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) LoadSource(context.Context, *LoadSourceRequest) (*LoadSourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoadSource not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateSource(context.Context, *MutateSourceRequest) (*Source, error) {
@@ -1798,7 +1826,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateAccessToken(c
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetMagicView(context.Context, *GetMagicViewRequest) (*GetMagicViewResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMagicView not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CopyProject(context.Context, *CopyProjectRequest) (*Project, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CopyProject(context.Context, *CopyProjectRequest) (*CopyProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CopyProject not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateAudioOverviewLegacy(context.Context, *CreateAudioOverviewLegacyRequest) (*AudioOverview, error) {

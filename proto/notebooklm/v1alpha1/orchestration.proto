@@ -72,7 +72,11 @@ message Artifact {
     ArtifactMindMapPreview mindmap_preview = 15;      // type 7 (mind map / infographic)
     google.protobuf.Timestamp create_time = 16;
     ArtifactSlideDeckPreview slide_deck_preview = 17; // type 8 (slide deck)
-    // Field 18 is null in every observed capture; left unmodeled.
+    // Field 18 carries a wrapped list of timestamp rows, observed
+    // [[[1388, 553000000]]] on a failed NOTE artifact. The inner [secs, nanos]
+    // is a Timestamp; meaning (a processing duration or retry marker) is
+    // unconfirmed, so it is modeled generically.
+    ArtifactTimestamps field_18 = 18;
     ArtifactFlashcardConfig flashcard_config = 19;    // type 9 (flashcards)
     // unknown_20 is a constant 1 in every observed capture; meaning TBD.
     int64 unknown_20 = 20;
@@ -86,6 +90,18 @@ message Artifact {
     // Likely an opaque sort/pagination cursor; kept generic since its use is
     // unconfirmed.
     string unknown_22 = 22;
+}
+
+// ArtifactTimestamps is the wrapped list carried at Artifact field 18:
+// [[ [secs, nanos] ]] — an outer list of rows, each row an inline
+// [seconds, nanos] pair (not a google.protobuf.Timestamp sub-message).
+message ArtifactTimestamps {
+    repeated ArtifactTimestampRow rows = 1;
+}
+
+message ArtifactTimestampRow {
+    optional int64 seconds = 1;
+    optional int64 nanos = 2;
 }
 
 enum ArtifactType {
@@ -315,6 +331,24 @@ message ArtifactSlideDeckPreview {
     repeated ArtifactSlideImage slides = 3;
     string download_url = 4;
     string download_url_2 = 5;
+    ArtifactSlideEditInstructions edit_instructions = 6;
+}
+
+// ArtifactSlideEditInstructions is the per-slide revision-request blob at
+// ArtifactSlideDeckPreview position [5] (field 6): [[[slide_index, text], ...]].
+// Each entry pairs a zero-based slide index with the user's edit instruction
+// for that slide (e.g. [0, "simplify this slide"]). Present only on slide-deck
+// artifacts the user has requested edits on; absent otherwise. Surfaced by a
+// gArtLc (QueryArtifacts) poll capture; the list is wrapped one level deep.
+message ArtifactSlideEditInstructions {
+    repeated ArtifactSlideEditInstruction instructions = 1;
+}
+
+// ArtifactSlideEditInstruction is one [slide_index, text] revision-request
+// pair.
+message ArtifactSlideEditInstruction {
+    optional int64 slide_index = 1;
+    string text = 2;
 }
 
 // ArtifactSlideDeckConfig is the [null, language, format, length] config
@@ -663,6 +697,11 @@ message AddSourceRequest {
     string project_id = 2;
 }
 
+// AddSourcesResponse is the izAoDd response envelope: [[source, ...]].
+message AddSourcesResponse {
+    repeated Source sources = 1;
+}
+
 message SourceInput {
     // For text sources
     string title = 1;
@@ -868,7 +907,11 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "yyryJe";
         option (arg_format) = "[%project_id%, %action%, %source_ids%]";
     }
-    rpc AddSources(AddSourceRequest) returns (Project) {
+    // AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
+    // containing the same Source descriptor LoadSource (hizoJc) returns:
+    //   [ [source_id], title, [source_metadata], [null,2], ... ]
+    // not a Project envelope.
+    rpc AddSources(AddSourceRequest) returns (AddSourcesResponse) {
         option (rpc_id) = "izAoDd";
         option (arg_format) = "[%sources%, %project_id%]";
     }
@@ -903,7 +946,14 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "Es3dTe";
         option (arg_format) = "[%project_id%, %query%]";
     }
-    rpc LoadSource(LoadSourceRequest) returns (Source) {
+    // LoadSource (hizoJc) returns a Source descriptor and loaded content. The
+    // HAR (more-requests3) source shape is
+    //   [ [source_id], title,
+    //     [null, status, [added_ts], [origin_source_id, [origin_ts]], type,
+    //      null, 1, null, byte_size, null×5, [indexed_ts], null×4, mime_type],
+    //     [null, 2], null, download_url, viewer_url, ... ]
+    // AddSources (izAoDd) returns the same descriptor inside a list.
+    rpc LoadSource(LoadSourceRequest) returns (LoadSourceResponse) {
         option (rpc_id) = "hizoJc";
         option (arg_format) = "[%source_id%]";
     }
@@ -1479,12 +1529,10 @@ service LabsTailwindOrchestrationService {
     }
 
     // CopyProject (te3DCe). Duplicates an existing notebook (sources,
-    // artifacts, settings) into a new project. JS-bundle-verified; no
-    // HAR.
-    // TODO(har): trigger from the "Make a copy" notebook menu.
-    rpc CopyProject(CopyProjectRequest) returns (Project) {
+    // artifacts, settings) into a new project. Response HAR-observed as a
+    // single status int [3]; not consumed by any live caller.
+    rpc CopyProject(CopyProjectRequest) returns (CopyProjectResponse) {
         option (rpc_id) = "te3DCe";
-        // wire shape unverified; capture HAR before encoding
     }
 
     // (GenerateFreeFormStreamed / laWbsf is wired via gRPC-Web above
@@ -1586,6 +1634,62 @@ message CheckSourceFreshnessResponse {
 
 message LoadSourceRequest {
     string source_id = 1;
+}
+
+// LoadSourceResponse is the hizoJc response envelope:
+// [source, null, null, [loaded content]].
+message LoadSourceResponse {
+    Source source = 1;
+    LoadedSourceContent content = 4;
+}
+
+message LoadedSourceContent {
+    LoadedSourceRows rows = 1;
+    optional int32 unknown_2 = 2;
+}
+
+message LoadedSourceRows {
+    repeated LoadedSourceRow rows = 1;
+    optional int32 unknown_2 = 2;
+}
+
+message LoadedSourceRow {
+    optional int64 start = 1;
+    optional int64 end = 2;
+    LoadedSourceText text = 3;
+    LoadedSourceImage image = 6;
+}
+
+message LoadedSourceImage {
+    string url = 1;
+    optional string unknown_2 = 2;
+    string image_id = 3;
+}
+
+message LoadedSourceText {
+    repeated LoadedSourceSpan spans = 1;
+    LoadedSourceTextStyle style = 2;
+}
+
+message LoadedSourceSpan {
+    optional int64 start = 1;
+    optional int64 end = 2;
+    LoadedSourceSpanText text = 3;
+}
+
+message LoadedSourceSpanText {
+    optional string text = 1;
+    LoadedSourceSpanFlags flags = 2;
+}
+
+message LoadedSourceSpanFlags {
+    optional bool bold = 1 [(json_bool) = true];
+    optional bool unknown_2 = 2 [(json_bool) = true];
+}
+
+message LoadedSourceTextStyle {
+    optional int32 unknown_1 = 1;
+    optional int32 style = 2;
 }
 
 message RefreshSourceRequest {
@@ -1786,7 +1890,7 @@ message Separator {
 // include "protobuf" and "go".
 message SpanCodeBlock {
     string code = 1;
-    string language = 2;
+    optional string language = 2;
 }
 
 // SpanContent is a shape union: a span holds EITHER a text leaf (["text"] or
@@ -2147,14 +2251,91 @@ message GetDeepResearchSessionsResponse {
     repeated DeepResearchSession sessions = 1;
 }
 
+// HAR-verified wire shape (2026-07-21, e3bVqc/GetDeepResearchSessions), per
+// session entry:
+//
+//   [
+//     conversation_id,                 // [0] UUID string
+//     [                                // [1] inner
+//       project_id,                    //   [0] UUID string
+//       [query, 1],                    //   [1] query + int
+//       mode,                          //   [2] 1 = fast, 5 = deep
+//       [ <report_tree> (, extra_str) ],//  [3] main_blob; variable length
+//       state,                         //   [4] int (6 observed)
+//       [research_id, plan_b64, 5, null, ts_str],// [5] DEEP ONLY (absent for fast)
+//     ],
+//     [secs, nanos],                   // [2] timestamp pair
+//     [secs, nanos],                   // [3] timestamp pair
+//     "157962509464",                  // [4] numeric timestamp string
+//   ]
+//
+//   report_tree ([1][3][0]) is a 72-element deep-research report: element [0] is
+//   a [null, title, ...] header, elements [1..N] are source citations
+//   [url, title, ...9 fields]. ~334KB; distinct from the Span/chat document tree.
+//
 message DeepResearchSession {
+    string conversation_id = 1;
+    DeepResearchSessionDetails details = 2;
+    DeepResearchTimestamp created = 3;
+    DeepResearchTimestamp updated = 4;
+    string account_id = 5;
+}
+
+message DeepResearchSessionDetails {
+    string project_id = 1;
+    DeepResearchQuery query = 2;
+    optional int32 mode = 3;
+    DeepResearchMainBlob main_blob = 4;
+    optional int32 state = 5;
+    DeepResearchMetadata metadata = 6;
+}
+
+message DeepResearchQuery {
+    string text = 1;
+    optional int32 kind = 2;
+}
+
+// DeepResearchMainBlob is [report_tree, extra]. The extra string is present
+// only on fast-research results.
+message DeepResearchMainBlob {
+    repeated DeepResearchReportEntry report_tree = 1;
+    optional string extra = 2;
+}
+
+// DeepResearchReportEntry covers both the report header at entry zero and the
+// source-citation rows that follow it. Fast-research results use the same
+// prefix, omitting the deep-only detail fields.
+message DeepResearchReportEntry {
+    optional string url = 1;
+    optional string title = 2;
+    optional string summary = 3;
+    optional int32 kind = 4;
+    DeepResearchReportDetail detail = 7;
+    optional bool selected = 8 [(json_bool) = true];
+    optional int32 rank = 9;
+}
+
+// DeepResearchReportDetail covers the header's rendered report and the
+// citation row's extracted text. Their wire layouts share the same six-slot
+// positional group and differ only in which optional fields are populated.
+message DeepResearchReportDetail {
+    optional string markdown = 1;
+    optional int32 kind = 2;
+    optional string excerpt = 3;
+    optional int32 rank = 5;
+    RichDocument document = 6;
+}
+
+message DeepResearchMetadata {
     string research_id = 1;
-    string conversation_id = 2;
-    int32 mode = 3;       // 1 = fast, 5 = deep
-    int32 state = 4;      // 1 = running, 2 = complete, 5 = deleted
-    string query = 5;
-    string plan = 6;
-    bytes main_blob = 7;  // opaque report+sources payload
+    optional string plan = 2;
+    optional int32 kind = 3;
+    optional string backend = 5;
+}
+
+message DeepResearchTimestamp {
+    optional int64 seconds = 1;
+    optional int32 nanos = 2;
 }
 
 // DeleteDeepResearch (LBwxtb, 4-position polymorphic variant).
@@ -2206,14 +2387,16 @@ message BulkImportSourceInput {
     int32 source_type = 4;
 }
 
-// BulkImportFromResearchResponse — per-source enriched metadata in
-// request order. HAR shows a wide layout; we surface the durable
-// subset (id, title, url) and leave the rest to future callers.
+// BulkImportFromResearchResponse carries enriched Source descriptors in
+// request order. The live API path hand-parses the raw response.
 message BulkImportFromResearchResponse {
-    repeated BulkImportResult results = 1;
+    repeated Source results = 1;
 }
 
+// BulkImportResult is the former partial projection of an imported Source.
+// Deprecated: BulkImportFromResearchResponse now returns Source values.
 message BulkImportResult {
+    option deprecated = true;
     string source_id = 1;
     string title = 2;
     string url = 3;
@@ -2817,6 +3000,14 @@ message GetMagicViewResponse {
 message CopyProjectRequest {
     string source_project_id = 1;
     string new_title = 2;
+}
+
+// CopyProjectResponse is the te3DCe reply. HAR-observed as a single int [3];
+// modeled as a status/state code (the copy operation's result). The earlier
+// declared Project return type was an unverified guess and did not match the
+// wire.
+message CopyProjectResponse {
+    optional int64 status = 1;
 }
 
 // (GenerateFreeFormStreamed/Response are defined earlier in this file

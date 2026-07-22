@@ -303,10 +303,42 @@ message SourceIssue {
 
 message Note {
   string note_id = 1;
+  // A freshly created note (CreateNote/CYK0Xb) carries an explicit empty
+  // string here; plain proto3 drops it as the default value on re-encode,
+  // so that one degenerate CreateNote position is not round-trip-preserved
+  // (all content-bearing MutateNote replies are lossless).
   string content_text = 2;
+  NoteMetadata metadata = 3;
   string title = 5;
   string rich_text = 6;
   repeated int32 note_type = 7;
+}
+
+// NoteMetadata is the note-metadata blob carried at Note position [2] in
+// CreateNote (CYK0Xb) and MutateNote (cYAfTb) replies:
+//
+//   [1, "157962509464", [secs, nanos], null, null, [secs, nanos], false]
+//
+// field_1 is a constant 1; note_id_int is the server-side numeric note id
+// (stable across a note's lifetime); the two timestamp pairs are the note's
+// created and last-modified times (equal on the first write, the modified
+// pair advancing on each subsequent MutateNote). Positions [3] and [4] are
+// null in all observed captures; field_7 is a constant false. Modeled with
+// optional scalars so the trailing false and the interior nulls round-trip.
+message NoteMetadata {
+  optional int64 field_1 = 1;         // constant 1 in observed captures
+  string note_id_int = 2;             // server numeric note id (wire: quoted string)
+  NoteTimestamp created = 3;          // [secs, nanos]
+  // positions [3], [4] are null in observed captures; left unmodeled.
+  NoteTimestamp modified = 6;         // [secs, nanos]
+  optional bool field_7 = 7 [(json_bool) = true];  // constant false
+}
+
+// NoteTimestamp is an inline [seconds, nanos] pair (two positional int
+// fields, not a wrapped google.protobuf.Timestamp).
+message NoteTimestamp {
+  optional int64 seconds = 1;
+  optional int32 nanos = 2;
 }
 
 message GetNotesResponse {
@@ -338,8 +370,44 @@ message GenerateDocumentGuidesResponse {
   repeated DocumentGuide guides = 1;
 }
 
+// DocumentGuide is one per-source guide in a GenerateDocumentGuides (tr032e)
+// reply. HAR-verified wire (more-requests3, keyed by source_id):
+//
+//   [ [[source_id]], [summary], [[topic, topic, ...]], [] ]
+//
+// The live reader (api.Client.GenerateSourceGuide) hand-parses these
+// positions directly; this message mirrors the wire for betool/beprotojson
+// decode. Positions [1] and [2] wrap their payload one level deep, so each is
+// modeled as a small wrapper message.
 message DocumentGuide {
-  string content = 1;
+  DocumentGuideId source_id = 1;      // [[source_id]]
+  DocumentGuideSummary summary = 2;   // [summary_text]
+  DocumentGuideTopics topics = 3;     // [[topic, topic, ...]]
+  DocumentGuideExtra field_4 = 4;     // [] in observed captures
+}
+
+// DocumentGuideId wraps the doubly-nested source id at DocumentGuide[0]:
+// [[source_id]].
+message DocumentGuideId {
+  repeated string id = 1;
+}
+
+// DocumentGuideSummary wraps the summary text at DocumentGuide[1]: [summary].
+message DocumentGuideSummary {
+  string text = 1;
+}
+
+// DocumentGuideTopics wraps the key-topic chips at DocumentGuide[2]:
+// [[topic, topic, ...]].
+message DocumentGuideTopics {
+  repeated string topics = 1;
+}
+
+// DocumentGuideExtra is the empty list at DocumentGuide[3]. Modeled as a
+// present-but-empty message so the [] round-trips rather than collapsing to
+// null (mirrors ProjectCollaboratorTags).
+message DocumentGuideExtra {
+  repeated string items = 1;
 }
 
 message GenerateNotebookGuideResponse {
