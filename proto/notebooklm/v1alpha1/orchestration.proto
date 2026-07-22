@@ -20,6 +20,31 @@ message Context {
     repeated string source_ids = 2;
 }
 
+// RequestContext is the client-capabilities preamble the web UI prepends to
+// most orchestration requests. Observed as [2, null, null, [1, null×8, [1]]]
+// — with an extra artifact-type filter list at field 5 in ListArtifacts.
+message RequestContext {
+    // Observed constant 2 (protocol/surface version).
+    optional int32 version = 1;
+    // Fields 2-3 ([1]-[2]) are null in every observed request; left unmodeled.
+    RequestClientCaps caps = 4;
+    // ListArtifacts prepends the requested artifact-type filter here, e.g.
+    // [[1, 4, 8, 10, 2, 3, 6, 9]]; absent (null) on other requests.
+    RequestArtifactTypeFilter artifact_types = 5;
+}
+
+// RequestClientCaps is RequestContext field 4: [1, null×9, [1]] (11 elements).
+message RequestClientCaps {
+    optional int32 field_1 = 1;         // observed 1
+    // Fields 2-10 ([1]-[9]) are null in every observed request; left unmodeled.
+    repeated int32 field_11 = 11;       // observed [1]
+}
+
+// RequestArtifactTypeFilter is RequestContext field 5: [[1,4,8,10,2,3,6,9]].
+message RequestArtifactTypeFilter {
+    repeated int32 types = 1;
+}
+
 // Artifact is the gArtLc (ListArtifacts/QueryArtifacts) row shape. Fields
 // Fields 7-19 are a de-facto oneof keyed by type: exactly one of note,
 // audio_overview, video_preview, report_config, mindmap_preview,
@@ -263,13 +288,22 @@ message ArtifactMindMapConfig {
     optional int64 unknown_6 = 6;
 }
 
-// ArtifactMindMapSlide is one [title, [thumbnail_urls], description, text]
-// entry in ArtifactMindMapPreview.slides.
+// ArtifactMindMapSlide is one [title, [url, width, height], description,
+// text] entry in ArtifactMindMapPreview.slides.
 message ArtifactMindMapSlide {
     string title = 1;
-    repeated string thumbnail_urls = 2;
+    ArtifactMindMapImageRef thumbnail = 2;
     string description = 3;
     string text = 4;
+}
+
+// ArtifactMindMapImageRef is a [url, width, height] image reference. Unlike
+// ArtifactImageRef (the slide-deck variant), width/height are carried as
+// integers here, not numeric strings.
+message ArtifactMindMapImageRef {
+    string url = 1;
+    optional int64 width = 2;
+    optional int64 height = 3;
 }
 
 // ArtifactSlideDeckPreview is the type-8 (slide deck) gArtLc payload at
@@ -302,18 +336,20 @@ message ArtifactSlideImage {
     string text = 3;
 }
 
-// ArtifactImageRef is a [url, width, height] image reference, carried as
-// strings on the wire (width/height are numeric strings, not ints).
+// ArtifactImageRef is a [url, width, height] image reference.
 message ArtifactImageRef {
     string url = 1;
-    string width = 2;
-    string height = 3;
+    optional int64 width = 2;
+    optional int64 height = 3;
 }
 
 // ArtifactFlashcardConfig is the type-9 (flashcards) gArtLc payload at
 // Artifact field 19: [null, [null, language]].
 message ArtifactFlashcardConfig {
-    // Field 1 is null in every observed capture; left unmodeled.
+    // extracted_content is the source-derived rich-text document some
+    // flashcard decks carry (e.g. an extracted API reference table); null on
+    // the majority of captures.
+    RichDocument extracted_content = 1;
     ArtifactFlashcardOptions options = 2;
 }
 
@@ -353,10 +389,16 @@ message DeleteArtifactRequest {
     string artifact_id = 1;
 }
 
+// ListArtifactsRequest wire (HAR-verified, more-requests2):
+//   [<RequestContext>, project_id, "<filter>"]
+// where RequestContext.artifact_types carries the type filter and field 3 is a
+// CEL-ish filter string (e.g. NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED").
+// The live api.Client.ListArtifacts hand-builds a truncated [[2], project_id]
+// form and does not use this message as an encoder.
 message ListArtifactsRequest {
-    string project_id = 1;
-    int32 page_size = 2;
-    string page_token = 3;
+    RequestContext context = 1;
+    string project_id = 2;
+    string filter = 3;
 }
 
 message ListArtifactsResponse {
@@ -809,7 +851,12 @@ service LabsTailwindOrchestrationService {
         // No distinct LfTXoe wire call has been observed; the earlier ID
         // is treated as dead. See rpc.go:126.
         option (rpc_id) = "gArtLc";
-        option (arg_format) = "[%project_id%, %page_size%, %page_token%]";
+        // Encoder note: the live path hand-builds a truncated [[2], project_id]
+        // form (api.Client.ListArtifacts); this arg_format matches the fuller
+        // web-UI request the message now models. project_id at position 1;
+        // the client-context preamble and filter are supplied by callers that
+        // populate the message.
+        option (arg_format) = "[%context%, %project_id%, %filter%]";
     }
     rpc QueryArtifacts(QueryArtifactsRequest) returns (QueryArtifactsResponse) {
         option (rpc_id) = "gArtLc";
@@ -877,6 +924,14 @@ service LabsTailwindOrchestrationService {
         // [[audio_type], project_id, [null, null, 1, [[[source_ids]]], null, null,
         //   [null, [custom_instructions, length, null, [[[source_ids]]], language, true, 1]]]]
         // Using custom encoder for this complex structure
+        //
+        // OVERLOADED: R7cb6c is CreateUniversalArtifact (audio/video/report/
+        // flashcards/slides). Its RESPONSE is NOT the plain AudioOverview shape —
+        // captured audio responses put ints at positions [2]/[4] where
+        // AudioOverview declares instructions/audio_url strings, plus an extra
+        // config block at field 7 and an int at field 20. Modeling the response
+        // needs its own artifact message per creation type; binding it to
+        // AudioOverview is lossy on purpose and deferred pending a per-type HAR.
     }
     rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
         option (rpc_id) = "VUsiyb";
@@ -939,7 +994,11 @@ service LabsTailwindOrchestrationService {
     }
     rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse) {
         option (rpc_id) = "wXbhsf";
-        option (arg_format) = "[null, 1, null, [2]]";
+        // Constant preamble matching the web UI's captured request. The client
+        // capabilities block and the all-empty filter scaffold are fixed; the
+        // server treats the empty filter as "no filter" (same result set as the
+        // shorter [null, 1, null, [2]] form the client sent previously).
+        option (arg_format) = "[null, 1, null, [2, null, null, [1, null, null, null, null, null, null, null, null, null, [1]]], null, [[null, null, []], [[]], [null, []]]]";
         option (chunked_response) = true;
     }
     rpc MutateProject(MutateProjectRequest) returns (Project) {
@@ -1213,6 +1272,15 @@ service LabsTailwindOrchestrationService {
     // observed). See internal/method/labs_tailwind_artifact_suggestions.go.
     rpc GenerateArtifactSuggestions(GenerateArtifactSuggestionsRequest) returns (GenerateArtifactSuggestionsResponse) {
         option (rpc_id) = "otmP3b";
+        // DUAL-FORM REQUEST (do not "fix" without a live re-test):
+        //   - This encoder / the HAR-verified 2026-04-14 capture send
+        //     [[kind], project_id, [[src],...], variation]. Working today.
+        //   - The 2026-07 web UI sends [<RequestContext>, project_id,
+        //     [[src],...], variation] with no explicit kind field.
+        // The two coincide because RequestContext[0] == 2 == audio kind, so the
+        // truncated [2] is accepted as a degenerate context. Migrating the
+        // encoder to the RequestContext form is deferred pending a live re-test;
+        // the request layout is intentionally left as-is (kind at field 1).
         option (arg_format) = "[[%kind%], %project_id%, %source_refs%, %variation%]";
     }
 
@@ -1305,7 +1373,13 @@ service LabsTailwindOrchestrationService {
     // labels affordance in the source-list UI.
     rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse) {
         option (rpc_id) = "agX4Bc";
-        // wire shape unverified; capture HAR before encoding
+        // OVERLOADED rpc_id: agX4Bc serves multiple label operations. The
+        // captured request [<RequestContext>, project_id, null, null, [1]] has
+        // no name/emoji, so it is the list/get-labels mode, NOT create. Modeling
+        // that request as CreateLabelRequest would corrupt the create encoder;
+        // the get-labels mode is deferred to a separate method sharing this
+        // rpc_id (with a method-name override) once its full shape is captured.
+        // CreateLabel request wire shape itself is still unverified.
     }
     rpc MutateLabel(MutateLabelRequest) returns (MutateLabelResponse) {
         option (rpc_id) = "le8sX";
@@ -1362,11 +1436,12 @@ service LabsTailwindOrchestrationService {
     }
 
     // UpdateProjectUserState (LQhfEb). Per-user notebook state —
-    // last-viewed-at, pinned, hidden, etc. JS-bundle-verified; no HAR.
-    // TODO(har): trigger by pinning/unpinning a notebook.
-    rpc UpdateProjectUserState(UpdateProjectUserStateRequest) returns (google.protobuf.Empty) {
+    // last-viewed-at, pinned, hidden, etc. The response is not Empty: the
+    // wire carries a nested result message ([null, 2]) at field 2.
+    // TODO(har): request wire shape still unverified; capture before encoding.
+    rpc UpdateProjectUserState(UpdateProjectUserStateRequest) returns (UpdateProjectUserStateResponse) {
         option (rpc_id) = "LQhfEb";
-        // wire shape unverified; capture HAR before encoding
+        // request wire shape unverified; capture HAR before encoding
     }
 
     // ExecuteWritingFunction (likKIe). In-document writing assistant —
@@ -1444,11 +1519,46 @@ message GetProjectRequest {
     string project_id = 1;
 }
 
+// ListRecentlyViewedProjectsRequest wire (HAR-verified, more-requests2):
+//   [null, 1, null, <RequestContext>, null, <filter>]
+// Field 1 ([0]) and fields 3/5 ([2]/[4]) are null; field 2 is a constant 1;
+// field 4 is the shared client-capabilities preamble; field 6 is a filter
+// scaffold ([[null,null,[]],[[]],[null,[]]]) whose inner lists are empty on
+// an unfiltered "recently viewed" fetch.
 message ListRecentlyViewedProjectsRequest {
-    google.protobuf.Int32Value limit = 1;
-    google.protobuf.Int32Value offset = 2;
-    google.protobuf.Int32Value filter = 3;
-    repeated int32 options = 4;
+    optional int32 page = 2;                 // observed 1
+    RequestContext context = 4;
+    ListRecentlyViewedProjectsFilter filter = 6;
+}
+
+message ListRecentlyViewedProjectsFilter {
+    ListRecentlyViewedProjectsFilterA field_1 = 1;  // [null, null, []]
+    ListRecentlyViewedProjectsFilterB field_2 = 2;  // [[]]
+    ListRecentlyViewedProjectsFilterC field_3 = 3;  // [null, []]
+}
+
+// The three filter sub-messages each carry a single present-but-empty list.
+// The list is wrapped in a StringList message so a present (non-nil) wrapper
+// round-trips as [] rather than collapsing to null (an empty bare repeated
+// field is indistinguishable from absent in proto3).
+message ListRecentlyViewedProjectsFilterA {
+    // fields 1-2 null; field 3 a present-but-empty string list.
+    StringList field_3 = 3;
+}
+
+message ListRecentlyViewedProjectsFilterB {
+    StringList field_1 = 1;
+}
+
+message ListRecentlyViewedProjectsFilterC {
+    // field 1 null; field 2 a present-but-empty string list.
+    StringList field_2 = 2;
+}
+
+// StringList wraps a repeated string so a present-but-empty list marshals as
+// [] instead of null. Mirrors the SourceIssueList idiom.
+message StringList {
+    repeated string items = 1;
 }
 
 message MutateProjectRequest {
@@ -1629,6 +1739,14 @@ message Span {
     optional int64 start = 1;
     optional int64 end = 2;
     SpanContent content = 3;
+    // table carries a [type_code, columns, rows] table block instead of the
+    // usual content/hidden_content shapes; fields 1-4 and 6-11 are null when
+    // it is present.
+    SpanTable table = 5;
+    // Code blocks carry a [code_text, language] pair at position 7 instead of
+    // the usual content (fields 3..6 and 8..11 are null). start/end still bound
+    // the block within the document.
+    SpanCodeBlock code_block = 7;
     // Hidden/thinking blocks carry their content at position 9 instead of 3
     // (fields 4..8 are null). The content is the same recursive span shape.
     SpanContent hidden_content = 9;
@@ -1638,9 +1756,37 @@ message Span {
     Separator separator = 12;
 }
 
+// SpanTable is a table block within a rich-text document:
+// [type_code, columns, rows]. type_code is always 15 in observed captures
+// (a table-block marker, by analogy with the other integer block markers
+// seen elsewhere in this tree); columns is the column count; each row is
+// itself a Span (its content is the row's cells, one nested Span per cell).
+message SpanTable {
+    optional int64 type_code = 1;
+    optional int64 columns = 2;
+    repeated SpanTableRow rows = 3;
+}
+
+// SpanTableRow is one table row: [start, end, cells]. Its content is a bare
+// list of cell Spans, unlike an ordinary Span's content (which goes through
+// the SpanContent leaf/group shape union), so it is not itself a Span.
+message SpanTableRow {
+    optional int64 start = 1;
+    optional int64 end = 2;
+    repeated Span cells = 3;
+}
+
 // Separator marks a zero-content boundary span. It is empty on the wire ([])
 // but present, distinguishing a separator span from an ordinary one.
 message Separator {
+}
+
+// SpanCodeBlock is a fenced code block within a rich-text document:
+// [code_text, language]. Carried at Span position 7. Observed languages
+// include "protobuf" and "go".
+message SpanCodeBlock {
+    string code = 1;
+    string language = 2;
 }
 
 // SpanContent is a shape union: a span holds EITHER a text leaf (["text"] or
@@ -1663,10 +1809,20 @@ message TextLeaf {
 // SpanGroup is a container span's content: a list of child spans plus optional
 // layout metadata.
 message SpanGroup {
-    repeated Span spans = 1;                       // [0] child spans
+    repeated SpanElement spans = 1;                // [0] child spans or scalar leaves
     SpanGroupMeta meta = 2;                        // [1] e.g. [null, indent]
     // Field 3 ([2]) is null in observed captures; left unmodeled.
     ListItem list_item = 4;                       // [3] list-item style
+}
+
+// SpanElement is a shape union used by SpanGroup.spans. Most entries are the
+// normal [start, end, content] Span shape, but some captures contain a bare
+// integer leaf (for example 0 or 11) at the same repeated position.
+message SpanElement {
+    oneof value {
+        int64 scalar = 1;
+        Span span = 2;
+    }
 }
 
 // TextMarks carries the positional formatting marks on a text leaf. Observed
@@ -1684,6 +1840,8 @@ message TextMarks {
     optional bool flag6 = 6 [(json_bool) = true];
     optional bool flag7 = 7 [(json_bool) = true];
     optional bool flag8 = 8 [(json_bool) = true];
+    optional bool flag9 = 9 [(json_bool) = true];  // observed true on code/identifier runs
+    optional int64 field_10 = 10;                  // observed value 2
 }
 
 // SpanGroupMeta is the [null, indent, flag?] metadata trailing a span group.
@@ -2073,20 +2231,31 @@ message GetAudioFormatsRequest {
     // Custom encoder; no field substitution.
 }
 
-// Response shape (HAR-verified):
+// Response shape (HAR-verified): four positional entries, each itself
+// wrapped in an extra array layer:
 //   [
 //     [<audio_kinds>],     // [[id, name, description], ...]
 //     [<video_kinds>],
 //     [<slide_kinds>],
-//     [<doc_templates>],   // [title, subtitle, system_prompt]
-//     ...,
+//     [<doc_templates>],   // [[title, subtitle, system_prompt], ...]
 //   ]
-//
-// We surface only the audio kinds today (the existing api.Client.GetAudioFormats
-// path); other inner arrays are accessible via the raw payload until
-// dedicated parsers exist.
+// audio/video/slide kinds share the AudioFormat shape; doc templates use
+// the distinct DocTemplate shape. The extra wrapping layer is modeled with
+// one-field list-wrapper messages so a present-but-empty kind round-trips
+// as [] rather than null.
 message GetAudioFormatsResponse {
-    repeated AudioFormat formats = 1;
+    AudioFormatList audio_kinds = 1;
+    AudioFormatList video_kinds = 2;
+    AudioFormatList slide_kinds = 3;
+    DocTemplateList doc_templates = 4;
+}
+
+message AudioFormatList {
+    repeated AudioFormat items = 1;
+}
+
+message DocTemplateList {
+    repeated DocTemplate items = 1;
 }
 
 // AudioFormat captured kinds (HAR 2026-04-19+):
@@ -2098,6 +2267,14 @@ message AudioFormat {
     int32 id = 1;
     string name = 2;
     string description = 3;
+}
+
+// DocTemplate is a prebuilt briefing-doc/study-guide template:
+// [title, subtitle, system_prompt].
+message DocTemplate {
+    string title = 1;
+    string subtitle = 2;
+    string system_prompt = 3;
 }
 
 // GenerateDocumentGuides (tr032e): per-source guide.
@@ -2328,6 +2505,9 @@ message GenerateArtifactSuggestionsRequest {
 message ArtifactSuggestion {
     string title = 1;
     string description = 2;
+    // Category tags for the suggestion, e.g. ["explanatory"]. Present only
+    // once suggestions have generated (absent on early poll snapshots).
+    repeated string categories = 3;
 }
 
 message GenerateArtifactSuggestionsResponse {
@@ -2452,12 +2632,37 @@ message CreateLabelRequest {
 }
 
 message CreateLabelResponse {
+    // Field 1 (Label label) is null in every observed capture; the RPC
+    // returns the full refreshed label list at field 2 instead.
     Label label = 1;
+    repeated Label labels = 2;
 }
 
+// MutateLabelRequest wire (HAR-verified, more-requests2):
+//   [<RequestContext>, project_id, label_id, [<mutation>]]
+// The live path (api.Client.mutateLabel) hand-builds these args and does not
+// use this message as an encoder, so the layout is decode-only. The mutation
+// block has two observed inner shapes: [[name, emoji]] (rename/emoji) and
+// [null, [[source_id]]] (attach source); the captured request is the latter.
 message MutateLabelRequest {
-    string label_id = 1;
-    string name = 2;
+    RequestContext context = 1;
+    string project_id = 2;
+    string label_id = 3;
+    MutateLabelMutation mutation = 4;
+}
+
+// MutateLabelMutation is field 4: [[null, [[source_id]]]] (source-attach form)
+// or [[name, emoji]] (metadata form). Field 1 wraps the inner mutation entry.
+message MutateLabelMutation {
+    MutateLabelEntry entry = 1;
+}
+
+message MutateLabelEntry {
+    // Metadata form uses field 1 (name) / field 2 (emoji); the source-attach
+    // form leaves field 1 null and carries the source ids at field 2, each id
+    // wrapped as ["uuid"] (SourceIdList, the same wrapper Label.sources uses).
+    optional string name = 1;
+    repeated SourceIdList sources = 2;
 }
 
 message MutateLabelResponse {
@@ -2515,10 +2720,45 @@ message ModelOption {
 }
 
 // UpdateProjectUserState (LQhfEb). wire shape unverified.
+// UpdateProjectUserStateRequest wire (HAR-verified, more-requests2):
+//   [<RequestContext>, project_id, [null, [null, 2]], [["<state_key>"]]]
+// Field 3 carries the new state value (a nested [null, 2] message); field 4
+// is the list of state keys being updated
+// (e.g. "notebook_lm_state.saved_source_panel_view").
 message UpdateProjectUserStateRequest {
-    string project_id = 1;
-    bool pinned = 2;
-    google.protobuf.Timestamp last_viewed_at = 3;
+    RequestContext context = 1;
+    string project_id = 2;
+    UpdateProjectUserStateValue value = 3;
+    UpdateProjectUserStateKeys keys = 4;
+}
+
+// UpdateProjectUserStateValue is field 3: [null, [null, 2]].
+message UpdateProjectUserStateValue {
+    // field 1 ([0]) is null in the observed capture; left unmodeled.
+    UpdateProjectUserStateValueInner detail = 2;
+}
+
+message UpdateProjectUserStateValueInner {
+    // field 1 ([0]) is null in the observed capture; left unmodeled.
+    optional int32 field_2 = 2; // observed 2
+}
+
+// UpdateProjectUserStateKeys is field 4: [["notebook_lm_state...."]]. Field 1
+// is the repeated list of dotted state-key paths being updated
+// (e.g. "notebook_lm_state.saved_source_panel_view").
+message UpdateProjectUserStateKeys {
+    repeated string keys = 1;
+}
+
+// UpdateProjectUserStateResponse: the wire carries a nested result message
+// at field 2 ([null, [null, 2]]), not an empty envelope.
+message UpdateProjectUserStateResponse {
+    UpdateProjectUserStateResult result = 2;
+}
+
+message UpdateProjectUserStateResult {
+    // Field 1 ([0]) is null in the one observed capture; left unmodeled.
+    int32 status = 2;
 }
 
 // ExecuteWritingFunction (likKIe). In-document writing assistant.

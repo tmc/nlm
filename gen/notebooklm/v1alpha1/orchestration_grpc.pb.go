@@ -432,9 +432,10 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// TODO(har): trigger by opening the model-picker in chat.
 	ListModelOptions(ctx context.Context, in *ListModelOptionsRequest, opts ...grpc.CallOption) (*ListModelOptionsResponse, error)
 	// UpdateProjectUserState (LQhfEb). Per-user notebook state —
-	// last-viewed-at, pinned, hidden, etc. JS-bundle-verified; no HAR.
-	// TODO(har): trigger by pinning/unpinning a notebook.
-	UpdateProjectUserState(ctx context.Context, in *UpdateProjectUserStateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// last-viewed-at, pinned, hidden, etc. The response is not Empty: the
+	// wire carries a nested result message ([null, 2]) at field 2.
+	// TODO(har): request wire shape still unverified; capture before encoding.
+	UpdateProjectUserState(ctx context.Context, in *UpdateProjectUserStateRequest, opts ...grpc.CallOption) (*UpdateProjectUserStateResponse, error)
 	// ExecuteWritingFunction (likKIe). In-document writing assistant —
 	// rewrite, expand, summarize a selection inside an artifact.
 	// JS-bundle-verified; no HAR.
@@ -1136,8 +1137,8 @@ func (c *labsTailwindOrchestrationServiceClient) ListModelOptions(ctx context.Co
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx context.Context, in *UpdateProjectUserStateRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *labsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx context.Context, in *UpdateProjectUserStateRequest, opts ...grpc.CallOption) (*UpdateProjectUserStateResponse, error) {
+	out := new(UpdateProjectUserStateResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_UpdateProjectUserState_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1529,9 +1530,10 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// TODO(har): trigger by opening the model-picker in chat.
 	ListModelOptions(context.Context, *ListModelOptionsRequest) (*ListModelOptionsResponse, error)
 	// UpdateProjectUserState (LQhfEb). Per-user notebook state —
-	// last-viewed-at, pinned, hidden, etc. JS-bundle-verified; no HAR.
-	// TODO(har): trigger by pinning/unpinning a notebook.
-	UpdateProjectUserState(context.Context, *UpdateProjectUserStateRequest) (*emptypb.Empty, error)
+	// last-viewed-at, pinned, hidden, etc. The response is not Empty: the
+	// wire carries a nested result message ([null, 2]) at field 2.
+	// TODO(har): request wire shape still unverified; capture before encoding.
+	UpdateProjectUserState(context.Context, *UpdateProjectUserStateRequest) (*UpdateProjectUserStateResponse, error)
 	// ExecuteWritingFunction (likKIe). In-document writing assistant —
 	// rewrite, expand, summarize a selection inside an artifact.
 	// JS-bundle-verified; no HAR.
@@ -1781,7 +1783,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) UpdateFeaturedNoteboo
 func (UnimplementedLabsTailwindOrchestrationServiceServer) ListModelOptions(context.Context, *ListModelOptionsRequest) (*ListModelOptionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListModelOptions not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) UpdateProjectUserState(context.Context, *UpdateProjectUserStateRequest) (*emptypb.Empty, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) UpdateProjectUserState(context.Context, *UpdateProjectUserStateRequest) (*UpdateProjectUserStateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateProjectUserState not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) ExecuteWritingFunction(context.Context, *ExecuteWritingFunctionRequest) (*ExecuteWritingFunctionResponse, error) {

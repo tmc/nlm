@@ -18,17 +18,32 @@ message Project {
   string emoji = 4;
   ProjectMetadata metadata = 6;
   ChatbotConfig chatbot_config = 8;
+  // Single per-notebook boolean flag (observed [false]); carried positionally.
+  repeated bool field_9 = 9 [(json_bool) = true];
   // Three per-notebook capability flags (observed [true,true,true]); exact
   // meaning unconfirmed, so carried positionally.
   repeated bool flags = 10 [(json_bool) = true];
-  // Per-notebook limits/quotas (observed [6,500,500,500000,6]).
-  repeated int64 limits = 11;
+  // Per-notebook limits/quotas, e.g. [6,500,500,500000,6] or, on a few
+  // notebooks, [null,500,600,500000,3] with the first slot elided — modeled as
+  // a message of optional fields so a null slot round-trips as null rather than
+  // breaking a repeated int64 (which cannot hold a null element).
+  ProjectLimits limits = 11;
   // Cover-image/presentation block for the notebook, e.g.
   // [false, [[id, filename, 1, 2, image_url]], null, "Summary here", false].
   // Same positional shape as orchestration.proto's FeaturedProjectPresentation
   // / FeaturedProjectImage (not reused directly to avoid a circular import:
   // orchestration.proto already imports this file).
   ProjectCoverPresentation cover_presentation = 15;
+}
+
+// ProjectLimits is Project field 11: a 5-slot quota tuple. Modeled as optional
+// fields (not repeated int64) because the first slot is null on some notebooks.
+message ProjectLimits {
+    optional int64 tier = 1;            // observed 6, or null
+    optional int64 notebook_limit = 2;  // observed 500
+    optional int64 source_limit = 3;    // observed 500/600
+    optional int64 upload_limit = 4;    // observed 500000
+    optional int64 tier_2 = 5;          // observed 6/3
 }
 
 // ProjectCoverPresentation is Project field 15: a cover-image/presentation
@@ -85,7 +100,8 @@ message ProjectMetadataExtra {
 }
 
 message ProjectMetadataExtraInner {
-    // field 1 ([0]) is null in all observed captures; left unmodeled.
+    // Observed true in ListRecentlyViewedProjects captures (null in GetProject).
+    optional bool field_1 = 1 [(json_bool) = true];
     optional int32 field_2 = 2; // [1] observed 1
 }
 
@@ -153,8 +169,23 @@ message SourceMetadata {
     // Human-readable source title/heading.
     string heading = 12;
     google.protobuf.Timestamp indexed_time = 15;
+    // Detected source languages with confidence scores, e.g.
+    // [[["en", 0.988], ["lb", 0.012]]] — an outer list carrying one ranked
+    // list of [lang, confidence] guesses.
+    SourceLanguageDetection language_detection = 17;
     // Source MIME type, e.g. "application/pdf".
     string mime_type = 20;
+}
+
+// SourceLanguageDetection is SourceMetadata field 17:
+// [[[lang, confidence], ...]] — field 1 wraps the ranked guess list.
+message SourceLanguageDetection {
+    repeated SourceLanguageGuess guesses = 1;
+}
+
+message SourceLanguageGuess {
+    string language = 1;   // BCP-47 code, e.g. "en", "lb"
+    double confidence = 2; // 0..1
 }
 
 message SourceFile {
@@ -220,10 +251,28 @@ message SourceSettings {
 
 message SourceSettingsDetail {
   // field 1 reserved/unknown
-  // field 2 reserved/unknown
+  // Size/quota triple observed [null, 650690, 500000] on some sources.
+  SourceSettingsSize size = 2;
   // Issue list for the source, always present (empty [] when the source is
   // healthy).
   SourceIssueList issues = 3;
+  // field 4: present-but-empty list on most sources.
+  SourceSettingsIntList field_4 = 4;
+  // field 7: observed [1].
+  repeated int64 field_7 = 7;
+}
+
+// SourceSettingsSize is SourceSettingsDetail field 2: [null, 650690, 500000],
+// a byte/char size pair (field 1 null in observed captures).
+message SourceSettingsSize {
+  optional int64 field_2 = 2; // observed 650690
+  optional int64 field_3 = 3; // observed 500000
+}
+
+// SourceSettingsIntList wraps a repeated int64 so a present-but-empty list
+// round-trips as [] rather than null.
+message SourceSettingsIntList {
+  repeated int64 items = 1;
 }
 
 message SourceIssueList {

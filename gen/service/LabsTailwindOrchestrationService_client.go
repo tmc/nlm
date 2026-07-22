@@ -1742,7 +1742,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListModelOptions(ctx context.Co
 }
 
 // UpdateProjectUserState calls the UpdateProjectUserState RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx context.Context, req *notebooklmv1alpha1.UpdateProjectUserStateRequest) (*emptypb.Empty, error) {
+func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx context.Context, req *notebooklmv1alpha1.UpdateProjectUserStateRequest) (*notebooklmv1alpha1.UpdateProjectUserStateResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "LQhfEb",
@@ -1757,7 +1757,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx cont
 	}
 
 	// Decode the response
-	var result emptypb.Empty
+	var result notebooklmv1alpha1.UpdateProjectUserStateResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("UpdateProjectUserState: unmarshal response: %w", err)
 	}
