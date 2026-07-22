@@ -25,6 +25,28 @@ stderr 'Translate raw batchexecute'
 stderr 'decode-request'
 stderr 'encode-response'
 
+# The documented round-trip example must decode with --json, since the encode
+# modes consume JSON and the decode default is now human-readable text. This
+# guards the regression where the example showed a plain decode-response piped
+# into encode-response (which fails on the text output).
+exec ./nlm_test betool help
+stderr 'nlm --json betool decode-response'
+
+# Default decode output is human-readable text, not JSON: it names the RPC and
+# previews the data, and is NOT the structured "responses" JSON that
+# encode-response consumes. (The JSON round-trip is covered in Go by
+# TestBetoolRoundTripResponse.)
+exec ./nlm_test betool decode-response testdata/betool/response.txt
+stdout 'response'
+stdout 'CCqFvf'
+! stdout '"responses"'
+
+# The same body with the global --json flag emits the structured JSON that
+# encode-response can round-trip.
+exec ./nlm_test --json betool decode-response testdata/betool/response.txt
+stdout '"responses"'
+stdout '"CCqFvf"'
+
 # Too many arguments is rejected.
 ! exec ./nlm_test betool decode-request a.txt b.txt
 stderr 'at most one input file'
@@ -33,3 +55,11 @@ stderr 'at most one input file'
 ! exec ./nlm_test betool decode-request does-not-exist.txt
 stderr 'read does-not-exist.txt'
 ! stderr 'Authentication required'
+
+# --proto/--verify only apply to decode modes.
+! exec ./nlm_test betool encode-request --proto
+stderr 'apply only to decode'
+
+# Unknown flag is rejected.
+! exec ./nlm_test betool decode-response --bogus
+stderr 'unknown flag'
