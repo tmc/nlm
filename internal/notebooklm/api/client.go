@@ -3086,7 +3086,75 @@ func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
 		return nil, fmt.Errorf("list artifacts RPC: %w", err)
 	}
 
-	return c.parseArtifactsResponse(resp)
+	return artifactsFromProtoResponse(resp)
+}
+
+// artifactsFromProtoResponse decodes the common gArtLc response through the
+// generated message while retaining the legacy READY rule for rendered
+// artifacts. The positional state value is ambiguous for slide artifacts:
+// a contribution.usercontent.google.com download URL proves readiness even
+// when the state enum is 3 (the generated FAILED value).
+func artifactsFromProtoResponse(raw []byte) ([]*pb.Artifact, error) {
+	var response pb.ListArtifactsResponse
+	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("decode artifact response: %w", err)
+	}
+	var wire interface{}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return nil, fmt.Errorf("inspect artifact response: %w", err)
+	}
+	artifacts := make([]*pb.Artifact, 0, len(response.GetArtifacts()))
+	for _, generated := range response.GetArtifacts() {
+		if generated == nil {
+			continue
+		}
+		// Keep the public projection of parseArtifactsResponse stable while
+		// letting the generated decoder own all positional field handling.
+		artifact := &pb.Artifact{
+			ArtifactId: generated.GetArtifactId(),
+			Type:       generated.GetType(),
+			State:      generated.GetState(),
+			Sources:    generated.GetSources(),
+		}
+		if artifactHasDownloadURL(wire, artifact.GetArtifactId()) {
+			artifact.State = pb.ArtifactState_ARTIFACT_STATE_READY
+		}
+		artifacts = append(artifacts, artifact)
+	}
+	return artifacts, nil
+}
+
+// artifactHasDownloadURL reports whether one nested payload contains both
+// the artifact ID and a rendered download URL. It deliberately avoids
+// depending on positional indexes; the generated message remains the source
+// of typed fields and this walk only preserves the documented state override.
+func artifactHasDownloadURL(value interface{}, artifactID string) bool {
+	var walk func(interface{}) (bool, bool, bool)
+	walk = func(value interface{}) (hasID, hasURL, matched bool) {
+		switch value := value.(type) {
+		case string:
+			return value == artifactID, strings.HasPrefix(value, artifactDownloadURLPrefix), false
+		case []interface{}:
+			for _, child := range value {
+				childID, childURL, childMatched := walk(child)
+				if childMatched {
+					return true, true, true
+				}
+				// Only an ID directly in this array identifies the artifact
+				// row. Do not combine an ID from one sibling row with a URL
+				// from another row at an outer wrapper.
+				if _, isString := child.(string); isString {
+					hasID = hasID || childID
+				}
+				hasURL = hasURL || childURL
+			}
+			return hasID, hasURL, hasID && hasURL
+		default:
+			return false, false, false
+		}
+	}
+	_, _, matched := walk(value)
+	return matched
 }
 
 // GetArtifact returns a single artifact by ID.

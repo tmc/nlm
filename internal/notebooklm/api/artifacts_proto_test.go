@@ -56,3 +56,21 @@ func TestAudioOverviewProtoAdapterMatchesLegacyProjection(t *testing.T) {
 		t.Fatalf("proto audio projection = %#v, legacy = %#v", got, legacy)
 	}
 }
+
+func TestArtifactProtoAdapterPreservesRenderedReadyState(t *testing.T) {
+	raw := []byte(`[[["slide-1","Deck",8,[[["source-1"]]],3,null,null,null,null,null,null,null,null,null,null,null,null,[["https://contribution.usercontent.google.com/download/slide.pdf"]]]]]`)
+	legacy, err := (&Client{}).parseArtifactsResponse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := artifactsFromProtoResponse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(legacy) != 1 || len(got) != 1 {
+		t.Fatalf("artifact counts = %d/%d, want 1/1", len(got), len(legacy))
+	}
+	if got[0].GetState() != pb.ArtifactState_ARTIFACT_STATE_READY || got[0].GetState() != legacy[0].GetState() {
+		t.Fatalf("states = %v/%v, want READY", got[0].GetState(), legacy[0].GetState())
+	}
+}
