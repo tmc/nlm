@@ -769,11 +769,11 @@ func (c *Client) SubmitFeedback(projectID, feedbackType, feedbackText string) er
 }
 
 // GetOrCreateAccount dispatches the ZwVcOc RPC. Returns the
-// authenticated user's NotebookLM account record. Empty request body
-// (the auth token identifies the user). Doubles as a "can the CLI
+// authenticated user's NotebookLM account record. The request carries the
+// context envelope observed in the web client. Doubles as a "can the CLI
 // talk to the server" sanity check.
 func (c *Client) GetOrCreateAccount() (*pb.Account, error) {
-	resp, err := c.orchestrationService.GetOrCreateAccount(context.Background(), &pb.GetOrCreateAccountRequest{})
+	resp, err := c.orchestrationService.GetOrCreateAccount(context.Background(), accountRequest())
 	if err != nil {
 		return nil, fmt.Errorf("get or create account: %w", err)
 	}
@@ -4157,7 +4157,7 @@ func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 		Sources:        sources,
 		Prompt:         wireReq.Prompt,
 		History:        history,
-		Options:        &pb.ChatStreamOptions{Mode: wireReq.Options.Mode, CitationModes: &pb.Int32List{Value: 1}, FollowUp: &pb.ChatFollowUpOptions{Enabled: 1, Modes: []int32{1}}},
+		Options:        &pb.ChatStreamOptions{Mode: wireReq.Options.Mode, CitationModes: &pb.Int32List{Value: 1}, FollowUp: &pb.ChatFollowUpOptions{Enabled: 1, Modes: []int32{1, 3}}},
 		ConversationId: wireReq.ConversationID,
 		NotebookId:     wireReq.NotebookID,
 		SequenceNumber: wireReq.SequenceNumber,

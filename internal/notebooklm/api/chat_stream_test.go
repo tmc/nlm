@@ -167,7 +167,7 @@ func TestBuildChatArgsCorpusShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildChatArgs() error = %v", err)
 	}
-	want := `[[[["source-id"]]],"prompt",[],[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1]]],"conversation-id",null,null,"project-id",1]`
+	want := `[[[["source-id"]]],"prompt",[],[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],"conversation-id",null,null,"project-id",1]`
 	if got != want {
 		t.Fatalf("buildChatArgs() = %s, want %s", got, want)
 	}
