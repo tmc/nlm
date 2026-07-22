@@ -42,11 +42,10 @@ it.
 
 ## Current artifact blocker
 
-The generated `Artifact` decoder is not yet a drop-in public adapter for the
-legacy artifact family. On the captured slide artifact fixture, it populates
-`title` and type-specific preview fields that `parseArtifactFromResponse`
-intentionally leaves empty, while the legacy parser also promotes the state to
-READY when it finds a rendered download URL. Switching without an explicit
-projection would change public values and state semantics, so artifacts remain
-on the legacy implementation pending a typed adapter and URL/state equivalence
-fixtures.
+`ListArtifacts` now uses a minimal generated response adapter that preserves
+the legacy public projection and promotes state to READY when a rendered
+`contribution.usercontent.google.com/download` URL is present. The generated
+message still exposes title and type-specific preview fields that the legacy
+projection intentionally omitted; those fields are therefore not copied into
+the adapter. The positional parser remains as a comparison oracle until rich
+preview behavior has its own complete-corpus and deletion-gate evidence.
