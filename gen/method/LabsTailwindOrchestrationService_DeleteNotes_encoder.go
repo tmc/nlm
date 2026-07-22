@@ -11,7 +11,8 @@ import (
 // RPC ID: AH0mwd
 // Argument format: [%project_id%, null, %note_ids%, [2]]
 func EncodeDeleteNotesArgs(req *notebooklmv1alpha1.DeleteNotesRequest) []interface{} {
-	// Using generalized argument encoder
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
 	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%, null, %note_ids%, [2]]")
 	if err != nil {
 		// Log error and return empty args as fallback

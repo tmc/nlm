@@ -1212,9 +1212,27 @@ message DeleteChatHistoryRequest {
     string project_id = 3;
 }
 
+// ChatMessage is one turn in a GetConversationHistory response. Field numbers
+// are positional and match the observed wire layout (HAR-verified against a
+// sanitized khqZz capture, 2026-07-20):
+//   [message_id, [secs,nanos], role, text, [content_segment...]]
+// User turns (role = 1) populate text (field 4); assistant turns (role = 2)
+// populate rich_content (field 5) instead. The live client reads this shape
+// directly in api.parseConversationHistory; this message mirrors it so
+// GetConversationHistoryResponse round-trips through the proto view.
 message ChatMessage {
-    string content = 1;
-    int32 role = 2; // 1 = user, 2 = assistant
+    string message_id = 1;                        // server-assigned message UUID
+    google.protobuf.Timestamp timestamp = 2;      // [seconds, nanos]
+    int32 role = 3;                               // 1 = user, 2 = assistant
+    string text = 4;                              // plain text (user turns)
+    repeated ContentSegment rich_content = 5;     // structured content (assistant turns)
+}
+
+// ContentSegment is one span of an assistant turn's rich_content. Each segment
+// carries its text; complex segments additionally carry character offsets and
+// citation payloads not modeled here.
+message ContentSegment {
+    string text = 1;
 }
 
 // Interactive audio (WebRTC) types

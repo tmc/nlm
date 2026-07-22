@@ -12,7 +12,6 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -66,7 +65,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) GetArtifact(ctx context.Context, req *notebooklmv1alpha1.GetArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "BnLyuf",
+		ID:         "v9rmvd",
 		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeGetArtifactArgs(req),
 	}
@@ -114,9 +113,9 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Context, req *notebooklmv1alpha1.RenameArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         rpc.RPCRenameArtifact,
+		ID:         "rc3d8d",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeRenameArtifactArgs(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
@@ -138,9 +137,9 @@ func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Context, req *notebooklmv1alpha1.DeleteArtifactRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         rpc.RPCDeleteArtifact,
+		ID:         "V5N4be",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeDeleteArtifactArgs(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
@@ -162,7 +161,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Cont
 func (c *LabsTailwindOrchestrationServiceClient) ListArtifacts(ctx context.Context, req *notebooklmv1alpha1.ListArtifactsRequest) (*notebooklmv1alpha1.ListArtifactsResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         "LfTXoe",
+		ID:         "gArtLc",
 		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeListArtifactsArgs(req),
 	}
@@ -306,7 +305,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteSources(ctx context.Conte
 func (c *LabsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Context, req *notebooklmv1alpha1.DiscoverSourcesRequest) (*notebooklmv1alpha1.DiscoverSourcesResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         rpc.RPCDiscoverSources,
+		ID:         "Es3dTe",
 		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       method.EncodeDiscoverSourcesArgs(req),
 	}
@@ -402,9 +401,9 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewRequest) (*notebooklmv1alpha1.AudioOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         rpc.RPCCreateUniversalArtifact,
+		ID:         "R7cb6c",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeCreateAudioOverviewArgs(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
@@ -450,9 +449,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GetAudioOverview(ctx context.Co
 func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context.Context, req *notebooklmv1alpha1.DeleteAudioOverviewRequest) (*emptypb.Empty, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         rpc.RPCDeleteAudioOverview,
+		ID:         "sJDbic",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeDeleteAudioOverviewArgsV2(req),
+		Args:       method.EncodeDeleteAudioOverviewArgs(req),
 	}
 
 	// Execute the RPC
@@ -474,9 +473,9 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, req *notebooklmv1alpha1.CreateVideoOverviewRequest) (*notebooklmv1alpha1.VideoOverview, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         rpc.RPCCreateUniversalArtifact,
+		ID:         "R7cb6c",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeCreateVideoOverviewArgs(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
 	}
 
 	// Execute the RPC
@@ -760,8 +759,26 @@ func (c *LabsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx
 
 // GenerateFreeFormStreamed calls the GenerateFreeFormStreamed RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamed(ctx context.Context, req *notebooklmv1alpha1.GenerateFreeFormStreamedRequest) (*notebooklmv1alpha1.GenerateFreeFormStreamedResponse, error) {
-	// No RPC ID defined for this method
-	return nil, fmt.Errorf("GenerateFreeFormStreamed: RPC ID not defined in proto")
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "laWbsf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateFreeFormStreamed: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateFreeFormStreamedResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateFreeFormStreamed: unmarshal response: %w", err)
+	}
+
+	return &result, nil
 }
 
 // GenerateNotebookGuide calls the GenerateNotebookGuide RPC method.
@@ -936,9 +953,9 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateMagicView(ctx context.C
 func (c *LabsTailwindOrchestrationServiceClient) GetProjectAnalytics(ctx context.Context, req *notebooklmv1alpha1.GetProjectAnalyticsRequest) (*notebooklmv1alpha1.ProjectAnalytics, error) {
 	// Build the RPC call
 	call := rpc.Call{
-		ID:         rpc.RPCGetProjectAnalytics,
+		ID:         "AUrzMb",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeGetProjectAnalyticsArgsV2(req),
+		Args:       method.EncodeGetProjectAnalyticsArgs(req),
 	}
 
 	// Execute the RPC
@@ -1095,6 +1112,798 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateAccount(ctx context.Conte
 	var result notebooklmv1alpha1.Account
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateAccount: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// AddFileSource calls the AddFileSource RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) AddFileSource(ctx context.Context, req *notebooklmv1alpha1.AddFileSourceRequest) (*notebooklmv1alpha1.AddFileSourceResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "o4cbdc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("AddFileSource: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.AddFileSourceResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("AddFileSource: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// RateConversationTurn calls the RateConversationTurn RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) RateConversationTurn(ctx context.Context, req *notebooklmv1alpha1.RateConversationTurnRequest) (*notebooklmv1alpha1.RateConversationTurnResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "J7Gthc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("RateConversationTurn: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.RateConversationTurnResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("RateConversationTurn: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// StartFastResearch calls the StartFastResearch RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) StartFastResearch(ctx context.Context, req *notebooklmv1alpha1.StartFastResearchRequest) (*notebooklmv1alpha1.StartFastResearchResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "Ljjv0c",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeStartFastResearchArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("StartFastResearch: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.StartFastResearchResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("StartFastResearch: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// StartDeepResearch calls the StartDeepResearch RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) StartDeepResearch(ctx context.Context, req *notebooklmv1alpha1.StartDeepResearchRequest) (*notebooklmv1alpha1.StartDeepResearchResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "QA9ei",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeStartDeepResearchArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("StartDeepResearch: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.StartDeepResearchResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("StartDeepResearch: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetDeepResearchSessions calls the GetDeepResearchSessions RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GetDeepResearchSessions(ctx context.Context, req *notebooklmv1alpha1.GetDeepResearchSessionsRequest) (*notebooklmv1alpha1.GetDeepResearchSessionsResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "e3bVqc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetDeepResearchSessionsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetDeepResearchSessions: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetDeepResearchSessionsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetDeepResearchSessions: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteDeepResearch calls the DeleteDeepResearch RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.Context, req *notebooklmv1alpha1.DeleteDeepResearchRequest) (*notebooklmv1alpha1.DeleteDeepResearchResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "LBwxtb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeDeleteDeepResearchArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteDeepResearch: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.DeleteDeepResearchResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("DeleteDeepResearch: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// BulkImportFromResearch calls the BulkImportFromResearch RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) BulkImportFromResearch(ctx context.Context, req *notebooklmv1alpha1.BulkImportFromResearchRequest) (*notebooklmv1alpha1.BulkImportFromResearchResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "LBwxtb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("BulkImportFromResearch: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.BulkImportFromResearchResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("BulkImportFromResearch: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetAudioFormats calls the GetAudioFormats RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GetAudioFormats(ctx context.Context, req *notebooklmv1alpha1.GetAudioFormatsRequest) (*notebooklmv1alpha1.GetAudioFormatsResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "sqTeoe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetAudioFormats: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetAudioFormatsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetAudioFormats: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GenerateDocumentGuides calls the GenerateDocumentGuides RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx context.Context, req *notebooklmv1alpha1.GenerateDocumentGuidesRequest) (*notebooklmv1alpha1.GenerateDocumentGuidesResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "tr032e",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateDocumentGuides: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateDocumentGuidesResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateDocumentGuides: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// LogEvent calls the LogEvent RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) LogEvent(ctx context.Context, req *notebooklmv1alpha1.LogEventRequest) (*notebooklmv1alpha1.LogEventResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "ozz5Z",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("LogEvent: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.LogEventResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("LogEvent: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ReportContent calls the ReportContent RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) ReportContent(ctx context.Context, req *notebooklmv1alpha1.ReportContentRequest) (*notebooklmv1alpha1.ReportContentResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "OmVMXc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ReportContent: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ReportContentResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ReportContent: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ReviseArtifact calls the ReviseArtifact RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) ReviseArtifact(ctx context.Context, req *notebooklmv1alpha1.ReviseArtifactRequest) (*notebooklmv1alpha1.ReviseArtifactResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "KmcKPe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ReviseArtifact: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ReviseArtifactResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ReviseArtifact: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GenerateArtifactSuggestions calls the GenerateArtifactSuggestions RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifactSuggestions(ctx context.Context, req *notebooklmv1alpha1.GenerateArtifactSuggestionsRequest) (*notebooklmv1alpha1.GenerateArtifactSuggestionsResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "otmP3b",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGenerateArtifactSuggestionsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateArtifactSuggestions: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateArtifactSuggestionsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateArtifactSuggestions: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// FetchInteractivityToken calls the FetchInteractivityToken RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) FetchInteractivityToken(ctx context.Context, req *notebooklmv1alpha1.FetchInteractivityTokenRequest) (*notebooklmv1alpha1.FetchInteractivityTokenResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "Of0kDd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeFetchInteractivityTokenArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("FetchInteractivityToken: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.FetchInteractivityTokenResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("FetchInteractivityToken: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// SDPExchange calls the SDPExchange RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) SDPExchange(ctx context.Context, req *notebooklmv1alpha1.SDPExchangeRequest) (*notebooklmv1alpha1.SDPExchangeResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "eyWvXc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeSDPExchangeArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("SDPExchange: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.SDPExchangeResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("SDPExchange: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetLabels calls the GetLabels RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GetLabels(ctx context.Context, req *notebooklmv1alpha1.GetLabelsRequest) (*notebooklmv1alpha1.GetLabelsResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "I3xc3c",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeGetLabelsArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetLabels: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetLabelsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetLabels: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpsertArtifactUserState calls the UpsertArtifactUserState RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) UpsertArtifactUserState(ctx context.Context, req *notebooklmv1alpha1.UpsertArtifactUserStateRequest) (*notebooklmv1alpha1.UpsertArtifactUserStateResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "Fxmvse",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeUpsertArtifactUserStateArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("UpsertArtifactUserState: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.UpsertArtifactUserStateResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("UpsertArtifactUserState: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetArtifactUserState calls the GetArtifactUserState RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GetArtifactUserState(ctx context.Context, req *notebooklmv1alpha1.GetArtifactUserStateRequest) (*notebooklmv1alpha1.GetArtifactUserStateResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "ulBSjf",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetArtifactUserState: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetArtifactUserStateResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetArtifactUserState: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CreateLabel calls the CreateLabel RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) CreateLabel(ctx context.Context, req *notebooklmv1alpha1.CreateLabelRequest) (*notebooklmv1alpha1.CreateLabelResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "agX4Bc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CreateLabel: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.CreateLabelResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CreateLabel: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// MutateLabel calls the MutateLabel RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) MutateLabel(ctx context.Context, req *notebooklmv1alpha1.MutateLabelRequest) (*notebooklmv1alpha1.MutateLabelResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "le8sX",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("MutateLabel: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.MutateLabelResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("MutateLabel: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// DeleteLabels calls the DeleteLabels RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) DeleteLabels(ctx context.Context, req *notebooklmv1alpha1.DeleteLabelsRequest) (*emptypb.Empty, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "GyzE7e",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("DeleteLabels: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("DeleteLabels: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GenerateArtifact calls the GenerateArtifact RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifact(ctx context.Context, req *notebooklmv1alpha1.GenerateArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "Rytqqe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateArtifact: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Artifact
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateArtifact: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CancelDiscoverSourcesJob calls the CancelDiscoverSourcesJob RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) CancelDiscoverSourcesJob(ctx context.Context, req *notebooklmv1alpha1.CancelDiscoverSourcesJobRequest) (*emptypb.Empty, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "Zbrupe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CancelDiscoverSourcesJob: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CancelDiscoverSourcesJob: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ExportToDrive calls the ExportToDrive RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) ExportToDrive(ctx context.Context, req *notebooklmv1alpha1.ExportToDriveRequest) (*notebooklmv1alpha1.ExportToDriveResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "Krh3pd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ExportToDrive: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ExportToDriveResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ExportToDrive: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateFeaturedNotebookStatus calls the UpdateFeaturedNotebookStatus RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) UpdateFeaturedNotebookStatus(ctx context.Context, req *notebooklmv1alpha1.UpdateFeaturedNotebookStatusRequest) (*emptypb.Empty, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "DemIHe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateFeaturedNotebookStatus: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("UpdateFeaturedNotebookStatus: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ListModelOptions calls the ListModelOptions RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) ListModelOptions(ctx context.Context, req *notebooklmv1alpha1.ListModelOptionsRequest) (*notebooklmv1alpha1.ListModelOptionsResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "EnujNd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ListModelOptions: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ListModelOptionsResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ListModelOptions: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UpdateProjectUserState calls the UpdateProjectUserState RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx context.Context, req *notebooklmv1alpha1.UpdateProjectUserStateRequest) (*emptypb.Empty, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "LQhfEb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("UpdateProjectUserState: %w", err)
+	}
+
+	// Decode the response
+	var result emptypb.Empty
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("UpdateProjectUserState: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ExecuteWritingFunction calls the ExecuteWritingFunction RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) ExecuteWritingFunction(ctx context.Context, req *notebooklmv1alpha1.ExecuteWritingFunctionRequest) (*notebooklmv1alpha1.ExecuteWritingFunctionResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "likKIe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ExecuteWritingFunction: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ExecuteWritingFunctionResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ExecuteWritingFunction: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ListExpertIntelligenceContent calls the ListExpertIntelligenceContent RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) ListExpertIntelligenceContent(ctx context.Context, req *notebooklmv1alpha1.ListExpertIntelligenceContentRequest) (*notebooklmv1alpha1.ListExpertIntelligenceContentResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "mVtEUb",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("ListExpertIntelligenceContent: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.ListExpertIntelligenceContentResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("ListExpertIntelligenceContent: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GenerateAccessToken calls the GenerateAccessToken RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GenerateAccessToken(ctx context.Context, req *notebooklmv1alpha1.GenerateAccessTokenRequest) (*notebooklmv1alpha1.GenerateAccessTokenResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "preRPe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GenerateAccessToken: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GenerateAccessTokenResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GenerateAccessToken: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetMagicView calls the GetMagicView RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) GetMagicView(ctx context.Context, req *notebooklmv1alpha1.GetMagicViewRequest) (*notebooklmv1alpha1.GetMagicViewResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "rtY7md",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("GetMagicView: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.GetMagicViewResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("GetMagicView: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CopyProject calls the CopyProject RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context, req *notebooklmv1alpha1.CopyProjectRequest) (*notebooklmv1alpha1.Project, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "te3DCe",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CopyProject: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.Project
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CopyProject: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CreateAudioOverviewLegacy calls the CreateAudioOverviewLegacy RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverviewLegacy(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewLegacyRequest) (*notebooklmv1alpha1.AudioOverview, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "AHyHrd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeCreateAudioOverviewLegacyArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CreateAudioOverviewLegacy: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.AudioOverview
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CreateAudioOverviewLegacy: unmarshal response: %w", err)
 	}
 
 	return &result, nil

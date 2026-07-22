@@ -11,7 +11,8 @@ import (
 // RPC ID: khqZz
 // Argument format: [[], null, null, %conversation_id%, %limit%]
 func EncodeGetConversationHistoryArgs(req *notebooklmv1alpha1.GetConversationHistoryRequest) []interface{} {
-	// Using generalized argument encoder
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
 	args, err := argbuilder.EncodeRPCArgs(req, "[[], null, null, %conversation_id%, %limit%]")
 	if err != nil {
 		// Log error and return empty args as fallback

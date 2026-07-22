@@ -22,9 +22,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	LabsTailwindSharingService_ShareAudio_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindSharingService/ShareAudio"
-	LabsTailwindSharingService_GetProjectDetails_FullMethodName = "/notebooklm.v1alpha1.LabsTailwindSharingService/GetProjectDetails"
-	LabsTailwindSharingService_ShareProject_FullMethodName      = "/notebooklm.v1alpha1.LabsTailwindSharingService/ShareProject"
+	LabsTailwindSharingService_ShareAudio_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindSharingService/ShareAudio"
+	LabsTailwindSharingService_GetProjectDetails_FullMethodName   = "/notebooklm.v1alpha1.LabsTailwindSharingService/GetProjectDetails"
+	LabsTailwindSharingService_ShareProject_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindSharingService/ShareProject"
+	LabsTailwindSharingService_CreateAccessRequest_FullMethodName = "/notebooklm.v1alpha1.LabsTailwindSharingService/CreateAccessRequest"
 )
 
 // LabsTailwindSharingServiceClient is the client API for LabsTailwindSharingService service.
@@ -36,6 +37,12 @@ type LabsTailwindSharingServiceClient interface {
 	// Project sharing
 	GetProjectDetails(ctx context.Context, in *GetProjectDetailsRequest, opts ...grpc.CallOption) (*ProjectDetails, error)
 	ShareProject(ctx context.Context, in *ShareProjectRequest, opts ...grpc.CallOption) (*ShareProjectResponse, error)
+	// CreateAccessRequest (n3dkHd). Sent when a non-collaborator opens
+	// a shared notebook URL and clicks "Request access". JS-bundle-
+	// verified; no HAR yet.
+	// TODO(har): trigger by opening a private share link from a logged-
+	// in account that lacks access.
+	CreateAccessRequest(ctx context.Context, in *CreateAccessRequestRequest, opts ...grpc.CallOption) (*CreateAccessRequestResponse, error)
 }
 
 type labsTailwindSharingServiceClient struct {
@@ -73,6 +80,15 @@ func (c *labsTailwindSharingServiceClient) ShareProject(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *labsTailwindSharingServiceClient) CreateAccessRequest(ctx context.Context, in *CreateAccessRequestRequest, opts ...grpc.CallOption) (*CreateAccessRequestResponse, error) {
+	out := new(CreateAccessRequestResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindSharingService_CreateAccessRequest_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LabsTailwindSharingServiceServer is the server API for LabsTailwindSharingService service.
 // All implementations must embed UnimplementedLabsTailwindSharingServiceServer
 // for forward compatibility
@@ -82,6 +98,12 @@ type LabsTailwindSharingServiceServer interface {
 	// Project sharing
 	GetProjectDetails(context.Context, *GetProjectDetailsRequest) (*ProjectDetails, error)
 	ShareProject(context.Context, *ShareProjectRequest) (*ShareProjectResponse, error)
+	// CreateAccessRequest (n3dkHd). Sent when a non-collaborator opens
+	// a shared notebook URL and clicks "Request access". JS-bundle-
+	// verified; no HAR yet.
+	// TODO(har): trigger by opening a private share link from a logged-
+	// in account that lacks access.
+	CreateAccessRequest(context.Context, *CreateAccessRequestRequest) (*CreateAccessRequestResponse, error)
 	mustEmbedUnimplementedLabsTailwindSharingServiceServer()
 }
 
@@ -97,6 +119,9 @@ func (UnimplementedLabsTailwindSharingServiceServer) GetProjectDetails(context.C
 }
 func (UnimplementedLabsTailwindSharingServiceServer) ShareProject(context.Context, *ShareProjectRequest) (*ShareProjectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ShareProject not implemented")
+}
+func (UnimplementedLabsTailwindSharingServiceServer) CreateAccessRequest(context.Context, *CreateAccessRequestRequest) (*CreateAccessRequestResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateAccessRequest not implemented")
 }
 func (UnimplementedLabsTailwindSharingServiceServer) mustEmbedUnimplementedLabsTailwindSharingServiceServer() {
 }
@@ -166,6 +191,24 @@ func _LabsTailwindSharingService_ShareProject_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindSharingService_CreateAccessRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAccessRequestRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindSharingServiceServer).CreateAccessRequest(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindSharingService_CreateAccessRequest_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindSharingServiceServer).CreateAccessRequest(ctx, req.(*CreateAccessRequestRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LabsTailwindSharingService_ServiceDesc is the grpc.ServiceDesc for LabsTailwindSharingService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -184,6 +227,10 @@ var LabsTailwindSharingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ShareProject",
 			Handler:    _LabsTailwindSharingService_ShareProject_Handler,
+		},
+		{
+			MethodName: "CreateAccessRequest",
+			Handler:    _LabsTailwindSharingService_CreateAccessRequest_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

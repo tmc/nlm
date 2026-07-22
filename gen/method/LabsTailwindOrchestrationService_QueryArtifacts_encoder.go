@@ -11,7 +11,8 @@ import (
 // RPC ID: gArtLc
 // Argument format: [%artifact_types%, %project_id%, %filter%]
 func EncodeQueryArtifactsArgs(req *notebooklmv1alpha1.QueryArtifactsRequest) []interface{} {
-	// Using generalized argument encoder
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
 	args, err := argbuilder.EncodeRPCArgs(req, "[%artifact_types%, %project_id%, %filter%]")
 	if err != nil {
 		// Log error and return empty args as fallback

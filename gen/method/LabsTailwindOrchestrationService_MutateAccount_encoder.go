@@ -11,7 +11,8 @@ import (
 // RPC ID: hT54vc
 // Argument format: [%account%, %update_mask%]
 func EncodeMutateAccountArgs(req *notebooklmv1alpha1.MutateAccountRequest) []interface{} {
-	// Using generalized argument encoder
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
 	args, err := argbuilder.EncodeRPCArgs(req, "[%account%, %update_mask%]")
 	if err != nil {
 		// Log error and return empty args as fallback

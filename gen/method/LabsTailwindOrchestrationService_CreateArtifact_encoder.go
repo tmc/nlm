@@ -11,7 +11,8 @@ import (
 // RPC ID: xpWGLf
 // Argument format: [%context%, %project_id%, %artifact%]
 func EncodeCreateArtifactArgs(req *notebooklmv1alpha1.CreateArtifactRequest) []interface{} {
-	// Using generalized argument encoder
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
 	args, err := argbuilder.EncodeRPCArgs(req, "[%context%, %project_id%, %artifact%]")
 	if err != nil {
 		// Log error and return empty args as fallback

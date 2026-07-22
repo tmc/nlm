@@ -11,7 +11,8 @@ import (
 // RPC ID: hizoJc
 // Argument format: [%source_id%]
 func EncodeLoadSourceArgs(req *notebooklmv1alpha1.LoadSourceRequest) []interface{} {
-	// Using generalized argument encoder
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
 	args, err := argbuilder.EncodeRPCArgs(req, "[%source_id%]")
 	if err != nil {
 		// Log error and return empty args as fallback
