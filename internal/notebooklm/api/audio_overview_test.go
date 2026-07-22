@@ -1,10 +1,36 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
+	method "github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestGetAudioFormatsGeneratedEncoderMatchesCapturedSentinel(t *testing.T) {
+	req := &pb.GetAudioFormatsRequest{
+		Context: &pb.RequestContext{
+			Version: proto.Int32(2),
+			Caps: &pb.RequestClientCaps{
+				Version:         proto.Int32(1),
+				CapabilityCodes: []int32{1},
+			},
+			ArtifactTypes: &pb.RequestArtifactTypeFilter{Types: []int32{1, 4, 8, 10, 2, 3, 6, 9}},
+		},
+		Mode: proto.Int32(1),
+	}
+
+	got, err := json.Marshal(method.EncodeGetAudioFormatsArgs(req))
+	if err != nil {
+		t.Fatalf("marshal generated args: %v", err)
+	}
+	const want = `[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]],null,1]`
+	if string(got) != want {
+		t.Fatalf("generated audio-formats wire args = %s, want %s", got, want)
+	}
+}
 
 func TestAudioOverviewResultFromProto(t *testing.T) {
 	t.Parallel()

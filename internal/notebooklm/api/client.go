@@ -2101,19 +2101,22 @@ type AudioFormat struct {
 // see proto/notebooklm/v1alpha1/orchestration.proto:1505 for the
 // canonical shape and the four observed kinds.
 func (c *Client) GetAudioFormats() ([]AudioFormat, error) {
-	// Fixed sentinel: [[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
-	sentinel := []interface{}{
-		[]interface{}{
-			2, nil, nil,
-			[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
-			[]interface{}{[]interface{}{1, 4, 8, 10, 2, 3, 6, 9}},
+	// Fixed sentinel captured from the web UI. Keep its context typed so the
+	// generated encoder owns the positional envelope.
+	req := &pb.GetAudioFormatsRequest{
+		Context: &pb.RequestContext{
+			Version: proto.Int32(2),
+			Caps: &pb.RequestClientCaps{
+				Version:         proto.Int32(1),
+				CapabilityCodes: []int32{1},
+			},
+			ArtifactTypes: &pb.RequestArtifactTypeFilter{Types: []int32{1, 4, 8, 10, 2, 3, 6, 9}},
 		},
-		nil,
-		1,
+		Mode: proto.Int32(1),
 	}
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:   rpc.RPCGetAudioFormats,
-		Args: sentinel,
+		Args: method.EncodeGetAudioFormatsArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get audio formats: %w", err)

@@ -15377,7 +15377,7 @@ type GetAudioFormatsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Wire shape: [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+	// Wire shape: [[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
 	Context *RequestContext `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
 	// Field 2 is null in observed requests.
 	Mode *int32 `protobuf:"varint,3,opt,name=mode,proto3,oneof" json:"mode,omitempty"` // observed 1

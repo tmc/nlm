@@ -1412,13 +1412,12 @@ service LabsTailwindOrchestrationService {
         option (arg_format) = "[%context%, %marker%, %conversation_id%, %project_id%, %sources%]";
     }
 
-    // GetAudioFormats (rpc.go:89). HAR-verified 2026-04-07 in
-    // docs/captures/notebooklm.google.com.jsonl. Request payload
-    // observed verbatim:
-    //   [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+    // GetAudioFormats (rpc.go:89). HAR-verified across the captured
+    // /tmp/nlm-traffic corpus. Request payload observed verbatim:
+    //   [[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
     // Returns the audio-overview style menu (Deep Dive, Brief,
     // Critique, Debate). The opaque inner [1, null × 9, [1]] and
-    // ordering vector [[1,4,2,3,6,5]] are bytes captured verbatim;
+    // ordering vector [[1,4,8,10,2,3,6,9]] are bytes captured verbatim;
     // semantics not yet decoded.
     rpc GetAudioFormats(GetAudioFormatsRequest) returns (GetAudioFormatsResponse) {
         option (rpc_id) = "sqTeoe";
@@ -2694,7 +2693,7 @@ message BulkImportResult {
 // no arg_format. The same RPC powers every "create X" picker the UI
 // shows.
 message GetAudioFormatsRequest {
-    // Wire shape: [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+    // Wire shape: [[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
     RequestContext context = 1;
     // Field 2 is null in observed requests.
     optional int32 mode = 3; // observed 1

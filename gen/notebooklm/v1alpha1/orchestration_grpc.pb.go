@@ -302,15 +302,14 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// null × 7, 2] tuple shape.
 	BulkImportFromResearch(ctx context.Context, in *BulkImportFromResearchRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error)
 	BulkImportFromResearchWire(ctx context.Context, in *BulkImportFromResearchWireRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error)
-	// GetAudioFormats (rpc.go:89). HAR-verified 2026-04-07 in
-	// docs/captures/notebooklm.google.com.jsonl. Request payload
-	// observed verbatim:
+	// GetAudioFormats (rpc.go:89). HAR-verified across the captured
+	// /tmp/nlm-traffic corpus. Request payload observed verbatim:
 	//
-	//	[[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+	//	[[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
 	//
 	// Returns the audio-overview style menu (Deep Dive, Brief,
 	// Critique, Debate). The opaque inner [1, null × 9, [1]] and
-	// ordering vector [[1,4,2,3,6,5]] are bytes captured verbatim;
+	// ordering vector [[1,4,8,10,2,3,6,9]] are bytes captured verbatim;
 	// semantics not yet decoded.
 	GetAudioFormats(ctx context.Context, in *GetAudioFormatsRequest, opts ...grpc.CallOption) (*GetAudioFormatsResponse, error)
 	// GenerateDocumentGuides (rpc.go:82). Per-source guide RPC: the
@@ -1498,15 +1497,14 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// null × 7, 2] tuple shape.
 	BulkImportFromResearch(context.Context, *BulkImportFromResearchRequest) (*BulkImportFromResearchResponse, error)
 	BulkImportFromResearchWire(context.Context, *BulkImportFromResearchWireRequest) (*BulkImportFromResearchResponse, error)
-	// GetAudioFormats (rpc.go:89). HAR-verified 2026-04-07 in
-	// docs/captures/notebooklm.google.com.jsonl. Request payload
-	// observed verbatim:
+	// GetAudioFormats (rpc.go:89). HAR-verified across the captured
+	// /tmp/nlm-traffic corpus. Request payload observed verbatim:
 	//
-	//	[[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+	//	[[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
 	//
 	// Returns the audio-overview style menu (Deep Dive, Brief,
 	// Critique, Debate). The opaque inner [1, null × 9, [1]] and
-	// ordering vector [[1,4,2,3,6,5]] are bytes captured verbatim;
+	// ordering vector [[1,4,8,10,2,3,6,9]] are bytes captured verbatim;
 	// semantics not yet decoded.
 	GetAudioFormats(context.Context, *GetAudioFormatsRequest) (*GetAudioFormatsResponse, error)
 	// GenerateDocumentGuides (rpc.go:82). Per-source guide RPC: the
