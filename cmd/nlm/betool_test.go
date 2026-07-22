@@ -226,7 +226,8 @@ func TestBetoolProtoRequest(t *testing.T) {
 
 func TestBetoolProtoResponseFixture(t *testing.T) {
 	// The list_notebooks fixture decodes into a typed response with named
-	// fields; --verify surfaces the known unmodeled SourceMetadata field #4.
+	// fields. Every source field is now modeled (SourceMetadata field #4 is
+	// RevisionData), so the fixture round-trips losslessly.
 	raw, err := os.ReadFile("../../internal/batchexecute/testdata/list_notebooks.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
@@ -241,14 +242,10 @@ func TestBetoolProtoResponseFixture(t *testing.T) {
 	if !strings.Contains(out, `"source_type": "SOURCE_TYPE_WEB_PAGE"`) {
 		t.Errorf("expected enum SOURCE_TYPE_WEB_PAGE resolved")
 	}
-	if !strings.Contains(out, `"roundtrip_lossless": false`) {
-		t.Errorf("expected lossless=false (fixture has an unmodeled field)")
+	if !strings.Contains(out, `"roundtrip_lossless": true`) {
+		t.Errorf("expected lossless=true (every source field is now modeled)")
 	}
 
-	// The default --verify view groups the four per-source findings into one
-	// group whose displayed path stars only the varying source index, keeping
-	// the SourceMetadata field-4 landmark ([2][3]). The full list is not
-	// attached by default.
 	var envs []struct {
 		MissingCount  int `json:"missing_field_count"`
 		MissingGroups []struct {
@@ -264,40 +261,11 @@ func TestBetoolProtoResponseFixture(t *testing.T) {
 		t.Fatalf("output not proto-envelope JSON: %v\n%s", err, out)
 	}
 	e := envs[0]
-	if e.MissingCount != 4 {
-		t.Errorf("missing_field_count = %d, want 4", e.MissingCount)
+	if e.MissingCount != 0 {
+		t.Errorf("missing_field_count = %d, want 0 (fully modeled)", e.MissingCount)
 	}
-	if len(e.MissingGroups) != 1 {
-		t.Fatalf("got %d groups, want 1: %+v", len(e.MissingGroups), e.MissingGroups)
-	}
-	g := e.MissingGroups[0]
-	if g.Path != "[0][0][1][*][2][3]" || g.Kind != "unmodeled" || g.Name != "SourceMetadata.unknown_4" || g.Count != 4 || g.Shapes != 1 {
-		t.Errorf("group = %+v, want path=[0][0][1][*][2][3] name=SourceMetadata.unknown_4 kind=unmodeled count=4 shapes=1", g)
-	}
-	if len(e.Missing) != 0 {
-		t.Errorf("default --verify should not attach the full missing_fields list, got %d", len(e.Missing))
-	}
-	textOut, err := runBetoolCapture(t, []string{"decode-response", "--verify", "--rpc-id=wXbhsf"}, string(raw))
-	if err != nil {
-		t.Fatalf("text decode-response --verify: %v", err)
-	}
-	if !strings.Contains(textOut, "SourceMetadata.unknown_4") {
-		t.Errorf("text verify output missing finding name:\n%s", textOut)
-	}
-
-	// --verify-all attaches the full unabridged list and still reports the count.
-	allOut, err := runBetoolCapture(t, []string{"--json", "decode-response", "--verify-all", "--rpc-id=wXbhsf"}, string(raw))
-	if err != nil {
-		t.Fatalf("decode-response --verify-all: %v", err)
-	}
-	if err := json.Unmarshal([]byte(allOut), &envs); err != nil {
-		t.Fatalf("--verify-all output not JSON: %v\n%s", err, allOut)
-	}
-	if got := len(envs[0].Missing); got != 4 {
-		t.Errorf("--verify-all: got %d full findings, want 4", got)
-	}
-	if envs[0].MissingCount != 4 {
-		t.Errorf("--verify-all: missing_field_count = %d, want 4 (always populated)", envs[0].MissingCount)
+	if len(e.MissingGroups) != 0 {
+		t.Errorf("got %d finding groups, want 0: %+v", len(e.MissingGroups), e.MissingGroups)
 	}
 }
 
@@ -381,6 +349,158 @@ func TestBetoolProtoConversationHistoryDecodes(t *testing.T) {
 	}
 }
 
+// TestBetoolProtoArtifactSuggestionCategories guards the ArtifactSuggestion
+// categories field (#3). The web UI polls GenerateArtifactSuggestions (otmP3b)
+// repeatedly while suggestions generate; early poll snapshots return
+// [title, description] tuples, but once suggestions are ready each tuple gains
+// a trailing repeated-string category tag ([title, description, ["explanatory"]]).
+// That third element is populated only in the later poll, so the static
+// list_notebooks fixture never exercised it — the growing poll response did.
+// A regression that drops the categories field would push this fixture below
+// lossless and fail here.
+func TestBetoolProtoArtifactSuggestionCategories(t *testing.T) {
+	raw, err := os.ReadFile("../../internal/batchexecute/testdata/responses/otmP3b.txt")
+	if err != nil {
+		t.Skipf("fixture unavailable: %v", err)
+	}
+	out, err := runBetoolCapture(t,
+		[]string{"--json", "decode-response", "--proto", "--verify", "--rpc-id=otmP3b"},
+		string(raw))
+	if err != nil {
+		t.Fatalf("decode-response --verify: %v", err)
+	}
+	var envs []struct {
+		Type    string `json:"type"`
+		Message struct {
+			Suggestions []struct {
+				Title       string   `json:"title"`
+				Description string   `json:"description"`
+				Categories  []string `json:"categories"`
+			} `json:"suggestions"`
+		} `json:"message"`
+		Lossless *bool `json:"roundtrip_lossless"`
+	}
+	if err := json.Unmarshal([]byte(out), &envs); err != nil {
+		t.Fatalf("output not proto-envelope JSON: %v\n%s", err, out)
+	}
+	if len(envs) != 1 {
+		t.Fatalf("got %d envelopes, want 1", len(envs))
+	}
+	e := envs[0]
+	if e.Type != "notebooklm.v1alpha1.GenerateArtifactSuggestionsResponse" {
+		t.Errorf("type = %q", e.Type)
+	}
+	if len(e.Message.Suggestions) != 3 {
+		t.Fatalf("decoded %d suggestions, want 3", len(e.Message.Suggestions))
+	}
+	// Every suggestion carries its category tag decoded into the named field.
+	for i, s := range e.Message.Suggestions {
+		if s.Title == "" || s.Description == "" {
+			t.Errorf("suggestion %d missing title/description: %+v", i, s)
+		}
+		if len(s.Categories) != 1 || s.Categories[0] != "explanatory" {
+			t.Errorf("suggestion %d categories = %v, want [explanatory]", i, s.Categories)
+		}
+	}
+	if e.Lossless == nil || !*e.Lossless {
+		t.Errorf("expected roundtrip_lossless=true, got %v", e.Lossless)
+	}
+}
+
+// TestBetoolProtoCopyProjectResponse guards the te3DCe CopyProject reply. The
+// rpc previously declared a Project return type (an unverified guess); a HAR
+// showed the wire is a single status int [3], so the type is now
+// CopyProjectResponse. CopyProject has no live caller, so the return-type
+// change is decode-only.
+func TestBetoolProtoCopyProjectResponse(t *testing.T) {
+	raw, err := os.ReadFile("../../internal/batchexecute/testdata/responses/te3DCe.txt")
+	if err != nil {
+		t.Skipf("fixture unavailable: %v", err)
+	}
+	out, err := runBetoolCapture(t,
+		[]string{"--json", "decode-response", "--proto", "--verify", "--rpc-id=te3DCe"},
+		string(raw))
+	if err != nil {
+		t.Fatalf("decode-response --verify: %v", err)
+	}
+	var envs []struct {
+		Type    string `json:"type"`
+		Message struct {
+			Status string `json:"status"`
+		} `json:"message"`
+		Lossless *bool `json:"roundtrip_lossless"`
+	}
+	if err := json.Unmarshal([]byte(out), &envs); err != nil {
+		t.Fatalf("output not proto-envelope JSON: %v\n%s", err, out)
+	}
+	if len(envs) != 1 {
+		t.Fatalf("got %d envelopes, want 1", len(envs))
+	}
+	e := envs[0]
+	if e.Type != "notebooklm.v1alpha1.CopyProjectResponse" {
+		t.Errorf("type = %q, want CopyProjectResponse", e.Type)
+	}
+	if e.Message.Status != "3" {
+		t.Errorf("status = %q, want 3", e.Message.Status)
+	}
+	if e.Lossless == nil || !*e.Lossless {
+		t.Errorf("expected roundtrip_lossless=true, got %v", e.Lossless)
+	}
+}
+
+// TestBetoolProtoProjectDetailsResponse guards the JFMDGd (GetProjectDetails)
+// reply. The message was remodeled to the HAR-verified wire shape
+// ([collaborators, flags, limit, ...]); the earlier speculative field layout
+// landed shape/value mismatches at nearly every position. The live path
+// hand-parses the raw JSON (not proto) and only reads OwnerName/IsPublic by Go
+// field name, so the renumber is decode-only. Fixture is PII-scrubbed.
+func TestBetoolProtoProjectDetailsResponse(t *testing.T) {
+	raw, err := os.ReadFile("../../internal/batchexecute/testdata/responses/JFMDGd.txt")
+	if err != nil {
+		t.Skipf("fixture unavailable: %v", err)
+	}
+	out, err := runBetoolCapture(t,
+		[]string{"--json", "decode-response", "--proto", "--verify", "--rpc-id=JFMDGd"},
+		string(raw))
+	if err != nil {
+		t.Fatalf("decode-response --verify: %v", err)
+	}
+	var envs []struct {
+		Type    string `json:"type"`
+		Message struct {
+			Collaborators []struct {
+				Email   string `json:"email"`
+				Role    int    `json:"role"`
+				Profile struct {
+					DisplayName string `json:"display_name"`
+				} `json:"profile"`
+			} `json:"collaborators"`
+			Limit string `json:"limit"`
+		} `json:"message"`
+		Lossless *bool `json:"roundtrip_lossless"`
+	}
+	if err := json.Unmarshal([]byte(out), &envs); err != nil {
+		t.Fatalf("output not proto-envelope JSON: %v\n%s", err, out)
+	}
+	if len(envs) != 1 {
+		t.Fatalf("got %d envelopes, want 1", len(envs))
+	}
+	e := envs[0]
+	if e.Type != "notebooklm.v1alpha1.ProjectDetails" {
+		t.Errorf("type = %q, want ProjectDetails", e.Type)
+	}
+	if len(e.Message.Collaborators) != 1 {
+		t.Fatalf("got %d collaborators, want 1", len(e.Message.Collaborators))
+	}
+	c := e.Message.Collaborators[0]
+	if c.Role != 1 || c.Profile.DisplayName == "" || c.Email == "" {
+		t.Errorf("owner entry decoded wrong: %+v", c)
+	}
+	if e.Lossless == nil || !*e.Lossless {
+		t.Errorf("expected roundtrip_lossless=true, got %v", e.Lossless)
+	}
+}
+
 func TestBetoolProtoErrors(t *testing.T) {
 	// Build a raw request body carrying an unknown rpc_id, and a raw response
 	// body carrying the ambiguous R7cb6c id.
@@ -411,6 +531,59 @@ func TestBetoolProtoErrors(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("error = %q, want substring %q", err, tt.want)
+			}
+		})
+	}
+}
+
+// TestBetoolProtoRequestFixtures guards the request-side lossless claims. Each
+// fixture is a sanitized real f.req argument payload (UUIDs replaced with stable
+// placeholders) captured from the web UI. A regression that breaks any modeled
+// *Request layout, its shared RequestContext preamble, or a present-but-empty
+// list wrapper would drop these below lossless and fail here.
+func TestBetoolProtoRequestFixtures(t *testing.T) {
+	cases := []struct {
+		file    string // fixture basename
+		selector string // --rpc-id value (rpc_id, or method name to disambiguate)
+		typ     string
+	}{
+		{"wXbhsf", "wXbhsf", "notebooklm.v1alpha1.ListRecentlyViewedProjectsRequest"},
+		{"LQhfEb", "LQhfEb", "notebooklm.v1alpha1.UpdateProjectUserStateRequest"},
+		{"le8sX", "le8sX", "notebooklm.v1alpha1.MutateLabelRequest"},
+		// gArtLc's rpc_id is shared by ListArtifacts/QueryArtifacts, so select
+		// the method explicitly.
+		{"gArtLc", "ListArtifacts", "notebooklm.v1alpha1.ListArtifactsRequest"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.file, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join(
+				"../../internal/batchexecute/testdata/requests", tc.file+".txt"))
+			if err != nil {
+				t.Skipf("fixture unavailable: %v", err)
+			}
+			out, err := runBetoolCapture(t,
+				[]string{"--json", "decode-request", "--proto", "--verify", "--rpc-id=" + tc.selector},
+				string(raw))
+			if err != nil {
+				t.Fatalf("decode-request --verify: %v", err)
+			}
+			var envs []struct {
+				RPCID    string `json:"rpc_id"`
+				Type     string `json:"type"`
+				Lossless *bool  `json:"roundtrip_lossless"`
+			}
+			if err := json.Unmarshal([]byte(out), &envs); err != nil {
+				t.Fatalf("output not proto-envelope JSON: %v\n%s", err, out)
+			}
+			if len(envs) != 1 {
+				t.Fatalf("got %d envelopes, want 1", len(envs))
+			}
+			e := envs[0]
+			if e.Type != tc.typ {
+				t.Errorf("type = %q, want %q", e.Type, tc.typ)
+			}
+			if e.Lossless == nil || !*e.Lossless {
+				t.Errorf("expected roundtrip_lossless=true, got %v", e.Lossless)
 			}
 		})
 	}

@@ -52,23 +52,75 @@ func diffWireAgainstProto(original []byte, msg proto.Message) ([]fieldDelta, err
 	if err := json.Unmarshal(remarshaled, &rv); err != nil {
 		return nil, fmt.Errorf("parse re-encoded wire: %w", err)
 	}
+	// beprotojson marshals positional messages to their declared width, while
+	// captures commonly elide trailing null slots. Normalize only trailing
+	// nulls, recursively; interior nulls carry positional meaning and must
+	// remain visible to the comparator.
+	ov = trimTrailingNulls(ov)
+	rv = trimTrailingNulls(rv)
 	var out []fieldDelta
 	desc := msg.ProtoReflect().Descriptor()
 	if topWasUnwrapped(ov) {
 		if field := desc.Fields().ByNumber(1); field != nil && field.IsList() {
-			// unwrapTop removes the response's one-field positional wrapper.
-			// The remaining array is the repeated field's element list, so the
-			// first path component is still the response field position.
+			// The original wire dropped every trailing null field, collapsing
+			// down to just position 0 (the repeated field's element list), so
+			// the first path component is still the response field position.
+			// The remarshal does NOT drop trailing nulls (Marshal always pads
+			// to the highest declared field number), so unwrapping it the same
+			// single-element way it unwraps the original would only fire when
+			// the response has exactly one field total; extract field 1's
+			// value directly instead so both sides compare at the same depth
+			// regardless of how many trailing fields the response declares.
+			rvField0 := fieldOneValue(rv)
 			if field.Message() != nil {
-				diffRepeatedMessage(unwrapTop(ov), unwrapTop(rv), "[0]", &out, field)
+				diffRepeatedMessage(unwrapTop(ov), rvField0, "[0]", &out, field)
 			} else {
-				diffRaw(unwrapTop(ov), unwrapTop(rv), "[0]", &out, descriptorFieldName(desc, 1))
+				diffRaw(unwrapTop(ov), rvField0, "[0]", &out, descriptorFieldName(desc, 1))
 			}
 			return out, nil
 		}
 	}
-	diffValue(unwrapTop(ov), unwrapTop(rv), "[0]", &out, desc)
+	if fieldOneWrapsRepeatedMessage(desc) {
+		diffValue(ov, rv, "[0]", &out, desc)
+	} else {
+		diffValue(unwrapTop(ov), unwrapTop(rv), "[0]", &out, desc)
+	}
 	return out, nil
+}
+
+// fieldOneWrapsRepeatedMessage reports whether field 1 is a singular message
+// whose own field 1 is a repeated message. For that shape, the outer
+// single-element array is the response's positional wrapper, not an extra
+// batchexecute envelope.
+func fieldOneWrapsRepeatedMessage(desc protoreflect.MessageDescriptor) bool {
+	if desc == nil {
+		return false
+	}
+	outer := desc.Fields().ByNumber(1)
+	if outer == nil || outer.IsList() || outer.Message() == nil {
+		return false
+	}
+	inner := outer.Message().Fields().ByNumber(1)
+	return inner != nil && inner.IsList() && inner.Message() != nil
+}
+
+func trimTrailingNulls(v any) any {
+	switch x := v.(type) {
+	case []any:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = trimTrailingNulls(item)
+		}
+		for len(out) > 0 && out[len(out)-1] == nil {
+			out = out[:len(out)-1]
+		}
+		return out
+	case map[string]any:
+		for key, item := range x {
+			x[key] = trimTrailingNulls(item)
+		}
+	}
+	return v
 }
 
 func topWasUnwrapped(v any) bool {
@@ -90,6 +142,18 @@ func unwrapTop(v any) any {
 		}
 	}
 	return v
+}
+
+// fieldOneValue returns position 0 (field 1) of a positional response array,
+// or nil if v is not shaped like one. Unlike unwrapTop, this does not require
+// the array to have exactly one element — it is used on the remarshal side,
+// which (unlike the original wire) always carries every declared trailing
+// field as an explicit null rather than dropping them.
+func fieldOneValue(v any) any {
+	if arr, ok := v.([]any); ok && len(arr) > 0 {
+		return arr[0]
+	}
+	return nil
 }
 
 // diffValue compares an original wire value a against the proto-re-encoded
@@ -340,6 +404,12 @@ func diffRepeatedMessage(a, b any, path string, out *[]fieldDelta, field protore
 		addDelta(out, path, "shape", a, descriptorFieldName(field.ContainingMessage(), int(field.Number())))
 		return
 	}
+	if oneof := deltaShapeUnion(field.Message()); oneof != nil && len(bArr) == 1 {
+		if selected := deltaShapeCase(oneof, aArr); selected != nil {
+			diffShapeUnionValue(aArr, bArr[0], path, out, selected)
+			return
+		}
+	}
 	for i := range max(len(aArr), len(bArr)) {
 		var av, bv any
 		if i < len(aArr) {
@@ -354,6 +424,12 @@ func diffRepeatedMessage(a, b any, path string, out *[]fieldDelta, field protore
 		}
 		if isNull(bv) {
 			addDelta(out, elementPath, "unmodeled", av, elementName)
+			continue
+		}
+		if oneof := deltaShapeUnion(field.Message()); oneof != nil {
+			if selected := deltaShapeCase(oneof, av); selected != nil {
+				diffShapeUnionValue(av, bv, elementPath, out, selected)
+			}
 			continue
 		}
 		_, avOK := av.([]any)

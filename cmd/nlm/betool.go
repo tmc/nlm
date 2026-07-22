@@ -110,7 +110,7 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 			opts.verify = true
 			opts.allMissing = true
 		case a == "--infer" || a == "--infer-missing":
-			if mode != "decode-response" {
+			if mode != "decode-response" && mode != "decode-request" {
 				return opts, fmt.Errorf("betool %s: --infer-missing applies only to decode-request and decode-response", mode)
 			}
 			opts.infer = true
@@ -205,6 +205,9 @@ func betoolDecodeRequest(input []byte, opts betoolOptions) error {
 		}
 		msg := method.NewRequest()
 		if err := beprotojson.Unmarshal(r.Args, msg); err != nil {
+			if hint := nullInRepeatedHint(err, method.Request.Descriptor(), r.Args); hint != "" {
+				return fmt.Errorf("rpc %s (%s): %s: %w", method.RPCID, method.FullName(), hint, err)
+			}
 			return fmt.Errorf("rpc %s (%s): unmarshal args into %s: %w",
 				method.RPCID, method.FullName(), method.Request.Descriptor().FullName(), err)
 		}
@@ -216,6 +219,9 @@ func betoolDecodeRequest(input []byte, opts betoolOptions) error {
 			if err := verifyRoundTrip(&env, msg, r.Args, opts.allMissing); err != nil {
 				return err
 			}
+		}
+		if opts.infer {
+			env.Inferred = inferMissingGroups(env.MissingGroups)
 		}
 		out = append(out, env)
 	}
@@ -266,6 +272,9 @@ func betoolDecodeResponse(input []byte, opts betoolOptions) error {
 		msg := method.NewResponse()
 		if len(r.Data) > 0 {
 			if err := beprotojson.Unmarshal(r.Data, msg); err != nil {
+				if hint := nullInRepeatedHint(err, method.Response.Descriptor(), r.Data); hint != "" {
+					return fmt.Errorf("rpc %s (%s): %s: %w", method.RPCID, method.FullName(), hint, err)
+				}
 				return fmt.Errorf("rpc %s (%s): unmarshal data into %s: %w",
 					method.RPCID, method.FullName(), method.Response.Descriptor().FullName(), err)
 			}
