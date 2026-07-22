@@ -1,0 +1,9 @@
+committed 2026-07-22T08:09:27Z by claude-code
+version: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 82802
+iterm-session: w2t1p4:24F23B98-418B-4BDF-9D8D-0694DB528F29
+session: 24F23B98-418B-4BDF-9D8D-0694DB528F29
+context: FINDING 2 label softening (source removed -> title unavailable); wire evidence citation SourceID is a chunk id not a source id, resolveTitle namespace mismatch
