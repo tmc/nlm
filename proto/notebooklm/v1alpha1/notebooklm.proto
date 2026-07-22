@@ -217,6 +217,8 @@ message Note {
 
 message GetNotesResponse {
   repeated Note notes = 1;
+  // Server timestamp of the notes snapshot.
+  google.protobuf.Timestamp fetch_time = 2;
 }
 
 message AudioOverview {
@@ -247,7 +249,39 @@ message DocumentGuide {
 }
 
 message GenerateNotebookGuideResponse {
-  string content = 1;
+  NotebookGuide guide = 1;
+  // Guide identifier (UUID).
+  string guide_id = 2;
+}
+
+message NotebookGuide {
+  GuideSummary summary = 1;
+  GuideQuestions questions = 2;
+  // fields 3,4 reserved/unknown (observed null)
+  GuideScoredQuestions scored_questions = 6;
+}
+
+message GuideSummary {
+  string text = 1;
+}
+
+message GuideQuestions {
+  repeated GuideQuestion items = 1;
+}
+
+message GuideQuestion {
+  string question = 1;
+  // Suggested prompt that expands the question.
+  string prompt = 2;
+}
+
+message GuideScoredQuestions {
+  repeated GuideScoredQuestion items = 1;
+}
+
+message GuideScoredQuestion {
+  string question = 1;
+  int64 score = 2;
 }
 
 message GenerateOutlineResponse {
