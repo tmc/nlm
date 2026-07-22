@@ -6,6 +6,7 @@ import (
 
 	method "github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/beprotojson"
 )
 
 // TestBulkImportEncoderShape verifies the 5-position argument layout for
@@ -66,6 +67,19 @@ func TestParseBulkImportResponse(t *testing.T) {
 	if first.URL != "https://en.wikipedia.org/wiki/HAR_(file_format)" {
 		t.Errorf("URL: got %q", first.URL)
 	}
+}
+
+func TestBulkImportProtoAdapterMatchesLegacyParser(t *testing.T) {
+	raw := loadFixture(t, "LBwxtb_bulk_import_response.json")
+	legacy, err := parseBulkImportResponse(raw)
+	if err != nil {
+		t.Fatalf("legacy parser: %v", err)
+	}
+	var wire pb.BulkImportFromResearchResponse
+	if err := beprotojson.Unmarshal(raw, &wire); err != nil {
+		t.Fatalf("proto decoder: %v", err)
+	}
+	assertEquivalent(t, "bulk import adaptation", legacy, bulkImportResultsFromProto(&wire))
 }
 
 func encodeBulkImportArgsJSON(t *testing.T, conv, proj string, sources []BulkImportSource) string {

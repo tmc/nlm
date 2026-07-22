@@ -15460,7 +15460,8 @@ func (x *BulkImportTextContent) GetMarkdown() string {
 }
 
 // BulkImportFromResearchResponse carries enriched Source descriptors in
-// request order. The live API path hand-parses the raw response.
+// request order. The live API projects the generated response to its narrow
+// BulkImportResult public type.
 type BulkImportFromResearchResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

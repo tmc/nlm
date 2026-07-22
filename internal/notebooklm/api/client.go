@@ -6300,7 +6300,11 @@ func (c *Client) BulkImportFromResearch(projectID, conversationID string, source
 	if err != nil {
 		return nil, fmt.Errorf("bulk import from research: %w", err)
 	}
-	return parseBulkImportResponse(resp)
+	var wire pb.BulkImportFromResearchResponse
+	if err := beprotojson.Unmarshal(resp, &wire); err != nil {
+		return nil, fmt.Errorf("bulk import from research: decode response: %w", err)
+	}
+	return bulkImportResultsFromProto(&wire), nil
 }
 
 // bulkImportArgs produces the 5-position LBwxtb bulk-import shape.
@@ -6361,4 +6365,30 @@ func parseBulkImportResponse(raw json.RawMessage) ([]BulkImportResult, error) {
 		results = append(results, r)
 	}
 	return results, nil
+}
+
+// bulkImportResultsFromProto preserves the narrow public projection returned
+// by BulkImportFromResearch while the generated Source message owns wire
+// decoding.
+func bulkImportResultsFromProto(response *pb.BulkImportFromResearchResponse) []BulkImportResult {
+	if response == nil {
+		return nil
+	}
+	results := make([]BulkImportResult, 0, len(response.GetResults()))
+	for _, source := range response.GetResults() {
+		if source == nil {
+			continue
+		}
+		result := BulkImportResult{
+			SourceID: source.GetSourceId().GetSourceId(),
+			Title:    source.GetTitle(),
+		}
+		if metadata := source.GetMetadata(); metadata != nil {
+			if urls := metadata.GetSourceUrls(); len(urls) > 0 {
+				result.URL = urls[0]
+			}
+		}
+		results = append(results, result)
+	}
+	return results
 }
