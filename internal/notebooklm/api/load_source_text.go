@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/beprotojson"
 )
 
 // LoadSourceText is the decoded full-text body of a source as returned by
@@ -119,12 +122,49 @@ func (c *Client) LoadSourceText(sourceID, notebookID string) (LoadSourceText, er
 	if err != nil {
 		return LoadSourceText{}, err
 	}
+	var response pb.LoadSourceResponse
+	if err := beprotojson.Unmarshal(raw, &response); err == nil {
+		return loadSourceTextFromProto(&response), nil
+	}
 	return decodeLoadSourceText(raw)
 }
 
 // DecodeLoadSourceText decodes a raw hizoJc response into LoadSourceText.
 func DecodeLoadSourceText(raw json.RawMessage) (LoadSourceText, error) {
 	return decodeLoadSourceText(raw)
+}
+
+func loadSourceTextFromProto(response *pb.LoadSourceResponse) LoadSourceText {
+	var out LoadSourceText
+	if response == nil {
+		return out
+	}
+	if source := response.GetSource(); source != nil {
+		if id := source.GetSourceId(); id != nil {
+			out.SourceID = id.GetSourceId()
+		}
+		out.Title = source.GetTitle()
+	}
+	content := response.GetContent()
+	if content == nil || content.GetRows() == nil {
+		return out
+	}
+	for _, row := range content.GetRows().GetRows() {
+		if row == nil || row.GetText() == nil {
+			continue
+		}
+		for _, span := range row.GetText().GetSpans() {
+			if span == nil || span.GetText() == nil {
+				continue
+			}
+			out.Fragments = append(out.Fragments, TextFragment{
+				Start: int(span.GetStart()),
+				End:   int(span.GetEnd()),
+				Text:  span.GetText().GetText(),
+			})
+		}
+	}
+	return out
 }
 
 // decodeLoadSourceText parses the positional wire shape observed against a
