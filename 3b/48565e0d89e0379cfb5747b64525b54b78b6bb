@@ -1,0 +1,9 @@
+committed 2026-07-22T08:56:26Z by claude-code
+version: 2.1.197 (Claude Code)
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 22358
+iterm-session: w2t1p4:24F23B98-418B-4BDF-9D8D-0694DB528F29
+session: 24F23B98-418B-4BDF-9D8D-0694DB528F29
+context: §9 Phase 2 parent-source-id (parse [5][0][0][0] -> Citation.ParentSourceID; resolve/bake/persist titles via parent). Hop proven 4/4 by peer 20005147; slot shape [5]=[[[SOURCE],chunk]]
