@@ -5230,17 +5230,37 @@ func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReport
 }
 
 func (c *Client) GetProjectDetails(shareID string) (*pb.ProjectDetails, error) {
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGetProjectDetails,
-		Args: []interface{}{
-			shareID,
-			[]interface{}{2},
-		},
+	resp, err := c.sharingService.GetProjectDetails(context.Background(), &pb.GetProjectDetailsRequest{
+		ShareId: shareID,
+		Context: &pb.RequestContext{Version: proto.Int32(2)},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get project details: %w", err)
 	}
-	return parseProjectDetailsResponse(resp)
+	return projectDetailsFromProto(resp), nil
+}
+
+// projectDetailsFromProto preserves the small public projection returned by
+// parseProjectDetailsResponse while letting the generated message own wire
+// decoding and presence handling.
+func projectDetailsFromProto(details *pb.ProjectDetails) *pb.ProjectDetails {
+	if details == nil {
+		return nil
+	}
+	out := &pb.ProjectDetails{}
+	if collaborators := details.GetCollaborators(); len(collaborators) > 0 {
+		if profile := collaborators[0].GetProfile(); profile != nil {
+			out.OwnerName = profile.GetDisplayName()
+		}
+	}
+	if flags := details.GetFlags(); flags != nil {
+		if flags.Flag_1 != nil {
+			out.IsPublic = flags.GetFlag_1()
+		} else if flags.Flag_0 != nil {
+			out.IsPublic = flags.GetFlag_0()
+		}
+	}
+	return out
 }
 
 // Sharing operations
