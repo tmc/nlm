@@ -1,0 +1,15 @@
+commit=50122e8a21e591660010ce8dbc190c3eb0083dfe
+
+date=2026-07-21T22:03:47-07:00
+
+tool=codex git commit -S (git-auto-commit-message failed: Anthropic credit balance too low)
+
+model=GPT-5
+
+tty=not a tty
+
+pid=43354
+
+ITERM_SESSION_ID=w2t1p17:D9E309FF-A757-42C8-A7AF-1BC81556D00C
+
+verification=TestDeleteDeepResearchEncoderShape passed with legacy and generated encoders matching LBwxtb fixture; GOWORK=off go test -count=1 ./... passed; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm passed; repeated go generate ./proto produced identical generated diff (zero drift).
