@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	genmethod "github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // AccountStatus is the public projection of the ZwVcOc account/status response.
@@ -19,11 +21,19 @@ type AccountStatus struct {
 	Tier          int `json:"tier,omitempty"`
 }
 
+func accountRequest() *pb.GetOrCreateAccountRequest {
+	return &pb.GetOrCreateAccountRequest{
+		ContextVersion: proto.Int32(2),
+		ContextSurface: &pb.RequestSurface{Value: proto.Int32(1)},
+		ContextCaps:    &pb.RequestClientCaps{Version: proto.Int32(1), CapabilityCodes: []int32{1, 3}},
+	}
+}
+
 // GetAccountStatus dispatches ZwVcOc and projects the generated account shape.
 func (c *Client) GetAccountStatus() (*AccountStatus, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:   rpc.RPCGetOrCreateAccount,
-		Args: []interface{}{},
+		Args: genmethod.EncodeGetOrCreateAccountArgs(accountRequest()),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get account status: %w", err)
