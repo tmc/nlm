@@ -282,9 +282,14 @@ const (
 	RPCListExpertIntelligenceContent = "mVtEUb"        // ListExpertIntelligenceContent (curated featured-content surface). TODO(har).
 	RPCGenerateAccessToken           = "preRPe"        // GenerateAccessToken (per-session token mint, possibly for embed widgets). TODO(har).
 	RPCGetMagicView                  = "rtY7md"        // GetMagicView (companion to uK8f7c GenerateMagicView). TODO(har).
-	RPCCopyProject                   = "te3DCe"        // CopyProject (duplicate a notebook). TODO(har).
+	RPCCopyProject                   = "te3DCe"        // CopyProject (duplicate a notebook). HAR-verified: reply is a single status int.
 	RPCStreamGenerateFreeForm        = "laWbsf"        // GenerateFreeFormStreamed (chat path; the live UI uses gRPC-Web — not batchexecute — but the JS bundle still maps the rpc_id).
 	RPCCreateAccessRequest           = "n3dkHd"        // CreateAccessRequest (LabsTailwindSharingService — request access to a shared notebook). TODO(har).
+
+	// RPCLogInteractionEvent is bound by the production JavaScript descriptor
+	// to /InteractionEventService.LogInteractionEvent. It records an artifact
+	// interaction and returns an empty response.
+	RPCLogInteractionEvent = "HpN0Ub"
 )
 
 // Call represents a NotebookLM RPC call
