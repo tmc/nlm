@@ -1,0 +1,35 @@
+# Test the hidden betool wire-codec subcommand surface (offline, no auth).
+# Payload round-trip fidelity is covered by TestBetool in betool_test.go and
+# by the codec tests in internal/batchexecute; this script covers dispatch,
+# visibility, and error handling.
+
+# betool is hidden from help.
+exec ./nlm_test --help
+! stderr 'betool'
+
+# betool is hidden even under --experimental (like other developer tools).
+exec ./nlm_test --experimental --help
+! stderr 'betool'
+
+# Missing mode errors and exits non-zero.
+! exec ./nlm_test betool
+stderr 'missing mode'
+
+# Unknown mode errors and exits non-zero.
+! exec ./nlm_test betool frobnicate
+stderr 'unknown mode'
+
+# help mode prints usage and exits 0.
+exec ./nlm_test betool help
+stderr 'Translate raw batchexecute'
+stderr 'decode-request'
+stderr 'encode-response'
+
+# Too many arguments is rejected.
+! exec ./nlm_test betool decode-request a.txt b.txt
+stderr 'at most one input file'
+
+# A missing input file is reported clearly (does not require auth).
+! exec ./nlm_test betool decode-request does-not-exist.txt
+stderr 'read does-not-exist.txt'
+! stderr 'Authentication required'
