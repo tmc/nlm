@@ -4,6 +4,11 @@ This ledger records migration state from the live checkout. A family advances
 only when each proof column has direct fixture or corpus evidence; a generated
 binding alone is not proof.
 
+The test-only `assertEquivalent` harness recursively reports phase, exact
+field/index path, old value, new value, and mismatch count. It is strict by
+default; family tests must perform any documented normalization before calling
+it.
+
 | RPC family | Wire proof | Semantic proof | Public API proof | CLI proof | Encoder proof | Live switch | Legacy deletion |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Notes (`cFji9`, `CYK0Xb`, `cYAfTb`, `AH0mwd`) | **partial**: generated `GetNotesWireResponse` decodes the keyed fixture in `notes_proto_test.go`; complete observed-variant corpus still required | **pass (fixture)**: `TestGetNotesProtoAdapterMatchesLegacyParser` compares the public projection | **pass (unit)**: nil response and empty-entry behavior covered; live RPC now uses generated response | pending | pass: generated encoders are exercised by existing note encoder tests | **GetNotes switched**; create/mutate/delete were already generated | retained: `parseNotesResponse` remains the legacy oracle until corpus/deletion gates pass |

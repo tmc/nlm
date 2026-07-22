@@ -1,7 +1,6 @@
 package api
 
 import (
-	"reflect"
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
@@ -20,9 +19,7 @@ func TestProjectDetailsProtoAdapterMatchesLegacyParser(t *testing.T) {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := projectDetailsFromProto(&wire)
-	if !reflect.DeepEqual(legacy, got) {
-		t.Fatalf("adapter mismatch: legacy=%#v proto=%#v", legacy, got)
-	}
+	assertEquivalent(t, "sharing adaptation", legacy, got)
 }
 
 func TestProjectDetailsProtoAdapterPrivateFlags(t *testing.T) {

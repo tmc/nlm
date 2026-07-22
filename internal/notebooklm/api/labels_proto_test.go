@@ -21,9 +21,7 @@ func TestGetLabelsProtoAdapterMatchesLegacyParser(t *testing.T) {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := labelsFromProtoResponse(&response)
-	if !reflect.DeepEqual(legacy, got) {
-		t.Fatalf("adapter mismatch: legacy=%#v proto=%#v", legacy, got)
-	}
+	assertEquivalent(t, "labels adaptation", legacy, got)
 }
 
 func TestGetLabelsProtoAdapterEmptyResponse(t *testing.T) {

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
@@ -21,9 +19,7 @@ func TestGetNotesProtoAdapterMatchesLegacyParser(t *testing.T) {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := notesFromWireResponse(&wire)
-	if !reflect.DeepEqual(legacy, got) {
-		t.Fatalf("adapter mismatch:\nlegacy=%s\nproto=%s", fmt.Sprint(legacy[0]), fmt.Sprint(got[0]))
-	}
+	assertEquivalent(t, "notes adaptation", legacy, got)
 }
 
 func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {
