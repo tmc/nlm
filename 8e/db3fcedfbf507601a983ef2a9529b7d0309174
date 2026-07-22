@@ -1,0 +1,8 @@
+commit=8edb3fcedfbf507601a983ef2a9529b7d0309174
+date=2026-07-22T04:42:30Z
+tool=git commit -S
+model=GPT-5 Codex
+tty=not a tty
+pid=21825
+session=w2t1p17:D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=AUrzMb series-vs-scalar regression test passes; GOWORK=off go test -count=1 ./... passed; /tmp/nlm-codex build passed; analytics intentionally retained
