@@ -3827,23 +3827,13 @@ func (c *Client) GenerateSourceGuide(sourceID string) (*SourceGuide, error) {
 }
 
 func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGuideResponse, error) {
-	req := &pb.GenerateNotebookGuideRequest{
+	guide, err := c.orchestrationService.GenerateNotebookGuide(context.Background(), &pb.GenerateNotebookGuideRequest{
 		ProjectId: projectID,
-	}
-	// Use the capture-verified encoder for the standard notebook context.
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateNotebookGuide,
-		NotebookID: projectID,
-		Args:       intmethod.EncodeGenerateNotebookGuideArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generate notebook guide: %w", err)
 	}
-	var guide pb.GenerateNotebookGuideResponse
-	if err := beprotojson.Unmarshal(resp, &guide); err != nil {
-		return nil, fmt.Errorf("generate notebook guide: unmarshal response: %w", err)
-	}
-	return &guide, nil
+	return guide, nil
 }
 
 func (c *Client) GenerateMagicView(projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
