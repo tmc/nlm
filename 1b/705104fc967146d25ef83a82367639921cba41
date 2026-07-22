@@ -1,0 +1,6 @@
+committed 2026-07-22 by claude-code
+version: Opus 4.8 (1M context) claude-opus-4-8[1m]
+tty: not a tty
+pid: 26046
+iterm: w2t1p3:20005147-C7A1-4C16-ADA8-080C4F0D7961
+context: §9 Phase 1 capture unit — httprr fixture (khqZz+GetProject for 6c313fd7, fabricated prose, replays offline) proving parent-hop slot[5][0][0][0] in GetProject 4/4; +2 httprr scrubber fixes (f.sid/bl/authuser normalize; length-preserving timestamp scrub for rt=c Content-Length). Peer 24F23B98 owns the non-integration assertion test on this fixture + Phase 2 (committed 20120c10/3b48565e).
