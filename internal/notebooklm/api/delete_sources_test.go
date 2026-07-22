@@ -9,7 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	method "github.com/tmc/nlm/gen/method"
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"google.golang.org/protobuf/proto"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -66,6 +69,24 @@ func TestDeleteSourcesUsesNotebookContext(t *testing.T) {
 	payload := raw
 	if !strings.Contains(payload, "source-1") || !strings.Contains(payload, "source-2") {
 		t.Fatalf("payload %q missing source ids", payload)
+	}
+}
+
+func TestDeleteSourcesGeneratedEncoderMatchesLegacyShape(t *testing.T) {
+	ids := []string{"source-1", "source-2"}
+	req := &pb.DeleteSourcesRequest{Context: &pb.RequestContext{Version: proto.Int32(2)}}
+	for _, id := range ids {
+		req.SourceIds = append(req.SourceIds, &pb.SourceIdList{SourceId: id})
+	}
+
+	got := method.EncodeDeleteSourcesArgs(req)
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal generated args: %v", err)
+	}
+	const wantJSON = `[[["source-1"],["source-2"]],[2]]`
+	if string(gotJSON) != wantJSON {
+		t.Fatalf("generated delete-sources wire args = %s, want %s", gotJSON, wantJSON)
 	}
 }
 

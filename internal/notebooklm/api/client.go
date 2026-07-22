@@ -620,20 +620,17 @@ func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
 }
 
 func (c *Client) deleteSourcesBatch(projectID string, sourceIDs []string) error {
-	// Wire format: [repeated_source_ids, project_context]
-	//   field 1: repeated SourceId — each ID wrapped as ["id"]
-	//   field 2: ProjectContext [2]
-	wrappedIDs := make([]interface{}, len(sourceIDs))
-	for i, id := range sourceIDs {
-		wrappedIDs[i] = []interface{}{id}
+	// Wire format: [repeated_source_ids, project_context]. Keep the request
+	// typed and let the generated encoder preserve the captured positional
+	// envelope.
+	req := &pb.DeleteSourcesRequest{Context: &pb.RequestContext{Version: proto.Int32(2)}}
+	for _, id := range sourceIDs {
+		req.SourceIds = append(req.SourceIds, &pb.SourceIdList{SourceId: id})
 	}
 	_, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCDeleteSources,
 		NotebookID: projectID,
-		Args: []interface{}{
-			wrappedIDs,
-			[]interface{}{2}, // ProjectContext
-		},
+		Args:       method.EncodeDeleteSourcesArgs(req),
 	})
 	if err != nil {
 		return fmt.Errorf("delete sources: %w", err)
