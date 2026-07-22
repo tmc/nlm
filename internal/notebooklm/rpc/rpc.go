@@ -177,8 +177,8 @@ const (
 	// collaborators slice — per-user [email, role, display_name,
 	// avatar_url] entries plus permission flags — and not the
 	// title/emoji/thumbnail metadata that the proto's ProjectDetails
-	// message also models. api.Client.parseProjectDetailsResponse
-	// extracts only OwnerName + IsPublic from this list. The fuller
+	// message also models. api.Client extracts only OwnerName + IsPublic
+	// from the generated message. The fuller
 	// project-metadata fields may populate under different request
 	// modes (the trailing [2] arg looks like a mode enum); they
 	// remain unobserved in our corpus.

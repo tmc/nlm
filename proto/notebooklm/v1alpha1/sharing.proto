@@ -59,13 +59,12 @@ message GetProjectDetailsRequest {
 //   User entry: [email, role_int, [], [display_name, avatar_url]]
 //     role_int 1 = OWNER (the only role observed in single-user captures).
 //
-// The live path does NOT decode this via proto: api.Client
-// .parseProjectDetailsResponse (client.go) hand-parses the raw JSON and
-// sets only OwnerName + IsPublic by Go field name. printShareDetails
+// The live path decodes this through the generated message and projects only
+// OwnerName + IsPublic. printShareDetails
 // (main.go) reads OwnerName/IsPublic/ProjectId/Title/Emoji/SharedAt/Sources
 // by name. Those Go-named fields are retained below at high numbers (they
-// are not on the wire) so the hand-parser and printer keep compiling; the
-// wire fields carry the actual HAR positions for betool/beprotojson decode.
+// are not on the wire) for the public projection; the wire fields carry the
+// actual HAR positions for betool/beprotojson decode.
 message ProjectDetails {
     // Wire positions.
     repeated ProjectCollaborator collaborators = 1;   // [0]
