@@ -1,0 +1,8 @@
+commit=b3ff60fe2e03e6ad93b97d94a2216bce19f665fe
+date=2026-07-22T04:31:19Z
+tool=git commit -S
+model=GPT-5 Codex
+tty=not a tty
+pid=13972
+session=w2t1p17:D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=Typed comparator reports phase/path/old/new for every mismatch; notes/labels/sharing equivalence tests pass; GOWORK=off go test -count=1 ./... passed; /tmp/nlm-codex build passed
