@@ -1,0 +1,8 @@
+committed 2026-07-21 19:48:27 PDT
+tool: claude-code
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 23234
+iterm_session: w2t1p4:24F23B98-418B-4BDF-9D8D-0694DB528F29
+context: move HTML underline from [N] marker + rail excerpt onto the grounded answer passage (reply-span); Go-validated span, rune-safe JS render; per tmc request
