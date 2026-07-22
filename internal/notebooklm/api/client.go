@@ -4868,12 +4868,12 @@ func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse,
 	groundings := response.GetCitations()
 	citations := make([]Citation, 0)
 	for i, mapping := range mappings {
-		if mapping == nil || i >= len(groundings) {
+		if mapping == nil {
 			continue
 		}
-		grounding := groundings[i]
-		if grounding == nil {
-			continue
+		var confidence float64
+		if i < len(groundings) && groundings[i] != nil {
+			confidence = groundings[i].GetScore()
 		}
 		start, end := 0, 0
 		if r := mapping.GetRange(); r != nil {
@@ -4888,7 +4888,7 @@ func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse,
 				SourceID:    sourceIDs[sourceIndex],
 				StartChar:   start,
 				EndChar:     end,
-				Confidence:  grounding.GetScore(),
+				Confidence:  confidence,
 			})
 		}
 	}
