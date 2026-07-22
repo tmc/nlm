@@ -1,0 +1,8 @@
+committed 2026-07-21 17:46:00 PDT
+tool: claude-code
+model: claude-opus-4-8[1m]
+tty: not a tty
+n/a
+pid: 46040
+iterm_session: w2t1p4:24F23B98-418B-4BDF-9D8D-0694DB528F29
+context: rich-tree structural correction — block type is field-position not Kind string; list via ListItem, heading via flag1 inline mark, table/code gated; per peer 20005147 verified-proto correction
