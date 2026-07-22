@@ -1,0 +1,11 @@
+commit: 3e6e960e7346f98fe344f8fd9444343cfbb1121d
+date: 2026-07-21T20:19:48-07:00
+tool: codex
+version: codex-cli 0.145.0
+model: gpt-5.4
+reasoning: high
+tty: not a tty
+pid: 57617
+session: w2t1p15:63655561-BB8F-48DA-9087-E7F2C4D3F9B8
+reorg-target: integration
+resolution: preserve d822aaf5 cmd/nlm/main.go blob
