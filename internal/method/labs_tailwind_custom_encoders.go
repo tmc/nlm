@@ -1,10 +1,6 @@
 package method
 
-import (
-	"time"
-
-	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-)
+import notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 
 // This file contains hand-coded encoders that replace broken argbuilder-based
 // encoders. Each wire format was verified against HAR captures from the
@@ -127,27 +123,5 @@ func EncodeShareAudioArgsV2(req *notebooklmv1alpha1.ShareAudioRequest) []interfa
 		nil,                // field 2: null
 		req.GetProjectId(), // field 3: project ID
 		20,                 // field 4: sharing mode (20 = public)
-	}
-}
-
-// EncodeGetProjectAnalyticsArgsV2 encodes arguments for
-// LabsTailwindOrchestrationService.GetProjectAnalytics.
-// RPC ID: AUrzMb (service client uses this), HAR captured as cFji9.
-//
-// Wire format verified against HAR capture:
-//
-//	["<project_id>", null, [<timestamp_seconds>, <timestamp_nanos>], [2]]
-func EncodeGetProjectAnalyticsArgsV2(req *notebooklmv1alpha1.GetProjectAnalyticsRequest) []interface{} {
-	// Use current time as the analytics timestamp
-	now := time.Now()
-	timestamp := []interface{}{
-		now.Unix(),
-		int64(now.Nanosecond()),
-	}
-	return []interface{}{
-		req.GetProjectId(), // field 1: project ID
-		nil,                // field 2: null
-		timestamp,          // field 3: timestamp [seconds, nanos]
-		[]interface{}{2},   // field 4: ProjectContext
 	}
 }

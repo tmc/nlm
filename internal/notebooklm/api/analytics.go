@@ -1,13 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	intmethod "github.com/tmc/nlm/internal/method"
-	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // ProjectAnalytics is the AUrzMb response: a set of metric time series.
@@ -29,20 +29,41 @@ type AnalyticsPoint struct {
 
 // GetProjectAnalytics returns the AUrzMb time-series analytics for projectID.
 func (c *Client) GetProjectAnalytics(projectID string) (*ProjectAnalytics, error) {
-	req := &pb.GetProjectAnalyticsRequest{ProjectId: projectID}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetProjectAnalytics,
-		NotebookID: projectID,
-		Args:       intmethod.EncodeGetProjectAnalyticsArgsV2(req),
-	})
+	req := &pb.GetProjectAnalyticsRequest{
+		ProjectId:   projectID,
+		RequestedAt: timestamppb.Now(),
+	}
+	resp, err := c.orchestrationService.GetProjectAnalytics(context.Background(), req)
 	if err != nil {
 		return nil, fmt.Errorf("get project analytics: %w", err)
 	}
-	analytics, err := parseProjectAnalytics(resp)
-	if err != nil {
-		return nil, fmt.Errorf("get project analytics: decode response: %w", err)
+	return projectAnalyticsFromProto(resp), nil
+}
+
+// projectAnalyticsFromProto preserves the public metric-series projection
+// returned by parseProjectAnalytics.
+func projectAnalyticsFromProto(in *pb.ProjectAnalytics) *ProjectAnalytics {
+	if in == nil {
+		return nil
 	}
-	return analytics, nil
+	out := &ProjectAnalytics{}
+	for _, series := range in.GetSeries() {
+		if series == nil {
+			continue
+		}
+		item := AnalyticsSeries{MetricID: int(series.GetMetricId())}
+		for _, point := range series.GetBuckets().GetPoints().GetPoints() {
+			if point == nil || point.GetTime() == nil {
+				continue
+			}
+			item.Points = append(item.Points, AnalyticsPoint{
+				Time:  point.GetTime().AsTime().UTC(),
+				Value: int(point.GetValue()),
+			})
+		}
+		out.Series = append(out.Series, item)
+	}
+	return out
 }
 
 func parseProjectAnalytics(b []byte) (*ProjectAnalytics, error) {

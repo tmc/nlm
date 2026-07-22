@@ -763,13 +763,35 @@ message GenerateReportSuggestionsResponse {
 message GetProjectAnalyticsRequest {
     string project_id = 1;
     RequestContext context = 2;
+    google.protobuf.Timestamp requested_at = 3;
 }
 
 message ProjectAnalytics {
-    google.protobuf.Int32Value source_count = 1;
-    google.protobuf.Int32Value note_count = 2;
-    google.protobuf.Int32Value audio_overview_count = 3;
-    google.protobuf.Timestamp last_accessed = 4;
+    repeated ProjectAnalyticsSeries series = 1;
+}
+
+// ProjectAnalyticsSeries contains the time buckets for one metric.
+message ProjectAnalyticsSeries {
+    int32 metric_id = 1;
+    ProjectAnalyticsBuckets buckets = 2;
+}
+
+// ProjectAnalyticsBuckets retains the observed one-field wrapper around the
+// repeated metric buckets.
+message ProjectAnalyticsBuckets {
+    ProjectAnalyticsPointList points = 1;
+}
+
+// ProjectAnalyticsPointList retains the second observed wrapper around the
+// repeated metric buckets.
+message ProjectAnalyticsPointList {
+    repeated ProjectAnalyticsPoint points = 1;
+}
+
+// ProjectAnalyticsPoint is one [timestamp, null, value] metric bucket.
+message ProjectAnalyticsPoint {
+    google.protobuf.Timestamp time = 1;
+    int32 value = 3;
 }
 
 message ListFeaturedProjectsRequest {
@@ -1281,7 +1303,7 @@ service LabsTailwindOrchestrationService {
     // Analytics and feedback
     rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics) {
         option (rpc_id) = "AUrzMb";
-        option (arg_format) = "[%project_id%, [2, null, null, [1, null, null, null, null, null, null, null, null, null, [1]]]]";
+        option (arg_format) = "[%project_id%, null, %requested_at%, [2]]";
     }
     rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "uNyJKe";

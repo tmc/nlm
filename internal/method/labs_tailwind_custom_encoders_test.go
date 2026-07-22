@@ -187,38 +187,6 @@ func TestEncodeShareProjectArgs(t *testing.T) {
 	}
 }
 
-func TestEncodeGetProjectAnalyticsArgsV2(t *testing.T) {
-	req := &notebooklmv1alpha1.GetProjectAnalyticsRequest{
-		ProjectId: "00000000-0000-4000-8000-000000000005",
-	}
-	got := EncodeGetProjectAnalyticsArgsV2(req)
-
-	// Verify structure: ["<project_id>", null, [<int>, <int>], [2]]
-	if len(got) != 4 {
-		t.Fatalf("expected 4 elements, got %d", len(got))
-	}
-	if got[0] != "00000000-0000-4000-8000-000000000005" {
-		t.Errorf("field 0: got %v, want project ID", got[0])
-	}
-	if got[1] != nil {
-		t.Errorf("field 1: got %v, want nil", got[1])
-	}
-	ts, ok := got[2].([]interface{})
-	if !ok || len(ts) != 2 {
-		t.Fatalf("field 2: expected [seconds, nanos], got %v", got[2])
-	}
-	if _, ok := ts[0].(int64); !ok {
-		t.Errorf("field 2[0]: expected int64 timestamp seconds, got %T", ts[0])
-	}
-	if _, ok := ts[1].(int64); !ok {
-		t.Errorf("field 2[1]: expected int64 timestamp nanos, got %T", ts[1])
-	}
-	ctx, ok := got[3].([]interface{})
-	if !ok || len(ctx) != 1 || ctx[0] != 2 {
-		t.Errorf("field 3: got %v, want [2]", got[3])
-	}
-}
-
 func mustJSON(t *testing.T, v interface{}) string {
 	t.Helper()
 	b, err := json.Marshal(v)

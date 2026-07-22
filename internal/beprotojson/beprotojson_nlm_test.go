@@ -234,18 +234,20 @@ func trimTrailingNulls(v any) any {
 }
 func TestUnmarshalProjectAnalytics(t *testing.T) {
 	got := &pb.ProjectAnalytics{}
-	if err := Unmarshal([]byte(`[[335], [12], [1], [1731910459, 665561000]]`), got); err != nil {
+	if err := Unmarshal([]byte(`[[[1,[[[[[1731910459],null,335]]]]]]]`), got); err != nil {
 		t.Fatalf("Unmarshal() error = %v", err)
 	}
 
 	want := &pb.ProjectAnalytics{
-		SourceCount:        &wrapperspb.Int32Value{Value: 335},
-		NoteCount:          &wrapperspb.Int32Value{Value: 12},
-		AudioOverviewCount: &wrapperspb.Int32Value{Value: 1},
-		LastAccessed: &timestamppb.Timestamp{
-			Seconds: 1731910459,
-			Nanos:   665561000,
-		},
+		Series: []*pb.ProjectAnalyticsSeries{{
+			MetricId: 1,
+			Buckets: &pb.ProjectAnalyticsBuckets{Points: &pb.ProjectAnalyticsPointList{
+				Points: []*pb.ProjectAnalyticsPoint{{
+					Time:  &timestamppb.Timestamp{Seconds: 1731910459},
+					Value: 335,
+				}},
+			}},
+		}},
 	}
 
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
