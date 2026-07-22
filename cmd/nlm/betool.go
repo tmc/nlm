@@ -41,6 +41,7 @@ type betoolOptions struct {
 //	decode-response  raw ")]}'"-prefixed response body   -> JSON WireResponse
 //	encode-response  JSON WireResponse                   -> raw response body
 //	infer-proto      one or more raw response payloads   -> merged descriptor
+//	audit-corpus     JSONL traffic files                 -> per-RPC verification report
 //
 // With --proto, the decode modes resolve each call's rpc_id to its bound
 // proto message type and emit canonical proto JSON (named fields) instead of
@@ -59,7 +60,7 @@ func runBetool(args []string, jsonOutput bool) error {
 	rest := args[1:]
 
 	switch mode {
-	case "decode-request", "encode-request", "decode-response", "encode-response", "infer-proto":
+	case "decode-request", "encode-request", "decode-response", "encode-response", "infer-proto", "audit-corpus":
 	case "help", "-h", "--help":
 		printBetoolUsage()
 		return nil
@@ -75,6 +76,9 @@ func runBetool(args []string, jsonOutput bool) error {
 	opts.asJSON = jsonOutput
 	if mode == "infer-proto" {
 		return betoolInferProto(opts)
+	}
+	if mode == "audit-corpus" {
+		return betoolAuditCorpus(opts)
 	}
 	input, err := readBetoolInput(opts.file)
 	if err != nil {
@@ -133,7 +137,7 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 		case strings.HasPrefix(a, "-") && a != "-":
 			return opts, fmt.Errorf("betool %s: unknown flag %q", mode, a)
 		default:
-			if mode == "infer-proto" {
+			if mode == "infer-proto" || mode == "audit-corpus" {
 				opts.files = append(opts.files, a)
 				continue
 			}
@@ -153,6 +157,9 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 	}
 	if mode == "infer-proto" && opts.rpcID == "" {
 		return opts, fmt.Errorf("betool infer-proto: --rpc-id is required")
+	}
+	if mode == "audit-corpus" && len(opts.files) == 0 {
+		return opts, fmt.Errorf("betool audit-corpus: at least one JSONL file is required")
 	}
 	if (opts.proto || opts.rpcID != "") && mode != "decode-request" && mode != "decode-response" && mode != "infer-proto" {
 		return opts, fmt.Errorf("betool %s: --proto/--rpc-id/--verify apply only to decode-request and decode-response", mode)
@@ -430,6 +437,7 @@ Modes:
   decode-response   raw ")]}'"-prefixed response body -> text (--json for JSON)
   encode-response   JSON response spec                -> raw response body
   infer-proto       raw response payloads             -> descriptor textproto
+  audit-corpus      JSONL traffic files               -> per-RPC verification
 
 infer-proto flags:
   --rpc-id=<id>     select the response descriptor; required for inference
@@ -474,5 +482,8 @@ Examples:
   # Hand-craft a request body from JSON:
   echo '{"rpcs":[{"id":"wXbhsf","args":[]}],"at":"TOKEN"}' \
     | nlm betool encode-request
+
+  # Audit every RPC request and response in captured JSONL traffic:
+  nlm --json betool audit-corpus /tmp/nlm-traffic/*/notebooklm.google.com/*.jsonl
 `, "\n"))
 }

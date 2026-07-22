@@ -80,7 +80,7 @@ func diffWireAgainstProto(original []byte, msg proto.Message) ([]fieldDelta, err
 			return out, nil
 		}
 	}
-	if fieldOneWrapsRepeatedMessage(desc) {
+	if fieldOneWrapsRepeatedMessage(desc, ov) {
 		diffValue(ov, rv, "[0]", &out, desc)
 	} else {
 		diffValue(unwrapTop(ov), unwrapTop(rv), "[0]", &out, desc)
@@ -92,8 +92,16 @@ func diffWireAgainstProto(original []byte, msg proto.Message) ([]fieldDelta, err
 // whose own field 1 is a repeated message. For that shape, the outer
 // single-element array is the response's positional wrapper, not an extra
 // batchexecute envelope.
-func fieldOneWrapsRepeatedMessage(desc protoreflect.MessageDescriptor) bool {
+func fieldOneWrapsRepeatedMessage(desc protoreflect.MessageDescriptor, value any) bool {
 	if desc == nil {
+		return false
+	}
+	outerValue, ok := value.([]any)
+	if !ok || len(outerValue) != 1 {
+		return false
+	}
+	innerValue, ok := outerValue[0].([]any)
+	if !ok || len(innerValue) != 1 {
 		return false
 	}
 	outer := desc.Fields().ByNumber(1)

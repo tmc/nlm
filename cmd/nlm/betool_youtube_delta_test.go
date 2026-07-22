@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
+	genmethod "github.com/tmc/nlm/gen/method"
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/beprotojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestYoutubeSourceRoundTrip isolates the wXbhsf/gArtLc "does not fit" class:
@@ -157,6 +159,102 @@ func TestArtifactField18RoundTrip(t *testing.T) {
 	}
 }
 
+// TestArtifactSlideEditInstructionsRoundTrip guards ArtifactSlideDeckPreview
+// field 6: the per-slide revision blob [[[slide_index, text], ...]] surfaced by
+// a gArtLc (QueryArtifacts) poll on a slide-deck artifact the user edited.
+func TestArtifactSlideEditInstructionsRoundTrip(t *testing.T) {
+	// Minimal preview: config null, title, then field 6 at position [5]
+	// (download urls at [3][4] left null).
+	const wire = `[null,"Deck",null,null,null,` +
+		`[[[0,"simplify this slide"],[4,"redraw the diagram"]]]]`
+
+	msg := &notebooklmv1alpha1.ArtifactSlideDeckPreview{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	instrs := msg.GetEditInstructions().GetInstructions()
+	if len(instrs) != 2 {
+		t.Fatalf("expected 2 instructions, got %d", len(instrs))
+	}
+	if instrs[0].GetSlideIndex() != 0 || instrs[0].GetText() != "simplify this slide" {
+		t.Fatalf("instruction 0 decoded wrong: %+v", instrs[0])
+	}
+	if instrs[1].GetSlideIndex() != 4 || instrs[1].GetText() != "redraw the diagram" {
+		t.Fatalf("instruction 1 decoded wrong: %+v", instrs[1])
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestArtifactMutationResponsesRoundTrip guards the shared Artifact return
+// shape used by R7cb6c creation and KmcKPe revision responses.
+func TestArtifactMutationResponsesRoundTrip(t *testing.T) {
+	const wire = `["artifact-id","project-id",8,[[["source-id"]]],1,null,null,null,null,null,` +
+		`[1784614281,797501000],null,null,null,null,[1784614280,123000000],` +
+		`[null,"Deck",null,null,null,[[[0,"shorten this slide"]]]],null,null,1]`
+
+	for _, methodName := range []string{"CreateAudioOverview", "CreateVideoOverview", "ReviseArtifact"} {
+		method, err := resolveMethod(methodName)
+		if err != nil {
+			t.Fatalf("resolveMethod(%s): %v", methodName, err)
+		}
+		msg := method.NewResponse()
+		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+			t.Fatalf("%s Unmarshal: %v", methodName, err)
+		}
+		artifact := msg.(*notebooklmv1alpha1.Artifact)
+		if artifact.GetTitle() != "project-id" {
+			t.Fatalf("%s title = %q, want project-id", methodName, artifact.GetTitle())
+		}
+		deltas, err := diffWireAgainstProto([]byte(wire), msg)
+		if err != nil {
+			t.Fatalf("%s diff: %v", methodName, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("%s: expected lossless, got %d delta(s): %s", methodName, len(deltas), b)
+		}
+	}
+}
+
+// TestLogInteractionEventRoundTrip guards both observed HpN0Ub event slots.
+func TestLogInteractionEventRoundTrip(t *testing.T) {
+	method, err := resolveMethod("HpN0Ub")
+	if err != nil {
+		t.Fatalf("resolveMethod: %v", err)
+	}
+	for _, wire := range []string{
+		"[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]],null,[\"artifact-id\"]]",
+		"[[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]],[[1,4,8,10,2,3,6,9]]],[\"artifact-id\"]]",
+	} {
+		msg := method.NewRequest()
+		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", wire, err)
+		}
+		deltas, err := diffWireAgainstProto([]byte(wire), msg)
+		if err != nil {
+			t.Fatalf("diff(%s): %v", wire, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
+		}
+	}
+	response := method.NewResponse()
+	if err := beprotojson.Unmarshal([]byte("[]"), response); err != nil {
+		t.Fatalf("response Unmarshal: %v", err)
+	}
+	if deltas, err := diffWireAgainstProto([]byte("[]"), response); err != nil || len(deltas) != 0 {
+		t.Fatalf("response diff = %v, %v; want lossless", deltas, err)
+	}
+}
+
 // TestArtifactUserStateRoundTrip guards the Fxmvse response: a singular state
 // message whose first field is a repeated list of playback positions.
 func TestArtifactUserStateRoundTrip(t *testing.T) {
@@ -169,6 +267,580 @@ func TestArtifactUserStateRoundTrip(t *testing.T) {
 	positions := msg.GetState().GetPlaybackPosition()
 	if len(positions) != 1 || positions[0].GetSeconds() != 1388 || positions[0].GetNanos() != 553000000 {
 		t.Fatalf("playback position decoded wrong: %+v", positions)
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestRequestContextRoundTrip guards both observed standard context variants:
+// artifact filters used by Fxmvse and the optional surface marker used by
+// wXbhsf.
+func TestRequestContextRoundTrip(t *testing.T) {
+	for _, wire := range []string{
+		`[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]]`,
+		`[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1]]]`,
+	} {
+		msg := &notebooklmv1alpha1.RequestContext{}
+		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", wire, err)
+		}
+		deltas, err := diffWireAgainstProto([]byte(wire), msg)
+		if err != nil {
+			t.Fatalf("diff(%s): %v", wire, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
+		}
+	}
+}
+
+// TestProjectLifecycleRequestsRoundTrip guards the standard context and
+// present-empty wrapper shapes used by project reads and deletions.
+func TestProjectLifecycleRequestsRoundTrip(t *testing.T) {
+	tests := []struct {
+		method string
+		wire   string
+	}{
+		{"GetProject", `["project-id",null,[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],null,1,[[null,null,[]]]]`},
+		{"DeleteSources", `[[["source-id"]],[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]]]`},
+		{"DeleteChatHistory", `[[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],null,"project-id"]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			method, err := resolveMethod(tt.method)
+			if err != nil {
+				t.Fatalf("resolveMethod(%s): %v", tt.method, err)
+			}
+			msg := method.NewRequest()
+			if err := beprotojson.Unmarshal([]byte(tt.wire), msg); err != nil {
+				t.Fatalf("%s Unmarshal: %v", tt.method, err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(tt.wire), msg)
+			if err != nil {
+				t.Fatalf("%s diff: %v", tt.method, err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("%s: expected lossless, got %d delta(s): %s", tt.method, len(deltas), b)
+			}
+			var encoded []interface{}
+			switch req := msg.(type) {
+			case *notebooklmv1alpha1.GetProjectRequest:
+				encoded = genmethod.EncodeGetProjectArgs(req)
+			case *notebooklmv1alpha1.DeleteSourcesRequest:
+				encoded = genmethod.EncodeDeleteSourcesArgs(req)
+			case *notebooklmv1alpha1.DeleteChatHistoryRequest:
+				encoded = genmethod.EncodeDeleteChatHistoryArgs(req)
+			default:
+				t.Fatalf("%s: unexpected request type %T", tt.method, msg)
+			}
+			got, err := json.Marshal(encoded)
+			if err != nil {
+				t.Fatalf("%s marshal encoded args: %v", tt.method, err)
+			}
+			if string(got) != tt.wire {
+				t.Fatalf("%s encoder = %s, want %s", tt.method, got, tt.wire)
+			}
+		})
+	}
+}
+
+// TestCommonContextRequestsRoundTrip guards the shared request context across
+// read-only notebook, account, conversation, audio-format, and sharing calls.
+func TestCommonContextRequestsRoundTrip(t *testing.T) {
+	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`
+	const filteredContext = `[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]]`
+	tests := []struct {
+		method string
+		wire   string
+	}{
+		{"GetLabels", `[` + context + `,"project-id"]`},
+		{"GetProjectDetails", `["project-id",` + context + `]`},
+		{"GetOrCreateAccount", `[` + context + `]`},
+		{"GetConversations", `[` + context + `,null,"project-id",20]`},
+		{"GetConversationHistory", `[` + context + `,null,null,"conversation-id",20]`},
+		{"GetAudioFormats", `[` + filteredContext + `,null,1]`},
+		{"CopyProject", `[` + context + `,"project-id","Copy title"]`},
+		{"ListFeaturedProjects", `[` + context + `]`},
+		{"FetchInteractivityToken", `[` + context + `]`},
+		{"GetNotes", `["project-id",null,[178,991],` + context + `]`},
+	}
+	for _, tt := range tests {
+		method, err := resolveMethod(tt.method)
+		if err != nil {
+			t.Fatalf("resolveMethod(%s): %v", tt.method, err)
+		}
+		msg := method.NewRequest()
+		if err := beprotojson.Unmarshal([]byte(tt.wire), msg); err != nil {
+			t.Fatalf("%s Unmarshal: %v", tt.method, err)
+		}
+		deltas, err := diffWireAgainstProto([]byte(tt.wire), msg)
+		if err != nil {
+			t.Fatalf("%s diff: %v", tt.method, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("%s: expected lossless, got %d delta(s): %s", tt.method, len(deltas), b)
+		}
+		var encoded []interface{}
+		switch req := msg.(type) {
+		case *notebooklmv1alpha1.GetLabelsRequest:
+			encoded = genmethod.EncodeGetLabelsArgs(req)
+		case *notebooklmv1alpha1.GetProjectDetailsRequest:
+			encoded = genmethod.EncodeGetProjectDetailsArgs(req)
+		case *notebooklmv1alpha1.GetOrCreateAccountRequest:
+			encoded = genmethod.EncodeGetOrCreateAccountArgs(req)
+		case *notebooklmv1alpha1.GetConversationsRequest:
+			encoded = genmethod.EncodeGetConversationsArgs(req)
+		case *notebooklmv1alpha1.GetConversationHistoryRequest:
+			encoded = genmethod.EncodeGetConversationHistoryArgs(req)
+		case *notebooklmv1alpha1.GetAudioFormatsRequest:
+			encoded = genmethod.EncodeGetAudioFormatsArgs(req)
+		case *notebooklmv1alpha1.CopyProjectRequest:
+			encoded = genmethod.EncodeCopyProjectArgs(req)
+		case *notebooklmv1alpha1.ListFeaturedProjectsRequest:
+			encoded = genmethod.EncodeListFeaturedProjectsArgs(req)
+		case *notebooklmv1alpha1.FetchInteractivityTokenRequest:
+			encoded = genmethod.EncodeFetchInteractivityTokenArgs(req)
+		case *notebooklmv1alpha1.GetNotesRequest:
+			encoded = genmethod.EncodeGetNotesArgs(req)
+		default:
+			t.Fatalf("%s: unexpected request type %T", tt.method, msg)
+		}
+		got, err := json.Marshal(encoded)
+		if err != nil {
+			t.Fatalf("%s marshal encoded args: %v", tt.method, err)
+		}
+		if string(got) != tt.wire {
+			t.Fatalf("%s encoder = %s, want %s", tt.method, got, tt.wire)
+		}
+	}
+}
+
+// TestSourceOperationRequestsRoundTrip guards the nested source-ID, mutation,
+// text-import, and per-source guide request shapes.
+func TestSourceOperationRequestsRoundTrip(t *testing.T) {
+	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`
+	tests := []struct {
+		method string
+		wire   string
+	}{
+		{"MutateSource", `[null,["source-id"],[[["New title"]]],` + context + `]`},
+		{"LoadSource", `[["source-id"],[2],` + context + `]`},
+		{"AddSources", `[[[null,["Text title","Text body"],null,3,null,null,null,null,null,null,1]],"project-id",` + context + `]`},
+		{"GenerateDocumentGuides", `[[[["source-id"]]],` + context + `]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			method, err := resolveMethod(tt.method)
+			if err != nil {
+				t.Fatalf("resolveMethod(%s): %v", tt.method, err)
+			}
+			msg := method.NewRequest()
+			if err := beprotojson.Unmarshal([]byte(tt.wire), msg); err != nil {
+				t.Fatalf("%s Unmarshal: %v", tt.method, err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(tt.wire), msg)
+			if err != nil {
+				t.Fatalf("%s diff: %v", tt.method, err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("%s: expected lossless, got %d delta(s): %s", tt.method, len(deltas), b)
+			}
+			var encoded []interface{}
+			switch req := msg.(type) {
+			case *notebooklmv1alpha1.MutateSourceRequest:
+				encoded = genmethod.EncodeMutateSourceArgs(req)
+			case *notebooklmv1alpha1.LoadSourceRequest:
+				encoded = genmethod.EncodeLoadSourceArgs(req)
+			case *notebooklmv1alpha1.AddSourceRequest:
+				encoded = genmethod.EncodeAddSourcesArgs(req)
+			case *notebooklmv1alpha1.GenerateDocumentGuidesRequest:
+				encoded = genmethod.EncodeGenerateDocumentGuidesArgs(req)
+			default:
+				t.Fatalf("%s: unexpected request type %T", tt.method, msg)
+			}
+			got, err := json.Marshal(encoded)
+			if err != nil {
+				t.Fatalf("%s marshal encoded args: %v", tt.method, err)
+			}
+			if string(got) != tt.wire {
+				t.Fatalf("%s encoder = %s, want %s", tt.method, got, tt.wire)
+			}
+		})
+	}
+}
+
+// TestMutateNoteRequestRoundTrip guards the present-empty tag wrapper and
+// explicit zero-valued fields used when saving note content.
+func TestMutateNoteRequestRoundTrip(t *testing.T) {
+	const wire = `["project-id","note-id",[[["body","title",[],0,null,0]]],` +
+		`[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`
+	method, err := resolveMethod("MutateNote")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := method.NewRequest()
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+	got, err := json.Marshal(genmethod.EncodeMutateNoteArgs(msg.(*notebooklmv1alpha1.MutateNoteRequest)))
+	if err != nil {
+		t.Fatalf("marshal encoded args: %v", err)
+	}
+	if string(got) != wire {
+		t.Fatalf("encoder = %s, want %s", got, wire)
+	}
+}
+
+// TestGenerateNotebookGuideRequestRoundTrip guards both observed request
+// context variants. The second position is a context, not a guide-type enum.
+func TestGenerateNotebookGuideRequestRoundTrip(t *testing.T) {
+	wires := []string{
+		`["project-id",[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`,
+		`["project-id",[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]]]`,
+	}
+	method, err := resolveMethod("GenerateNotebookGuide")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, wire := range wires {
+		msg := method.NewRequest()
+		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", wire, err)
+		}
+		deltas, err := diffWireAgainstProto([]byte(wire), msg)
+		if err != nil {
+			t.Fatalf("diff(%s): %v", wire, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
+		}
+	}
+	got, err := json.Marshal(genmethod.EncodeGenerateNotebookGuideArgs(
+		&notebooklmv1alpha1.GenerateNotebookGuideRequest{ProjectId: "project-id"},
+	))
+	if err != nil {
+		t.Fatalf("marshal encoded args: %v", err)
+	}
+	if string(got) != wires[0] {
+		t.Fatalf("encoder = %s, want %s", got, wires[0])
+	}
+}
+
+// TestLogEventRequestRoundTrip guards the fixed promo-card lookup sentinel.
+func TestLogEventRequestRoundTrip(t *testing.T) {
+	const wire = `[[[[null,"1",627],[null,null,null,null,null,null,null,null,null,[null,null,6]],1]]]`
+	method, err := resolveMethod("LogEvent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := method.NewRequest()
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+	got, err := json.Marshal(genmethod.EncodeLogEventArgs(msg.(*notebooklmv1alpha1.LogEventRequest)))
+	if err != nil {
+		t.Fatalf("marshal encoded args: %v", err)
+	}
+	if string(got) != wire {
+		t.Fatalf("encoder = %s, want %s", got, wire)
+	}
+}
+
+// TestGenerateArtifactSuggestionsRequestRoundTrip guards the request context,
+// wrapped source IDs, variation, and optional free-form prompt.
+func TestGenerateArtifactSuggestionsRequestRoundTrip(t *testing.T) {
+	wires := []string{
+		`[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]],"project-id",[["source-a"],["source-b"]],1]`,
+		`[[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],"project-id",[["source-a"]],7,null,"make a short reel"]`,
+	}
+	method, err := resolveMethod("GenerateArtifactSuggestions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, wire := range wires {
+		msg := method.NewRequest()
+		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", wire, err)
+		}
+		deltas, err := diffWireAgainstProto([]byte(wire), msg)
+		if err != nil {
+			t.Fatalf("diff(%s): %v", wire, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
+		}
+	}
+	msg := &notebooklmv1alpha1.GenerateArtifactSuggestionsRequest{
+		ProjectId:  "project-id",
+		SourceRefs: []*notebooklmv1alpha1.SourceIdList{{SourceId: "source-a"}},
+		Variation:  7,
+		Prompt:     proto.String("make a short reel"),
+	}
+	got, err := json.Marshal(genmethod.EncodeGenerateArtifactSuggestionsArgs(msg))
+	if err != nil {
+		t.Fatalf("marshal encoded args: %v", err)
+	}
+	if string(got) != wires[1] {
+		t.Fatalf("encoder = %s, want %s", got, wires[1])
+	}
+}
+
+// TestCreateUniversalArtifactRequestRoundTrip guards the audio, video, and
+// slide variants sharing R7cb6c.
+func TestCreateUniversalArtifactRequestRoundTrip(t *testing.T) {
+	const context = `[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]]`
+	wires := []string{
+		`[` + context + `,"project-id",[null,null,1,[[["source-id"]]],null,null,[null,[null,2,null,[["source-id"]],"en",null,1]]]]`,
+		`[` + context + `,"project-id",[null,null,3,[[["source-id"]]],null,null,null,null,[null,null,[[["source-id"]],null,"prompt",null,4]]]]`,
+		`[` + context + `,"project-id",[null,null,8,[[["source-id"]]],null,null,null,null,null,null,null,null,null,null,null,null,[[null,"en",2,4]]]]`,
+	}
+	method, err := resolveMethod("CreateUniversalArtifact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, wire := range wires {
+		msg := method.NewRequest()
+		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", wire, err)
+		}
+		deltas, err := diffWireAgainstProto([]byte(wire), msg)
+		if err != nil {
+			t.Fatalf("diff(%s): %v", wire, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
+		}
+		got, err := json.Marshal(genmethod.EncodeCreateUniversalArtifactArgs(
+			msg.(*notebooklmv1alpha1.CreateUniversalArtifactRequest),
+		))
+		if err != nil {
+			t.Fatalf("marshal encoded args: %v", err)
+		}
+		if string(got) != wire {
+			t.Fatalf("encoder = %s, want %s", got, wire)
+		}
+	}
+}
+
+// TestMutateProjectCoverRequestRoundTrip guards the present-empty reset
+// wrapper and selected cover preset.
+func TestMutateProjectCoverRequestRoundTrip(t *testing.T) {
+	const context = `[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]]`
+	for _, preset := range []string{"1", "5"} {
+		wire := `["project-id",[[null,null,null,null,null,null,null,[[],[` + preset + `]]]],` + context + `]`
+		method, err := resolveMethod("MutateProjectCover")
+		if err != nil {
+			t.Fatal(err)
+		}
+		msg := method.NewRequest()
+		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+			t.Fatalf("Unmarshal(%s): %v", wire, err)
+		}
+		deltas, err := diffWireAgainstProto([]byte(wire), msg)
+		if err != nil {
+			t.Fatalf("diff(%s): %v", wire, err)
+		}
+		if len(deltas) != 0 {
+			b, _ := json.Marshal(deltas)
+			t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
+		}
+		got, err := json.Marshal(genmethod.EncodeMutateProjectCoverArgs(
+			msg.(*notebooklmv1alpha1.MutateProjectCoverRequest),
+		))
+		if err != nil {
+			t.Fatalf("marshal encoded args: %v", err)
+		}
+		if string(got) != wire {
+			t.Fatalf("encoder = %s, want %s", got, wire)
+		}
+	}
+}
+
+// TestTailRequestVariantsRoundTrip guards four low-frequency request shapes.
+func TestTailRequestVariantsRoundTrip(t *testing.T) {
+	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`
+	const filteredContext = `[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]]`
+	tests := []struct {
+		method string
+		wire   string
+	}{
+		{"CreateNote", `["project-id","",[1],null,"New Note",null,` + context + `]`},
+		{"GetProjectAnalytics", `["project-id",[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]]]`},
+		{"StartDeepResearchWire", `[` + context + `,null,["query",1],5,"project-id"]`},
+		{"ReviseArtifact", `[` + filteredContext + `,"artifact-id",[[[0,"first"],[4,"second"]]]]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			method, err := resolveMethod(tt.method)
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg := method.NewRequest()
+			if err := beprotojson.Unmarshal([]byte(tt.wire), msg); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(tt.wire), msg)
+			if err != nil {
+				t.Fatalf("diff: %v", err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+			}
+			var encoded []interface{}
+			switch req := msg.(type) {
+			case *notebooklmv1alpha1.CreateNoteRequest:
+				encoded = genmethod.EncodeCreateNoteArgs(req)
+			case *notebooklmv1alpha1.GetProjectAnalyticsRequest:
+				encoded = genmethod.EncodeGetProjectAnalyticsArgs(req)
+			case *notebooklmv1alpha1.StartDeepResearchWireRequest:
+				encoded = genmethod.EncodeStartDeepResearchWireArgs(req)
+			case *notebooklmv1alpha1.ReviseArtifactRequest:
+				encoded = genmethod.EncodeReviseArtifactArgs(req)
+			}
+			got, err := json.Marshal(encoded)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tt.wire {
+				t.Fatalf("encoder = %s, want %s", got, tt.wire)
+			}
+		})
+	}
+}
+
+// TestLabelRequestVariantsRoundTrip guards the mode, create, rename, and two
+// source-assignment forms observed for the overloaded label RPCs.
+func TestLabelRequestVariantsRoundTrip(t *testing.T) {
+	const context = `[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]]`
+	tests := []struct {
+		method string
+		wire   string
+	}{
+		{"MutateLabelsMode", `[` + context + `,"project-id",null,null,[0]]`},
+		{"MutateLabelsMode", `[` + context + `,"project-id",null,null,[1]]`},
+		{"CreateLabel", `[` + context + `,"project-id",null,null,null,[["New Label",""]]]`},
+		{"MutateLabel", `[` + context + `,"project-id","label-id",[[["New Name"]]]]`},
+		{"MutateLabel", `[` + context + `,"project-id","label-id",[[null,[["source-id"]]]]]`},
+		{"MutateLabel", `[` + context + `,"project-id","label-id",[[null,null,[["source-id"]]]]]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method+tt.wire, func(t *testing.T) {
+			method, err := resolveMethod(tt.method)
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg := method.NewRequest()
+			if err := beprotojson.Unmarshal([]byte(tt.wire), msg); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(tt.wire), msg)
+			if err != nil {
+				t.Fatalf("diff: %v", err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+			}
+			var encoded []interface{}
+			switch req := msg.(type) {
+			case *notebooklmv1alpha1.CreateLabelRequest:
+				encoded = genmethod.EncodeCreateLabelArgs(req)
+			case *notebooklmv1alpha1.MutateLabelsModeRequest:
+				encoded = genmethod.EncodeMutateLabelsModeArgs(req)
+			case *notebooklmv1alpha1.MutateLabelRequest:
+				encoded = genmethod.EncodeMutateLabelArgs(req)
+			}
+			got, err := json.Marshal(encoded)
+			if err != nil {
+				t.Fatalf("marshal encoded args: %v", err)
+			}
+			if string(got) != tt.wire {
+				t.Fatalf("encoder = %s, want %s", got, tt.wire)
+			}
+		})
+	}
+}
+
+// TestBulkImportTextRequestRoundTrip guards the note/text LBwxtb variant with
+// a short synthetic report; no captured report content is retained here.
+func TestBulkImportTextRequestRoundTrip(t *testing.T) {
+	const wire = `[[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],[1],` +
+		`"conversation-id","project-id",[[null,["Report","# Summary\n\nSynthetic text."],null,3,null,null,null,null,null,null,3]]]`
+	method, err := resolveMethod("BulkImportFromResearchWire")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := method.NewRequest()
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+	got, err := json.Marshal(genmethod.EncodeBulkImportFromResearchWireArgs(
+		msg.(*notebooklmv1alpha1.BulkImportFromResearchWireRequest),
+	))
+	if err != nil {
+		t.Fatalf("marshal encoded args: %v", err)
+	}
+	if string(got) != wire {
+		t.Fatalf("encoder = %s, want %s", got, wire)
+	}
+}
+
+// TestAudioFormatsRoundTrip guards the four-position sqTeoe catalog. Its
+// response wrapper must be unwrapped even though catalog field 1 is itself a
+// message containing a repeated message field.
+func TestAudioFormatsRoundTrip(t *testing.T) {
+	const wire = `[[[[[1,"Deep Dive","Audio description"],[2,"Brief","Short audio"]]],` +
+		`[[[1,"Explainer","Video description"],[2,"Brief","Short video"]]],` +
+		`[[[1,"Detailed Deck","Slide description"],[2,"Presenter Slides","Visual slides"]]],` +
+		`[[["Briefing Doc","Key insights","Prompt"],["Study Guide","Quiz","Study prompt"]]]]]`
+
+	msg := &notebooklmv1alpha1.GetAudioFormatsResponse{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got := msg.GetAudioKinds().GetItems(); len(got) != 2 || got[0].GetName() != "Deep Dive" {
+		t.Fatalf("audio kinds decoded wrong: %+v", got)
+	}
+	if got := msg.GetDocTemplates().GetItems(); len(got) != 2 || got[0].GetTitle() != "Briefing Doc" {
+		t.Fatalf("document templates decoded wrong: %+v", got)
 	}
 	deltas, err := diffWireAgainstProto([]byte(wire), msg)
 	if err != nil {
@@ -201,6 +873,57 @@ func TestNoteMetadataRoundTrip(t *testing.T) {
 	}
 	if md.GetModified().GetSeconds() != 1784663867 || md.GetModified().GetNanos() != 426486000 {
 		t.Fatalf("modified decoded wrong: %+v", md.GetModified())
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestCreateNoteRecordRoundTrip guards the explicit empty content string in a
+// freshly allocated CYK0Xb note shell.
+func TestCreateNoteRecordRoundTrip(t *testing.T) {
+	const wire = `["note-id","",` +
+		`[1,"157962509464",[100,200],null,null,[100,200],false],null,"New Note"]`
+
+	msg := &notebooklmv1alpha1.NoteRecord{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if msg.ContentText == nil || msg.GetContentText() != "" {
+		t.Fatalf("content presence lost: %+v", msg)
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestGetNotesResponseRoundTrip guards keyed cFji9 note entries and the
+// response snapshot timestamp.
+func TestGetNotesResponseRoundTrip(t *testing.T) {
+	const wire = `[[["note-id",["note-id","Body",` +
+		`[1,"157962509464",[100,200],null,null,[110,300],false],null,"Title"]]],` +
+		`[120,400]]`
+
+	msg := &notebooklmv1alpha1.GetNotesWireResponse{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	entries := msg.GetEntries()
+	if len(entries) != 1 || entries[0].GetNote().GetContentText() != "Body" {
+		t.Fatalf("entries decoded wrong: %+v", entries)
+	}
+	if msg.GetFetchTime().GetSeconds() != 120 || msg.GetFetchTime().GetNanos() != 400 {
+		t.Fatalf("fetch time decoded wrong: %+v", msg.GetFetchTime())
 	}
 	deltas, err := diffWireAgainstProto([]byte(wire), msg)
 	if err != nil {
@@ -266,6 +989,34 @@ func TestAddSourcesResponseRoundTrip(t *testing.T) {
 	}
 	if sources[0].GetMetadata().GetSourceType() != notebooklmv1alpha1.SourceType_SOURCE_TYPE_SHARED_NOTE {
 		t.Fatalf("source type decoded wrong: %+v", sources[0].GetMetadata())
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestBulkImportFromResearchResponseRoundTrip guards the LBwxtb response:
+// imported sources use the shared enriched Source descriptor.
+func TestBulkImportFromResearchResponseRoundTrip(t *testing.T) {
+	const wire = `[[[["source-id"],"Imported Note",` +
+		`[null,3347,[100,200],["origin-id",[90,100]],8,null,3,null,7246,null,null,null,null,null,[110,300]],` +
+		`[null,2]]]]`
+
+	msg := &notebooklmv1alpha1.BulkImportFromResearchResponse{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	results := msg.GetResults()
+	if len(results) != 1 || results[0].GetSourceId().GetSourceId() != "source-id" {
+		t.Fatalf("results decoded wrong: %+v", results)
+	}
+	if results[0].GetTitle() != "Imported Note" || results[0].GetMetadata().GetField_9() != 7246 {
+		t.Fatalf("source metadata decoded wrong: %+v", results[0])
 	}
 	deltas, err := diffWireAgainstProto([]byte(wire), msg)
 	if err != nil {
