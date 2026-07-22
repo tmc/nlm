@@ -80,3 +80,26 @@ func TestLabelMutationEncoders(t *testing.T) {
 		t.Fatalf("mode args = %#v, want %#v", mode, wantMode)
 	}
 }
+
+func TestMutateLabelEncoders(t *testing.T) {
+	rename := method.EncodeMutateLabelArgs(&pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: "project-1",
+		LabelId:   "label-1",
+		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Name: &pb.LabelNameChange{Name: "Renamed"}}},
+	})
+	wantRename := []interface{}{[]interface{}{float64(2)}, "project-1", "label-1", []interface{}{[]interface{}{[]interface{}{"Renamed"}}}}
+	if !reflect.DeepEqual(rename, wantRename) {
+		t.Fatalf("rename args = %#v, want %#v", rename, wantRename)
+	}
+	attach := method.EncodeMutateLabelArgs(&pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: "project-1",
+		LabelId:   "label-1",
+		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Sources: []*pb.SourceIdList{{SourceId: "src-1"}}}},
+	})
+	wantAttach := []interface{}{[]interface{}{float64(2)}, "project-1", "label-1", []interface{}{[]interface{}{nil, []interface{}{[]interface{}{"src-1"}}}}}
+	if !reflect.DeepEqual(attach, wantAttach) {
+		t.Fatalf("attach args = %#v, want %#v", attach, wantAttach)
+	}
+}

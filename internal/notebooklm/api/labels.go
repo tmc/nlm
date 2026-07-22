@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	genmethod "github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"google.golang.org/protobuf/proto"
@@ -146,7 +147,12 @@ func (c *Client) RenameLabel(projectID, labelID, name string) error {
 	if name == "" {
 		return fmt.Errorf("name required")
 	}
-	return c.mutateLabel(projectID, labelID, []interface{}{[]interface{}{name}})
+	return c.mutateLabelProto(&pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		LabelId:   labelID,
+		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Name: &pb.LabelNameChange{Name: name}}},
+	})
 }
 
 // SetLabelEmoji sets (or clears, if emoji is empty) the emoji on an
@@ -170,10 +176,31 @@ func (c *Client) AttachLabelSource(projectID, labelID, sourceID string) error {
 	if sourceID == "" {
 		return fmt.Errorf("source ID required")
 	}
-	return c.mutateLabel(projectID, labelID, []interface{}{
-		nil,
-		[]interface{}{[]interface{}{sourceID}},
+	return c.mutateLabelProto(&pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		LabelId:   labelID,
+		Mutation: &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{
+			Sources: []*pb.SourceIdList{{SourceId: sourceID}},
+		}},
 	})
+}
+
+func (c *Client) mutateLabelProto(req *pb.MutateLabelRequest) error {
+	if req.GetProjectId() == "" {
+		return fmt.Errorf("project ID required")
+	}
+	if req.GetLabelId() == "" {
+		return fmt.Errorf("label ID required")
+	}
+	if _, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateLabel,
+		NotebookID: req.GetProjectId(),
+		Args:       genmethod.EncodeMutateLabelArgs(req),
+	}); err != nil {
+		return fmt.Errorf("mutate label: %w", err)
+	}
+	return nil
 }
 
 // mutateLabel calls le8sX with the inner mutation payload. The outer envelope
