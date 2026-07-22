@@ -1,0 +1,8 @@
+commit=bd2fd0b040adfac5ce1ef060e0c2354ef1ebdbcb
+date=2026-07-22T04:20:46Z
+tool=git commit -S (git-auto-commit-message unavailable: Anthropic credit exhaustion)
+model=GPT-5 Codex
+tty=not a tty
+pid=5157
+session=w2t1p17:D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=GetLabels populated/empty proto equivalence and generated encoder tests pass; GOWORK=off go test -count=1 ./... passed; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm passed; no JSONL corpus was present for audit-corpus
