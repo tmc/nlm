@@ -5802,9 +5802,10 @@ func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, err
 // GetDeepResearchSessions; ConversationID is the key for
 // DeleteDeepResearch.
 //
-// Wire shape verified across three independent CDP captures spanning
-// 2026-04-10 through 2026-04-17, three different notebooks and three
-// different queries. Request args are five positions:
+// The existing client shape is preserved across the generated encoder. The
+// current web capture uses a context envelope at position 0 and null at
+// position 1; adopting that variant requires a live server check. Request
+// args are five positions:
 //
 //	[0] nil               placeholder
 //	[1] [1]               opaque one-element list; likely a
