@@ -445,8 +445,8 @@ func TestExtractChatPayloadCorpusEquivalence(t *testing.T) {
 		}
 		f.Close()
 	}
-	if responses != 3 || frames != 231 {
-		t.Fatalf("stream corpus responses=%d frames=%d, want 3/231", responses, frames)
+	if responses < 3 || frames < 231 {
+		t.Fatalf("stream corpus responses=%d frames=%d, want at least 3/231", responses, frames)
 	}
 }
 

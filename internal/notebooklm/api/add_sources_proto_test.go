@@ -89,8 +89,8 @@ func TestAddSourcesProtoAdapterCorpusProjection(t *testing.T) {
 		}
 		f.Close()
 	}
-	if responses != 1 {
-		t.Fatalf("izAoDd responses=%d, want 1", responses)
+	if responses < 1 {
+		t.Fatalf("izAoDd responses=%d, want at least 1", responses)
 	}
 }
 

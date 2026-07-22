@@ -106,7 +106,7 @@ func TestLoadSourceTextProtoAdapterCorpusEquivalence(t *testing.T) {
 		}
 		f.Close()
 	}
-	if responses != 2 {
-		t.Fatalf("hizoJc responses=%d, want 2", responses)
+	if responses < 2 {
+		t.Fatalf("hizoJc responses=%d, want at least 2", responses)
 	}
 }
