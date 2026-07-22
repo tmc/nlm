@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
-// AccountStatus is the current ZwVcOc account/status response.
-//
-// The wire response is not the generated Account proto. It is a compact status
-// array with limit and feature data; older code decoded it positionally as an
-// email address and settings fields.
+// AccountStatus is the public projection of the ZwVcOc account/status response.
+// The generated Account message owns the wire shape; this type preserves the
+// compact quota API used by existing callers.
 type AccountStatus struct {
 	NotebookLimit int `json:"notebook_limit,omitempty"`
 	SourceLimit   int `json:"source_limit,omitempty"`
@@ -19,7 +19,7 @@ type AccountStatus struct {
 	Tier          int `json:"tier,omitempty"`
 }
 
-// GetAccountStatus dispatches ZwVcOc and decodes the current status shape.
+// GetAccountStatus dispatches ZwVcOc and projects the generated account shape.
 func (c *Client) GetAccountStatus() (*AccountStatus, error) {
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:   rpc.RPCGetOrCreateAccount,
@@ -28,11 +28,28 @@ func (c *Client) GetAccountStatus() (*AccountStatus, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get account status: %w", err)
 	}
-	status, err := parseAccountStatus(resp)
+	status, err := parseAccountStatusProto(resp)
 	if err != nil {
 		return nil, fmt.Errorf("get account status: decode response: %w", err)
 	}
 	return status, nil
+}
+
+func parseAccountStatusProto(raw []byte) (*AccountStatus, error) {
+	account := new(pb.Account)
+	if err := beprotojson.Unmarshal(raw, account); err != nil {
+		return nil, fmt.Errorf("account proto decode: %w", err)
+	}
+	limits := account.GetLimits()
+	if limits == nil {
+		return nil, fmt.Errorf("missing account limits")
+	}
+	return &AccountStatus{
+		NotebookLimit: int(limits.GetNotebookLimit()),
+		SourceLimit:   int(limits.GetSourceLimit()),
+		UploadLimit:   int(limits.GetUploadLimit()),
+		Tier:          int(limits.GetTier_2()),
+	}, nil
 }
 
 func parseAccountStatus(b []byte) (*AccountStatus, error) {
