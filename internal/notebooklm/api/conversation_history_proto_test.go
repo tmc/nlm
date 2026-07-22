@@ -34,7 +34,20 @@ func TestGetConversationHistoryRequestEncoder(t *testing.T) {
 	}
 }
 
-func TestConversationHistoryProtoAdapterCorpusEquivalence(t *testing.T) {
+func TestConversationMessagesFromProto(t *testing.T) {
+	got := conversationMessagesFromProto(&pb.GetConversationHistoryResponse{Messages: []*pb.ChatMessage{
+		{MessageId: "user-1", Role: 1, Text: "Question"},
+		{MessageId: "assistant-1", Role: 2, RichContent: &pb.RichContent{Segment: &pb.ContentSegment{Text: "Answer"}}},
+		{MessageId: "empty", Role: 2},
+	}})
+	want := []ChatMessage{
+		{MessageID: "user-1", Role: 1, Content: "Question"},
+		{MessageID: "assistant-1", Role: 2, Content: "Answer"},
+	}
+	assertEquivalent(t, "conversation history projection", want, got)
+}
+
+func TestConversationHistoryProtoAdapterCorpusProjection(t *testing.T) {
 	var files []string
 	err := filepath.WalkDir("/tmp/nlm-traffic", func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -48,7 +61,7 @@ func TestConversationHistoryProtoAdapterCorpusEquivalence(t *testing.T) {
 	if err != nil || len(files) == 0 {
 		t.Skip("/tmp/nlm-traffic corpus is not available")
 	}
-	responses := 0
+	responses, messages := 0, 0
 	for _, file := range files {
 		f, err := os.Open(file)
 		if err != nil {
@@ -85,15 +98,17 @@ func TestConversationHistoryProtoAdapterCorpusEquivalence(t *testing.T) {
 					continue
 				}
 				responses++
-				legacy, err := parseConversationHistoryLegacy(response.Data)
-				if err != nil {
-					t.Fatalf("%s:%d: legacy parse: %v", file, record, err)
-				}
 				var generated pb.GetConversationHistoryResponse
 				if err := beprotojson.Unmarshal(response.Data, &generated); err != nil {
 					t.Fatalf("%s:%d: proto decode: %v", file, record, err)
 				}
-				assertEquivalent(t, fmt.Sprintf("%s:%d", file, record), legacy, conversationMessagesFromProto(&generated))
+				got := conversationMessagesFromProto(&generated)
+				for i, message := range got {
+					if message.MessageID == "" || message.Content == "" || message.Role == 0 {
+						t.Fatalf("%s:%d message %d: %+v", file, record, i, message)
+					}
+				}
+				messages += len(got)
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -103,5 +118,8 @@ func TestConversationHistoryProtoAdapterCorpusEquivalence(t *testing.T) {
 	}
 	if responses < 5 {
 		t.Fatalf("khqZz responses=%d, want at least 5", responses)
+	}
+	if messages < 26 {
+		t.Fatalf("khqZz messages=%d, want at least 26", messages)
 	}
 }
