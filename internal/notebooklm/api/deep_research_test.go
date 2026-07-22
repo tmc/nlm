@@ -245,7 +245,7 @@ func TestDeepResearchGeneratedCorpusEquivalence(t *testing.T) {
 						continue
 					}
 					for j := range legacySources {
-						if got.Sources[j].URL != legacySources[j].URL || got.Sources[j].Title != legacySources[j].Title || got.Sources[j].Snippet != legacySources[j].Snippet || got.Sources[j].Rank != legacySources[j].Rank {
+						if got.Sources[j] != legacySources[j] {
 							t.Errorf("%s:%d session %d source %d differs: generated=%+v legacy=%+v", file, record, i, j, got.Sources[j], legacySources[j])
 						}
 					}

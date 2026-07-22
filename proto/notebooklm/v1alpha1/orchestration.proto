@@ -2568,6 +2568,7 @@ message DeepResearchReportEntry {
     optional string title = 2;
     optional string summary = 3;
     optional int32 kind = 4;
+    optional string favicon_url = 6;
     DeepResearchReportDetail detail = 7;
     optional bool selected = 8 [(json_bool) = true];
     optional int32 rank = 9;

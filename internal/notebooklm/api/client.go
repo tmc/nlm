@@ -6005,13 +6005,18 @@ func parseDeepResearchSessionsProto(resp json.RawMessage) ([]deepResearchSession
 		} else {
 			ds.Report = main.GetExtra()
 		}
-		for i, entry := range entries[offset:] {
+		for _, entry := range entries[offset:] {
 			if entry == nil {
 				continue
 			}
+			citationIndex := 0
+			if ds.Mode == 5 {
+				citationIndex = int(entry.GetRank())
+			}
 			ds.Sources = append(ds.Sources, ResearchSource{
 				URL: entry.GetUrl(), Title: entry.GetTitle(),
-				Snippet: entry.GetSummary(), Rank: 1, CitationIndex: i + 1,
+				Snippet: entry.GetSummary(), Rank: int(entry.GetKind()),
+				FaviconURL: entry.GetFaviconUrl(), CitationIndex: citationIndex,
 			})
 		}
 		sessions = append(sessions, ds)
