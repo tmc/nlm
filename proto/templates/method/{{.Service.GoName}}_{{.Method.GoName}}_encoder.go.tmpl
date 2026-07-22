@@ -26,8 +26,9 @@ import (
 // RPC ID: {{$rpcID}}
 // Argument format: {{$argFormat}}
 func Encode{{.Method.GoName}}Args(req *{{$pkgName}}.{{.Method.Input.GoIdent.GoName}}) []interface{} {
-	// Using generalized argument encoder
-	args, err := argbuilder.EncodeRPCArgs(req, "{{$argFormat}}")
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
+	args, err := argbuilder.EncodeRPCArgs(req, {{printf "%q" $argFormat}})
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

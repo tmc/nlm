@@ -24,6 +24,24 @@ func TestEncodeRenameArtifactArgs(t *testing.T) {
 	}
 }
 
+func TestEncodeGenerateNotebookGuideArgs(t *testing.T) {
+	got := EncodeGenerateNotebookGuideArgs(&notebooklmv1alpha1.GenerateNotebookGuideRequest{
+		ProjectId: "project-id",
+	})
+	want := `["project-id",[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`
+	if gotJSON := mustJSON(t, got); gotJSON != want {
+		t.Fatalf("EncodeGenerateNotebookGuideArgs = %s, want %s", gotJSON, want)
+	}
+}
+
+func TestEncodeGenerateArtifactSuggestionsArgs(t *testing.T) {
+	got := EncodeGenerateArtifactSuggestionsArgs(2, "project-id", []string{"source-a", "source-b"}, 1)
+	want := `[[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],"project-id",[["source-a"],["source-b"]],1]`
+	if gotJSON := mustJSON(t, got); gotJSON != want {
+		t.Fatalf("EncodeGenerateArtifactSuggestionsArgs = %s, want %s", gotJSON, want)
+	}
+}
+
 func readGoldenPayload(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.FromSlash(path))
