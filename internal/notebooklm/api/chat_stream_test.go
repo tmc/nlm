@@ -153,6 +153,26 @@ func TestBuildChatArgsUsesProtoBackedConversationState(t *testing.T) {
 	}
 }
 
+func TestBuildChatArgsCorpusShape(t *testing.T) {
+	t.Parallel()
+
+	c := &Client{}
+	got, err := c.buildChatArgs(ChatRequest{
+		ProjectID:      "project-id",
+		Prompt:         "prompt",
+		SourceIDs:      []string{"source-id"},
+		ConversationID: "conversation-id",
+		SeqNum:         1,
+	})
+	if err != nil {
+		t.Fatalf("buildChatArgs() error = %v", err)
+	}
+	want := `[[[["source-id"]]],"prompt",[],[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1]]],"conversation-id",null,null,"project-id",1]`
+	if got != want {
+		t.Fatalf("buildChatArgs() = %s, want %s", got, want)
+	}
+}
+
 func mockChatStream(t *testing.T, texts ...string) string {
 	t.Helper()
 

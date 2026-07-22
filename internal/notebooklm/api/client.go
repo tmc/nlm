@@ -4141,7 +4141,27 @@ func nilIfEmpty(s string) interface{} {
 // buildChatArgs builds the inner JSON args for a chat request.
 // Wire format: [[[[source_ids]]],prompt,history,[2,null,[1],[1]],conv_id,null,null,notebook_id,seq_num]
 func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
-	args := buildChatWireArgs(c.buildChatWireRequest(req))
+	wireReq := c.buildChatWireRequest(req)
+	sources := make([]*pb.ChatSourceSelection, 0, len(wireReq.SourceIDs))
+	for _, sourceID := range wireReq.SourceIDs {
+		sources = append(sources, &pb.ChatSourceSelection{Source: &pb.SourceIdList{SourceId: sourceID}})
+	}
+	var history []*pb.GenerateFreeFormStreamedHistoryEntry
+	if len(wireReq.History) > 0 {
+		history = make([]*pb.GenerateFreeFormStreamedHistoryEntry, 0, len(wireReq.History))
+		for _, entry := range wireReq.History {
+			history = append(history, &pb.GenerateFreeFormStreamedHistoryEntry{Content: entry.Content, Role: entry.Role})
+		}
+	}
+	args := method.EncodeGenerateFreeFormStreamedWireArgs(&pb.GenerateFreeFormStreamedWireRequest{
+		Sources:        sources,
+		Prompt:         wireReq.Prompt,
+		History:        history,
+		Options:        &pb.ChatStreamOptions{Mode: wireReq.Options.Mode, CitationModes: &pb.Int32List{Value: 1}, FollowUp: &pb.ChatFollowUpOptions{Enabled: 1, Modes: []int32{1}}},
+		ConversationId: wireReq.ConversationID,
+		NotebookId:     wireReq.NotebookID,
+		SequenceNumber: wireReq.SequenceNumber,
+	})
 
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
