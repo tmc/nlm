@@ -1,0 +1,1 @@
+2026-07-21; tool=Codex; model=gpt-5; tty=api; pid=unknown; iterm_session=D9E309FF-A757-42C8-A7AF-1BC81556D00C; verification=GOWORK=off go test -count=1 ./...; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm; proto buf generate zero drift; corpus gArtLc generated/legacy audio projection matched.
