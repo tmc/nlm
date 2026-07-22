@@ -1,0 +1,7 @@
+date=2026-07-22T02:20:40-07:00
+tool=manual git commit -S
+model=Codex GPT-5
+tty=not a tty
+pid=52140
+session=D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=AddSources corpus projection test; buf/build/full tests run before commit
