@@ -1,10 +1,13 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // Label is one autolabel cluster returned by GetLabels (I3xc3c). The wire
@@ -27,15 +30,37 @@ func (c *Client) GetLabels(projectID string) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetLabels,
-		NotebookID: projectID,
-		Args:       []interface{}{[]interface{}{2}, projectID},
+	response, err := c.orchestrationService.GetLabels(context.Background(), &pb.GetLabelsRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get labels: %w", err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(response), nil
+}
+
+func labelsFromProtoResponse(response *pb.GetLabelsResponse) []Label {
+	if response == nil {
+		return nil
+	}
+	labels := make([]Label, 0, len(response.GetLabels()))
+	for _, label := range response.GetLabels() {
+		if label == nil {
+			continue
+		}
+		item := Label{Name: label.GetName(), LabelID: label.GetLabelId()}
+		for _, source := range label.GetSources() {
+			if sourceID := source.GetSourceId(); sourceID != "" {
+				item.SourceIDs = append(item.SourceIDs, sourceID)
+			}
+		}
+		if item.LabelID == "" && item.Name == "" {
+			continue
+		}
+		labels = append(labels, item)
+	}
+	return labels
 }
 
 // CreateLabel creates a new manual label and returns the refreshed label
