@@ -1,0 +1,8 @@
+commit=81cd11a9f26aec0a7a1aff659e475371ceb1de83
+date=2026-07-22T04:26:18Z
+tool=git commit -S
+model=GPT-5 Codex
+tty=not a tty
+pid=9579
+session=w2t1p17:D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=ProjectDetails proto/legacy fixture equivalence and flag fallback tests pass; GOWORK=off go test -count=1 ./... passed; /tmp/nlm-codex rebuild passed; generated drift unchanged
