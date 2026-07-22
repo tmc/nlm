@@ -9,15 +9,16 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/beprotojson"
 )
 
-func TestParseNotesResponse(t *testing.T) {
+func TestNotesFromWireResponse(t *testing.T) {
 	resp := []byte(`[[["note-1",["note-1","hello",[2,"157962509464",[1775436871,282578000]],null,"Test Note"]],["note-2",["note-2","world",[2,"157962509464",[1775436881,282578000]],null,"Second Note"]]],[1775601602,875155000]]`)
-
-	notes, err := parseNotesResponse(resp)
-	if err != nil {
-		t.Fatalf("parseNotesResponse() error = %v", err)
+	var wire pb.GetNotesWireResponse
+	if err := beprotojson.Unmarshal(resp, &wire); err != nil {
+		t.Fatalf("decode notes: %v", err)
 	}
+	notes := notesFromWireResponse(&wire)
 	if len(notes) != 2 {
 		t.Fatalf("len(notes) = %d, want 2", len(notes))
 	}

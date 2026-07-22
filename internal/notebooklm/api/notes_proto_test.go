@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,19 +14,18 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 )
 
-func TestGetNotesProtoAdapterMatchesLegacyParser(t *testing.T) {
+func TestGetNotesProtoAdapterProjection(t *testing.T) {
 	raw := []byte(`[[["note-1",["note-1","body",[1,"157962509464",[1775436871,282578000],null,null,[1775436871,282578000],false],null,"Title","Rich",[1]]],["note-2",["note-2","",null,null,"Second","",[2]]]]]`)
-
-	legacy, err := parseNotesResponse(raw)
-	if err != nil {
-		t.Fatalf("legacy parser: %v", err)
-	}
 	var wire pb.GetNotesWireResponse
 	if err := beprotojson.Unmarshal(raw, &wire); err != nil {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := notesFromWireResponse(&wire)
-	assertEquivalent(t, "notes adaptation", legacy, got)
+	want := []*pb.Note{
+		{NoteId: "note-1", ContentText: "body", Title: "Title", RichText: "Rich"},
+		{NoteId: "note-2", Title: "Second"},
+	}
+	assertEquivalent(t, "notes adaptation", want, got)
 }
 
 func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {
@@ -40,7 +38,7 @@ func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {
 	}
 }
 
-func TestGetNotesProtoAdapterCorpusEquivalence(t *testing.T) {
+func TestGetNotesProtoAdapterCorpusProjection(t *testing.T) {
 	var files []string
 	err := filepath.WalkDir("/tmp/nlm-traffic", func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -91,15 +89,19 @@ func TestGetNotesProtoAdapterCorpusEquivalence(t *testing.T) {
 					continue
 				}
 				responses++
-				legacy, err := parseNotesResponse(rpcResponse.Data)
-				if err != nil {
-					t.Fatalf("%s:%d: legacy parse: %v", file, record, err)
-				}
 				var wire pb.GetNotesWireResponse
 				if err := beprotojson.Unmarshal(rpcResponse.Data, &wire); err != nil {
 					t.Fatalf("%s:%d: proto decode: %v", file, record, err)
 				}
-				assertEquivalent(t, fmt.Sprintf("%s:%d", file, record), legacy, notesFromWireResponse(&wire))
+				got := notesFromWireResponse(&wire)
+				if len(got) > len(wire.GetEntries()) {
+					t.Fatalf("%s:%d: notes=%d entries=%d", file, record, len(got), len(wire.GetEntries()))
+				}
+				for i, note := range got {
+					if note.GetNoteId() == "" {
+						t.Fatalf("%s:%d: note %d has no ID", file, record, i)
+					}
+				}
 			}
 		}
 		if err := scanner.Err(); err != nil {

@@ -1641,54 +1641,6 @@ func noteFromRecord(note *pb.NoteRecord) *pb.Note {
 	}
 }
 
-func parseNotesResponse(resp []byte) ([]*Note, error) {
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse notes response: %w", err)
-	}
-
-	items := data
-	if top, ok := interfaceSliceAt(data, 0); ok {
-		items = top
-	}
-
-	notes := make([]*Note, 0, len(items))
-	for _, item := range items {
-		note := parseNoteFromResponse(item)
-		if note != nil {
-			notes = append(notes, note)
-		}
-	}
-	return notes, nil
-}
-
-func parseNoteFromResponse(data interface{}) *Note {
-	wrapper, ok := data.([]interface{})
-	if !ok || len(wrapper) == 0 {
-		return nil
-	}
-
-	noteData := wrapper
-	if nested, ok := interfaceSliceAt(wrapper, 1); ok {
-		noteData = nested
-	}
-
-	noteID := stringAt(wrapper, 0)
-	if noteID == "" {
-		noteID = stringAt(noteData, 0)
-	}
-	if noteID == "" {
-		return nil
-	}
-
-	return &pb.Note{
-		NoteId:      noteID,
-		ContentText: stringAt(noteData, 1),
-		Title:       stringAt(noteData, 4),
-		RichText:    stringAt(noteData, 5),
-	}
-}
-
 // Audio operations
 
 func universalArtifactRequestContext() *pb.RequestContext {
