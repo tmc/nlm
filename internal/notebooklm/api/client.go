@@ -3026,12 +3026,14 @@ func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
 
 // ListArtifacts returns artifacts for a project using direct RPC
 func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
+	req := &pb.ListArtifactsRequest{
+		Context:   universalArtifactRequestContext(),
+		ProjectId: projectID,
+		Filter:    `NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"`,
+	}
 	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCListArtifacts,
-		Args: []interface{}{
-			[]interface{}{2}, // filter parameter - 2 seems to be for all artifacts
-			projectID,
-		},
+		ID:         rpc.RPCListArtifacts,
+		Args:       method.EncodeListArtifactsArgs(req),
 		NotebookID: projectID,
 	})
 	if err != nil {
