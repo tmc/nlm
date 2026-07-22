@@ -1747,7 +1747,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteLabels(ctx context.Contex
 	call := rpc.Call{
 		ID:         "GyzE7e",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       method.EncodeDeleteLabelsArgs(req),
 	}
 
 	// Execute the RPC

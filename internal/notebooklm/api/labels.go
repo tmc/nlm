@@ -239,14 +239,9 @@ func (c *Client) DeleteLabels(projectID string, labelIDs []string) error {
 	if len(labelIDs) == 0 {
 		return fmt.Errorf("at least one label ID required")
 	}
-	ids := make([]interface{}, len(labelIDs))
-	for i, id := range labelIDs {
-		ids[i] = id
-	}
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCDeleteLabels,
-		NotebookID: projectID,
-		Args:       []interface{}{[]interface{}{2}, projectID, ids},
+	_, err := c.orchestrationService.DeleteLabels(context.Background(), &pb.DeleteLabelsRequest{
+		ProjectId: projectID,
+		LabelIds:  labelIDs,
 	})
 	if err != nil {
 		return fmt.Errorf("delete labels: %w", err)

@@ -81,6 +81,17 @@ func TestLabelMutationEncoders(t *testing.T) {
 	}
 }
 
+func TestDeleteLabelsRequestEncoder(t *testing.T) {
+	got := method.EncodeDeleteLabelsArgs(&pb.DeleteLabelsRequest{
+		ProjectId: "project-1",
+		LabelIds:  []string{"label-1", "label-2"},
+	})
+	want := []interface{}{[]interface{}{2}, "project-1", []string{"label-1", "label-2"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("delete args = %#v, want %#v", got, want)
+	}
+}
+
 func TestMutateLabelEncoders(t *testing.T) {
 	rename := method.EncodeMutateLabelArgs(&pb.MutateLabelRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},

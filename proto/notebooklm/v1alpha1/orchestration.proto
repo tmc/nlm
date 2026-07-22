@@ -1592,7 +1592,8 @@ service LabsTailwindOrchestrationService {
     }
     rpc DeleteLabels(DeleteLabelsRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "GyzE7e";
-        // wire shape unverified; capture HAR before encoding
+        // HAR-verified wire shape: [[2], project_id, [label_id, ...]].
+        option (arg_format) = "[[2], %project_id%, %label_ids%]";
     }
 
     // GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
@@ -3215,7 +3216,8 @@ message MutateLabelResponse {
 }
 
 message DeleteLabelsRequest {
-    repeated string label_ids = 1;
+    string project_id = 1;
+    repeated string label_ids = 2;
 }
 
 // GenerateArtifact (Rytqqe) — distinct from CreateArtifact (xpWGLf)
