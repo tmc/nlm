@@ -3785,45 +3785,26 @@ type SourceGuide struct {
 // with the 4-level nested shape [[[["source_id"]]]]. The response shape is
 // [[[null, ["summary"], [["topic", "topic", ...]], []]]].
 func (c *Client) GenerateSourceGuide(sourceID string) (*SourceGuide, error) {
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGenerateDocumentGuides,
-		Args: []interface{}{
-			[]interface{}{
-				[]interface{}{
-					[]interface{}{sourceID},
-				},
-			},
-		},
+	resp, err := c.orchestrationService.GenerateDocumentGuides(context.Background(), &pb.GenerateDocumentGuidesRequest{
+		Sources: &pb.GenerateDocumentGuideSources{Source: &pb.GenerateDocumentGuideSource{
+			Source: &pb.SourceIdList{SourceId: sourceID},
+		}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generate source guide: %w", err)
 	}
-	var outer [][]interface{}
-	if err := json.Unmarshal(resp, &outer); err != nil {
-		return nil, fmt.Errorf("generate source guide: unmarshal response: %w", err)
-	}
+	return sourceGuideFromProto(resp), nil
+}
+
+func sourceGuideFromProto(resp *pb.GenerateDocumentGuidesResponse) *SourceGuide {
 	g := &SourceGuide{}
-	if len(outer) == 0 || len(outer[0]) == 0 {
-		return g, nil
+	if resp == nil || len(resp.GetGuides()) == 0 {
+		return g
 	}
-	inner, _ := outer[0][0].([]interface{})
-	if len(inner) >= 2 {
-		if sumArr, ok := inner[1].([]interface{}); ok && len(sumArr) > 0 {
-			g.Summary, _ = sumArr[0].(string)
-		}
-	}
-	if len(inner) >= 3 {
-		if topicOuter, ok := inner[2].([]interface{}); ok && len(topicOuter) > 0 {
-			if topicArr, ok := topicOuter[0].([]interface{}); ok {
-				for _, t := range topicArr {
-					if s, ok := t.(string); ok {
-						g.KeyTopics = append(g.KeyTopics, s)
-					}
-				}
-			}
-		}
-	}
-	return g, nil
+	guide := resp.GetGuides()[0]
+	g.Summary = guide.GetSummary().GetText()
+	g.KeyTopics = append(g.KeyTopics, guide.GetTopics().GetTopics()...)
+	return g
 }
 
 func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGuideResponse, error) {
