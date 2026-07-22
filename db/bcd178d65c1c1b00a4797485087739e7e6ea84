@@ -1,0 +1,7 @@
+date=2026-07-22T02:13:36-07:00
+tool=manual git commit -S
+model=Codex GPT-5
+tty=not a tty
+pid=43294
+session=D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=buf generate zero drift; GOWORK=off go build ./cmd/nlm; clean GOWORK=off go test -count=1 ./...; hizoJc generated-vs-positional projection 2/2; exact encoder test pass
