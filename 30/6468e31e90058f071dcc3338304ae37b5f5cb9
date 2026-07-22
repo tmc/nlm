@@ -1,0 +1,1 @@
+2026-07-22; tool=Codex; model=gpt-5; tty=api; pid=unknown; iterm_session=D9E309FF-A757-42C8-A7AF-1BC81556D00C; verification=GOWORK=off go test ./internal/notebooklm/api -run TestDeepResearchGeneratedCorpusEquivalence -count=1; all 24 e3bVqc responses match complete ResearchSource structs including rank, citation_index, and favicon; additive proto field 6 regenerated with buf.
