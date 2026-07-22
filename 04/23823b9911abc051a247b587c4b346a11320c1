@@ -1,0 +1,1 @@
+2026-07-22; tool=Codex; model=gpt-5; tty=api; pid=unknown; iterm_session=D9E309FF-A757-42C8-A7AF-1BC81556D00C; verification=GOWORK=off go test ./internal/notebooklm/api -run TestGetNotesProtoAdapterCorpusEquivalence -count=1; all 6 non-empty cFji9 corpus responses match generated and legacy public projections; CLI fixture gate remains.
