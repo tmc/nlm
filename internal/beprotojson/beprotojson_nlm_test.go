@@ -1,6 +1,7 @@
 package beprotojson
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -90,11 +91,19 @@ func TestUnmarshal(t *testing.T) {
 								Seconds: 1728034802,
 								Nanos:   578385000,
 							},
+							RevisionData: &pb.RevisionData{
+								RevisionId: "0319adc7-1458-4555-a813-17aff0f72938",
+								RevisionTime: &timestamppb.Timestamp{
+									Seconds: 1728034801,
+									Nanos:   818692000,
+								},
+							},
 							SourceType: pb.SourceType_SOURCE_TYPE_YOUTUBE_VIDEO,
 							MetadataType: &pb.SourceMetadata_Youtube{
 								Youtube: &pb.YoutubeSourceMetadata{
 									YoutubeUrl: "https://www.youtube.com/watch?v=hkhDdcM5V94",
 									VideoId:    "hkhDdcM5V94",
+									Channel:    "AI Engineer",
 								},
 							},
 						},
@@ -105,8 +114,11 @@ func TestUnmarshal(t *testing.T) {
 				},
 				Emoji: "🕵️",
 				Metadata: &pb.ProjectMetadata{
-					UserRole: 1,
-					Type:     1,
+					UserRole:      1,
+					SessionActive: proto.Bool(false),
+					IsInitialized: proto.Bool(true),
+					IsStarred:     proto.Bool(false),
+					Type:          1,
 					CreateTime: &timestamppb.Timestamp{
 						Seconds: 1731827837,
 						Nanos:   76688000,
@@ -161,6 +173,64 @@ func TestUnmarshal(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSpanGroupLoneSpanElement(t *testing.T) {
+	// A one-element SpanGroup can elide the repeated-field wrapper. The lone
+	// Span must still be recognized as one shape-union element, not three
+	// positional fields (start, end, content).
+	const wire = `[[[0,11,[[[0,11,["Source Name"]]]]]]]`
+	var got pb.SpanGroup
+	if err := Unmarshal([]byte(wire), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.GetSpans()) != 1 {
+		t.Fatalf("spans = %d, want 1", len(got.GetSpans()))
+	}
+	span := got.GetSpans()[0].GetSpan()
+	if span == nil || span.GetStart() != 0 || span.GetEnd() != 11 {
+		t.Fatalf("span = %v, want [0, 11, ...]", span)
+	}
+	children := span.GetContent().GetGroup().GetSpans()
+	if len(children) != 1 || children[0].GetSpan().GetContent().GetLeaf().GetText() != "Source Name" {
+		t.Fatalf("nested content = %v, want Source Name", children)
+	}
+	out, err := Marshal(&got)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !jsonWireEqualIgnoringTrailingNulls(out, []byte(wire)) {
+		t.Fatalf("round-trip after trailing-null elision = %s, want %s", out, wire)
+	}
+}
+
+func jsonWireEqualIgnoringTrailingNulls(a, b []byte) bool {
+	var av, bv any
+	if json.Unmarshal(a, &av) != nil || json.Unmarshal(b, &bv) != nil {
+		return false
+	}
+	aa, _ := json.Marshal(trimTrailingNulls(av))
+	bb, _ := json.Marshal(trimTrailingNulls(bv))
+	return string(aa) == string(bb)
+}
+
+func trimTrailingNulls(v any) any {
+	switch x := v.(type) {
+	case []any:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = trimTrailingNulls(item)
+		}
+		for len(out) > 0 && out[len(out)-1] == nil {
+			out = out[:len(out)-1]
+		}
+		return out
+	case map[string]any:
+		for key, item := range x {
+			x[key] = trimTrailingNulls(item)
+		}
+	}
+	return v
 }
 func TestUnmarshalProjectAnalytics(t *testing.T) {
 	got := &pb.ProjectAnalytics{}
@@ -239,7 +309,7 @@ func TestUnmarshalFeaturedProjectsResponse(t *testing.T) {
 				},
 			},
 			Presentation: &pb.FeaturedProjectPresentation{
-				Curated: false,
+				Curated: proto.Bool(false),
 				Images: []*pb.FeaturedProjectImage{{
 					Url: "https://example.com/cover.png",
 				}},
@@ -271,8 +341,11 @@ func TestUnmarshalOptions(t *testing.T) {
 				ProjectId: "id1",
 				Emoji:     "📚",
 				Metadata: &pb.ProjectMetadata{
-					UserRole: 1,
-					Type:     1,
+					UserRole:      1,
+					SessionActive: proto.Bool(false),
+					IsInitialized: proto.Bool(true),
+					IsStarred:     proto.Bool(false),
+					Type:          1,
 					CreateTime: &timestamppb.Timestamp{
 						Seconds: 1731827837,
 						Nanos:   76688000,
@@ -434,7 +507,7 @@ func TestMarshalProject(t *testing.T) {
 				ProjectId: "id1",
 				Emoji:     "📚",
 			},
-			want: `["My Project",null,"id1","📚",null,null,null,null]`,
+			want: `["My Project",null,"id1","📚",null,null,null,null,null,null,null,null,null,null,null]`,
 		},
 		{
 			name: "nil message",
