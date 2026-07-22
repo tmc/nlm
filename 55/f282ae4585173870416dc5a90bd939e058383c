@@ -1,1 +1,8 @@
-commit=55f282ae4585173870416dc5a90bd939e058383c\ndate=2026-07-22T05:23:52Z\ntool=Codex\nmodel=GPT-5\ntty=not a tty\npid=66885\nsession=D9E309FF-A757-42C8-A7AF-1BC81556D00C\nverification=GOWORK=off go test -count=1 ./... PASS; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm PASS; exact DeleteSources wire JSON test PASS; no proto changes; no generated drift applicable; worktree clean after commit
+commit=55f282ae4585173870416dc5a90bd939e058383c
+date=2026-07-22T05:24:01Z
+tool=Codex
+model=GPT-5
+tty=not a tty
+pid=67000
+session=D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=GOWORK=off go test -count=1 ./... PASS; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm PASS; exact DeleteSources wire JSON test PASS; no proto changes; no generated drift applicable; worktree clean after commit
