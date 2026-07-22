@@ -1198,11 +1198,9 @@ service LabsTailwindOrchestrationService {
     }
     rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse) {
         option (rpc_id) = "wXbhsf";
-        // Constant preamble matching the web UI's captured request. The client
-        // capabilities block and the all-empty filter scaffold are fixed; the
-        // server treats the empty filter as "no filter" (same result set as the
-        // shorter [null, 1, null, [2]] form the client sent previously).
-        option (arg_format) = "[null, 1, null, [2, null, null, [1, null, null, null, null, null, null, null, null, null, [1]]], null, [[null, null, []], [[]], [null, []]]]";
+        // HAR/live-server-verified request shape. The longer client-capability
+        // and empty-filter scaffold is rejected by the server.
+        option (arg_format) = "[null, 1, null, [2]]";
         option (chunked_response) = true;
     }
     rpc MutateProject(MutateProjectRequest) returns (Project) {
