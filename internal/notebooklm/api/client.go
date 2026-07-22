@@ -5958,10 +5958,9 @@ func decodeFastMainBlob(main json.RawMessage) (string, []ResearchSource) {
 //
 // Response: empty JSON array on success.
 func (c *Client) DeleteDeepResearch(projectID, conversationID string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCDeleteDeepResearch,
-		NotebookID: projectID,
-		Args:       deleteDeepResearchArgs(conversationID, projectID),
+	_, err := c.orchestrationService.DeleteDeepResearch(context.Background(), &pb.DeleteDeepResearchRequest{
+		ProjectId:      projectID,
+		ConversationId: conversationID,
 	})
 	if err != nil {
 		return fmt.Errorf("delete deep research: %w", err)
@@ -5969,9 +5968,8 @@ func (c *Client) DeleteDeepResearch(projectID, conversationID string) error {
 	return nil
 }
 
-// deleteDeepResearchArgs produces the 4-position LBwxtb delete shape.
-// Exposed as a pure function so tests can golden-check the encoding
-// without the rpc.Client round-trip.
+// deleteDeepResearchArgs is the legacy 4-position LBwxtb shape retained as a
+// fixture oracle. Live calls use the generated request encoder above.
 func deleteDeepResearchArgs(conversationID, projectID string) []interface{} {
 	return []interface{}{
 		nil,

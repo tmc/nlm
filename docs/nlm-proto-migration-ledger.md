@@ -21,7 +21,7 @@ it.
 | Audio/video results | unverified | unverified | legacy | unverified | partial | legacy/proto mixed | retained |
 | Analytics | **blocked**: observed AUrzMb is metric-series data, while static `ProjectAnalytics` models scalar counts; `TestAnalyticsProtoModelIsNotSeriesModel` locks this mismatch | blocked pending corrected proto shape and adapter | legacy | pending | pass: generated request encoder exists but response model is wrong | legacy | retained with evidence: do not decode series as scalar account metrics |
 | Conversation history | unverified | unverified | **delete-history behavior unchanged**; read/history APIs remain legacy | unverified | **pass (unit)**: DeleteChatHistory encoder matches `[null, null, project_id]` | **DeleteChatHistory switched**; conversation reads remain legacy | retained: large polymorphic history response still lacks corpus-backed adapter proof |
-| Deep research | unverified | unverified | legacy | unverified | partial | legacy | retained |
+| Deep research | unverified | unverified | **delete behavior unchanged**; session APIs remain legacy | unverified | **pass (fixture)**: generated DeleteDeepResearch encoder matches the 4-position LBwxtb capture | **DeleteDeepResearch switched**; session reads/start/import remain legacy | retained: polymorphic session responses and bulk-import variants still require corpus-backed adapters |
 | Source text | unverified | unverified | legacy | unverified | partial | legacy | retained |
 | Streaming chat | transport-only proof exists; typed response migration not attempted | unverified | legacy streaming behavior | partial | partial | legacy streaming parser | retained |
 

@@ -3,6 +3,9 @@ package api
 import (
 	"encoding/json"
 	"testing"
+
+	method "github.com/tmc/nlm/gen/method"
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
 // TestBulkImportEncoderShape verifies the 5-position argument layout for
@@ -26,10 +29,20 @@ func TestBulkImportEncoderShape(t *testing.T) {
 // so a future refactor of BulkImportFromResearch cannot accidentally
 // make delete emit the 5-position bulk shape.
 func TestDeleteDeepResearchEncoderShape(t *testing.T) {
-	got := encodeDeleteDeepResearchArgsJSON(t, "00000000-0000-4000-8000-000000000402", "00000000-0000-4000-8000-000000000006")
+	conversationID := "00000000-0000-4000-8000-000000000402"
+	projectID := "00000000-0000-4000-8000-000000000006"
+	legacy := encodeDeleteDeepResearchArgsJSON(t, conversationID, projectID)
+	encoded := method.EncodeDeleteDeepResearchArgs(&pb.DeleteDeepResearchRequest{
+		ProjectId:      projectID,
+		ConversationId: conversationID,
+	})
+	encodedJSON, err := json.Marshal(encoded)
+	if err != nil {
+		t.Fatalf("marshal generated encoder: %v", err)
+	}
 	want := canonicalJSON(t, loadFixture(t, "LBwxtb_delete_request.json"))
-	if got != want {
-		t.Errorf("encoder shape mismatch\n got: %s\nwant: %s", got, want)
+	if legacy != want || string(encodedJSON) != want {
+		t.Errorf("encoder shape mismatch\n legacy: %s\n generated: %s\nwant: %s", legacy, encodedJSON, want)
 	}
 }
 
