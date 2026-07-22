@@ -27,6 +27,7 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
@@ -585,18 +586,17 @@ func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
 // on one item doesn't mask the rest. The izAoDd bulk wire envelope is
 // unverified: do not dispatch bulk through this method without HAR
 // evidence that the current argument layout matches what the web UI emits.
-// Do not dispatch bulk through this method until the web UI AddSources envelope is captured.
-func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Project, error) {
+func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.AddSourcesResponse, error) {
 	req := &pb.AddSourceRequest{
 		Sources:   sources,
 		ProjectId: projectID,
 	}
 	ctx := context.Background()
-	project, err := c.orchestrationService.AddSources(ctx, req)
+	resp, err := c.orchestrationService.AddSources(ctx, req)
 	if err != nil {
 		return nil, wrapSourceAddError("add sources", err)
 	}
-	return project, nil
+	return resp, nil
 }
 
 // deleteSourcesBatchSize is the largest batch size known to work reliably
@@ -643,8 +643,10 @@ func (c *Client) deleteSourcesBatch(projectID string, sourceIDs []string) error 
 
 func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, error) {
 	req := &pb.MutateSourceRequest{
-		SourceId: sourceID,
-		Updates:  updates,
+		SourceId: &pb.SourceIdList{SourceId: sourceID},
+		Updates: &pb.MutateSourceUpdates{Update: &pb.MutateSourceUpdate{
+			Title: &pb.MutateSourceTitle{Title: updates.GetTitle()},
+		}},
 	}
 	// Bypass the service client: its generated encoder uses argbuilder and
 	// produces the wrong wire format. Use the HAR-verified encoder from
@@ -702,14 +704,14 @@ func (c *Client) DiscoverSources(projectID, query string) (*pb.DiscoverSourcesRe
 
 func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
 	req := &pb.LoadSourceRequest{
-		SourceId: sourceID,
+		Source: &pb.SourceIdList{SourceId: sourceID},
 	}
 	ctx := context.Background()
-	source, err := c.orchestrationService.LoadSource(ctx, req)
+	resp, err := c.orchestrationService.LoadSource(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("load source: %w", err)
 	}
-	return source, nil
+	return resp.GetSource(), nil
 }
 
 // LoadSourceRaw calls the LoadSource RPC (hizoJc) and returns the raw JSON
@@ -1542,8 +1544,8 @@ func isUUID(s string) bool {
 func (c *Client) CreateNote(projectID string, title string, initialContent string) (*Note, error) {
 	req := &pb.CreateNoteRequest{
 		ProjectId: projectID,
-		Content:   initialContent,
-		NoteType:  []int32{1},
+		Content:   proto.String(initialContent),
+		NoteType:  &pb.Int32List{Value: 1},
 		Title:     title,
 	}
 	ctx := context.Background()
@@ -1562,11 +1564,13 @@ func (c *Client) MutateNote(projectID string, noteID string, content string, tit
 	req := &pb.MutateNoteRequest{
 		ProjectId: projectID,
 		NoteId:    noteID,
-		Updates: []*pb.NoteUpdate{{
-			Content: content,
-			Title:   title,
-			Tags:    []string{},
-		}},
+		Updates: &pb.NoteUpdates{Update: &pb.NoteUpdateGroup{Update: &pb.NoteUpdate{
+			Content:    content,
+			Title:      title,
+			Tags:       &pb.NoteTags{},
+			UpdateMode: proto.Int32(0),
+			StateCode:  proto.Int32(0),
+		}}},
 	}
 	ctx := context.Background()
 	note, err := c.orchestrationService.MutateNote(ctx, req)
@@ -1616,7 +1620,32 @@ func (c *Client) GetNotes(projectID string) ([]*Note, error) {
 	if rpcErr != nil {
 		return nil, fmt.Errorf("get notes: %w", rawErr)
 	}
-	return response.Notes, nil
+	notes := make([]*pb.Note, 0, len(response.GetEntries()))
+	for _, entry := range response.GetEntries() {
+		note := noteFromRecord(entry.GetNote())
+		if note == nil {
+			continue
+		}
+		if note.NoteId == "" {
+			note.NoteId = entry.GetNoteId()
+		}
+		notes = append(notes, note)
+	}
+	return notes, nil
+}
+
+func noteFromRecord(note *pb.NoteRecord) *pb.Note {
+	if note == nil {
+		return nil
+	}
+	return &pb.Note{
+		NoteId:      note.GetNoteId(),
+		ContentText: note.GetContentText(),
+		Metadata:    note.GetMetadata(),
+		Title:       note.GetTitle(),
+		RichText:    note.GetRichText(),
+		NoteType:    append([]int32(nil), note.GetNoteType()...),
+	}
 }
 
 func parseNotesResponse(resp []byte) ([]*Note, error) {
@@ -1707,7 +1736,7 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 		Language:           opts.Language,
 	}
 	ctx := context.Background()
-	audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
+	artifact, err := c.orchestrationService.CreateAudioOverview(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create audio overview: %w", wrapCreateAudioOverviewError(err))
 	}
@@ -1715,8 +1744,8 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 	// Audio data must be fetched later via polling (audio-get/audio-download).
 	result := &AudioOverviewResult{
 		ProjectID: projectID,
-		AudioID:   audioOverview.GetAudioId(),
-		Title:     audioOverview.GetTitle(),
+		AudioID:   artifact.GetArtifactId(),
+		Title:     artifact.GetTitle(),
 		IsReady:   false, // Audio generation is always async
 	}
 	return result, nil
@@ -2087,12 +2116,12 @@ type AudioFormat struct {
 // see proto/notebooklm/v1alpha1/orchestration.proto:1505 for the
 // canonical shape and the four observed kinds.
 func (c *Client) GetAudioFormats() ([]AudioFormat, error) {
-	// Fixed sentinel: [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
+	// Fixed sentinel: [[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
 	sentinel := []interface{}{
 		[]interface{}{
 			2, nil, nil,
 			[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
-			[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+			[]interface{}{[]interface{}{1, 4, 8, 10, 2, 3, 6, 9}},
 		},
 		nil,
 		1,
@@ -3813,8 +3842,7 @@ func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGu
 	req := &pb.GenerateNotebookGuideRequest{
 		ProjectId: projectID,
 	}
-	// Bypass the service client: its generated encoder drops guide_type
-	// (arg_format="[%project_id%]" omits the enum field).
+	// Use the capture-verified encoder for the standard notebook context.
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCGenerateNotebookGuide,
 		NotebookID: projectID,

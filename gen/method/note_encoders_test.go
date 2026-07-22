@@ -15,12 +15,13 @@ import (
 // Update the want strings below when you re-capture and the server format moves.
 
 func TestEncodeCreateNoteArgs(t *testing.T) {
+	content := "ignored"
 	got := EncodeCreateNoteArgs(&notebooklm.CreateNoteRequest{
 		ProjectId: "abc-123",
 		Title:     "ignored", // server hardcodes "New Note"; title is set via MutateNote
-		Content:   "ignored",
+		Content:   &content,
 	})
-	want := `["abc-123","",[1],null,"New Note",null,[2]]`
+	want := `["abc-123","",[1],null,"New Note",null,[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`
 	gotJSON, err := json.Marshal(got)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -31,16 +32,19 @@ func TestEncodeCreateNoteArgs(t *testing.T) {
 }
 
 func TestEncodeMutateNoteArgs(t *testing.T) {
+	zero := int32(0)
 	got := EncodeMutateNoteArgs(&notebooklm.MutateNoteRequest{
 		ProjectId: "abc-123",
 		NoteId:    "note-xyz",
-		Updates: []*notebooklm.NoteUpdate{{
-			Content: "body text",
-			Title:   "the title",
-			Tags:    []string{},
-		}},
+		Updates: &notebooklm.NoteUpdates{Update: &notebooklm.NoteUpdateGroup{Update: &notebooklm.NoteUpdate{
+			Content:    "body text",
+			Title:      "the title",
+			Tags:       &notebooklm.NoteTags{},
+			UpdateMode: &zero,
+			StateCode:  &zero,
+		}}},
 	})
-	want := `["abc-123","note-xyz",[[["body text","the title",[],0]]],[2]]`
+	want := `["abc-123","note-xyz",[[["body text","the title",[],0,null,0]]],[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`
 	gotJSON, err := json.Marshal(got)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
