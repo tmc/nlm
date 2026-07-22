@@ -1,0 +1,8 @@
+commit=a7f7164b685040535657fc14043711f9325e5957
+date=2026-07-22T05:41:07Z
+tool=Codex
+model=GPT-5
+tty=not a tty
+pid=83919
+session=D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=corpus-backed R7cb6c video exact encoder test with observed prompt PASS; typed Artifact-to-public projection test PASS; go tool buf generate PASS with no proto changes; GOWORK=off go test -count=1 ./... PASS; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm PASS; corpus baseline 590 request + 553 response lossless, 0 missing-field records; audio left legacy by design; worktree clean
