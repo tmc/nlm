@@ -367,3 +367,62 @@ func TestBuildRPCDataEmptyArgs(t *testing.T) {
 		t.Fatalf("args = %q, want []", args)
 	}
 }
+
+// TestDecodeResponseRealWorldChunked exercises the shared decoder (the client's
+// real entry point) against the three conditions seen in a real NotebookLM
+// note response that the naive decoder mishandled:
+//
+//  1. the ")]}'" anti-hijack marker split across lines (")\n]\n}'\n\n");
+//  2. length-prefixed chunked framing with a trailing bookkeeping chunk; and
+//  3. a literal newline inside a JSON string value (markdown body text), which
+//     must survive into parsed JSON rather than a re-escaped string.
+func TestDecodeResponseRealWorldChunked(t *testing.T) {
+	inner := "[[[\"note-1\",[[\"line one\nline two\"]]]]]"
+	innerEscaped := strings.ReplaceAll(inner, `"`, `\"`)
+	dataChunk := `[["wrb.fr","khqZz","` + innerEscaped + `",null,null,null,"generic"]]`
+	tailChunk := `[["e",4,null,null,99]]`
+	raw := ")\n]\n}'\n\n" +
+		fmt.Sprintf("%d\n%s\n", len(dataChunk), dataChunk) +
+		fmt.Sprintf("%d\n%s", len(tailChunk), tailChunk)
+
+	resps, err := decodeResponse(raw)
+	if err != nil {
+		t.Fatalf("decodeResponse: %v", err)
+	}
+	var got *Response
+	for i := range resps {
+		if resps[i].ID == "khqZz" {
+			got = &resps[i]
+		}
+	}
+	if got == nil {
+		t.Fatalf("khqZz response not found in %d responses", len(resps))
+	}
+	if !json.Valid(got.Data) {
+		t.Fatalf("data is not valid JSON: %s", got.Data)
+	}
+	var parsed [][][]interface{}
+	if err := json.Unmarshal(got.Data, &parsed); err != nil {
+		t.Fatalf("data does not parse as the note structure: %v\n%s", err, got.Data)
+	}
+	body, _ := parsed[0][0][1].([]interface{})[0].([]interface{})[0].(string)
+	if body != "line one\nline two" {
+		t.Errorf("body text = %q, want %q", body, "line one\nline two")
+	}
+}
+
+// TestDecodeResponseSplitPrefixArray covers the split anti-hijack prefix on a
+// plain (non-chunked) JSON-array response.
+func TestDecodeResponseSplitPrefixArray(t *testing.T) {
+	raw := ")\n]\n}'\n\n" + `[["wrb.fr","abc","[[[\"id-1\"]]]",null,null,null,"generic"]]`
+	resps, err := decodeResponse(raw)
+	if err != nil {
+		t.Fatalf("decodeResponse: %v", err)
+	}
+	if len(resps) != 1 || resps[0].ID != "abc" {
+		t.Fatalf("got %+v", resps)
+	}
+	if string(resps[0].Data) != `[[["id-1"]]]` {
+		t.Errorf("data = %s, want [[[\"id-1\"]]]", resps[0].Data)
+	}
+}

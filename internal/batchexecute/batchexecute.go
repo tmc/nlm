@@ -444,7 +444,9 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 
 // decodeResponse decodes the batchexecute response
 func decodeResponse(raw string) ([]Response, error) {
-	raw = strings.TrimSpace(strings.TrimPrefix(raw, ")]}'"))
+	// Strip the ")]}'" anti-JSON-hijacking marker in any of its layouts,
+	// including when its characters are split across lines (")\n]\n}'\n").
+	raw = strings.TrimSpace(stripAntiHijackPrefix(raw))
 	if raw == "" {
 		return nil, fmt.Errorf("empty response after trimming prefix")
 	}
@@ -506,7 +508,7 @@ func decodeResponse(raw string) ([]Response, error) {
 		// Try position 2 first (traditional location)
 		if rpcData[2] != nil {
 			if dataStr, ok := rpcData[2].(string); ok {
-				resp.Data = unescapeResponseData(dataStr)
+				resp.Data = normalizeResponseData(unescapeResponseData(dataStr))
 				responseData = dataStr
 			} else {
 				// If position 2 is not a string, use it directly
