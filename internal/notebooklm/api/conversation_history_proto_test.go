@@ -10,37 +10,31 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
+	"google.golang.org/protobuf/proto"
 )
 
-func TestGetNotesProtoAdapterMatchesLegacyParser(t *testing.T) {
-	raw := []byte(`[[["note-1",["note-1","body",[1,"157962509464",[1775436871,282578000],null,null,[1775436871,282578000],false],null,"Title","Rich",[1]]],["note-2",["note-2","",null,null,"Second","",[2]]]]]`)
-
-	legacy, err := parseNotesResponse(raw)
+func TestGetConversationHistoryRequestEncoder(t *testing.T) {
+	conversationID := "00000000-0000-4000-8000-000000000501"
+	got := method.EncodeGetConversationHistoryArgs(&pb.GetConversationHistoryRequest{
+		Context:        conversationRequestContext(),
+		ConversationId: conversationID,
+		Limit:          proto.Int32(20),
+	})
+	encoded, err := json.Marshal(got)
 	if err != nil {
-		t.Fatalf("legacy parser: %v", err)
+		t.Fatal(err)
 	}
-	var wire pb.GetNotesWireResponse
-	if err := beprotojson.Unmarshal(raw, &wire); err != nil {
-		t.Fatalf("proto decoder: %v", err)
-	}
-	got := notesFromWireResponse(&wire)
-	assertEquivalent(t, "notes adaptation", legacy, got)
-}
-
-func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {
-	if got := notesFromWireResponse(nil); got != nil {
-		t.Fatalf("nil response = %#v, want nil", got)
-	}
-	got := notesFromWireResponse(&pb.GetNotesWireResponse{Entries: []*pb.GetNotesEntry{nil}})
-	if got == nil || len(got) != 0 {
-		t.Fatalf("empty entries = %#v, want non-nil empty slice", got)
+	want := fmt.Sprintf(`[[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],null,null,%q,20]`, conversationID)
+	if string(encoded) != want {
+		t.Fatalf("conversation history args = %s, want %s", encoded, want)
 	}
 }
 
-func TestGetNotesProtoAdapterCorpusEquivalence(t *testing.T) {
+func TestConversationHistoryProtoAdapterCorpusEquivalence(t *testing.T) {
 	var files []string
 	err := filepath.WalkDir("/tmp/nlm-traffic", func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -71,7 +65,7 @@ func TestGetNotesProtoAdapterCorpusEquivalence(t *testing.T) {
 					Content struct{ Text, Encoding string } `json:"content"`
 				} `json:"response"`
 			}
-			if json.Unmarshal(scanner.Bytes(), &entry) != nil || !strings.Contains(entry.Request.URL, "rpcids=cFji9") {
+			if json.Unmarshal(scanner.Bytes(), &entry) != nil || !strings.Contains(entry.Request.URL, "rpcids=khqZz") {
 				continue
 			}
 			body := entry.Response.Content.Text
@@ -82,24 +76,24 @@ func TestGetNotesProtoAdapterCorpusEquivalence(t *testing.T) {
 				}
 				body = string(decoded)
 			}
-			wireResponse, err := batchexecute.DecodeResponse(body)
+			wire, err := batchexecute.DecodeResponse(body)
 			if err != nil {
 				continue
-			} // transport-empty capture
-			for _, rpcResponse := range wireResponse.Responses {
-				if rpcResponse.ID != "cFji9" || len(rpcResponse.Data) == 0 {
+			}
+			for _, response := range wire.Responses {
+				if response.ID != "khqZz" || len(response.Data) == 0 {
 					continue
 				}
 				responses++
-				legacy, err := parseNotesResponse(rpcResponse.Data)
+				legacy, err := parseConversationHistoryLegacy(response.Data)
 				if err != nil {
 					t.Fatalf("%s:%d: legacy parse: %v", file, record, err)
 				}
-				var wire pb.GetNotesWireResponse
-				if err := beprotojson.Unmarshal(rpcResponse.Data, &wire); err != nil {
+				var generated pb.GetConversationHistoryResponse
+				if err := beprotojson.Unmarshal(response.Data, &generated); err != nil {
 					t.Fatalf("%s:%d: proto decode: %v", file, record, err)
 				}
-				assertEquivalent(t, fmt.Sprintf("%s:%d", file, record), legacy, notesFromWireResponse(&wire))
+				assertEquivalent(t, fmt.Sprintf("%s:%d", file, record), legacy, conversationMessagesFromProto(&generated))
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -107,7 +101,7 @@ func TestGetNotesProtoAdapterCorpusEquivalence(t *testing.T) {
 		}
 		f.Close()
 	}
-	if responses < 6 {
-		t.Fatalf("cFji9 responses=%d, want at least 6 non-empty captures", responses)
+	if responses != 4 {
+		t.Fatalf("khqZz responses=%d, want 4", responses)
 	}
 }

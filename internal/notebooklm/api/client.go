@@ -1606,9 +1606,17 @@ func notesFromWireResponse(response *pb.GetNotesWireResponse) []*pb.Note {
 	}
 	notes := make([]*pb.Note, 0, len(response.GetEntries()))
 	for _, entry := range response.GetEntries() {
+		if entry == nil {
+			continue
+		}
 		note := noteFromRecord(entry.GetNote())
 		if note == nil {
-			continue
+			// A keyed tombstone has an ID and a null record. Preserve the
+			// legacy parser's public ID-only projection.
+			if entry.GetNoteId() == "" {
+				continue
+			}
+			note = &pb.Note{NoteId: entry.GetNoteId()}
 		}
 		if note.NoteId == "" {
 			note.NoteId = entry.GetNoteId()
@@ -5149,34 +5157,71 @@ func conversationIDsFromProto(resp *pb.GetConversationsResponse) []string {
 
 // GetConversationHistory retrieves the message history for a specific conversation.
 func (c *Client) GetConversationHistory(projectID, conversationID string) ([]ChatMessage, error) {
-	// Wire format: [[], null, null, conversation_id, limit]
-	// Project ID is conveyed via the source-path URL parameter (NotebookID field).
-	resp, err := c.rpc.Do(rpc.Call{
+	req := &pb.GetConversationHistoryRequest{
+		Context:        conversationRequestContext(),
+		ConversationId: conversationID,
+		Limit:          proto.Int32(20),
+	}
+	raw, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCGetConversationHistory,
 		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{},
-			nil,
-			nil,
-			conversationID,
-			20,
-		},
+		Args:       method.EncodeGetConversationHistoryArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get conversation history: %w", err)
 	}
-
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
+	var response pb.GetConversationHistoryResponse
+	if err := beprotojson.Unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("parse conversation history: %w", err)
 	}
+	return conversationMessagesFromProto(&response), nil
+}
 
-	// Response format: [[[msg1, msg2, ...]]] where each message is:
-	// [0]=message_id, [1]=timestamp ([epoch_s, nanos]), [2]=role (1=user, 2=assistant),
-	// [3]=null, [4]=content_segments (nested arrays with text + formatting)
-	var messages []ChatMessage
+func conversationRequestContext() *pb.RequestContext {
+	return &pb.RequestContext{
+		Version: proto.Int32(2),
+		Surface: &pb.RequestSurface{Value: proto.Int32(1)},
+		Caps: &pb.RequestClientCaps{
+			Version:         proto.Int32(1),
+			CapabilityCodes: []int32{1, 3},
+		},
+	}
+}
+
+func conversationMessagesFromProto(resp *pb.GetConversationHistoryResponse) []ChatMessage {
+	if resp == nil || len(resp.GetMessages()) == 0 {
+		return nil
+	}
+	messages := make([]ChatMessage, 0, len(resp.GetMessages()))
+	for _, message := range resp.GetMessages() {
+		if message == nil || message.GetRole() == 0 {
+			continue
+		}
+		content := message.GetText()
+		if content == "" && message.GetRichContent() != nil {
+			content = contentSegmentText(message.GetRichContent().GetSegment())
+		}
+		if content == "" {
+			continue
+		}
+		messages = append(messages, ChatMessage{MessageID: message.GetMessageId(), Content: content, Role: int(message.GetRole())})
+	}
+	return messages
+}
+
+func contentSegmentText(segment *pb.ContentSegment) string {
+	if segment == nil {
+		return ""
+	}
+	return segment.GetText()
+}
+
+func parseConversationHistoryLegacy(raw []byte) ([]ChatMessage, error) {
+	var data []interface{}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return nil, err
+	}
 	var msgArrays []interface{}
-
 	if len(data) > 0 {
 		if outer, ok := data[0].([]interface{}); ok {
 			if len(outer) > 0 {
@@ -5188,40 +5233,27 @@ func (c *Client) GetConversationHistory(projectID, conversationID string) ([]Cha
 			}
 		}
 	}
-
+	var messages []ChatMessage
 	for _, item := range msgArrays {
 		arr, ok := item.([]interface{})
 		if !ok || len(arr) < 3 {
 			continue
 		}
-
 		messageID, _ := arr[0].(string)
 		role := 0
 		if r, ok := arr[2].(float64); ok {
 			role = int(r)
 		}
-
-		// User messages: [message_id, timestamp, 1, content_text] — plain string at [3].
-		// Assistant messages: [message_id, timestamp, 2, null, content_segments] — nested at [4].
 		var content string
 		if role == 1 && len(arr) > 3 {
 			content, _ = arr[3].(string)
 		} else if len(arr) > 4 {
 			content = extractContentSegments(arr[4])
 		}
-
 		if content != "" && role > 0 {
-			msg := ChatMessage{
-				Content: content,
-				Role:    role,
-			}
-			if messageID != "" {
-				msg.MessageID = messageID
-			}
-			messages = append(messages, msg)
+			messages = append(messages, ChatMessage{MessageID: messageID, Content: content, Role: role})
 		}
 	}
-
 	return messages, nil
 }
 
