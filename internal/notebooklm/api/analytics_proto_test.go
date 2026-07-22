@@ -16,6 +16,7 @@ func TestGetProjectAnalyticsRequestEncoder(t *testing.T) {
 	got := method.EncodeGetProjectAnalyticsArgs(&pb.GetProjectAnalyticsRequest{
 		ProjectId:   "project-1",
 		RequestedAt: timestamppb.New(time.Unix(1776236400, 0)),
+		Mode:        &pb.Int32List{Value: 2},
 	})
 	want := []interface{}{"project-1", nil, []interface{}{float64(1776236400)}, []interface{}{2}}
 	if !reflect.DeepEqual(got, want) {

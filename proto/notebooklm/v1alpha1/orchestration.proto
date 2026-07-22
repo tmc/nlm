@@ -764,6 +764,7 @@ message GetProjectAnalyticsRequest {
     string project_id = 1;
     RequestContext context = 2;
     google.protobuf.Timestamp requested_at = 3;
+    Int32List mode = 4;
 }
 
 message ProjectAnalytics {
@@ -1303,7 +1304,7 @@ service LabsTailwindOrchestrationService {
     // Analytics and feedback
     rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics) {
         option (rpc_id) = "AUrzMb";
-        option (arg_format) = "[%project_id%, null, %requested_at%, [2]]";
+        option (arg_format) = "[%project_id%, null, %requested_at%, %mode%]";
     }
     rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "uNyJKe";

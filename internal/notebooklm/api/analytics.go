@@ -32,6 +32,7 @@ func (c *Client) GetProjectAnalytics(projectID string) (*ProjectAnalytics, error
 	req := &pb.GetProjectAnalyticsRequest{
 		ProjectId:   projectID,
 		RequestedAt: timestamppb.Now(),
+		Mode:        &pb.Int32List{Value: 2},
 	}
 	resp, err := c.orchestrationService.GetProjectAnalytics(context.Background(), req)
 	if err != nil {

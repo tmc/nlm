@@ -747,7 +747,7 @@ func TestTailRequestVariantsRoundTrip(t *testing.T) {
 		wire   string
 	}{
 		{"CreateNote", `["project-id","",[1],null,"New Note",null,` + context + `]`},
-		{"GetProjectAnalytics", `["project-id",[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]]]`},
+		{"GetProjectAnalytics", `["project-id",null,[1776236400],[2]]`},
 		{"StartDeepResearchWire", `[` + context + `,null,["query",1],5,"project-id"]`},
 		{"ReviseArtifact", `[` + filteredContext + `,"artifact-id",[[[0,"first"],[4,"second"]]]]`},
 	}
