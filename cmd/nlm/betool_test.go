@@ -254,6 +254,7 @@ func TestBetoolProtoResponseFixture(t *testing.T) {
 		MissingGroups []struct {
 			Path   string `json:"path"`
 			Kind   string `json:"kind"`
+			Name   string `json:"name"`
 			Count  int    `json:"count"`
 			Shapes int    `json:"shapes"`
 		} `json:"missing_field_groups"`
@@ -270,11 +271,18 @@ func TestBetoolProtoResponseFixture(t *testing.T) {
 		t.Fatalf("got %d groups, want 1: %+v", len(e.MissingGroups), e.MissingGroups)
 	}
 	g := e.MissingGroups[0]
-	if g.Path != "[0][0][1][*][2][3]" || g.Kind != "unmodeled" || g.Count != 4 || g.Shapes != 1 {
-		t.Errorf("group = %+v, want path=[0][0][1][*][2][3] kind=unmodeled count=4 shapes=1", g)
+	if g.Path != "[0][0][1][*][2][3]" || g.Kind != "unmodeled" || g.Name != "SourceMetadata.unknown_4" || g.Count != 4 || g.Shapes != 1 {
+		t.Errorf("group = %+v, want path=[0][0][1][*][2][3] name=SourceMetadata.unknown_4 kind=unmodeled count=4 shapes=1", g)
 	}
 	if len(e.Missing) != 0 {
 		t.Errorf("default --verify should not attach the full missing_fields list, got %d", len(e.Missing))
+	}
+	textOut, err := runBetoolCapture(t, []string{"decode-response", "--verify", "--rpc-id=wXbhsf"}, string(raw))
+	if err != nil {
+		t.Fatalf("text decode-response --verify: %v", err)
+	}
+	if !strings.Contains(textOut, "SourceMetadata.unknown_4") {
+		t.Errorf("text verify output missing finding name:\n%s", textOut)
 	}
 
 	// --verify-all attaches the full unabridged list and still reports the count.
@@ -293,29 +301,39 @@ func TestBetoolProtoResponseFixture(t *testing.T) {
 	}
 }
 
-// TestBetoolProtoConversationHistoryGrouping exercises grouping on a real
-// GetConversationHistory capture (sanitized): the static ChatMessage type is
-// misaligned with the wire turn shape, so all six turns are dropped as whole
-// elements. They collapse into one group whose displayed path stars only the
-// varying turn index, and the distinct user/assistant turn layouts surface as
-// multiple shapes — the case single-shape list_notebooks does not cover.
-func TestBetoolProtoConversationHistoryGrouping(t *testing.T) {
+// TestBetoolProtoConversationHistoryDecodes exercises a real
+// GetConversationHistory capture (sanitized). ChatMessage matches the wire turn
+// shape (message_id, timestamp, role, text, rich_content), so all six turns
+// decode into typed messages rather than dropping as whole elements. An
+// assistant turn's rich_content is fully modeled down to its rich-text document
+// tree, so the segment text decodes and no element drops as "does not fit".
+func TestBetoolProtoConversationHistoryDecodes(t *testing.T) {
 	raw, err := os.ReadFile("../../internal/batchexecute/testdata/conversation_history.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
 	}
-	out, err := runBetoolCapture(t, []string{"--json", "decode-response", "--verify", "--rpc-id=khqZz"}, string(raw))
+	out, err := runBetoolCapture(t, []string{"--json", "decode-response", "--proto", "--verify", "--rpc-id=khqZz"}, string(raw))
 	if err != nil {
 		t.Fatalf("decode-response --verify: %v", err)
 	}
 	var envs []struct {
-		Type          string `json:"type"`
-		MissingCount  int    `json:"missing_field_count"`
+		Type    string `json:"type"`
+		Message struct {
+			Messages []struct {
+				MessageID   string `json:"message_id"`
+				Timestamp   string `json:"timestamp"`
+				Role        int    `json:"role"`
+				Text        string `json:"text"`
+				RichContent struct {
+					Segment struct {
+						Text string `json:"text"`
+					} `json:"segment"`
+				} `json:"rich_content"`
+			} `json:"messages"`
+		} `json:"message"`
 		MissingGroups []struct {
-			Path   string `json:"path"`
-			Kind   string `json:"kind"`
-			Count  int    `json:"count"`
-			Shapes int    `json:"shapes"`
+			Path string `json:"path"`
+			Name string `json:"name"`
 		} `json:"missing_field_groups"`
 	}
 	if err := json.Unmarshal([]byte(out), &envs); err != nil {
@@ -325,15 +343,41 @@ func TestBetoolProtoConversationHistoryGrouping(t *testing.T) {
 	if e.Type != "notebooklm.v1alpha1.GetConversationHistoryResponse" {
 		t.Errorf("type = %q", e.Type)
 	}
-	if len(e.MissingGroups) != 1 {
-		t.Fatalf("got %d groups, want 1: %+v", len(e.MissingGroups), e.MissingGroups)
+
+	// All six turns decode into typed messages (previously all were dropped).
+	if got := len(e.Message.Messages); got != 6 {
+		t.Fatalf("decoded %d messages, want 6", got)
 	}
-	g := e.MissingGroups[0]
-	if g.Path != "[0][*]" || g.Kind != "unmodeled" || g.Count != 6 {
-		t.Errorf("group = %+v, want path=[0][*] kind=unmodeled count=6", g)
+	// A user turn (role 1) carries text; an assistant turn (role 2) carries
+	// rich_content whose segment holds the rendered text. Verify both shapes
+	// decoded with a real timestamp.
+	var sawUser, sawAssistant bool
+	for _, m := range e.Message.Messages {
+		if m.MessageID == "" || m.Timestamp == "" {
+			t.Errorf("turn missing message_id/timestamp: %+v", m)
+		}
+		switch m.Role {
+		case 1:
+			sawUser = true
+			if m.Text == "" {
+				t.Errorf("user turn has no text: %+v", m)
+			}
+		case 2:
+			sawAssistant = true
+			if m.RichContent.Segment.Text == "" {
+				t.Errorf("assistant turn has no rich_content segment text: %+v", m)
+			}
+		}
 	}
-	if g.Shapes < 2 {
-		t.Errorf("shapes = %d, want >1 (user and assistant turns differ)", g.Shapes)
+	if !sawUser || !sawAssistant {
+		t.Errorf("expected both user and assistant turns, sawUser=%v sawAssistant=%v", sawUser, sawAssistant)
+	}
+
+	// No turn drops as a whole element: ChatMessage fits the wire shape.
+	for _, g := range e.MissingGroups {
+		if strings.Contains(g.Name, "does not fit ChatMessage") {
+			t.Errorf("ChatMessage should fit the wire, but got whole-element finding: %+v", g)
+		}
 	}
 }
 

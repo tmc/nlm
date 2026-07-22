@@ -18,12 +18,15 @@ import (
 
 // betoolOptions holds the parsed betool flags.
 type betoolOptions struct {
-	proto      bool   // --proto: decode into the bound proto message type
-	verify     bool   // --verify: re-encode the proto to wire and report lossiness
-	allMissing bool   // --verify-all: report every unmodeled position, not just the first
-	asJSON     bool   // global --json: emit full JSON instead of the human-readable summary
-	rpcID      string // --rpc-id=<id>: override/disambiguate the rpc_id
-	file       string // positional input file, "" for stdin
+	proto      bool     // --proto: decode into the bound proto message type
+	verify     bool     // --verify: re-encode the proto to wire and report lossiness
+	allMissing bool     // --verify-all: report every unmodeled position, not just the first
+	infer      bool     // --infer: show a source-style schema for unmodeled fields
+	asJSON     bool     // global --json: emit full JSON instead of the human-readable summary
+	rpcID      string   // --rpc-id=<id>: override/disambiguate the rpc_id
+	file       string   // positional input file, "" for stdin
+	files      []string // infer-proto input files
+	samplesDir string   // infer-proto corpus directory
 }
 
 // betool is a hidden developer command that translates raw batchexecute
@@ -37,6 +40,7 @@ type betoolOptions struct {
 //	encode-request   JSON WireRequest                    -> raw form body
 //	decode-response  raw ")]}'"-prefixed response body   -> JSON WireResponse
 //	encode-response  JSON WireResponse                   -> raw response body
+//	infer-proto      one or more raw response payloads   -> merged descriptor
 //
 // With --proto, the decode modes resolve each call's rpc_id to its bound
 // proto message type and emit canonical proto JSON (named fields) instead of
@@ -55,7 +59,7 @@ func runBetool(args []string, jsonOutput bool) error {
 	rest := args[1:]
 
 	switch mode {
-	case "decode-request", "encode-request", "decode-response", "encode-response":
+	case "decode-request", "encode-request", "decode-response", "encode-response", "infer-proto":
 	case "help", "-h", "--help":
 		printBetoolUsage()
 		return nil
@@ -69,6 +73,9 @@ func runBetool(args []string, jsonOutput bool) error {
 		return err
 	}
 	opts.asJSON = jsonOutput
+	if mode == "infer-proto" {
+		return betoolInferProto(opts)
+	}
 	input, err := readBetoolInput(opts.file)
 	if err != nil {
 		return err
@@ -92,7 +99,8 @@ func runBetool(args []string, jsonOutput bool) error {
 func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 	var opts betoolOptions
 	haveFile := false
-	for _, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 		switch {
 		case a == "--proto":
 			opts.proto = true
@@ -101,11 +109,34 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 		case a == "--verify-all":
 			opts.verify = true
 			opts.allMissing = true
+		case a == "--infer" || a == "--infer-missing":
+			if mode != "decode-response" {
+				return opts, fmt.Errorf("betool %s: --infer-missing applies only to decode-request and decode-response", mode)
+			}
+			opts.infer = true
 		case strings.HasPrefix(a, "--rpc-id="):
 			opts.rpcID = strings.TrimPrefix(a, "--rpc-id=")
+		case strings.HasPrefix(a, "--samples="):
+			if mode != "infer-proto" {
+				return opts, fmt.Errorf("betool %s: --samples applies only to infer-proto", mode)
+			}
+			opts.samplesDir = strings.TrimPrefix(a, "--samples=")
+		case a == "--samples":
+			if mode != "infer-proto" {
+				return opts, fmt.Errorf("betool %s: --samples applies only to infer-proto", mode)
+			}
+			if i+1 >= len(args) {
+				return opts, fmt.Errorf("betool %s: --samples requires a directory", mode)
+			}
+			i++
+			opts.samplesDir = args[i]
 		case strings.HasPrefix(a, "-") && a != "-":
 			return opts, fmt.Errorf("betool %s: unknown flag %q", mode, a)
 		default:
+			if mode == "infer-proto" {
+				opts.files = append(opts.files, a)
+				continue
+			}
 			if haveFile {
 				return opts, fmt.Errorf("betool %s: expected at most one input file", mode)
 			}
@@ -116,8 +147,18 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 	if opts.verify {
 		opts.proto = true // --verify implies --proto
 	}
-	if (opts.proto || opts.rpcID != "") && mode != "decode-request" && mode != "decode-response" {
+	if opts.infer {
+		opts.proto = true
+		opts.verify = true
+	}
+	if mode == "infer-proto" && opts.rpcID == "" {
+		return opts, fmt.Errorf("betool infer-proto: --rpc-id is required")
+	}
+	if (opts.proto || opts.rpcID != "") && mode != "decode-request" && mode != "decode-response" && mode != "infer-proto" {
 		return opts, fmt.Errorf("betool %s: --proto/--rpc-id/--verify apply only to decode-request and decode-response", mode)
+	}
+	if mode == "infer-proto" && (opts.proto || opts.verify || opts.allMissing) {
+		return opts, fmt.Errorf("betool infer-proto: --proto/--verify do not apply")
 	}
 	return opts, nil
 }
@@ -238,6 +279,9 @@ func betoolDecodeResponse(input []byte, opts betoolOptions) error {
 				return err
 			}
 		}
+		if opts.infer {
+			env.Inferred = inferMissingGroups(env.MissingGroups)
+		}
 		out = append(out, env)
 	}
 	if opts.asJSON {
@@ -264,7 +308,8 @@ type protoEnvelope struct {
 	MissingGroups []deltaGroup `json:"missing_field_groups,omitempty"`
 	// Missing lists every concrete finding, unabridged. Populated only under
 	// --verify-all, since it can be large.
-	Missing []fieldDelta `json:"missing_fields,omitempty"`
+	Missing  []fieldDelta `json:"missing_fields,omitempty"`
+	Inferred string       `json:"inferred,omitempty"`
 }
 
 // verifyRoundTrip re-encodes msg back to the batchexecute wire form and diffs
@@ -375,6 +420,14 @@ Modes:
   encode-request    JSON request spec                 -> raw form body
   decode-response   raw ")]}'"-prefixed response body -> text (--json for JSON)
   encode-response   JSON response spec                -> raw response body
+  infer-proto       raw response payloads             -> descriptor textproto
+
+infer-proto flags:
+  --rpc-id=<id>     select the response descriptor; required for inference
+  --samples=<dir>   infer from every regular file in a directory
+                    (multiple input files may also be listed; raw responses,
+                    HAR, JSONL traffic, and httprr recordings are accepted)
+  --json            emit FileDescriptorProto as protojson instead of textproto
 
 Decode modes print a human-readable summary by default; pass the global --json
 flag (before the mode: "nlm --json betool decode-response …") for the full
@@ -393,6 +446,8 @@ Flags (decode modes only):
                     "missing_field_count", "missing_field_groups")
   --verify-all      (implies --verify) also attach the full unabridged list of
                     findings ("missing_fields")
+	  --infer-missing   (alias: --infer; implies --verify) show inferred missing fields as a
+                    compact source-style proto fragment
 
 Examples:
   # Inspect a request captured from a HAR:

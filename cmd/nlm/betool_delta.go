@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/tmc/nlm/internal/beprotojson"
 )
@@ -15,9 +18,8 @@ import (
 // reshape it. It is the actionable output of --verify: it points at exactly
 // which wire data the current descriptors do not model.
 //
-// Findings are located structurally (path + the lost value), which is always
-// accurate. Naming each finding with its proto message + field number is left
-// to a future dynamic-descriptor pass; see docs/betool-proto-reifier.md.
+// Findings are located structurally (path + the lost value) and, when the
+// walk has a descriptor, by the static message field that owns the position.
 type fieldDelta struct {
 	// Path is the positional path into the wire array, e.g. "[0][0][2][3]".
 	Path string `json:"path"`
@@ -25,6 +27,10 @@ type fieldDelta struct {
 	// "shape" (it survives but with a different shape — a nested array
 	// flattened to a scalar or vice versa).
 	Kind string `json:"kind"`
+	// Name identifies the static descriptor field at the lost position. A
+	// repeated message element uses a parent-field description because the loss
+	// is the whole element, not a field within it.
+	Name string `json:"name,omitempty"`
 	// Original is the wire value at this position that the proto view loses.
 	Original json.RawMessage `json:"original"`
 }
@@ -47,8 +53,31 @@ func diffWireAgainstProto(original []byte, msg proto.Message) ([]fieldDelta, err
 		return nil, fmt.Errorf("parse re-encoded wire: %w", err)
 	}
 	var out []fieldDelta
-	diffValue(unwrapTop(ov), unwrapTop(rv), "[0]", &out)
+	desc := msg.ProtoReflect().Descriptor()
+	if topWasUnwrapped(ov) {
+		if field := desc.Fields().ByNumber(1); field != nil && field.IsList() {
+			// unwrapTop removes the response's one-field positional wrapper.
+			// The remaining array is the repeated field's element list, so the
+			// first path component is still the response field position.
+			if field.Message() != nil {
+				diffRepeatedMessage(unwrapTop(ov), unwrapTop(rv), "[0]", &out, field)
+			} else {
+				diffRaw(unwrapTop(ov), unwrapTop(rv), "[0]", &out, descriptorFieldName(desc, 1))
+			}
+			return out, nil
+		}
+	}
+	diffValue(unwrapTop(ov), unwrapTop(rv), "[0]", &out, desc)
 	return out, nil
+}
+
+func topWasUnwrapped(v any) bool {
+	arr, ok := v.([]any)
+	if !ok || len(arr) != 1 {
+		return false
+	}
+	_, ok = arr[0].([]any)
+	return ok
 }
 
 // unwrapTop removes the single-element positional wrapper batchexecute puts
@@ -65,30 +94,198 @@ func unwrapTop(v any) any {
 
 // diffValue compares an original wire value a against the proto-re-encoded
 // value b at the same position, recording the positions the proto view lost.
-func diffValue(a, b any, path string, out *[]fieldDelta) {
+func diffValue(a, b any, path string, out *[]fieldDelta, desc protoreflect.MessageDescriptor) {
 	if isNull(a) {
 		return // nothing carried on the wire here; b being non-null is only padding
 	}
 
+	if desc == nil {
+		diffRaw(a, b, path, out, "")
+		return
+	}
+	if isNull(b) {
+		addDelta(out, path, "unmodeled", a, string(desc.Name()))
+		return
+	}
+	if oneof := deltaShapeUnion(desc); oneof != nil {
+		if field := deltaShapeCase(oneof, a); field != nil {
+			diffShapeUnionValue(a, b, path, out, field)
+		}
+		return
+	}
+	if _, aObject := a.(map[string]any); aObject {
+		if _, bObject := b.(map[string]any); bObject {
+			diffObjectMessage(a, b, path, out, desc)
+			return
+		}
+	}
 	aArr, aIsArr := a.([]any)
 	bArr, bIsArr := b.([]any)
+	if !aIsArr || !bIsArr {
+		addDelta(out, path, "shape", a, string(desc.Name()))
+		return
+	}
+	for i := range max(len(aArr), len(bArr)) {
+		var av, bv any
+		if i < len(aArr) {
+			av = aArr[i]
+		}
+		if i < len(bArr) {
+			bv = bArr[i]
+		}
+		field := desc.Fields().ByNumber(protoreflect.FieldNumber(i + 1))
+		fieldName := descriptorFieldName(desc, i+1)
+		switch {
+		case field == nil:
+			diffRaw(av, bv, fmt.Sprintf("%s[%d]", path, i), out, fieldName)
+		case field.IsList() && field.Message() != nil:
+			diffRepeatedMessage(av, bv, fmt.Sprintf("%s[%d]", path, i), out, field)
+		case field.Message() != nil && !isFlattenedWellKnown(field.Message()):
+			diffMessage(av, bv, fmt.Sprintf("%s[%d]", path, i), out, field)
+		default:
+			// Scalars, repeated scalars, and flattened well-known types are
+			// leaves for descriptor naming. In particular, do not interpret
+			// Timestamp's [seconds,nanos] tuple as message fields.
+			diffRaw(av, bv, fmt.Sprintf("%s[%d]", path, i), out, fieldName)
+		}
+	}
+}
 
-	// Original has a value the proto dropped (null or absent).
+// diffObjectMessage compares an object-encoded message, whose wire keys are
+// field numbers, without treating the object as a positional array.
+func diffObjectMessage(a, b any, path string, out *[]fieldDelta, desc protoreflect.MessageDescriptor) {
+	am := a.(map[string]any)
+	bm := b.(map[string]any)
+	keys := make([]string, 0, len(am)+len(bm))
+	seen := make(map[string]bool, len(am)+len(bm))
+	for key := range am {
+		seen[key] = true
+		keys = append(keys, key)
+	}
+	for key := range bm {
+		if !seen[key] {
+			keys = append(keys, key)
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		a, _ := strconv.Atoi(keys[i])
+		b, _ := strconv.Atoi(keys[j])
+		return a < b
+	})
+	for _, key := range keys {
+		number, err := strconv.Atoi(key)
+		if err != nil {
+			continue
+		}
+		field := desc.Fields().ByNumber(protoreflect.FieldNumber(number))
+		name := descriptorFieldName(desc, number)
+		av, aOK := am[key]
+		bv, bOK := bm[key]
+		if !aOK {
+			av = nil
+		}
+		if !bOK {
+			bv = nil
+		}
+		switch {
+		case field == nil:
+			diffRaw(av, bv, fmt.Sprintf("%s[%s]", path, key), out, name)
+		case field.IsList() && field.Message() != nil:
+			diffRepeatedMessage(av, bv, fmt.Sprintf("%s[%s]", path, key), out, field)
+		case field.Message() != nil && !isFlattenedWellKnown(field.Message()):
+			diffMessage(av, bv, fmt.Sprintf("%s[%s]", path, key), out, field)
+		default:
+			diffRaw(av, bv, fmt.Sprintf("%s[%s]", path, key), out, name)
+		}
+	}
+}
+
+// deltaShapeUnion mirrors beprotojson's positional shape-union predicate. A
+// shape union is encoded as the selected case's bare value, so its value must
+// be compared at the union's path rather than interpreted as a field-numbered
+// positional message.
+func deltaShapeUnion(md protoreflect.MessageDescriptor) protoreflect.OneofDescriptor {
+	if md == nil || md.Oneofs().Len() != 1 {
+		return nil
+	}
+	oneof := md.Oneofs().Get(0)
+	if oneof.IsSynthetic() || oneof.Fields().Len() != md.Fields().Len() {
+		return nil
+	}
+	return oneof
+}
+
+func deltaShapeCase(oneof protoreflect.OneofDescriptor, value any) protoreflect.FieldDescriptor {
+	for i := 0; i < oneof.Fields().Len(); i++ {
+		field := oneof.Fields().Get(i)
+		if deltaShapeMatches(field, value) {
+			return field
+		}
+	}
+	return nil
+}
+
+func deltaShapeMatches(field protoreflect.FieldDescriptor, value any) bool {
+	switch v := value.(type) {
+	case []any:
+		if field.IsList() {
+			return true
+		}
+		if field.Message() != nil {
+			fields := field.Message().Fields()
+			if fields.Len() == 0 || len(v) == 0 {
+				return true
+			}
+			return deltaShapeMatches(fields.Get(0), v[0])
+		}
+		if len(v) == 1 {
+			return deltaShapeMatches(field, v[0])
+		}
+		return false
+	case string:
+		return field.Kind() == protoreflect.StringKind || field.Kind() == protoreflect.BytesKind
+	case bool:
+		return field.Kind() == protoreflect.BoolKind
+	case float64:
+		switch field.Kind() {
+		case protoreflect.Int32Kind, protoreflect.Int64Kind, protoreflect.Sint32Kind,
+			protoreflect.Sint64Kind, protoreflect.Sfixed32Kind, protoreflect.Sfixed64Kind,
+			protoreflect.Uint32Kind, protoreflect.Uint64Kind, protoreflect.Fixed32Kind,
+			protoreflect.Fixed64Kind, protoreflect.FloatKind, protoreflect.DoubleKind,
+			protoreflect.EnumKind:
+			return true
+		}
+	}
+	return false
+}
+
+func diffShapeUnionValue(a, b any, path string, out *[]fieldDelta, field protoreflect.FieldDescriptor) {
+	switch {
+	case field.IsList() && field.Message() != nil:
+		diffRepeatedMessage(a, b, path, out, field)
+	case field.Message() != nil && !isFlattenedWellKnown(field.Message()):
+		diffMessage(a, b, path, out, field)
+	default:
+		diffRaw(a, b, path, out, descriptorFieldName(field.ContainingMessage(), int(field.Number())))
+	}
+}
+
+func diffRaw(a, b any, path string, out *[]fieldDelta, name string) {
+	if isNull(a) {
+		return
+	}
 	if isNull(b) {
-		*out = append(*out, fieldDelta{Path: pathOrRoot(path), Kind: "unmodeled", Original: mustJSON(a)})
+		addDelta(out, path, "unmodeled", a, name)
 		return
 	}
-
-	// Shape divergence: one side is an array and the other is not.
+	aArr, aIsArr := a.([]any)
+	bArr, bIsArr := b.([]any)
 	if aIsArr != bIsArr {
-		*out = append(*out, fieldDelta{Path: pathOrRoot(path), Kind: "shape", Original: mustJSON(a)})
+		addDelta(out, path, "shape", a, name)
 		return
 	}
-
-	// Both arrays: recurse position-by-position.
-	if aIsArr && bIsArr {
-		n := max(len(aArr), len(bArr))
-		for i := range n {
+	if aIsArr {
+		for i := range max(len(aArr), len(bArr)) {
 			var av, bv any
 			if i < len(aArr) {
 				av = aArr[i]
@@ -96,14 +293,102 @@ func diffValue(a, b any, path string, out *[]fieldDelta) {
 			if i < len(bArr) {
 				bv = bArr[i]
 			}
-			diffValue(av, bv, fmt.Sprintf("%s[%d]", path, i), out)
+			diffRaw(av, bv, fmt.Sprintf("%s[%d]", path, i), out, name)
 		}
 		return
 	}
-
-	// Both scalars: report a value change (rare; usually enum/format handling).
 	if !jsonEqualValues(a, b) {
-		*out = append(*out, fieldDelta{Path: pathOrRoot(path), Kind: "value", Original: mustJSON(a)})
+		addDelta(out, path, "value", a, name)
+	}
+}
+
+func diffMessage(a, b any, path string, out *[]fieldDelta, field protoreflect.FieldDescriptor) {
+	if isNull(a) {
+		return
+	}
+	name := descriptorFieldName(field.ContainingMessage(), int(field.Number()))
+	if isNull(b) {
+		addDelta(out, path, "unmodeled", a, name)
+		return
+	}
+	if _, ok := a.(map[string]any); ok {
+		if _, ok := b.(map[string]any); ok {
+			diffValue(a, b, path, out, field.Message())
+			return
+		}
+	}
+	if _, aIsArr := a.([]any); !aIsArr {
+		addDelta(out, path, "shape", a, name)
+		return
+	}
+	if _, bIsArr := b.([]any); !bIsArr {
+		addDelta(out, path, "shape", a, name)
+		return
+	}
+	diffValue(a, b, path, out, field.Message())
+}
+
+func diffRepeatedMessage(a, b any, path string, out *[]fieldDelta, field protoreflect.FieldDescriptor) {
+	if isNull(a) {
+		return
+	}
+	elementName := fmt.Sprintf("%s.%s[*]: element does not fit %s",
+		field.ContainingMessage().Name(), field.Name(), field.Message().Name())
+	aArr, aIsArr := a.([]any)
+	bArr, bIsArr := b.([]any)
+	if !aIsArr || !bIsArr {
+		addDelta(out, path, "shape", a, descriptorFieldName(field.ContainingMessage(), int(field.Number())))
+		return
+	}
+	for i := range max(len(aArr), len(bArr)) {
+		var av, bv any
+		if i < len(aArr) {
+			av = aArr[i]
+		}
+		if i < len(bArr) {
+			bv = bArr[i]
+		}
+		elementPath := fmt.Sprintf("%s[%d]", path, i)
+		if isNull(av) {
+			continue
+		}
+		if isNull(bv) {
+			addDelta(out, elementPath, "unmodeled", av, elementName)
+			continue
+		}
+		_, avOK := av.([]any)
+		_, bvOK := bv.([]any)
+		if !avOK || !bvOK {
+			addDelta(out, elementPath, "shape", av, elementName)
+			continue
+		}
+		diffValue(av, bv, elementPath, out, field.Message())
+	}
+}
+
+func addDelta(out *[]fieldDelta, path, kind string, original any, name string) {
+	*out = append(*out, fieldDelta{Path: pathOrRoot(path), Kind: kind, Name: name, Original: mustJSON(original)})
+}
+
+func descriptorFieldName(desc protoreflect.MessageDescriptor, number int) string {
+	if desc == nil {
+		return ""
+	}
+	if field := desc.Fields().ByNumber(protoreflect.FieldNumber(number)); field != nil {
+		return fmt.Sprintf("%s.%s#%d", desc.Name(), field.Name(), field.Number())
+	}
+	return fmt.Sprintf("%s.unknown_%d", desc.Name(), number)
+}
+
+func isFlattenedWellKnown(desc protoreflect.MessageDescriptor) bool {
+	if desc == nil {
+		return false
+	}
+	switch desc.FullName() {
+	case "google.protobuf.Timestamp", "google.protobuf.StringValue", "google.protobuf.Int32Value":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -141,6 +426,9 @@ type deltaGroup struct {
 	Path string `json:"path"`
 	// Kind is the finding kind shared by the group ("unmodeled"/"shape"/"value").
 	Kind string `json:"kind"`
+	// Name identifies the descriptor field or message type responsible for the
+	// group, for example SourceMetadata.unknown_4 or a repeated-element fit.
+	Name string `json:"name"`
 	// Count is how many concrete positions collapsed into this group.
 	Count int `json:"count"`
 	// Shapes is the number of structurally distinct dropped values in the group
@@ -168,7 +456,7 @@ func groupDeltas(deltas []fieldDelta) []deltaGroup {
 	byKey := map[string]*acc{}
 	for _, d := range deltas {
 		idx := pathIndexes(d.Path)
-		key := fmt.Sprintf("%d\x00%s", len(idx), d.Kind)
+		key := fmt.Sprintf("%d\x00%s\x00%s", len(idx), d.Kind, d.Name)
 		a, ok := byKey[key]
 		if !ok {
 			a = &acc{example: d, kind: d.Kind, shapes: map[string]bool{}}
@@ -184,6 +472,7 @@ func groupDeltas(deltas []fieldDelta) []deltaGroup {
 		out = append(out, deltaGroup{
 			Path:    collapsePath(a.indexes),
 			Kind:    a.kind,
+			Name:    a.example.Name,
 			Count:   len(a.indexes),
 			Shapes:  len(a.shapes),
 			Example: a.example,

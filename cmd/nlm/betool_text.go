@@ -63,10 +63,16 @@ func writeProtoText(envs []protoEnvelope) error {
 		}
 		fmt.Fprintf(&b, "%s  %s\n", e.RPCID, e.Method)
 		fmt.Fprintf(&b, "  type: %s\n", e.Type)
-		b.WriteString(indentBlock(prettyJSON(e.Message), "  "))
-		b.WriteByte('\n')
+		if e.Lossless == nil {
+			b.WriteString(indentBlock(prettyJSON(e.Message), "  "))
+			b.WriteByte('\n')
+		}
 		if e.Lossless != nil {
 			b.WriteString(verifyLine(e))
+			b.WriteByte('\n')
+		}
+		if e.Inferred != "" {
+			b.WriteString(indentBlock(e.Inferred, "  "))
 			b.WriteByte('\n')
 		}
 	}
@@ -88,12 +94,76 @@ func verifyLine(e protoEnvelope) string {
 	fmt.Fprintf(&b, "  verify: LOSSY — %s in %s",
 		plural(total, "position"), plural(len(e.MissingGroups), "group"))
 	for _, g := range e.MissingGroups {
-		fmt.Fprintf(&b, "\n    %s  %s  ×%d", g.Path, g.Kind, g.Count)
+		fmt.Fprintf(&b, "\n    %s  %s  %s  ×%d", g.Path, g.Name, g.Kind, g.Count)
 		if g.Shapes > 1 {
 			fmt.Fprintf(&b, "  (%d shapes)", g.Shapes)
 		}
+		if len(g.Example.Original) > 0 {
+			fmt.Fprintf(&b, "\n      data: %s", preview(compactOrRaw(g.Example.Original), 96))
+		}
 	}
 	return b.String()
+}
+
+// inferMissingGroups renders only the top-level grouped findings. Inference
+// is an inspection aid for a terminal, so it must not expand every nested
+// message in a large response into a second schema dump.
+func inferMissingGroups(groups []deltaGroup) string {
+	if len(groups) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("infer-missing:")
+	for _, g := range groups {
+		typ := inferredValueType(g.Example.Original)
+		if strings.Contains(g.Name, "element does not fit") {
+			typ = "message"
+		}
+		fmt.Fprintf(&b, "\n  %s: %s  (%s, %s)", g.Name, typ, g.Kind, plural(g.Count, "position"))
+		if len(g.Example.Original) > 0 {
+			fmt.Fprintf(&b, "\n    example: %s", preview(compactOrRaw(g.Example.Original), 96))
+		}
+	}
+	return b.String()
+}
+
+func inferredValueType(raw json.RawMessage) string {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return "unknown"
+	}
+	return inferredAnyType(v)
+}
+
+func inferredAnyType(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return "unknown"
+	case string:
+		return "string"
+	case bool:
+		return "bool"
+	case float64:
+		if x == float64(int64(x)) {
+			return "int64"
+		}
+		return "double"
+	case []any:
+		if len(x) == 0 {
+			return "repeated unknown"
+		}
+		first := inferredAnyType(x[0])
+		for _, item := range x[1:] {
+			if inferredAnyType(item) != first {
+				return "message"
+			}
+		}
+		return "repeated " + first
+	case map[string]any:
+		return "message"
+	default:
+		return "unknown"
+	}
 }
 
 // plural formats n with noun, adding "s" unless n == 1.
