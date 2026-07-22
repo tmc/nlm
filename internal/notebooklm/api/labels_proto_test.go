@@ -45,3 +45,38 @@ func TestGetLabelsRequestEncoder(t *testing.T) {
 		t.Fatalf("encoded args = %#v (%T/%T), want %#v (%T/%T)", got, got[0].([]interface{})[0], got[1], want, want[0].([]interface{})[0], want[1])
 	}
 }
+
+func TestCreateLabelResponseProtoAdapterMatchesLegacyParser(t *testing.T) {
+	raw := []byte(`[null,[["Generated Code",[["src-1"]],"label-1",""]]]`)
+	legacy, err := parseLabelsResponse(raw)
+	if err != nil {
+		t.Fatalf("legacy parser: %v", err)
+	}
+	var response pb.CreateLabelResponse
+	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+		t.Fatalf("proto decoder: %v", err)
+	}
+	got := labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: response.GetLabels()})
+	assertEquivalent(t, "label mutation adaptation", legacy, got)
+}
+
+func TestLabelMutationEncoders(t *testing.T) {
+	create := method.EncodeCreateLabelArgs(&pb.CreateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: "project-1",
+		Labels:    []*pb.LabelCreation{{Name: "Generated Code", Emoji: proto.String("📚")}},
+	})
+	wantCreate := []interface{}{[]interface{}{float64(2)}, "project-1", nil, nil, nil, []interface{}{[]interface{}{"Generated Code", "📚"}}}
+	if !reflect.DeepEqual(create, wantCreate) {
+		t.Fatalf("create args = %#v, want %#v", create, wantCreate)
+	}
+	mode := method.EncodeMutateLabelsModeArgs(&pb.MutateLabelsModeRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: "project-1",
+		Mode:      &pb.LabelMode{Value: proto.Int32(1)},
+	})
+	wantMode := []interface{}{[]interface{}{float64(2)}, "project-1", nil, nil, []interface{}{float64(1)}}
+	if !reflect.DeepEqual(mode, wantMode) {
+		t.Fatalf("mode args = %#v, want %#v", mode, wantMode)
+	}
+}

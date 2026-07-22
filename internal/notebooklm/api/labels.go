@@ -75,18 +75,15 @@ func (c *Client) CreateLabel(projectID, name, emoji string) ([]Label, error) {
 	if name == "" {
 		return nil, fmt.Errorf("label name required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCMutateLabels,
-		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{2}, projectID, nil, nil, nil,
-			[]interface{}{[]interface{}{name, emoji}},
-		},
+	resp, err := c.orchestrationService.CreateLabel(context.Background(), &pb.CreateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		Labels:    []*pb.LabelCreation{{Name: name, Emoji: proto.String(emoji)}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create label: %w", err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: resp.GetLabels()}), nil
 }
 
 // LabelUnlabeled assigns existing labels to sources that don't yet belong
@@ -131,18 +128,15 @@ func (c *Client) mutateLabelsMode(projectID string, mode int) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCMutateLabels,
-		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{2}, projectID, nil, nil,
-			[]interface{}{mode},
-		},
+	resp, err := c.orchestrationService.MutateLabelsMode(context.Background(), &pb.MutateLabelsModeRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		Mode:      &pb.LabelMode{Value: proto.Int32(int32(mode))},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("mutate labels (mode %d): %w", mode, err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: resp.GetLabels()}), nil
 }
 
 // RenameLabel sets a new display name on an existing label.
