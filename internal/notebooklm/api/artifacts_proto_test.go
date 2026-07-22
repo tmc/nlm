@@ -29,3 +29,15 @@ func TestListArtifactsGeneratedEncoderMatchesCorpusRequest(t *testing.T) {
 		t.Fatalf("generated artifact-list args = %s, want %s", got, want)
 	}
 }
+
+func TestListAudioOverviewRequestUsesCorpusArtifactFilter(t *testing.T) {
+	req := &pb.ListArtifactsRequest{Context: universalArtifactRequestContext(), ProjectId: "project-1", Filter: `NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"`}
+	got, err := json.Marshal(method.EncodeListArtifactsArgs(req))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]],"project-1","NOT artifact.status = \"ARTIFACT_STATUS_SUGGESTED\""]`
+	if string(got) != want {
+		t.Fatalf("audio-list args = %s, want %s", got, want)
+	}
+}

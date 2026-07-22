@@ -2616,10 +2616,11 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCListArtifacts,
-		Args: []interface{}{
-			[]interface{}{2},
-			projectID,
-		},
+		Args: method.EncodeListArtifactsArgs(&pb.ListArtifactsRequest{
+			Context:   universalArtifactRequestContext(),
+			ProjectId: projectID,
+			Filter:    `NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"`,
+		}),
 		NotebookID: projectID,
 	})
 	if err == nil {
