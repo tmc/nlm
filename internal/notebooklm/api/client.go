@@ -4891,39 +4891,28 @@ func (c *Client) DeleteChatHistory(projectID string) error {
 
 // GetConversations returns conversation IDs for a notebook.
 func (c *Client) GetConversations(projectID string) ([]string, error) {
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetConversations,
-		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{},
-			nil,
-			projectID,
-			20,
-		},
+	resp, err := c.orchestrationService.GetConversations(context.Background(), &pb.GetConversationsRequest{
+		Context:   &pb.RequestContext{},
+		ProjectId: projectID,
+		Limit:     20,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get conversations: %w", err)
 	}
+	return conversationIDsFromProto(resp), nil
+}
 
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse conversations: %w", err)
+func conversationIDsFromProto(resp *pb.GetConversationsResponse) []string {
+	if resp == nil || len(resp.GetConversations()) == 0 {
+		return []string{}
 	}
-
-	var convIDs []string
-	// Response format: [[[conv_id1], [conv_id2]]]
-	if len(data) > 0 {
-		if outer, ok := data[0].([]interface{}); ok {
-			for _, item := range outer {
-				if arr, ok := item.([]interface{}); ok && len(arr) > 0 {
-					if id, ok := arr[0].(string); ok {
-						convIDs = append(convIDs, id)
-					}
-				}
-			}
+	ids := make([]string, 0, len(resp.GetConversations()))
+	for _, conversation := range resp.GetConversations() {
+		if conversation != nil {
+			ids = append(ids, conversation.GetConversationId())
 		}
 	}
-	return convIDs, nil
+	return ids
 }
 
 // GetConversationHistory retrieves the message history for a specific conversation.
