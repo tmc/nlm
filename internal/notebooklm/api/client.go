@@ -5818,16 +5818,14 @@ func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, err
 //
 // Response is a two-element JSON array: [research_id, conversation_id].
 func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult, error) {
+	req := &pb.StartDeepResearchRequest{
+		ProjectId: projectID,
+		Query:     query,
+	}
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCStartDeepResearch,
 		NotebookID: projectID,
-		Args: []interface{}{
-			nil,
-			[]interface{}{1},
-			[]interface{}{query, 1},
-			5,
-			projectID,
-		},
+		Args:       method.EncodeStartDeepResearchArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("start deep research: %w", err)
