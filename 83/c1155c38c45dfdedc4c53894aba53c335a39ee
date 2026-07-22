@@ -1,0 +1,8 @@
+commit=83c1155c38c45dfdedc4c53894aba53c335a39ee
+date=2026-07-22T04:23:19Z
+tool=git commit -S
+model=GPT-5 Codex
+tty=not a tty
+pid=7161
+session=w2t1p17:D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=GOWORK=off go test -count=1 ./... passed; artifact generated-vs-legacy probe identified title/preview and URL-derived-state semantic mismatch; no production artifact switch made
