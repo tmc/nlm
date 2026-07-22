@@ -15,6 +15,7 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/rpcinfo"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type corpusAudit struct {
@@ -24,33 +25,55 @@ type corpusAudit struct {
 }
 
 type corpusAuditRecord struct {
-	File             string          `json:"file"`
-	Record           int             `json:"record"`
-	Side             string          `json:"side"`
-	RPCID            string          `json:"rpc_id"`
-	Method           string          `json:"method,omitempty"`
-	MethodCandidates []string        `json:"method_candidates,omitempty"`
-	Type             string          `json:"type,omitempty"`
-	Status           string          `json:"status"`
-	HTTPStatus       int             `json:"http_status,omitempty"`
-	MissingCount     int             `json:"missing_field_count,omitempty"`
-	MissingFields    []fieldDelta    `json:"missing_fields,omitempty"`
-	Error            string          `json:"error,omitempty"`
-	Evidence         json.RawMessage `json:"evidence,omitempty"`
+	File             string               `json:"file"`
+	Record           int                  `json:"record"`
+	Side             string               `json:"side"`
+	RPCID            string               `json:"rpc_id"`
+	Method           string               `json:"method,omitempty"`
+	MethodCandidates []string             `json:"method_candidates,omitempty"`
+	Type             string               `json:"type,omitempty"`
+	Status           string               `json:"status"`
+	HTTPStatus       int                  `json:"http_status,omitempty"`
+	MissingCount     int                  `json:"missing_field_count,omitempty"`
+	MissingFields    []fieldDelta         `json:"missing_fields,omitempty"`
+	Error            string               `json:"error,omitempty"`
+	Evidence         json.RawMessage      `json:"evidence,omitempty"`
+	RichContent      *richContentCoverage `json:"rich_content,omitempty"`
+}
+
+type richContentCoverage struct {
+	RichDocuments            int            `json:"rich_documents"`
+	SpanLayers               int            `json:"span_layers"`
+	ChatAnswerDocuments      int            `json:"chat_answer_documents"`
+	ContentSegmentDocuments  int            `json:"content_segment_documents"`
+	Spans                    int            `json:"spans"`
+	Content                  int            `json:"content"`
+	Tables                   int            `json:"tables"`
+	TableTypeCodes           map[int64]int  `json:"table_type_codes,omitempty"`
+	CodeBlocks               int            `json:"code_blocks"`
+	CodeBlockEmptyLanguage   int            `json:"code_block_empty_language"`
+	CodeBlockLanguages       map[string]int `json:"code_block_languages,omitempty"`
+	HiddenContent            int            `json:"hidden_content"`
+	Separators               int            `json:"separators"`
+	Leaves                   int            `json:"leaves"`
+	Groups                   int            `json:"groups"`
+	TableContainingCodeBlock int            `json:"table_containing_code_block"`
+	HiddenContainingTable    int            `json:"hidden_containing_table"`
 }
 
 type corpusAuditSummary struct {
-	Total               int            `json:"total"`
-	HTTPRecords         int            `json:"http_records"`
-	RPCPayloads         int            `json:"rpc_payloads"`
-	NonRPCRecords       int            `json:"non_rpc_records"`
-	BySide              map[string]int `json:"by_side"`
-	ByStatus            map[string]int `json:"by_status"`
-	RequestLossless     int            `json:"request_lossless"`
-	RequestValid        int            `json:"request_valid"`
-	ResponseLossless    int            `json:"response_lossless"`
-	ResponseValid       int            `json:"response_valid"`
-	UnexplainedFailures int            `json:"unexplained_failures"`
+	Total               int                 `json:"total"`
+	HTTPRecords         int                 `json:"http_records"`
+	RPCPayloads         int                 `json:"rpc_payloads"`
+	NonRPCRecords       int                 `json:"non_rpc_records"`
+	BySide              map[string]int      `json:"by_side"`
+	ByStatus            map[string]int      `json:"by_status"`
+	RequestLossless     int                 `json:"request_lossless"`
+	RequestValid        int                 `json:"request_valid"`
+	ResponseLossless    int                 `json:"response_lossless"`
+	ResponseValid       int                 `json:"response_valid"`
+	UnexplainedFailures int                 `json:"unexplained_failures"`
+	RichContent         richContentCoverage `json:"rich_content"`
 }
 
 type corpusTrafficEntry struct {
@@ -112,6 +135,10 @@ func auditCorpusFile(audit *corpusAudit, file string) error {
 		}
 		ids := corpusRPCIDs(entry.Request.URL)
 		if len(ids) == 0 {
+			if rpcID := corpusStreamRPCID(entry.Request.URL); rpcID != "" {
+				auditCorpusStream(audit, file, record, rpcID, entry)
+				continue
+			}
 			evidence, _ := json.Marshal(struct {
 				Method string `json:"method"`
 				Host   string `json:"host"`
@@ -135,6 +162,54 @@ func auditCorpusFile(audit *corpusAudit, file string) error {
 		return fmt.Errorf("audit-corpus: scan %s: %w", file, err)
 	}
 	return nil
+}
+
+func corpusStreamRPCID(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	if strings.HasSuffix(u.Path, "/GenerateFreeFormStreamed") {
+		return "laWbsf"
+	}
+	return ""
+}
+
+func auditCorpusStream(audit *corpusAudit, file string, record int, rpcID string, entry corpusTrafficEntry) {
+	requestBody, err := base64.StdEncoding.DecodeString(entry.Request.PostData.Text)
+	if err != nil {
+		requestBody = []byte(entry.Request.PostData.Text)
+	}
+	requestWire, err := decodeWrbFRRequest(requestBody)
+	if err != nil {
+		appendCorpusFailures(audit, file, record, "request", []string{rpcID}, entry.Response.Status, "parser_failure", err)
+	} else {
+		audit.Records = append(audit.Records, auditCorpusWire(file, record, "request", rpcID, entry.Response.Status, requestWire))
+	}
+
+	responseBody := []byte(entry.Response.Content.Text)
+	if strings.EqualFold(entry.Response.Content.Encoding, "base64") {
+		decoded, err := base64.StdEncoding.DecodeString(entry.Response.Content.Text)
+		if err != nil {
+			appendCorpusFailures(audit, file, record, "response", []string{rpcID}, entry.Response.Status, "parser_failure", err)
+			return
+		}
+		responseBody = decoded
+	}
+	if len(bytes.TrimSpace(responseBody)) == 0 {
+		appendCorpusFailures(audit, file, record, "response", []string{rpcID}, entry.Response.Status, "transport_no_payload", fmt.Errorf("empty response body"))
+		return
+	}
+	response, _, err := decodeWrbFRStream(responseBody, rpcID)
+	if err != nil {
+		status := "parser_failure"
+		if entry.Response.Status != 200 {
+			status = "transport_no_payload"
+		}
+		appendCorpusFailures(audit, file, record, "response", []string{rpcID}, entry.Response.Status, status, err)
+		return
+	}
+	audit.Records = append(audit.Records, auditCorpusWire(file, record, "response", rpcID, entry.Response.Status, response.Responses[0].Data))
 }
 
 func corpusURLHost(rawURL string) string {
@@ -324,12 +399,126 @@ func auditCorpusWire(file string, record int, side, rpcID string, httpStatus int
 	}
 	out.MissingCount = len(best.deltas)
 	out.MissingFields = best.deltas
+	out.RichContent = collectRichContent(best.msg)
 	if len(best.deltas) == 0 {
 		out.Status = "lossless"
 	} else {
 		out.Status = "lossy"
 	}
 	return out
+}
+
+func collectRichContent(msg proto.Message) *richContentCoverage {
+	coverage := &richContentCoverage{}
+	var visit func(protoreflect.Message)
+	visit = func(message protoreflect.Message) {
+		name := message.Descriptor().FullName()
+		switch name {
+		case "notebooklm.v1alpha1.RichDocument":
+			coverage.RichDocuments++
+		case "notebooklm.v1alpha1.SpanLayers":
+			coverage.SpanLayers++
+		case "notebooklm.v1alpha1.ChatAnswer":
+			if field := message.Descriptor().Fields().ByNumber(5); message.Has(field) {
+				coverage.ChatAnswerDocuments++
+			}
+		case "notebooklm.v1alpha1.ContentSegment":
+			if field := message.Descriptor().Fields().ByNumber(5); message.Has(field) {
+				coverage.ContentSegmentDocuments++
+			}
+		case "notebooklm.v1alpha1.Span":
+			coverage.Spans++
+			fields := message.Descriptor().Fields()
+			if message.Has(fields.ByNumber(3)) {
+				coverage.Content++
+			}
+			if field := fields.ByNumber(5); message.Has(field) {
+				coverage.Tables++
+				table := message.Get(field).Message()
+				typeCode := table.Descriptor().Fields().ByNumber(1)
+				if table.Has(typeCode) {
+					if coverage.TableTypeCodes == nil {
+						coverage.TableTypeCodes = make(map[int64]int)
+					}
+					coverage.TableTypeCodes[table.Get(typeCode).Int()]++
+				}
+				if messageHasSpanVariant(table, 7) {
+					coverage.TableContainingCodeBlock++
+				}
+			}
+			if field := fields.ByNumber(7); message.Has(field) {
+				coverage.CodeBlocks++
+				codeBlock := message.Get(field).Message()
+				language := codeBlock.Get(codeBlock.Descriptor().Fields().ByNumber(2)).String()
+				if language == "" {
+					coverage.CodeBlockEmptyLanguage++
+				} else {
+					if coverage.CodeBlockLanguages == nil {
+						coverage.CodeBlockLanguages = make(map[string]int)
+					}
+					coverage.CodeBlockLanguages[language]++
+				}
+			}
+			if field := fields.ByNumber(9); message.Has(field) {
+				coverage.HiddenContent++
+				if messageHasSpanVariant(message.Get(field).Message(), 5) {
+					coverage.HiddenContainingTable++
+				}
+			}
+			if message.Has(fields.ByNumber(12)) {
+				coverage.Separators++
+			}
+		case "notebooklm.v1alpha1.SpanContent":
+			fields := message.Descriptor().Fields()
+			if message.Has(fields.ByNumber(1)) {
+				coverage.Leaves++
+			}
+			if message.Has(fields.ByNumber(2)) {
+				coverage.Groups++
+			}
+		}
+		message.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+			if field.IsList() && field.Message() != nil {
+				list := value.List()
+				for i := 0; i < list.Len(); i++ {
+					visit(list.Get(i).Message())
+				}
+			} else if field.Message() != nil {
+				visit(value.Message())
+			}
+			return true
+		})
+	}
+	visit(msg.ProtoReflect())
+	if coverage.Spans == 0 {
+		return nil
+	}
+	return coverage
+}
+
+func messageHasSpanVariant(message protoreflect.Message, fieldNumber protoreflect.FieldNumber) bool {
+	if message.Descriptor().FullName() == "notebooklm.v1alpha1.Span" {
+		if field := message.Descriptor().Fields().ByNumber(fieldNumber); field != nil && message.Has(field) {
+			return true
+		}
+	}
+	found := false
+	message.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+		if field.IsList() && field.Message() != nil {
+			list := value.List()
+			for i := 0; i < list.Len(); i++ {
+				if messageHasSpanVariant(list.Get(i).Message(), fieldNumber) {
+					found = true
+					return false
+				}
+			}
+		} else if field.Message() != nil && messageHasSpanVariant(value.Message(), fieldNumber) {
+			found = true
+			return false
+		}
+		return !found
+	})
+	return found
 }
 
 func summarizeCorpusAudit(records []corpusAuditRecord, httpRecords int) corpusAuditSummary {
@@ -368,6 +557,43 @@ func summarizeCorpusAudit(records []corpusAuditRecord, httpRecords int) corpusAu
 		if record.Status == "parser_failure" {
 			summary.UnexplainedFailures++
 		}
+		if record.RichContent != nil {
+			mergeRichContent(&summary.RichContent, record.RichContent)
+		}
 	}
 	return summary
+}
+
+func mergeRichContent(dst *richContentCoverage, src *richContentCoverage) {
+	dst.RichDocuments += src.RichDocuments
+	dst.SpanLayers += src.SpanLayers
+	dst.ChatAnswerDocuments += src.ChatAnswerDocuments
+	dst.ContentSegmentDocuments += src.ContentSegmentDocuments
+	dst.Spans += src.Spans
+	dst.Content += src.Content
+	dst.Tables += src.Tables
+	dst.CodeBlocks += src.CodeBlocks
+	dst.CodeBlockEmptyLanguage += src.CodeBlockEmptyLanguage
+	dst.HiddenContent += src.HiddenContent
+	dst.Separators += src.Separators
+	dst.Leaves += src.Leaves
+	dst.Groups += src.Groups
+	dst.TableContainingCodeBlock += src.TableContainingCodeBlock
+	dst.HiddenContainingTable += src.HiddenContainingTable
+	if len(src.TableTypeCodes) > 0 {
+		if dst.TableTypeCodes == nil {
+			dst.TableTypeCodes = make(map[int64]int)
+		}
+		for value, count := range src.TableTypeCodes {
+			dst.TableTypeCodes[value] += count
+		}
+	}
+	if len(src.CodeBlockLanguages) > 0 {
+		if dst.CodeBlockLanguages == nil {
+			dst.CodeBlockLanguages = make(map[string]int)
+		}
+		for value, count := range src.CodeBlockLanguages {
+			dst.CodeBlockLanguages[value] += count
+		}
+	}
 }

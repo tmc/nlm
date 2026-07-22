@@ -831,26 +831,15 @@ func (a *syncClientAdapter) ListSources(ctx context.Context, notebookID string) 
 	return sources, nil
 }
 
-func (a *syncClientAdapter) AddSource(ctx context.Context, notebookID string, title string, r io.Reader) ([]string, error) {
+func (a *syncClientAdapter) AddSource(ctx context.Context, notebookID string, title string, r io.Reader) (string, error) {
 	// Always use text path — sync content is txtar, never binary.
 	// AddSourceFromReader would MIME-detect and route large content to
 	// the binary resumable upload, which the server rejects for text.
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("read source: %w", err)
+		return "", fmt.Errorf("read source: %w", err)
 	}
-	id, err := a.client.AddSourceFromText(notebookID, string(data), title)
-	if err == nil {
-		return []string{id}, nil
-	}
-	// Keep auto-descended children in a private title namespace. A logical
-	// sync source named "code (pt2)" must not collide with a child of "code".
-	// The sync manifest records their IDs under the logical title.
-	ids, autoErr := a.client.AddSourceFromTextAuto(notebookID, data, title+" [auto]", nil)
-	if autoErr != nil {
-		return nil, err
-	}
-	return ids, nil
+	return a.client.AddSourceFromText(notebookID, string(data), title)
 }
 
 func (a *syncClientAdapter) DeleteSources(ctx context.Context, notebookID string, ids []string) error {
@@ -1080,7 +1069,7 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 	if err != nil {
 		return fmt.Errorf("generate guide: %w", err)
 	}
-	fmt.Printf("%s\n", guide.Content)
+	fmt.Printf("%s\n", guide.GetGuide().GetSummary().GetText())
 	return nil
 }
 
@@ -1544,7 +1533,7 @@ func getArtifact(c *api.Client, artifactID string) error {
 	}
 
 	fmt.Printf("Artifact: %s\n", artifact.ArtifactId)
-	fmt.Printf("Project:  %s\n", artifact.ProjectId)
+	fmt.Printf("Title:    %s\n", artifact.Title)
 	fmt.Printf("Type:     %s\n", artifact.Type.String())
 	// Print the raw state code alongside the enum name. The state position in
 	// the gArtLc wire response is observed but not HAR-pinned, so exposing the
@@ -1694,12 +1683,10 @@ func deleteArtifact(c *api.Client, artifactID string) error {
 	return nil
 }
 
-// ANSI escape codes. Grey/dim style secondary output (thinking traces,
-// follow-ups); bold sets off headings in default-color blocks.
+// ANSI escape codes for muted/grey thinking output.
 const (
 	ansiDim   = "\033[2m"  // dim
 	ansiGrey  = "\033[90m" // bright black (grey)
-	ansiBold  = "\033[1m"  // bold
 	ansiReset = "\033[0m"
 )
 
@@ -1707,60 +1694,77 @@ const (
 type citationRenderMode int
 
 const (
-	citationModeOff  citationRenderMode = iota // Suppress the trailing citation list entirely.
-	citationModeList                           // Stream the answer live, then print the enriched citation list. The default.
-	citationModeJSON                           // Emit answer deltas and citations as JSON-lines events on stdout.
+	citationModeOff     citationRenderMode = iota // Suppress the trailing Sources block entirely.
+	citationModeBlock                             // Stream answer normally; print a trailing Sources block.
+	citationModeStream                            // Stream live; trailing footer lists citations with their char ranges.
+	citationModeTail                              // Stream live, hold a bounded tail window; splice inline superscripts where possible.
+	citationModeOverlay                           // Buffer the whole answer; at Finish, splice inline superscripts at exact positions.
+	citationModeJSON                              // Emit answer deltas and citations as JSON-lines events on stdout.
 )
 
 // resolveCitationMode maps the user-facing --citations flag to a mode.
-// The default (empty, "auto", "tail", or unknown) is the enriched list: the
-// answer streams cleanly, then a trailing list names each source with its
-// confidence, char span, and — under --citation-excerpts — the cited text.
-//
-// The historical "block", "stream", and "tail" modes were separate list
-// variants that differed only by which metadata columns they showed; they are
-// now one list with per-column toggles. They remain accepted as aliases for
-// one release (see maybeWarnDeprecatedCitationMode). "overlay"/"footnote" —
-// which spliced inline superscripts into the answer body — are removed: the
-// splice used byte offsets against rune-based server spans and corrupted any
-// answer containing multibyte characters.
+// Empty or "auto" picks block: stream the answer cleanly, then print a
+// trailing Sources block. tail/overlay would be richer (inline
+// superscripts) but currently render duplicate same-position citations
+// as "[2,2,2,2]" clusters that collide with the model's own bracket
+// refs; block is the safest readable default. Pass --citations=tail or
+// --citations=overlay to opt into inline markers.
 func resolveCitationMode(flag string) citationRenderMode {
 	switch strings.ToLower(flag) {
 	case "off", "none":
 		return citationModeOff
+	case "block":
+		return citationModeBlock
+	case "stream", "inline-footer":
+		return citationModeStream
+	case "tail":
+		return citationModeTail
+	case "overlay", "footnote":
+		return citationModeOverlay
 	case "json", "jsonl":
 		return citationModeJSON
-	default:
-		// "", "auto", "tail", the deprecated "block"/"stream", and anything
-		// unrecognized all render the one enriched list.
-		return citationModeList
 	}
+	return citationModeBlock
 }
 
-// citationModeIsDeprecatedAlias reports whether the user-facing --citations
-// value names a removed/renamed mode that now resolves to the enriched list.
-// Used to print a one-time stderr deprecation notice without polluting stdout.
-func citationModeIsDeprecatedAlias(flag string) string {
-	switch strings.ToLower(flag) {
-	case "block":
-		return "block"
-	case "stream", "inline-footer":
-		return "stream"
-	case "overlay", "footnote":
-		return "overlay"
+// snapToWordBoundary advances pos forward within text until it lies after a
+// word character and before a non-word character (or at end-of-string).
+// This avoids splicing citation markers mid-word when EndChar lands inside
+// one. Walks at most 32 bytes; if no boundary found, returns the original pos.
+func snapToWordBoundary(text string, pos int) int {
+	if pos < 0 {
+		return 0
 	}
-	return ""
+	if pos >= len(text) {
+		return len(text)
+	}
+	// If we're already at a boundary (next byte is non-word), keep it.
+	if !isWordByte(text[pos]) {
+		return pos
+	}
+	// Scan forward for a non-word byte.
+	end := pos + 32
+	if end > len(text) {
+		end = len(text)
+	}
+	for i := pos; i < end; i++ {
+		if !isWordByte(text[i]) {
+			return i
+		}
+	}
+	return pos
 }
 
-// warnDeprecatedCitationMode prints a one-line deprecation notice to w (stderr,
-// never stdout — the citation output must stay parseable) when the user passed
-// a --citations mode that has been folded into the default list. The notice is
-// informational; the command proceeds normally.
-func warnDeprecatedCitationMode(w io.Writer, flag string) {
-	if alias := citationModeIsDeprecatedAlias(flag); alias != "" {
-		fmt.Fprintf(w, "nlm: --citations=%s is deprecated and now renders the default citation list; this alias will be removed in a future release\n", alias)
-	}
+func isWordByte(b byte) bool {
+	return (b >= 'a' && b <= 'z') ||
+		(b >= 'A' && b <= 'Z') ||
+		(b >= '0' && b <= '9') ||
+		b == '_' || b == '`' || b == '\'' || b == '"'
 }
+
+// defaultTailWindow is the max byte-length of text held back in tail mode
+// for late-arriving citation annotation.
+const defaultTailWindow = 512
 
 type chatStreamRenderer struct {
 	out                  io.Writer
@@ -1770,40 +1774,34 @@ type chatStreamRenderer struct {
 	jsonl                bool // when true, emit typed JSON-lines events on r.out instead of human output
 	jsonlIncludeThinking bool // when true, thinking chunks are emitted as JSON-lines events (otherwise skipped)
 	citationMode         citationRenderMode
+	tailWindow           int                                               // tail mode: max bytes held back for splicing
 	resolveTitle         func(sourceID string) string                      // optional; returns "" if unknown
-	loadSource           func(sourceID string) (api.LoadSourceText, error) // optional; populated when --resolve-citations or --citation-excerpt is set
-	excerptBudget        int                                               // >0 enables per-citation excerpts, clipped to this many runes
-	showConfidence       bool                                              // list mode: show the (p=…) column (default on)
-	showSpans            bool                                              // list mode: show the "chars X-Y" column (default on)
-	resolvedLocations    map[citationKey]resolvedCitation                  // computed once at Finish; keyed by citationKey
+	loadSource           func(sourceID string) (api.LoadSourceText, error) // optional; populated when --resolve-citations is set
+	resolvedLocations    map[citationKey]string                            // computed once at Finish; keyed by citationKey
 	lastThinkingLen      int
 	answerBuf            strings.Builder
 	thinking             string
 	citations            []api.Citation
 	followUps            []string
 
-	// flushedLen tracks bytes already streamed to r.out so re-renders don't
-	// double-print; the answer always streams live now, so it just advances
-	// with each answer chunk.
-	flushedLen int
+	// tail-mode bookkeeping
+	flushedLen int // absolute cumulative-answer offset of bytes already written to r.out
 
 	// jsonl bookkeeping: last emitted absolute answer offset so we only
 	// emit delta text per event, and track which citations have been emitted.
 	jsonlAnswerEmitted int
 	jsonlThinkingSeen  string
 	jsonlCitationsSeen int
-	jsonlSourceBodies  map[string]api.LoadSourceText // per-source cache for lazy JSONL resolution ("" body = negative)
 }
 
 func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mode citationRenderMode) *chatStreamRenderer {
 	return &chatStreamRenderer{
-		out:            out,
-		status:         status,
-		showThinking:   showThinking,
-		verbose:        verbose,
-		citationMode:   mode,
-		showConfidence: true,
-		showSpans:      true,
+		out:          out,
+		status:       status,
+		showThinking: showThinking,
+		verbose:      verbose,
+		citationMode: mode,
+		tailWindow:   defaultTailWindow,
 	}
 }
 
@@ -1833,12 +1831,22 @@ func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 	case api.ChatChunkAnswer:
 		r.clearThinkingLine()
 		r.answerBuf.WriteString(chunk.Text)
-		// The answer always streams live to stdout; citations render as a
-		// trailing list at Finish. (Earlier modes buffered or held a tail
-		// window to splice inline superscripts; that path corrupted answers
-		// with multibyte text and was removed.)
-		fmt.Fprint(r.out, chunk.Text)
-		r.flushedLen += len(chunk.Text)
+		switch r.citationMode {
+		case citationModeOverlay:
+			// Hold everything until Finish so we can splice precisely.
+		case citationModeTail:
+			// Flush any bytes that have aged out of the tail window.
+			buf := r.answerBuf.String()
+			stable := len(buf) - r.tailWindow
+			if stable > r.flushedLen {
+				fmt.Fprint(r.out, buf[r.flushedLen:stable])
+				r.flushedLen = stable
+			}
+		default:
+			// block / stream / off — live streaming.
+			fmt.Fprint(r.out, chunk.Text)
+			r.flushedLen += len(chunk.Text)
+		}
 		if len(chunk.Citations) > 0 {
 			r.citations = chunk.Citations
 		}
@@ -1880,35 +1888,15 @@ func (r *chatStreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
 			r.citations = chunk.Citations
 			for i := r.jsonlCitationsSeen; i < len(chunk.Citations); i++ {
 				c := chunk.Citations[i]
-				title := c.Title
-				if title == "" && r.resolveTitle != nil {
-					title = r.resolveTitle(c.SourceID)
-				}
-				event := map[string]any{
+				r.emitJSONLEvent(map[string]any{
 					"phase":      "citation",
 					"index":      c.SourceIndex,
 					"source_id":  c.SourceID,
-					"title":      title,
+					"title":      c.Title,
 					"start_char": c.StartChar,
 					"end_char":   c.EndChar,
 					"confidence": c.Confidence,
-				}
-				// The server ships the cited source text inline; fold it into
-				// the event (clipped to budget) when --citation-excerpts is set
-				// so scripts get groundedness inline.
-				if r.excerptBudget > 0 {
-					if ex := truncateExcerpt(c.Excerpt, r.excerptBudget); ex != "" {
-						event["excerpt"] = ex
-					}
-				}
-				// When --resolve-citations is set, fold the resolved txtar
-				// location in too so scripts can post-process without a fetch.
-				if rc, ok := r.resolveCitationJSONL(c); ok {
-					if rc.Location != "" {
-						event["location"] = rc.Location
-					}
-				}
-				r.emitJSONLEvent(event)
+				})
 			}
 			r.jsonlCitationsSeen = len(chunk.Citations)
 		}
@@ -1944,185 +1932,125 @@ func (r *chatStreamRenderer) Finish() {
 	if r.loadSource != nil && len(r.citations) > 0 {
 		r.resolvedLocations = resolveCitationLocations(r.loadSource, r.citations)
 	}
-	if render := citationRenderers[r.citationMode]; render != nil {
-		render(r)
+	switch r.citationMode {
+	case citationModeOverlay:
+		r.emitOverlay()
+	case citationModeTail:
+		r.emitTail()
+	case citationModeStream:
+		r.printCitationsFooter()
+	case citationModeBlock:
+		r.printCitationsBlock()
 	}
 	r.printFollowUps()
 }
 
-// citationRenderers maps a render mode to the function that emits its trailing
-// citation output at Finish. It is a lookup rather than a fixed switch so new
-// modes (a compact one-line-per-source view, a grouped-by-source view) can be
-// registered without reworking Finish. citationModeOff has no entry (nothing
-// to render); citationModeJSON is handled earlier in Finish.
-var citationRenderers = map[citationRenderMode]func(*chatStreamRenderer){
-	citationModeList: (*chatStreamRenderer).renderCitationList,
+// emitOverlay writes the full answer with superscript markers spliced in at
+// the citation char ranges, then prints a numbered footnote block.
+func (r *chatStreamRenderer) emitOverlay() {
+	answer := r.answerBuf.String()
+	if len(r.citations) == 0 {
+		fmt.Fprint(r.out, answer)
+		return
+	}
+	fmt.Fprint(r.out, insertSuperscripts(answer, r.citations))
+	r.printCitationsFootnotes()
 }
 
-// renderCitationList prints the enriched, post-answer citation list under a
-// "Citations:" heading, grouped by citation index:
-//
-//	Citations:
-//	  [1] (p=0.82)
-//	      46870d5a - "7A59" [chars 42-205]
-//	          “…cited excerpt…”
-//	      5cfc41f8 - "claude: E347" [chars 42-205]
-//	          “…cited excerpt…”
-//
-// The index [n] is the primary key and is printed once, with its confidence on
-// the header line; a source appearing under several indices, or several
-// candidate sources under one index, is the citation structure, not
-// redundancy. Under each index one row per source carries "id8 - title
-// [chars]" plus that source's own file:line and excerpt. showConfidence /
-// showSpans toggle the (p=) header column and the trailing [chars] bracket.
-// The span trails each row so its variable width never disturbs id/title
-// alignment.
-func (r *chatStreamRenderer) renderCitationList() {
+// emitTail flushes the held tail window. Citations whose EndChar lands
+// inside the held tail get inline superscripts; citations whose EndChar is
+// already past-flushed get emitted in the footnote block only.
+func (r *chatStreamRenderer) emitTail() {
+	buf := r.answerBuf.String()
+	tail := buf[r.flushedLen:]
+
+	// Partition citations by whether they fall in the still-held tail.
+	var inline, spilled []api.Citation
+	for _, c := range r.citations {
+		if c.EndChar >= r.flushedLen && c.EndChar <= len(buf) {
+			// Translate to a tail-local offset.
+			local := c
+			local.EndChar = c.EndChar - r.flushedLen
+			local.StartChar = c.StartChar - r.flushedLen
+			inline = append(inline, local)
+		} else {
+			spilled = append(spilled, c)
+		}
+	}
+
+	if len(inline) > 0 {
+		fmt.Fprint(r.out, insertSuperscripts(tail, inline))
+	} else {
+		fmt.Fprint(r.out, tail)
+	}
+	r.flushedLen = len(buf)
+
 	if len(r.citations) == 0 {
 		return
 	}
-	order, groups := groupCitationsByIndex(r.citations)
-	fmt.Fprintf(r.status, "\n%sCitations:%s\n", ansiBold, ansiReset)
-	// --citation-excerpts switches from the compact one-line-per-[n] overview
-	// to the expanded per-source view (each source gets its own line and its
-	// own excerpt, since excerpts are per-source).
-	if r.excerptBudget > 0 {
-		for _, idx := range order {
-			r.renderExpandedGroup(idx, groups[idx])
+	// Footer always uses [N] — the inline superscript in the answer body
+	// already marks which ones got spliced. Mixing bracket and superscript
+	// in the footer itself makes the odd-one-out look like a rendering bug.
+	fmt.Fprintln(r.status)
+	fmt.Fprintln(r.status, ansiGrey+strings.Repeat("─", 3)+ansiReset)
+	for _, c := range r.citations {
+		label := r.citationLabel(c)
+		fmt.Fprintf(r.status, "%s[%d] %s%s\n", ansiGrey, c.SourceIndex, label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s    → %s%s\n", ansiGrey, loc, ansiReset)
 		}
+	}
+}
+
+// printCitationsFootnotes prints a numbered footnote block separated by a rule.
+// Used by overlay mode where inline superscripts already appear in the answer.
+func (r *chatStreamRenderer) printCitationsFootnotes() {
+	if len(r.citations) == 0 {
 		return
 	}
-	for _, idx := range order {
-		r.renderCompactGroup(idx, groups[idx])
-	}
-}
-
-// renderCompactGroup prints one index on a single line with all its candidate
-// sources inline:
-//
-//	[3] (p=0.95) [chars 625-860] 746b949b "codex: B149", 40d3a4b0 "codex: E2E8"
-func (r *chatStreamRenderer) renderCompactGroup(idx int, group []api.Citation) {
-	line := r.citationGroupHeader(idx, group)
-	sources := make([]string, 0, len(group))
-	for _, c := range group {
-		if s := r.citationSourceToken(c); s != "" {
-			sources = append(sources, s)
+	fmt.Fprintln(r.status)
+	fmt.Fprintln(r.status, ansiGrey+strings.Repeat("─", 3)+ansiReset)
+	for _, c := range r.citations {
+		label := r.citationLabel(c)
+		fmt.Fprintf(r.status, "%s%s%s %s%s\n",
+			ansiGrey, superscript(c.SourceIndex), formatConfidence(c.Confidence), label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s    → %s%s\n", ansiGrey, loc, ansiReset)
 		}
 	}
-	if len(sources) > 0 {
-		line += " " + strings.Join(sources, ", ")
-	}
-	fmt.Fprintf(r.status, "  %s\n", line)
 }
 
-// renderExpandedGroup prints the index header on its own line, then one line
-// per source with that source's file:line and excerpt indented beneath it.
-func (r *chatStreamRenderer) renderExpandedGroup(idx int, group []api.Citation) {
-	fmt.Fprintf(r.status, "  %s\n", r.citationGroupHeader(idx, group))
-	for _, c := range group {
-		if s := r.citationSourceToken(c); s != "" {
-			fmt.Fprintf(r.status, "      %s\n", s)
-		}
-		r.printCitationExtras(c, "          ")
+// printCitationsFooter prints a post-answer footer that lists each citation
+// with its char range. Useful for "stream" mode which cannot splice inline.
+func (r *chatStreamRenderer) printCitationsFooter() {
+	if len(r.citations) == 0 {
+		return
 	}
-}
-
-// citationGroupHeader formats the "[n] (p=…) [chars N-M]" prefix shared by both
-// views. Confidence and span are per-index properties (confidence is the
-// server's per-slot score; the span is an offset into the answer text that all
-// of a slot's candidate sources share), so they render once on the header.
-// Each is included only when its toggle is on and the group agrees on a single
-// value — a defensive guard: if a future payload ever splits confidence or
-// span within one index, that column is dropped from the header rather than
-// asserting one wrong value (the per-source data still appears in --citations=json).
-func (r *chatStreamRenderer) citationGroupHeader(idx int, group []api.Citation) string {
-	header := fmt.Sprintf("[%d]", idx)
-	if r.showConfidence {
-		if conf, ok := uniformConfidence(group); ok {
-			if s := strings.TrimSpace(formatConfidence(conf)); s != "" {
-				header += " " + s
-			}
+	fmt.Fprintf(r.status, "\n%sCitations:%s\n", ansiGrey, ansiReset)
+	for _, c := range r.citations {
+		label := r.citationLabel(c)
+		fmt.Fprintf(r.status, "%s  [%d]%s chars %d-%d — %s%s\n",
+			ansiGrey, c.SourceIndex, formatConfidence(c.Confidence),
+			c.StartChar, c.EndChar, label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s      → %s%s\n", ansiGrey, loc, ansiReset)
 		}
 	}
-	if r.showSpans {
-		if start, end, ok := uniformSpan(group); ok {
-			if span := formatCharSpan(start, end); span != "" {
-				header += " [" + span + "]"
-			}
+}
+
+// printCitationsBlock prints the default post-answer Sources: block.
+func (r *chatStreamRenderer) printCitationsBlock() {
+	if len(r.citations) == 0 {
+		return
+	}
+	fmt.Fprintf(r.status, "\n%sSources:%s\n", ansiGrey, ansiReset)
+	for _, c := range r.citations {
+		label := r.citationLabel(c)
+		fmt.Fprintf(r.status, "%s  [%d]%s %s%s\n",
+			ansiGrey, c.SourceIndex, formatConfidence(c.Confidence), label, ansiReset)
+		if loc := r.resolvedLocationFor(c); loc != "" {
+			fmt.Fprintf(r.status, "%s      → %s%s\n", ansiGrey, loc, ansiReset)
 		}
-	}
-	return header
-}
-
-// citationSourceToken formats one source as `id8 "title"` — both the
-// copy-pasteable 8-char handle and the human title, always. Degrades to
-// whichever is available.
-func (r *chatStreamRenderer) citationSourceToken(c api.Citation) string {
-	return r.citationLabel(c)
-}
-
-// groupCitationsByIndex buckets citations by SourceIndex, preserving the order
-// indices first appear in the stream.
-func groupCitationsByIndex(cites []api.Citation) ([]int, map[int][]api.Citation) {
-	var order []int
-	groups := map[int][]api.Citation{}
-	for _, c := range cites {
-		if _, ok := groups[c.SourceIndex]; !ok {
-			order = append(order, c.SourceIndex)
-		}
-		groups[c.SourceIndex] = append(groups[c.SourceIndex], c)
-	}
-	return order, groups
-}
-
-// uniformConfidence returns the group's shared confidence and ok=true when
-// every member agrees, else ok=false.
-func uniformConfidence(group []api.Citation) (float64, bool) {
-	for _, c := range group[1:] {
-		if c.Confidence != group[0].Confidence {
-			return 0, false
-		}
-	}
-	return group[0].Confidence, true
-}
-
-// uniformSpan returns the group's shared char range and ok=true when every
-// member agrees, else ok=false.
-func uniformSpan(group []api.Citation) (int, int, bool) {
-	for _, c := range group[1:] {
-		if c.StartChar != group[0].StartChar || c.EndChar != group[0].EndChar {
-			return 0, 0, false
-		}
-	}
-	return group[0].StartChar, group[0].EndChar, true
-}
-
-// formatCharSpan renders a citation's character range as "chars 42-205", or
-// "chars 409" for a single non-zero point. Returns "" when there is no real
-// span: a negative range, an inverted range, or the zero value (0,0), which
-// is the "no span metadata" sentinel and must not render as "chars 0".
-func formatCharSpan(start, end int) string {
-	if start < 0 || end < start || (start == 0 && end == 0) {
-		return ""
-	}
-	if end == start {
-		return fmt.Sprintf("chars %d", start)
-	}
-	return fmt.Sprintf("chars %d-%d", start, end)
-}
-
-// printCitationExtras renders the optional continuation lines beneath a
-// citation label: the resolved "file:line:col" location (when
-// --resolve-citations pinned a txtar member) and the cited-span excerpt (when
-// --citation-excerpts is set). Both are indented by indent and render in the
-// default color so the cited text stays legible. Nothing is printed when
-// neither applies.
-func (r *chatStreamRenderer) printCitationExtras(c api.Citation, indent string) {
-	if loc := r.resolvedLocationFor(c); loc != "" {
-		fmt.Fprintf(r.status, "%s→ %s\n", indent, loc)
-	}
-	if ex := r.excerptFor(c); ex != "" {
-		fmt.Fprintf(r.status, "%s“%s”\n", indent, ex)
 	}
 }
 
@@ -2136,15 +2064,13 @@ func formatConfidence(conf float64) string {
 	return fmt.Sprintf(" (p=%.2f)", conf)
 }
 
-// citationLabel formats the source handle and title for one citation as
-// `<id8> - "title"`, where id8 is the source ID's 8-char prefix (enough to
-// disambiguate near-duplicate titles like "claude: E347 (pt2)" while staying
-// column-aligned; the full UUID is available in --citations=json). The title
-// prefers a resolved notebook title, then the server-supplied one. Degrades to
-// just the handle or just the quoted title when only one is available. The
-// resolved file:line and excerpt render separately on continuation lines.
+// citationLabel formats a single citation line: "<source-id> — <title/excerpt>".
+// Prefers a resolved notebook title; falls back to the server-supplied excerpt;
+// falls back to the raw source ID. The resolved file:line:col coordinate, when
+// available, is rendered separately by the footer printers on a second line —
+// see resolvedLocationFor.
 func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
-	handle := shortSourceID(c.SourceID)
+	id := c.SourceID
 	var title string
 	if r.resolveTitle != nil {
 		title = r.resolveTitle(c.SourceID)
@@ -2154,73 +2080,25 @@ func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
 	}
 	title = truncateExcerpt(title, 100)
 	switch {
-	case handle != "" && title != "":
-		return fmt.Sprintf("%s %q", handle, title)
-	case handle != "":
-		return handle
+	case id != "" && title != "":
+		return fmt.Sprintf("%s — %q", id, title)
+	case id != "":
+		return id
 	case title != "":
 		return fmt.Sprintf("%q", title)
 	}
 	return ""
 }
 
-// shortSourceID returns the 8-char prefix of a source ID (a UUID), or the
-// whole ID when it is already 8 chars or shorter. Empty in, empty out.
-func shortSourceID(id string) string {
-	if len(id) <= 8 {
-		return id
-	}
-	return id[:8]
-}
-
 // resolvedLocationFor returns the editor-style "file:line:col" coordinate for
-// citation c when --resolve-citations resolved it against a txtar member, or
-// "" otherwise. Footer printers render this on a continuation line beneath the
-// citation label so the original source name stays visible.
+// citation c when --resolve-citations resolved it, or "" otherwise. Footer
+// printers render this on a continuation line beneath the citation label so
+// the original source name stays visible.
 func (r *chatStreamRenderer) resolvedLocationFor(c api.Citation) string {
 	if r.resolvedLocations == nil {
 		return ""
 	}
-	return r.resolvedLocations[keyFor(c)].Location
-}
-
-// excerptFor returns the cited source text for citation c, clipped to the
-// excerpt budget, or "" when excerpts are disabled or the server sent none.
-// The text is the verbatim passage the server shipped inline with the citation
-// (api.Citation.Excerpt) — available for any source type (notes included) with
-// no source fetch or txtar resolution required.
-func (r *chatStreamRenderer) excerptFor(c api.Citation) string {
-	if r.excerptBudget <= 0 {
-		return ""
-	}
-	return truncateExcerpt(c.Excerpt, r.excerptBudget)
-}
-
-// resolveCitationJSONL resolves a single citation's txtar file:line location on
-// demand during JSONL streaming, caching each source body so repeated citations
-// into the same source cost one fetch. Returns ok=false when no source loader
-// is configured (--resolve-citations was not requested), the source could not
-// be loaded, or the source is not a pinnable txtar member. The excerpt is no
-// longer resolved here — it ships inline on the citation. Resolution is shared
-// with the batch path via resolveOneCitation so the two never diverge.
-func (r *chatStreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitation, bool) {
-	if r.loadSource == nil || c.SourceID == "" {
-		return resolvedCitation{}, false
-	}
-	if r.jsonlSourceBodies == nil {
-		r.jsonlSourceBodies = make(map[string]api.LoadSourceText)
-	}
-	body, ok := r.jsonlSourceBodies[c.SourceID]
-	if !ok {
-		loaded, err := r.loadSource(c.SourceID)
-		if err != nil {
-			r.jsonlSourceBodies[c.SourceID] = api.LoadSourceText{} // negative cache
-			return resolvedCitation{}, false
-		}
-		body = loaded
-		r.jsonlSourceBodies[c.SourceID] = body
-	}
-	return resolveOneCitation(body, c)
+	return r.resolvedLocations[keyFor(c)]
 }
 
 // truncateExcerpt collapses whitespace and clips to max runes with an ellipsis.
@@ -2235,6 +2113,79 @@ func truncateExcerpt(s string, max int) string {
 
 func collapseWhitespace(s string) string {
 	return strings.Join(strings.Fields(s), " ")
+}
+
+// insertSuperscripts splices citation markers at each citation's EndChar.
+// A single citation at a position renders as a Unicode superscript (¹, ²).
+// Multiple citations sharing the same position render as a bracketed cluster
+// ([1,2]) to avoid digit ambiguity — e.g. "³⁴" reads as "3⁴" rather than
+// "cite 3, cite 4". Positions are snapped to the next word boundary.
+func insertSuperscripts(answer string, citations []api.Citation) string {
+	type insert struct {
+		at  int
+		idx []int
+	}
+	byPos := map[int]*insert{}
+	var order []int
+	for _, c := range citations {
+		pos := c.EndChar
+		if pos < 0 || pos > len(answer) {
+			pos = len(answer)
+		}
+		pos = snapToWordBoundary(answer, pos)
+		if _, ok := byPos[pos]; !ok {
+			byPos[pos] = &insert{at: pos}
+			order = append(order, pos)
+		}
+		byPos[pos].idx = append(byPos[pos].idx, c.SourceIndex)
+	}
+	// Emit positions in ascending order.
+	for i := 0; i < len(order); i++ {
+		for j := i + 1; j < len(order); j++ {
+			if order[j] < order[i] {
+				order[i], order[j] = order[j], order[i]
+			}
+		}
+	}
+	var b strings.Builder
+	last := 0
+	for _, pos := range order {
+		if pos < last {
+			continue
+		}
+		b.WriteString(answer[last:pos])
+		b.WriteString(formatCitationCluster(byPos[pos].idx))
+		last = pos
+	}
+	b.WriteString(answer[last:])
+	return b.String()
+}
+
+// formatCitationCluster renders a set of citation indices that share a splice
+// position. A single index becomes a Unicode superscript; two or more become
+// a bracketed, comma-joined cluster.
+func formatCitationCluster(idx []int) string {
+	if len(idx) == 1 {
+		return superscript(idx[0])
+	}
+	parts := make([]string, len(idx))
+	for i, n := range idx {
+		parts[i] = fmt.Sprintf("%d", n)
+	}
+	return "[" + strings.Join(parts, ",") + "]"
+}
+
+// superscript formats a 1-based citation index using Unicode superscript digits.
+func superscript(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	digits := []rune("⁰¹²³⁴⁵⁶⁷⁸⁹")
+	var out []rune
+	for _, d := range fmt.Sprintf("%d", n) {
+		out = append(out, digits[d-'0'])
+	}
+	return string(out)
 }
 
 func (r *chatStreamRenderer) printFollowUps() {
@@ -2277,7 +2228,6 @@ type chatResult struct {
 
 func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptions) (chatResult, error) {
 	mode := resolveCitationMode(opts.CitationMode)
-	warnDeprecatedCitationMode(os.Stderr, opts.CitationMode)
 	// --thinking-jsonl is the legacy form of `--citations=json --thinking`.
 	// Keep it working by folding its effects into the cleaner flags.
 	wantThinking := opts.ShowThinking || opts.Verbose || opts.ThinkingJSONL
@@ -2288,11 +2238,6 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	renderer.jsonl = mode == citationModeJSON
 	renderer.jsonlIncludeThinking = wantThinking
 	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
-	renderer.excerptBudget = opts.ExcerptBudget
-	renderer.showConfidence = !opts.HideConfidence
-	renderer.showSpans = !opts.HideSpans
-	// Only --resolve-citations needs source bodies now (for txtar file:line).
-	// Excerpts ship inline on the citation, so they need no loader.
 	if opts.ResolveCitations && c != nil && req.ProjectID != "" {
 		renderer.loadSource = func(sourceID string) (api.LoadSourceText, error) {
 			return c.LoadSourceText(sourceID, req.ProjectID)
@@ -2309,31 +2254,9 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	return chatResult{
 		Answer:    renderer.Answer(),
 		Thinking:  renderer.Thinking(),
-		Citations: persistableCitations(renderer.citations, renderer.resolveTitle),
+		Citations: renderer.citations,
 		FollowUps: renderer.followUps,
 	}, err
-}
-
-// persistableCitations returns a copy of cites with each Title filled from the
-// notebook source title (via resolveTitle) when the server did not supply one.
-// The persisted session then carries a human-readable title, so `chat show`
-// can render titles offline without a live GetProject fetch. Citations that
-// already have a server title, or whose source has no resolvable title, are
-// left as-is.
-func persistableCitations(cites []api.Citation, resolveTitle func(string) string) []api.Citation {
-	if resolveTitle == nil || len(cites) == 0 {
-		return cites
-	}
-	out := make([]api.Citation, len(cites))
-	copy(out, cites)
-	for i := range out {
-		if out[i].Title == "" {
-			if t := resolveTitle(out[i].SourceID); t != "" {
-				out[i].Title = t
-			}
-		}
-	}
-	return out
 }
 
 // promoteThinkingToAnswer handles the case where the stream parser classified
@@ -3193,73 +3116,6 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 	}
 
 	mode := resolveCitationMode(opts.CitationMode)
-	warnDeprecatedCitationMode(os.Stderr, opts.CitationMode)
-
-	// chat-show is a local-only (noClient) command. Titles, excerpts, and
-	// file:line resolution all want the server, so build a client on demand
-	// when any is requested and auth is present; otherwise degrade to the
-	// name-only rendering rather than erroring, so plain replays keep working
-	// offline.
-	//
-	//   - Excerpts ride on the citation itself. The live-stream copy persisted
-	//     locally has none (the stream frame carries no structured citations),
-	//     so we refetch conversation history — whose frames DO carry per-source
-	//     excerpts — and swap those citations in by message order.
-	//   - --resolve-citations still needs source bodies for txtar file:line,
-	//     via a memoized loader.
-	//   - Titles come from the notebook source list.
-	var loadSource func(string) (api.LoadSourceText, error)
-	var resolveTitle func(string) string
-	var historyCitations [][]api.Citation
-	if opts.ResolveCitations || opts.ExcerptBudget > 0 {
-		if authToken == "" || cookies == "" {
-			fmt.Fprintln(os.Stderr, "nlm: --citation-excerpts/--resolve-citations need auth; run 'nlm auth'. Rendering names only.")
-		} else {
-			c := api.New(authToken, cookies)
-			if debug {
-				c.SetDebug(true)
-			}
-			resolveTitle = notebookSourceTitles(c, notebookID)
-
-			if opts.ExcerptBudget > 0 {
-				if msgs, err := c.GetConversationHistory(notebookID, conversationID); err != nil {
-					fmt.Fprintf(os.Stderr, "nlm: could not fetch history for excerpts (auth may be expired — run 'nlm auth'): %v\n", err)
-				} else {
-					for _, sm := range msgs {
-						if sm.Role == 2 { // assistant
-							historyCitations = append(historyCitations, sm.Citations)
-						}
-					}
-				}
-			}
-
-			if opts.ResolveCitations {
-				cache := make(map[string]api.LoadSourceText)
-				var authWarned bool
-				loadSource = func(sourceID string) (api.LoadSourceText, error) {
-					if body, ok := cache[sourceID]; ok {
-						if len(body.Fragments) == 0 {
-							return api.LoadSourceText{}, fmt.Errorf("source %s unavailable", sourceID)
-						}
-						return body, nil
-					}
-					body, err := c.LoadSourceText(sourceID, notebookID)
-					if err != nil {
-						cache[sourceID] = api.LoadSourceText{} // negative cache
-						if !authWarned {
-							authWarned = true
-							fmt.Fprintln(os.Stderr, "nlm: could not fetch source text (auth may be expired — run 'nlm auth'); skipping file:line.")
-						}
-						return api.LoadSourceText{}, err
-					}
-					cache[sourceID] = body
-					return body, nil
-				}
-			}
-		}
-	}
-
-	assistantSeen := 0
 	for i, m := range session.Messages {
 		if i > 0 {
 			fmt.Println()
@@ -3270,49 +3126,19 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 			fmt.Println(m.Content)
 			continue
 		}
-		// Swap in server-history citations (which carry excerpts) for this
-		// assistant message, matched by assistant-message order. Fall back to
-		// the persisted citations when history is unavailable or shorter.
-		if assistantSeen < len(historyCitations) && len(historyCitations[assistantSeen]) > 0 {
-			m.Citations = historyCitations[assistantSeen]
-		}
-		assistantSeen++
 		if opts.ShowThinking && m.Thinking != "" {
 			fmt.Fprintf(os.Stderr, "%s%s%s\n", ansiGrey, m.Thinking, ansiReset)
 		}
-		renderPersistedAssistant(os.Stdout, os.Stderr, m, mode, persistedRenderConfig{
-			excerptBudget:  opts.ExcerptBudget,
-			hideConfidence: opts.HideConfidence,
-			hideSpans:      opts.HideSpans,
-			loadSource:     loadSource,
-			resolveTitle:   resolveTitle,
-		})
+		renderPersistedAssistant(os.Stdout, os.Stderr, m, mode)
 	}
 	return nil
 }
 
-// persistedRenderConfig carries the optional hydration hooks for replaying a
-// stored assistant message. Its zero value renders name-only citations, the
-// same as a plain offline replay.
-type persistedRenderConfig struct {
-	excerptBudget  int
-	hideConfidence bool
-	hideSpans      bool
-	loadSource     func(string) (api.LoadSourceText, error) // fetch a source body for txtar file:line hydration
-	resolveTitle   func(string) string                      // map a source ID to its notebook title
-}
-
 // renderPersistedAssistant feeds a stored assistant message through the live
-// renderer so citation rendering works identically for replays. Excerpts ride
-// on the message's citations; when cfg supplies a loader, --resolve-citations
-// file:line locations are hydrated on top from the persisted citation spans.
-func renderPersistedAssistant(out, status io.Writer, m ChatMessage, mode citationRenderMode, cfg persistedRenderConfig) {
+// renderer so all citation modes (block/stream/tail/overlay) work identically
+// for replays.
+func renderPersistedAssistant(out, status io.Writer, m ChatMessage, mode citationRenderMode) {
 	r := newChatStreamRenderer(out, status, false, false, mode)
-	r.excerptBudget = cfg.excerptBudget
-	r.showConfidence = !cfg.hideConfidence
-	r.showSpans = !cfg.hideSpans
-	r.loadSource = cfg.loadSource
-	r.resolveTitle = cfg.resolveTitle
 	r.WriteChunk(api.ChatChunk{
 		Phase:     api.ChatChunkAnswer,
 		Text:      m.Content,

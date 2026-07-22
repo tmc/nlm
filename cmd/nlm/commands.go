@@ -1144,14 +1144,17 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return runMCP(c) },
 	},
 	{
-		name: "betool", argsUsage: "<decode-request|encode-request|decode-response|encode-response> [file]",
+		name: "betool", argsUsage: "<decode-request|encode-request|decode-response|encode-response|infer-proto> [file...]",
 		usage:   "Translate raw batchexecute payloads to JSON and back (offline codec)",
 		section: "Other",
 		minArgs: 0, maxArgs: -1,
-		noAuth:  true, noClient: true,
+		noAuth: true, noClient: true,
 		hidden: true, // developer tool; pure wire codec, no network I/O
 		help:   func(cmdName string) { printBetoolUsage() },
-		run:    func(_ *api.Client, args []string) error { return runBetool(args) },
+		run:    func(_ *api.Client, args []string) error { return runBetool(args, false) },
+		runWithOptions: func(_ *api.Client, args []string, opts globalOptions) error {
+			return runBetool(args, opts.jsonOutput)
+		},
 	},
 	{
 		name: "auth", argsUsage: "[profile]",

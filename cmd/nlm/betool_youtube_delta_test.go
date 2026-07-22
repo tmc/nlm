@@ -105,8 +105,8 @@ func TestProjectLimitsLeadingNull(t *testing.T) {
 // block in a rich-text document is carried as [start, end, null x4,
 // [code_text, language]] — an alternate content shape like table (field 5) and
 // hidden_content (field 9). Surfaced by a khqZz (GetConversationHistory)
-// capture whose assistant turn embedded protobuf/go code blocks; the earlier
-// conversation_history fixture had no code blocks, so it never exercised this.
+// capture whose assistant turn embedded protobuf/go code blocks. The minimal
+// wire below retains the populated language variant exercised by that capture.
 func TestSpanCodeBlockRoundTrip(t *testing.T) {
 	const wire = `[432,516,null,null,null,null,` +
 		`["message GetConversationHistoryResponse {\n  repeated ChatMessage messages = 1;\n}\n","protobuf"]]`
@@ -131,12 +131,65 @@ func TestSpanCodeBlockRoundTrip(t *testing.T) {
 	}
 }
 
-// TestArtifactField18RoundTrip guards Artifact.field_18: a wrapped list of
+func TestNestedRichContentRoundTrip(t *testing.T) {
+	tests := []struct {
+		name       string
+		wire       string
+		wantTable  int
+		wantCode   int
+		wantHidden int
+	}{
+		{
+			name:      "table cell containing code block",
+			wire:      `[0,4,null,null,[4,1,[[0,4,[[0,4,null,null,null,null,["fmt.Println()","go"]]]]]]]`,
+			wantTable: 1,
+			wantCode:  1,
+		},
+		{
+			name:       "hidden content containing table",
+			wire:       `[0,4,null,null,null,null,null,null,[[[0,4,null,null,[8,1,[[0,4,[[0,4,["cell"]]]]]]]]]]`,
+			wantTable:  1,
+			wantHidden: 1,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			msg := &notebooklmv1alpha1.Span{}
+			if err := beprotojson.Unmarshal([]byte(test.wire), msg); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(test.wire), msg)
+			if err != nil {
+				t.Fatalf("diff: %v", err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+			}
+			coverage := collectRichContent(msg)
+			if coverage == nil {
+				t.Fatal("rich-content coverage is nil")
+			}
+			if coverage.Tables != test.wantTable || coverage.CodeBlocks != test.wantCode || coverage.HiddenContent != test.wantHidden {
+				t.Fatalf("coverage = %+v", coverage)
+			}
+			if test.wantCode != 0 && coverage.TableContainingCodeBlock != 1 {
+				t.Fatalf("table-containing-code count = %d, want 1", coverage.TableContainingCodeBlock)
+			}
+			if test.wantHidden != 0 && coverage.HiddenContainingTable != 1 {
+				t.Fatalf("hidden-containing-table count = %d, want 1", coverage.HiddenContainingTable)
+			}
+		})
+	}
+}
+
+// TestArtifactProcessingTimestampsRoundTrip guards Artifact.processing_timestamps:
+// a wrapped list of
 // [seconds, nanos] rows, observed [[[1388, 553000000]]] on a failed NOTE
 // artifact. Field 18 was previously documented as always-null; a QueryArtifacts
 // (gArtLc) poll capture populated it. The inner pair is an inline [secs, nanos]
 // (two int64 fields), not a google.protobuf.Timestamp sub-message.
-func TestArtifactField18RoundTrip(t *testing.T) {
+func TestArtifactProcessingTimestampsRoundTrip(t *testing.T) {
 	// Minimal Artifact: id, then field 18 at position [17] (positions 2..16 null).
 	const wire = `["f8817d9b-61f0-4324-a5d6-273ee0a1dc65",null,null,null,null,null,null,` +
 		`null,null,null,null,null,null,null,null,null,null,[[[1388,553000000]]]]`
@@ -145,9 +198,9 @@ func TestArtifactField18RoundTrip(t *testing.T) {
 	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
-	rows := msg.GetField_18().GetRows()
+	rows := msg.GetProcessingTimestamps().GetRows()
 	if len(rows) != 1 || rows[0].GetSeconds() != 1388 || rows[0].GetNanos() != 553000000 {
-		t.Fatalf("field_18 decoded wrong: %+v", msg.GetField_18())
+		t.Fatalf("processing_timestamps decoded wrong: %+v", msg.GetProcessingTimestamps())
 	}
 	deltas, err := diffWireAgainstProto([]byte(wire), msg)
 	if err != nil {
@@ -823,6 +876,59 @@ func TestBulkImportTextRequestRoundTrip(t *testing.T) {
 	}
 }
 
+// TestGenerateFreeFormStreamedWireRoundTrip guards the dedicated streaming
+// request and terminal cumulative response shapes without captured content.
+func TestGenerateFreeFormStreamedWireRoundTrip(t *testing.T) {
+	const requestWire = `[[[["source-id"]]],"prompt",[["prior answer",null,2]],` +
+		`[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],` +
+		`"conversation-id",null,null,"notebook-id",1]`
+	const responseWire = `[["answer",null,["conversation-id","message-id",1]],` +
+		`[[null,null,1]],[[[null,0,1],[0]]],[["next"]],true,[[["next",9]]],true,"token"]`
+	tests := []struct {
+		side string
+		wire string
+	}{
+		{"request", requestWire},
+		{"response", responseWire},
+	}
+	for _, tt := range tests {
+		t.Run(tt.side, func(t *testing.T) {
+			method, err := resolveMethod("GenerateFreeFormStreamedWire")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var msg proto.Message
+			if tt.side == "request" {
+				msg = method.NewRequest()
+			} else {
+				msg = method.NewResponse()
+			}
+			if err := beprotojson.Unmarshal([]byte(tt.wire), msg); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(tt.wire), msg)
+			if err != nil {
+				t.Fatalf("diff: %v", err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+			}
+			if tt.side == "request" {
+				got, err := json.Marshal(genmethod.EncodeGenerateFreeFormStreamedWireArgs(
+					msg.(*notebooklmv1alpha1.GenerateFreeFormStreamedWireRequest),
+				))
+				if err != nil {
+					t.Fatalf("marshal encoded args: %v", err)
+				}
+				if string(got) != tt.wire {
+					t.Fatalf("encoder = %s, want %s", got, tt.wire)
+				}
+			}
+		})
+	}
+}
+
 // TestAudioFormatsRoundTrip guards the four-position sqTeoe catalog. Its
 // response wrapper must be unwrapped even though catalog field 1 is itself a
 // message containing a repeated message field.
@@ -1015,7 +1121,7 @@ func TestBulkImportFromResearchResponseRoundTrip(t *testing.T) {
 	if len(results) != 1 || results[0].GetSourceId().GetSourceId() != "source-id" {
 		t.Fatalf("results decoded wrong: %+v", results)
 	}
-	if results[0].GetTitle() != "Imported Note" || results[0].GetMetadata().GetField_9() != 7246 {
+	if results[0].GetTitle() != "Imported Note" || results[0].GetMetadata().GetContentLength() != 7246 {
 		t.Fatalf("source metadata decoded wrong: %+v", results[0])
 	}
 	deltas, err := diffWireAgainstProto([]byte(wire), msg)

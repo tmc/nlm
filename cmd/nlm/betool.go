@@ -190,7 +190,14 @@ func readBetoolInput(file string) ([]byte, error) {
 func betoolDecodeRequest(input []byte, opts betoolOptions) error {
 	req, err := batchexecute.DecodeRequest(string(input))
 	if err != nil {
-		return fmt.Errorf("decode request: %w", err)
+		wire, streamErr := decodeWrbFRRequest(input)
+		if streamErr != nil {
+			return fmt.Errorf("decode request as batchexecute: %v; as stream: %w", err, streamErr)
+		}
+		req = &batchexecute.WireRequest{RPCs: []batchexecute.WireRPC{{ID: "laWbsf", Args: wire}}}
+		if opts.rpcID == "" {
+			opts.rpcID = "GenerateFreeFormStreamedWire"
+		}
 	}
 	if !opts.proto {
 		if opts.asJSON {
@@ -256,7 +263,19 @@ func betoolEncodeRequest(input []byte) error {
 func betoolDecodeResponse(input []byte, opts betoolOptions) error {
 	resp, err := batchexecute.DecodeResponse(string(input))
 	if err != nil {
-		return fmt.Errorf("decode response: %w", err)
+		rpcID := opts.rpcID
+		if rpcID == "" {
+			rpcID = "GenerateFreeFormStreamedWire"
+			opts.rpcID = rpcID
+		}
+		if method, resolveErr := resolveMethod(rpcID); resolveErr == nil {
+			rpcID = method.RPCID
+		}
+		stream, _, streamErr := decodeWrbFRStream(input, rpcID)
+		if streamErr != nil {
+			return fmt.Errorf("decode response as batchexecute: %v; as stream: %w", err, streamErr)
+		}
+		resp = stream
 	}
 	if !opts.proto {
 		if opts.asJSON {
