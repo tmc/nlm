@@ -55,6 +55,20 @@ extend google.protobuf.FieldOptions {
   // e.g., if arg_format is "[null, %page_size%]" then a field with
   // arg_key = "page_size" will be substituted there
   string arg_key = 51011;
+
+  // Whether this bool field is carried on the wire as a JSON boolean
+  // (true/false) rather than the batchexecute default of 1/0. Some subtrees
+  // (notably the rich-text document in a chat turn) use JSON booleans.
+  bool json_bool = 51012;
+}
+
+// Custom options for messages to define encoding behavior
+extend google.protobuf.MessageOptions {
+  // Whether this message is carried on the wire as a sparse JSON object keyed
+  // by field number ({"101": "•", "102": 1}) rather than a dense positional
+  // array. batchexecute uses the object form for messages whose fields have
+  // large, sparse numbers, to avoid emitting a long run of leading nulls.
+  bool object_encoded = 51030;
 }
 
 // Custom options for services

@@ -507,7 +507,10 @@ service LabsTailwindOrchestrationService {
     }
     rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse) {
         option (rpc_id) = "yR9Yof";
-        option (arg_format) = "[%source_id%]";
+        // Wire shape HAR-verified 2026-04-17 against a Google-Drive source:
+        // [null, [source-id], [2]]. pos 2 is the freshness ProjectContext; an
+        // earlier [4] was a false positive against non-Drive sources.
+        option (arg_format) = "[null, [%source_id%], [2]]";
     }
     rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "tGMBJ";
@@ -543,7 +546,8 @@ service LabsTailwindOrchestrationService {
     }
     rpc RefreshSource(RefreshSourceRequest) returns (Source) {
         option (rpc_id) = "FLmJqe";
-        option (arg_format) = "[%source_id%]";
+        // Same [null, [source-id], [2]] shape as CheckSourceFreshness.
+        option (arg_format) = "[null, [%source_id%], [2]]";
     }
     
     // Audio operations
@@ -575,7 +579,10 @@ service LabsTailwindOrchestrationService {
     // Note operations
     rpc CreateNote(CreateNoteRequest) returns (Note) {
         option (rpc_id) = "CYK0Xb";
-        option (arg_format) = "[%project_id%, %title%, %content%]";
+        // Two-step note protocol (HAR-verified 2026-04-28): CreateNote makes an
+        // empty "New Note" shell; the title/body are set afterward by MutateNote.
+        // The shell shape passes literals, not the request's title/content.
+        option (arg_format) = "[%project_id%, \"\", [1], null, \"New Note\", null, [2]]";
     }
     rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "AH0mwd";
@@ -587,7 +594,10 @@ service LabsTailwindOrchestrationService {
     }
     rpc MutateNote(MutateNoteRequest) returns (Note) {
         option (rpc_id) = "cYAfTb";
-        option (arg_format) = "[%note_id%, %title%, %content%]";
+        // Second step of the note protocol (HAR-verified 2026-04-28): sets the
+        // real title/body. Each update projects to [content, title, [tags], 0],
+        // triple-wrapped, then a trailing [2] context.
+        option (arg_format) = "[%project_id%, %note_id%, [%updates:[%content%, %title%, [%tags%], 0]%], [2]]";
     }
     
     // Project operations
@@ -1225,14 +1235,207 @@ message ChatMessage {
     google.protobuf.Timestamp timestamp = 2;      // [seconds, nanos]
     int32 role = 3;                               // 1 = user, 2 = assistant
     string text = 4;                              // plain text (user turns)
-    repeated ContentSegment rich_content = 5;     // structured content (assistant turns)
+    RichContent rich_content = 5;                 // structured content (assistant turns)
+}
+
+// RichContent is an assistant turn's structured payload:
+// [segment, [grounding...], [], [annotation...]]. The segment carries the text
+// and rich-text document; the grounding and annotation lists tie the reply
+// back to its sources.
+message RichContent {
+    ContentSegment segment = 1;                   // [0] text + rich document
+    repeated Grounding grounding = 2;             // [1] reply-to-source grounding
+    // Field 3 ([2]) is an empty array in observed captures; left unmodeled.
+    repeated ContentAnnotation annotations = 4;   // [3] source annotation index
+}
+
+// ContentAnnotation ties an offset range of the reply to the source indices
+// that support it: [[null, start, end], [source_index...]].
+message ContentAnnotation {
+    OffsetRange range = 1;                        // [0] [null, start, end]
+    repeated int64 source_indices = 2;            // [1] indices into grounding
 }
 
 // ContentSegment is one span of an assistant turn's rich_content. Each segment
-// carries its text; complex segments additionally carry character offsets and
-// citation payloads not modeled here.
+// carries its text and a citation reference; complex segments additionally
+// carry a rich-text document payload not modeled here.
 message ContentSegment {
     string text = 1;
+    // Field 2 ([1]) is an empty array in observed captures; left unmodeled.
+    CitationRef citation = 3;                     // [source_id, source_id, ref]
+    // Field 4 ([3]) is an empty array in observed captures; left unmodeled.
+    RichDocument rich_document = 5;               // rendered rich-text tree
+}
+
+// CitationRef links a ContentSegment back to its source. The two id fields hold
+// the same source UUID in every observed capture; ref is an integer whose
+// meaning (chunk offset or citation index) is not yet confirmed.
+message CitationRef {
+    string source_id = 1;
+    string source_id_2 = 2;
+    int64 ref = 3;
+}
+
+// RichDocument is the rendered rich-text form of an assistant turn: a tree of
+// character-offset spans plus per-source grounding records. It is the
+// [body, [], [], grounding, flag] payload at ContentSegment field 5.
+message RichDocument {
+    SpanLayers body = 1;
+    // Fields 2 and 3 are empty arrays in observed captures; left unmodeled.
+    repeated GroundingRecord grounding = 4;
+    int64 flag = 5;                               // small int (1); meaning TBD
+}
+
+// SpanLayers holds the document body as two parallel layers over the same text:
+// the block tree (headings, paragraphs, list items) and a per-source annotation
+// index mapping offset ranges back to their source.
+message SpanLayers {
+    repeated Span blocks = 1;
+    repeated SourceAnnotation annotations = 2;
+}
+
+// Span is one character-offset range [start, end] of the rendered document and
+// its content. Spans nest recursively: a block span's content is a group of
+// child spans, a leaf span's content is text. content is a shape union (see
+// SpanContent).
+message Span {
+    // Offsets are explicitly present so a legitimate 0 (the document start)
+    // round-trips as 0 rather than an absent null.
+    optional int64 start = 1;
+    optional int64 end = 2;
+    SpanContent content = 3;
+    // Hidden/thinking blocks carry their content at position 9 instead of 3
+    // (fields 4..8 are null). The content is the same recursive span shape.
+    SpanContent hidden_content = 9;
+    // Separator spans (e.g. the empty [432,433] between blocks) carry an empty
+    // marker array at position 12 instead of content; fields 4..11 are null.
+    // Modeled as a present-but-empty message so the trailing [] round-trips.
+    Separator separator = 12;
+}
+
+// Separator marks a zero-content boundary span. It is empty on the wire ([])
+// but present, distinguishing a separator span from an ordinary one.
+message Separator {
+}
+
+// SpanContent is a shape union: a span holds EITHER a text leaf (["text"] or
+// ["text", marks]) OR a group of nested child spans ([[spans], ...]), at the
+// same wire position. beprotojson selects the case by shape.
+message SpanContent {
+    oneof value {
+        TextLeaf leaf = 1;                        // ["text", marks?]
+        SpanGroup group = 2;                      // [[spans], meta?, null?, items?]
+    }
+}
+
+// TextLeaf is the innermost span content: a run of text with optional
+// positional formatting marks.
+message TextLeaf {
+    string text = 1;
+    TextMarks marks = 2;                          // [null x7, bold?] positional flags
+}
+
+// SpanGroup is a container span's content: a list of child spans plus optional
+// layout metadata.
+message SpanGroup {
+    repeated Span spans = 1;                       // [0] child spans
+    SpanGroupMeta meta = 2;                        // [1] e.g. [null, indent]
+    // Field 3 ([2]) is null in observed captures; left unmodeled.
+    ListItem list_item = 4;                       // [3] list-item style
+}
+
+// TextMarks carries the positional formatting marks on a text leaf. Observed
+// forms include [true] (flag1, on inline headings/labels), [null x7, true]
+// (flag8, on code/identifier runs), and [null, null, null, url] (link, a
+// hyperlink target). Boolean marks are carried as JSON booleans on the wire,
+// not batchexecute's 1/0; exact bold/italic/code meanings are not yet
+// confirmed, so they are modeled generically.
+message TextMarks {
+    optional bool flag1 = 1 [(json_bool) = true];
+    optional bool flag2 = 2 [(json_bool) = true];
+    optional bool flag3 = 3 [(json_bool) = true];
+    string link = 4;                              // [3] hyperlink target URL
+    optional bool flag5 = 5 [(json_bool) = true];
+    optional bool flag6 = 6 [(json_bool) = true];
+    optional bool flag7 = 7 [(json_bool) = true];
+    optional bool flag8 = 8 [(json_bool) = true];
+}
+
+// SpanGroupMeta is the [null, indent] metadata trailing a span group.
+message SpanGroupMeta {
+    // Position 1 is null in observed captures; left unmodeled.
+    optional int64 indent = 2;
+}
+
+// ListItem describes one list-item run within a span group:
+// [null, null, nesting, {101:bullet, ...}]. Positions 1 and 2 are null in
+// observed captures.
+message ListItem {
+    // Fields 1 and 2 ([0], [1]) are null in observed captures; left unmodeled.
+    optional int64 nesting = 3;                   // [2] nesting depth (0,1,2)
+    ListMarker marker = 4;                        // [3] bullet/number style
+}
+
+// ListMarker is the list-item style object, carried on the wire as a sparse
+// object keyed by field number: {"101":"•", "102":1, "103":1, "104":0}.
+// The bullet glyph cycles •/◦/▪ with nesting; the numeric fields track
+// ordinal/level, exact meaning TBD.
+message ListMarker {
+    option (object_encoded) = true;
+    string bullet = 101;
+    optional int64 field_102 = 102;
+    optional int64 field_103 = 103;
+    optional int64 field_104 = 104;
+}
+
+// SourceAnnotation maps an offset range of the rendered document back to a
+// source: [[source_id], [null, start, end]].
+message SourceAnnotation {
+    SourceIdList source = 1;                      // [0] [source_id]
+    OffsetRange range = 2;                        // [1] [null, start, end]
+}
+
+// SourceIdList wraps a single source UUID in its own array ([source_id]).
+message SourceIdList {
+    string source_id = 1;
+}
+
+// OffsetRange is a [null, start, end] character span of the rendered document.
+message OffsetRange {
+    // Position 1 is null in observed captures; left unmodeled.
+    optional int64 start = 2;
+    optional int64 end = 3;
+}
+
+// GroundingRecord links reply spans to the source spans that ground them:
+// [[source_id], [null, null, score, [reply_span], [source_spans], [ref],
+// source_id]].
+message GroundingRecord {
+    SourceIdList source = 1;                      // [0] [source_id]
+    Grounding grounding = 2;                      // [1] the grounding detail
+}
+
+// Grounding is the detail of a GroundingRecord:
+// [null, null, score, [reply_span], [source_spans], [chunk_ref], source_id].
+message Grounding {
+    // Fields 1 and 2 ([0], [1]) are null in observed captures; left unmodeled.
+    optional double score = 3;                    // [2] relevance score
+    repeated OffsetRange reply_spans = 4;         // [3] spans in the reply
+    SpanList source_spans = 5;                    // [4] [[span...]] in the source
+    repeated ChunkRef chunk_refs = 6;             // [5] [[chunk_id], ref_id]
+    SourceIdList source_id = 7;                    // [6] [source UUID]
+}
+
+// SpanList wraps a list of spans in one extra array layer ([[span...]]), the
+// shape grounding uses for its source spans.
+message SpanList {
+    repeated Span spans = 1;
+}
+
+// ChunkRef is a [[chunk_id], ref_id] reference within a grounding record.
+message ChunkRef {
+    SourceIdList chunk = 1;
+    string ref_id = 2;
 }
 
 // Interactive audio (WebRTC) types

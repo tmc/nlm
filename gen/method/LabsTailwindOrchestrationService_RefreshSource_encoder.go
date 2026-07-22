@@ -9,11 +9,11 @@ import (
 
 // EncodeRefreshSourceArgs encodes arguments for LabsTailwindOrchestrationService.RefreshSource
 // RPC ID: FLmJqe
-// Argument format: [%source_id%]
+// Argument format: [null, [%source_id%], [2]]
 func EncodeRefreshSourceArgs(req *notebooklmv1alpha1.RefreshSourceRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%source_id%]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[null, [%source_id%], [2]]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better
