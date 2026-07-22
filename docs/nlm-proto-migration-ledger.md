@@ -32,3 +32,14 @@ binding alone is not proof.
   not called from normal operation and must not be deleted until observed
   payload variants, request captures, CLI behavior, and the complete corpus
   satisfy the deletion gates in the migration goal.
+
+## Current artifact blocker
+
+The generated `Artifact` decoder is not yet a drop-in public adapter for the
+legacy artifact family. On the captured slide artifact fixture, it populates
+`title` and type-specific preview fields that `parseArtifactFromResponse`
+intentionally leaves empty, while the legacy parser also promotes the state to
+READY when it finds a rendered download URL. Switching without an explicit
+projection would change public values and state semantics, so artifacts remain
+on the legacy implementation pending a typed adapter and URL/state equivalence
+fixtures.
