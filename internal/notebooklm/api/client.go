@@ -3619,6 +3619,24 @@ func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sour
 	if len(sourceIDs) == 0 {
 		return "", fmt.Errorf("notebook has no sources")
 	}
+	if instructions == "" && format == SlideDeckFormatDetailed {
+		artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), &pb.CreateUniversalArtifactRequest{
+			Context:   universalArtifactRequestContext(),
+			ProjectId: projectID,
+			Options: &pb.UniversalArtifactOptions{
+				Kind:         8,
+				SourceGroups: universalArtifactSourceGroups(sourceIDs),
+				Slides:       []*pb.UniversalSlideOptions{{Language: "en", Format: 2, Style: 4}},
+			},
+		})
+		if err != nil {
+			return "", fmt.Errorf("create slide deck: %w", err)
+		}
+		if artifact.GetArtifactId() == "" {
+			return "", fmt.Errorf("create returned no artifact id (the server may have rejected it, e.g. quota exhausted); check 'nlm artifact list'")
+		}
+		return artifact.GetArtifactId(), nil
+	}
 
 	args := intmethod.EncodeCreateSlideDeckArgs(projectID, sourceIDs, instructions, "en", format)
 	call := rpc.Call{
