@@ -5,6 +5,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/beprotojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestParseChatResponseChunked(t *testing.T) {
@@ -334,6 +338,30 @@ func TestExtractChatPayloadResolvesScopedCitationIDs(t *testing.T) {
 	}
 	if got.Citations[0].SourceID != "target-src" {
 		t.Fatalf("citation source = %q, want target-src", got.Citations[0].SourceID)
+	}
+}
+
+func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
+	response := &pb.GenerateFreeFormStreamedWireResponse{
+		Answer:    &pb.ChatAnswer{Chunk: "answer"},
+		Citations: []*pb.Grounding{{Score: proto.Float64(0.9)}},
+		SourceMappings: []*pb.ChatStreamSourceMapping{{
+			Range:         &pb.OffsetRange{Start: proto.Int64(4), End: proto.Int64(10)},
+			SourceIndices: []int32{0, 1},
+		}},
+	}
+	raw, err := beprotojson.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := extractChatPayload(string(raw), []string{"src-a", "src-b"})
+	if got.Text != "answer" || len(got.Citations) != 2 {
+		t.Fatalf("payload = %#v, want answer with two citations", got)
+	}
+	for i, citation := range got.Citations {
+		if citation.SourceIndex != 1 || citation.SourceID != []string{"src-a", "src-b"}[i] || citation.StartChar != 4 || citation.EndChar != 10 || citation.Confidence != 0.9 {
+			t.Errorf("citation %d = %#v", i, citation)
+		}
 	}
 }
 

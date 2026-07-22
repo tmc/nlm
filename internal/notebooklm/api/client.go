@@ -4837,6 +4837,65 @@ const (
 )
 
 func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
+	var generated pb.GenerateFreeFormStreamedWireResponse
+	if err := beprotojson.Unmarshal([]byte(innerJSON), &generated); err == nil {
+		payload := chatPayload{Text: generated.GetAnswer().GetChunk()}
+		payload.Citations = citationsFromProtoStream(&generated, sourceIDs)
+		// The generated response intentionally does not model the phase
+		// marker carried inside the answer tuple. Preserve that one small
+		// transport concern from the legacy extractor.
+		var raw []interface{}
+		if json.Unmarshal([]byte(innerJSON), &raw) == nil && len(raw) > 0 {
+			if answer, ok := raw[0].([]interface{}); ok && len(answer) > 8 {
+				if phase, ok := answer[8].(float64); ok {
+					payload.wirePhase = int(phase)
+					payload.hasWirePhase = true
+				}
+			}
+			// Preserve the legacy follow-up projection until its generated
+			// shape is behaviorally verified across all stream variants.
+			if len(raw) > 4 {
+				payload.FollowUps = parseFollowUps(raw[4])
+			}
+		}
+		return payload
+	}
+	return extractChatPayloadLegacy(innerJSON, sourceIDs)
+}
+
+func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse, sourceIDs []string) []Citation {
+	mappings := response.GetSourceMappings()
+	groundings := response.GetCitations()
+	citations := make([]Citation, 0)
+	for i, mapping := range mappings {
+		if mapping == nil || i >= len(groundings) {
+			continue
+		}
+		grounding := groundings[i]
+		if grounding == nil {
+			continue
+		}
+		start, end := 0, 0
+		if r := mapping.GetRange(); r != nil {
+			start, end = int(r.GetStart()), int(r.GetEnd())
+		}
+		for _, sourceIndex := range mapping.GetSourceIndices() {
+			if sourceIndex < 0 || int(sourceIndex) >= len(sourceIDs) {
+				continue
+			}
+			citations = append(citations, Citation{
+				SourceIndex: i + 1,
+				SourceID:    sourceIDs[sourceIndex],
+				StartChar:   start,
+				EndChar:     end,
+				Confidence:  grounding.GetScore(),
+			})
+		}
+	}
+	return citations
+}
+
+func extractChatPayloadLegacy(innerJSON string, sourceIDs []string) chatPayload {
 	var data interface{}
 	if err := json.Unmarshal([]byte(innerJSON), &data); err != nil {
 		return chatPayload{}
