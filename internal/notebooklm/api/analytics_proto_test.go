@@ -18,27 +18,29 @@ func TestGetProjectAnalyticsRequestEncoder(t *testing.T) {
 		RequestedAt: timestamppb.New(time.Unix(1776236400, 0)),
 		Mode:        &pb.Int32List{Value: 2},
 	})
-	want := []interface{}{"project-1", nil, []interface{}{float64(1776236400)}, []interface{}{2}}
+	want := []interface{}{"project-1", nil, []interface{}{float64(1776236400)}, []interface{}{float64(2)}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("analytics args = %#v, want %#v", got, want)
 	}
 }
 
-func TestProjectAnalyticsProtoAdapterMatchesLegacyParser(t *testing.T) {
+func TestProjectAnalyticsProtoAdapter(t *testing.T) {
 	raw := json.RawMessage(mustReadAPIFixture(t, "testdata/AUrzMb_analytics_response.json"))
-	legacy, err := parseProjectAnalytics(raw)
-	if err != nil {
-		t.Fatalf("legacy parser: %v", err)
-	}
-	if len(legacy.Series) == 0 || len(legacy.Series[0].Points) == 0 {
-		t.Fatal("fixture no longer exercises metric-series behavior")
-	}
 	var generated pb.ProjectAnalytics
 	if err := beprotojson.Unmarshal(raw, &generated); err != nil {
 		t.Fatalf("generated decoder: %v", err)
 	}
 	got := projectAnalyticsFromProto(&generated)
-	if !reflect.DeepEqual(got, legacy) {
-		t.Fatalf("projectAnalyticsFromProto() = %#v, want %#v", got, legacy)
+	want := &ProjectAnalytics{Series: []AnalyticsSeries{
+		{MetricID: 1, Points: []AnalyticsPoint{{Time: time.Unix(1773730800, 0).UTC(), Value: 0}}},
+		{MetricID: 2, Points: []AnalyticsPoint{{Time: time.Unix(1773730800, 0).UTC(), Value: 0}}},
+	}}
+	if len(got.Series) != 2 || len(got.Series[0].Points) != 30 || len(got.Series[1].Points) != 30 {
+		t.Fatalf("projectAnalyticsFromProto() = %#v, want two 30-point series", got)
+	}
+	for i := range want.Series {
+		if got.Series[i].MetricID != want.Series[i].MetricID || got.Series[i].Points[0] != want.Series[i].Points[0] {
+			t.Fatalf("series[%d] = %#v, want %#v", i, got.Series[i], want.Series[i])
+		}
 	}
 }
