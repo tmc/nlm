@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	beprotojson "github.com/tmc/nlm/internal/beprotojson"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	beprotojson "github.com/tmc/nlm/internal/beprotojson"
 )
 
 // loadFixture reads a testdata fixture relative to the repo-level
@@ -76,6 +76,7 @@ func TestDeepResearchGeneratedShadowDecode(t *testing.T) {
 	for _, name := range []string{
 		"e3bVqc_sessions_response_complete.json",
 		"e3bVqc_sessions_response_running.json",
+		"e3bVqc_sessions_response_real_3session.json",
 	} {
 		raw := loadFixture(t, name)
 		legacy, err := parseDeepResearchSessions(raw, false)
@@ -116,17 +117,28 @@ func TestDeepResearchGeneratedShadowDecode(t *testing.T) {
 			}
 			if details.GetMainBlob() != nil && len(want.MainBlob) != 0 {
 				legacyReport, legacySources := decodeDeepResearchContent(want.MainBlob)
-				entries := details.GetMainBlob().GetReportTree()
-				if len(entries) == 0 || entries[0].GetDetail() == nil {
-					t.Errorf("%s[%d]: generated report header missing", name, i)
-				} else if entries[0].GetDetail().GetMarkdown() != legacyReport {
-					t.Errorf("%s[%d] report markdown differs: generated=%d bytes legacy=%d bytes", name, i, len(entries[0].GetDetail().GetMarkdown()), len(legacyReport))
+				if want.Mode != 5 {
+					legacyReport, legacySources = decodeFastMainBlob(want.MainBlob)
 				}
-				if len(entries)-1 != len(legacySources) {
-					t.Errorf("%s[%d] source count: generated=%d legacy=%d", name, i, len(entries)-1, len(legacySources))
+				entries := details.GetMainBlob().GetReportTree()
+				if want.Mode == 5 {
+					if len(entries) == 0 || entries[0].GetDetail() == nil {
+						t.Errorf("%s[%d]: generated report header missing", name, i)
+					} else if entries[0].GetDetail().GetMarkdown() != legacyReport {
+						t.Errorf("%s[%d] report markdown differs: generated=%d bytes legacy=%d bytes", name, i, len(entries[0].GetDetail().GetMarkdown()), len(legacyReport))
+					}
+				} else if details.GetMainBlob().GetExtra() != legacyReport {
+					t.Errorf("%s[%d] fast summary differs: generated=%q legacy=%q", name, i, details.GetMainBlob().GetExtra(), legacyReport)
+				}
+				entryOffset := 1
+				if want.Mode != 5 {
+					entryOffset = 0
+				}
+				if len(entries) < entryOffset || len(entries)-entryOffset != len(legacySources) {
+					t.Errorf("%s[%d] source count: generated=%d legacy=%d", name, i, len(entries)-entryOffset, len(legacySources))
 				} else {
 					for j, source := range legacySources {
-						entry := entries[j+1]
+						entry := entries[j+entryOffset]
 						if entry.GetUrl() != source.URL || entry.GetTitle() != source.Title || entry.GetSummary() != source.Snippet {
 							t.Errorf("%s[%d] source %d differs: generated=(%q,%q,%q) legacy=(%q,%q,%q)", name, i, j, entry.GetUrl(), entry.GetTitle(), entry.GetSummary(), source.URL, source.Title, source.Snippet)
 						}
