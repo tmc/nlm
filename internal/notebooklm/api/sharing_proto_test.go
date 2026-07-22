@@ -10,16 +10,13 @@ import (
 
 func TestProjectDetailsProtoAdapterMatchesLegacyParser(t *testing.T) {
 	raw := []byte(`[[["owner@example.com",1,[],["Travis Cline","https://example.com/avatar.png"]]],[true,true],1000,true]`)
-	legacy, err := parseProjectDetailsResponse(raw)
-	if err != nil {
-		t.Fatalf("legacy parser: %v", err)
-	}
 	var wire pb.ProjectDetails
 	if err := beprotojson.Unmarshal(raw, &wire); err != nil {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := projectDetailsFromProto(&wire)
-	assertEquivalent(t, "sharing adaptation", legacy, got)
+	want := &pb.ProjectDetails{OwnerName: "Travis Cline", IsPublic: true}
+	assertEquivalent(t, "sharing adaptation", want, got)
 }
 
 func TestProjectDetailsProtoAdapterPrivateFlags(t *testing.T) {

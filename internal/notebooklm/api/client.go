@@ -5458,9 +5458,8 @@ func (c *Client) GetProjectDetails(shareID string) (*pb.ProjectDetails, error) {
 	return projectDetailsFromProto(resp), nil
 }
 
-// projectDetailsFromProto preserves the small public projection returned by
-// parseProjectDetailsResponse while letting the generated message own wire
-// decoding and presence handling.
+// projectDetailsFromProto preserves the public ProjectDetails projection while
+// letting the generated message own wire decoding and presence handling.
 func projectDetailsFromProto(details *pb.ProjectDetails) *pb.ProjectDetails {
 	if details == nil {
 		return nil
@@ -5580,31 +5579,6 @@ func parseShareProjectResponse(projectID string, isPublic bool, resp []byte) (*p
 		result.ShareId = shareID
 	}
 	return result, nil
-}
-
-func parseProjectDetailsResponse(resp []byte) (*pb.ProjectDetails, error) {
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return nil, fmt.Errorf("parse project details response: %w", err)
-	}
-
-	details := &pb.ProjectDetails{}
-	owners, ok := interfaceSliceAt(responseData, 0)
-	if ok && len(owners) > 0 {
-		if firstOwner, ok := interfaceSliceAt(owners, 0); ok {
-			if profile, ok := interfaceSliceAt(firstOwner, 3); ok {
-				details.OwnerName = stringAt(profile, 0)
-			}
-		}
-	}
-	if flags, ok := interfaceSliceAt(responseData, 1); ok {
-		if isPublic, ok := boolAt(flags, 1); ok {
-			details.IsPublic = isPublic
-		} else if isPublic, ok := boolAt(flags, 0); ok {
-			details.IsPublic = isPublic
-		}
-	}
-	return details, nil
 }
 
 func findStringMatching(v interface{}, match func(string) bool) string {
