@@ -6271,46 +6271,6 @@ func bulkImportArgs(conversationID, projectID string, sources []BulkImportSource
 	}
 }
 
-// parseBulkImportResponse extracts source_id, title, and URL from the
-// rich server response. Unknown positions are skipped; the response
-// layout is wide (same basic shape as FLmJqe's RefreshSource response)
-// so we decode only the fields the CLI surfaces and leave the rest to
-// future callers if richer metadata is ever needed.
-//
-// Response layout per CDP capture 2026-04-17:
-//
-//	[source, source, ..., source]
-//	source = [[source_id], title, metadata_body, [null, final_state]]
-//	metadata_body[7] = [url]   // single-element URL list
-func parseBulkImportResponse(raw json.RawMessage) ([]BulkImportResult, error) {
-	var outer []json.RawMessage
-	if err := json.Unmarshal(raw, &outer); err != nil {
-		return nil, fmt.Errorf("bulk import response: outer decode: %w", err)
-	}
-	results := make([]BulkImportResult, 0, len(outer))
-	for _, rawSrc := range outer {
-		var src []json.RawMessage
-		if err := json.Unmarshal(rawSrc, &src); err != nil || len(src) < 3 {
-			continue
-		}
-		r := BulkImportResult{}
-		var idArr []string
-		if err := json.Unmarshal(src[0], &idArr); err == nil && len(idArr) > 0 {
-			r.SourceID = idArr[0]
-		}
-		_ = json.Unmarshal(src[1], &r.Title)
-		var body []json.RawMessage
-		if err := json.Unmarshal(src[2], &body); err == nil && len(body) > 7 {
-			var urlArr []string
-			if err := json.Unmarshal(body[7], &urlArr); err == nil && len(urlArr) > 0 {
-				r.URL = urlArr[0]
-			}
-		}
-		results = append(results, r)
-	}
-	return results, nil
-}
-
 // bulkImportResultsFromProto preserves the narrow public projection returned
 // by BulkImportFromResearch while the generated Source message owns wire
 // decoding.

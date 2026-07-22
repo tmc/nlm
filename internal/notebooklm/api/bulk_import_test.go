@@ -53,13 +53,15 @@ func TestDeleteDeepResearchEncoderShape(t *testing.T) {
 	}
 }
 
-// TestParseBulkImportResponse decodes the rich source-metadata response
+// TestBulkImportResponseProjection decodes the rich source-metadata response
 // into the minimal fields the CLI surfaces: source_id, title, URL.
-func TestParseBulkImportResponse(t *testing.T) {
-	result, err := parseBulkImportResponse(loadFixture(t, "LBwxtb_bulk_import_response.json"))
-	if err != nil {
-		t.Fatalf("parse: %v", err)
+func TestBulkImportResponseProjection(t *testing.T) {
+	raw := loadFixture(t, "LBwxtb_bulk_import_response.json")
+	var wire pb.BulkImportFromResearchResponse
+	if err := beprotojson.Unmarshal(raw, &wire); err != nil {
+		t.Fatalf("decode: %v", err)
 	}
+	result := bulkImportResultsFromProto(&wire)
 	if len(result) != 3 {
 		t.Fatalf("got %d imported sources, want 3", len(result))
 	}
@@ -75,17 +77,18 @@ func TestParseBulkImportResponse(t *testing.T) {
 	}
 }
 
-func TestBulkImportProtoAdapterMatchesLegacyParser(t *testing.T) {
+func TestBulkImportProtoAdapterURLFixture(t *testing.T) {
 	raw := loadFixture(t, "LBwxtb_bulk_import_response.json")
-	legacy, err := parseBulkImportResponse(raw)
-	if err != nil {
-		t.Fatalf("legacy parser: %v", err)
-	}
 	var wire pb.BulkImportFromResearchResponse
 	if err := beprotojson.Unmarshal(raw, &wire); err != nil {
 		t.Fatalf("proto decoder: %v", err)
 	}
-	assertEquivalent(t, "bulk import adaptation", legacy, bulkImportResultsFromProto(&wire))
+	want := []BulkImportResult{
+		{SourceID: "00000000-0000-4000-8000-000000000106", Title: "HAR (file format) - Wikipedia", URL: "https://en.wikipedia.org/wiki/HAR_(file_format)"},
+		{SourceID: "00000000-0000-4000-8000-000000000107", Title: "HTTP Archive (HAR) format - W3C on GitHub", URL: "https://w3c.github.io/web-performance/specs/HAR/Overview.html"},
+		{SourceID: "00000000-0000-4000-8000-000000000108", Title: "google/har2csv: A simple NodeJS CLI tool", URL: "https://github.com/google/har2csv"},
+	}
+	assertEquivalent(t, "bulk import URL projection", want, bulkImportResultsFromProto(&wire))
 }
 
 // TestBulkImportTextSourceCorpusProjection records the note/text LBwxtb
@@ -164,17 +167,13 @@ func TestBulkImportTextSourceCorpusProjection(t *testing.T) {
 			if err != nil || len(response.Responses) != 1 || response.Responses[0].ID != "LBwxtb" {
 				continue
 			}
-			legacy, err := parseBulkImportResponse(response.Responses[0].Data)
-			if err != nil {
-				t.Fatalf("%s:%d: legacy parse: %v", file, record, err)
-			}
 			var wire pb.BulkImportFromResearchResponse
 			if err := beprotojson.Unmarshal(response.Responses[0].Data, &wire); err != nil {
 				t.Fatalf("%s:%d: proto decode: %v", file, record, err)
 			}
 			got := bulkImportResultsFromProto(&wire)
-			if len(legacy) != 0 || len(got) != 1 || got[0].SourceID == "" || got[0].Title == "" || got[0].URL != "" {
-				t.Fatalf("%s:%d: legacy=%+v generated=%+v", file, record, legacy, got)
+			if len(got) != 1 || got[0].SourceID == "" || got[0].Title == "" || got[0].URL != "" {
+				t.Fatalf("%s:%d: generated=%+v", file, record, got)
 			}
 			_ = context // the non-nil context distinguishes the text wire variant.
 			variants++
