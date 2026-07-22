@@ -105,24 +105,22 @@ func (c *Client) RelabelAll(projectID string) ([]Label, error) {
 	return c.mutateLabelsMode(projectID, 1)
 }
 
-// GenerateLabels is a legacy alias for the empty-mode autolabel-recompute
-// trigger. Behaviour appears equivalent to RelabelAll on observed traffic;
-// new callers should prefer RelabelAll.
+// GenerateLabels triggers the empty-mode autolabel recompute form.
 //
 // Wire request: [[2], project_id, null, null, []].
 func (c *Client) GenerateLabels(projectID string) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCMutateLabels,
-		NotebookID: projectID,
-		Args:       []interface{}{[]interface{}{2}, projectID, nil, nil, []interface{}{}},
+	resp, err := c.orchestrationService.MutateLabelsMode(context.Background(), &pb.MutateLabelsModeRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		Mode:      &pb.LabelMode{},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generate labels: %w", err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: resp.GetLabels()}), nil
 }
 
 func (c *Client) mutateLabelsMode(projectID string, mode int) ([]Label, error) {

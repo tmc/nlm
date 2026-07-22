@@ -79,6 +79,15 @@ func TestLabelMutationEncoders(t *testing.T) {
 	if !reflect.DeepEqual(mode, wantMode) {
 		t.Fatalf("mode args = %#v, want %#v", mode, wantMode)
 	}
+	emptyMode := method.EncodeMutateLabelsModeArgs(&pb.MutateLabelsModeRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: "project-1",
+		Mode:      &pb.LabelMode{},
+	})
+	wantEmptyMode := []interface{}{[]interface{}{float64(2)}, "project-1", nil, nil, []interface{}{}}
+	if !reflect.DeepEqual(emptyMode, wantEmptyMode) {
+		t.Fatalf("empty mode args = %#v, want %#v", emptyMode, wantEmptyMode)
+	}
 }
 
 func TestDeleteLabelsRequestEncoder(t *testing.T) {
