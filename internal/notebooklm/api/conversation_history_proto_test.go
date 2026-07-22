@@ -101,7 +101,7 @@ func TestConversationHistoryProtoAdapterCorpusEquivalence(t *testing.T) {
 		}
 		f.Close()
 	}
-	if responses != 4 {
-		t.Fatalf("khqZz responses=%d, want 4", responses)
+	if responses != 5 {
+		t.Fatalf("khqZz responses=%d, want 5", responses)
 	}
 }
