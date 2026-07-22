@@ -20,17 +20,47 @@ message Context {
     repeated string source_ids = 2;
 }
 
+// Artifact is the gArtLc (ListArtifacts/QueryArtifacts) row shape. Fields
+// Fields 7-19 are a de-facto oneof keyed by type: exactly one of note,
+// audio_overview, video_preview, report_config, mindmap_preview,
+// slide_deck_preview, flashcard_config is populated per artifact, matching
+// ArtifactType. These are each artifact-tree-local message shapes distinct
+// from the top-level AudioOverview/VideoOverview/Report messages used by the
+// Create*/Get* RPCs — the field numbers coincide but the wire shapes do not
+// (AudioOverview.content/instructions are plain strings there; here they are
+// structured payloads). See ArtifactAudioOverview etc. below.
 message Artifact {
     string artifact_id = 1;
     string project_id = 2;
     ArtifactType type = 3;
     repeated ArtifactSource sources = 4;
     ArtifactState state = 5;
-    Source note = 7;  // Note is a special type of Source
-    AudioOverview audio_overview = 8;
-    Report tailored_report = 9;
-    App app = 10;
-    VideoOverview video_overview = 11;  // Video overview artifact
+    // Field 6 is null in every observed capture; left unmodeled.
+    ArtifactNotePreview note = 7;                    // type NOTE
+    ArtifactAudioOverview audio_overview = 8;         // type AUDIO_OVERVIEW
+    ArtifactVideoPreview video_preview = 9;           // type VIDEO_OVERVIEW
+    ArtifactReportConfig tailored_report = 10;        // type REPORT
+    // update_time is populated on every artifact regardless of type; it is
+    // always >= create_time (field 16).
+    google.protobuf.Timestamp update_time = 11;
+    // Fields 12-14 are null in every observed capture; left unmodeled.
+    ArtifactMindMapPreview mindmap_preview = 15;      // type 7 (mind map / infographic)
+    google.protobuf.Timestamp create_time = 16;
+    ArtifactSlideDeckPreview slide_deck_preview = 17; // type 8 (slide deck)
+    // Field 18 is null in every observed capture; left unmodeled.
+    ArtifactFlashcardConfig flashcard_config = 19;    // type 9 (flashcards)
+    // unknown_20 is a constant 1 in every observed capture; meaning TBD.
+    int64 unknown_20 = 20;
+    // App's real wire position on gArtLc has never been observed (no type-5
+    // artifact has appeared in any capture); field 10 was a guess that
+    // collided with the now-confirmed tailored_report position, so App is
+    // parked here pending a HAR that actually contains one.
+    App app = 21;
+    // unknown_22 is a string encoding of update_time (field 11) as
+    // base64("{seconds}-{nanos}"), e.g. base64("1784614281-797501000").
+    // Likely an opaque sort/pagination cursor; kept generic since its use is
+    // unconfirmed.
+    string unknown_22 = 22;
 }
 
 enum ArtifactType {
@@ -40,7 +70,10 @@ enum ArtifactType {
     ARTIFACT_TYPE_VIDEO_OVERVIEW = 3;  // Video overview (confirmed from /tmp/notebooklm3.har)
     ARTIFACT_TYPE_REPORT = 4;
     ARTIFACT_TYPE_APP = 5;
-    ARTIFACT_TYPE_8 = 8;
+    // 6 unobserved.
+    ARTIFACT_TYPE_7 = 7;   // mind map / infographic (see ArtifactMindMapPreview)
+    ARTIFACT_TYPE_8 = 8;   // slide deck (see ArtifactSlideDeckPreview)
+    ARTIFACT_TYPE_9 = 9;   // flashcards (see ArtifactFlashcardConfig)
 }
 
 enum ArtifactState {
@@ -80,6 +113,213 @@ message App {
     string app_id = 1;
     string name = 2;
     string description = 3;
+}
+
+// ArtifactDownloadVariant is one rendered-output link for an artifact
+// preview: a URL plus an integer format code and (for audio) a MIME type.
+// [url, format_code, mime_type?]
+message ArtifactDownloadVariant {
+    string url = 1;
+    int64 format_code = 2;
+    string mime_type = 3;
+}
+
+// ArtifactNotePreview is the type-NOTE gArtLc payload at Artifact field 7:
+// [null, config, thumbnail_url, thumbnail_url_2, has_audio?, download_variants, duration]
+message ArtifactNotePreview {
+    // Field 1 is null in every observed capture; left unmodeled.
+    ArtifactNoteConfig config = 2;
+    string thumbnail_url = 3;
+    string thumbnail_url_2 = 4;
+    optional bool has_audio = 5 [(json_bool) = true];
+    repeated ArtifactDownloadVariant download_variants = 6;
+    // duration is present-but-empty ([]) when there is no audio rendition
+    // yet, so it is wrapped in a message: a present TimestampPair marshals to
+    // [] when its own seconds/nanos are unset, instead of collapsing to null.
+    TimestampPair duration = 7;
+}
+
+// TimestampPair wraps a [seconds, nanos] pair so it can be present-but-empty
+// ([]) on the wire, distinct from being absent (null).
+message TimestampPair {
+    optional int64 seconds = 1;
+    optional int64 nanos = 2;
+}
+
+// ArtifactNoteConfig is the [null, const, null, source_refs, language, flag,
+// int] config blob inside ArtifactNotePreview.
+message ArtifactNoteConfig {
+    // Field 1 is null in every observed capture; left unmodeled.
+    optional int64 mode = 2;  // constant 2 in every observed capture
+    // Field 3 is null in every observed capture; left unmodeled.
+    repeated SourceIdList source_refs = 4;
+    string language = 5;
+    optional bool flag = 6 [(json_bool) = true];
+    optional int64 unknown_7 = 7;
+}
+
+// ArtifactAudioOverview is the type-AUDIO_OVERVIEW gArtLc payload at
+// Artifact field 8: [markdown_status, content, instructions]. This is a
+// different shape than the top-level AudioOverview message (whose content
+// and instructions are plain strings on Create/GetAudioOverview).
+message ArtifactAudioOverview {
+    string status = 1;                        // rendered markdown, not a status code
+    ArtifactAudioContent content = 2;
+    RichDocument instructions = 3;             // same rich-text tree as chat rich_content
+}
+
+// ArtifactAudioContent is the [topic, description, null, source_refs,
+// language, prompt, length?, flag] generation-options blob at
+// ArtifactAudioOverview field 2.
+message ArtifactAudioContent {
+    string topic = 1;               // e.g. "Blog Post"
+    string description = 2;
+    // Field 3 is null in every observed capture; left unmodeled.
+    repeated SourceIdList source_refs = 4;
+    string language = 5;
+    string prompt = 6;
+    optional int64 length = 7;
+    optional bool flag = 8 [(json_bool) = true];
+}
+
+// ArtifactVideoPreview is the type-VIDEO_OVERVIEW gArtLc payload at Artifact
+// field 9: [status?, thumbnail_url, content, video_url, download_variants,
+// duration]. Unlike ArtifactAudioOverview, this was previously mismodeled as
+// the unrelated Report message (field 9 used to be declared `Report
+// tailored_report`), which is why the wire's positions 4-6 showed up as
+// Report.unknown_4/5/6 in earlier verify runs.
+message ArtifactVideoPreview {
+    // Field 1 is null in every observed capture; left unmodeled.
+    string thumbnail_url = 2;
+    ArtifactVideoContent content = 3;
+    string video_url = 4;
+    repeated ArtifactDownloadVariant download_variants = 5;
+    // duration is [seconds, nanos].
+    repeated int64 duration = 6;
+}
+
+// ArtifactVideoContent is the [source_refs, language, topic?, null, length,
+// unknown_6?, null, flag?] generation-options blob at ArtifactVideoPreview
+// field 3, the same family of shape as ArtifactAudioContent (a source-ref
+// list plus language/topic/length/flag), but with source_refs and
+// language/topic swapped in position relative to the audio variant. The
+// array length varies (5, 6, or 8 observed) as trailing fields are omitted
+// when unset, so every field past source_refs/language is optional.
+message ArtifactVideoContent {
+    repeated SourceIdList source_refs = 1;
+    string language = 2;
+    string topic = 3;
+    // Field 4 is null in every observed capture; left unmodeled.
+    optional int64 length = 5;
+    optional int64 unknown_6 = 6;
+    // Field 7 is null in every observed capture; left unmodeled.
+    // flag is carried as an int (1), not a JSON bool, unlike similarly named
+    // fields elsewhere.
+    optional bool flag = 8;
+}
+
+// ArtifactReportConfig is the type-REPORT gArtLc payload at Artifact field
+// 10: ["", [report_type, null, description_or_instructions, language, null,
+// null, length_range_a?, length_range_b?, flag]]. The leading string is
+// empty in every observed capture.
+message ArtifactReportConfig {
+    // unknown_1 is an empty string in every observed capture; meaning TBD.
+    optional string unknown_1 = 1;
+    ArtifactReportOptions options = 2;
+}
+
+message ArtifactReportOptions {
+    optional int64 report_type = 1;
+    // Field 2 is null in every observed capture; left unmodeled.
+    string instructions = 3;         // custom prompt, or the report topic when no instructions were given
+    string language = 4;
+    // Fields 5, 6 are null in every observed capture; left unmodeled.
+    // length_range_a and length_range_b are never both populated in the same
+    // capture; which one is used appears to depend on report_type (a=1 pairs
+    // with report_type 1, b=2 with report_type 2), so both are kept as
+    // distinct optional positions rather than merged.
+    repeated int64 length_range_a = 7; // e.g. [2, 2]
+    repeated int64 length_range_b = 8; // e.g. [2, 2]
+    optional bool flag = 9 [(json_bool) = true];
+}
+
+// ArtifactMindMapPreview is the type-7 (mind map / infographic) gArtLc
+// payload at Artifact field 15: [config, title, [slide]].
+message ArtifactMindMapPreview {
+    ArtifactMindMapConfig config = 1;
+    string title = 2;
+    repeated ArtifactMindMapSlide slides = 3;
+}
+
+// ArtifactMindMapConfig is the [null, language, null, int, int, int] config
+// blob at ArtifactMindMapPreview field 1; the trailing integers' meaning is
+// not yet confirmed.
+message ArtifactMindMapConfig {
+    // Field 1 is null in every observed capture; left unmodeled.
+    string language = 2;
+    // Field 3 is null in every observed capture; left unmodeled.
+    optional int64 unknown_4 = 4;
+    optional int64 unknown_5 = 5;
+    optional int64 unknown_6 = 6;
+}
+
+// ArtifactMindMapSlide is one [title, [thumbnail_urls], description, text]
+// entry in ArtifactMindMapPreview.slides.
+message ArtifactMindMapSlide {
+    string title = 1;
+    repeated string thumbnail_urls = 2;
+    string description = 3;
+    string text = 4;
+}
+
+// ArtifactSlideDeckPreview is the type-8 (slide deck) gArtLc payload at
+// Artifact field 17: [config, title, [slide_image], download_url,
+// download_url_2].
+message ArtifactSlideDeckPreview {
+    ArtifactSlideDeckConfig config = 1;
+    string title = 2;
+    repeated ArtifactSlideImage slides = 3;
+    string download_url = 4;
+    string download_url_2 = 5;
+}
+
+// ArtifactSlideDeckConfig is the [null, language, format, length] config
+// blob at ArtifactSlideDeckPreview field 1, mirroring the [format, length]
+// pair EncodeCreateSlideDeckArgs sends on create (see
+// internal/method/labs_tailwind_overview_custom.go SlideDeckFormat).
+message ArtifactSlideDeckConfig {
+    // Field 1 is null in every observed capture; left unmodeled.
+    string language = 2;
+    optional int64 format = 3;
+    optional int64 length = 4;
+}
+
+// ArtifactSlideImage is one [[url, width, height], description, text] entry
+// in ArtifactSlideDeckPreview.slides.
+message ArtifactSlideImage {
+    ArtifactImageRef image = 1;
+    string description = 2;
+    string text = 3;
+}
+
+// ArtifactImageRef is a [url, width, height] image reference, carried as
+// strings on the wire (width/height are numeric strings, not ints).
+message ArtifactImageRef {
+    string url = 1;
+    string width = 2;
+    string height = 3;
+}
+
+// ArtifactFlashcardConfig is the type-9 (flashcards) gArtLc payload at
+// Artifact field 19: [null, [null, language]].
+message ArtifactFlashcardConfig {
+    // Field 1 is null in every observed capture; left unmodeled.
+    ArtifactFlashcardOptions options = 2;
+}
+
+message ArtifactFlashcardOptions {
+    // Field 1 is null in every observed capture; left unmodeled.
+    string language = 2;
 }
 
 // Request/Response messages for LabsTailwindOrchestrationService
@@ -1446,10 +1686,13 @@ message TextMarks {
     optional bool flag8 = 8 [(json_bool) = true];
 }
 
-// SpanGroupMeta is the [null, indent] metadata trailing a span group.
+// SpanGroupMeta is the [null, indent, flag?] metadata trailing a span group.
 message SpanGroupMeta {
     // Position 1 is null in observed captures; left unmodeled.
     optional int64 indent = 2;
+    // flag is seen true on at least one non-offline-resource notice span;
+    // meaning not yet confirmed.
+    optional bool flag = 3 [(json_bool) = true];
 }
 
 // ListItem describes one list-item run within a span group:
@@ -1883,23 +2126,154 @@ message LogEventRequest {
     // No fields: the request is a constant sentinel envelope.
 }
 
-// Wire response carries the upsell card payload. Captured layout
-// (heavily nested; only the surfaceable subset is decoded here):
+// Wire response is a repeated array of log-event acknowledgements, one
+// per logged event in the request (observed: always exactly one).
+// Captured layout (HAR-verified across 5 captures, all structurally
+// identical modulo tracking IDs):
 //   [[[
-//     [null, "1", 627],
-//     [[1601, [null × 9,
+//     [null, "1", 627],                         // slot
+//     [[2230, [null × 9,
 //       [[null, "NotebookLM icon", "edit"],
 //        [[[null, null, "<settings_url>"], false], null, null,
 //         "Manage subscription", null, "Manage subscription",
-//         null, null, [<dismissal_blob>]]]],
-//      null × 8, "NOTEBOOKLM_TIER_PRO_CONSUMER_USER", null, null, false]],
+//         null, null, [<click_event>]]],
+//      null × 10,
+//      [<impression_event>]],
+//      null, 2351, 2351, 2230,
+//      "NOTEBOOKLM_TIER_ULTRA_LIGHT_CONSUMER_USER", null, null, false, []]],
 //     0]]]
 //
-// We surface the user-tier string (the only durable, human-meaningful
-// field). All other content is rendering metadata.
+// The outer-outer [ ] is the repeated wrapper (LogEventResponse itself);
+// each element is a PromoLogEntry. user_tier (PromoCard field 7) is the
+// only durable, human-meaningful field; everything else is
+// rendering/impression-tracking chrome, but is modeled fully so the
+// response round-trips losslessly.
 message LogEventResponse {
-    string user_tier = 1;
-    // Example value: "NOTEBOOKLM_TIER_PRO_CONSUMER_USER".
+    repeated PromoLogEntry entries = 1;
+}
+
+// PromoLogEntry is one acknowledged log event: [slot, cards, status].
+message PromoLogEntry {
+    // [0] slot/campaign descriptor, e.g. [null, "1", 627].
+    PromoSlot slot = 1;
+    // [1] repeated upsell cards (one observed per response).
+    repeated PromoCard cards = 2;
+    // [2] observed 0 in all captures; needs presence to avoid
+    // collapsing to null on empty re-encode.
+    optional int32 status = 3;
+}
+
+// PromoSlot identifies a promo placement: [_, surface_locale, campaign_id].
+// Reused both as the top-level slot and nested inside
+// PromoCardEventContext.
+message PromoSlot {
+    // field 1 ([0]) is null in all observed captures; left unmodeled.
+    optional string surface = 2;    // [1] e.g. "1"
+    optional int32 campaign_id = 3; // [2] e.g. 627
+}
+
+// PromoCard is one upsell-card placement.
+message PromoCard {
+    int32 id = 1;                  // [0] e.g. 2230 (matches slot campaign)
+    PromoCardRender render = 2;    // [1] rendering payload
+    // field 3 ([2]) null in all captures; left unmodeled.
+    optional int32 field_4 = 4;    // [3] e.g. 2351
+    optional int32 field_5 = 5;    // [4] e.g. 2351 (dup of field_4)
+    optional int32 field_6 = 6;    // [5] e.g. 2230 (dup of id)
+    string user_tier = 7;          // [6] e.g. "NOTEBOOKLM_TIER_ULTRA_LIGHT_CONSUMER_USER"
+    // fields 8, 9 ([7], [8]) null in all captures; left unmodeled.
+    optional bool field_10 = 10 [(json_bool) = true]; // [9] observed false
+    // field 11 ([10]) is a present-but-empty list in all captures;
+    // wrapped so the empty repeated marshals to [] not null.
+    PromoCardRefList field_11 = 11;
+}
+
+// PromoCardRender is the 21-position rendering blob for a PromoCard.
+// Only positions 10 and 21 carry data in observed captures.
+message PromoCardRender {
+    // fields 1-9 ([0]-[8]) null in all captures; left unmodeled.
+    PromoCardContent content = 10; // [9] icon + action
+    // fields 11-20 ([10]-[19]) null in all captures; left unmodeled.
+    PromoCardEvent impression_event = 21; // [20] impression tracking
+}
+
+// PromoCardContent pairs the card's icon with its click action.
+message PromoCardContent {
+    PromoCardIcon icon = 1;     // [0]
+    PromoCardAction action = 2; // [1]
+}
+
+// PromoCardIcon: [null, icon_name, glyph_id].
+message PromoCardIcon {
+    // field 1 ([0]) null in all captures; left unmodeled.
+    optional string name = 2;  // [1] e.g. "NotebookLM icon"
+    optional string glyph = 3; // [2] e.g. "edit"
+}
+
+// PromoCardAction is the "Manage subscription" call-to-action.
+message PromoCardAction {
+    PromoCardLinkWrapper link = 1; // [0]
+    // fields 2, 3 ([1], [2]) null in all captures; left unmodeled.
+    optional string label = 4;      // [3] e.g. "Manage subscription"
+    // field 5 ([4]) null in all captures; left unmodeled.
+    optional string aria_label = 6; // [5] dup of label
+    // fields 7, 8 ([6], [7]) null in all captures; left unmodeled.
+    PromoCardEvent click_event = 9; // [8] click tracking
+}
+
+// PromoCardLinkWrapper: [[null, null, url], enabled_flag].
+message PromoCardLinkWrapper {
+    PromoCardLink link = 1;
+    optional bool disabled = 2 [(json_bool) = true]; // observed false
+}
+
+// PromoCardLink: [null, null, url].
+message PromoCardLink {
+    // fields 1, 2 ([0], [1]) null in all captures; left unmodeled.
+    optional string url = 3; // [2]
+}
+
+// PromoCardEvent wraps a logged UI event: [context, kinds, token, sig].
+message PromoCardEvent {
+    PromoCardEventContext context = 1; // [0]
+    repeated int32 kinds = 2;          // [1] e.g. [2] (click) or [14] (impression)
+    optional string token = 3;         // [2] opaque base64 tracking token
+    optional string signature = 4;     // [3] opaque base64 signature
+}
+
+// PromoCardEventContext carries the placement coordinates repeated in
+// both the click and impression events.
+message PromoCardEventContext {
+    optional int32 field_1 = 1; // [0] e.g. 2230
+    optional int32 field_2 = 2; // [1] e.g. 2351
+    // field 3 ([2]) null in all captures; left unmodeled.
+    optional int32 field_4 = 4; // [3] e.g. 43
+    optional int32 field_5 = 5; // [4] present (1) on click, absent on impression
+    // field 6 ([5]) null in all captures; left unmodeled.
+    PromoSlot slot = 7;         // [6]
+    // field 8 ([7]) null in all captures; left unmodeled.
+    // [8] present on click ([[ref]], wrapped one extra layer like
+    // SpanList/SourceIssueList), absent (null) on impression.
+    PromoCardRefList refs = 9;
+    // field 10 ([9]) null in all captures; left unmodeled.
+    optional int32 field_11 = 11; // [10] e.g. 627
+    optional int32 field_12 = 12; // [11] e.g. 2351
+    // field 13 ([12]) null in all captures; left unmodeled.
+    optional string tracking_id = 14; // [13] large signed decimal string
+}
+
+// PromoCardRef: [id, campaign_id, tags].
+message PromoCardRef {
+    optional int32 id = 1;          // [0] e.g. 2230
+    optional int32 campaign_id = 2; // [1] e.g. 627
+    repeated int32 tags = 3;        // [2] e.g. [9]
+}
+
+// PromoCardRefList wraps PromoCard.field_11: present-but-empty in all
+// captures, so it needs the wrapper idiom (see SpanList) to round-trip
+// [] instead of collapsing to null.
+message PromoCardRefList {
+    repeated PromoCardRef refs = 1;
 }
 
 // ReportContent (rJKx8e): user-initiated abuse/safety report.

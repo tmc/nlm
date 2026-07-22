@@ -23,6 +23,36 @@ message Project {
   repeated bool flags = 10 [(json_bool) = true];
   // Per-notebook limits/quotas (observed [6,500,500,500000,6]).
   repeated int64 limits = 11;
+  // Cover-image/presentation block for the notebook, e.g.
+  // [false, [[id, filename, 1, 2, image_url]], null, "Summary here", false].
+  // Same positional shape as orchestration.proto's FeaturedProjectPresentation
+  // / FeaturedProjectImage (not reused directly to avoid a circular import:
+  // orchestration.proto already imports this file).
+  ProjectCoverPresentation cover_presentation = 15;
+}
+
+// ProjectCoverPresentation is Project field 15: a cover-image/presentation
+// block, positionally identical to orchestration.proto's
+// FeaturedProjectPresentation.
+message ProjectCoverPresentation {
+    optional bool curated = 1 [(json_bool) = true];
+    repeated ProjectCoverImage images = 2;
+    optional string provider = 3;
+    optional string description = 4;
+    optional bool field_5 = 5 [(json_bool) = true];
+}
+
+// ProjectCoverImage: [id, filename, field_3, field_4, image_url]. Field 1
+// holds a UUID (not a URL) in this context, unlike orchestration.proto's
+// FeaturedProjectImage.url — otherwise the same shape.
+message ProjectCoverImage {
+    optional string id = 1;
+    // Original image filename.
+    optional string filename = 2;
+    optional int64 field_3 = 3;
+    optional int64 field_4 = 4;
+    // Serving URL for the image (lh3.googleusercontent.com/notebooklm/…).
+    optional string image_url = 5;
 }
 
 message ProjectMetadata {
@@ -41,7 +71,22 @@ message ProjectMetadata {
     optional bool field_16 = 16 [(json_bool) = true];
     optional bool field_18 = 18 [(json_bool) = true];
     optional int64 field_19 = 19;
+    // [null, [null, 1]]: small nested message, meaning unconfirmed.
+    ProjectMetadataExtra field_20 = 20;
     optional bool field_23 = 23 [(json_bool) = true];
+}
+
+// ProjectMetadataExtra is ProjectMetadata field 20: [null, [null, 1]].
+// Field 1 is null in all observed captures; field 2 is itself a 2-field
+// message whose own field 1 is null and field 2 an observed int (1).
+message ProjectMetadataExtra {
+    // field 1 ([0]) is null in all observed captures; left unmodeled.
+    ProjectMetadataExtraInner detail = 2; // [1]
+}
+
+message ProjectMetadataExtraInner {
+    // field 1 ([0]) is null in all observed captures; left unmodeled.
+    optional int32 field_2 = 2; // [1] observed 1
 }
 
 message ChatGoalConfig {
