@@ -943,20 +943,7 @@ func listNotes(c *api.Client, notebookID string) error {
 
 	if jsonOutput {
 		enc := json.NewEncoder(os.Stdout)
-		for _, note := range notes {
-			content := note.GetRichText()
-			if content == "" {
-				content = note.GetContentText()
-			}
-			content = strings.Join(strings.Fields(content), " ")
-			if len(content) > 80 {
-				content = content[:77] + "..."
-			}
-			rec := noteListRecord{
-				NoteID:         note.GetNoteId(),
-				Title:          note.GetTitle(),
-				ContentPreview: content,
-			}
+		for _, rec := range noteListRecords(notes) {
 			if err := enc.Encode(rec); err != nil {
 				return err
 			}
@@ -966,19 +953,31 @@ func listNotes(c *api.Client, notebookID string) error {
 
 	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tCONTENT PREVIEW")
+	for _, rec := range noteListRecords(notes) {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", rec.NoteID, rec.Title, rec.ContentPreview)
+	}
+	return flush()
+}
+
+func noteListRecords(notes []*pb.Note) []noteListRecord {
+	records := make([]noteListRecord, 0, len(notes))
 	for _, note := range notes {
+		if note == nil {
+			continue
+		}
 		content := note.GetRichText()
 		if content == "" {
 			content = note.GetContentText()
 		}
-		// Strip HTML/markdown for preview, collapse whitespace.
 		content = strings.Join(strings.Fields(content), " ")
 		if len(content) > 80 {
 			content = content[:77] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", note.GetNoteId(), note.GetTitle(), content)
+		records = append(records, noteListRecord{
+			NoteID: note.GetNoteId(), Title: note.GetTitle(), ContentPreview: content,
+		})
 	}
-	return flush()
+	return records
 }
 
 func readNote(c *api.Client, notebookID, noteID string) error {
