@@ -1,0 +1,8 @@
+commit=285021b4c2036d4f4dc487fc346ceba8b05922af
+date=2026-07-22T05:31:14Z
+tool=Codex
+model=GPT-5
+tty=not a tty
+pid=74076
+session=D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=GetAudioFormats corpus-backed exact wire test PASS; go tool buf generate repeat PASS with zero drift; GOWORK=off go test -count=1 ./... PASS; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm PASS; corpus audit 590 request + 553 response lossless, 0 missing-field records; worktree clean after commit
