@@ -1,0 +1,8 @@
+commit=5922ac9768ca447e2c01852fbb32d561ccd67223
+date=2026-07-22T04:34:16Z
+tool=git commit -S
+model=GPT-5 Codex
+tty=not a tty
+pid=16014
+session=w2t1p17:D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=CreateLabel/mode 0-1 proto response equivalence and exact encoder tests pass; GOWORK=off go test -count=1 ./... passed; /tmp/nlm-codex build passed; empty-mode and le8sX paths intentionally retained
