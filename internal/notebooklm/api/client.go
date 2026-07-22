@@ -1683,6 +1683,25 @@ func parseNoteFromResponse(data interface{}) *Note {
 
 // Audio operations
 
+func universalArtifactRequestContext() *pb.RequestContext {
+	return &pb.RequestContext{
+		Version: proto.Int32(2),
+		Caps: &pb.RequestClientCaps{
+			Version:         proto.Int32(1),
+			CapabilityCodes: []int32{1},
+		},
+		ArtifactTypes: &pb.RequestArtifactTypeFilter{Types: []int32{1, 4, 8, 10, 2, 3, 6, 9}},
+	}
+}
+
+func universalArtifactSourceGroups(sourceIDs []string) []*pb.UniversalArtifactSourceGroup {
+	groups := make([]*pb.UniversalArtifactSourceGroup, 0, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		groups = append(groups, &pb.UniversalArtifactSourceGroup{Source: &pb.SourceIdList{SourceId: sourceID}})
+	}
+	return groups
+}
+
 func (c *Client) CreateAudioOverview(projectID string, instructions string) (*AudioOverviewResult, error) {
 	return c.CreateAudioOverviewWithOptions(projectID, CreateAudioOverviewOptions{
 		Instructions: instructions,
@@ -2207,44 +2226,44 @@ func (c *Client) CreateVideoOverviewWithOptions(projectID string, opts CreateVid
 		return nil, fmt.Errorf("project has no sources - add sources before creating video overview")
 	}
 
-	// Build request and use the proper encoder via R7cb6c
-	req := &pb.CreateVideoOverviewRequest{
-		ProjectId:          projectID,
-		AudioType:          opts.AudioType,
-		SourceIds:          sourceIDs,
-		CustomInstructions: opts.Instructions,
-		VideoStyle:         opts.VideoStyle,
-		Language:           opts.Language,
+	req := &pb.CreateUniversalArtifactRequest{
+		Context:   universalArtifactRequestContext(),
+		ProjectId: projectID,
+		Options: &pb.UniversalArtifactOptions{
+			Kind:         3,
+			SourceGroups: universalArtifactSourceGroups(sourceIDs),
+			Video: &pb.UniversalVideoOptions{Details: &pb.UniversalVideoDetails{
+				Sources: universalVideoSources(sourceIDs),
+				Prompt:  proto.String(opts.Instructions),
+				Style:   int32(opts.VideoStyle),
+			}},
+		},
 	}
 
-	args := intmethod.EncodeCreateVideoOverviewArgs(req)
-
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCCreateVideoOverview,
-		NotebookID: projectID,
-		Args:       args,
-	})
+	artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), req)
 	if err != nil {
 		return nil, fmt.Errorf("create video overview: %w", err)
 	}
+	return videoOverviewResultFromProto(projectID, artifact), nil
+}
 
-	result := &VideoOverviewResult{
-		ProjectID: projectID,
-		IsReady:   false, // Video generation is async
+func universalVideoSources(sourceIDs []string) []*pb.UniversalArtifactSources {
+	sources := make([]*pb.UniversalArtifactSources, 0, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		sources = append(sources, &pb.UniversalArtifactSources{SourceId: sourceID})
 	}
+	return sources
+}
 
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return nil, fmt.Errorf("parse video response: %w", err)
+func videoOverviewResultFromProto(projectID string, artifact *pb.Artifact) *VideoOverviewResult {
+	result := &VideoOverviewResult{ProjectID: projectID}
+	if artifact == nil {
+		return result
 	}
-
-	if len(responseData) > 0 {
-		if videoData, ok := responseData[0].([]interface{}); ok {
-			result = videoOverviewResultFromArtifactData(projectID, videoData)
-		}
-	}
-
-	return result, nil
+	result.VideoID = artifact.GetArtifactId()
+	result.Title = artifact.GetTitle()
+	result.IsReady = artifact.GetState() == pb.ArtifactState_ARTIFACT_STATE_READY
+	return result
 }
 
 func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instructions string, sourceIDs []string) (string, error) {
