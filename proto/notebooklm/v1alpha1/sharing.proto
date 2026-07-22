@@ -6,6 +6,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 import "notebooklm/v1alpha1/notebooklm.proto";
 import "notebooklm/v1alpha1/rpc_extensions.proto";
+import "notebooklm/v1alpha1/orchestration.proto";
 
 package notebooklm.v1alpha1;
 
@@ -37,6 +38,7 @@ message GetProjectDetailsRequest {
     // existing Go callers (api.Client.GetProjectDetails); on the wire
     // this is the project UUID.
     string share_id = 1;
+    RequestContext context = 2;
 }
 
 // ProjectDetails is the JFMDGd (GetProjectDetails) reply.
@@ -69,10 +71,12 @@ message ProjectDetails {
     repeated ProjectCollaborator collaborators = 1;   // [0]
     ProjectDetailsFlags flags = 2;                    // [1] visibility flags
     optional int64 limit = 3;                         // [2] opaque, observed 1000
-    optional bool field_4 = 4 [(json_bool) = true];   // [3] observed true
+    // Meaning unconfirmed; true in every observed response.
+    optional bool access_enabled = 4 [(json_bool) = true];
     // [4], [5] are null in observed captures; left unmodeled.
     ProjectDetailsPermissions permissions = 7;        // [6] [3, true, true]
-    optional bool field_8 = 8 [(json_bool) = true];   // [7] observed false
+    // Meaning unconfirmed; false in every observed response.
+    optional bool restriction_flag = 8 [(json_bool) = true];
 
     // Not on the wire; populated by the hand-parser and read by the printer.
     // Kept at high numbers to preserve the Go field names live code uses.
@@ -280,7 +284,7 @@ service LabsTailwindSharingService {
     // Project sharing
     rpc GetProjectDetails(GetProjectDetailsRequest) returns (ProjectDetails) {
         option (rpc_id) = "JFMDGd";
-        option (arg_format) = "[%share_id%]";
+        option (arg_format) = "[%share_id%, %context%]";
     }
     rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse) {
         option (rpc_id) = "QDyure";

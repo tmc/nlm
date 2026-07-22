@@ -9,11 +9,11 @@ import (
 
 // EncodeMutateNoteArgs encodes arguments for LabsTailwindOrchestrationService.MutateNote
 // RPC ID: cYAfTb
-// Argument format: [%project_id%, %note_id%, [%updates:[%content%, %title%, [%tags%], 0]%], [2]]
+// Argument format: [%project_id%, %note_id%, %updates%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]
 func EncodeMutateNoteArgs(req *notebooklmv1alpha1.MutateNoteRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%, %note_id%, [%updates:[%content%, %title%, [%tags%], 0]%], [2]]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%, %note_id%, %updates%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

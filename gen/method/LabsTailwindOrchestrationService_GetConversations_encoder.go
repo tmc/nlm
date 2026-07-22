@@ -9,11 +9,11 @@ import (
 
 // EncodeGetConversationsArgs encodes arguments for LabsTailwindOrchestrationService.GetConversations
 // RPC ID: hPTbtc
-// Argument format: [[], null, %project_id%, %limit%]
+// Argument format: [%context%, null, %project_id%, %limit%]
 func EncodeGetConversationsArgs(req *notebooklmv1alpha1.GetConversationsRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[[], null, %project_id%, %limit%]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%context%, null, %project_id%, %limit%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

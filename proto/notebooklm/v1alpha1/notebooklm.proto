@@ -19,7 +19,7 @@ message Project {
   ProjectMetadata metadata = 6;
   ChatbotConfig chatbot_config = 8;
   // Single per-notebook boolean flag (observed [false]); carried positionally.
-  repeated bool field_9 = 9 [(json_bool) = true];
+  repeated bool state_flags = 9 [(json_bool) = true]; // meaning unconfirmed
   // Three per-notebook capability flags (observed [true,true,true]); exact
   // meaning unconfirmed, so carried positionally.
   repeated bool flags = 10 [(json_bool) = true];
@@ -54,18 +54,19 @@ message ProjectCoverPresentation {
     repeated ProjectCoverImage images = 2;
     optional string provider = 3;
     optional string description = 4;
-    optional bool field_5 = 5 [(json_bool) = true];
+    // Meaning unconfirmed; varies among featured presentations.
+    optional bool presentation_flag = 5 [(json_bool) = true];
 }
 
-// ProjectCoverImage: [id, filename, field_3, field_4, image_url]. Field 1
+// ProjectCoverImage: [id, filename, position, image_kind, image_url]. Field 1
 // holds a UUID (not a URL) in this context, unlike orchestration.proto's
 // FeaturedProjectImage.url — otherwise the same shape.
 message ProjectCoverImage {
     optional string id = 1;
     // Original image filename.
     optional string filename = 2;
-    optional int64 field_3 = 3;
-    optional int64 field_4 = 4;
+    optional int64 position = 3;   // confirmed 1-based image position
+    optional int64 image_kind = 4; // inferred image-kind code; observed 2
     // Serving URL for the image (lh3.googleusercontent.com/notebooklm/…).
     optional string image_url = 5;
 }
@@ -73,22 +74,28 @@ message ProjectCoverImage {
 message ProjectMetadata {
     int32 user_role = 1;
     optional bool session_active = 2 [(json_bool) = true];  // or similar
-    optional bool field_3 = 3 [(json_bool) = true];
+    // Meaning inferred; true in every observed owned and featured project.
+    optional bool is_initialized = 3 [(json_bool) = true];
     // field 4 reserved/unknown
     // field 5 reserved/unknown
     google.protobuf.Timestamp create_time = 9;
     google.protobuf.Timestamp modified_time = 6;  // or similar
     int32 type = 7;
     optional bool is_starred = 8 [(json_bool) = true];
-    optional bool field_13 = 13 [(json_bool) = true];
-    optional bool field_14 = 14 [(json_bool) = true];
-    optional int64 field_15 = 15;
-    optional bool field_16 = 16 [(json_bool) = true];
-    optional bool field_18 = 18 [(json_bool) = true];
-    optional int64 field_19 = 19;
+    // Inferred from false on owned projects and true on public featured ones.
+    optional bool is_shared = 13 [(json_bool) = true];
+    // Meaning unconfirmed; true in every observed project.
+    optional bool is_accessible = 14 [(json_bool) = true];
+    optional int64 access_state = 15; // inferred access code; observed 1
+    // Inferred from false on owned projects and true on public featured ones.
+    optional bool is_read_only = 16 [(json_bool) = true];
+    // Meaning unconfirmed; varies independently among featured projects.
+    optional bool secondary_access_flag = 18 [(json_bool) = true];
+    optional int64 sharing_state = 19; // inferred sharing code; observed 1/3
     // [null, [null, 1]]: small nested message, meaning unconfirmed.
-    ProjectMetadataExtra field_20 = 20;
-    optional bool field_23 = 23 [(json_bool) = true];
+    ProjectMetadataExtra ownership_details = 20; // inferred; present on owned projects
+    // Meaning unconfirmed; varies among featured projects.
+    optional bool discovery_flag = 23 [(json_bool) = true];
 }
 
 // ProjectMetadataExtra is ProjectMetadata field 20: [null, [null, 1]].
@@ -101,8 +108,8 @@ message ProjectMetadataExtra {
 
 message ProjectMetadataExtraInner {
     // Observed true in ListRecentlyViewedProjects captures (null in GetProject).
-    optional bool field_1 = 1 [(json_bool) = true];
-    optional int32 field_2 = 2; // [1] observed 1
+    optional bool recent_project_flag = 1 [(json_bool) = true];
+    optional int32 ownership_code = 2; // [1] inferred; observed 1/2
 }
 
 message ChatGoalConfig {
@@ -163,7 +170,7 @@ message SourceMetadata {
     // Source origin URL(s), e.g. the web page or Gutenberg URL a source was
     // imported from.
     repeated string source_urls = 8;
-    optional int64 field_9 = 9;
+    optional int64 content_length = 9; // inferred source length/count; unit unconfirmed
     // Underlying file descriptor for uploaded/imported sources.
     SourceFile file = 10;
     // Human-readable source title/heading.
@@ -194,8 +201,8 @@ message SourceFile {
   // Size in pages or units (observed 59 for a PDF).
   int64 size = 2;
   string mime_type = 3;
-  // field 4 reserved/unknown (observed empty string)
-  optional string field_4 = 4;
+  // Inferred Drive resource key; observed as an explicit empty string.
+  optional string resource_key = 4;
 }
 
 message RevisionData {
@@ -223,7 +230,7 @@ message GoogleDocsSourceMetadata {
     string document_id = 1;
     // Opaque resource/revision token for the doc (often empty).
     optional string resource_key = 2;
-    int64 field_3 = 3;
+    int64 size = 3; // inferred document size/count; unit unconfirmed
 }
 
 
@@ -256,17 +263,17 @@ message SourceSettingsDetail {
   // Issue list for the source, always present (empty [] when the source is
   // healthy).
   SourceIssueList issues = 3;
-  // field 4: present-but-empty list on most sources.
-  SourceSettingsIntList field_4 = 4;
-  // field 7: observed [1].
-  repeated int64 field_7 = 7;
+  // Present-but-empty in most captures; individual code meanings unconfirmed.
+  SourceSettingsIntList detail_codes = 4;
+  // Observed [1]; individual code meanings unconfirmed.
+  repeated int64 state_codes = 7;
 }
 
 // SourceSettingsSize is SourceSettingsDetail field 2: [null, 650690, 500000],
 // a byte/char size pair (field 1 null in observed captures).
 message SourceSettingsSize {
-  optional int64 field_2 = 2; // observed 650690
-  optional int64 field_3 = 3; // observed 500000
+  optional int64 content_size = 2; // inferred current size; observed 650690
+  optional int64 size_limit = 3;   // inferred limit; observed 500000
 }
 
 // SourceSettingsIntList wraps a repeated int64 so a present-but-empty list
@@ -314,6 +321,23 @@ message Note {
   repeated int32 note_type = 7;
 }
 
+// NoteRecord is the response-side note tuple. Unlike Note, content_text has
+// presence because CreateNote returns an explicit empty string.
+message NoteRecord {
+  string note_id = 1;
+  optional string content_text = 2;
+  NoteMetadata metadata = 3;
+  string title = 5;
+  string rich_text = 6;
+  repeated int32 note_type = 7;
+}
+
+// GetNotesEntry is one keyed GetNotes result: [note_id, note].
+message GetNotesEntry {
+  string note_id = 1;
+  NoteRecord note = 2;
+}
+
 // NoteMetadata is the note-metadata blob carried at Note position [2] in
 // CreateNote (CYK0Xb) and MutateNote (cYAfTb) replies:
 //
@@ -326,12 +350,13 @@ message Note {
 // null in all observed captures; field_7 is a constant false. Modeled with
 // optional scalars so the trailing false and the interior nulls round-trip.
 message NoteMetadata {
-  optional int64 field_1 = 1;         // constant 1 in observed captures
+  optional int64 version = 1;          // inferred schema version; observed 1
   string note_id_int = 2;             // server numeric note id (wire: quoted string)
   NoteTimestamp created = 3;          // [secs, nanos]
   // positions [3], [4] are null in observed captures; left unmodeled.
   NoteTimestamp modified = 6;         // [secs, nanos]
-  optional bool field_7 = 7 [(json_bool) = true];  // constant false
+  // Meaning unconfirmed; constant false in observed captures.
+  optional bool trailing_flag = 7 [(json_bool) = true];
 }
 
 // NoteTimestamp is an inline [seconds, nanos] pair (two positional int
@@ -344,6 +369,12 @@ message NoteTimestamp {
 message GetNotesResponse {
   repeated Note notes = 1;
   // Server timestamp of the notes snapshot.
+  google.protobuf.Timestamp fetch_time = 2;
+}
+
+// GetNotesWireResponse is the keyed response shape returned by cFji9.
+message GetNotesWireResponse {
+  repeated GetNotesEntry entries = 1;
   google.protobuf.Timestamp fetch_time = 2;
 }
 
@@ -383,7 +414,7 @@ message DocumentGuide {
   DocumentGuideId source_id = 1;      // [[source_id]]
   DocumentGuideSummary summary = 2;   // [summary_text]
   DocumentGuideTopics topics = 3;     // [[topic, topic, ...]]
-  DocumentGuideExtra field_4 = 4;     // [] in observed captures
+  DocumentGuideExtra extra = 4; // [] in observed captures; meaning unconfirmed
 }
 
 // DocumentGuideId wraps the doubly-nested source id at DocumentGuide[0]:

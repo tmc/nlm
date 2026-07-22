@@ -9,11 +9,11 @@ import (
 
 // EncodeDeleteSourcesArgs encodes arguments for LabsTailwindOrchestrationService.DeleteSources
 // RPC ID: tGMBJ
-// Argument format: [[%source_ids%]]
+// Argument format: [%source_ids%, %context%]
 func EncodeDeleteSourcesArgs(req *notebooklmv1alpha1.DeleteSourcesRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[[%source_ids%]]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%source_ids%, %context%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

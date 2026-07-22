@@ -7,13 +7,13 @@ import (
 
 // GENERATION_BEHAVIOR: append
 
-// EncodeAddSourcesArgs encodes arguments for LabsTailwindOrchestrationService.AddSources
-// RPC ID: izAoDd
-// Argument format: [%sources%, %project_id%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]
-func EncodeAddSourcesArgs(req *notebooklmv1alpha1.AddSourceRequest) []interface{} {
+// EncodeBulkImportFromResearchWireArgs encodes arguments for LabsTailwindOrchestrationService.BulkImportFromResearchWire
+// RPC ID: LBwxtb
+// Argument format: [%context%, %marker%, %conversation_id%, %project_id%, %sources%]
+func EncodeBulkImportFromResearchWireArgs(req *notebooklmv1alpha1.BulkImportFromResearchWireRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%sources%, %project_id%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%context%, %marker%, %conversation_id%, %project_id%, %sources%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

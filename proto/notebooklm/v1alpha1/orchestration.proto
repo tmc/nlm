@@ -26,18 +26,24 @@ message Context {
 message RequestContext {
     // Observed constant 2 (protocol/surface version).
     optional int32 version = 1;
-    // Fields 2-3 ([1]-[2]) are null in every observed request; left unmodeled.
+    // Field 2 ([1]) is null in every observed request.
+    RequestSurface surface = 3;
     RequestClientCaps caps = 4;
     // ListArtifacts prepends the requested artifact-type filter here, e.g.
     // [[1, 4, 8, 10, 2, 3, 6, 9]]; absent (null) on other requests.
     RequestArtifactTypeFilter artifact_types = 5;
 }
 
+// RequestSurface is the optional [1] marker carried by some UI reads.
+message RequestSurface {
+    optional int32 value = 1;
+}
+
 // RequestClientCaps is RequestContext field 4: [1, null×9, [1]] (11 elements).
 message RequestClientCaps {
-    optional int32 field_1 = 1;         // observed 1
+    optional int32 version = 1; // inferred capability-envelope version; observed 1
     // Fields 2-10 ([1]-[9]) are null in every observed request; left unmodeled.
-    repeated int32 field_11 = 11;       // observed [1]
+    repeated int32 capability_codes = 11; // observed [1]; code meaning unconfirmed
 }
 
 // RequestArtifactTypeFilter is RequestContext field 5: [[1,4,8,10,2,3,6,9]].
@@ -56,7 +62,7 @@ message RequestArtifactTypeFilter {
 // structured payloads). See ArtifactAudioOverview etc. below.
 message Artifact {
     string artifact_id = 1;
-    string project_id = 2;
+    string title = 2;
     ArtifactType type = 3;
     repeated ArtifactSource sources = 4;
     ArtifactState state = 5;
@@ -76,20 +82,20 @@ message Artifact {
     // [[[1388, 553000000]]] on a failed NOTE artifact. The inner [secs, nanos]
     // is a Timestamp; meaning (a processing duration or retry marker) is
     // unconfirmed, so it is modeled generically.
-    ArtifactTimestamps field_18 = 18;
+    ArtifactTimestamps processing_timestamps = 18; // inferred processing/retry times
     ArtifactFlashcardConfig flashcard_config = 19;    // type 9 (flashcards)
-    // unknown_20 is a constant 1 in every observed capture; meaning TBD.
-    int64 unknown_20 = 20;
+    // Inferred schema/version marker; constant 1 in every observed capture.
+    int64 schema_version = 20;
     // App's real wire position on gArtLc has never been observed (no type-5
     // artifact has appeared in any capture); field 10 was a guess that
     // collided with the now-confirmed tailored_report position, so App is
     // parked here pending a HAR that actually contains one.
     App app = 21;
-    // unknown_22 is a string encoding of update_time (field 11) as
+    // update_cursor is a string encoding of update_time (field 11) as
     // base64("{seconds}-{nanos}"), e.g. base64("1784614281-797501000").
     // Likely an opaque sort/pagination cursor; kept generic since its use is
     // unconfirmed.
-    string unknown_22 = 22;
+    string update_cursor = 22;
 }
 
 // ArtifactTimestamps is the wrapped list carried at Artifact field 18:
@@ -196,7 +202,7 @@ message ArtifactNoteConfig {
     repeated SourceIdList source_refs = 4;
     string language = 5;
     optional bool flag = 6 [(json_bool) = true];
-    optional int64 unknown_7 = 7;
+    optional int64 format_code = 7; // inferred format selector
 }
 
 // ArtifactAudioOverview is the type-AUDIO_OVERVIEW gArtLc payload at
@@ -252,7 +258,7 @@ message ArtifactVideoContent {
     string topic = 3;
     // Field 4 is null in every observed capture; left unmodeled.
     optional int64 length = 5;
-    optional int64 unknown_6 = 6;
+    optional int64 format_code = 6; // inferred format selector
     // Field 7 is null in every observed capture; left unmodeled.
     // flag is carried as an int (1), not a JSON bool, unlike similarly named
     // fields elsewhere.
@@ -264,8 +270,8 @@ message ArtifactVideoContent {
 // null, length_range_a?, length_range_b?, flag]]. The leading string is
 // empty in every observed capture.
 message ArtifactReportConfig {
-    // unknown_1 is an empty string in every observed capture; meaning TBD.
-    optional string unknown_1 = 1;
+    // Meaning unconfirmed; an explicit empty string in every observed capture.
+    optional string leading_text = 1;
     ArtifactReportOptions options = 2;
 }
 
@@ -293,15 +299,16 @@ message ArtifactMindMapPreview {
 }
 
 // ArtifactMindMapConfig is the [null, language, null, int, int, int] config
-// blob at ArtifactMindMapPreview field 1; the trailing integers' meaning is
-// not yet confirmed.
+// blob at ArtifactMindMapPreview field 1. orientation_code is inferred from
+// the generated image dimensions; the remaining code meanings are unconfirmed.
 message ArtifactMindMapConfig {
     // Field 1 is null in every observed capture; left unmodeled.
     string language = 2;
     // Field 3 is null in every observed capture; left unmodeled.
-    optional int64 unknown_4 = 4;
-    optional int64 unknown_5 = 5;
-    optional int64 unknown_6 = 6;
+    // Observed 1 for landscape images and 2 for portrait images.
+    optional int64 orientation_code = 4;
+    optional int64 style_code = 5;    // inferred visual-style selector
+    optional int64 template_code = 6; // inferred template selector
 }
 
 // ArtifactMindMapSlide is one [title, [url, width, height], description,
@@ -507,6 +514,67 @@ message CreateVideoOverviewRequest {
     string language = 6;           // e.g. "en"
 }
 
+message CreateUniversalArtifactRequest {
+    RequestContext context = 1;
+    string project_id = 2;
+    UniversalArtifactOptions options = 3;
+}
+
+message UniversalArtifactOptions {
+    // Fields 1 and 2 are null in observed requests.
+    int32 kind = 3;
+    repeated UniversalArtifactSourceGroup source_groups = 4;
+    // Fields 5 and 6 are null in observed requests.
+    UniversalAudioOptions audio = 7;
+    // Field 8 is null in observed requests.
+    UniversalVideoOptions video = 9;
+    // Fields 10 through 16 are null in observed requests.
+    repeated UniversalSlideOptions slides = 17;
+}
+
+message UniversalArtifactSourceGroup {
+    SourceIdList source = 1;
+}
+
+message UniversalAudioOptions {
+    // Field 1 is null in observed requests.
+    UniversalAudioDetails details = 2;
+}
+
+message UniversalAudioDetails {
+    // Field 1 is null in observed requests.
+    int32 style = 2;
+    // Field 3 is null in observed requests.
+    repeated SourceIdList sources = 4;
+    string language = 5;
+    // Field 6 is null in observed requests.
+    int32 enabled = 7;
+}
+
+message UniversalVideoOptions {
+    // Fields 1 and 2 are null in observed requests.
+    UniversalVideoDetails details = 3;
+}
+
+message UniversalVideoDetails {
+    repeated UniversalArtifactSources sources = 1;
+    // Field 2 is null in observed requests.
+    optional string prompt = 3;
+    // Field 4 is null in observed requests.
+    int32 style = 5;
+}
+
+message UniversalArtifactSources {
+    string source_id = 1;
+}
+
+message UniversalSlideOptions {
+    // Field 1 is null in observed requests.
+    string language = 2;
+    int32 format = 3;
+    int32 style = 4;
+}
+
 message GetAudioOverviewRequest {
     string project_id = 1;
     int32 request_type = 2;
@@ -567,7 +635,7 @@ message GenerateFreeFormStreamedRequest {
 message ChatConversationMetadata {
     string conversation_id = 1;
     string message_id = 2;
-    int32 sequence_number = 3;
+    int64 sequence_number = 3;
 }
 
 message ChatCharacterRange {
@@ -614,6 +682,65 @@ message GenerateFreeFormStreamedResponse {
     repeated ChatFollowUp follow_ups = 7;
 }
 
+message GenerateFreeFormStreamedWireRequest {
+    repeated ChatSourceSelection sources = 1;
+    string prompt = 2;
+    repeated GenerateFreeFormStreamedHistoryEntry history = 3;
+    ChatStreamOptions options = 4;
+    string conversation_id = 5;
+    // Fields 6 and 7 are null in observed requests.
+    string notebook_id = 8;
+    int32 sequence_number = 9;
+}
+
+message ChatSourceSelection {
+    SourceIdList source = 1;
+}
+
+message ChatStreamOptions {
+    int32 mode = 1;
+    // Field 2 is null.
+    Int32List citation_modes = 3;
+    ChatFollowUpOptions follow_up = 4;
+}
+
+message ChatFollowUpOptions {
+    int32 enabled = 1;
+    // Fields 2 through 10 are null.
+    repeated int32 modes = 11;
+}
+
+message GenerateFreeFormStreamedWireResponse {
+    ChatAnswer answer = 1;
+    repeated Grounding citations = 2;
+    repeated ChatStreamSourceMapping source_mappings = 3;
+    ChatFollowUpTextList follow_up_text = 4;
+    optional bool is_final = 5 [(json_bool) = true];
+    ChatFollowUpList follow_ups = 6;
+    optional bool complete = 7 [(json_bool) = true];
+    string token = 8;
+}
+
+message ChatAnswer {
+    string chunk = 1;
+    // Fields 2 and 4 are null.
+    ChatConversationMetadata conversation = 3;
+    RichDocument document = 5;
+}
+
+message ChatStreamSourceMapping {
+    OffsetRange range = 1;
+    repeated int32 source_indices = 2;
+}
+
+message ChatFollowUpTextList {
+    repeated string text = 1;
+}
+
+message ChatFollowUpList {
+    repeated ChatFollowUp follow_up = 1;
+}
+
 message GenerateReportSuggestionsRequest {
     string project_id = 1;
     repeated string source_ids = 2;
@@ -635,6 +762,7 @@ message GenerateReportSuggestionsResponse {
 
 message GetProjectAnalyticsRequest {
     string project_id = 1;
+    RequestContext context = 2;
 }
 
 message ProjectAnalytics {
@@ -644,14 +772,18 @@ message ProjectAnalytics {
     google.protobuf.Timestamp last_accessed = 4;
 }
 
-message ListFeaturedProjectsRequest {}
+message ListFeaturedProjectsRequest {
+    optional int32 context_version = 1;
+    RequestSurface context_surface = 3;
+    RequestClientCaps context_caps = 4;
+}
 
 message FeaturedProjectImage {
     string url = 1;
     // Original image filename.
     string filename = 2;
-    int64 field_3 = 3;
-    int64 field_4 = 4;
+    int64 position = 3;   // confirmed 1-based image position
+    int64 image_kind = 4; // inferred image-kind code; observed 2
     // Serving URL for the image (lh3.googleusercontent.com/notebooklm/…).
     string image_url = 5;
 }
@@ -661,7 +793,8 @@ message FeaturedProjectPresentation {
     repeated FeaturedProjectImage images = 2;
     string provider = 3;
     string description = 4;
-    optional bool field_5 = 5 [(json_bool) = true];
+    // Meaning unconfirmed; varies among featured presentations.
+    optional bool presentation_flag = 5 [(json_bool) = true];
 }
 
 message FeaturedProject {
@@ -681,10 +814,10 @@ message FeaturedProject {
 
 message FeaturedProjectLimits {
     // field 1 reserved/unknown (observed null)
-    int64 field_2 = 2;
-    int64 field_3 = 3;
-    int64 field_4 = 4;
-    int64 field_5 = 5;
+    int64 notebook_limit = 2; // confirmed by the identical ProjectLimits slot
+    int64 source_limit = 3;   // confirmed by the identical ProjectLimits slot
+    int64 upload_limit = 4;   // inferred byte/size limit; observed 500000
+    int64 tier_code = 5;      // inferred tier code; observed 3
 }
 
 message ListFeaturedProjectsResponse {
@@ -695,6 +828,7 @@ message ListFeaturedProjectsResponse {
 message AddSourceRequest {
     repeated SourceInput sources = 1;
     string project_id = 2;
+    RequestContext context = 3;
 }
 
 // AddSourcesResponse is the izAoDd response envelope: [[source, ...]].
@@ -703,29 +837,25 @@ message AddSourcesResponse {
 }
 
 message SourceInput {
-    // For text sources
+    // Field 1 is null in observed text-import requests.
+    SourceTextInput text = 2;
+    // Field 3 is null in observed text-import requests.
+    optional int32 input_type = 4; // observed 3
+    // Fields 5-10 are null in observed text-import requests.
+    optional int32 import_mode = 11; // inferred import mode; observed 1
+}
+
+message SourceTextInput {
     string title = 1;
     string content = 2;
-    
-    // For file upload
-    string base64_content = 3;
-    string filename = 4;
-    string mime_type = 5;
-    
-    // For URL sources
-    string url = 6;
-    
-    // For YouTube
-    string youtube_video_id = 7;
-    
-    SourceType source_type = 8;
 }
 
 message CreateNoteRequest {
     string project_id = 1;
-    string content = 2;
-    repeated int32 note_type = 3;
+    optional string content = 2;
+    Int32List note_type = 3;
     string title = 5;
+    RequestContext context = 7;
 }
 
 message DeleteNotesRequest {
@@ -735,23 +865,44 @@ message DeleteNotesRequest {
 
 message GetNotesRequest {
     string project_id = 1;
+    // Field 2 is null in observed requests.
+    google.protobuf.Timestamp since = 3;
+    RequestContext context = 4;
 }
 
 message MutateNoteRequest {
     string project_id = 1;
     string note_id = 2;
-    repeated NoteUpdate updates = 3;
+    NoteUpdates updates = 3;
+    RequestContext context = 4;
+}
+
+message NoteUpdates {
+    NoteUpdateGroup update = 1;
+}
+
+message NoteUpdateGroup {
+    NoteUpdate update = 1;
 }
 
 message NoteUpdate {
     string content = 1;
     string title = 2;
-    repeated string tags = 3;
+    NoteTags tags = 3;
+    optional int32 update_mode = 4; // inferred update mode; observed 0
+    // Field 5 is null in observed requests.
+    optional int32 state_code = 6; // inferred state code; observed 0
+}
+
+message NoteTags {
+    repeated string tags = 1;
 }
 
 // Account management
 message GetOrCreateAccountRequest {
-    // Empty for now, uses auth token
+    optional int32 context_version = 1;
+    RequestSurface context_surface = 3;
+    RequestClientCaps context_caps = 4;
 }
 
 message MutateAccountRequest {
@@ -770,8 +921,8 @@ message Account {
     string account_id = 1;
     AccountLimits limits = 2;
     AccountSettings settings = 3;
-    AccountFlags unknown_4 = 4;                    // [3] observed [[1]]
-    AccountBanner unknown_5 = 5;                   // [4] observed [true,1,3,6,true]
+    AccountFlags flags = 4;   // [3] observed [[1]]; code meaning unconfirmed
+    AccountBanner banner = 5; // [4] observed [true,1,3,6,true]
 }
 
 // AccountLimits is the [tier, notebook_limit, source_limit, upload_limit,
@@ -789,12 +940,13 @@ message AccountSettings {
     optional bool email_notifications = 1 [(json_bool) = true];
     string default_project_emoji = 2;
     // Field 3 ([2]) is null in observed captures; left unmodeled.
-    optional bool unknown_4 = 4 [(json_bool) = true];
-    AccountSettingsDetail unknown_5 = 5;           // [4] observed [null,null,null,[[2,2,1]]]
+    // Meanings of the three preference flags are unconfirmed.
+    optional bool primary_preference_flag = 4 [(json_bool) = true];
+    AccountSettingsDetail rules = 5; // [4] observed [null,null,null,[[2,2,1]]]
     // Field 6 ([5]) is null in observed captures; left unmodeled.
-    optional bool unknown_7 = 7 [(json_bool) = true];
+    optional bool secondary_preference_flag = 7 [(json_bool) = true];
     // Field 8 ([7]) is null in observed captures; left unmodeled.
-    optional bool unknown_9 = 9 [(json_bool) = true];
+    optional bool tertiary_preference_flag = 9 [(json_bool) = true];
 }
 
 // AccountSettingsDetail is the nested message at AccountSettings field 5:
@@ -802,32 +954,33 @@ message AccountSettings {
 // is populated in observed captures.
 message AccountSettingsDetail {
     // Fields 1-3 ([0]-[2]) are null in observed captures; left unmodeled.
-    repeated AccountSettingsRule unknown_4 = 4;    // [3] observed [[2,2,1]]
+    repeated AccountSettingsRule rules = 4; // [3] observed [[2,2,1]]
 }
 
 // AccountSettingsRule is a [2, 2, 1] positional triple within
-// AccountSettingsDetail.unknown_4. Meaning of the three integers is not yet
+// AccountSettingsDetail.rules. Meaning of the three integers is not yet
 // confirmed.
 message AccountSettingsRule {
-    optional int64 unknown_1 = 1;
-    optional int64 unknown_2 = 2;
-    optional int64 unknown_3 = 3;
+    optional int64 rule_code = 1;
+    optional int64 value_code = 2;
+    optional int64 state_code = 3;
 }
 
 // AccountFlags is the Account field 4 message: [[1]], a single repeated
 // int64 field.
 message AccountFlags {
-    repeated int64 unknown_1 = 1;
+    repeated int64 codes = 1; // individual code meanings unconfirmed
 }
 
 // AccountBanner is the Account field 5 message: [true, 1, 3, 6, true].
 // Meaning of the individual fields is not yet confirmed.
 message AccountBanner {
-    optional bool unknown_1 = 1 [(json_bool) = true];
-    optional int64 unknown_2 = 2;
-    optional int64 unknown_3 = 3;
-    optional int64 unknown_4 = 4;
-    optional bool unknown_5 = 5 [(json_bool) = true];
+    // Descriptive positional names only; individual meanings are unconfirmed.
+    optional bool leading_flag = 1 [(json_bool) = true];
+    optional int64 code_a = 2;
+    optional int64 code_b = 3;
+    optional int64 code_c = 4;
+    optional bool trailing_flag = 5 [(json_bool) = true];
 }
 
 // Service definition
@@ -913,7 +1066,7 @@ service LabsTailwindOrchestrationService {
     // not a Project envelope.
     rpc AddSources(AddSourceRequest) returns (AddSourcesResponse) {
         option (rpc_id) = "izAoDd";
-        option (arg_format) = "[%sources%, %project_id%]";
+        option (arg_format) = "[%sources%, %project_id%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]";
     }
     rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse) {
         option (rpc_id) = "yR9Yof";
@@ -924,7 +1077,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "tGMBJ";
-        option (arg_format) = "[[%source_ids%]]";
+        option (arg_format) = "[%source_ids%, %context%]";
     }
     // DiscoverSources (Es3dTe). Per the JS bundle binding to
     // /LabsTailwindOrchestrationService.DiscoverSources. The previous
@@ -955,11 +1108,11 @@ service LabsTailwindOrchestrationService {
     // AddSources (izAoDd) returns the same descriptor inside a list.
     rpc LoadSource(LoadSourceRequest) returns (LoadSourceResponse) {
         option (rpc_id) = "hizoJc";
-        option (arg_format) = "[%source_id%]";
+        option (arg_format) = "[%source%, %mode%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]";
     }
     rpc MutateSource(MutateSourceRequest) returns (Source) {
         option (rpc_id) = "b7Wfje";
-        option (arg_format) = "[%source_id%, %updates%]";
+        option (arg_format) = "[null, %source_id%, %updates%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]";
     }
     rpc RefreshSource(RefreshSourceRequest) returns (Source) {
         option (rpc_id) = "FLmJqe";
@@ -968,20 +1121,16 @@ service LabsTailwindOrchestrationService {
     }
     
     // Audio operations
-    rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (AudioOverview) {
+    rpc CreateAudioOverview(CreateAudioOverviewRequest) returns (Artifact) {
         option (rpc_id) = "R7cb6c";
         // Format discovered from HAR analysis:
         // [[audio_type], project_id, [null, null, 1, [[[source_ids]]], null, null,
         //   [null, [custom_instructions, length, null, [[[source_ids]]], language, true, 1]]]]
         // Using custom encoder for this complex structure
         //
-        // OVERLOADED: R7cb6c is CreateUniversalArtifact (audio/video/report/
-        // flashcards/slides). Its RESPONSE is NOT the plain AudioOverview shape —
-        // captured audio responses put ints at positions [2]/[4] where
-        // AudioOverview declares instructions/audio_url strings, plus an extra
-        // config block at field 7 and an int at field 20. Modeling the response
-        // needs its own artifact message per creation type; binding it to
-        // AudioOverview is lossy on purpose and deferred pending a per-type HAR.
+        // R7cb6c is CreateUniversalArtifact (audio/video/report/flashcards/
+        // slides). Every observed response is the shared Artifact row shape;
+        // Artifact.type and its type-specific preview identify the result.
     }
     rpc GetAudioOverview(GetAudioOverviewRequest) returns (AudioOverview) {
         option (rpc_id) = "VUsiyb";
@@ -993,36 +1142,41 @@ service LabsTailwindOrchestrationService {
     }
 
     // Video operations (uses same R7cb6c RPC as audio but with mode=3)
-    rpc CreateVideoOverview(CreateVideoOverviewRequest) returns (VideoOverview) {
+    rpc CreateVideoOverview(CreateVideoOverviewRequest) returns (Artifact) {
         option (rpc_id) = "R7cb6c";
         // Format discovered from HAR analysis:
         // [[audio_type], project_id, [null, null, 3, [[[source_ids]]], null, null, null, null,
         //   [null, null, [[[source_ids]], language, custom_instructions, null, 1, video_style]]]]
         // Using custom encoder for this complex structure
     }
+    // Decode-complete binding for the polymorphic R7cb6c request envelope.
+    rpc CreateUniversalArtifact(CreateUniversalArtifactRequest) returns (Artifact) {
+        option (rpc_id) = "R7cb6c";
+        option (arg_format) = "[%context%, %project_id%, %options%]";
+    }
     
     // Note operations
-    rpc CreateNote(CreateNoteRequest) returns (Note) {
+    rpc CreateNote(CreateNoteRequest) returns (NoteRecord) {
         option (rpc_id) = "CYK0Xb";
         // Two-step note protocol (HAR-verified 2026-04-28): CreateNote makes an
         // empty "New Note" shell; the title/body are set afterward by MutateNote.
         // The shell shape passes literals, not the request's title/content.
-        option (arg_format) = "[%project_id%, \"\", [1], null, \"New Note\", null, [2]]";
+        option (arg_format) = "[%project_id%, \"\", [1], null, \"New Note\", null, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]";
     }
     rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "AH0mwd";
         option (arg_format) = "[%project_id%, null, %note_ids%, [2]]";
     }
-    rpc GetNotes(GetNotesRequest) returns (GetNotesResponse) {
+    rpc GetNotes(GetNotesRequest) returns (GetNotesWireResponse) {
         option (rpc_id) = "cFji9";
-        option (arg_format) = "[%project_id%]";
+        option (arg_format) = "[%project_id%, null, %since%, %context%]";
     }
     rpc MutateNote(MutateNoteRequest) returns (Note) {
         option (rpc_id) = "cYAfTb";
         // Second step of the note protocol (HAR-verified 2026-04-28): sets the
         // real title/body. Each update projects to [content, title, [tags], 0],
         // triple-wrapped, then a trailing [2] context.
-        option (arg_format) = "[%project_id%, %note_id%, [%updates:[%content%, %title%, [%tags%], 0]%], [2]]";
+        option (arg_format) = "[%project_id%, %note_id%, %updates%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]";
     }
     
     // Project operations
@@ -1036,11 +1190,11 @@ service LabsTailwindOrchestrationService {
     }
     rpc GetProject(GetProjectRequest) returns (Project) {
         option (rpc_id) = "rLM1Ne";
-        option (arg_format) = "[%project_id%]";
+        option (arg_format) = "[%project_id%, null, %context%, null, %include_artifacts%, %filter%]";
     }
     rpc ListFeaturedProjects(ListFeaturedProjectsRequest) returns (ListFeaturedProjectsResponse) {
         option (rpc_id) = "ub2Bae";
-        option (arg_format) = "[[2]]";
+        option (arg_format) = "[[%context_version%, null, %context_surface%, %context_caps%]]";
     }
     rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse) {
         option (rpc_id) = "wXbhsf";
@@ -1054,6 +1208,10 @@ service LabsTailwindOrchestrationService {
     rpc MutateProject(MutateProjectRequest) returns (Project) {
         option (rpc_id) = "s0tc2d";
         option (arg_format) = "[%project_id%, %updates%]";
+    }
+    rpc MutateProjectCover(MutateProjectCoverRequest) returns (Project) {
+        option (rpc_id) = "s0tc2d";
+        option (arg_format) = "[%project_id%, %updates%, %context%]";
     }
     rpc RemoveRecentlyViewedProject(RemoveRecentlyViewedProjectRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "fejl7e";
@@ -1080,9 +1238,15 @@ service LabsTailwindOrchestrationService {
         // Source IDs use 3-level nesting: [[["source-id"]]]
         option (grpc_arg_format) = "[[%source_ids%], %prompt%, null]";
     }
+    // Decode-complete positional binding for captured gRPC-Web request and
+    // response frames. The logical method above remains the live API surface.
+    rpc GenerateFreeFormStreamedWire(GenerateFreeFormStreamedWireRequest) returns (stream GenerateFreeFormStreamedWireResponse) {
+        option (rpc_id) = "laWbsf";
+        option (arg_format) = "[%sources%, %prompt%, %history%, %options%, %conversation_id%, null, null, %notebook_id%, %sequence_number%]";
+    }
     rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {
         option (rpc_id) = "VfAZjd";
-        option (arg_format) = "[%project_id%]";
+        option (arg_format) = "[%project_id%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]";
     }
     rpc GenerateOutline(GenerateOutlineRequest) returns (GenerateOutlineResponse) {
         option (rpc_id) = "lCjAd";
@@ -1119,7 +1283,7 @@ service LabsTailwindOrchestrationService {
     // Analytics and feedback
     rpc GetProjectAnalytics(GetProjectAnalyticsRequest) returns (ProjectAnalytics) {
         option (rpc_id) = "AUrzMb";
-        option (arg_format) = "[%project_id%]";
+        option (arg_format) = "[%project_id%, [2, null, null, [1, null, null, null, null, null, null, null, null, null, [1]]]]";
     }
     rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "uNyJKe";
@@ -1129,22 +1293,22 @@ service LabsTailwindOrchestrationService {
     // Conversation lifecycle
     rpc GetConversations(GetConversationsRequest) returns (GetConversationsResponse) {
         option (rpc_id) = "hPTbtc";
-        option (arg_format) = "[[], null, %project_id%, %limit%]";
+        option (arg_format) = "[%context%, null, %project_id%, %limit%]";
     }
     rpc GetConversationHistory(GetConversationHistoryRequest) returns (GetConversationHistoryResponse) {
         option (rpc_id) = "khqZz";
-        option (arg_format) = "[[], null, null, %conversation_id%, %limit%]";
+        option (arg_format) = "[%context%, null, null, %conversation_id%, %limit%]";
     }
     rpc DeleteChatHistory(DeleteChatHistoryRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "e3bVqc";
         // Polymorphic endpoint: payload shape [null, null, project_id] selects DeleteChatHistory
-        option (arg_format) = "[null, null, %project_id%]";
+        option (arg_format) = "[%context%, null, %project_id%]";
     }
 
     // Account operations
     rpc GetOrCreateAccount(GetOrCreateAccountRequest) returns (Account) {
         option (rpc_id) = "ZwVcOc";
-        option (arg_format) = "[]";
+        option (arg_format) = "[[%context_version%, null, %context_surface%, %context_caps%]]";
     }
     rpc MutateAccount(MutateAccountRequest) returns (Account) {
         option (rpc_id) = "hT54vc";
@@ -1201,6 +1365,10 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "QA9ei";
         option (arg_format) = "[null, [1], [%query%, 1], 5, %project_id%]";
     }
+    rpc StartDeepResearchWire(StartDeepResearchWireRequest) returns (StartDeepResearchResponse) {
+        option (rpc_id) = "QA9ei";
+        option (arg_format) = "[%context%, null, %query%, %mode%, %project_id%]";
+    }
 
     // GetDeepResearchSessions (rpc.go:71). Polymorphic with
     // DeleteChatHistory: same e3bVqc id, server discriminates on
@@ -1241,6 +1409,10 @@ service LabsTailwindOrchestrationService {
         // Custom encoder in api/client.go; arg_format omitted because
         // the per-source 11-position tuple cannot be templated.
     }
+    rpc BulkImportFromResearchWire(BulkImportFromResearchWireRequest) returns (BulkImportFromResearchResponse) {
+        option (rpc_id) = "LBwxtb";
+        option (arg_format) = "[%context%, %marker%, %conversation_id%, %project_id%, %sources%]";
+    }
 
     // GetAudioFormats (rpc.go:89). HAR-verified 2026-04-07 in
     // docs/captures/notebooklm.google.com.jsonl. Request payload
@@ -1252,9 +1424,7 @@ service LabsTailwindOrchestrationService {
     // semantics not yet decoded.
     rpc GetAudioFormats(GetAudioFormatsRequest) returns (GetAudioFormatsResponse) {
         option (rpc_id) = "sqTeoe";
-        // Custom encoder required: the request is a fixed sentinel
-        // payload, not a templatable arg map. See
-        // internal/method/labs_tailwind_custom_encoders.go.
+        option (arg_format) = "[%context%, null, %mode%]";
     }
 
     // GenerateDocumentGuides (rpc.go:82). Per-source guide RPC: the
@@ -1265,8 +1435,7 @@ service LabsTailwindOrchestrationService {
     // request message exists at line 709 (GenerateDocumentGuidesRequest).
     rpc GenerateDocumentGuides(GenerateDocumentGuidesRequest) returns (GenerateDocumentGuidesResponse) {
         option (rpc_id) = "tr032e";
-        // Custom encoder; 4-level nesting is not expressible via
-        // arg_format. See api.Client.GenerateSourceGuide.
+        option (arg_format) = "[%sources%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]";
     }
 
     // LogEvent / GetPromoCampaign (rpc.go:98). The constant in rpc.go is
@@ -1283,8 +1452,7 @@ service LabsTailwindOrchestrationService {
     // proto matches what the wire actually does.
     rpc LogEvent(LogEventRequest) returns (LogEventResponse) {
         option (rpc_id) = "ozz5Z";
-        // Wire shape is a fixed-sentinel triple-nested array; cannot be
-        // expressed via arg_format. See LogEventRequest comment.
+        option (arg_format) = "[%events%]";
     }
 
     // ReportContent. User-initiated abuse/safety report. The JS bundle
@@ -1303,13 +1471,11 @@ service LabsTailwindOrchestrationService {
 
     // ReviseArtifact (rpc.go:131). Re-runs an artifact generator with a
     // free-form revision instruction.
-    // TODO(har): no rpcids=KmcKPe seen in any capture. To capture: open
-    // a generated artifact (audio overview, briefing doc, mind map),
-    // click "Revise" or the equivalent edit affordance, type an
-    // instruction, submit. The placeholder fields are speculative.
-    rpc ReviseArtifact(ReviseArtifactRequest) returns (ReviseArtifactResponse) {
+    // The response is the revised Artifact row, including type-specific edit
+    // instructions when the revision remains pending.
+    rpc ReviseArtifact(ReviseArtifactRequest) returns (Artifact) {
         option (rpc_id) = "KmcKPe";
-        // wire shape unverified; capture HAR before encoding
+        option (arg_format) = "[%context%, %artifact_id%, %instructions%]";
     }
 
     // GenerateArtifactSuggestions / AudioTopicSuggestions (rpc.go:133).
@@ -1322,16 +1488,7 @@ service LabsTailwindOrchestrationService {
     // observed). See internal/method/labs_tailwind_artifact_suggestions.go.
     rpc GenerateArtifactSuggestions(GenerateArtifactSuggestionsRequest) returns (GenerateArtifactSuggestionsResponse) {
         option (rpc_id) = "otmP3b";
-        // DUAL-FORM REQUEST (do not "fix" without a live re-test):
-        //   - This encoder / the HAR-verified 2026-04-14 capture send
-        //     [[kind], project_id, [[src],...], variation]. Working today.
-        //   - The 2026-07 web UI sends [<RequestContext>, project_id,
-        //     [[src],...], variation] with no explicit kind field.
-        // The two coincide because RequestContext[0] == 2 == audio kind, so the
-        // truncated [2] is accepted as a degenerate context. Migrating the
-        // encoder to the RequestContext form is deferred pending a live re-test;
-        // the request layout is intentionally left as-is (kind at field 1).
-        option (arg_format) = "[[%kind%], %project_id%, %source_refs%, %variation%]";
+        option (arg_format) = "[[2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]], %project_id%, %source_refs%, %variation%, null, %prompt%]";
     }
 
     // FetchInteractivityToken (rpc.go:50). Voice-session auth + ICE
@@ -1343,7 +1500,7 @@ service LabsTailwindOrchestrationService {
     // FetchInteractivityTokenRequest/Response messages at line 858+.
     rpc FetchInteractivityToken(FetchInteractivityTokenRequest) returns (FetchInteractivityTokenResponse) {
         option (rpc_id) = "Of0kDd";
-        option (arg_format) = "[]";
+        option (arg_format) = "[[%context_version%, null, %context_surface%, %context_caps%]]";
     }
 
     // SDPExchange (rpc.go:51). WebRTC SDP offer/answer exchange for
@@ -1378,7 +1535,7 @@ service LabsTailwindOrchestrationService {
     // and DeleteLabels (GyzE7e) confirm the labels framing.
     rpc GetLabels(GetLabelsRequest) returns (GetLabelsResponse) {
         option (rpc_id) = "I3xc3c";
-        option (arg_format) = "[[2], %project_id%]";
+        option (arg_format) = "[%context%, %project_id%]";
     }
 
     // UpsertArtifactUserState (Fxmvse). JS bundle binds this to
@@ -1423,17 +1580,15 @@ service LabsTailwindOrchestrationService {
     // labels affordance in the source-list UI.
     rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse) {
         option (rpc_id) = "agX4Bc";
-        // OVERLOADED rpc_id: agX4Bc serves multiple label operations. The
-        // captured request [<RequestContext>, project_id, null, null, [1]] has
-        // no name/emoji, so it is the list/get-labels mode, NOT create. Modeling
-        // that request as CreateLabelRequest would corrupt the create encoder;
-        // the get-labels mode is deferred to a separate method sharing this
-        // rpc_id (with a method-name override) once its full shape is captured.
-        // CreateLabel request wire shape itself is still unverified.
+        option (arg_format) = "[%context%, %project_id%, null, null, null, %labels%]";
+    }
+    rpc MutateLabelsMode(MutateLabelsModeRequest) returns (CreateLabelResponse) {
+        option (rpc_id) = "agX4Bc";
+        option (arg_format) = "[%context%, %project_id%, null, null, %mode%]";
     }
     rpc MutateLabel(MutateLabelRequest) returns (MutateLabelResponse) {
         option (rpc_id) = "le8sX";
-        // wire shape unverified; capture HAR before encoding
+        option (arg_format) = "[%context%, %project_id%, %label_id%, %mutation%]";
     }
     rpc DeleteLabels(DeleteLabelsRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "GyzE7e";
@@ -1533,6 +1688,7 @@ service LabsTailwindOrchestrationService {
     // single status int [3]; not consumed by any live caller.
     rpc CopyProject(CopyProjectRequest) returns (CopyProjectResponse) {
         option (rpc_id) = "te3DCe";
+        option (arg_format) = "[%context%, %source_project_id%, %new_title%]";
     }
 
     // (GenerateFreeFormStreamed / laWbsf is wired via gRPC-Web above
@@ -1549,6 +1705,19 @@ service LabsTailwindOrchestrationService {
     }
 }
 
+// InteractionEventService records UI interactions that do not mutate the
+// artifact itself. The binding and method name are taken from the production
+// JavaScript descriptor for HpN0Ub.
+service InteractionEventService {
+    option (batchexecute_app) = "LabsTailwindUi";
+    option (batchexecute_host) = "notebooklm.google.com";
+
+    rpc LogInteractionEvent(LogInteractionEventRequest) returns (google.protobuf.Empty) {
+        option (rpc_id) = "HpN0Ub";
+        option (arg_format) = "[%context%, %event_2%, %event_3%, %event_4%]";
+    }
+}
+
 // Request messages reconstructed from captured batchexecute traffic.
 message CreateProjectRequest {
     string title = 1;
@@ -1560,11 +1729,52 @@ message DeleteProjectsRequest {
 }
 
 message DeleteSourcesRequest {
-    repeated string source_ids = 1;
+    repeated SourceIdList source_ids = 1;
+    RequestContext context = 2;
 }
 
 message GetProjectRequest {
     string project_id = 1;
+    // Field 2 is null in observed requests.
+    RequestContext context = 3;
+    // Field 4 is null in observed requests.
+    optional int32 include_artifacts = 5;
+    GetProjectFilter filter = 6;
+}
+
+message GetProjectFilter {
+    GetProjectFilterEntry entry = 1;
+}
+
+message GetProjectFilterEntry {
+    // Fields 1 and 2 are null in observed requests.
+    StringList values = 3;
+}
+
+// LogInteractionEventRequest is the HpN0Ub request. The UI uses distinct
+// positional event fields for different artifact interactions; each carries
+// the affected artifact ID in a one-element message.
+message LogInteractionEventRequest {
+    InteractionEventContext context = 1;
+    InteractionEventTarget event_2 = 2;
+    InteractionEventTarget event_3 = 3;
+    InteractionEventTarget event_4 = 4;
+}
+
+message InteractionEventContext {
+    optional int32 version = 1; // observed 2
+    // Field 2 is null in every observed request.
+    InteractionEventSurface surface = 3;
+    RequestClientCaps caps = 4;
+    RequestArtifactTypeFilter artifact_types = 5;
+}
+
+message InteractionEventSurface {
+    optional int32 value = 1; // observed 1
+}
+
+message InteractionEventTarget {
+    string artifact_id = 1;
 }
 
 // ListRecentlyViewedProjectsRequest wire (HAR-verified, more-requests2):
@@ -1580,9 +1790,10 @@ message ListRecentlyViewedProjectsRequest {
 }
 
 message ListRecentlyViewedProjectsFilter {
-    ListRecentlyViewedProjectsFilterA field_1 = 1;  // [null, null, []]
-    ListRecentlyViewedProjectsFilterB field_2 = 2;  // [[]]
-    ListRecentlyViewedProjectsFilterC field_3 = 3;  // [null, []]
+    // Group semantics are unconfirmed because every observed list is empty.
+    ListRecentlyViewedProjectsFilterA filter_group_a = 1; // [null, null, []]
+    ListRecentlyViewedProjectsFilterB filter_group_b = 2; // [[]]
+    ListRecentlyViewedProjectsFilterC filter_group_c = 3; // [null, []]
 }
 
 // The three filter sub-messages each carry a single present-but-empty list.
@@ -1591,16 +1802,16 @@ message ListRecentlyViewedProjectsFilter {
 // field is indistinguishable from absent in proto3).
 message ListRecentlyViewedProjectsFilterA {
     // fields 1-2 null; field 3 a present-but-empty string list.
-    StringList field_3 = 3;
+    StringList values = 3;
 }
 
 message ListRecentlyViewedProjectsFilterB {
-    StringList field_1 = 1;
+    StringList values = 1;
 }
 
 message ListRecentlyViewedProjectsFilterC {
     // field 1 null; field 2 a present-but-empty string list.
-    StringList field_2 = 2;
+    StringList values = 2;
 }
 
 // StringList wraps a repeated string so a present-but-empty list marshals as
@@ -1614,9 +1825,39 @@ message MutateProjectRequest {
     Project updates = 2;
 }
 
+message MutateProjectCoverRequest {
+    string project_id = 1;
+    repeated ProjectCoverMutation updates = 2;
+    RequestContext context = 3;
+}
+
+message ProjectCoverMutation {
+    // Fields 1 through 7 are null in observed requests.
+    ProjectCoverSelection cover = 8;
+}
+
+message ProjectCoverSelection {
+    google.protobuf.Empty clear = 1;
+    Int32List preset = 2;
+}
+
 message MutateSourceRequest {
-    string source_id = 1;
-    Source updates = 2;
+    // Field 1 is null in observed requests.
+    SourceIdList source_id = 2;
+    MutateSourceUpdates updates = 3;
+    RequestContext context = 4;
+}
+
+message MutateSourceUpdates {
+    MutateSourceUpdate update = 1;
+}
+
+message MutateSourceUpdate {
+    MutateSourceTitle title = 1;
+}
+
+message MutateSourceTitle {
+    string title = 1;
 }
 
 message RemoveRecentlyViewedProjectRequest {
@@ -1633,7 +1874,13 @@ message CheckSourceFreshnessResponse {
 }
 
 message LoadSourceRequest {
-    string source_id = 1;
+    SourceIdList source = 1;
+    Int32List mode = 2;
+    RequestContext context = 3;
+}
+
+message Int32List {
+    int32 value = 1;
 }
 
 // LoadSourceResponse is the hizoJc response envelope:
@@ -1645,12 +1892,12 @@ message LoadSourceResponse {
 
 message LoadedSourceContent {
     LoadedSourceRows rows = 1;
-    optional int32 unknown_2 = 2;
+    optional int32 content_kind = 2; // inferred discriminator; meaning unconfirmed
 }
 
 message LoadedSourceRows {
     repeated LoadedSourceRow rows = 1;
-    optional int32 unknown_2 = 2;
+    optional int32 layout_kind = 2; // inferred layout discriminator
 }
 
 message LoadedSourceRow {
@@ -1662,7 +1909,7 @@ message LoadedSourceRow {
 
 message LoadedSourceImage {
     string url = 1;
-    optional string unknown_2 = 2;
+    optional string alt_text = 2; // inferred image description
     string image_id = 3;
 }
 
@@ -1684,11 +1931,11 @@ message LoadedSourceSpanText {
 
 message LoadedSourceSpanFlags {
     optional bool bold = 1 [(json_bool) = true];
-    optional bool unknown_2 = 2 [(json_bool) = true];
+    optional bool italic = 2 [(json_bool) = true]; // inferred formatting flag
 }
 
 message LoadedSourceTextStyle {
-    optional int32 unknown_1 = 1;
+    optional int32 nesting_level = 1; // inferred heading/list depth
     optional int32 style = 2;
 }
 
@@ -1698,12 +1945,21 @@ message RefreshSourceRequest {
 }
 
 message GenerateDocumentGuidesRequest {
-    string project_id = 1;
+    GenerateDocumentGuideSources sources = 1;
+    RequestContext context = 2;
+}
+
+message GenerateDocumentGuideSources {
+    GenerateDocumentGuideSource source = 1;
+}
+
+message GenerateDocumentGuideSource {
+    SourceIdList source = 1;
 }
 
 message GenerateNotebookGuideRequest {
     string project_id = 1;
-    GuideType guide_type = 2;  // Type of guide to generate (2 = mind map)
+    RequestContext context = 2;
 }
 
 message GenerateOutlineRequest {
@@ -1732,7 +1988,8 @@ message SubmitFeedbackRequest {
 // Reconstructed from batchexecute wire formats and Go client implementations.
 
 message GetConversationsRequest {
-    // Wire format: [[], null, %project_id%, %limit%]
+    // Wire format: [%context%, null, %project_id%, %limit%]
+    RequestContext context = 1;
     string project_id = 3;
     int32 limit = 4;
 }
@@ -1747,8 +2004,9 @@ message ConversationRef {
 }
 
 message GetConversationHistoryRequest {
-    string project_id = 1;
-    string conversation_id = 2;
+    RequestContext context = 1;
+    string conversation_id = 4;
+    optional int32 limit = 5;
 }
 
 message GetConversationHistoryResponse {
@@ -1756,8 +2014,9 @@ message GetConversationHistoryResponse {
 }
 
 message DeleteChatHistoryRequest {
-    // Wire format: [null, null, %project_id%]
+    // Wire format: [%context%, null, %project_id%]
     // Polymorphic endpoint shared with PollDeepResearch
+    RequestContext context = 1;
     string project_id = 3;
 }
 
@@ -1861,10 +2120,8 @@ message Span {
 }
 
 // SpanTable is a table block within a rich-text document:
-// [type_code, columns, rows]. type_code is always 15 in observed captures
-// (a table-block marker, by analogy with the other integer block markers
-// seen elsewhere in this tree); columns is the column count; each row is
-// itself a Span (its content is the row's cells, one nested Span per cell).
+// [type_code, columns, rows]. Observed type codes vary; their meaning is not
+// yet known. columns is the column count; each row contains nested cell Spans.
 message SpanTable {
     optional int64 type_code = 1;
     optional int64 columns = 2;
@@ -1945,7 +2202,7 @@ message TextMarks {
     optional bool flag7 = 7 [(json_bool) = true];
     optional bool flag8 = 8 [(json_bool) = true];
     optional bool flag9 = 9 [(json_bool) = true];  // observed true on code/identifier runs
-    optional int64 field_10 = 10;                  // observed value 2
+    optional int64 style_code = 10;                // inferred style code; observed 2
 }
 
 // SpanGroupMeta is the [null, indent, flag?] metadata trailing a span group.
@@ -1968,14 +2225,15 @@ message ListItem {
 
 // ListMarker is the list-item style object, carried on the wire as a sparse
 // object keyed by field number: {"101":"•", "102":1, "103":1, "104":0}.
-// The bullet glyph cycles •/◦/▪ with nesting; the numeric fields track
-// ordinal/level, exact meaning TBD.
+// The bullet glyph cycles •/◦/▪ with nesting. marker_kind distinguishes
+// unordered (1) from ordered (2) markers; the other counters' exact meanings
+// remain unconfirmed.
 message ListMarker {
     option (object_encoded) = true;
     string bullet = 101;
-    optional int64 field_102 = 102;
-    optional int64 field_103 = 103;
-    optional int64 field_104 = 104;
+    optional int64 marker_kind = 102;    // confirmed 1 for bullets, 2 for numbers
+    optional int64 item_number = 103;    // inferred per-list item number
+    optional int64 sequence_index = 104; // inferred zero/one-based sequence counter
 }
 
 // SourceAnnotation maps an offset range of the rendered document back to a
@@ -2124,7 +2382,9 @@ message MicrophoneEvent {
 // (signaling.go:72) which JSON-unmarshals the inner string into a
 // Go-side InteractivityToken struct that mirrors these fields.
 message FetchInteractivityTokenRequest {
-    // Wire format: [] (empty payload)
+    optional int32 context_version = 1;
+    RequestSurface context_surface = 3;
+    RequestClientCaps context_caps = 4;
 }
 
 message FetchInteractivityTokenResponse {
@@ -2387,6 +2647,31 @@ message BulkImportSourceInput {
     int32 source_type = 4;
 }
 
+// BulkImportFromResearchWireRequest is the positional note/text import form
+// observed from the web UI. The live URL-import API keeps its logical request
+// type and custom encoder above.
+message BulkImportFromResearchWireRequest {
+    RequestContext context = 1;
+    Int32List marker = 2;
+    string conversation_id = 3;
+    string project_id = 4;
+    repeated BulkImportTextSource sources = 5;
+}
+
+message BulkImportTextSource {
+    // Field 1 is null.
+    BulkImportTextContent content = 2;
+    // Field 3 is null.
+    int32 content_type = 4;
+    // Fields 5 through 10 are null.
+    int32 source_type = 11;
+}
+
+message BulkImportTextContent {
+    string title = 1;
+    string markdown = 2;
+}
+
 // BulkImportFromResearchResponse carries enriched Source descriptors in
 // request order. The live API path hand-parses the raw response.
 message BulkImportFromResearchResponse {
@@ -2411,7 +2696,9 @@ message BulkImportResult {
 // shows.
 message GetAudioFormatsRequest {
     // Wire shape: [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
-    // Custom encoder; no field substitution.
+    RequestContext context = 1;
+    // Field 2 is null in observed requests.
+    optional int32 mode = 3; // observed 1
 }
 
 // Response shape (HAR-verified): four positional entries, each itself
@@ -2483,7 +2770,29 @@ message DocTemplate {
 // regenerated stubs match the wire reality rather than the rpc.go
 // label.
 message LogEventRequest {
-    // No fields: the request is a constant sentinel envelope.
+    repeated LogEventEntry events = 1;
+}
+
+message LogEventEntry {
+    LogEventSlot slot = 1;
+    LogEventContext context = 2;
+    int32 enabled = 3;
+}
+
+message LogEventSlot {
+    // Field 1 is null in observed requests.
+    string surface = 2;
+    int32 campaign_id = 3;
+}
+
+message LogEventContext {
+    // Fields 1 through 9 are null in observed requests.
+    LogEventMarker marker = 10;
+}
+
+message LogEventMarker {
+    // Fields 1 and 2 are null in observed requests.
+    int32 code = 3;
 }
 
 // Wire response is a repeated array of log-event acknowledgements, one
@@ -2537,15 +2846,17 @@ message PromoCard {
     int32 id = 1;                  // [0] e.g. 2230 (matches slot campaign)
     PromoCardRender render = 2;    // [1] rendering payload
     // field 3 ([2]) null in all captures; left unmodeled.
-    optional int32 field_4 = 4;    // [3] e.g. 2351
-    optional int32 field_5 = 5;    // [4] e.g. 2351 (dup of field_4)
-    optional int32 field_6 = 6;    // [5] e.g. 2230 (dup of id)
+    // placement_id is inferred from its reuse in the event context.
+    optional int32 placement_id = 4;       // [3] e.g. 2351
+    optional int32 placement_id_copy = 5;  // [4] confirmed duplicate of placement_id
+    optional int32 card_id_copy = 6;       // [5] confirmed duplicate of id
     string user_tier = 7;          // [6] e.g. "NOTEBOOKLM_TIER_ULTRA_LIGHT_CONSUMER_USER"
     // fields 8, 9 ([7], [8]) null in all captures; left unmodeled.
-    optional bool field_10 = 10 [(json_bool) = true]; // [9] observed false
+    // Meaning unconfirmed; false in every observed card.
+    optional bool display_flag = 10 [(json_bool) = true]; // [9]
     // field 11 ([10]) is a present-but-empty list in all captures;
     // wrapped so the empty repeated marshals to [] not null.
-    PromoCardRefList field_11 = 11;
+    PromoCardRefList refs = 11;
 }
 
 // PromoCardRender is the 21-position rendering blob for a PromoCard.
@@ -2604,11 +2915,13 @@ message PromoCardEvent {
 // PromoCardEventContext carries the placement coordinates repeated in
 // both the click and impression events.
 message PromoCardEventContext {
-    optional int32 field_1 = 1; // [0] e.g. 2230
-    optional int32 field_2 = 2; // [1] e.g. 2351
+    optional int32 card_id = 1;      // [0] confirmed match to PromoCard.id
+    optional int32 placement_id = 2; // [1] inferred placement coordinate
     // field 3 ([2]) null in all captures; left unmodeled.
-    optional int32 field_4 = 4; // [3] e.g. 43
-    optional int32 field_5 = 5; // [4] present (1) on click, absent on impression
+    // Meaning unconfirmed; observed as 43 in both event kinds.
+    optional int32 context_code = 4; // [3]
+    // Confirmed discriminator: 1 on click, absent on impression.
+    optional int32 click_marker = 5; // [4]
     // field 6 ([5]) null in all captures; left unmodeled.
     PromoSlot slot = 7;         // [6]
     // field 8 ([7]) null in all captures; left unmodeled.
@@ -2616,8 +2929,8 @@ message PromoCardEventContext {
     // SpanList/SourceIssueList), absent (null) on impression.
     PromoCardRefList refs = 9;
     // field 10 ([9]) null in all captures; left unmodeled.
-    optional int32 field_11 = 11; // [10] e.g. 627
-    optional int32 field_12 = 12; // [11] e.g. 2351
+    optional int32 campaign_id = 11;       // [10] confirmed match to PromoSlot.campaign_id
+    optional int32 placement_id_copy = 12; // [11] confirmed duplicate of placement_id
     // field 13 ([12]) null in all captures; left unmodeled.
     optional string tracking_id = 14; // [13] large signed decimal string
 }
@@ -2629,7 +2942,7 @@ message PromoCardRef {
     repeated int32 tags = 3;        // [2] e.g. [9]
 }
 
-// PromoCardRefList wraps PromoCard.field_11: present-but-empty in all
+// PromoCardRefList wraps PromoCard.refs: present-but-empty in all
 // captures, so it needs the wrapper idiom (see SpanList) to round-trip
 // [] instead of collapsing to null.
 message PromoCardRefList {
@@ -2653,10 +2966,31 @@ message ReportContentResponse {
 // ReviseArtifact (KmcKPe): revise an artifact with instructions.
 // wire shape unverified; capture HAR before encoding
 message ReviseArtifactRequest {
-    // wire shape unverified; capture HAR before encoding
-    string project_id = 1;
+    RequestContext context = 1;
     string artifact_id = 2;
-    string instructions = 3;
+    ArtifactRevisionInstructions instructions = 3;
+}
+
+message ArtifactRevisionInstructions {
+    repeated ArtifactRevisionInstruction instructions = 1;
+}
+
+message ArtifactRevisionInstruction {
+  optional int32 slide_index = 1;
+  string instruction = 2;
+}
+
+message StartDeepResearchWireRequest {
+    RequestContext context = 1;
+    // Field 2 is null in observed requests.
+    ResearchQuery query = 3;
+    int32 mode = 4;
+    string project_id = 5;
+}
+
+message ResearchQuery {
+    string query = 1;
+    int32 mode = 2;
 }
 
 message ReviseArtifactResponse {
@@ -2677,10 +3011,12 @@ message ReviseArtifactResponse {
 // seed (1, 2, 5, 6 observed); the UI bumps it on every "refresh"
 // click. Video and slide kinds are not yet HAR-verified.
 message GenerateArtifactSuggestionsRequest {
-    int32 kind = 1;            // 2 = audio (HAR-verified); 3,4 speculative
+    RequestContext context = 1;
     string project_id = 2;
-    repeated string source_refs = 3;
+    repeated SourceIdList source_refs = 3;
     int32 variation = 4;       // re-roll seed
+    // Field 5 is null when prompt is present.
+    optional string prompt = 6;
 }
 
 // One suggestion pair. Pass description (optionally edited) as the
@@ -2722,7 +3058,8 @@ message SDPExchangeResponse {
 // source-list section headers; an empty response means the user
 // hasn't yet computed labels for this notebook.
 message GetLabelsRequest {
-    string project_id = 1;
+    RequestContext context = 1;
+    string project_id = 2;
 }
 
 message GetLabelsResponse {
@@ -2737,7 +3074,7 @@ message Label {
     // Members of this cluster; each source id arrives wrapped as ["uuid"].
     repeated SourceIdList sources = 2;
     string label_id = 3;         // server-assigned UUID
-    optional string field_4 = 4; // reserved/unknown (observed empty string)
+    optional string description = 4; // inferred; observed explicit empty string
 }
 
 // PlaybackPosition is a positional (seconds, nanos) tuple that mirrors
@@ -2777,7 +3114,7 @@ message ArtifactUserState {
 // gArtLc (ListArtifacts) artifact tuple at a late field position; that
 // inline copy is what the UI reads on page load.
 message UpsertArtifactUserStateRequest {
-    Context context = 1;
+    RequestContext context = 1;
     string artifact_id = 2;
     ArtifactUserState state = 3;
 }
@@ -2808,10 +3145,30 @@ message GetArtifactUserStateResponse {
     ArtifactUserState state = 1;
 }
 
-// Label write companions — wire shape unverified.
+// CreateLabelRequest is the manual-label form of agX4Bc.
 message CreateLabelRequest {
-    string project_id = 1;
-    string name = 2;
+    RequestContext context = 1;
+    string project_id = 2;
+    // Fields 3 through 5 are null in observed requests.
+    repeated LabelCreation labels = 6;
+}
+
+// MutateLabelsModeRequest is the mode form of agX4Bc. Mode 0 labels
+// previously-unlabeled sources; mode 1 relabels all sources.
+message MutateLabelsModeRequest {
+    RequestContext context = 1;
+    string project_id = 2;
+    // Fields 3 and 4 are null in observed requests.
+    LabelMode mode = 5;
+}
+
+message LabelMode {
+    optional int32 value = 1;
+}
+
+message LabelCreation {
+    string name = 1;
+    optional string emoji = 2;
 }
 
 message CreateLabelResponse {
@@ -2844,8 +3201,13 @@ message MutateLabelEntry {
     // Metadata form uses field 1 (name) / field 2 (emoji); the source-attach
     // form leaves field 1 null and carries the source ids at field 2, each id
     // wrapped as ["uuid"] (SourceIdList, the same wrapper Label.sources uses).
-    optional string name = 1;
+    LabelNameChange name = 1;
     repeated SourceIdList sources = 2;
+    repeated SourceIdList alternate_sources = 3;
+}
+
+message LabelNameChange {
+    string name = 1;
 }
 
 message MutateLabelResponse {
@@ -2923,7 +3285,7 @@ message UpdateProjectUserStateValue {
 
 message UpdateProjectUserStateValueInner {
     // field 1 ([0]) is null in the observed capture; left unmodeled.
-    optional int32 field_2 = 2; // observed 2
+    optional int32 value = 2; // confirmed state value; observed 2
 }
 
 // UpdateProjectUserStateKeys is field 4: [["notebook_lm_state...."]]. Field 1
@@ -2998,8 +3360,9 @@ message GetMagicViewResponse {
 
 // CopyProject (te3DCe). Duplicates a notebook.
 message CopyProjectRequest {
-    string source_project_id = 1;
-    string new_title = 2;
+    RequestContext context = 1;
+    string source_project_id = 2;
+    string new_title = 3;
 }
 
 // CopyProjectResponse is the te3DCe reply. HAR-observed as a single int [3];

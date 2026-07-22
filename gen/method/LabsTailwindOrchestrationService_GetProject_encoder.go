@@ -9,11 +9,11 @@ import (
 
 // EncodeGetProjectArgs encodes arguments for LabsTailwindOrchestrationService.GetProject
 // RPC ID: rLM1Ne
-// Argument format: [%project_id%]
+// Argument format: [%project_id%, null, %context%, null, %include_artifacts%, %filter%]
 func EncodeGetProjectArgs(req *notebooklmv1alpha1.GetProjectRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%, null, %context%, null, %include_artifacts%, %filter%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

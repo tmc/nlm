@@ -41,6 +41,7 @@ const (
 	LabsTailwindOrchestrationService_GetAudioOverview_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetAudioOverview"
 	LabsTailwindOrchestrationService_DeleteAudioOverview_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteAudioOverview"
 	LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateVideoOverview"
+	LabsTailwindOrchestrationService_CreateUniversalArtifact_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateUniversalArtifact"
 	LabsTailwindOrchestrationService_CreateNote_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateNote"
 	LabsTailwindOrchestrationService_DeleteNotes_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteNotes"
 	LabsTailwindOrchestrationService_GetNotes_FullMethodName                      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetNotes"
@@ -51,8 +52,10 @@ const (
 	LabsTailwindOrchestrationService_ListFeaturedProjects_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListFeaturedProjects"
 	LabsTailwindOrchestrationService_ListRecentlyViewedProjects_FullMethodName    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListRecentlyViewedProjects"
 	LabsTailwindOrchestrationService_MutateProject_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateProject"
+	LabsTailwindOrchestrationService_MutateProjectCover_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateProjectCover"
 	LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_FullMethodName   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RemoveRecentlyViewedProject"
 	LabsTailwindOrchestrationService_GenerateFreeFormStreamed_FullMethodName      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
+	LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_FullMethodName  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateFreeFormStreamedWire"
 	LabsTailwindOrchestrationService_GenerateNotebookGuide_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateNotebookGuide"
 	LabsTailwindOrchestrationService_GenerateOutline_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateOutline"
 	LabsTailwindOrchestrationService_GenerateReportSuggestions_FullMethodName     = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateReportSuggestions"
@@ -71,9 +74,11 @@ const (
 	LabsTailwindOrchestrationService_RateConversationTurn_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RateConversationTurn"
 	LabsTailwindOrchestrationService_StartFastResearch_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartFastResearch"
 	LabsTailwindOrchestrationService_StartDeepResearch_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearch"
+	LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearchWire"
 	LabsTailwindOrchestrationService_GetDeepResearchSessions_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetDeepResearchSessions"
 	LabsTailwindOrchestrationService_DeleteDeepResearch_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteDeepResearch"
 	LabsTailwindOrchestrationService_BulkImportFromResearch_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/BulkImportFromResearch"
+	LabsTailwindOrchestrationService_BulkImportFromResearchWire_FullMethodName    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/BulkImportFromResearchWire"
 	LabsTailwindOrchestrationService_GetAudioFormats_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetAudioFormats"
 	LabsTailwindOrchestrationService_GenerateDocumentGuides_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateDocumentGuides"
 	LabsTailwindOrchestrationService_LogEvent_FullMethodName                      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/LogEvent"
@@ -86,6 +91,7 @@ const (
 	LabsTailwindOrchestrationService_UpsertArtifactUserState_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpsertArtifactUserState"
 	LabsTailwindOrchestrationService_GetArtifactUserState_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetArtifactUserState"
 	LabsTailwindOrchestrationService_CreateLabel_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateLabel"
+	LabsTailwindOrchestrationService_MutateLabelsMode_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateLabelsMode"
 	LabsTailwindOrchestrationService_MutateLabel_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateLabel"
 	LabsTailwindOrchestrationService_DeleteLabels_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteLabels"
 	LabsTailwindOrchestrationService_GenerateArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateArtifact"
@@ -170,15 +176,17 @@ type LabsTailwindOrchestrationServiceClient interface {
 	MutateSource(ctx context.Context, in *MutateSourceRequest, opts ...grpc.CallOption) (*Source, error)
 	RefreshSource(ctx context.Context, in *RefreshSourceRequest, opts ...grpc.CallOption) (*Source, error)
 	// Audio operations
-	CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error)
+	CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*Artifact, error)
 	GetAudioOverview(ctx context.Context, in *GetAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error)
 	DeleteAudioOverview(ctx context.Context, in *DeleteAudioOverviewRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
-	CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*VideoOverview, error)
+	CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*Artifact, error)
+	// Decode-complete binding for the polymorphic R7cb6c request envelope.
+	CreateUniversalArtifact(ctx context.Context, in *CreateUniversalArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Note operations
-	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Note, error)
+	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*NoteRecord, error)
 	DeleteNotes(ctx context.Context, in *DeleteNotesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesResponse, error)
+	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesWireResponse, error)
 	MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Note, error)
 	// Project operations
 	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*Project, error)
@@ -187,6 +195,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	ListFeaturedProjects(ctx context.Context, in *ListFeaturedProjectsRequest, opts ...grpc.CallOption) (*ListFeaturedProjectsResponse, error)
 	ListRecentlyViewedProjects(ctx context.Context, in *ListRecentlyViewedProjectsRequest, opts ...grpc.CallOption) (*ListRecentlyViewedProjectsResponse, error)
 	MutateProject(ctx context.Context, in *MutateProjectRequest, opts ...grpc.CallOption) (*Project, error)
+	MutateProjectCover(ctx context.Context, in *MutateProjectCoverRequest, opts ...grpc.CallOption) (*Project, error)
 	RemoveRecentlyViewedProject(ctx context.Context, in *RemoveRecentlyViewedProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Generation operations
 	//
@@ -195,6 +204,9 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// [%project_id%]-style arg_format cannot express. It's invoked directly
 	// via rpc.Do in the api package (see api.Client.GenerateSourceGuide).
 	GenerateFreeFormStreamed(ctx context.Context, in *GenerateFreeFormStreamedRequest, opts ...grpc.CallOption) (LabsTailwindOrchestrationService_GenerateFreeFormStreamedClient, error)
+	// Decode-complete positional binding for captured gRPC-Web request and
+	// response frames. The logical method above remains the live API surface.
+	GenerateFreeFormStreamedWire(ctx context.Context, in *GenerateFreeFormStreamedWireRequest, opts ...grpc.CallOption) (LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireClient, error)
 	GenerateNotebookGuide(ctx context.Context, in *GenerateNotebookGuideRequest, opts ...grpc.CallOption) (*GenerateNotebookGuideResponse, error)
 	GenerateOutline(ctx context.Context, in *GenerateOutlineRequest, opts ...grpc.CallOption) (*GenerateOutlineResponse, error)
 	// GenerateReportSuggestions (ciyUvf). HAR-verified; see
@@ -258,6 +270,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	//
 	// Response is a two-element array: [research_id, conversation_id].
 	StartDeepResearch(ctx context.Context, in *StartDeepResearchRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error)
+	StartDeepResearchWire(ctx context.Context, in *StartDeepResearchWireRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error)
 	// GetDeepResearchSessions (rpc.go:71). Polymorphic with
 	// DeleteChatHistory: same e3bVqc id, server discriminates on
 	// request payload shape. The deep/fast-session list call uses
@@ -288,6 +301,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// arg_format cannot represent the inner [null, null, [url, title],
 	// null × 7, 2] tuple shape.
 	BulkImportFromResearch(ctx context.Context, in *BulkImportFromResearchRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error)
+	BulkImportFromResearchWire(ctx context.Context, in *BulkImportFromResearchWireRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error)
 	// GetAudioFormats (rpc.go:89). HAR-verified 2026-04-07 in
 	// docs/captures/notebooklm.google.com.jsonl. Request payload
 	// observed verbatim:
@@ -333,11 +347,9 @@ type LabsTailwindOrchestrationServiceClient interface {
 	ReportContent(ctx context.Context, in *ReportContentRequest, opts ...grpc.CallOption) (*ReportContentResponse, error)
 	// ReviseArtifact (rpc.go:131). Re-runs an artifact generator with a
 	// free-form revision instruction.
-	// TODO(har): no rpcids=KmcKPe seen in any capture. To capture: open
-	// a generated artifact (audio overview, briefing doc, mind map),
-	// click "Revise" or the equivalent edit affordance, type an
-	// instruction, submit. The placeholder fields are speculative.
-	ReviseArtifact(ctx context.Context, in *ReviseArtifactRequest, opts ...grpc.CallOption) (*ReviseArtifactResponse, error)
+	// The response is the revised Artifact row, including type-specific edit
+	// instructions when the revision remains pending.
+	ReviseArtifact(ctx context.Context, in *ReviseArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// GenerateArtifactSuggestions / AudioTopicSuggestions (rpc.go:133).
 	// The web UI calls this before R7cb6c (CreateUniversalArtifact) to
 	// get a list of AI-generated topic blueprints. Wire format
@@ -419,6 +431,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// HAR has been captured yet; trigger by interacting with the
 	// labels affordance in the source-list UI.
 	CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error)
+	MutateLabelsMode(ctx context.Context, in *MutateLabelsModeRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error)
 	MutateLabel(ctx context.Context, in *MutateLabelRequest, opts ...grpc.CallOption) (*MutateLabelResponse, error)
 	DeleteLabels(ctx context.Context, in *DeleteLabelsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
@@ -624,8 +637,8 @@ func (c *labsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error) {
-	out := new(AudioOverview)
+func (c *labsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateAudioOverview_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -651,8 +664,8 @@ func (c *labsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*VideoOverview, error) {
-	out := new(VideoOverview)
+func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -660,8 +673,17 @@ func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Note, error) {
-	out := new(Note)
+func (c *labsTailwindOrchestrationServiceClient) CreateUniversalArtifact(ctx context.Context, in *CreateUniversalArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateUniversalArtifact_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*NoteRecord, error) {
+	out := new(NoteRecord)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateNote_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -678,8 +700,8 @@ func (c *labsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesResponse, error) {
-	out := new(GetNotesResponse)
+func (c *labsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesWireResponse, error) {
+	out := new(GetNotesWireResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetNotes_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -750,6 +772,15 @@ func (c *labsTailwindOrchestrationServiceClient) MutateProject(ctx context.Conte
 	return out, nil
 }
 
+func (c *labsTailwindOrchestrationServiceClient) MutateProjectCover(ctx context.Context, in *MutateProjectCoverRequest, opts ...grpc.CallOption) (*Project, error) {
+	out := new(Project)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_MutateProjectCover_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *labsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx context.Context, in *RemoveRecentlyViewedProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_FullMethodName, in, out, opts...)
@@ -785,6 +816,38 @@ type labsTailwindOrchestrationServiceGenerateFreeFormStreamedClient struct {
 
 func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedClient) Recv() (*GenerateFreeFormStreamedResponse, error) {
 	m := new(GenerateFreeFormStreamedResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GenerateFreeFormStreamedWire(ctx context.Context, in *GenerateFreeFormStreamedWireRequest, opts ...grpc.CallOption) (LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireClient, error) {
+	stream, err := c.cc.NewStream(ctx, &LabsTailwindOrchestrationService_ServiceDesc.Streams[1], LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireClient interface {
+	Recv() (*GenerateFreeFormStreamedWireResponse, error)
+	grpc.ClientStream
+}
+
+type labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireClient struct {
+	grpc.ClientStream
+}
+
+func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireClient) Recv() (*GenerateFreeFormStreamedWireResponse, error) {
+	m := new(GenerateFreeFormStreamedWireResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -953,6 +1016,15 @@ func (c *labsTailwindOrchestrationServiceClient) StartDeepResearch(ctx context.C
 	return out, nil
 }
 
+func (c *labsTailwindOrchestrationServiceClient) StartDeepResearchWire(ctx context.Context, in *StartDeepResearchWireRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error) {
+	out := new(StartDeepResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *labsTailwindOrchestrationServiceClient) GetDeepResearchSessions(ctx context.Context, in *GetDeepResearchSessionsRequest, opts ...grpc.CallOption) (*GetDeepResearchSessionsResponse, error) {
 	out := new(GetDeepResearchSessionsResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetDeepResearchSessions_FullMethodName, in, out, opts...)
@@ -974,6 +1046,15 @@ func (c *labsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.
 func (c *labsTailwindOrchestrationServiceClient) BulkImportFromResearch(ctx context.Context, in *BulkImportFromResearchRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error) {
 	out := new(BulkImportFromResearchResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_BulkImportFromResearch_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) BulkImportFromResearchWire(ctx context.Context, in *BulkImportFromResearchWireRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error) {
+	out := new(BulkImportFromResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_BulkImportFromResearchWire_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1016,8 +1097,8 @@ func (c *labsTailwindOrchestrationServiceClient) ReportContent(ctx context.Conte
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) ReviseArtifact(ctx context.Context, in *ReviseArtifactRequest, opts ...grpc.CallOption) (*ReviseArtifactResponse, error) {
-	out := new(ReviseArtifactResponse)
+func (c *labsTailwindOrchestrationServiceClient) ReviseArtifact(ctx context.Context, in *ReviseArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ReviseArtifact_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1082,6 +1163,15 @@ func (c *labsTailwindOrchestrationServiceClient) GetArtifactUserState(ctx contex
 func (c *labsTailwindOrchestrationServiceClient) CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error) {
 	out := new(CreateLabelResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateLabel_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) MutateLabelsMode(ctx context.Context, in *MutateLabelsModeRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error) {
+	out := new(CreateLabelResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_MutateLabelsMode_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1282,15 +1372,17 @@ type LabsTailwindOrchestrationServiceServer interface {
 	MutateSource(context.Context, *MutateSourceRequest) (*Source, error)
 	RefreshSource(context.Context, *RefreshSourceRequest) (*Source, error)
 	// Audio operations
-	CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*AudioOverview, error)
+	CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*Artifact, error)
 	GetAudioOverview(context.Context, *GetAudioOverviewRequest) (*AudioOverview, error)
 	DeleteAudioOverview(context.Context, *DeleteAudioOverviewRequest) (*emptypb.Empty, error)
 	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
-	CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error)
+	CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*Artifact, error)
+	// Decode-complete binding for the polymorphic R7cb6c request envelope.
+	CreateUniversalArtifact(context.Context, *CreateUniversalArtifactRequest) (*Artifact, error)
 	// Note operations
-	CreateNote(context.Context, *CreateNoteRequest) (*Note, error)
+	CreateNote(context.Context, *CreateNoteRequest) (*NoteRecord, error)
 	DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error)
-	GetNotes(context.Context, *GetNotesRequest) (*GetNotesResponse, error)
+	GetNotes(context.Context, *GetNotesRequest) (*GetNotesWireResponse, error)
 	MutateNote(context.Context, *MutateNoteRequest) (*Note, error)
 	// Project operations
 	CreateProject(context.Context, *CreateProjectRequest) (*Project, error)
@@ -1299,6 +1391,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	ListFeaturedProjects(context.Context, *ListFeaturedProjectsRequest) (*ListFeaturedProjectsResponse, error)
 	ListRecentlyViewedProjects(context.Context, *ListRecentlyViewedProjectsRequest) (*ListRecentlyViewedProjectsResponse, error)
 	MutateProject(context.Context, *MutateProjectRequest) (*Project, error)
+	MutateProjectCover(context.Context, *MutateProjectCoverRequest) (*Project, error)
 	RemoveRecentlyViewedProject(context.Context, *RemoveRecentlyViewedProjectRequest) (*emptypb.Empty, error)
 	// Generation operations
 	//
@@ -1307,6 +1400,9 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// [%project_id%]-style arg_format cannot express. It's invoked directly
 	// via rpc.Do in the api package (see api.Client.GenerateSourceGuide).
 	GenerateFreeFormStreamed(*GenerateFreeFormStreamedRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedServer) error
+	// Decode-complete positional binding for captured gRPC-Web request and
+	// response frames. The logical method above remains the live API surface.
+	GenerateFreeFormStreamedWire(*GenerateFreeFormStreamedWireRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireServer) error
 	GenerateNotebookGuide(context.Context, *GenerateNotebookGuideRequest) (*GenerateNotebookGuideResponse, error)
 	GenerateOutline(context.Context, *GenerateOutlineRequest) (*GenerateOutlineResponse, error)
 	// GenerateReportSuggestions (ciyUvf). HAR-verified; see
@@ -1370,6 +1466,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	//
 	// Response is a two-element array: [research_id, conversation_id].
 	StartDeepResearch(context.Context, *StartDeepResearchRequest) (*StartDeepResearchResponse, error)
+	StartDeepResearchWire(context.Context, *StartDeepResearchWireRequest) (*StartDeepResearchResponse, error)
 	// GetDeepResearchSessions (rpc.go:71). Polymorphic with
 	// DeleteChatHistory: same e3bVqc id, server discriminates on
 	// request payload shape. The deep/fast-session list call uses
@@ -1400,6 +1497,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// arg_format cannot represent the inner [null, null, [url, title],
 	// null × 7, 2] tuple shape.
 	BulkImportFromResearch(context.Context, *BulkImportFromResearchRequest) (*BulkImportFromResearchResponse, error)
+	BulkImportFromResearchWire(context.Context, *BulkImportFromResearchWireRequest) (*BulkImportFromResearchResponse, error)
 	// GetAudioFormats (rpc.go:89). HAR-verified 2026-04-07 in
 	// docs/captures/notebooklm.google.com.jsonl. Request payload
 	// observed verbatim:
@@ -1445,11 +1543,9 @@ type LabsTailwindOrchestrationServiceServer interface {
 	ReportContent(context.Context, *ReportContentRequest) (*ReportContentResponse, error)
 	// ReviseArtifact (rpc.go:131). Re-runs an artifact generator with a
 	// free-form revision instruction.
-	// TODO(har): no rpcids=KmcKPe seen in any capture. To capture: open
-	// a generated artifact (audio overview, briefing doc, mind map),
-	// click "Revise" or the equivalent edit affordance, type an
-	// instruction, submit. The placeholder fields are speculative.
-	ReviseArtifact(context.Context, *ReviseArtifactRequest) (*ReviseArtifactResponse, error)
+	// The response is the revised Artifact row, including type-specific edit
+	// instructions when the revision remains pending.
+	ReviseArtifact(context.Context, *ReviseArtifactRequest) (*Artifact, error)
 	// GenerateArtifactSuggestions / AudioTopicSuggestions (rpc.go:133).
 	// The web UI calls this before R7cb6c (CreateUniversalArtifact) to
 	// get a list of AI-generated topic blueprints. Wire format
@@ -1531,6 +1627,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// HAR has been captured yet; trigger by interacting with the
 	// labels affordance in the source-list UI.
 	CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error)
+	MutateLabelsMode(context.Context, *MutateLabelsModeRequest) (*CreateLabelResponse, error)
 	MutateLabel(context.Context, *MutateLabelRequest) (*MutateLabelResponse, error)
 	DeleteLabels(context.Context, *DeleteLabelsRequest) (*emptypb.Empty, error)
 	// GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
@@ -1643,7 +1740,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateSource(context.
 func (UnimplementedLabsTailwindOrchestrationServiceServer) RefreshSource(context.Context, *RefreshSourceRequest) (*Source, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RefreshSource not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*AudioOverview, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAudioOverview not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetAudioOverview(context.Context, *GetAudioOverviewRequest) (*AudioOverview, error) {
@@ -1652,16 +1749,19 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GetAudioOverview(cont
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteAudioOverview(context.Context, *DeleteAudioOverviewRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAudioOverview not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateVideoOverview not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*Note, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateUniversalArtifact(context.Context, *CreateUniversalArtifactRequest) (*Artifact, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateUniversalArtifact not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*NoteRecord, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNote not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteNotes not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) GetNotes(context.Context, *GetNotesRequest) (*GetNotesResponse, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetNotes(context.Context, *GetNotesRequest) (*GetNotesWireResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNotes not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateNote(context.Context, *MutateNoteRequest) (*Note, error) {
@@ -1685,11 +1785,17 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) ListRecentlyViewedPro
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateProject(context.Context, *MutateProjectRequest) (*Project, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MutateProject not implemented")
 }
+func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateProjectCover(context.Context, *MutateProjectCoverRequest) (*Project, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MutateProjectCover not implemented")
+}
 func (UnimplementedLabsTailwindOrchestrationServiceServer) RemoveRecentlyViewedProject(context.Context, *RemoveRecentlyViewedProjectRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveRecentlyViewedProject not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateFreeFormStreamed(*GenerateFreeFormStreamedRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedServer) error {
 	return status.Errorf(codes.Unimplemented, "method GenerateFreeFormStreamed not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateFreeFormStreamedWire(*GenerateFreeFormStreamedWireRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireServer) error {
+	return status.Errorf(codes.Unimplemented, "method GenerateFreeFormStreamedWire not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateNotebookGuide(context.Context, *GenerateNotebookGuideRequest) (*GenerateNotebookGuideResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateNotebookGuide not implemented")
@@ -1745,6 +1851,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) StartFastResearch(con
 func (UnimplementedLabsTailwindOrchestrationServiceServer) StartDeepResearch(context.Context, *StartDeepResearchRequest) (*StartDeepResearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartDeepResearch not implemented")
 }
+func (UnimplementedLabsTailwindOrchestrationServiceServer) StartDeepResearchWire(context.Context, *StartDeepResearchWireRequest) (*StartDeepResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartDeepResearchWire not implemented")
+}
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetDeepResearchSessions(context.Context, *GetDeepResearchSessionsRequest) (*GetDeepResearchSessionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDeepResearchSessions not implemented")
 }
@@ -1753,6 +1862,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteDeepResearch(co
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) BulkImportFromResearch(context.Context, *BulkImportFromResearchRequest) (*BulkImportFromResearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BulkImportFromResearch not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) BulkImportFromResearchWire(context.Context, *BulkImportFromResearchWireRequest) (*BulkImportFromResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BulkImportFromResearchWire not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetAudioFormats(context.Context, *GetAudioFormatsRequest) (*GetAudioFormatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetAudioFormats not implemented")
@@ -1766,7 +1878,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) LogEvent(context.Cont
 func (UnimplementedLabsTailwindOrchestrationServiceServer) ReportContent(context.Context, *ReportContentRequest) (*ReportContentResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportContent not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) ReviseArtifact(context.Context, *ReviseArtifactRequest) (*ReviseArtifactResponse, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ReviseArtifact(context.Context, *ReviseArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReviseArtifact not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateArtifactSuggestions(context.Context, *GenerateArtifactSuggestionsRequest) (*GenerateArtifactSuggestionsResponse, error) {
@@ -1789,6 +1901,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GetArtifactUserState(
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateLabel not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateLabelsMode(context.Context, *MutateLabelsModeRequest) (*CreateLabelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MutateLabelsMode not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateLabel(context.Context, *MutateLabelRequest) (*MutateLabelResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MutateLabel not implemented")
@@ -2188,6 +2303,24 @@ func _LabsTailwindOrchestrationService_CreateVideoOverview_Handler(srv interface
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_CreateUniversalArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUniversalArtifactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateUniversalArtifact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CreateUniversalArtifact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateUniversalArtifact(ctx, req.(*CreateUniversalArtifactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_CreateNote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateNoteRequest)
 	if err := dec(in); err != nil {
@@ -2368,6 +2501,24 @@ func _LabsTailwindOrchestrationService_MutateProject_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_MutateProjectCover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MutateProjectCoverRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateProjectCover(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_MutateProjectCover_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateProjectCover(ctx, req.(*MutateProjectCoverRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RemoveRecentlyViewedProjectRequest)
 	if err := dec(in); err != nil {
@@ -2404,6 +2555,27 @@ type labsTailwindOrchestrationServiceGenerateFreeFormStreamedServer struct {
 }
 
 func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedServer) Send(m *GenerateFreeFormStreamedResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GenerateFreeFormStreamedWireRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LabsTailwindOrchestrationServiceServer).GenerateFreeFormStreamedWire(m, &labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireServer{stream})
+}
+
+type LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireServer interface {
+	Send(*GenerateFreeFormStreamedWireResponse) error
+	grpc.ServerStream
+}
+
+type labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireServer struct {
+	grpc.ServerStream
+}
+
+func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireServer) Send(m *GenerateFreeFormStreamedWireResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -2731,6 +2903,24 @@ func _LabsTailwindOrchestrationService_StartDeepResearch_Handler(srv interface{}
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_StartDeepResearchWire_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartDeepResearchWireRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDeepResearchWire(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDeepResearchWire(ctx, req.(*StartDeepResearchWireRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_GetDeepResearchSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetDeepResearchSessionsRequest)
 	if err := dec(in); err != nil {
@@ -2781,6 +2971,24 @@ func _LabsTailwindOrchestrationService_BulkImportFromResearch_Handler(srv interf
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LabsTailwindOrchestrationServiceServer).BulkImportFromResearch(ctx, req.(*BulkImportFromResearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_BulkImportFromResearchWire_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkImportFromResearchWireRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).BulkImportFromResearchWire(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_BulkImportFromResearchWire_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).BulkImportFromResearchWire(ctx, req.(*BulkImportFromResearchWireRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2997,6 +3205,24 @@ func _LabsTailwindOrchestrationService_CreateLabel_Handler(srv interface{}, ctx 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LabsTailwindOrchestrationServiceServer).CreateLabel(ctx, req.(*CreateLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_MutateLabelsMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MutateLabelsModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateLabelsMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_MutateLabelsMode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateLabelsMode(ctx, req.(*MutateLabelsModeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3337,6 +3563,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LabsTailwindOrchestrationService_CreateVideoOverview_Handler,
 		},
 		{
+			MethodName: "CreateUniversalArtifact",
+			Handler:    _LabsTailwindOrchestrationService_CreateUniversalArtifact_Handler,
+		},
+		{
 			MethodName: "CreateNote",
 			Handler:    _LabsTailwindOrchestrationService_CreateNote_Handler,
 		},
@@ -3375,6 +3605,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MutateProject",
 			Handler:    _LabsTailwindOrchestrationService_MutateProject_Handler,
+		},
+		{
+			MethodName: "MutateProjectCover",
+			Handler:    _LabsTailwindOrchestrationService_MutateProjectCover_Handler,
 		},
 		{
 			MethodName: "RemoveRecentlyViewedProject",
@@ -3453,6 +3687,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LabsTailwindOrchestrationService_StartDeepResearch_Handler,
 		},
 		{
+			MethodName: "StartDeepResearchWire",
+			Handler:    _LabsTailwindOrchestrationService_StartDeepResearchWire_Handler,
+		},
+		{
 			MethodName: "GetDeepResearchSessions",
 			Handler:    _LabsTailwindOrchestrationService_GetDeepResearchSessions_Handler,
 		},
@@ -3463,6 +3701,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BulkImportFromResearch",
 			Handler:    _LabsTailwindOrchestrationService_BulkImportFromResearch_Handler,
+		},
+		{
+			MethodName: "BulkImportFromResearchWire",
+			Handler:    _LabsTailwindOrchestrationService_BulkImportFromResearchWire_Handler,
 		},
 		{
 			MethodName: "GetAudioFormats",
@@ -3511,6 +3753,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateLabel",
 			Handler:    _LabsTailwindOrchestrationService_CreateLabel_Handler,
+		},
+		{
+			MethodName: "MutateLabelsMode",
+			Handler:    _LabsTailwindOrchestrationService_MutateLabelsMode_Handler,
 		},
 		{
 			MethodName: "MutateLabel",
@@ -3575,6 +3821,102 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _LabsTailwindOrchestrationService_GenerateFreeFormStreamed_Handler,
 			ServerStreams: true,
 		},
+		{
+			StreamName:    "GenerateFreeFormStreamedWire",
+			Handler:       _LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_Handler,
+			ServerStreams: true,
+		},
 	},
+	Metadata: "notebooklm/v1alpha1/orchestration.proto",
+}
+
+const (
+	InteractionEventService_LogInteractionEvent_FullMethodName = "/notebooklm.v1alpha1.InteractionEventService/LogInteractionEvent"
+)
+
+// InteractionEventServiceClient is the client API for InteractionEventService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type InteractionEventServiceClient interface {
+	LogInteractionEvent(ctx context.Context, in *LogInteractionEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type interactionEventServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewInteractionEventServiceClient(cc grpc.ClientConnInterface) InteractionEventServiceClient {
+	return &interactionEventServiceClient{cc}
+}
+
+func (c *interactionEventServiceClient) LogInteractionEvent(ctx context.Context, in *LogInteractionEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, InteractionEventService_LogInteractionEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// InteractionEventServiceServer is the server API for InteractionEventService service.
+// All implementations must embed UnimplementedInteractionEventServiceServer
+// for forward compatibility
+type InteractionEventServiceServer interface {
+	LogInteractionEvent(context.Context, *LogInteractionEventRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedInteractionEventServiceServer()
+}
+
+// UnimplementedInteractionEventServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedInteractionEventServiceServer struct {
+}
+
+func (UnimplementedInteractionEventServiceServer) LogInteractionEvent(context.Context, *LogInteractionEventRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LogInteractionEvent not implemented")
+}
+func (UnimplementedInteractionEventServiceServer) mustEmbedUnimplementedInteractionEventServiceServer() {
+}
+
+// UnsafeInteractionEventServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to InteractionEventServiceServer will
+// result in compilation errors.
+type UnsafeInteractionEventServiceServer interface {
+	mustEmbedUnimplementedInteractionEventServiceServer()
+}
+
+func RegisterInteractionEventServiceServer(s grpc.ServiceRegistrar, srv InteractionEventServiceServer) {
+	s.RegisterService(&InteractionEventService_ServiceDesc, srv)
+}
+
+func _InteractionEventService_LogInteractionEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LogInteractionEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InteractionEventServiceServer).LogInteractionEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InteractionEventService_LogInteractionEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InteractionEventServiceServer).LogInteractionEvent(ctx, req.(*LogInteractionEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// InteractionEventService_ServiceDesc is the grpc.ServiceDesc for InteractionEventService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var InteractionEventService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "notebooklm.v1alpha1.InteractionEventService",
+	HandlerType: (*InteractionEventServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "LogInteractionEvent",
+			Handler:    _InteractionEventService_LogInteractionEvent_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "notebooklm/v1alpha1/orchestration.proto",
 }

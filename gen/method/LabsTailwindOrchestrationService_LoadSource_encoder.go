@@ -9,11 +9,11 @@ import (
 
 // EncodeLoadSourceArgs encodes arguments for LabsTailwindOrchestrationService.LoadSource
 // RPC ID: hizoJc
-// Argument format: [%source_id%]
+// Argument format: [%source%, %mode%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]
 func EncodeLoadSourceArgs(req *notebooklmv1alpha1.LoadSourceRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%source_id%]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%source%, %mode%, [2, null, [1], [1, null, null, null, null, null, null, null, null, null, [1, 3]]]]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better
