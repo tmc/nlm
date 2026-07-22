@@ -1729,6 +1729,31 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 	if len(sourceIDs) == 0 {
 		return nil, fmt.Errorf("project has no sources - add sources before creating audio overview")
 	}
+	if opts.Instructions == "" && opts.AudioType == pb.AudioType_AUDIO_TYPE_DEEP_DIVE &&
+		opts.Length == pb.AudioLength_AUDIO_LENGTH_DEFAULT && opts.Language == "en" {
+		audioSources := make([]*pb.SourceIdList, 0, len(sourceIDs))
+		for _, sourceID := range sourceIDs {
+			audioSources = append(audioSources, &pb.SourceIdList{SourceId: sourceID})
+		}
+		artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), &pb.CreateUniversalArtifactRequest{
+			Context:   universalArtifactRequestContext(),
+			ProjectId: projectID,
+			Options: &pb.UniversalArtifactOptions{
+				Kind:         1,
+				SourceGroups: universalArtifactSourceGroups(sourceIDs),
+				Audio: &pb.UniversalAudioOptions{Details: &pb.UniversalAudioDetails{
+					Style:    int32(opts.Length),
+					Sources:  audioSources,
+					Language: opts.Language,
+					Enabled:  int32(opts.AudioType),
+				}},
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create audio overview: %w", wrapCreateAudioOverviewError(err))
+		}
+		return &AudioOverviewResult{ProjectID: projectID, AudioID: artifact.GetArtifactId(), Title: artifact.GetTitle(), IsReady: false}, nil
+	}
 
 	// Default: use orchestration service with new proto fields
 	req := &pb.CreateAudioOverviewRequest{
