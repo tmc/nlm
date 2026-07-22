@@ -10,7 +10,7 @@ binding alone is not proof.
 | Projects | unverified | unverified | legacy | unverified | partial | legacy/proto mixed | retained |
 | Sources and freshness | partial (typed freshness path) | partial | legacy/proto mixed | unverified | partial | legacy/proto mixed | retained |
 | Labels | unverified | unverified | legacy | unverified | partial | legacy | retained |
-| Artifacts | partial (typed artifact paths) | unverified | legacy/proto mixed | unverified | partial | legacy/proto mixed | retained |
+| Artifacts | partial (typed artifact paths) | unverified | legacy/proto mixed | **compile pass**: generated preview types are now consumed by `getArtifact`; output fixture equivalence still required | partial | legacy/proto mixed | retained |
 | Sharing | partial (typed sharing paths) | unverified | legacy/proto mixed | unverified | partial | legacy/proto mixed | retained |
 | Account state | unverified | unverified | legacy | unverified | unverified | legacy | retained |
 | Audio/video results | unverified | unverified | legacy | unverified | partial | legacy/proto mixed | retained |

@@ -1566,21 +1566,24 @@ func getArtifact(c *api.Client, artifactID string) error {
 		}
 	}
 
-	// Type-specific content
+	// Type-specific content. These read the gArtLc-local preview/config
+	// shapes (ArtifactNotePreview, ArtifactAudioOverview, etc.), which are
+	// distinct message types from the top-level Note/AudioOverview/Report
+	// used by the Create*/Get* RPCs — see the Artifact message comment in
+	// orchestration.proto.
 	if report := artifact.TailoredReport; report != nil {
-		if report.Title != "" {
-			fmt.Printf("\nReport: %s\n", report.Title)
-		}
-		if report.Content != "" {
-			fmt.Printf("\n%s\n", report.Content)
-		}
-		for i, section := range report.Sections {
-			fmt.Printf("\n## %d. %s\n\n%s\n", i+1, section.Title, section.Content)
+		if opts := report.Options; opts != nil {
+			if opts.Instructions != "" {
+				fmt.Printf("\nReport instructions: %s\n", opts.Instructions)
+			}
+			if opts.Language != "" {
+				fmt.Printf("  Language: %s\n", opts.Language)
+			}
 		}
 	}
 
 	if note := artifact.Note; note != nil {
-		fmt.Printf("\nNote: %s (source: %s)\n", note.GetTitle(), note.GetSourceId().GetSourceId())
+		fmt.Printf("\nNote: (source refs: %d)\n", len(note.GetConfig().GetSourceRefs()))
 	}
 
 	if app := artifact.App; app != nil {
@@ -1595,12 +1598,12 @@ func getArtifact(c *api.Client, artifactID string) error {
 
 	if audio := artifact.AudioOverview; audio != nil {
 		fmt.Printf("\nAudio: status=%s\n", audio.Status)
-		if audio.Instructions != "" {
-			fmt.Printf("  Instructions: %s\n", audio.Instructions)
+		if audio.Content != nil && audio.Content.Prompt != "" {
+			fmt.Printf("  Instructions: %s\n", audio.Content.Prompt)
 		}
 	}
 
-	if video := artifact.VideoOverview; video != nil {
+	if video := artifact.VideoPreview; video != nil {
 		data, err := json.MarshalIndent(video, "", "  ")
 		if err == nil {
 			fmt.Printf("\nVideo:\n%s\n", string(data))
