@@ -18,18 +18,30 @@ message Project {
   string emoji = 4;
   ProjectMetadata metadata = 6;
   ChatbotConfig chatbot_config = 8;
+  // Three per-notebook capability flags (observed [true,true,true]); exact
+  // meaning unconfirmed, so carried positionally.
+  repeated bool flags = 10 [(json_bool) = true];
+  // Per-notebook limits/quotas (observed [6,500,500,500000,6]).
+  repeated int64 limits = 11;
 }
 
 message ProjectMetadata {
     int32 user_role = 1;
-    bool session_active = 2;  // or similar
-    // bool something = 3;
+    optional bool session_active = 2 [(json_bool) = true];  // or similar
+    optional bool field_3 = 3 [(json_bool) = true];
     // field 4 reserved/unknown
     // field 5 reserved/unknown
     google.protobuf.Timestamp create_time = 9;
     google.protobuf.Timestamp modified_time = 6;  // or similar
     int32 type = 7;
-    bool is_starred = 8;
+    optional bool is_starred = 8 [(json_bool) = true];
+    optional bool field_13 = 13 [(json_bool) = true];
+    optional bool field_14 = 14 [(json_bool) = true];
+    optional int64 field_15 = 15;
+    optional bool field_16 = 16 [(json_bool) = true];
+    optional bool field_18 = 18 [(json_bool) = true];
+    optional int64 field_19 = 19;
+    optional bool field_23 = 23 [(json_bool) = true];
 }
 
 message ChatGoalConfig {
@@ -56,6 +68,25 @@ message Source {
   SourceMetadata metadata = 3;
   SourceSettings settings = 4;
   repeated google.protobuf.Int32Value warnings = 5;
+  // Content-download URL (usercontent.google.com/download?c=…).
+  string download_url = 6;
+  // Drive viewer/upload URL for the source blob.
+  string viewer_url = 7;
+  // Blob reference describing the stored source content.
+  SourceBlob blob = 8;
+}
+
+message SourceBlob {
+  // Blobref path, e.g. "/contrib_service/blobrefs/notebooklm/nos_files/…".
+  string blob_ref = 1;
+  // field 2 reserved/unknown (observed null)
+  string mime_type = 3;
+  // Opaque upload tokens carried with the blob.
+  BlobTokens tokens = 4;
+}
+
+message BlobTokens {
+  repeated string token = 1;
 }
 
 message SourceMetadata {
@@ -65,9 +96,36 @@ message SourceMetadata {
     }
     google.protobuf.Int32Value last_update_time_seconds = 2;
     google.protobuf.Timestamp last_modified_time = 3;
-    // google.internal.labs.tailwind.common.v1.RevisionData revision_data = 4;
+    RevisionData revision_data = 4;
     SourceType source_type = 5;
     SourceSettings.SourceStatus status = 7;
+    // Source origin URL(s), e.g. the web page or Gutenberg URL a source was
+    // imported from.
+    repeated string source_urls = 8;
+    optional int64 field_9 = 9;
+    // Underlying file descriptor for uploaded/imported sources.
+    SourceFile file = 10;
+    // Human-readable source title/heading.
+    string heading = 12;
+    google.protobuf.Timestamp indexed_time = 15;
+    // Source MIME type, e.g. "application/pdf".
+    string mime_type = 20;
+}
+
+message SourceFile {
+  // Drive/document identifier for the file.
+  string document_id = 1;
+  // Size in pages or units (observed 59 for a PDF).
+  int64 size = 2;
+  string mime_type = 3;
+  // field 4 reserved/unknown (observed empty string)
+  optional string field_4 = 4;
+}
+
+message RevisionData {
+  // Revision identifier (UUID).
+  string revision_id = 1;
+  google.protobuf.Timestamp revision_time = 2;
 }
 
 
@@ -87,12 +145,17 @@ enum SourceType {
 
 message GoogleDocsSourceMetadata {
     string document_id = 1;
+    // Opaque resource/revision token for the doc (often empty).
+    optional string resource_key = 2;
+    int64 field_3 = 3;
 }
 
 
 message YoutubeSourceMetadata {
     string youtube_url = 1;
     string video_id = 2;
+    // Channel or uploader name.
+    string channel = 3;
 }
 
 
@@ -104,7 +167,22 @@ message SourceSettings {
       SOURCE_STATUS_ERROR = 3;
     }
     SourceStatus status = 2;
-    // google.internal.labs.tailwind.common.v1.SourceIssue reason = 3;
+    // Reason/issue detail for a source in an error or disabled state
+    // (observed [null,null,[]] — only the repeated issue list at field 3 is
+    // populated, empty when the source is healthy).
+    SourceSettingsDetail detail = 3;
+}
+
+message SourceSettingsDetail {
+  // field 1 reserved/unknown
+  // field 2 reserved/unknown
+  // Issue list for the source, always present (empty [] when the source is
+  // healthy).
+  SourceIssueList issues = 3;
+}
+
+message SourceIssueList {
+  repeated SourceIssue issues = 1;
 }
 
 message SourceIssue {

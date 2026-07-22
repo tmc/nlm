@@ -332,13 +332,20 @@ message ListFeaturedProjectsRequest {}
 
 message FeaturedProjectImage {
     string url = 1;
+    // Original image filename.
+    string filename = 2;
+    int64 field_3 = 3;
+    int64 field_4 = 4;
+    // Serving URL for the image (lh3.googleusercontent.com/notebooklm/…).
+    string image_url = 5;
 }
 
 message FeaturedProjectPresentation {
-    bool curated = 1;
+    optional bool curated = 1 [(json_bool) = true];
     repeated FeaturedProjectImage images = 2;
     string provider = 3;
     string description = 4;
+    optional bool field_5 = 5 [(json_bool) = true];
 }
 
 message FeaturedProject {
@@ -348,7 +355,20 @@ message FeaturedProject {
     string emoji = 4;
     ProjectMetadata metadata = 6;
     ChatbotConfig chatbot_config = 8;
+    // Two sets of capability flags carried as JSON booleans.
+    repeated bool flags = 9 [(json_bool) = true];
+    repeated bool flags2 = 10 [(json_bool) = true];
+    // Per-notebook limits/quotas (observed [null,500,600,500000,3]).
+    FeaturedProjectLimits limits = 11;
     FeaturedProjectPresentation presentation = 15;
+}
+
+message FeaturedProjectLimits {
+    // field 1 reserved/unknown (observed null)
+    int64 field_2 = 2;
+    int64 field_3 = 3;
+    int64 field_4 = 4;
+    int64 field_5 = 5;
 }
 
 message ListFeaturedProjectsResponse {
