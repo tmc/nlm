@@ -4909,14 +4909,8 @@ func parseFollowUps(data interface{}) []string {
 
 // DeleteChatHistory deletes all chat history for a notebook.
 func (c *Client) DeleteChatHistory(projectID string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCDeleteChatHistory,
-		NotebookID: projectID,
-		Args: []interface{}{
-			nil,
-			nil,
-			projectID,
-		},
+	_, err := c.orchestrationService.DeleteChatHistory(context.Background(), &pb.DeleteChatHistoryRequest{
+		ProjectId: projectID,
 	})
 	if err != nil {
 		return fmt.Errorf("delete chat history: %w", err)
