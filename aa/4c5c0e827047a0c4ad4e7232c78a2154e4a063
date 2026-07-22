@@ -1,0 +1,8 @@
+commit=aa4c5c0e827047a0c4ad4e7232c78a2154e4a063
+date=2026-07-22T05:43:42Z
+tool=Codex
+model=GPT-5
+tty=not a tty
+pid=86794
+session=D9E309FF-A757-42C8-A7AF-1BC81556D00C
+verification=corpus gArtLc request shape exact test PASS; legacy artifact response parser retained intentionally for state/URL semantics; GOWORK=off go test -count=1 ./... PASS; GOWORK=off go build -o /tmp/nlm-codex ./cmd/nlm PASS; no proto changes; corpus baseline 590 request + 553 response lossless, 0 missing-field records; signed G; worktree clean
