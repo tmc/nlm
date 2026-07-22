@@ -1593,32 +1593,19 @@ func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
 }
 
 func (c *Client) GetNotes(projectID string) ([]*Note, error) {
-	var rawErr error
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetNotes,
-		NotebookID: projectID,
-		Args:       []interface{}{projectID},
-	})
-	if err == nil {
-		notes, parseErr := parseNotesResponse(resp)
-		if parseErr == nil {
-			return notes, nil
-		}
-		if c.config.Debug {
-			fmt.Printf("GetNotes raw parser failed, falling back to generated decoder: %v\n", parseErr)
-		}
-		rawErr = parseErr
-	} else {
-		rawErr = err
-	}
-	if c.config.Debug {
-		fmt.Printf("GetNotes raw path failed, falling back to generated decoder: %v\n", rawErr)
-	}
-
 	req := &pb.GetNotesRequest{ProjectId: projectID}
 	response, rpcErr := c.orchestrationService.GetNotes(context.Background(), req)
 	if rpcErr != nil {
-		return nil, fmt.Errorf("get notes: %w", rawErr)
+		return nil, fmt.Errorf("get notes: %w", rpcErr)
+	}
+	return notesFromWireResponse(response), nil
+}
+
+// notesFromWireResponse adapts the generated response to the public Note
+// slice while preserving the legacy parser's ordering and nil-item behavior.
+func notesFromWireResponse(response *pb.GetNotesWireResponse) []*pb.Note {
+	if response == nil {
+		return nil
 	}
 	notes := make([]*pb.Note, 0, len(response.GetEntries()))
 	for _, entry := range response.GetEntries() {
@@ -1631,20 +1618,21 @@ func (c *Client) GetNotes(projectID string) ([]*Note, error) {
 		}
 		notes = append(notes, note)
 	}
-	return notes, nil
+	return notes
 }
 
 func noteFromRecord(note *pb.NoteRecord) *pb.Note {
 	if note == nil {
 		return nil
 	}
+	// Keep the public GetNotes projection identical to the legacy parser. The
+	// wire record also carries metadata and note_type, but that parser never
+	// exposed those positions.
 	return &pb.Note{
 		NoteId:      note.GetNoteId(),
 		ContentText: note.GetContentText(),
-		Metadata:    note.GetMetadata(),
 		Title:       note.GetTitle(),
 		RichText:    note.GetRichText(),
-		NoteType:    append([]int32(nil), note.GetNoteType()...),
 	}
 }
 
