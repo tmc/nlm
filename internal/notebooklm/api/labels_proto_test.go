@@ -10,18 +10,15 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func TestGetLabelsProtoAdapterMatchesLegacyParser(t *testing.T) {
+func TestGetLabelsProtoAdapter(t *testing.T) {
 	raw := []byte(`[[["Generated Code",[["src-1"],["src-2"]],"label-1",""]]]`)
-	legacy, err := parseLabelsResponse(raw)
-	if err != nil {
-		t.Fatalf("legacy parser: %v", err)
-	}
 	var response pb.GetLabelsResponse
 	if err := beprotojson.Unmarshal(raw, &response); err != nil {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := labelsFromProtoResponse(&response)
-	assertEquivalent(t, "labels adaptation", legacy, got)
+	want := []Label{{Name: "Generated Code", LabelID: "label-1", SourceIDs: []string{"src-1", "src-2"}}}
+	assertEquivalent(t, "labels adaptation", want, got)
 }
 
 func TestGetLabelsProtoAdapterEmptyResponse(t *testing.T) {
@@ -46,18 +43,15 @@ func TestGetLabelsRequestEncoder(t *testing.T) {
 	}
 }
 
-func TestCreateLabelResponseProtoAdapterMatchesLegacyParser(t *testing.T) {
+func TestCreateLabelResponseProtoAdapter(t *testing.T) {
 	raw := []byte(`[null,[["Generated Code",[["src-1"]],"label-1",""]]]`)
-	legacy, err := parseLabelsResponse(raw)
-	if err != nil {
-		t.Fatalf("legacy parser: %v", err)
-	}
 	var response pb.CreateLabelResponse
 	if err := beprotojson.Unmarshal(raw, &response); err != nil {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: response.GetLabels()})
-	assertEquivalent(t, "label mutation adaptation", legacy, got)
+	want := []Label{{Name: "Generated Code", LabelID: "label-1", SourceIDs: []string{"src-1"}}}
+	assertEquivalent(t, "label mutation adaptation", want, got)
 }
 
 func TestLabelMutationEncoders(t *testing.T) {

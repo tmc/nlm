@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	genmethod "github.com/tmc/nlm/gen/method"
@@ -245,54 +244,4 @@ func (c *Client) DeleteLabels(projectID string, labelIDs []string) error {
 		return fmt.Errorf("delete labels: %w", err)
 	}
 	return nil
-}
-
-func parseLabelsResponse(resp []byte) ([]Label, error) {
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse labels response: %w", err)
-	}
-	// agX4Bc returns [null, [[row, ...]]]; the leading null is a status slot.
-	// Unwrap it so the rest of this function only sees the row container.
-	if len(data) >= 2 && data[0] == nil {
-		if inner, ok := data[1].([]interface{}); ok {
-			data = inner
-		}
-	}
-	// The wire response may arrive either flat ([row, row, ...]) or wrapped
-	// ([[row, row, ...]]). Detect a wrapper by checking whether the first
-	// element is itself a list-of-rows (i.e. its first element is a list).
-	items := data
-	if outer, ok := interfaceSliceAt(data, 0); ok {
-		if _, innerIsRow := interfaceSliceAt(outer, 0); innerIsRow {
-			items = outer
-		}
-	}
-	labels := make([]Label, 0, len(items))
-	for _, item := range items {
-		row, ok := item.([]interface{})
-		if !ok {
-			continue
-		}
-		l := Label{
-			Name:    stringAt(row, 0),
-			LabelID: stringAt(row, 2),
-		}
-		if srcs, ok := interfaceSliceAt(row, 1); ok {
-			for _, s := range srcs {
-				inner, ok := s.([]interface{})
-				if !ok {
-					continue
-				}
-				if id := stringAt(inner, 0); id != "" {
-					l.SourceIDs = append(l.SourceIDs, id)
-				}
-			}
-		}
-		if l.LabelID == "" && l.Name == "" {
-			continue
-		}
-		labels = append(labels, l)
-	}
-	return labels, nil
 }
