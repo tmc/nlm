@@ -1,0 +1,11 @@
+commit: 36ba88c6b56ce5449e38235fdddce6c7070d11aa
+date: 2026-07-21T20:06:54-07:00
+tool: codex
+version: codex-cli 0.145.0
+model: gpt-5.4
+reasoning: high
+tty: not a tty
+pid: 40894
+session: w2t1p15:63655561-BB8F-48DA-9087-E7F2C4D3F9B8
+reorg-target: B3
+foreign-exception: preserve historical beprotojson_nlm_test.go diff
