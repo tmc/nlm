@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	beprotojson "github.com/tmc/nlm/internal/beprotojson"
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
 // loadFixture reads a testdata fixture relative to the repo-level
@@ -62,6 +65,79 @@ func TestParseDeepResearchSessions_Complete(t *testing.T) {
 	}
 	if len(s.Plan) == 0 {
 		t.Error("Plan should be decoded from base64 for COMPLETE sessions")
+	}
+}
+
+// TestDeepResearchGeneratedShadowDecode checks the generated model against
+// the fields consumed by the legacy poller. The raw main blob and base64 plan
+// remain authoritative until their public projections have an equivalence
+// adapter; this test deliberately does not switch the live path.
+func TestDeepResearchGeneratedShadowDecode(t *testing.T) {
+	for _, name := range []string{
+		"e3bVqc_sessions_response_complete.json",
+		"e3bVqc_sessions_response_running.json",
+	} {
+		raw := loadFixture(t, name)
+		legacy, err := parseDeepResearchSessions(raw, false)
+		if err != nil {
+			t.Fatalf("%s: legacy parse: %v", name, err)
+		}
+		var generated pb.GetDeepResearchSessionsResponse
+		if err := beprotojson.Unmarshal(raw, &generated); err != nil {
+			t.Fatalf("%s: generated decode: %v", name, err)
+		}
+		if len(generated.GetSessions()) != len(legacy) {
+			t.Fatalf("%s: session count: generated=%d legacy=%d", name, len(generated.GetSessions()), len(legacy))
+		}
+		for i, want := range legacy {
+			got := generated.GetSessions()[i]
+			if got.GetConversationId() != want.ConversationID {
+				t.Errorf("%s[%d] conversation_id: generated=%q legacy=%q", name, i, got.GetConversationId(), want.ConversationID)
+			}
+			details := got.GetDetails()
+			if details == nil {
+				t.Errorf("%s[%d]: generated details is nil", name, i)
+				continue
+			}
+			if details.GetProjectId() != want.ProjectID {
+				t.Errorf("%s[%d] project_id: generated=%q legacy=%q", name, i, details.GetProjectId(), want.ProjectID)
+			}
+			if details.GetQuery().GetText() != want.Query {
+				t.Errorf("%s[%d] query: generated=%q legacy=%q", name, i, details.GetQuery().GetText(), want.Query)
+			}
+			if int(details.GetMode()) != want.Mode {
+				t.Errorf("%s[%d] mode: generated=%d legacy=%d", name, i, details.GetMode(), want.Mode)
+			}
+			if int(details.GetState()) != want.State {
+				t.Errorf("%s[%d] state: generated=%d legacy=%d", name, i, details.GetState(), want.State)
+			}
+			if (details.GetMainBlob() != nil) != (len(want.MainBlob) != 0) {
+				t.Errorf("%s[%d] main_blob presence: generated=%t legacy=%t", name, i, details.GetMainBlob() != nil, len(want.MainBlob) != 0)
+			}
+			if details.GetMainBlob() != nil && len(want.MainBlob) != 0 {
+				legacyReport, legacySources := decodeDeepResearchContent(want.MainBlob)
+				entries := details.GetMainBlob().GetReportTree()
+				if len(entries) == 0 || entries[0].GetDetail() == nil {
+					t.Errorf("%s[%d]: generated report header missing", name, i)
+				} else if entries[0].GetDetail().GetMarkdown() != legacyReport {
+					t.Errorf("%s[%d] report markdown differs: generated=%d bytes legacy=%d bytes", name, i, len(entries[0].GetDetail().GetMarkdown()), len(legacyReport))
+				}
+				if len(entries)-1 != len(legacySources) {
+					t.Errorf("%s[%d] source count: generated=%d legacy=%d", name, i, len(entries)-1, len(legacySources))
+				} else {
+					for j, source := range legacySources {
+						entry := entries[j+1]
+						if entry.GetUrl() != source.URL || entry.GetTitle() != source.Title || entry.GetSummary() != source.Snippet {
+							t.Errorf("%s[%d] source %d differs: generated=(%q,%q,%q) legacy=(%q,%q,%q)", name, i, j, entry.GetUrl(), entry.GetTitle(), entry.GetSummary(), source.URL, source.Title, source.Snippet)
+						}
+					}
+				}
+			}
+			metadata := details.GetMetadata()
+			if metadata != nil && metadata.GetResearchId() != want.ResearchID {
+				t.Errorf("%s[%d] research_id: generated=%q legacy=%q", name, i, metadata.GetResearchId(), want.ResearchID)
+			}
+		}
 	}
 }
 
