@@ -2326,7 +2326,7 @@ func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instr
 	if err != nil {
 		return "", fmt.Errorf("create %s app artifact: %w", kind.String(), err)
 	}
-	return parseCreatedArtifactID(resp)
+	return createdArtifactIDFromProto(resp)
 }
 
 func (c *Client) createArtifactSourceIDs(projectID string, sourceIDs []string) ([]string, error) {
@@ -3770,29 +3770,21 @@ func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sour
 	if err != nil {
 		return "", fmt.Errorf("create slide deck: %w", err)
 	}
-	return parseCreatedArtifactID(resp)
+	return createdArtifactIDFromProto(resp)
 }
 
-func parseCreatedArtifactID(resp []byte) (string, error) {
-	// Response is [[artifact_id, title, type, ...]] — unwrap outer array.
-	var raw []interface{}
-	if err := json.Unmarshal(resp, &raw); err != nil {
-		return "", fmt.Errorf("parse artifact response: %w", err)
+// createdArtifactIDFromProto projects the nested Artifact response returned
+// by legacy R7cb6c create paths. The custom request encoders remain in place;
+// only response decoding moves to the generated Artifact message.
+func createdArtifactIDFromProto(resp []byte) (string, error) {
+	var outer []json.RawMessage
+	if err := json.Unmarshal(resp, &outer); err != nil {
+		return "", fmt.Errorf("decode create response: %w", err)
 	}
-	// Try direct string at [0], then the nested [[id, title, ...]] shape. An
-	// empty-string id is treated as no id at all: the server returns a blank
-	// id when a create is rejected (e.g. quota exhausted) without an RPC-level
-	// error, and returning ("", nil) would let callers print a blank line as
-	// if creation succeeded. Fall through to the format error instead so the
-	// failure is visible.
-	if len(raw) > 0 {
-		if id, ok := raw[0].(string); ok && id != "" {
-			return id, nil
-		}
-		if inner, ok := raw[0].([]interface{}); ok && len(inner) > 0 {
-			if id, ok := inner[0].(string); ok && id != "" {
-				return id, nil
-			}
+	if len(outer) > 0 {
+		var artifact pb.Artifact
+		if err := beprotojson.Unmarshal(outer[0], &artifact); err == nil && artifact.GetArtifactId() != "" {
+			return artifact.GetArtifactId(), nil
 		}
 	}
 	return "", fmt.Errorf("create returned no artifact id (the server may have rejected it, e.g. quota exhausted); check 'nlm artifact list'")
