@@ -1333,6 +1333,30 @@ func (c *LabsTailwindOrchestrationServiceClient) GetDeepResearchSessions(ctx con
 	return &result, nil
 }
 
+// PollDeepResearch calls the PollDeepResearch RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) PollDeepResearch(ctx context.Context, req *notebooklmv1alpha1.PollDeepResearchRequest) (*notebooklmv1alpha1.PollDeepResearchResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "e3bVqc",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodePollDeepResearchArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("PollDeepResearch: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.PollDeepResearchResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("PollDeepResearch: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // DeleteDeepResearch calls the DeleteDeepResearch RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.Context, req *notebooklmv1alpha1.DeleteDeepResearchRequest) (*notebooklmv1alpha1.DeleteDeepResearchResponse, error) {
 	// Build the RPC call

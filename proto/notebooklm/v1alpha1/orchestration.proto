@@ -860,7 +860,6 @@ message AddSourcesResponse {
 }
 
 message SourceInput {
-    // Field 1 is null in observed text-import requests.
     SourceTextInput text = 2;
     // Field 3 is null in observed text-import requests.
     optional int32 input_type = 4; // observed 3
@@ -1401,6 +1400,14 @@ service LabsTailwindOrchestrationService {
     rpc GetDeepResearchSessions(GetDeepResearchSessionsRequest) returns (GetDeepResearchSessionsResponse) {
         option (rpc_id) = "e3bVqc";
         option (arg_format) = "[null, null, %project_id%]";
+    }
+    // PollDeepResearch is the job-handle variant of e3bVqc. It returns the
+    // same session shape as GetDeepResearchSessions, but a successful
+    // 2026-07-23 CLI capture shows a standard context envelope and a handle
+    // in position two: [context, null, job_handle].
+    rpc PollDeepResearch(PollDeepResearchRequest) returns (PollDeepResearchResponse) {
+        option (rpc_id) = "e3bVqc";
+        option (arg_format) = "[%context%, null, %job_handle%]";
     }
 
     // DeleteDeepResearch (rpc.go:72). Soft-delete a research session;
@@ -2517,7 +2524,18 @@ message GetDeepResearchSessionsRequest {
     string project_id = 1;
 }
 
+// PollDeepResearchRequest is the job-handle e3bVqc variant.
+message PollDeepResearchRequest {
+    RequestContext context = 1;
+    string job_handle = 3;
+}
+
 message GetDeepResearchSessionsResponse {
+    repeated DeepResearchSession sessions = 1;
+}
+
+// PollDeepResearchResponse is the job-handle e3bVqc result envelope.
+message PollDeepResearchResponse {
     repeated DeepResearchSession sessions = 1;
 }
 

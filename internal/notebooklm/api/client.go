@@ -5843,8 +5843,12 @@ func parseDeepResearchSessionsProto(resp json.RawMessage) ([]deepResearchSession
 	if err := beprotojson.Unmarshal(resp, &decoded); err != nil {
 		return nil, fmt.Errorf("decode sessions proto: %w", err)
 	}
-	sessions := make([]deepResearchSession, 0, len(decoded.GetSessions()))
-	for _, session := range decoded.GetSessions() {
+	return deepResearchSessionsFromProto(decoded.GetSessions()), nil
+}
+
+func deepResearchSessionsFromProto(decoded []*pb.DeepResearchSession) []deepResearchSession {
+	sessions := make([]deepResearchSession, 0, len(decoded))
+	for _, session := range decoded {
 		if session == nil || session.GetDetails() == nil {
 			continue
 		}
@@ -5894,7 +5898,7 @@ func parseDeepResearchSessionsProto(resp json.RawMessage) ([]deepResearchSession
 		}
 		sessions = append(sessions, ds)
 	}
-	return sessions, nil
+	return sessions
 }
 
 // parseDeepResearchSessions decodes the top-level e3bVqc response

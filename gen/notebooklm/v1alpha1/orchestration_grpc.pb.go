@@ -76,6 +76,7 @@ const (
 	LabsTailwindOrchestrationService_StartDeepResearch_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearch"
 	LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearchWire"
 	LabsTailwindOrchestrationService_GetDeepResearchSessions_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetDeepResearchSessions"
+	LabsTailwindOrchestrationService_PollDeepResearch_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/PollDeepResearch"
 	LabsTailwindOrchestrationService_DeleteDeepResearch_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteDeepResearch"
 	LabsTailwindOrchestrationService_BulkImportFromResearch_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/BulkImportFromResearch"
 	LabsTailwindOrchestrationService_BulkImportFromResearchWire_FullMethodName    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/BulkImportFromResearchWire"
@@ -278,6 +279,11 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// notebook; the caller scans by (research_id, mode=5) for deep or
 	// (conversation_id, mode=1) for fast.
 	GetDeepResearchSessions(ctx context.Context, in *GetDeepResearchSessionsRequest, opts ...grpc.CallOption) (*GetDeepResearchSessionsResponse, error)
+	// PollDeepResearch is the job-handle variant of e3bVqc. It returns the
+	// same session shape as GetDeepResearchSessions, but a successful
+	// 2026-07-23 CLI capture shows a standard context envelope and a handle
+	// in position two: [context, null, job_handle].
+	PollDeepResearch(ctx context.Context, in *PollDeepResearchRequest, opts ...grpc.CallOption) (*PollDeepResearchResponse, error)
 	// DeleteDeepResearch (rpc.go:72). Soft-delete a research session;
 	// server transitions state 2 -> 5 (the row is retained, future poll
 	// queries skip state=5). HAR-verified 2026-04-17. Polymorphic with
@@ -1032,6 +1038,15 @@ func (c *labsTailwindOrchestrationServiceClient) GetDeepResearchSessions(ctx con
 	return out, nil
 }
 
+func (c *labsTailwindOrchestrationServiceClient) PollDeepResearch(ctx context.Context, in *PollDeepResearchRequest, opts ...grpc.CallOption) (*PollDeepResearchResponse, error) {
+	out := new(PollDeepResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_PollDeepResearch_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *labsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.Context, in *DeleteDeepResearchRequest, opts ...grpc.CallOption) (*DeleteDeepResearchResponse, error) {
 	out := new(DeleteDeepResearchResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_DeleteDeepResearch_FullMethodName, in, out, opts...)
@@ -1472,6 +1487,11 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// notebook; the caller scans by (research_id, mode=5) for deep or
 	// (conversation_id, mode=1) for fast.
 	GetDeepResearchSessions(context.Context, *GetDeepResearchSessionsRequest) (*GetDeepResearchSessionsResponse, error)
+	// PollDeepResearch is the job-handle variant of e3bVqc. It returns the
+	// same session shape as GetDeepResearchSessions, but a successful
+	// 2026-07-23 CLI capture shows a standard context envelope and a handle
+	// in position two: [context, null, job_handle].
+	PollDeepResearch(context.Context, *PollDeepResearchRequest) (*PollDeepResearchResponse, error)
 	// DeleteDeepResearch (rpc.go:72). Soft-delete a research session;
 	// server transitions state 2 -> 5 (the row is retained, future poll
 	// queries skip state=5). HAR-verified 2026-04-17. Polymorphic with
@@ -1852,6 +1872,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) StartDeepResearchWire
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetDeepResearchSessions(context.Context, *GetDeepResearchSessionsRequest) (*GetDeepResearchSessionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDeepResearchSessions not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) PollDeepResearch(context.Context, *PollDeepResearchRequest) (*PollDeepResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PollDeepResearch not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteDeepResearch(context.Context, *DeleteDeepResearchRequest) (*DeleteDeepResearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDeepResearch not implemented")
@@ -2935,6 +2958,24 @@ func _LabsTailwindOrchestrationService_GetDeepResearchSessions_Handler(srv inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_PollDeepResearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PollDeepResearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).PollDeepResearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_PollDeepResearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).PollDeepResearch(ctx, req.(*PollDeepResearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_DeleteDeepResearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteDeepResearchRequest)
 	if err := dec(in); err != nil {
@@ -3689,6 +3730,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDeepResearchSessions",
 			Handler:    _LabsTailwindOrchestrationService_GetDeepResearchSessions_Handler,
+		},
+		{
+			MethodName: "PollDeepResearch",
+			Handler:    _LabsTailwindOrchestrationService_PollDeepResearch_Handler,
 		},
 		{
 			MethodName: "DeleteDeepResearch",
