@@ -860,11 +860,23 @@ message AddSourcesResponse {
 }
 
 message SourceInput {
+    // Google Docs import: [drive_id, mime_type, 1, drive_id].
+    GoogleDocsSourceInput google_docs = 1;
     SourceTextInput text = 2;
     // Field 3 is null in observed text-import requests.
     optional int32 input_type = 4; // observed 3
     // Fields 5-10 are null in observed text-import requests.
     optional int32 import_mode = 11; // inferred import mode; observed 1
+}
+
+// GoogleDocsSourceInput is the AddSources field-1 Google Drive document
+// variant. A 2026-07-23 capture verified this for
+// application/vnd.google-apps.document.
+message GoogleDocsSourceInput {
+    string drive_id = 1;
+    string mime_type = 2;
+    int32 mode = 3;
+    string document_id = 4;
 }
 
 message SourceTextInput {
