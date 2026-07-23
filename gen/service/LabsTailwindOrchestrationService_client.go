@@ -1915,7 +1915,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx cont
 	call := rpc.Call{
 		ID:         "LQhfEb",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       method.EncodeUpdateProjectUserStateArgs(req),
 	}
 
 	// Execute the RPC

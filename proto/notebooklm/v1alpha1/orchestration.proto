@@ -1686,7 +1686,7 @@ service LabsTailwindOrchestrationService {
     // TODO(har): request wire shape still unverified; capture before encoding.
     rpc UpdateProjectUserState(UpdateProjectUserStateRequest) returns (UpdateProjectUserStateResponse) {
         option (rpc_id) = "LQhfEb";
-        // request wire shape unverified; capture HAR before encoding
+        option (arg_format) = "[%context%, %project_id%, %value%, %keys%]";
     }
 
     // ExecuteWritingFunction (likKIe). In-document writing assistant —
@@ -3327,7 +3327,8 @@ message UpdateProjectUserStateValue {
 }
 
 message UpdateProjectUserStateValueInner {
-    // field 1 ([0]) is null in the observed capture; left unmodeled.
+    // Pinned-state requests carry numeric 1 here; saved-panel requests carry null.
+    optional int32 pinned = 1;
     optional int32 value = 2; // confirmed state value; observed 2
 }
 
@@ -3345,7 +3346,8 @@ message UpdateProjectUserStateResponse {
 }
 
 message UpdateProjectUserStateResult {
-    // Field 1 ([0]) is null in the one observed capture; left unmodeled.
+    // Pinned-state responses carry true here; saved-panel responses carry null.
+    optional bool pinned = 1 [(json_bool) = true];
     int32 status = 2;
 }
 
