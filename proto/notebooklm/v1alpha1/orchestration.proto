@@ -1712,7 +1712,7 @@ service LabsTailwindOrchestrationService {
     // short-lived credential. JS-bundle-verified; no HAR.
     rpc GenerateAccessToken(GenerateAccessTokenRequest) returns (GenerateAccessTokenResponse) {
         option (rpc_id) = "preRPe";
-        // wire shape unverified; capture HAR before encoding
+        option (arg_format) = "[]";
     }
 
     // GetMagicView (rtY7md). Read companion to GenerateMagicView
@@ -3379,14 +3379,22 @@ message ExpertIntelligenceItem {
     string thumbnail_url = 4;
 }
 
-// GenerateAccessToken (preRPe). Per-session token mint.
-message GenerateAccessTokenRequest {
-    string project_id = 1;
-}
+// GenerateAccessToken (preRPe) has an empty request and returns
+// [oauth_token, [relative_ttl_seconds], [scope, ...]].
+message GenerateAccessTokenRequest {}
 
 message GenerateAccessTokenResponse {
     string access_token = 1;
-    google.protobuf.Timestamp expires_at = 2;
+    AccessTokenTTL ttl = 2;
+    AccessTokenScopes scopes = 3;
+}
+
+message AccessTokenTTL {
+    int64 seconds = 1;
+}
+
+message AccessTokenScopes {
+    repeated string scope = 1;
 }
 
 // GetMagicView (rtY7md). Read companion to GenerateMagicView (uK8f7c).

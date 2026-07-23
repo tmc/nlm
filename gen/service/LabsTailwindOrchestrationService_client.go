@@ -1987,7 +1987,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateAccessToken(ctx context
 	call := rpc.Call{
 		ID:         "preRPe",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       method.EncodeGenerateAccessTokenArgs(req),
 	}
 
 	// Execute the RPC
