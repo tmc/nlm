@@ -262,14 +262,13 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// Response is a one-element array: [conversation_id]. Mode enum at
 	// position [2] is 1 for fast (5 for deep, see StartDeepResearch).
 	StartFastResearch(ctx context.Context, in *StartFastResearchRequest, opts ...grpc.CallOption) (*StartFastResearchResponse, error)
-	// StartDeepResearch (rpc.go:70). Wire shape verified across three
-	// independent CDP captures spanning 2026-04-10 through 2026-04-17
-	// (api.Client.StartDeepResearch at client.go:4686). Request:
-	//
-	//	[null, [1], [query, 1], 5, project_id]
-	//
-	// Response is a two-element array: [research_id, conversation_id].
+	// StartDeepResearch is the legacy request variant retained for generated
+	// client compatibility. New callers use StartDeepResearchWire below.
 	StartDeepResearch(ctx context.Context, in *StartDeepResearchRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error)
+	// StartDeepResearchWire is the canonical QA9ei request. A successful
+	// 2026-07-23 CLI capture verified its shape exactly:
+	//
+	//	[context, null, [query, 1], 5, project_id]
 	StartDeepResearchWire(ctx context.Context, in *StartDeepResearchWireRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error)
 	// GetDeepResearchSessions (rpc.go:71). Polymorphic with
 	// DeleteChatHistory: same e3bVqc id, server discriminates on
@@ -1457,14 +1456,13 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// Response is a one-element array: [conversation_id]. Mode enum at
 	// position [2] is 1 for fast (5 for deep, see StartDeepResearch).
 	StartFastResearch(context.Context, *StartFastResearchRequest) (*StartFastResearchResponse, error)
-	// StartDeepResearch (rpc.go:70). Wire shape verified across three
-	// independent CDP captures spanning 2026-04-10 through 2026-04-17
-	// (api.Client.StartDeepResearch at client.go:4686). Request:
-	//
-	//	[null, [1], [query, 1], 5, project_id]
-	//
-	// Response is a two-element array: [research_id, conversation_id].
+	// StartDeepResearch is the legacy request variant retained for generated
+	// client compatibility. New callers use StartDeepResearchWire below.
 	StartDeepResearch(context.Context, *StartDeepResearchRequest) (*StartDeepResearchResponse, error)
+	// StartDeepResearchWire is the canonical QA9ei request. A successful
+	// 2026-07-23 CLI capture verified its shape exactly:
+	//
+	//	[context, null, [query, 1], 5, project_id]
 	StartDeepResearchWire(context.Context, *StartDeepResearchWireRequest) (*StartDeepResearchResponse, error)
 	// GetDeepResearchSessions (rpc.go:71). Polymorphic with
 	// DeleteChatHistory: same e3bVqc id, server discriminates on

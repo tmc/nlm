@@ -5679,16 +5679,10 @@ func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, err
 // GetDeepResearchSessions; ConversationID is the key for
 // DeleteDeepResearch.
 //
-// The existing client shape is preserved across the generated encoder. The
-// current web capture uses a context envelope at position 0 and null at
-// position 1; adopting that variant requires a live server check. Request
-// args are five positions:
+// Request args are five positions:
 //
-//	[0] nil               placeholder
-//	[1] [1]               opaque one-element list; likely a
-//	                      service-version tag or mode enum — bytes
-//	                      captured verbatim, do not infer semantics
-//	                      without a second HAR confirming meaning.
+//	[0] context           standard request envelope
+//	[1] nil               placeholder
 //	[2] [query, 1]        query string plus an opaque trailing 1
 //	[3] 5                 scalar that matches session[1][2] in the
 //	                      GetDeepResearchSessions response
@@ -5696,14 +5690,16 @@ func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, err
 //
 // Response is a two-element JSON array: [research_id, conversation_id].
 func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult, error) {
-	req := &pb.StartDeepResearchRequest{
+	req := &pb.StartDeepResearchWireRequest{
+		Context:   conversationRequestContext(),
 		ProjectId: projectID,
-		Query:     query,
+		Query:     &pb.ResearchQuery{Query: query, Mode: 1},
+		Mode:      5,
 	}
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCStartDeepResearch,
 		NotebookID: projectID,
-		Args:       method.EncodeStartDeepResearchArgs(req),
+		Args:       method.EncodeStartDeepResearchWireArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("start deep research: %w", err)

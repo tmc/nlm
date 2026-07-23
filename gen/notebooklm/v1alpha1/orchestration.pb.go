@@ -14164,21 +14164,10 @@ func (x *StartFastResearchResponse) GetConversationId() string {
 	return ""
 }
 
-// StartDeepResearch (QA9ei): kick off a deep-research session. Wire
-// shape verified across three independent CDP captures spanning
-// 2026-04-10..2026-04-17 (api.Client.StartDeepResearch at
-// client.go:4686). No HAR copy in this repo's capture set; the
-// verification is the dedicated capture suite that gated this RPC
-// from speculative to first-class.
-//
-// Wire request: [null, [1], [query, 1], 5, project_id]
-// Wire response: [research_id, conversation_id]
-//
-// Position [3] = 5 distinguishes deep from fast (which uses 1 at the
-// same position structurally, though shifted because the leading null
-// + [1] are absent in fast). Both IDs are retained because different
-// downstream RPCs key on different ones (poll uses research_id, delete
-// uses conversation_id).
+// StartDeepResearch is the legacy QA9ei request model. The live client uses
+// StartDeepResearchWire, which adds the observed request context at position
+// zero and leaves position one null. Both responses are
+// [research_id, conversation_id].
 type StartDeepResearchRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
