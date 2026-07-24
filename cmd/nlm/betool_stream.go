@@ -1,14 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
-	"strings"
-	"unicode/utf16"
-	"unicode/utf8"
 
 	"github.com/tmc/nlm/internal/batchexecute"
 )
@@ -45,41 +40,16 @@ func decodeWrbFRRequest(body []byte) (json.RawMessage, error) {
 // envelope. The wrb.fr payloads are cumulative snapshots, so the returned
 // response contains only the final snapshot.
 func decodeWrbFRStream(body []byte, rpcID string) (*batchexecute.WireResponse, int, error) {
-	body = bytes.TrimSpace(bytes.TrimPrefix(body, []byte(")]}'")))
-
+	rawFrames, _, err := batchexecute.WrbFRFrames(body)
+	if err != nil {
+		return nil, 0, err
+	}
 	var final json.RawMessage
-	chunks := 0
 	frames := 0
-	for offset := 0; offset < len(body); {
-		for offset < len(body) && (body[offset] == '\n' || body[offset] == '\r') {
-			offset++
-		}
-		if offset == len(body) {
-			break
-		}
-		lineEnd := bytes.IndexByte(body[offset:], '\n')
-		if lineEnd < 0 {
-			return nil, frames, fmt.Errorf("stream chunk %d: missing length delimiter", chunks+1)
-		}
-		lineEnd += offset
-		line := strings.TrimSpace(string(body[offset:lineEnd]))
-		if line == "" {
-			offset = lineEnd + 1
-			continue
-		}
-		declared, err := strconv.Atoi(line)
-		if err != nil {
-			return nil, frames, fmt.Errorf("stream chunk %d: parse length %q: %w", chunks+1, line, err)
-		}
-		chunks++
-		frame, next, err := streamFrame(body, lineEnd+1, declared)
-		if err != nil {
-			return nil, frames, fmt.Errorf("stream chunk %d: %w", chunks, err)
-		}
-		offset = next
+	for _, frame := range rawFrames {
 		var rows [][]json.RawMessage
 		if err := json.Unmarshal(frame, &rows); err != nil {
-			return nil, frames, fmt.Errorf("stream chunk %d: parse frame: %w", chunks, err)
+			return nil, frames, fmt.Errorf("parse stream frame: %w", err)
 		}
 		for _, row := range rows {
 			if len(row) < 3 {
@@ -94,7 +64,7 @@ func decodeWrbFRStream(body []byte, rpcID string) (*batchexecute.WireResponse, i
 				continue
 			}
 			if !json.Valid([]byte(payload)) {
-				return nil, frames, fmt.Errorf("stream chunk %d: wrb.fr payload is not valid JSON", chunks)
+				return nil, frames, fmt.Errorf("wrb.fr payload is not valid JSON")
 			}
 			final = append(final[:0], payload...)
 			frames++
@@ -106,107 +76,4 @@ func decodeWrbFRStream(body []byte, rpcID string) (*batchexecute.WireResponse, i
 	return &batchexecute.WireResponse{Responses: []batchexecute.WireRPCResponse{{
 		ID: rpcID, Data: final,
 	}}}, frames, nil
-}
-
-// streamFrame returns one length-prefixed frame. The declared length includes
-// the newline after the length and the newline after the frame. Google uses
-// bytes, code points, or UTF-16 code units for that count in observed streams.
-func streamFrame(body []byte, start, declared int) ([]byte, int, error) {
-	target := declared - 2
-	if target < 0 {
-		return nil, start, fmt.Errorf("length %d is too small", declared)
-	}
-	var ends []int
-	if end := start + target; end <= len(body) {
-		ends = append(ends, end)
-	}
-	if end, ok := streamFrameEndRunes(body, start, target, false); ok {
-		ends = append(ends, end)
-	}
-	if end, ok := streamFrameEndRunes(body, start, target, true); ok {
-		ends = append(ends, end)
-	}
-	for _, end := range ends {
-		next, ok := streamFrameDelimiter(body, end)
-		if !ok || !json.Valid(body[start:end]) {
-			continue
-		}
-		return body[start:end], next, nil
-	}
-	if frame, next, ok := streamContinuationFrame(body, start, target); ok {
-		return frame, next, nil
-	}
-	return nil, start, fmt.Errorf("length %d does not delimit a valid frame", declared)
-}
-
-// streamContinuationFrame recognizes the observed continuation framing where
-// a declared count reaches into the following decimal length line. It derives
-// the boundary from that next line instead of relying on a fixed offset.
-func streamContinuationFrame(body []byte, start, target int) ([]byte, int, bool) {
-	limit := start + target
-	if limit > len(body) {
-		limit = len(body)
-	}
-	for search := limit; search > start; {
-		relativeEnd := bytes.LastIndexByte(body[start:search], '\n')
-		if relativeEnd < 0 {
-			break
-		}
-		end := start + relativeEnd
-		search = end
-		next, ok := streamFrameDelimiter(body, end)
-		if !ok || !streamNextLength(body, next) || !json.Valid(body[start:end]) {
-			continue
-		}
-		return body[start:end], next, true
-	}
-	return nil, start, false
-}
-
-func streamNextLength(body []byte, start int) bool {
-	end := bytes.IndexByte(body[start:], '\n')
-	if end <= 0 {
-		return false
-	}
-	_, err := strconv.Atoi(string(body[start : start+end]))
-	return err == nil
-}
-
-func streamFrameDelimiter(body []byte, end int) (int, bool) {
-	if end == len(body) {
-		return end, true
-	}
-	if end > len(body) {
-		return 0, false
-	}
-	if body[end] == '\n' {
-		return end + 1, true
-	}
-	if body[end] == '\r' && end+1 < len(body) && body[end+1] == '\n' {
-		return end + 2, true
-	}
-	return 0, false
-}
-
-func streamFrameEndRunes(body []byte, start, count int, utf16Units bool) (int, bool) {
-	end := start
-	for units := 0; units < count; {
-		if end >= len(body) {
-			return 0, false
-		}
-		r, size := utf8.DecodeRune(body[end:])
-		if r == utf8.RuneError && size == 1 {
-			return 0, false
-		}
-		step := 1
-		if utf16Units {
-			step = len(utf16.Encode([]rune{r}))
-		}
-		if units+step > count {
-			return 0, false
-		}
-		units += step
-		end += size
-	}
-	return end, true
 }

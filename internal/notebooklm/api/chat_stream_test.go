@@ -2,7 +2,6 @@ package api
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -10,13 +9,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
-	"unicode/utf16"
-	"unicode/utf8"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -409,6 +406,7 @@ func TestExtractChatPayloadCorpusEquivalence(t *testing.T) {
 		t.Skip("/tmp/nlm-traffic corpus is not available")
 	}
 	responses, frames := 0, 0
+	targetResponses, targetFrames, targetCitations := 0, 0, 0
 	for _, file := range files {
 		f, err := os.Open(file)
 		if err != nil {
@@ -452,10 +450,18 @@ func TestExtractChatPayloadCorpusEquivalence(t *testing.T) {
 			}
 			responses++
 			frames += len(payloads)
+			target := strings.Contains(file, "/rich-notes2/") && record == 155
+			if target {
+				targetResponses++
+				targetFrames += len(payloads)
+			}
 			for i, payload := range payloads {
 				got, want := extractChatPayload(string(payload), sourceIDs), extractChatPayloadLegacy(string(payload), sourceIDs)
 				if got.Text != want.Text || got.wirePhase != want.wirePhase || got.hasWirePhase != want.hasWirePhase || !sameCitations(got.Citations, want.Citations) || !sameStrings(got.FollowUps, want.FollowUps) {
 					t.Fatalf("%s:%d frame %d: generated=%+v legacy=%+v", file, record, i, got, want)
+				}
+				if target {
+					targetCitations += len(got.Citations)
 				}
 			}
 		}
@@ -467,6 +473,10 @@ func TestExtractChatPayloadCorpusEquivalence(t *testing.T) {
 	if responses < 3 || frames < 231 {
 		t.Fatalf("stream corpus responses=%d frames=%d, want at least 3/231", responses, frames)
 	}
+	if targetResponses != 1 || targetFrames == 0 {
+		t.Fatalf("rich-notes2 record 155 responses=%d frames=%d, want 1/nonzero", targetResponses, targetFrames)
+	}
+	t.Logf("rich-notes2 record 155: payloads=%d citations=%d", targetFrames, targetCitations)
 }
 
 func streamSourceIDs(raw string) ([]string, error) {
@@ -504,30 +514,14 @@ func streamSourceIDs(raw string) ([]string, error) {
 }
 
 func streamPayloads(body []byte) ([][]byte, int, error) {
-	body = bytes.TrimSpace(bytes.TrimPrefix(body, []byte(")]}'")))
-	scanner := bufio.NewScanner(bytes.NewReader(body))
-	scanner.Buffer(make([]byte, 64*1024), 64*1024*1024)
+	frames, chunks, err := batchexecute.WrbFRFrames(body)
+	if err != nil {
+		return nil, chunks, err
+	}
 	var payloads [][]byte
-	chunks := 0
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		declared, err := strconv.Atoi(line)
-		if err != nil {
-			return nil, chunks, err
-		}
-		if !scanner.Scan() {
-			return nil, chunks, fmt.Errorf("missing frame")
-		}
-		frame := strings.TrimSuffix(scanner.Text(), "\r")
-		chunks++
-		if declared != len(frame)+2 && declared != utf8.RuneCountInString(frame)+2 && declared != len(utf16.Encode([]rune(frame)))+2 {
-			return nil, chunks, fmt.Errorf("length mismatch")
-		}
+	for _, frame := range frames {
 		var rows [][]json.RawMessage
-		if err := json.Unmarshal([]byte(frame), &rows); err != nil {
+		if err := json.Unmarshal(frame, &rows); err != nil {
 			return nil, chunks, err
 		}
 		for _, row := range rows {
@@ -544,9 +538,6 @@ func streamPayloads(body []byte) ([][]byte, int, error) {
 			}
 			payloads = append(payloads, []byte(payload))
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, chunks, err
 	}
 	return payloads, chunks, nil
 }
