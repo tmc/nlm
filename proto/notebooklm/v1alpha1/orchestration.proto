@@ -150,6 +150,8 @@ enum ArtifactState {
 message ArtifactSource {
     SourceId source_id = 1;
     repeated TextFragment text_fragments = 2;
+    // Semantics unconfirmed. Observed as 8 on artifact sources.
+    int32 unknown_3 = 3;
 }
 
 message TextFragment {

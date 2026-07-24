@@ -748,6 +748,24 @@ func TestMutateProjectCoverRequestRoundTrip(t *testing.T) {
 	}
 }
 
+// TestArtifactSourceRoundTrip preserves the scalar wrapper observed on
+// ListArtifacts source entries.
+func TestArtifactSourceRoundTrip(t *testing.T) {
+	const wire = `[["source-id"],null,8]`
+	msg := &notebooklmv1alpha1.ArtifactSource{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
 // TestTailRequestVariantsRoundTrip guards four low-frequency request shapes.
 func TestTailRequestVariantsRoundTrip(t *testing.T) {
 	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`
