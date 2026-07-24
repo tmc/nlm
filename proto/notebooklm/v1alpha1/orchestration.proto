@@ -288,6 +288,8 @@ message ArtifactReportConfig {
     // Meaning unconfirmed; an explicit empty string in every observed capture.
     optional string leading_text = 1;
     ArtifactReportOptions options = 2;
+    // Confirmed string carrying JSON. Inferred to be a mind-map node tree.
+    string mind_map_data_json = 4;
 }
 
 message ArtifactReportOptions {
@@ -317,7 +319,8 @@ message ArtifactMindMapPreview {
 // blob at ArtifactMindMapPreview field 1. orientation_code is inferred from
 // the generated image dimensions; the remaining code meanings are unconfirmed.
 message ArtifactMindMapConfig {
-    // Field 1 is null in every observed capture; left unmodeled.
+    // prompt is present for some custom mind maps and null for others.
+    string prompt = 1;
     string language = 2;
     // Field 3 is null in every observed capture; left unmodeled.
     // Observed 1 for landscape images and 2 for portrait images.
@@ -543,8 +546,11 @@ message UniversalArtifactOptions {
     UniversalAudioOptions audio = 7;
     // Field 8 is null in observed requests.
     UniversalVideoOptions video = 9;
-    // Fields 11 through 16 are null in observed requests.
+    // Fields 11 through 14 and 16 are null in observed requests.
     UniversalArtifactOptionsUnknown10 unknown_10 = 10;
+    // Observed as custom mind-map configuration. Repetition semantics are
+    // unconfirmed.
+    repeated ArtifactMindMapConfig mind_map_configs = 15;
     repeated UniversalSlideOptions slides = 17;
 }
 
@@ -585,10 +591,11 @@ message UniversalVideoOptions {
 
 message UniversalVideoDetails {
     repeated UniversalArtifactSources sources = 1;
-    // Field 2 is null in observed requests.
+    string language = 2;
     optional string prompt = 3;
     // Field 4 is null in observed requests.
     int32 style = 5;
+    optional int32 unknown_6 = 6; // semantics unconfirmed
 }
 
 message UniversalArtifactSources {

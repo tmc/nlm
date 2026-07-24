@@ -674,10 +674,12 @@ func TestCreateUniversalArtifactRequestRoundTrip(t *testing.T) {
 	wires := []string{
 		`[` + context + `,"project-id",[null,null,1,[[["source-id"]]],null,null,[null,[null,2,null,[["source-id"]],"en",null,1]]]]`,
 		`[` + context + `,"project-id",[null,null,3,[[["source-id"]]],null,null,null,null,[null,null,[[["source-id"]],null,"prompt",null,4]]]]`,
+		`[` + context + `,"project-id",[null,null,3,[[["source-id"]]],null,null,null,null,[null,null,[[["source-id"]],"en","prompt",null,4,4]]]]`,
 		`[` + context + `,"project-id",[null,null,8,[[["source-id"]]],null,null,null,null,null,null,null,null,null,null,null,null,[[null,"en",2,4]]]]`,
 		`[` + context + `,"project-id",[null,null,10,null,null,null,null,null,null,[null,[5]]]]`,
 		`[` + context + `,"project-id",[null,null,10,null,null,null,null,null,null,[null,[5,null,"canvas"]]]]`,
 		`[` + context + `,"project-id",[null,null,8,[[["source-id"]]],null,null,null,null,null,null,null,null,null,null,null,null,[["plan mode attempt","en",2,4]]],null,null,[1]]`,
+		`[` + context + `,"project-id",[null,null,7,[[["source-id"]]],null,null,null,null,null,null,null,null,null,null,[["fabricated mind-map prompt","en",null,1,3,3]]]]`,
 	}
 	method, err := resolveMethod("CreateUniversalArtifact")
 	if err != nil {
