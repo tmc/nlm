@@ -28,6 +28,7 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	nlmsync "github.com/tmc/nlm/internal/sync"
 	"golang.org/x/term"
+	"google.golang.org/protobuf/proto"
 )
 
 // Global flags
@@ -1424,19 +1425,20 @@ func checkSourceFreshness(c *api.Client, sourceID, notebookID string) error {
 		fmt.Fprintln(os.Stderr, "note: pass notebook-id as the second argument to enable client-side Drive-source validation")
 	}
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	req := &pb.CheckSourceFreshnessRequest{SourceId: sourceID}
+	req := &pb.CheckSourceFreshnessRequest{Source: &pb.SourceIdList{SourceId: sourceID}, Context: &pb.RequestContext{
+		Version: proto.Int32(2),
+		Surface: &pb.RequestSurface{Value: proto.Int32(1)},
+		Caps:    &pb.RequestClientCaps{Version: proto.Int32(1), CapabilityCodes: []int32{1, 3}},
+	}}
 	fmt.Fprintf(os.Stderr, "Checking source %s...\n", sourceID)
 	resp, err := orchClient.CheckSourceFreshness(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("check source: %w", err)
 	}
-	if resp.IsFresh {
+	if resp.GetIsFresh() {
 		fmt.Printf("Source is up to date")
 	} else {
 		fmt.Printf("Source needs refresh")
-	}
-	if resp.LastChecked != nil {
-		fmt.Printf(" (last checked: %s)", resp.LastChecked.AsTime().Format(time.RFC3339))
 	}
 	fmt.Println()
 	return nil

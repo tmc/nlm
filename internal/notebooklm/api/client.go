@@ -743,7 +743,8 @@ func (c *Client) LoadSourceRaw(sourceID, notebookID string) (json.RawMessage, er
 
 func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
 	req := &pb.CheckSourceFreshnessRequest{
-		SourceId: sourceID,
+		Source:  &pb.SourceIdList{SourceId: sourceID},
+		Context: conversationRequestContext(),
 	}
 	ctx := context.Background()
 	result, err := c.orchestrationService.CheckSourceFreshness(ctx, req)

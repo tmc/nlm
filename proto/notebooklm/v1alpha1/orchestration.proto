@@ -1130,10 +1130,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc CheckSourceFreshness(CheckSourceFreshnessRequest) returns (CheckSourceFreshnessResponse) {
         option (rpc_id) = "yR9Yof";
-        // Wire shape HAR-verified 2026-04-17 against a Google-Drive source:
-        // [null, [source-id], [2]]. pos 2 is the freshness ProjectContext; an
-        // earlier [4] was a false positive against non-Drive sources.
-        option (arg_format) = "[null, [%source_id%], [2]]";
+        option (arg_format) = "[null, %source%, %context%]";
     }
     rpc DeleteSources(DeleteSourcesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "tGMBJ";
@@ -1931,12 +1928,13 @@ message RemoveRecentlyViewedProjectRequest {
 }
 
 message CheckSourceFreshnessRequest {
-    string source_id = 1;
+    SourceIdList source = 2;
+    RequestContext context = 3;
 }
 
 message CheckSourceFreshnessResponse {
-    bool is_fresh = 1;
-    google.protobuf.Timestamp last_checked = 2;
+    bool is_fresh = 2 [(json_bool) = true];
+    SourceIdList source = 3;
 }
 
 message LoadSourceRequest {
