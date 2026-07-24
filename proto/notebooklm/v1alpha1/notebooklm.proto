@@ -255,6 +255,8 @@ message SourceSettings {
     // (observed [null,null,[]] — only the repeated issue list at field 3 is
     // populated, empty when the source is healthy).
     SourceSettingsDetail detail = 3;
+    // Observed as 0 and 3; meaning unconfirmed.
+    optional int32 unknown_4 = 4;
 }
 
 message SourceSettingsDetail {

@@ -38,3 +38,18 @@ func TestSourceSettingsDetailUnknown5RoundTrip(t *testing.T) {
 		t.Fatalf("round trip = %s, want %s", got, want)
 	}
 }
+
+func TestSourceSettingsUnknown4RoundTrip(t *testing.T) {
+	const wire = `[null,2,null,0]`
+	var settings pb.SourceSettings
+	if err := beprotojson.Unmarshal([]byte(wire), &settings); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	got, err := beprotojson.Marshal(&settings)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(got) != wire {
+		t.Fatalf("round trip = %s, want %s", got, wire)
+	}
+}
