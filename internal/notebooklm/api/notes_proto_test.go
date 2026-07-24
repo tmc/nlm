@@ -16,7 +16,7 @@ import (
 
 func TestGetNotesProtoAdapterProjection(t *testing.T) {
 	raw := []byte(`[[["note-1",["note-1","body",[1,"157962509464",[1775436871,282578000],null,null,[1775436871,282578000],false],null,"Title","Rich",[1]]],["note-2",["note-2","",null,null,"Second","",[2]]]]]`)
-	var wire pb.GetNotesWireResponse
+	var wire pb.GetNotesRichWireResponse
 	if err := beprotojson.Unmarshal(raw, &wire); err != nil {
 		t.Fatalf("proto decoder: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {
 	if got := notesFromWireResponse(nil); got != nil {
 		t.Fatalf("nil response = %#v, want nil", got)
 	}
-	got := notesFromWireResponse(&pb.GetNotesWireResponse{Entries: []*pb.GetNotesEntry{nil}})
+	got := notesFromWireResponse(&pb.GetNotesRichWireResponse{Entries: []*pb.GetNotesRichEntry{nil}})
 	if got == nil || len(got) != 0 {
 		t.Fatalf("empty entries = %#v, want non-nil empty slice", got)
 	}
@@ -89,7 +89,7 @@ func TestGetNotesProtoAdapterCorpusProjection(t *testing.T) {
 					continue
 				}
 				responses++
-				var wire pb.GetNotesWireResponse
+				var wire pb.GetNotesRichWireResponse
 				if err := beprotojson.Unmarshal(rpcResponse.Data, &wire); err != nil {
 					t.Fatalf("%s:%d: proto decode: %v", file, record, err)
 				}

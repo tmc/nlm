@@ -566,7 +566,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context
 }
 
 // GetNotes calls the GetNotes RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, req *notebooklmv1alpha1.GetNotesRequest) (*notebooklmv1alpha1.GetNotesWireResponse, error) {
+func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, req *notebooklmv1alpha1.GetNotesRequest) (*notebooklmv1alpha1.GetNotesRichWireResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "cFji9",
@@ -581,7 +581,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, r
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.GetNotesWireResponse
+	var result notebooklmv1alpha1.GetNotesRichWireResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetNotes: unmarshal response: %w", err)
 	}

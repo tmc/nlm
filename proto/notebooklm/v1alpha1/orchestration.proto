@@ -1248,7 +1248,7 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "AH0mwd";
         option (arg_format) = "[%project_id%, null, %note_ids%, %context%]";
     }
-    rpc GetNotes(GetNotesRequest) returns (GetNotesWireResponse) {
+    rpc GetNotes(GetNotesRequest) returns (GetNotesRichWireResponse) {
         option (rpc_id) = "cFji9";
         option (arg_format) = "[%project_id%, null, %since%, %context%]";
     }
@@ -2192,6 +2192,50 @@ message RichDocument {
     int64 flag = 5;                               // small int (1); meaning TBD
 }
 
+// GetNotesRichWireResponse is the keyed response shape returned by cFji9.
+// The response-side note record differs from the public Note message: rich_text
+// is either a legacy string or a structured RichDocument, and field 4 repeats
+// the document's grounding details without their source-id keys.
+message GetNotesRichWireResponse {
+    repeated GetNotesRichEntry entries = 1;
+    google.protobuf.Timestamp fetch_time = 2;
+}
+
+// GetNotesRichEntry is one keyed GetNotes result: [note_id, note].
+message GetNotesRichEntry {
+    string note_id = 1;
+    GetNotesRichRecord note = 2;
+    // Meaning unconfirmed; observed as 2 on keyed entries in several captures.
+    optional int32 entry_type = 3;
+}
+
+// GetNotesRichRecord is the response-side note tuple used by cFji9.
+message GetNotesRichRecord {
+    string note_id = 1;
+    optional string content_text = 2;
+    NoteMetadata metadata = 3;
+    NoteGroundingDetails grounding_details = 4;
+    string title = 5;
+    NoteRichText rich_text = 6;
+    repeated int32 note_type = 7;
+}
+
+// NoteRichText is a shape union. Older notes carry a plain string; rich notes
+// carry the same positional RichDocument tree used by rendered chat content.
+message NoteRichText {
+    oneof value {
+        string plain_text = 1;
+        RichDocument document = 2;
+    }
+}
+
+// NoteGroundingDetails wraps the unkeyed grounding-detail list at note field 4.
+// For rich notes, each item is byte-for-byte equal to the Grounding part of the
+// corresponding source-keyed GroundingRecord in RichDocument.grounding.
+message NoteGroundingDetails {
+    repeated Grounding grounding = 1;
+}
+
 // SpanLayers holds the document body as two parallel layers over the same text:
 // the block tree (headings, paragraphs, list items) and a per-source annotation
 // index mapping offset ranges back to their source.
@@ -2210,6 +2254,10 @@ message Span {
     optional int64 start = 1;
     optional int64 end = 2;
     SpanContent content = 3;
+    // Inline images carry [image_url, null, image_id] at position 4 instead of
+    // text content. The URL is an authenticated NotebookLM media URL; image_id
+    // is the stable UUID for the embedded image.
+    SpanImage image = 4;
     // table carries a [type_code, columns, rows] table block instead of the
     // usual content/hidden_content shapes; fields 1-4 and 6-11 are null when
     // it is present.
@@ -2243,6 +2291,19 @@ message SpanTableRow {
     optional int64 start = 1;
     optional int64 end = 2;
     repeated Span cells = 3;
+    SpanTableRowMeta meta = 4;
+}
+
+// SpanTableRowMeta is the [null, flag] trailer on table rows.
+message SpanTableRowMeta {
+    optional bool flag = 2 [(json_bool) = true];
+}
+
+// SpanImage is an inline image reference: [image_url, null, image_id].
+message SpanImage {
+    string image_url = 1;
+    // Position 2 is null in observed captures; left unmodeled.
+    string image_id = 3;
 }
 
 // Separator marks a zero-content boundary span. It is empty on the wire ([])
@@ -2271,7 +2332,7 @@ message SpanContent {
 // TextLeaf is the innermost span content: a run of text with optional
 // positional formatting marks.
 message TextLeaf {
-    string text = 1;
+    optional string text = 1;
     TextMarks marks = 2;                          // [null x7, bold?] positional flags
 }
 

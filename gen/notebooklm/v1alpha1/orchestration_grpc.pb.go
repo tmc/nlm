@@ -182,7 +182,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// Note operations
 	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*NoteRecord, error)
 	DeleteNotes(ctx context.Context, in *DeleteNotesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesWireResponse, error)
+	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesRichWireResponse, error)
 	MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Note, error)
 	// Project operations
 	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*Project, error)
@@ -700,8 +700,8 @@ func (c *labsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesWireResponse, error) {
-	out := new(GetNotesWireResponse)
+func (c *labsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesRichWireResponse, error) {
+	out := new(GetNotesRichWireResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetNotes_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1394,7 +1394,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// Note operations
 	CreateNote(context.Context, *CreateNoteRequest) (*NoteRecord, error)
 	DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error)
-	GetNotes(context.Context, *GetNotesRequest) (*GetNotesWireResponse, error)
+	GetNotes(context.Context, *GetNotesRequest) (*GetNotesRichWireResponse, error)
 	MutateNote(context.Context, *MutateNoteRequest) (*Note, error)
 	// Project operations
 	CreateProject(context.Context, *CreateProjectRequest) (*Project, error)
@@ -1777,7 +1777,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Co
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteNotes not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) GetNotes(context.Context, *GetNotesRequest) (*GetNotesWireResponse, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetNotes(context.Context, *GetNotesRequest) (*GetNotesRichWireResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNotes not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateNote(context.Context, *MutateNoteRequest) (*Note, error) {

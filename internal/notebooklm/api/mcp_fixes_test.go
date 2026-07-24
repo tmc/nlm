@@ -14,7 +14,7 @@ import (
 
 func TestNotesFromWireResponse(t *testing.T) {
 	resp := []byte(`[[["note-1",["note-1","hello",[2,"157962509464",[1775436871,282578000]],null,"Test Note"]],["note-2",["note-2","world",[2,"157962509464",[1775436881,282578000]],null,"Second Note"]]],[1775601602,875155000]]`)
-	var wire pb.GetNotesWireResponse
+	var wire pb.GetNotesRichWireResponse
 	if err := beprotojson.Unmarshal(resp, &wire); err != nil {
 		t.Fatalf("decode notes: %v", err)
 	}

@@ -1587,7 +1587,7 @@ func (c *Client) GetNotes(projectID string) ([]*Note, error) {
 
 // notesFromWireResponse adapts the generated response to the public Note
 // slice while preserving the legacy parser's ordering and nil-item behavior.
-func notesFromWireResponse(response *pb.GetNotesWireResponse) []*pb.Note {
+func notesFromWireResponse(response *pb.GetNotesRichWireResponse) []*pb.Note {
 	if response == nil {
 		return nil
 	}
@@ -1613,7 +1613,7 @@ func notesFromWireResponse(response *pb.GetNotesWireResponse) []*pb.Note {
 	return notes
 }
 
-func noteFromRecord(note *pb.NoteRecord) *pb.Note {
+func noteFromRecord(note *pb.GetNotesRichRecord) *pb.Note {
 	if note == nil {
 		return nil
 	}
@@ -1624,7 +1624,7 @@ func noteFromRecord(note *pb.NoteRecord) *pb.Note {
 		NoteId:      note.GetNoteId(),
 		ContentText: note.GetContentText(),
 		Title:       note.GetTitle(),
-		RichText:    note.GetRichText(),
+		RichText:    note.GetRichText().GetPlainText(),
 	}
 }
 

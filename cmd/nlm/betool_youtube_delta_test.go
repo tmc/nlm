@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"testing"
 
 	genmethod "github.com/tmc/nlm/gen/method"
@@ -1013,14 +1014,14 @@ func TestCreateNoteRecordRoundTrip(t *testing.T) {
 	}
 }
 
-// TestGetNotesResponseRoundTrip guards keyed cFji9 note entries and the
-// response snapshot timestamp.
+// TestGetNotesResponseRoundTrip guards legacy plain-text cFji9 note entries,
+// their entry discriminator, and the response snapshot timestamp.
 func TestGetNotesResponseRoundTrip(t *testing.T) {
 	const wire = `[[["note-id",["note-id","Body",` +
-		`[1,"157962509464",[100,200],null,null,[110,300],false],null,"Title"]]],` +
+		`[1,"157962509464",[100,200],null,null,[110,300],false],null,"Title"],2]],` +
 		`[120,400]]`
 
-	msg := &notebooklmv1alpha1.GetNotesWireResponse{}
+	msg := &notebooklmv1alpha1.GetNotesRichWireResponse{}
 	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
@@ -1038,6 +1039,81 @@ func TestGetNotesResponseRoundTrip(t *testing.T) {
 	if len(deltas) != 0 {
 		b, _ := json.Marshal(deltas)
 		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestGetNotesRichResponseRoundTrip guards the cFji9 rich-note variants:
+// structured rich text, its parallel unkeyed grounding list, inline images,
+// table-row metadata, and explicitly empty text leaves.
+func TestGetNotesRichResponseRoundTrip(t *testing.T) {
+	wire, err := os.ReadFile("testdata/get_notes_rich_wire.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := &notebooklmv1alpha1.GetNotesRichWireResponse{}
+	if err := beprotojson.Unmarshal(wire, msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	entries := msg.GetEntries()
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	document := entries[0].GetNote().GetRichText().GetDocument()
+	if document == nil || len(document.GetBody().GetBlocks()) != 1 {
+		t.Fatalf("rich document decoded wrong: %+v", document)
+	}
+	details := entries[0].GetNote().GetGroundingDetails().GetGrounding()
+	if len(details) != 2 {
+		t.Fatalf("grounding details = %d, want 2", len(details))
+	}
+	deltas, err := diffWireAgainstProto(wire, msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestGetNotesRichSpanVariantsRoundTrip guards variants first observed inside
+// rich notes rather than chat responses.
+func TestGetNotesRichSpanVariantsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		wire string
+		msg  proto.Message
+	}{
+		{
+			name: "inline image",
+			wire: `[0,1,null,["https://example.invalid/image",null,"image-1"]]`,
+			msg:  &notebooklmv1alpha1.Span{},
+		},
+		{
+			name: "table row metadata",
+			wire: `[0,4,[[0,4,[""]]],[null,false]]`,
+			msg:  &notebooklmv1alpha1.SpanTableRow{},
+		},
+		{
+			name: "explicit empty text",
+			wire: `[""]`,
+			msg:  &notebooklmv1alpha1.TextLeaf{},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := beprotojson.Unmarshal([]byte(test.wire), test.msg); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(test.wire), test.msg)
+			if err != nil {
+				t.Fatalf("diff: %v", err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+			}
+		})
 	}
 }
 
