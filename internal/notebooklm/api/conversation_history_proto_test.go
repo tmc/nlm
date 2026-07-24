@@ -37,7 +37,7 @@ func TestGetConversationHistoryRequestEncoder(t *testing.T) {
 func TestConversationMessagesFromProto(t *testing.T) {
 	got := conversationMessagesFromProto(&pb.GetConversationHistoryResponse{Messages: []*pb.ChatMessage{
 		{MessageId: "user-1", Role: 1, Text: "Question"},
-		{MessageId: "assistant-1", Role: 2, RichContent: &pb.RichContent{Segment: &pb.ContentSegment{Text: "Answer"}}},
+		{MessageId: "assistant-1", Role: 2, RichContent: &pb.RichContent{Segment: &pb.ContentSegment{Text: proto.String("Answer")}}},
 		{MessageId: "empty", Role: 2},
 	}})
 	want := []ChatMessage{

@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
+	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/beprotojson"
 )
 
@@ -305,7 +306,10 @@ func deltaShapeMatches(field protoreflect.FieldDescriptor, value any) bool {
 		}
 		if field.Message() != nil {
 			fields := field.Message().Fields()
-			if fields.Len() == 0 || len(v) == 0 {
+			if fields.Len() == 0 {
+				return len(v) == 0
+			}
+			if len(v) == 0 {
 				return true
 			}
 			return deltaShapeMatches(fields.Get(0), v[0])
@@ -318,6 +322,16 @@ func deltaShapeMatches(field protoreflect.FieldDescriptor, value any) bool {
 		return field.Kind() == protoreflect.StringKind || field.Kind() == protoreflect.BytesKind
 	case bool:
 		return field.Kind() == protoreflect.BoolKind
+	case map[string]any:
+		if field.Message() == nil {
+			return false
+		}
+		options := field.Message().Options()
+		if options == nil || !proto.HasExtension(options, notebooklmv1alpha1.E_ObjectEncoded) {
+			return false
+		}
+		enabled, ok := proto.GetExtension(options, notebooklmv1alpha1.E_ObjectEncoded).(bool)
+		return ok && enabled
 	case float64:
 		switch field.Kind() {
 		case protoreflect.Int32Kind, protoreflect.Int64Kind, protoreflect.Sint32Kind,

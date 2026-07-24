@@ -2022,7 +2022,33 @@ message LoadSourceResponse {
 
 message LoadedSourceContent {
     LoadedSourceRows rows = 1;
-    optional int32 content_kind = 2; // inferred discriminator; meaning unconfirmed
+    LoadedSourceContentKind content_kind = 2;
+    repeated LoadedSourceStyle styles = 3;
+}
+
+// LoadedSourceContentKind preserves the observed scalar discriminator and
+// present-empty marker variants at LoadedSourceContent position 2.
+message LoadedSourceContentKind {
+    oneof value {
+        int32 kind = 1;
+        LoadedSourceEmpty empty = 2;
+    }
+}
+
+message LoadedSourceEmpty {}
+
+message LoadedSourceStyle {
+    int32 style_id = 1;
+    LoadedSourceStyleData data = 2;
+}
+
+message LoadedSourceStyleData {
+    optional bool bold = 1 [(json_bool) = true];
+    optional bool italic = 2 [(json_bool) = true];
+    optional bool underline = 3 [(json_bool) = true];
+    TextMarkFont font = 5;
+    TextMarkColor color = 6;
+    optional bool paragraph_flag = 9 [(json_bool) = true]; // inferred; meaning unconfirmed
 }
 
 message LoadedSourceRows {
@@ -2034,7 +2060,27 @@ message LoadedSourceRow {
     optional int64 start = 1;
     optional int64 end = 2;
     LoadedSourceText text = 3;
+    LoadedSourceTable table = 5;
     LoadedSourceImage image = 6;
+    SpanCodeBlock code_block = 7;
+}
+
+message LoadedSourceTable {
+    int32 type_code = 1;
+    int32 columns = 2;
+    repeated LoadedSourceTableRow rows = 3;
+}
+
+message LoadedSourceTableRow {
+    optional int64 start = 1;
+    optional int64 end = 2;
+    repeated LoadedSourceTableCell cells = 3;
+}
+
+message LoadedSourceTableCell {
+    optional int64 start = 1;
+    optional int64 end = 2;
+    repeated LoadedSourceRow rows = 3;
 }
 
 message LoadedSourceImage {
@@ -2046,6 +2092,7 @@ message LoadedSourceImage {
 message LoadedSourceText {
     repeated LoadedSourceSpan spans = 1;
     LoadedSourceTextStyle style = 2;
+    ListItem list_item = 4;
 }
 
 message LoadedSourceSpan {
@@ -2062,6 +2109,11 @@ message LoadedSourceSpanText {
 message LoadedSourceSpanFlags {
     optional bool bold = 1 [(json_bool) = true];
     optional bool italic = 2 [(json_bool) = true]; // inferred formatting flag
+    optional string link = 4;
+    TextMarkFontOrFlag flag_or_font = 5;
+    TextMarkColorOrFlag flag_or_color = 6;
+    optional bool annotation_flag = 8 [(json_bool) = true]; // inferred; meaning unconfirmed
+    optional int32 style_code = 10; // inferred; meaning unconfirmed
 }
 
 message LoadedSourceTextStyle {
@@ -2142,6 +2194,8 @@ message GetConversationHistoryRequest {
 
 message GetConversationHistoryResponse {
     repeated ChatMessage messages = 1;
+    // Opaque pagination/resume cursor returned after the message list.
+    string cursor = 2;
 }
 
 message DeleteChatHistoryRequest {
@@ -2189,7 +2243,8 @@ message ContentAnnotation {
 // carries its text and a citation reference; complex segments additionally
 // carry a rich-text document payload not modeled here.
 message ContentSegment {
-    string text = 1;
+    // Empty assistant segments carry an explicit empty string.
+    optional string text = 1;
     // Field 2 ([1]) is an empty array in observed captures; left unmodeled.
     CitationRef citation = 3;                     // [source_id, source_id, ref]
     // Field 4 ([3]) is an empty array in observed captures; left unmodeled.
@@ -2389,12 +2444,42 @@ message TextMarks {
     optional bool flag2 = 2 [(json_bool) = true];
     optional bool flag3 = 3 [(json_bool) = true];
     string link = 4;                              // [3] hyperlink target URL
-    optional bool flag5 = 5 [(json_bool) = true];
-    optional bool flag6 = 6 [(json_bool) = true];
+    TextMarkFontOrFlag flag_or_font = 5;
+    TextMarkColorOrFlag flag_or_color = 6;
     optional bool flag7 = 7 [(json_bool) = true];
     optional bool flag8 = 8 [(json_bool) = true];
     optional bool flag9 = 9 [(json_bool) = true];  // observed true on code/identifier runs
     optional int64 style_code = 10;                // inferred style code; observed 2
+}
+
+// TextMarkFontOrFlag is a shape union. Position 5 is a boolean formatting
+// flag in older spans and a [font_family, weight] tuple in styled rich text.
+message TextMarkFontOrFlag {
+    oneof value {
+        bool flag = 1;
+        TextMarkFont font = 2;
+    }
+}
+
+message TextMarkFont {
+    string family = 1;
+    optional int32 weight = 2;
+    optional int32 size = 3;
+}
+
+// TextMarkColorOrFlag is a shape union. Position 6 is a boolean formatting
+// flag in older spans and an [red, green, blue] tuple in styled rich text.
+message TextMarkColorOrFlag {
+    oneof value {
+        bool flag = 1;
+        TextMarkColor color = 2;
+    }
+}
+
+message TextMarkColor {
+    optional int32 red = 1;
+    optional int32 green = 2;
+    optional int32 blue = 3;
 }
 
 // SpanGroupMeta is the [null, indent, flag?] metadata trailing a span group.
@@ -2412,7 +2497,27 @@ message SpanGroupMeta {
 message ListItem {
     // Fields 1 and 2 ([0], [1]) are null in observed captures; left unmodeled.
     optional int64 nesting = 3;                   // [2] nesting depth (0,1,2)
-    ListMarker marker = 4;                        // [3] bullet/number style
+    ListItemMarker marker = 4;                    // [3] marker or shifted-marker metadata
+    ListMarker trailing_marker = 5;               // [4] marker when field 4 is metadata
+}
+
+// ListItemMarker is a shape union. Most list items carry their sparse marker
+// object directly at position 4. A newer variant carries [null,null,flag] at
+// position 4 and shifts the sparse marker object to position 5.
+message ListItemMarker {
+    oneof value {
+        ListItemMarkerEmpty empty = 1;
+        ListItemMarkerMeta meta = 2;
+        ListMarker marker = 3;
+    }
+}
+
+message ListItemMarkerEmpty {
+}
+
+// ListItemMarkerMeta is the [null, null, flag] tuple in shifted-marker items.
+message ListItemMarkerMeta {
+    optional bool flag = 3 [(json_bool) = true];
 }
 
 // ListMarker is the list-item style object, carried on the wire as a sparse

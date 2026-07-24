@@ -122,7 +122,7 @@ func TestAddSourcesGoogleDocsScrubbedProjection(t *testing.T) {
 	}
 }
 
-func TestLoadSourceGoogleDocsCorpusFallback(t *testing.T) {
+func TestLoadSourceGoogleDocsCorpusProjection(t *testing.T) {
 	path := filepath.Join("/tmp", "nlm-traffic", "new-rec3", "notebooklm.google.com", "notebooklm.google.com.jsonl")
 	docSourceIDs := googleDocsSourceIDs(t, path)
 	if len(docSourceIDs) == 0 {
@@ -173,11 +173,20 @@ func TestLoadSourceGoogleDocsCorpusFallback(t *testing.T) {
 				continue
 			}
 			var generated pb.LoadSourceResponse
-			if err := beprotojson.Unmarshal(response.Data, &generated); err == nil {
-				t.Fatalf("%s:%d: Google Docs response unexpectedly bypassed the positional fallback", path, record)
+			if err := beprotojson.Unmarshal(response.Data, &generated); err != nil {
+				t.Fatalf("%s:%d: generated decode: %v", path, record, err)
 			}
 			if legacy.SourceID == "" || legacy.Title == "" || len(legacy.Fragments) == 0 {
-				t.Fatalf("%s:%d: Google Docs fallback projection incomplete", path, record)
+				t.Fatalf("%s:%d: Google Docs legacy projection incomplete", path, record)
+			}
+			got := loadSourceTextFromProto(&generated)
+			if legacy.SourceID != got.SourceID || legacy.Title != got.Title || len(legacy.Fragments) != len(got.Fragments) {
+				t.Fatalf("%s:%d: generated=%+v legacy=%+v", path, record, got, legacy)
+			}
+			for i := range legacy.Fragments {
+				if legacy.Fragments[i] != got.Fragments[i] {
+					t.Fatalf("%s:%d fragment %d: generated=%+v legacy=%+v", path, record, i, got.Fragments[i], legacy.Fragments[i])
+				}
 			}
 			variants++
 		}
@@ -186,7 +195,7 @@ func TestLoadSourceGoogleDocsCorpusFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	if variants < 1 {
-		t.Fatalf("Google Docs LoadSource fallbacks=%d, want at least 1", variants)
+		t.Fatalf("Google Docs LoadSource variants=%d, want at least 1", variants)
 	}
 }
 

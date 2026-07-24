@@ -976,7 +976,10 @@ func shapeMatches(c protoreflect.FieldDescriptor, val interface{}) bool {
 			// message's first field? This distinguishes message cases that
 			// differ only by their contents' shape.
 			lead := c.Message().Fields()
-			if lead.Len() == 0 || len(v) == 0 {
+			if lead.Len() == 0 {
+				return len(v) == 0
+			}
+			if len(v) == 0 {
 				return true
 			}
 			return shapeMatches(lead.Get(0), v[0])
@@ -999,6 +1002,8 @@ func shapeMatches(c protoreflect.FieldDescriptor, val interface{}) bool {
 		return false
 	case bool:
 		return c.Kind() == protoreflect.BoolKind
+	case map[string]interface{}:
+		return c.Message() != nil && messageBoolOption(c.Message(), extObjectEncoded)
 	case nil:
 		return true
 	}

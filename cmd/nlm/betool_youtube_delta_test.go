@@ -1274,6 +1274,93 @@ func TestLoadSourceResponseRoundTrip(t *testing.T) {
 	}
 }
 
+// TestGetConversationHistoryRichResponseRoundTrip guards the khqZz cursor,
+// explicit empty segment text, styled marks, and shifted list marker.
+func TestGetConversationHistoryRichResponseRoundTrip(t *testing.T) {
+	wire, err := os.ReadFile("testdata/get_conversation_history_rich_wire.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := &notebooklmv1alpha1.GetConversationHistoryResponse{}
+	if err := beprotojson.Unmarshal(wire, msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if msg.GetCursor() != "cursor" {
+		t.Fatalf("cursor = %q, want cursor", msg.GetCursor())
+	}
+	deltas, err := diffWireAgainstProto(wire, msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+func TestConversationRichShapeVariantsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		wire string
+		msg  proto.Message
+	}{
+		{
+			name: "styled marks",
+			wire: `[null,null,null,null,["Inter",400,11],[1,2,3]]`,
+			msg:  &notebooklmv1alpha1.TextMarks{},
+		},
+		{
+			name: "direct marker",
+			wire: `[null,null,0,{"101":"•","102":1,"103":1,"104":0}]`,
+			msg:  &notebooklmv1alpha1.ListItem{},
+		},
+		{
+			name: "shifted marker",
+			wire: `[null,null,0,[null,null,false],{"101":"•","102":1,"103":1,"104":0}]`,
+			msg:  &notebooklmv1alpha1.ListItem{},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := beprotojson.Unmarshal([]byte(test.wire), test.msg); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(test.wire), test.msg)
+			if err != nil {
+				t.Fatalf("diff: %v", err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+			}
+		})
+	}
+}
+
+// TestLoadSourceRichResponseRoundTrip guards the hizoJc loaded-source styles,
+// list item, table, and code-block variants.
+func TestLoadSourceRichResponseRoundTrip(t *testing.T) {
+	wire, err := os.ReadFile("testdata/load_source_rich_wire.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := &notebooklmv1alpha1.LoadSourceResponse{}
+	if err := beprotojson.Unmarshal(wire, msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(msg.GetContent().GetStyles()) != 1 {
+		t.Fatalf("styles decoded wrong: %+v", msg.GetContent())
+	}
+	deltas, err := diffWireAgainstProto(wire, msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
 // TestTextMarksFlag9RoundTrip guards TextMarks.flag9 (field 9): a boolean mark
 // at position [8] observed true on code/identifier runs. Carried as a JSON
 // bool (json_bool), not batchexecute's 1/0.
