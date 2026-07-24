@@ -429,10 +429,9 @@ type LabsTailwindOrchestrationServiceClient interface {
 	MutateLabel(ctx context.Context, in *MutateLabelRequest, opts ...grpc.CallOption) (*MutateLabelResponse, error)
 	DeleteLabels(ctx context.Context, in *DeleteLabelsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
-	// and CreateUniversalArtifact (R7cb6c). Likely the trigger that
-	// takes a SUGGESTED-state artifact (see ArtifactState.SUGGESTED) and
-	// promotes it to a generated one. JS-bundle-verified; no HAR yet.
-	// TODO(har): trigger by clicking a suggested-artifact card.
+	// and CreateUniversalArtifact (R7cb6c). Captured requests carry a
+	// context envelope followed by an artifact ID. The operation name is
+	// inferred from the bundle; the server-side effect is unconfirmed.
 	GenerateArtifact(ctx context.Context, in *GenerateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// CancelDiscoverSourcesJob (Zbrupe). Cancels an in-flight
 	// DiscoverSources / DiscoverSourcesAsync / DiscoverSourcesManifold
@@ -1636,10 +1635,9 @@ type LabsTailwindOrchestrationServiceServer interface {
 	MutateLabel(context.Context, *MutateLabelRequest) (*MutateLabelResponse, error)
 	DeleteLabels(context.Context, *DeleteLabelsRequest) (*emptypb.Empty, error)
 	// GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
-	// and CreateUniversalArtifact (R7cb6c). Likely the trigger that
-	// takes a SUGGESTED-state artifact (see ArtifactState.SUGGESTED) and
-	// promotes it to a generated one. JS-bundle-verified; no HAR yet.
-	// TODO(har): trigger by clicking a suggested-artifact card.
+	// and CreateUniversalArtifact (R7cb6c). Captured requests carry a
+	// context envelope followed by an artifact ID. The operation name is
+	// inferred from the bundle; the server-side effect is unconfirmed.
 	GenerateArtifact(context.Context, *GenerateArtifactRequest) (*Artifact, error)
 	// CancelDiscoverSourcesJob (Zbrupe). Cancels an in-flight
 	// DiscoverSources / DiscoverSourcesAsync / DiscoverSourcesManifold

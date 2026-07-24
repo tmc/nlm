@@ -1795,7 +1795,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifact(ctx context.Co
 	call := rpc.Call{
 		ID:         "Rytqqe",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       method.EncodeGenerateArtifactArgs(req),
 	}
 
 	// Execute the RPC

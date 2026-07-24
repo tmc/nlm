@@ -913,6 +913,28 @@ func TestArtifactPromptAndImportFieldsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestGenerateArtifactRequestRoundTrip(t *testing.T) {
+	const wire = `[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9,11]]],"artifact-id"]`
+	method, err := resolveMethod("GenerateArtifact")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := method.NewRequest()
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatal(err)
+	}
+	if deltas, err := diffWireAgainstProto([]byte(wire), msg); err != nil || len(deltas) != 0 {
+		t.Fatalf("diff = %v, %v; want lossless", deltas, err)
+	}
+	got, err := json.Marshal(genmethod.EncodeGenerateArtifactArgs(msg.(*notebooklmv1alpha1.GenerateArtifactRequest)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != wire {
+		t.Fatalf("encoder = %s, want %s", got, wire)
+	}
+}
+
 // TestTailRequestVariantsRoundTrip guards four low-frequency request shapes.
 func TestTailRequestVariantsRoundTrip(t *testing.T) {
 	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`
