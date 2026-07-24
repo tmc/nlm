@@ -20,12 +20,30 @@ func TestEncodeCreateNoteArgs(t *testing.T) {
 		ProjectId: "abc-123",
 		Title:     "ignored", // server hardcodes "New Note"; title is set via MutateNote
 		Content:   &content,
+		NoteType:  &notebooklm.Int32List{Value: 1},
 	})
 	want := `["abc-123","",[1],null,"New Note",null,[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`
 	gotJSON, err := json.Marshal(got)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
+	if string(gotJSON) != want {
+		t.Fatalf("CreateNote args:\n got: %s\nwant: %s", gotJSON, want)
+	}
+}
+
+func TestEncodeCreateNoteArgsWithTrailingNoteType(t *testing.T) {
+	req := &notebooklm.CreateNoteRequest{
+		ProjectId: "abc-123",
+		NoteType:  &notebooklm.Int32List{Value: 1},
+	}
+	trailing := int32(1)
+	req.NoteType.Unknown_7 = &trailing
+	gotJSON, err := json.Marshal(EncodeCreateNoteArgs(req))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `["abc-123","",[1,null,null,null,null,null,1],null,"New Note",null,[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`
 	if string(gotJSON) != want {
 		t.Fatalf("CreateNote args:\n got: %s\nwant: %s", gotJSON, want)
 	}
