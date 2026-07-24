@@ -709,33 +709,42 @@ func TestCreateUniversalArtifactRequestRoundTrip(t *testing.T) {
 // wrapper and selected cover preset.
 func TestMutateProjectCoverRequestRoundTrip(t *testing.T) {
 	const context = `[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]]]`
-	for _, preset := range []string{"1", "5"} {
-		wire := `["project-id",[[null,null,null,null,null,null,null,[[],[` + preset + `]]]],` + context + `]`
-		method, err := resolveMethod("MutateProjectCover")
-		if err != nil {
-			t.Fatal(err)
-		}
-		msg := method.NewRequest()
-		if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
-			t.Fatalf("Unmarshal(%s): %v", wire, err)
-		}
-		deltas, err := diffWireAgainstProto([]byte(wire), msg)
-		if err != nil {
-			t.Fatalf("diff(%s): %v", wire, err)
-		}
-		if len(deltas) != 0 {
-			b, _ := json.Marshal(deltas)
-			t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
-		}
-		got, err := json.Marshal(genmethod.EncodeMutateProjectCoverArgs(
-			msg.(*notebooklmv1alpha1.MutateProjectCoverRequest),
-		))
-		if err != nil {
-			t.Fatalf("marshal encoded args: %v", err)
-		}
-		if string(got) != wire {
-			t.Fatalf("encoder = %s, want %s", got, wire)
-		}
+	tests := []struct {
+		name  string
+		cover string
+	}{
+		{name: "preset only", cover: `[[],[1]]`},
+		{name: "present scalar", cover: `[[8],[5]]`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			wire := `["project-id",[[null,null,null,null,null,null,null,` + test.cover + `]],` + context + `]`
+			method, err := resolveMethod("MutateProjectCover")
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg := method.NewRequest()
+			if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+				t.Fatalf("Unmarshal(%s): %v", wire, err)
+			}
+			deltas, err := diffWireAgainstProto([]byte(wire), msg)
+			if err != nil {
+				t.Fatalf("diff(%s): %v", wire, err)
+			}
+			if len(deltas) != 0 {
+				b, _ := json.Marshal(deltas)
+				t.Fatalf("expected lossless for %s, got %d delta(s): %s", wire, len(deltas), b)
+			}
+			got, err := json.Marshal(genmethod.EncodeMutateProjectCoverArgs(
+				msg.(*notebooklmv1alpha1.MutateProjectCoverRequest),
+			))
+			if err != nil {
+				t.Fatalf("marshal encoded args: %v", err)
+			}
+			if string(got) != wire {
+				t.Fatalf("encoder = %s, want %s", got, wire)
+			}
+		})
 	}
 }
 

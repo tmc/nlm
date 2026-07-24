@@ -1942,8 +1942,14 @@ message ProjectCoverMutationUnknown4 {
 }
 
 message ProjectCoverSelection {
-    google.protobuf.Empty clear = 1;
+    // Semantics unconfirmed. Observed as [8], [7], and [2] in cover
+    // mutations, and as [] in the legacy preset-only variant.
+    ProjectCoverSelectionUnknown1 unknown_1 = 1;
     Int32List preset = 2;
+}
+
+message ProjectCoverSelectionUnknown1 {
+    int32 value = 1;
 }
 
 message MutateSourceRequest {
