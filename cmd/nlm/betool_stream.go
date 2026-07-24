@@ -116,22 +116,31 @@ func streamFrame(body []byte, start, declared int) ([]byte, int, error) {
 	if target < 0 {
 		return nil, start, fmt.Errorf("length %d is too small", declared)
 	}
-	var ends []int
-	if end := start + target; end <= len(body) {
-		ends = append(ends, end)
+	// Most frames count the two framing newlines. A captured continuation
+	// stream adds ten more bytes after its first answer frame. Keep that
+	// observed variant narrow: it must still end at a delimiter and form JSON.
+	targets := []int{target}
+	if continuationTarget := declared - 12; continuationTarget >= 0 {
+		targets = append(targets, continuationTarget)
 	}
-	if end, ok := streamFrameEndRunes(body, start, target, false); ok {
-		ends = append(ends, end)
-	}
-	if end, ok := streamFrameEndRunes(body, start, target, true); ok {
-		ends = append(ends, end)
-	}
-	for _, end := range ends {
-		next, ok := streamFrameDelimiter(body, end)
-		if !ok || !json.Valid(body[start:end]) {
-			continue
+	for _, target := range targets {
+		var ends []int
+		if end := start + target; end <= len(body) {
+			ends = append(ends, end)
 		}
-		return body[start:end], next, nil
+		if end, ok := streamFrameEndRunes(body, start, target, false); ok {
+			ends = append(ends, end)
+		}
+		if end, ok := streamFrameEndRunes(body, start, target, true); ok {
+			ends = append(ends, end)
+		}
+		for _, end := range ends {
+			next, ok := streamFrameDelimiter(body, end)
+			if !ok || !json.Valid(body[start:end]) {
+				continue
+			}
+			return body[start:end], next, nil
+		}
 	}
 	return nil, start, fmt.Errorf("length %d does not delimit a valid frame", declared)
 }

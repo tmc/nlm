@@ -89,6 +89,22 @@ func TestDecodeWrbFRStreamUTF16Length(t *testing.T) {
 	}
 }
 
+func TestDecodeWrbFRStreamContinuationLength(t *testing.T) {
+	row, err := json.Marshal([]any{"wrb.fr", nil, `[["continuation"]]`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := "[" + string(row) + "]"
+	body := ")]}'\n\n" + fmt.Sprintf("%d\n%s\n", utf8.RuneCountInString(frame)+12, frame)
+	resp, frames, err := decodeWrbFRStream([]byte(body), "laWbsf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if frames != 1 || string(resp.Responses[0].Data) != `[["continuation"]]` {
+		t.Fatalf("frames, response = %d, %+v", frames, resp)
+	}
+}
+
 func streamTestFrame(t *testing.T, payload string, count func(string) int) string {
 	t.Helper()
 	row, err := json.Marshal([]any{[]any{"wrb.fr", nil, payload}})
