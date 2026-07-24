@@ -211,7 +211,8 @@ message TimestampPair {
 // ArtifactNoteConfig is the [null, const, null, source_refs, language, flag,
 // int] config blob inside ArtifactNotePreview.
 message ArtifactNoteConfig {
-    // Field 1 is null in every observed capture; left unmodeled.
+    // Present when the note was generated with a custom prompt.
+    string prompt = 1;
     optional int64 mode = 2;  // constant 2 in every observed capture
     // Field 3 is null in every observed capture; left unmodeled.
     repeated SourceIdList source_refs = 4;
@@ -386,6 +387,8 @@ message ArtifactSlideDeckConfig {
     string language = 2;
     optional int64 format = 3;
     optional int64 length = 4;
+    // Observed as 4; semantics are unconfirmed.
+    int32 unknown_5 = 5;
 }
 
 // ArtifactSlideImage is one [[url, width, height], description, text] entry
@@ -575,7 +578,8 @@ message UniversalAudioOptions {
 }
 
 message UniversalAudioDetails {
-    // Field 1 is null in observed requests.
+    // Present when an audio request carries a custom prompt.
+    string prompt = 1;
     int32 style = 2;
     // Field 3 is null in observed requests.
     repeated SourceIdList sources = 4;
@@ -2981,7 +2985,9 @@ message BulkImportTextSource {
     BulkImportTextContent content = 2;
     BulkImportTextSourceLink unknown_3 = 3;
     int32 content_type = 4;
-    // Fields 5 through 10 are null.
+    // Fields 5 through 7 and 9 through 10 are null.
+    // Observed as a list containing a YouTube URL; semantics are unconfirmed.
+    repeated string unknown_8 = 8;
     int32 source_type = 11;
 }
 

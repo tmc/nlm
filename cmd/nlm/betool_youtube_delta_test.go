@@ -874,6 +874,45 @@ func TestSourceWarningsBareIntegersRoundTrip(t *testing.T) {
 	}
 }
 
+func TestArtifactPromptAndImportFieldsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		wire string
+		msg  proto.Message
+	}{
+		{
+			name: "note config prompt",
+			wire: `["prompt",2,null,[["source-id"]],"en",null,1]`,
+			msg:  &notebooklmv1alpha1.ArtifactNoteConfig{},
+		},
+		{
+			name: "slide config unknown 5",
+			wire: `[null,"en",2,4,4]`,
+			msg:  &notebooklmv1alpha1.ArtifactSlideDeckConfig{},
+		},
+		{
+			name: "audio details prompt",
+			wire: `["prompt",2,null,[["source-id"]],"en",null,1]`,
+			msg:  &notebooklmv1alpha1.UniversalAudioDetails{},
+		},
+		{
+			name: "bulk import link list",
+			wire: `[null,["title","text"],null,1,null,null,null,["https://example.invalid/video"]]`,
+			msg:  &notebooklmv1alpha1.BulkImportTextSource{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := beprotojson.Unmarshal([]byte(tt.wire), tt.msg); err != nil {
+				t.Fatal(err)
+			}
+			if deltas, err := diffWireAgainstProto([]byte(tt.wire), tt.msg); err != nil || len(deltas) != 0 {
+				t.Fatalf("diff = %v, %v; want lossless", deltas, err)
+			}
+		})
+	}
+}
+
 // TestTailRequestVariantsRoundTrip guards four low-frequency request shapes.
 func TestTailRequestVariantsRoundTrip(t *testing.T) {
 	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`
