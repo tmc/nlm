@@ -2770,10 +2770,16 @@ message BulkImportFromResearchWireRequest {
 message BulkImportTextSource {
     // Field 1 is null.
     BulkImportTextContent content = 2;
-    // Field 3 is null.
+    BulkImportTextSourceLink unknown_3 = 3;
     int32 content_type = 4;
     // Fields 5 through 10 are null.
     int32 source_type = 11;
+}
+
+// BulkImportTextSourceLink is an observed [URL, title] source reference.
+message BulkImportTextSourceLink {
+    string url = 1;
+    string title = 2;
 }
 
 message BulkImportTextContent {

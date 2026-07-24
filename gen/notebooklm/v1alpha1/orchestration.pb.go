@@ -16187,9 +16187,9 @@ type BulkImportTextSource struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Field 1 is null.
-	Content *BulkImportTextContent `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	// Field 3 is null.
-	ContentType int32 `protobuf:"varint,4,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
+	Content     *BulkImportTextContent    `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	Unknown_3   *BulkImportTextSourceLink `protobuf:"bytes,3,opt,name=unknown_3,json=unknown3,proto3" json:"unknown_3,omitempty"`
+	ContentType int32                     `protobuf:"varint,4,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
 	// Fields 5 through 10 are null.
 	SourceType int32 `protobuf:"varint,11,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
 }
@@ -16233,6 +16233,13 @@ func (x *BulkImportTextSource) GetContent() *BulkImportTextContent {
 	return nil
 }
 
+func (x *BulkImportTextSource) GetUnknown_3() *BulkImportTextSourceLink {
+	if x != nil {
+		return x.Unknown_3
+	}
+	return nil
+}
+
 func (x *BulkImportTextSource) GetContentType() int32 {
 	if x != nil {
 		return x.ContentType
@@ -16247,6 +16254,62 @@ func (x *BulkImportTextSource) GetSourceType() int32 {
 	return 0
 }
 
+// BulkImportTextSourceLink is an observed [URL, title] source reference.
+type BulkImportTextSourceLink struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Url   string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+}
+
+func (x *BulkImportTextSourceLink) Reset() {
+	*x = BulkImportTextSourceLink{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[249]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BulkImportTextSourceLink) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BulkImportTextSourceLink) ProtoMessage() {}
+
+func (x *BulkImportTextSourceLink) ProtoReflect() protoreflect.Message {
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[249]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BulkImportTextSourceLink.ProtoReflect.Descriptor instead.
+func (*BulkImportTextSourceLink) Descriptor() ([]byte, []int) {
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{249}
+}
+
+func (x *BulkImportTextSourceLink) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *BulkImportTextSourceLink) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
 type BulkImportTextContent struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -16259,7 +16322,7 @@ type BulkImportTextContent struct {
 func (x *BulkImportTextContent) Reset() {
 	*x = BulkImportTextContent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[249]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[250]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16272,7 +16335,7 @@ func (x *BulkImportTextContent) String() string {
 func (*BulkImportTextContent) ProtoMessage() {}
 
 func (x *BulkImportTextContent) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[249]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[250]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16285,7 +16348,7 @@ func (x *BulkImportTextContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkImportTextContent.ProtoReflect.Descriptor instead.
 func (*BulkImportTextContent) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{249}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{250}
 }
 
 func (x *BulkImportTextContent) GetTitle() string {
@@ -16316,7 +16379,7 @@ type BulkImportFromResearchResponse struct {
 func (x *BulkImportFromResearchResponse) Reset() {
 	*x = BulkImportFromResearchResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[250]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[251]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16329,7 +16392,7 @@ func (x *BulkImportFromResearchResponse) String() string {
 func (*BulkImportFromResearchResponse) ProtoMessage() {}
 
 func (x *BulkImportFromResearchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[250]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[251]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16342,7 +16405,7 @@ func (x *BulkImportFromResearchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkImportFromResearchResponse.ProtoReflect.Descriptor instead.
 func (*BulkImportFromResearchResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{250}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{251}
 }
 
 func (x *BulkImportFromResearchResponse) GetResults() []*Source {
@@ -16369,7 +16432,7 @@ type BulkImportResult struct {
 func (x *BulkImportResult) Reset() {
 	*x = BulkImportResult{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[251]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[252]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16382,7 +16445,7 @@ func (x *BulkImportResult) String() string {
 func (*BulkImportResult) ProtoMessage() {}
 
 func (x *BulkImportResult) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[251]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[252]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16395,7 +16458,7 @@ func (x *BulkImportResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BulkImportResult.ProtoReflect.Descriptor instead.
 func (*BulkImportResult) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{251}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{252}
 }
 
 func (x *BulkImportResult) GetSourceId() string {
@@ -16440,7 +16503,7 @@ type GetAudioFormatsRequest struct {
 func (x *GetAudioFormatsRequest) Reset() {
 	*x = GetAudioFormatsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[252]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[253]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16453,7 +16516,7 @@ func (x *GetAudioFormatsRequest) String() string {
 func (*GetAudioFormatsRequest) ProtoMessage() {}
 
 func (x *GetAudioFormatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[252]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[253]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16466,7 +16529,7 @@ func (x *GetAudioFormatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAudioFormatsRequest.ProtoReflect.Descriptor instead.
 func (*GetAudioFormatsRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{252}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{253}
 }
 
 func (x *GetAudioFormatsRequest) GetContext() *RequestContext {
@@ -16511,7 +16574,7 @@ type GetAudioFormatsResponse struct {
 func (x *GetAudioFormatsResponse) Reset() {
 	*x = GetAudioFormatsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[253]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[254]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16524,7 +16587,7 @@ func (x *GetAudioFormatsResponse) String() string {
 func (*GetAudioFormatsResponse) ProtoMessage() {}
 
 func (x *GetAudioFormatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[253]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[254]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16537,7 +16600,7 @@ func (x *GetAudioFormatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAudioFormatsResponse.ProtoReflect.Descriptor instead.
 func (*GetAudioFormatsResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{253}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{254}
 }
 
 func (x *GetAudioFormatsResponse) GetAudioKinds() *AudioFormatList {
@@ -16579,7 +16642,7 @@ type AudioFormatList struct {
 func (x *AudioFormatList) Reset() {
 	*x = AudioFormatList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[254]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[255]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16592,7 +16655,7 @@ func (x *AudioFormatList) String() string {
 func (*AudioFormatList) ProtoMessage() {}
 
 func (x *AudioFormatList) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[254]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[255]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16605,7 +16668,7 @@ func (x *AudioFormatList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioFormatList.ProtoReflect.Descriptor instead.
 func (*AudioFormatList) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{254}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{255}
 }
 
 func (x *AudioFormatList) GetItems() []*AudioFormat {
@@ -16626,7 +16689,7 @@ type DocTemplateList struct {
 func (x *DocTemplateList) Reset() {
 	*x = DocTemplateList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[255]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[256]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16639,7 +16702,7 @@ func (x *DocTemplateList) String() string {
 func (*DocTemplateList) ProtoMessage() {}
 
 func (x *DocTemplateList) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[255]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[256]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16652,7 +16715,7 @@ func (x *DocTemplateList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocTemplateList.ProtoReflect.Descriptor instead.
 func (*DocTemplateList) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{255}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{256}
 }
 
 func (x *DocTemplateList) GetItems() []*DocTemplate {
@@ -16681,7 +16744,7 @@ type AudioFormat struct {
 func (x *AudioFormat) Reset() {
 	*x = AudioFormat{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[256]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[257]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16694,7 +16757,7 @@ func (x *AudioFormat) String() string {
 func (*AudioFormat) ProtoMessage() {}
 
 func (x *AudioFormat) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[256]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[257]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16707,7 +16770,7 @@ func (x *AudioFormat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioFormat.ProtoReflect.Descriptor instead.
 func (*AudioFormat) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{256}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{257}
 }
 
 func (x *AudioFormat) GetId() int32 {
@@ -16746,7 +16809,7 @@ type DocTemplate struct {
 func (x *DocTemplate) Reset() {
 	*x = DocTemplate{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[257]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[258]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16759,7 +16822,7 @@ func (x *DocTemplate) String() string {
 func (*DocTemplate) ProtoMessage() {}
 
 func (x *DocTemplate) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[257]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[258]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16772,7 +16835,7 @@ func (x *DocTemplate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocTemplate.ProtoReflect.Descriptor instead.
 func (*DocTemplate) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{257}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{258}
 }
 
 func (x *DocTemplate) GetTitle() string {
@@ -16822,7 +16885,7 @@ type LogEventRequest struct {
 func (x *LogEventRequest) Reset() {
 	*x = LogEventRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[258]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[259]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16835,7 +16898,7 @@ func (x *LogEventRequest) String() string {
 func (*LogEventRequest) ProtoMessage() {}
 
 func (x *LogEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[258]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[259]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16848,7 +16911,7 @@ func (x *LogEventRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEventRequest.ProtoReflect.Descriptor instead.
 func (*LogEventRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{258}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{259}
 }
 
 func (x *LogEventRequest) GetEvents() []*LogEventEntry {
@@ -16871,7 +16934,7 @@ type LogEventEntry struct {
 func (x *LogEventEntry) Reset() {
 	*x = LogEventEntry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[259]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[260]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16884,7 +16947,7 @@ func (x *LogEventEntry) String() string {
 func (*LogEventEntry) ProtoMessage() {}
 
 func (x *LogEventEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[259]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[260]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16897,7 +16960,7 @@ func (x *LogEventEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEventEntry.ProtoReflect.Descriptor instead.
 func (*LogEventEntry) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{259}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{260}
 }
 
 func (x *LogEventEntry) GetSlot() *LogEventSlot {
@@ -16934,7 +16997,7 @@ type LogEventSlot struct {
 func (x *LogEventSlot) Reset() {
 	*x = LogEventSlot{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[260]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[261]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -16947,7 +17010,7 @@ func (x *LogEventSlot) String() string {
 func (*LogEventSlot) ProtoMessage() {}
 
 func (x *LogEventSlot) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[260]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[261]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -16960,7 +17023,7 @@ func (x *LogEventSlot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEventSlot.ProtoReflect.Descriptor instead.
 func (*LogEventSlot) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{260}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{261}
 }
 
 func (x *LogEventSlot) GetSurface() string {
@@ -16989,7 +17052,7 @@ type LogEventContext struct {
 func (x *LogEventContext) Reset() {
 	*x = LogEventContext{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[261]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[262]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17002,7 +17065,7 @@ func (x *LogEventContext) String() string {
 func (*LogEventContext) ProtoMessage() {}
 
 func (x *LogEventContext) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[261]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[262]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17015,7 +17078,7 @@ func (x *LogEventContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEventContext.ProtoReflect.Descriptor instead.
 func (*LogEventContext) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{261}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{262}
 }
 
 func (x *LogEventContext) GetMarker() *LogEventMarker {
@@ -17037,7 +17100,7 @@ type LogEventMarker struct {
 func (x *LogEventMarker) Reset() {
 	*x = LogEventMarker{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[262]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[263]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17050,7 +17113,7 @@ func (x *LogEventMarker) String() string {
 func (*LogEventMarker) ProtoMessage() {}
 
 func (x *LogEventMarker) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[262]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[263]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17063,7 +17126,7 @@ func (x *LogEventMarker) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEventMarker.ProtoReflect.Descriptor instead.
 func (*LogEventMarker) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{262}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{263}
 }
 
 func (x *LogEventMarker) GetCode() int32 {
@@ -17107,7 +17170,7 @@ type LogEventResponse struct {
 func (x *LogEventResponse) Reset() {
 	*x = LogEventResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[263]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[264]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17120,7 +17183,7 @@ func (x *LogEventResponse) String() string {
 func (*LogEventResponse) ProtoMessage() {}
 
 func (x *LogEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[263]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[264]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17133,7 +17196,7 @@ func (x *LogEventResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEventResponse.ProtoReflect.Descriptor instead.
 func (*LogEventResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{263}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{264}
 }
 
 func (x *LogEventResponse) GetEntries() []*PromoLogEntry {
@@ -17161,7 +17224,7 @@ type PromoLogEntry struct {
 func (x *PromoLogEntry) Reset() {
 	*x = PromoLogEntry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[264]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[265]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17174,7 +17237,7 @@ func (x *PromoLogEntry) String() string {
 func (*PromoLogEntry) ProtoMessage() {}
 
 func (x *PromoLogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[264]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[265]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17187,7 +17250,7 @@ func (x *PromoLogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoLogEntry.ProtoReflect.Descriptor instead.
 func (*PromoLogEntry) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{264}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{265}
 }
 
 func (x *PromoLogEntry) GetSlot() *PromoSlot {
@@ -17227,7 +17290,7 @@ type PromoSlot struct {
 func (x *PromoSlot) Reset() {
 	*x = PromoSlot{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[265]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[266]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17240,7 +17303,7 @@ func (x *PromoSlot) String() string {
 func (*PromoSlot) ProtoMessage() {}
 
 func (x *PromoSlot) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[265]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[266]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17253,7 +17316,7 @@ func (x *PromoSlot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoSlot.ProtoReflect.Descriptor instead.
 func (*PromoSlot) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{265}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{266}
 }
 
 func (x *PromoSlot) GetSurface() string {
@@ -17295,7 +17358,7 @@ type PromoCard struct {
 func (x *PromoCard) Reset() {
 	*x = PromoCard{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[266]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[267]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17308,7 +17371,7 @@ func (x *PromoCard) String() string {
 func (*PromoCard) ProtoMessage() {}
 
 func (x *PromoCard) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[266]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[267]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17321,7 +17384,7 @@ func (x *PromoCard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCard.ProtoReflect.Descriptor instead.
 func (*PromoCard) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{266}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{267}
 }
 
 func (x *PromoCard) GetId() int32 {
@@ -17396,7 +17459,7 @@ type PromoCardRender struct {
 func (x *PromoCardRender) Reset() {
 	*x = PromoCardRender{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[267]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[268]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17409,7 +17472,7 @@ func (x *PromoCardRender) String() string {
 func (*PromoCardRender) ProtoMessage() {}
 
 func (x *PromoCardRender) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[267]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[268]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17422,7 +17485,7 @@ func (x *PromoCardRender) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardRender.ProtoReflect.Descriptor instead.
 func (*PromoCardRender) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{267}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{268}
 }
 
 func (x *PromoCardRender) GetContent() *PromoCardContent {
@@ -17452,7 +17515,7 @@ type PromoCardContent struct {
 func (x *PromoCardContent) Reset() {
 	*x = PromoCardContent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[268]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[269]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17465,7 +17528,7 @@ func (x *PromoCardContent) String() string {
 func (*PromoCardContent) ProtoMessage() {}
 
 func (x *PromoCardContent) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[268]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[269]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17478,7 +17541,7 @@ func (x *PromoCardContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardContent.ProtoReflect.Descriptor instead.
 func (*PromoCardContent) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{268}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{269}
 }
 
 func (x *PromoCardContent) GetIcon() *PromoCardIcon {
@@ -17509,7 +17572,7 @@ type PromoCardIcon struct {
 func (x *PromoCardIcon) Reset() {
 	*x = PromoCardIcon{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[269]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[270]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17522,7 +17585,7 @@ func (x *PromoCardIcon) String() string {
 func (*PromoCardIcon) ProtoMessage() {}
 
 func (x *PromoCardIcon) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[269]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[270]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17535,7 +17598,7 @@ func (x *PromoCardIcon) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardIcon.ProtoReflect.Descriptor instead.
 func (*PromoCardIcon) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{269}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{270}
 }
 
 func (x *PromoCardIcon) GetName() string {
@@ -17570,7 +17633,7 @@ type PromoCardAction struct {
 func (x *PromoCardAction) Reset() {
 	*x = PromoCardAction{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[270]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[271]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17583,7 +17646,7 @@ func (x *PromoCardAction) String() string {
 func (*PromoCardAction) ProtoMessage() {}
 
 func (x *PromoCardAction) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[270]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[271]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17596,7 +17659,7 @@ func (x *PromoCardAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardAction.ProtoReflect.Descriptor instead.
 func (*PromoCardAction) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{270}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{271}
 }
 
 func (x *PromoCardAction) GetLink() *PromoCardLinkWrapper {
@@ -17640,7 +17703,7 @@ type PromoCardLinkWrapper struct {
 func (x *PromoCardLinkWrapper) Reset() {
 	*x = PromoCardLinkWrapper{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[271]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[272]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17653,7 +17716,7 @@ func (x *PromoCardLinkWrapper) String() string {
 func (*PromoCardLinkWrapper) ProtoMessage() {}
 
 func (x *PromoCardLinkWrapper) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[271]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[272]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17666,7 +17729,7 @@ func (x *PromoCardLinkWrapper) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardLinkWrapper.ProtoReflect.Descriptor instead.
 func (*PromoCardLinkWrapper) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{271}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{272}
 }
 
 func (x *PromoCardLinkWrapper) GetLink() *PromoCardLink {
@@ -17696,7 +17759,7 @@ type PromoCardLink struct {
 func (x *PromoCardLink) Reset() {
 	*x = PromoCardLink{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[272]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[273]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17709,7 +17772,7 @@ func (x *PromoCardLink) String() string {
 func (*PromoCardLink) ProtoMessage() {}
 
 func (x *PromoCardLink) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[272]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[273]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17722,7 +17785,7 @@ func (x *PromoCardLink) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardLink.ProtoReflect.Descriptor instead.
 func (*PromoCardLink) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{272}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{273}
 }
 
 func (x *PromoCardLink) GetUrl() string {
@@ -17747,7 +17810,7 @@ type PromoCardEvent struct {
 func (x *PromoCardEvent) Reset() {
 	*x = PromoCardEvent{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[273]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[274]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17760,7 +17823,7 @@ func (x *PromoCardEvent) String() string {
 func (*PromoCardEvent) ProtoMessage() {}
 
 func (x *PromoCardEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[273]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[274]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17773,7 +17836,7 @@ func (x *PromoCardEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardEvent.ProtoReflect.Descriptor instead.
 func (*PromoCardEvent) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{273}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{274}
 }
 
 func (x *PromoCardEvent) GetContext() *PromoCardEventContext {
@@ -17834,7 +17897,7 @@ type PromoCardEventContext struct {
 func (x *PromoCardEventContext) Reset() {
 	*x = PromoCardEventContext{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[274]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[275]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17847,7 +17910,7 @@ func (x *PromoCardEventContext) String() string {
 func (*PromoCardEventContext) ProtoMessage() {}
 
 func (x *PromoCardEventContext) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[274]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[275]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17860,7 +17923,7 @@ func (x *PromoCardEventContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardEventContext.ProtoReflect.Descriptor instead.
 func (*PromoCardEventContext) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{274}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{275}
 }
 
 func (x *PromoCardEventContext) GetCardId() int32 {
@@ -17940,7 +18003,7 @@ type PromoCardRef struct {
 func (x *PromoCardRef) Reset() {
 	*x = PromoCardRef{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[275]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[276]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -17953,7 +18016,7 @@ func (x *PromoCardRef) String() string {
 func (*PromoCardRef) ProtoMessage() {}
 
 func (x *PromoCardRef) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[275]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[276]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -17966,7 +18029,7 @@ func (x *PromoCardRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardRef.ProtoReflect.Descriptor instead.
 func (*PromoCardRef) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{275}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{276}
 }
 
 func (x *PromoCardRef) GetId() int32 {
@@ -18004,7 +18067,7 @@ type PromoCardRefList struct {
 func (x *PromoCardRefList) Reset() {
 	*x = PromoCardRefList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[276]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[277]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18017,7 +18080,7 @@ func (x *PromoCardRefList) String() string {
 func (*PromoCardRefList) ProtoMessage() {}
 
 func (x *PromoCardRefList) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[276]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[277]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18030,7 +18093,7 @@ func (x *PromoCardRefList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PromoCardRefList.ProtoReflect.Descriptor instead.
 func (*PromoCardRefList) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{276}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{277}
 }
 
 func (x *PromoCardRefList) GetRefs() []*PromoCardRef {
@@ -18057,7 +18120,7 @@ type ReportContentRequest struct {
 func (x *ReportContentRequest) Reset() {
 	*x = ReportContentRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[277]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[278]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18070,7 +18133,7 @@ func (x *ReportContentRequest) String() string {
 func (*ReportContentRequest) ProtoMessage() {}
 
 func (x *ReportContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[277]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[278]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18083,7 +18146,7 @@ func (x *ReportContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportContentRequest.ProtoReflect.Descriptor instead.
 func (*ReportContentRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{277}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{278}
 }
 
 func (x *ReportContentRequest) GetProjectId() string {
@@ -18123,7 +18186,7 @@ type ReportContentResponse struct {
 func (x *ReportContentResponse) Reset() {
 	*x = ReportContentResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[278]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[279]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18136,7 +18199,7 @@ func (x *ReportContentResponse) String() string {
 func (*ReportContentResponse) ProtoMessage() {}
 
 func (x *ReportContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[278]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[279]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18149,7 +18212,7 @@ func (x *ReportContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReportContentResponse.ProtoReflect.Descriptor instead.
 func (*ReportContentResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{278}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{279}
 }
 
 // ReviseArtifact (KmcKPe): revise an artifact with instructions.
@@ -18167,7 +18230,7 @@ type ReviseArtifactRequest struct {
 func (x *ReviseArtifactRequest) Reset() {
 	*x = ReviseArtifactRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[279]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[280]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18180,7 +18243,7 @@ func (x *ReviseArtifactRequest) String() string {
 func (*ReviseArtifactRequest) ProtoMessage() {}
 
 func (x *ReviseArtifactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[279]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[280]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18193,7 +18256,7 @@ func (x *ReviseArtifactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviseArtifactRequest.ProtoReflect.Descriptor instead.
 func (*ReviseArtifactRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{279}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{280}
 }
 
 func (x *ReviseArtifactRequest) GetContext() *RequestContext {
@@ -18228,7 +18291,7 @@ type ArtifactRevisionInstructions struct {
 func (x *ArtifactRevisionInstructions) Reset() {
 	*x = ArtifactRevisionInstructions{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[280]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[281]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18241,7 +18304,7 @@ func (x *ArtifactRevisionInstructions) String() string {
 func (*ArtifactRevisionInstructions) ProtoMessage() {}
 
 func (x *ArtifactRevisionInstructions) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[280]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[281]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18254,7 +18317,7 @@ func (x *ArtifactRevisionInstructions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactRevisionInstructions.ProtoReflect.Descriptor instead.
 func (*ArtifactRevisionInstructions) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{280}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{281}
 }
 
 func (x *ArtifactRevisionInstructions) GetInstructions() []*ArtifactRevisionInstruction {
@@ -18276,7 +18339,7 @@ type ArtifactRevisionInstruction struct {
 func (x *ArtifactRevisionInstruction) Reset() {
 	*x = ArtifactRevisionInstruction{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[281]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[282]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18289,7 +18352,7 @@ func (x *ArtifactRevisionInstruction) String() string {
 func (*ArtifactRevisionInstruction) ProtoMessage() {}
 
 func (x *ArtifactRevisionInstruction) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[281]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[282]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18302,7 +18365,7 @@ func (x *ArtifactRevisionInstruction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactRevisionInstruction.ProtoReflect.Descriptor instead.
 func (*ArtifactRevisionInstruction) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{281}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{282}
 }
 
 func (x *ArtifactRevisionInstruction) GetSlideIndex() int32 {
@@ -18334,7 +18397,7 @@ type StartDeepResearchWireRequest struct {
 func (x *StartDeepResearchWireRequest) Reset() {
 	*x = StartDeepResearchWireRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[282]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[283]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18347,7 +18410,7 @@ func (x *StartDeepResearchWireRequest) String() string {
 func (*StartDeepResearchWireRequest) ProtoMessage() {}
 
 func (x *StartDeepResearchWireRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[282]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[283]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18360,7 +18423,7 @@ func (x *StartDeepResearchWireRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartDeepResearchWireRequest.ProtoReflect.Descriptor instead.
 func (*StartDeepResearchWireRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{282}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{283}
 }
 
 func (x *StartDeepResearchWireRequest) GetContext() *RequestContext {
@@ -18403,7 +18466,7 @@ type ResearchQuery struct {
 func (x *ResearchQuery) Reset() {
 	*x = ResearchQuery{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[283]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[284]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18416,7 +18479,7 @@ func (x *ResearchQuery) String() string {
 func (*ResearchQuery) ProtoMessage() {}
 
 func (x *ResearchQuery) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[283]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[284]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18429,7 +18492,7 @@ func (x *ResearchQuery) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResearchQuery.ProtoReflect.Descriptor instead.
 func (*ResearchQuery) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{283}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{284}
 }
 
 func (x *ResearchQuery) GetQuery() string {
@@ -18458,7 +18521,7 @@ type ReviseArtifactResponse struct {
 func (x *ReviseArtifactResponse) Reset() {
 	*x = ReviseArtifactResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[284]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[285]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18471,7 +18534,7 @@ func (x *ReviseArtifactResponse) String() string {
 func (*ReviseArtifactResponse) ProtoMessage() {}
 
 func (x *ReviseArtifactResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[284]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[285]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18484,7 +18547,7 @@ func (x *ReviseArtifactResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviseArtifactResponse.ProtoReflect.Descriptor instead.
 func (*ReviseArtifactResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{284}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{285}
 }
 
 func (x *ReviseArtifactResponse) GetArtifact() *Artifact {
@@ -18522,7 +18585,7 @@ type GenerateArtifactSuggestionsRequest struct {
 func (x *GenerateArtifactSuggestionsRequest) Reset() {
 	*x = GenerateArtifactSuggestionsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[285]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[286]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18535,7 +18598,7 @@ func (x *GenerateArtifactSuggestionsRequest) String() string {
 func (*GenerateArtifactSuggestionsRequest) ProtoMessage() {}
 
 func (x *GenerateArtifactSuggestionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[285]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[286]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18548,7 +18611,7 @@ func (x *GenerateArtifactSuggestionsRequest) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GenerateArtifactSuggestionsRequest.ProtoReflect.Descriptor instead.
 func (*GenerateArtifactSuggestionsRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{285}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{286}
 }
 
 func (x *GenerateArtifactSuggestionsRequest) GetContext() *RequestContext {
@@ -18603,7 +18666,7 @@ type ArtifactSuggestion struct {
 func (x *ArtifactSuggestion) Reset() {
 	*x = ArtifactSuggestion{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[286]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[287]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18616,7 +18679,7 @@ func (x *ArtifactSuggestion) String() string {
 func (*ArtifactSuggestion) ProtoMessage() {}
 
 func (x *ArtifactSuggestion) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[286]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[287]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18629,7 +18692,7 @@ func (x *ArtifactSuggestion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactSuggestion.ProtoReflect.Descriptor instead.
 func (*ArtifactSuggestion) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{286}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{287}
 }
 
 func (x *ArtifactSuggestion) GetTitle() string {
@@ -18664,7 +18727,7 @@ type GenerateArtifactSuggestionsResponse struct {
 func (x *GenerateArtifactSuggestionsResponse) Reset() {
 	*x = GenerateArtifactSuggestionsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[287]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[288]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18677,7 +18740,7 @@ func (x *GenerateArtifactSuggestionsResponse) String() string {
 func (*GenerateArtifactSuggestionsResponse) ProtoMessage() {}
 
 func (x *GenerateArtifactSuggestionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[287]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[288]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18690,7 +18753,7 @@ func (x *GenerateArtifactSuggestionsResponse) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use GenerateArtifactSuggestionsResponse.ProtoReflect.Descriptor instead.
 func (*GenerateArtifactSuggestionsResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{287}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{288}
 }
 
 func (x *GenerateArtifactSuggestionsResponse) GetSuggestions() []*ArtifactSuggestion {
@@ -18723,7 +18786,7 @@ type SDPExchangeRequest struct {
 func (x *SDPExchangeRequest) Reset() {
 	*x = SDPExchangeRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[288]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[289]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18736,7 +18799,7 @@ func (x *SDPExchangeRequest) String() string {
 func (*SDPExchangeRequest) ProtoMessage() {}
 
 func (x *SDPExchangeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[288]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[289]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18749,7 +18812,7 @@ func (x *SDPExchangeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDPExchangeRequest.ProtoReflect.Descriptor instead.
 func (*SDPExchangeRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{288}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{289}
 }
 
 func (x *SDPExchangeRequest) GetOfferPayload() string {
@@ -18770,7 +18833,7 @@ type SDPExchangeResponse struct {
 func (x *SDPExchangeResponse) Reset() {
 	*x = SDPExchangeResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[289]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[290]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18783,7 +18846,7 @@ func (x *SDPExchangeResponse) String() string {
 func (*SDPExchangeResponse) ProtoMessage() {}
 
 func (x *SDPExchangeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[289]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[290]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18796,7 +18859,7 @@ func (x *SDPExchangeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SDPExchangeResponse.ProtoReflect.Descriptor instead.
 func (*SDPExchangeResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{289}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{290}
 }
 
 func (x *SDPExchangeResponse) GetAnswerPayload() string {
@@ -18822,7 +18885,7 @@ type GetLabelsRequest struct {
 func (x *GetLabelsRequest) Reset() {
 	*x = GetLabelsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[290]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[291]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18835,7 +18898,7 @@ func (x *GetLabelsRequest) String() string {
 func (*GetLabelsRequest) ProtoMessage() {}
 
 func (x *GetLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[290]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[291]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18848,7 +18911,7 @@ func (x *GetLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLabelsRequest.ProtoReflect.Descriptor instead.
 func (*GetLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{290}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{291}
 }
 
 func (x *GetLabelsRequest) GetContext() *RequestContext {
@@ -18876,7 +18939,7 @@ type GetLabelsResponse struct {
 func (x *GetLabelsResponse) Reset() {
 	*x = GetLabelsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[291]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[292]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18889,7 +18952,7 @@ func (x *GetLabelsResponse) String() string {
 func (*GetLabelsResponse) ProtoMessage() {}
 
 func (x *GetLabelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[291]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[292]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18902,7 +18965,7 @@ func (x *GetLabelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLabelsResponse.ProtoReflect.Descriptor instead.
 func (*GetLabelsResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{291}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{292}
 }
 
 func (x *GetLabelsResponse) GetLabels() []*Label {
@@ -18930,7 +18993,7 @@ type Label struct {
 func (x *Label) Reset() {
 	*x = Label{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[292]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[293]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -18943,7 +19006,7 @@ func (x *Label) String() string {
 func (*Label) ProtoMessage() {}
 
 func (x *Label) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[292]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[293]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -18956,7 +19019,7 @@ func (x *Label) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Label.ProtoReflect.Descriptor instead.
 func (*Label) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{292}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{293}
 }
 
 func (x *Label) GetName() string {
@@ -19002,7 +19065,7 @@ type PlaybackPosition struct {
 func (x *PlaybackPosition) Reset() {
 	*x = PlaybackPosition{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[293]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[294]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19015,7 +19078,7 @@ func (x *PlaybackPosition) String() string {
 func (*PlaybackPosition) ProtoMessage() {}
 
 func (x *PlaybackPosition) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[293]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[294]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19028,7 +19091,7 @@ func (x *PlaybackPosition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlaybackPosition.ProtoReflect.Descriptor instead.
 func (*PlaybackPosition) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{293}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{294}
 }
 
 func (x *PlaybackPosition) GetSeconds() int64 {
@@ -19067,7 +19130,7 @@ type ArtifactUserState struct {
 func (x *ArtifactUserState) Reset() {
 	*x = ArtifactUserState{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[294]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[295]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19080,7 +19143,7 @@ func (x *ArtifactUserState) String() string {
 func (*ArtifactUserState) ProtoMessage() {}
 
 func (x *ArtifactUserState) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[294]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[295]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19093,7 +19156,7 @@ func (x *ArtifactUserState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArtifactUserState.ProtoReflect.Descriptor instead.
 func (*ArtifactUserState) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{294}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{295}
 }
 
 func (x *ArtifactUserState) GetPlaybackPosition() []*PlaybackPosition {
@@ -19129,7 +19192,7 @@ type UpsertArtifactUserStateRequest struct {
 func (x *UpsertArtifactUserStateRequest) Reset() {
 	*x = UpsertArtifactUserStateRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[295]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[296]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19142,7 +19205,7 @@ func (x *UpsertArtifactUserStateRequest) String() string {
 func (*UpsertArtifactUserStateRequest) ProtoMessage() {}
 
 func (x *UpsertArtifactUserStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[295]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[296]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19155,7 +19218,7 @@ func (x *UpsertArtifactUserStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertArtifactUserStateRequest.ProtoReflect.Descriptor instead.
 func (*UpsertArtifactUserStateRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{295}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{296}
 }
 
 func (x *UpsertArtifactUserStateRequest) GetContext() *RequestContext {
@@ -19194,7 +19257,7 @@ type UpsertArtifactUserStateResponse struct {
 func (x *UpsertArtifactUserStateResponse) Reset() {
 	*x = UpsertArtifactUserStateResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[296]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[297]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19207,7 +19270,7 @@ func (x *UpsertArtifactUserStateResponse) String() string {
 func (*UpsertArtifactUserStateResponse) ProtoMessage() {}
 
 func (x *UpsertArtifactUserStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[296]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[297]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19220,7 +19283,7 @@ func (x *UpsertArtifactUserStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertArtifactUserStateResponse.ProtoReflect.Descriptor instead.
 func (*UpsertArtifactUserStateResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{296}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{297}
 }
 
 func (x *UpsertArtifactUserStateResponse) GetState() *ArtifactUserState {
@@ -19251,7 +19314,7 @@ type GetArtifactUserStateRequest struct {
 func (x *GetArtifactUserStateRequest) Reset() {
 	*x = GetArtifactUserStateRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[297]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[298]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19264,7 +19327,7 @@ func (x *GetArtifactUserStateRequest) String() string {
 func (*GetArtifactUserStateRequest) ProtoMessage() {}
 
 func (x *GetArtifactUserStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[297]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[298]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19277,7 +19340,7 @@ func (x *GetArtifactUserStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetArtifactUserStateRequest.ProtoReflect.Descriptor instead.
 func (*GetArtifactUserStateRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{297}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{298}
 }
 
 func (x *GetArtifactUserStateRequest) GetArtifactId() string {
@@ -19298,7 +19361,7 @@ type GetArtifactUserStateResponse struct {
 func (x *GetArtifactUserStateResponse) Reset() {
 	*x = GetArtifactUserStateResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[298]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[299]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19311,7 +19374,7 @@ func (x *GetArtifactUserStateResponse) String() string {
 func (*GetArtifactUserStateResponse) ProtoMessage() {}
 
 func (x *GetArtifactUserStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[298]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[299]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19324,7 +19387,7 @@ func (x *GetArtifactUserStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetArtifactUserStateResponse.ProtoReflect.Descriptor instead.
 func (*GetArtifactUserStateResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{298}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{299}
 }
 
 func (x *GetArtifactUserStateResponse) GetState() *ArtifactUserState {
@@ -19349,7 +19412,7 @@ type CreateLabelRequest struct {
 func (x *CreateLabelRequest) Reset() {
 	*x = CreateLabelRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[299]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[300]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19362,7 +19425,7 @@ func (x *CreateLabelRequest) String() string {
 func (*CreateLabelRequest) ProtoMessage() {}
 
 func (x *CreateLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[299]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[300]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19375,7 +19438,7 @@ func (x *CreateLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLabelRequest.ProtoReflect.Descriptor instead.
 func (*CreateLabelRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{299}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{300}
 }
 
 func (x *CreateLabelRequest) GetContext() *RequestContext {
@@ -19415,7 +19478,7 @@ type MutateLabelsModeRequest struct {
 func (x *MutateLabelsModeRequest) Reset() {
 	*x = MutateLabelsModeRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[300]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[301]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19428,7 +19491,7 @@ func (x *MutateLabelsModeRequest) String() string {
 func (*MutateLabelsModeRequest) ProtoMessage() {}
 
 func (x *MutateLabelsModeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[300]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[301]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19441,7 +19504,7 @@ func (x *MutateLabelsModeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateLabelsModeRequest.ProtoReflect.Descriptor instead.
 func (*MutateLabelsModeRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{300}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{301}
 }
 
 func (x *MutateLabelsModeRequest) GetContext() *RequestContext {
@@ -19476,7 +19539,7 @@ type LabelMode struct {
 func (x *LabelMode) Reset() {
 	*x = LabelMode{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[301]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[302]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19489,7 +19552,7 @@ func (x *LabelMode) String() string {
 func (*LabelMode) ProtoMessage() {}
 
 func (x *LabelMode) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[301]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[302]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19502,7 +19565,7 @@ func (x *LabelMode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelMode.ProtoReflect.Descriptor instead.
 func (*LabelMode) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{301}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{302}
 }
 
 func (x *LabelMode) GetValue() int32 {
@@ -19524,7 +19587,7 @@ type LabelCreation struct {
 func (x *LabelCreation) Reset() {
 	*x = LabelCreation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[302]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[303]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19537,7 +19600,7 @@ func (x *LabelCreation) String() string {
 func (*LabelCreation) ProtoMessage() {}
 
 func (x *LabelCreation) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[302]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[303]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19550,7 +19613,7 @@ func (x *LabelCreation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelCreation.ProtoReflect.Descriptor instead.
 func (*LabelCreation) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{302}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{303}
 }
 
 func (x *LabelCreation) GetName() string {
@@ -19581,7 +19644,7 @@ type CreateLabelResponse struct {
 func (x *CreateLabelResponse) Reset() {
 	*x = CreateLabelResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[303]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[304]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19594,7 +19657,7 @@ func (x *CreateLabelResponse) String() string {
 func (*CreateLabelResponse) ProtoMessage() {}
 
 func (x *CreateLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[303]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[304]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19607,7 +19670,7 @@ func (x *CreateLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateLabelResponse.ProtoReflect.Descriptor instead.
 func (*CreateLabelResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{303}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{304}
 }
 
 func (x *CreateLabelResponse) GetLabel() *Label {
@@ -19646,7 +19709,7 @@ type MutateLabelRequest struct {
 func (x *MutateLabelRequest) Reset() {
 	*x = MutateLabelRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[304]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[305]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19659,7 +19722,7 @@ func (x *MutateLabelRequest) String() string {
 func (*MutateLabelRequest) ProtoMessage() {}
 
 func (x *MutateLabelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[304]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[305]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19672,7 +19735,7 @@ func (x *MutateLabelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateLabelRequest.ProtoReflect.Descriptor instead.
 func (*MutateLabelRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{304}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{305}
 }
 
 func (x *MutateLabelRequest) GetContext() *RequestContext {
@@ -19716,7 +19779,7 @@ type MutateLabelMutation struct {
 func (x *MutateLabelMutation) Reset() {
 	*x = MutateLabelMutation{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[305]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[306]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19729,7 +19792,7 @@ func (x *MutateLabelMutation) String() string {
 func (*MutateLabelMutation) ProtoMessage() {}
 
 func (x *MutateLabelMutation) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[305]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[306]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19742,7 +19805,7 @@ func (x *MutateLabelMutation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateLabelMutation.ProtoReflect.Descriptor instead.
 func (*MutateLabelMutation) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{305}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{306}
 }
 
 func (x *MutateLabelMutation) GetEntry() *MutateLabelEntry {
@@ -19768,7 +19831,7 @@ type MutateLabelEntry struct {
 func (x *MutateLabelEntry) Reset() {
 	*x = MutateLabelEntry{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[306]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[307]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19781,7 +19844,7 @@ func (x *MutateLabelEntry) String() string {
 func (*MutateLabelEntry) ProtoMessage() {}
 
 func (x *MutateLabelEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[306]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[307]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19794,7 +19857,7 @@ func (x *MutateLabelEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateLabelEntry.ProtoReflect.Descriptor instead.
 func (*MutateLabelEntry) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{306}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{307}
 }
 
 func (x *MutateLabelEntry) GetName() *LabelNameChange {
@@ -19829,7 +19892,7 @@ type LabelNameChange struct {
 func (x *LabelNameChange) Reset() {
 	*x = LabelNameChange{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[307]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[308]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19842,7 +19905,7 @@ func (x *LabelNameChange) String() string {
 func (*LabelNameChange) ProtoMessage() {}
 
 func (x *LabelNameChange) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[307]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[308]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19855,7 +19918,7 @@ func (x *LabelNameChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelNameChange.ProtoReflect.Descriptor instead.
 func (*LabelNameChange) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{307}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{308}
 }
 
 func (x *LabelNameChange) GetName() string {
@@ -19876,7 +19939,7 @@ type MutateLabelResponse struct {
 func (x *MutateLabelResponse) Reset() {
 	*x = MutateLabelResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[308]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[309]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19889,7 +19952,7 @@ func (x *MutateLabelResponse) String() string {
 func (*MutateLabelResponse) ProtoMessage() {}
 
 func (x *MutateLabelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[308]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[309]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19902,7 +19965,7 @@ func (x *MutateLabelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MutateLabelResponse.ProtoReflect.Descriptor instead.
 func (*MutateLabelResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{308}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{309}
 }
 
 func (x *MutateLabelResponse) GetLabel() *Label {
@@ -19924,7 +19987,7 @@ type DeleteLabelsRequest struct {
 func (x *DeleteLabelsRequest) Reset() {
 	*x = DeleteLabelsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[309]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[310]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19937,7 +20000,7 @@ func (x *DeleteLabelsRequest) String() string {
 func (*DeleteLabelsRequest) ProtoMessage() {}
 
 func (x *DeleteLabelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[309]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[310]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -19950,7 +20013,7 @@ func (x *DeleteLabelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteLabelsRequest.ProtoReflect.Descriptor instead.
 func (*DeleteLabelsRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{309}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{310}
 }
 
 func (x *DeleteLabelsRequest) GetProjectId() string {
@@ -19982,7 +20045,7 @@ type GenerateArtifactRequest struct {
 func (x *GenerateArtifactRequest) Reset() {
 	*x = GenerateArtifactRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[310]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[311]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -19995,7 +20058,7 @@ func (x *GenerateArtifactRequest) String() string {
 func (*GenerateArtifactRequest) ProtoMessage() {}
 
 func (x *GenerateArtifactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[310]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[311]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20008,7 +20071,7 @@ func (x *GenerateArtifactRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateArtifactRequest.ProtoReflect.Descriptor instead.
 func (*GenerateArtifactRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{310}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{311}
 }
 
 func (x *GenerateArtifactRequest) GetProjectId() string {
@@ -20038,7 +20101,7 @@ type CancelDiscoverSourcesJobRequest struct {
 func (x *CancelDiscoverSourcesJobRequest) Reset() {
 	*x = CancelDiscoverSourcesJobRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[311]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[312]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20051,7 +20114,7 @@ func (x *CancelDiscoverSourcesJobRequest) String() string {
 func (*CancelDiscoverSourcesJobRequest) ProtoMessage() {}
 
 func (x *CancelDiscoverSourcesJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[311]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[312]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20064,7 +20127,7 @@ func (x *CancelDiscoverSourcesJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelDiscoverSourcesJobRequest.ProtoReflect.Descriptor instead.
 func (*CancelDiscoverSourcesJobRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{311}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{312}
 }
 
 func (x *CancelDiscoverSourcesJobRequest) GetProjectId() string {
@@ -20093,7 +20156,7 @@ type CancelGenerationRequest struct {
 func (x *CancelGenerationRequest) Reset() {
 	*x = CancelGenerationRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[312]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[313]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20106,7 +20169,7 @@ func (x *CancelGenerationRequest) String() string {
 func (*CancelGenerationRequest) ProtoMessage() {}
 
 func (x *CancelGenerationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[312]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[313]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20119,7 +20182,7 @@ func (x *CancelGenerationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelGenerationRequest.ProtoReflect.Descriptor instead.
 func (*CancelGenerationRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{312}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{313}
 }
 
 func (x *CancelGenerationRequest) GetGenerationId() string {
@@ -20138,7 +20201,7 @@ type CancelGenerationResponse struct {
 func (x *CancelGenerationResponse) Reset() {
 	*x = CancelGenerationResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[313]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[314]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20151,7 +20214,7 @@ func (x *CancelGenerationResponse) String() string {
 func (*CancelGenerationResponse) ProtoMessage() {}
 
 func (x *CancelGenerationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[313]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[314]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20164,7 +20227,7 @@ func (x *CancelGenerationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelGenerationResponse.ProtoReflect.Descriptor instead.
 func (*CancelGenerationResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{313}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{314}
 }
 
 // ExportToDrive (Krh3pd). wire shape unverified.
@@ -20180,7 +20243,7 @@ type ExportToDriveRequest struct {
 func (x *ExportToDriveRequest) Reset() {
 	*x = ExportToDriveRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[314]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[315]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20193,7 +20256,7 @@ func (x *ExportToDriveRequest) String() string {
 func (*ExportToDriveRequest) ProtoMessage() {}
 
 func (x *ExportToDriveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[314]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[315]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20206,7 +20269,7 @@ func (x *ExportToDriveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportToDriveRequest.ProtoReflect.Descriptor instead.
 func (*ExportToDriveRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{314}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{315}
 }
 
 func (x *ExportToDriveRequest) GetProjectId() string {
@@ -20235,7 +20298,7 @@ type ExportToDriveResponse struct {
 func (x *ExportToDriveResponse) Reset() {
 	*x = ExportToDriveResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[315]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[316]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20248,7 +20311,7 @@ func (x *ExportToDriveResponse) String() string {
 func (*ExportToDriveResponse) ProtoMessage() {}
 
 func (x *ExportToDriveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[315]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[316]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20261,7 +20324,7 @@ func (x *ExportToDriveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExportToDriveResponse.ProtoReflect.Descriptor instead.
 func (*ExportToDriveResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{315}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{316}
 }
 
 func (x *ExportToDriveResponse) GetDriveUrl() string {
@@ -20291,7 +20354,7 @@ type UpdateFeaturedNotebookStatusRequest struct {
 func (x *UpdateFeaturedNotebookStatusRequest) Reset() {
 	*x = UpdateFeaturedNotebookStatusRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[316]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[317]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20304,7 +20367,7 @@ func (x *UpdateFeaturedNotebookStatusRequest) String() string {
 func (*UpdateFeaturedNotebookStatusRequest) ProtoMessage() {}
 
 func (x *UpdateFeaturedNotebookStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[316]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[317]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20317,7 +20380,7 @@ func (x *UpdateFeaturedNotebookStatusRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use UpdateFeaturedNotebookStatusRequest.ProtoReflect.Descriptor instead.
 func (*UpdateFeaturedNotebookStatusRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{316}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{317}
 }
 
 func (x *UpdateFeaturedNotebookStatusRequest) GetProjectId() string {
@@ -20348,7 +20411,7 @@ type ListModelOptionsRequest struct {
 func (x *ListModelOptionsRequest) Reset() {
 	*x = ListModelOptionsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[317]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[318]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20361,7 +20424,7 @@ func (x *ListModelOptionsRequest) String() string {
 func (*ListModelOptionsRequest) ProtoMessage() {}
 
 func (x *ListModelOptionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[317]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[318]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20374,7 +20437,7 @@ func (x *ListModelOptionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelOptionsRequest.ProtoReflect.Descriptor instead.
 func (*ListModelOptionsRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{317}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{318}
 }
 
 func (x *ListModelOptionsRequest) GetVersion() int32 {
@@ -20409,7 +20472,7 @@ type ListModelOptionsResponse struct {
 func (x *ListModelOptionsResponse) Reset() {
 	*x = ListModelOptionsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[318]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[319]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20422,7 +20485,7 @@ func (x *ListModelOptionsResponse) String() string {
 func (*ListModelOptionsResponse) ProtoMessage() {}
 
 func (x *ListModelOptionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[318]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[319]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20435,7 +20498,7 @@ func (x *ListModelOptionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelOptionsResponse.ProtoReflect.Descriptor instead.
 func (*ListModelOptionsResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{318}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{319}
 }
 
 func (x *ListModelOptionsResponse) GetModels() []*ModelOption {
@@ -20458,7 +20521,7 @@ type ModelOption struct {
 func (x *ModelOption) Reset() {
 	*x = ModelOption{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[319]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[320]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20471,7 +20534,7 @@ func (x *ModelOption) String() string {
 func (*ModelOption) ProtoMessage() {}
 
 func (x *ModelOption) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[319]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[320]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20484,7 +20547,7 @@ func (x *ModelOption) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModelOption.ProtoReflect.Descriptor instead.
 func (*ModelOption) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{319}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{320}
 }
 
 func (x *ModelOption) GetModelId() string {
@@ -20530,7 +20593,7 @@ type UpdateProjectUserStateRequest struct {
 func (x *UpdateProjectUserStateRequest) Reset() {
 	*x = UpdateProjectUserStateRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[320]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[321]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20543,7 +20606,7 @@ func (x *UpdateProjectUserStateRequest) String() string {
 func (*UpdateProjectUserStateRequest) ProtoMessage() {}
 
 func (x *UpdateProjectUserStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[320]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[321]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20556,7 +20619,7 @@ func (x *UpdateProjectUserStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProjectUserStateRequest.ProtoReflect.Descriptor instead.
 func (*UpdateProjectUserStateRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{320}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{321}
 }
 
 func (x *UpdateProjectUserStateRequest) GetContext() *RequestContext {
@@ -20600,7 +20663,7 @@ type UpdateProjectUserStateValue struct {
 func (x *UpdateProjectUserStateValue) Reset() {
 	*x = UpdateProjectUserStateValue{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[321]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[322]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20613,7 +20676,7 @@ func (x *UpdateProjectUserStateValue) String() string {
 func (*UpdateProjectUserStateValue) ProtoMessage() {}
 
 func (x *UpdateProjectUserStateValue) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[321]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[322]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20626,7 +20689,7 @@ func (x *UpdateProjectUserStateValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProjectUserStateValue.ProtoReflect.Descriptor instead.
 func (*UpdateProjectUserStateValue) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{321}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{322}
 }
 
 func (x *UpdateProjectUserStateValue) GetDetail() *UpdateProjectUserStateValueInner {
@@ -20649,7 +20712,7 @@ type UpdateProjectUserStateValueInner struct {
 func (x *UpdateProjectUserStateValueInner) Reset() {
 	*x = UpdateProjectUserStateValueInner{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[322]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[323]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20662,7 +20725,7 @@ func (x *UpdateProjectUserStateValueInner) String() string {
 func (*UpdateProjectUserStateValueInner) ProtoMessage() {}
 
 func (x *UpdateProjectUserStateValueInner) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[322]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[323]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20675,7 +20738,7 @@ func (x *UpdateProjectUserStateValueInner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProjectUserStateValueInner.ProtoReflect.Descriptor instead.
 func (*UpdateProjectUserStateValueInner) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{322}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{323}
 }
 
 func (x *UpdateProjectUserStateValueInner) GetPinned() int32 {
@@ -20706,7 +20769,7 @@ type UpdateProjectUserStateKeys struct {
 func (x *UpdateProjectUserStateKeys) Reset() {
 	*x = UpdateProjectUserStateKeys{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[323]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[324]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20719,7 +20782,7 @@ func (x *UpdateProjectUserStateKeys) String() string {
 func (*UpdateProjectUserStateKeys) ProtoMessage() {}
 
 func (x *UpdateProjectUserStateKeys) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[323]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[324]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20732,7 +20795,7 @@ func (x *UpdateProjectUserStateKeys) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProjectUserStateKeys.ProtoReflect.Descriptor instead.
 func (*UpdateProjectUserStateKeys) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{323}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{324}
 }
 
 func (x *UpdateProjectUserStateKeys) GetKeys() []string {
@@ -20755,7 +20818,7 @@ type UpdateProjectUserStateResponse struct {
 func (x *UpdateProjectUserStateResponse) Reset() {
 	*x = UpdateProjectUserStateResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[324]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[325]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20768,7 +20831,7 @@ func (x *UpdateProjectUserStateResponse) String() string {
 func (*UpdateProjectUserStateResponse) ProtoMessage() {}
 
 func (x *UpdateProjectUserStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[324]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[325]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20781,7 +20844,7 @@ func (x *UpdateProjectUserStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProjectUserStateResponse.ProtoReflect.Descriptor instead.
 func (*UpdateProjectUserStateResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{324}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{325}
 }
 
 func (x *UpdateProjectUserStateResponse) GetResult() *UpdateProjectUserStateResult {
@@ -20804,7 +20867,7 @@ type UpdateProjectUserStateResult struct {
 func (x *UpdateProjectUserStateResult) Reset() {
 	*x = UpdateProjectUserStateResult{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[325]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[326]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20817,7 +20880,7 @@ func (x *UpdateProjectUserStateResult) String() string {
 func (*UpdateProjectUserStateResult) ProtoMessage() {}
 
 func (x *UpdateProjectUserStateResult) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[325]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[326]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20830,7 +20893,7 @@ func (x *UpdateProjectUserStateResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateProjectUserStateResult.ProtoReflect.Descriptor instead.
 func (*UpdateProjectUserStateResult) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{325}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{326}
 }
 
 func (x *UpdateProjectUserStateResult) GetPinned() bool {
@@ -20862,7 +20925,7 @@ type ExecuteWritingFunctionRequest struct {
 func (x *ExecuteWritingFunctionRequest) Reset() {
 	*x = ExecuteWritingFunctionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[326]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[327]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20875,7 +20938,7 @@ func (x *ExecuteWritingFunctionRequest) String() string {
 func (*ExecuteWritingFunctionRequest) ProtoMessage() {}
 
 func (x *ExecuteWritingFunctionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[326]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[327]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20888,7 +20951,7 @@ func (x *ExecuteWritingFunctionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteWritingFunctionRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteWritingFunctionRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{326}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{327}
 }
 
 func (x *ExecuteWritingFunctionRequest) GetProjectId() string {
@@ -20930,7 +20993,7 @@ type ExecuteWritingFunctionResponse struct {
 func (x *ExecuteWritingFunctionResponse) Reset() {
 	*x = ExecuteWritingFunctionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[327]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[328]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20943,7 +21006,7 @@ func (x *ExecuteWritingFunctionResponse) String() string {
 func (*ExecuteWritingFunctionResponse) ProtoMessage() {}
 
 func (x *ExecuteWritingFunctionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[327]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[328]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -20956,7 +21019,7 @@ func (x *ExecuteWritingFunctionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteWritingFunctionResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteWritingFunctionResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{327}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{328}
 }
 
 func (x *ExecuteWritingFunctionResponse) GetTransformedText() string {
@@ -20979,7 +21042,7 @@ type ListExpertIntelligenceContentRequest struct {
 func (x *ListExpertIntelligenceContentRequest) Reset() {
 	*x = ListExpertIntelligenceContentRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[328]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[329]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -20992,7 +21055,7 @@ func (x *ListExpertIntelligenceContentRequest) String() string {
 func (*ListExpertIntelligenceContentRequest) ProtoMessage() {}
 
 func (x *ListExpertIntelligenceContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[328]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[329]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21005,7 +21068,7 @@ func (x *ListExpertIntelligenceContentRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use ListExpertIntelligenceContentRequest.ProtoReflect.Descriptor instead.
 func (*ListExpertIntelligenceContentRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{328}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{329}
 }
 
 func (x *ListExpertIntelligenceContentRequest) GetContext() *RequestContext {
@@ -21034,7 +21097,7 @@ type ListExpertIntelligenceContentResponse struct {
 func (x *ListExpertIntelligenceContentResponse) Reset() {
 	*x = ListExpertIntelligenceContentResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[329]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[330]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21047,7 +21110,7 @@ func (x *ListExpertIntelligenceContentResponse) String() string {
 func (*ListExpertIntelligenceContentResponse) ProtoMessage() {}
 
 func (x *ListExpertIntelligenceContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[329]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[330]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21060,7 +21123,7 @@ func (x *ListExpertIntelligenceContentResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use ListExpertIntelligenceContentResponse.ProtoReflect.Descriptor instead.
 func (*ListExpertIntelligenceContentResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{329}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{330}
 }
 
 func (x *ListExpertIntelligenceContentResponse) GetItems() []*ExpertIntelligenceItem {
@@ -21097,7 +21160,7 @@ type ExpertIntelligenceItem struct {
 func (x *ExpertIntelligenceItem) Reset() {
 	*x = ExpertIntelligenceItem{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[330]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[331]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21110,7 +21173,7 @@ func (x *ExpertIntelligenceItem) String() string {
 func (*ExpertIntelligenceItem) ProtoMessage() {}
 
 func (x *ExpertIntelligenceItem) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[330]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[331]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21123,7 +21186,7 @@ func (x *ExpertIntelligenceItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExpertIntelligenceItem.ProtoReflect.Descriptor instead.
 func (*ExpertIntelligenceItem) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{330}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{331}
 }
 
 func (x *ExpertIntelligenceItem) GetBookId() string {
@@ -21207,7 +21270,7 @@ type ExpertIntelligencePublicationTime struct {
 func (x *ExpertIntelligencePublicationTime) Reset() {
 	*x = ExpertIntelligencePublicationTime{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[331]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[332]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21220,7 +21283,7 @@ func (x *ExpertIntelligencePublicationTime) String() string {
 func (*ExpertIntelligencePublicationTime) ProtoMessage() {}
 
 func (x *ExpertIntelligencePublicationTime) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[331]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[332]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21233,7 +21296,7 @@ func (x *ExpertIntelligencePublicationTime) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use ExpertIntelligencePublicationTime.ProtoReflect.Descriptor instead.
 func (*ExpertIntelligencePublicationTime) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{331}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{332}
 }
 
 func (x *ExpertIntelligencePublicationTime) GetSeconds() int64 {
@@ -21254,7 +21317,7 @@ type GenerateAccessTokenRequest struct {
 func (x *GenerateAccessTokenRequest) Reset() {
 	*x = GenerateAccessTokenRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[332]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[333]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21267,7 +21330,7 @@ func (x *GenerateAccessTokenRequest) String() string {
 func (*GenerateAccessTokenRequest) ProtoMessage() {}
 
 func (x *GenerateAccessTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[332]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[333]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21280,7 +21343,7 @@ func (x *GenerateAccessTokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateAccessTokenRequest.ProtoReflect.Descriptor instead.
 func (*GenerateAccessTokenRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{332}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{333}
 }
 
 type GenerateAccessTokenResponse struct {
@@ -21296,7 +21359,7 @@ type GenerateAccessTokenResponse struct {
 func (x *GenerateAccessTokenResponse) Reset() {
 	*x = GenerateAccessTokenResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[333]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[334]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21309,7 +21372,7 @@ func (x *GenerateAccessTokenResponse) String() string {
 func (*GenerateAccessTokenResponse) ProtoMessage() {}
 
 func (x *GenerateAccessTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[333]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[334]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21322,7 +21385,7 @@ func (x *GenerateAccessTokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateAccessTokenResponse.ProtoReflect.Descriptor instead.
 func (*GenerateAccessTokenResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{333}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{334}
 }
 
 func (x *GenerateAccessTokenResponse) GetAccessToken() string {
@@ -21357,7 +21420,7 @@ type AccessTokenTTL struct {
 func (x *AccessTokenTTL) Reset() {
 	*x = AccessTokenTTL{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[334]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[335]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21370,7 +21433,7 @@ func (x *AccessTokenTTL) String() string {
 func (*AccessTokenTTL) ProtoMessage() {}
 
 func (x *AccessTokenTTL) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[334]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[335]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21383,7 +21446,7 @@ func (x *AccessTokenTTL) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccessTokenTTL.ProtoReflect.Descriptor instead.
 func (*AccessTokenTTL) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{334}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{335}
 }
 
 func (x *AccessTokenTTL) GetSeconds() int64 {
@@ -21404,7 +21467,7 @@ type AccessTokenScopes struct {
 func (x *AccessTokenScopes) Reset() {
 	*x = AccessTokenScopes{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[335]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[336]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21417,7 +21480,7 @@ func (x *AccessTokenScopes) String() string {
 func (*AccessTokenScopes) ProtoMessage() {}
 
 func (x *AccessTokenScopes) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[335]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[336]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21430,7 +21493,7 @@ func (x *AccessTokenScopes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccessTokenScopes.ProtoReflect.Descriptor instead.
 func (*AccessTokenScopes) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{335}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{336}
 }
 
 func (x *AccessTokenScopes) GetScope() []string {
@@ -21453,7 +21516,7 @@ type GetMagicViewRequest struct {
 func (x *GetMagicViewRequest) Reset() {
 	*x = GetMagicViewRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[336]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[337]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21466,7 +21529,7 @@ func (x *GetMagicViewRequest) String() string {
 func (*GetMagicViewRequest) ProtoMessage() {}
 
 func (x *GetMagicViewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[336]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[337]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21479,7 +21542,7 @@ func (x *GetMagicViewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMagicViewRequest.ProtoReflect.Descriptor instead.
 func (*GetMagicViewRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{336}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{337}
 }
 
 func (x *GetMagicViewRequest) GetProjectId() string {
@@ -21500,7 +21563,7 @@ type GetMagicViewResponse struct {
 func (x *GetMagicViewResponse) Reset() {
 	*x = GetMagicViewResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[337]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[338]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21513,7 +21576,7 @@ func (x *GetMagicViewResponse) String() string {
 func (*GetMagicViewResponse) ProtoMessage() {}
 
 func (x *GetMagicViewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[337]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[338]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21526,7 +21589,7 @@ func (x *GetMagicViewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMagicViewResponse.ProtoReflect.Descriptor instead.
 func (*GetMagicViewResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{337}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{338}
 }
 
 func (x *GetMagicViewResponse) GetStatus() int32 {
@@ -21550,7 +21613,7 @@ type CopyProjectRequest struct {
 func (x *CopyProjectRequest) Reset() {
 	*x = CopyProjectRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[338]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[339]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21563,7 +21626,7 @@ func (x *CopyProjectRequest) String() string {
 func (*CopyProjectRequest) ProtoMessage() {}
 
 func (x *CopyProjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[338]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[339]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21576,7 +21639,7 @@ func (x *CopyProjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyProjectRequest.ProtoReflect.Descriptor instead.
 func (*CopyProjectRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{338}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{339}
 }
 
 func (x *CopyProjectRequest) GetContext() *RequestContext {
@@ -21615,7 +21678,7 @@ type CopyProjectResponse struct {
 func (x *CopyProjectResponse) Reset() {
 	*x = CopyProjectResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[339]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[340]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21628,7 +21691,7 @@ func (x *CopyProjectResponse) String() string {
 func (*CopyProjectResponse) ProtoMessage() {}
 
 func (x *CopyProjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[339]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[340]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21641,7 +21704,7 @@ func (x *CopyProjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CopyProjectResponse.ProtoReflect.Descriptor instead.
 func (*CopyProjectResponse) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{339}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{340}
 }
 
 func (x *CopyProjectResponse) GetStatus() int64 {
@@ -21668,7 +21731,7 @@ type CreateAudioOverviewLegacyRequest struct {
 func (x *CreateAudioOverviewLegacyRequest) Reset() {
 	*x = CreateAudioOverviewLegacyRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[340]
+		mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[341]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -21681,7 +21744,7 @@ func (x *CreateAudioOverviewLegacyRequest) String() string {
 func (*CreateAudioOverviewLegacyRequest) ProtoMessage() {}
 
 func (x *CreateAudioOverviewLegacyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[340]
+	mi := &file_notebooklm_v1alpha1_orchestration_proto_msgTypes[341]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -21694,7 +21757,7 @@ func (x *CreateAudioOverviewLegacyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAudioOverviewLegacyRequest.ProtoReflect.Descriptor instead.
 func (*CreateAudioOverviewLegacyRequest) Descriptor() ([]byte, []int) {
-	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{340}
+	return file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP(), []int{341}
 }
 
 func (x *CreateAudioOverviewLegacyRequest) GetProjectId() string {
@@ -24162,17 +24225,26 @@ var file_notebooklm_v1alpha1_orchestration_proto_rawDesc = []byte{
 	0x2e, 0x6e, 0x6f, 0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31, 0x61, 0x6c,
 	0x70, 0x68, 0x61, 0x31, 0x2e, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6d, 0x70, 0x6f, 0x72, 0x74, 0x54,
 	0x65, 0x78, 0x74, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x52, 0x07, 0x73, 0x6f, 0x75, 0x72, 0x63,
-	0x65, 0x73, 0x22, 0xa0, 0x01, 0x0a, 0x14, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6d, 0x70, 0x6f, 0x72,
+	0x65, 0x73, 0x22, 0xec, 0x01, 0x0a, 0x14, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6d, 0x70, 0x6f, 0x72,
 	0x74, 0x54, 0x65, 0x78, 0x74, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x12, 0x44, 0x0a, 0x07, 0x63,
 	0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x2a, 0x2e, 0x6e,
 	0x6f, 0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c, 0x6d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68,
 	0x61, 0x31, 0x2e, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6d, 0x70, 0x6f, 0x72, 0x74, 0x54, 0x65, 0x78,
 	0x74, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e,
-	0x74, 0x12, 0x21, 0x0a, 0x0c, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x5f, 0x74, 0x79, 0x70,
-	0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74,
-	0x54, 0x79, 0x70, 0x65, 0x12, 0x1f, 0x0a, 0x0b, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f, 0x74,
-	0x79, 0x70, 0x65, 0x18, 0x0b, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0a, 0x73, 0x6f, 0x75, 0x72, 0x63,
-	0x65, 0x54, 0x79, 0x70, 0x65, 0x22, 0x49, 0x0a, 0x15, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6d, 0x70,
+	0x74, 0x12, 0x4a, 0x0a, 0x09, 0x75, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x5f, 0x33, 0x18, 0x03,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x2d, 0x2e, 0x6e, 0x6f, 0x74, 0x65, 0x62, 0x6f, 0x6f, 0x6b, 0x6c,
+	0x6d, 0x2e, 0x76, 0x31, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x31, 0x2e, 0x42, 0x75, 0x6c, 0x6b, 0x49,
+	0x6d, 0x70, 0x6f, 0x72, 0x74, 0x54, 0x65, 0x78, 0x74, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x4c,
+	0x69, 0x6e, 0x6b, 0x52, 0x08, 0x75, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x33, 0x12, 0x21, 0x0a,
+	0x0c, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x04, 0x20,
+	0x01, 0x28, 0x05, 0x52, 0x0b, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x54, 0x79, 0x70, 0x65,
+	0x12, 0x1f, 0x0a, 0x0b, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18,
+	0x0b, 0x20, 0x01, 0x28, 0x05, 0x52, 0x0a, 0x73, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x54, 0x79, 0x70,
+	0x65, 0x22, 0x42, 0x0a, 0x18, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6d, 0x70, 0x6f, 0x72, 0x74, 0x54,
+	0x65, 0x78, 0x74, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x4c, 0x69, 0x6e, 0x6b, 0x12, 0x10, 0x0a,
+	0x03, 0x75, 0x72, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x75, 0x72, 0x6c, 0x12,
+	0x14, 0x0a, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05,
+	0x74, 0x69, 0x74, 0x6c, 0x65, 0x22, 0x49, 0x0a, 0x15, 0x42, 0x75, 0x6c, 0x6b, 0x49, 0x6d, 0x70,
 	0x6f, 0x72, 0x74, 0x54, 0x65, 0x78, 0x74, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x12, 0x14,
 	0x0a, 0x05, 0x74, 0x69, 0x74, 0x6c, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x74,
 	0x69, 0x74, 0x6c, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x6d, 0x61, 0x72, 0x6b, 0x64, 0x6f, 0x77, 0x6e,
@@ -25868,7 +25940,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_rawDescGZIP() []byte {
 }
 
 var file_notebooklm_v1alpha1_orchestration_proto_enumTypes = make([]protoimpl.EnumInfo, 7)
-var file_notebooklm_v1alpha1_orchestration_proto_msgTypes = make([]protoimpl.MessageInfo, 341)
+var file_notebooklm_v1alpha1_orchestration_proto_msgTypes = make([]protoimpl.MessageInfo, 342)
 var file_notebooklm_v1alpha1_orchestration_proto_goTypes = []interface{}{
 	(ArtifactType)(0),                             // 0: notebooklm.v1alpha1.ArtifactType
 	(ArtifactState)(0),                            // 1: notebooklm.v1alpha1.ArtifactState
@@ -26126,119 +26198,120 @@ var file_notebooklm_v1alpha1_orchestration_proto_goTypes = []interface{}{
 	(*BulkImportSourceInput)(nil),                 // 253: notebooklm.v1alpha1.BulkImportSourceInput
 	(*BulkImportFromResearchWireRequest)(nil),     // 254: notebooklm.v1alpha1.BulkImportFromResearchWireRequest
 	(*BulkImportTextSource)(nil),                  // 255: notebooklm.v1alpha1.BulkImportTextSource
-	(*BulkImportTextContent)(nil),                 // 256: notebooklm.v1alpha1.BulkImportTextContent
-	(*BulkImportFromResearchResponse)(nil),        // 257: notebooklm.v1alpha1.BulkImportFromResearchResponse
-	(*BulkImportResult)(nil),                      // 258: notebooklm.v1alpha1.BulkImportResult
-	(*GetAudioFormatsRequest)(nil),                // 259: notebooklm.v1alpha1.GetAudioFormatsRequest
-	(*GetAudioFormatsResponse)(nil),               // 260: notebooklm.v1alpha1.GetAudioFormatsResponse
-	(*AudioFormatList)(nil),                       // 261: notebooklm.v1alpha1.AudioFormatList
-	(*DocTemplateList)(nil),                       // 262: notebooklm.v1alpha1.DocTemplateList
-	(*AudioFormat)(nil),                           // 263: notebooklm.v1alpha1.AudioFormat
-	(*DocTemplate)(nil),                           // 264: notebooklm.v1alpha1.DocTemplate
-	(*LogEventRequest)(nil),                       // 265: notebooklm.v1alpha1.LogEventRequest
-	(*LogEventEntry)(nil),                         // 266: notebooklm.v1alpha1.LogEventEntry
-	(*LogEventSlot)(nil),                          // 267: notebooklm.v1alpha1.LogEventSlot
-	(*LogEventContext)(nil),                       // 268: notebooklm.v1alpha1.LogEventContext
-	(*LogEventMarker)(nil),                        // 269: notebooklm.v1alpha1.LogEventMarker
-	(*LogEventResponse)(nil),                      // 270: notebooklm.v1alpha1.LogEventResponse
-	(*PromoLogEntry)(nil),                         // 271: notebooklm.v1alpha1.PromoLogEntry
-	(*PromoSlot)(nil),                             // 272: notebooklm.v1alpha1.PromoSlot
-	(*PromoCard)(nil),                             // 273: notebooklm.v1alpha1.PromoCard
-	(*PromoCardRender)(nil),                       // 274: notebooklm.v1alpha1.PromoCardRender
-	(*PromoCardContent)(nil),                      // 275: notebooklm.v1alpha1.PromoCardContent
-	(*PromoCardIcon)(nil),                         // 276: notebooklm.v1alpha1.PromoCardIcon
-	(*PromoCardAction)(nil),                       // 277: notebooklm.v1alpha1.PromoCardAction
-	(*PromoCardLinkWrapper)(nil),                  // 278: notebooklm.v1alpha1.PromoCardLinkWrapper
-	(*PromoCardLink)(nil),                         // 279: notebooklm.v1alpha1.PromoCardLink
-	(*PromoCardEvent)(nil),                        // 280: notebooklm.v1alpha1.PromoCardEvent
-	(*PromoCardEventContext)(nil),                 // 281: notebooklm.v1alpha1.PromoCardEventContext
-	(*PromoCardRef)(nil),                          // 282: notebooklm.v1alpha1.PromoCardRef
-	(*PromoCardRefList)(nil),                      // 283: notebooklm.v1alpha1.PromoCardRefList
-	(*ReportContentRequest)(nil),                  // 284: notebooklm.v1alpha1.ReportContentRequest
-	(*ReportContentResponse)(nil),                 // 285: notebooklm.v1alpha1.ReportContentResponse
-	(*ReviseArtifactRequest)(nil),                 // 286: notebooklm.v1alpha1.ReviseArtifactRequest
-	(*ArtifactRevisionInstructions)(nil),          // 287: notebooklm.v1alpha1.ArtifactRevisionInstructions
-	(*ArtifactRevisionInstruction)(nil),           // 288: notebooklm.v1alpha1.ArtifactRevisionInstruction
-	(*StartDeepResearchWireRequest)(nil),          // 289: notebooklm.v1alpha1.StartDeepResearchWireRequest
-	(*ResearchQuery)(nil),                         // 290: notebooklm.v1alpha1.ResearchQuery
-	(*ReviseArtifactResponse)(nil),                // 291: notebooklm.v1alpha1.ReviseArtifactResponse
-	(*GenerateArtifactSuggestionsRequest)(nil),    // 292: notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest
-	(*ArtifactSuggestion)(nil),                    // 293: notebooklm.v1alpha1.ArtifactSuggestion
-	(*GenerateArtifactSuggestionsResponse)(nil),   // 294: notebooklm.v1alpha1.GenerateArtifactSuggestionsResponse
-	(*SDPExchangeRequest)(nil),                    // 295: notebooklm.v1alpha1.SDPExchangeRequest
-	(*SDPExchangeResponse)(nil),                   // 296: notebooklm.v1alpha1.SDPExchangeResponse
-	(*GetLabelsRequest)(nil),                      // 297: notebooklm.v1alpha1.GetLabelsRequest
-	(*GetLabelsResponse)(nil),                     // 298: notebooklm.v1alpha1.GetLabelsResponse
-	(*Label)(nil),                                 // 299: notebooklm.v1alpha1.Label
-	(*PlaybackPosition)(nil),                      // 300: notebooklm.v1alpha1.PlaybackPosition
-	(*ArtifactUserState)(nil),                     // 301: notebooklm.v1alpha1.ArtifactUserState
-	(*UpsertArtifactUserStateRequest)(nil),        // 302: notebooklm.v1alpha1.UpsertArtifactUserStateRequest
-	(*UpsertArtifactUserStateResponse)(nil),       // 303: notebooklm.v1alpha1.UpsertArtifactUserStateResponse
-	(*GetArtifactUserStateRequest)(nil),           // 304: notebooklm.v1alpha1.GetArtifactUserStateRequest
-	(*GetArtifactUserStateResponse)(nil),          // 305: notebooklm.v1alpha1.GetArtifactUserStateResponse
-	(*CreateLabelRequest)(nil),                    // 306: notebooklm.v1alpha1.CreateLabelRequest
-	(*MutateLabelsModeRequest)(nil),               // 307: notebooklm.v1alpha1.MutateLabelsModeRequest
-	(*LabelMode)(nil),                             // 308: notebooklm.v1alpha1.LabelMode
-	(*LabelCreation)(nil),                         // 309: notebooklm.v1alpha1.LabelCreation
-	(*CreateLabelResponse)(nil),                   // 310: notebooklm.v1alpha1.CreateLabelResponse
-	(*MutateLabelRequest)(nil),                    // 311: notebooklm.v1alpha1.MutateLabelRequest
-	(*MutateLabelMutation)(nil),                   // 312: notebooklm.v1alpha1.MutateLabelMutation
-	(*MutateLabelEntry)(nil),                      // 313: notebooklm.v1alpha1.MutateLabelEntry
-	(*LabelNameChange)(nil),                       // 314: notebooklm.v1alpha1.LabelNameChange
-	(*MutateLabelResponse)(nil),                   // 315: notebooklm.v1alpha1.MutateLabelResponse
-	(*DeleteLabelsRequest)(nil),                   // 316: notebooklm.v1alpha1.DeleteLabelsRequest
-	(*GenerateArtifactRequest)(nil),               // 317: notebooklm.v1alpha1.GenerateArtifactRequest
-	(*CancelDiscoverSourcesJobRequest)(nil),       // 318: notebooklm.v1alpha1.CancelDiscoverSourcesJobRequest
-	(*CancelGenerationRequest)(nil),               // 319: notebooklm.v1alpha1.CancelGenerationRequest
-	(*CancelGenerationResponse)(nil),              // 320: notebooklm.v1alpha1.CancelGenerationResponse
-	(*ExportToDriveRequest)(nil),                  // 321: notebooklm.v1alpha1.ExportToDriveRequest
-	(*ExportToDriveResponse)(nil),                 // 322: notebooklm.v1alpha1.ExportToDriveResponse
-	(*UpdateFeaturedNotebookStatusRequest)(nil),   // 323: notebooklm.v1alpha1.UpdateFeaturedNotebookStatusRequest
-	(*ListModelOptionsRequest)(nil),               // 324: notebooklm.v1alpha1.ListModelOptionsRequest
-	(*ListModelOptionsResponse)(nil),              // 325: notebooklm.v1alpha1.ListModelOptionsResponse
-	(*ModelOption)(nil),                           // 326: notebooklm.v1alpha1.ModelOption
-	(*UpdateProjectUserStateRequest)(nil),         // 327: notebooklm.v1alpha1.UpdateProjectUserStateRequest
-	(*UpdateProjectUserStateValue)(nil),           // 328: notebooklm.v1alpha1.UpdateProjectUserStateValue
-	(*UpdateProjectUserStateValueInner)(nil),      // 329: notebooklm.v1alpha1.UpdateProjectUserStateValueInner
-	(*UpdateProjectUserStateKeys)(nil),            // 330: notebooklm.v1alpha1.UpdateProjectUserStateKeys
-	(*UpdateProjectUserStateResponse)(nil),        // 331: notebooklm.v1alpha1.UpdateProjectUserStateResponse
-	(*UpdateProjectUserStateResult)(nil),          // 332: notebooklm.v1alpha1.UpdateProjectUserStateResult
-	(*ExecuteWritingFunctionRequest)(nil),         // 333: notebooklm.v1alpha1.ExecuteWritingFunctionRequest
-	(*ExecuteWritingFunctionResponse)(nil),        // 334: notebooklm.v1alpha1.ExecuteWritingFunctionResponse
-	(*ListExpertIntelligenceContentRequest)(nil),  // 335: notebooklm.v1alpha1.ListExpertIntelligenceContentRequest
-	(*ListExpertIntelligenceContentResponse)(nil), // 336: notebooklm.v1alpha1.ListExpertIntelligenceContentResponse
-	(*ExpertIntelligenceItem)(nil),                // 337: notebooklm.v1alpha1.ExpertIntelligenceItem
-	(*ExpertIntelligencePublicationTime)(nil),     // 338: notebooklm.v1alpha1.ExpertIntelligencePublicationTime
-	(*GenerateAccessTokenRequest)(nil),            // 339: notebooklm.v1alpha1.GenerateAccessTokenRequest
-	(*GenerateAccessTokenResponse)(nil),           // 340: notebooklm.v1alpha1.GenerateAccessTokenResponse
-	(*AccessTokenTTL)(nil),                        // 341: notebooklm.v1alpha1.AccessTokenTTL
-	(*AccessTokenScopes)(nil),                     // 342: notebooklm.v1alpha1.AccessTokenScopes
-	(*GetMagicViewRequest)(nil),                   // 343: notebooklm.v1alpha1.GetMagicViewRequest
-	(*GetMagicViewResponse)(nil),                  // 344: notebooklm.v1alpha1.GetMagicViewResponse
-	(*CopyProjectRequest)(nil),                    // 345: notebooklm.v1alpha1.CopyProjectRequest
-	(*CopyProjectResponse)(nil),                   // 346: notebooklm.v1alpha1.CopyProjectResponse
-	(*CreateAudioOverviewLegacyRequest)(nil),      // 347: notebooklm.v1alpha1.CreateAudioOverviewLegacyRequest
-	(*timestamppb.Timestamp)(nil),                 // 348: google.protobuf.Timestamp
-	(*SourceId)(nil),                              // 349: notebooklm.v1alpha1.SourceId
-	(*fieldmaskpb.FieldMask)(nil),                 // 350: google.protobuf.FieldMask
-	(*Source)(nil),                                // 351: notebooklm.v1alpha1.Source
-	(*ProjectMetadata)(nil),                       // 352: notebooklm.v1alpha1.ProjectMetadata
-	(*ChatbotConfig)(nil),                         // 353: notebooklm.v1alpha1.ChatbotConfig
-	(*Project)(nil),                               // 354: notebooklm.v1alpha1.Project
-	(*emptypb.Empty)(nil),                         // 355: google.protobuf.Empty
-	(*GenerateMagicViewRequest)(nil),              // 356: notebooklm.v1alpha1.GenerateMagicViewRequest
-	(*AudioOverview)(nil),                         // 357: notebooklm.v1alpha1.AudioOverview
-	(*NoteRecord)(nil),                            // 358: notebooklm.v1alpha1.NoteRecord
-	(*GetNotesWireResponse)(nil),                  // 359: notebooklm.v1alpha1.GetNotesWireResponse
-	(*Note)(nil),                                  // 360: notebooklm.v1alpha1.Note
-	(*ListRecentlyViewedProjectsResponse)(nil),    // 361: notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse
-	(*GenerateNotebookGuideResponse)(nil),         // 362: notebooklm.v1alpha1.GenerateNotebookGuideResponse
-	(*GenerateOutlineResponse)(nil),               // 363: notebooklm.v1alpha1.GenerateOutlineResponse
-	(*GenerateSectionResponse)(nil),               // 364: notebooklm.v1alpha1.GenerateSectionResponse
-	(*StartDraftResponse)(nil),                    // 365: notebooklm.v1alpha1.StartDraftResponse
-	(*StartSectionResponse)(nil),                  // 366: notebooklm.v1alpha1.StartSectionResponse
-	(*GenerateMagicViewResponse)(nil),             // 367: notebooklm.v1alpha1.GenerateMagicViewResponse
-	(*GenerateDocumentGuidesResponse)(nil),        // 368: notebooklm.v1alpha1.GenerateDocumentGuidesResponse
+	(*BulkImportTextSourceLink)(nil),              // 256: notebooklm.v1alpha1.BulkImportTextSourceLink
+	(*BulkImportTextContent)(nil),                 // 257: notebooklm.v1alpha1.BulkImportTextContent
+	(*BulkImportFromResearchResponse)(nil),        // 258: notebooklm.v1alpha1.BulkImportFromResearchResponse
+	(*BulkImportResult)(nil),                      // 259: notebooklm.v1alpha1.BulkImportResult
+	(*GetAudioFormatsRequest)(nil),                // 260: notebooklm.v1alpha1.GetAudioFormatsRequest
+	(*GetAudioFormatsResponse)(nil),               // 261: notebooklm.v1alpha1.GetAudioFormatsResponse
+	(*AudioFormatList)(nil),                       // 262: notebooklm.v1alpha1.AudioFormatList
+	(*DocTemplateList)(nil),                       // 263: notebooklm.v1alpha1.DocTemplateList
+	(*AudioFormat)(nil),                           // 264: notebooklm.v1alpha1.AudioFormat
+	(*DocTemplate)(nil),                           // 265: notebooklm.v1alpha1.DocTemplate
+	(*LogEventRequest)(nil),                       // 266: notebooklm.v1alpha1.LogEventRequest
+	(*LogEventEntry)(nil),                         // 267: notebooklm.v1alpha1.LogEventEntry
+	(*LogEventSlot)(nil),                          // 268: notebooklm.v1alpha1.LogEventSlot
+	(*LogEventContext)(nil),                       // 269: notebooklm.v1alpha1.LogEventContext
+	(*LogEventMarker)(nil),                        // 270: notebooklm.v1alpha1.LogEventMarker
+	(*LogEventResponse)(nil),                      // 271: notebooklm.v1alpha1.LogEventResponse
+	(*PromoLogEntry)(nil),                         // 272: notebooklm.v1alpha1.PromoLogEntry
+	(*PromoSlot)(nil),                             // 273: notebooklm.v1alpha1.PromoSlot
+	(*PromoCard)(nil),                             // 274: notebooklm.v1alpha1.PromoCard
+	(*PromoCardRender)(nil),                       // 275: notebooklm.v1alpha1.PromoCardRender
+	(*PromoCardContent)(nil),                      // 276: notebooklm.v1alpha1.PromoCardContent
+	(*PromoCardIcon)(nil),                         // 277: notebooklm.v1alpha1.PromoCardIcon
+	(*PromoCardAction)(nil),                       // 278: notebooklm.v1alpha1.PromoCardAction
+	(*PromoCardLinkWrapper)(nil),                  // 279: notebooklm.v1alpha1.PromoCardLinkWrapper
+	(*PromoCardLink)(nil),                         // 280: notebooklm.v1alpha1.PromoCardLink
+	(*PromoCardEvent)(nil),                        // 281: notebooklm.v1alpha1.PromoCardEvent
+	(*PromoCardEventContext)(nil),                 // 282: notebooklm.v1alpha1.PromoCardEventContext
+	(*PromoCardRef)(nil),                          // 283: notebooklm.v1alpha1.PromoCardRef
+	(*PromoCardRefList)(nil),                      // 284: notebooklm.v1alpha1.PromoCardRefList
+	(*ReportContentRequest)(nil),                  // 285: notebooklm.v1alpha1.ReportContentRequest
+	(*ReportContentResponse)(nil),                 // 286: notebooklm.v1alpha1.ReportContentResponse
+	(*ReviseArtifactRequest)(nil),                 // 287: notebooklm.v1alpha1.ReviseArtifactRequest
+	(*ArtifactRevisionInstructions)(nil),          // 288: notebooklm.v1alpha1.ArtifactRevisionInstructions
+	(*ArtifactRevisionInstruction)(nil),           // 289: notebooklm.v1alpha1.ArtifactRevisionInstruction
+	(*StartDeepResearchWireRequest)(nil),          // 290: notebooklm.v1alpha1.StartDeepResearchWireRequest
+	(*ResearchQuery)(nil),                         // 291: notebooklm.v1alpha1.ResearchQuery
+	(*ReviseArtifactResponse)(nil),                // 292: notebooklm.v1alpha1.ReviseArtifactResponse
+	(*GenerateArtifactSuggestionsRequest)(nil),    // 293: notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest
+	(*ArtifactSuggestion)(nil),                    // 294: notebooklm.v1alpha1.ArtifactSuggestion
+	(*GenerateArtifactSuggestionsResponse)(nil),   // 295: notebooklm.v1alpha1.GenerateArtifactSuggestionsResponse
+	(*SDPExchangeRequest)(nil),                    // 296: notebooklm.v1alpha1.SDPExchangeRequest
+	(*SDPExchangeResponse)(nil),                   // 297: notebooklm.v1alpha1.SDPExchangeResponse
+	(*GetLabelsRequest)(nil),                      // 298: notebooklm.v1alpha1.GetLabelsRequest
+	(*GetLabelsResponse)(nil),                     // 299: notebooklm.v1alpha1.GetLabelsResponse
+	(*Label)(nil),                                 // 300: notebooklm.v1alpha1.Label
+	(*PlaybackPosition)(nil),                      // 301: notebooklm.v1alpha1.PlaybackPosition
+	(*ArtifactUserState)(nil),                     // 302: notebooklm.v1alpha1.ArtifactUserState
+	(*UpsertArtifactUserStateRequest)(nil),        // 303: notebooklm.v1alpha1.UpsertArtifactUserStateRequest
+	(*UpsertArtifactUserStateResponse)(nil),       // 304: notebooklm.v1alpha1.UpsertArtifactUserStateResponse
+	(*GetArtifactUserStateRequest)(nil),           // 305: notebooklm.v1alpha1.GetArtifactUserStateRequest
+	(*GetArtifactUserStateResponse)(nil),          // 306: notebooklm.v1alpha1.GetArtifactUserStateResponse
+	(*CreateLabelRequest)(nil),                    // 307: notebooklm.v1alpha1.CreateLabelRequest
+	(*MutateLabelsModeRequest)(nil),               // 308: notebooklm.v1alpha1.MutateLabelsModeRequest
+	(*LabelMode)(nil),                             // 309: notebooklm.v1alpha1.LabelMode
+	(*LabelCreation)(nil),                         // 310: notebooklm.v1alpha1.LabelCreation
+	(*CreateLabelResponse)(nil),                   // 311: notebooklm.v1alpha1.CreateLabelResponse
+	(*MutateLabelRequest)(nil),                    // 312: notebooklm.v1alpha1.MutateLabelRequest
+	(*MutateLabelMutation)(nil),                   // 313: notebooklm.v1alpha1.MutateLabelMutation
+	(*MutateLabelEntry)(nil),                      // 314: notebooklm.v1alpha1.MutateLabelEntry
+	(*LabelNameChange)(nil),                       // 315: notebooklm.v1alpha1.LabelNameChange
+	(*MutateLabelResponse)(nil),                   // 316: notebooklm.v1alpha1.MutateLabelResponse
+	(*DeleteLabelsRequest)(nil),                   // 317: notebooklm.v1alpha1.DeleteLabelsRequest
+	(*GenerateArtifactRequest)(nil),               // 318: notebooklm.v1alpha1.GenerateArtifactRequest
+	(*CancelDiscoverSourcesJobRequest)(nil),       // 319: notebooklm.v1alpha1.CancelDiscoverSourcesJobRequest
+	(*CancelGenerationRequest)(nil),               // 320: notebooklm.v1alpha1.CancelGenerationRequest
+	(*CancelGenerationResponse)(nil),              // 321: notebooklm.v1alpha1.CancelGenerationResponse
+	(*ExportToDriveRequest)(nil),                  // 322: notebooklm.v1alpha1.ExportToDriveRequest
+	(*ExportToDriveResponse)(nil),                 // 323: notebooklm.v1alpha1.ExportToDriveResponse
+	(*UpdateFeaturedNotebookStatusRequest)(nil),   // 324: notebooklm.v1alpha1.UpdateFeaturedNotebookStatusRequest
+	(*ListModelOptionsRequest)(nil),               // 325: notebooklm.v1alpha1.ListModelOptionsRequest
+	(*ListModelOptionsResponse)(nil),              // 326: notebooklm.v1alpha1.ListModelOptionsResponse
+	(*ModelOption)(nil),                           // 327: notebooklm.v1alpha1.ModelOption
+	(*UpdateProjectUserStateRequest)(nil),         // 328: notebooklm.v1alpha1.UpdateProjectUserStateRequest
+	(*UpdateProjectUserStateValue)(nil),           // 329: notebooklm.v1alpha1.UpdateProjectUserStateValue
+	(*UpdateProjectUserStateValueInner)(nil),      // 330: notebooklm.v1alpha1.UpdateProjectUserStateValueInner
+	(*UpdateProjectUserStateKeys)(nil),            // 331: notebooklm.v1alpha1.UpdateProjectUserStateKeys
+	(*UpdateProjectUserStateResponse)(nil),        // 332: notebooklm.v1alpha1.UpdateProjectUserStateResponse
+	(*UpdateProjectUserStateResult)(nil),          // 333: notebooklm.v1alpha1.UpdateProjectUserStateResult
+	(*ExecuteWritingFunctionRequest)(nil),         // 334: notebooklm.v1alpha1.ExecuteWritingFunctionRequest
+	(*ExecuteWritingFunctionResponse)(nil),        // 335: notebooklm.v1alpha1.ExecuteWritingFunctionResponse
+	(*ListExpertIntelligenceContentRequest)(nil),  // 336: notebooklm.v1alpha1.ListExpertIntelligenceContentRequest
+	(*ListExpertIntelligenceContentResponse)(nil), // 337: notebooklm.v1alpha1.ListExpertIntelligenceContentResponse
+	(*ExpertIntelligenceItem)(nil),                // 338: notebooklm.v1alpha1.ExpertIntelligenceItem
+	(*ExpertIntelligencePublicationTime)(nil),     // 339: notebooklm.v1alpha1.ExpertIntelligencePublicationTime
+	(*GenerateAccessTokenRequest)(nil),            // 340: notebooklm.v1alpha1.GenerateAccessTokenRequest
+	(*GenerateAccessTokenResponse)(nil),           // 341: notebooklm.v1alpha1.GenerateAccessTokenResponse
+	(*AccessTokenTTL)(nil),                        // 342: notebooklm.v1alpha1.AccessTokenTTL
+	(*AccessTokenScopes)(nil),                     // 343: notebooklm.v1alpha1.AccessTokenScopes
+	(*GetMagicViewRequest)(nil),                   // 344: notebooklm.v1alpha1.GetMagicViewRequest
+	(*GetMagicViewResponse)(nil),                  // 345: notebooklm.v1alpha1.GetMagicViewResponse
+	(*CopyProjectRequest)(nil),                    // 346: notebooklm.v1alpha1.CopyProjectRequest
+	(*CopyProjectResponse)(nil),                   // 347: notebooklm.v1alpha1.CopyProjectResponse
+	(*CreateAudioOverviewLegacyRequest)(nil),      // 348: notebooklm.v1alpha1.CreateAudioOverviewLegacyRequest
+	(*timestamppb.Timestamp)(nil),                 // 349: google.protobuf.Timestamp
+	(*SourceId)(nil),                              // 350: notebooklm.v1alpha1.SourceId
+	(*fieldmaskpb.FieldMask)(nil),                 // 351: google.protobuf.FieldMask
+	(*Source)(nil),                                // 352: notebooklm.v1alpha1.Source
+	(*ProjectMetadata)(nil),                       // 353: notebooklm.v1alpha1.ProjectMetadata
+	(*ChatbotConfig)(nil),                         // 354: notebooklm.v1alpha1.ChatbotConfig
+	(*Project)(nil),                               // 355: notebooklm.v1alpha1.Project
+	(*emptypb.Empty)(nil),                         // 356: google.protobuf.Empty
+	(*GenerateMagicViewRequest)(nil),              // 357: notebooklm.v1alpha1.GenerateMagicViewRequest
+	(*AudioOverview)(nil),                         // 358: notebooklm.v1alpha1.AudioOverview
+	(*NoteRecord)(nil),                            // 359: notebooklm.v1alpha1.NoteRecord
+	(*GetNotesWireResponse)(nil),                  // 360: notebooklm.v1alpha1.GetNotesWireResponse
+	(*Note)(nil),                                  // 361: notebooklm.v1alpha1.Note
+	(*ListRecentlyViewedProjectsResponse)(nil),    // 362: notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse
+	(*GenerateNotebookGuideResponse)(nil),         // 363: notebooklm.v1alpha1.GenerateNotebookGuideResponse
+	(*GenerateOutlineResponse)(nil),               // 364: notebooklm.v1alpha1.GenerateOutlineResponse
+	(*GenerateSectionResponse)(nil),               // 365: notebooklm.v1alpha1.GenerateSectionResponse
+	(*StartDraftResponse)(nil),                    // 366: notebooklm.v1alpha1.StartDraftResponse
+	(*StartSectionResponse)(nil),                  // 367: notebooklm.v1alpha1.StartSectionResponse
+	(*GenerateMagicViewResponse)(nil),             // 368: notebooklm.v1alpha1.GenerateMagicViewResponse
+	(*GenerateDocumentGuidesResponse)(nil),        // 369: notebooklm.v1alpha1.GenerateDocumentGuidesResponse
 }
 var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	9,   // 0: notebooklm.v1alpha1.RequestContext.surface:type_name -> notebooklm.v1alpha1.RequestSurface
@@ -26251,16 +26324,16 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	25,  // 7: notebooklm.v1alpha1.Artifact.audio_overview:type_name -> notebooklm.v1alpha1.ArtifactAudioOverview
 	27,  // 8: notebooklm.v1alpha1.Artifact.video_preview:type_name -> notebooklm.v1alpha1.ArtifactVideoPreview
 	29,  // 9: notebooklm.v1alpha1.Artifact.tailored_report:type_name -> notebooklm.v1alpha1.ArtifactReportConfig
-	348, // 10: notebooklm.v1alpha1.Artifact.update_time:type_name -> google.protobuf.Timestamp
+	349, // 10: notebooklm.v1alpha1.Artifact.update_time:type_name -> google.protobuf.Timestamp
 	31,  // 11: notebooklm.v1alpha1.Artifact.mindmap_preview:type_name -> notebooklm.v1alpha1.ArtifactMindMapPreview
-	348, // 12: notebooklm.v1alpha1.Artifact.create_time:type_name -> google.protobuf.Timestamp
+	349, // 12: notebooklm.v1alpha1.Artifact.create_time:type_name -> google.protobuf.Timestamp
 	35,  // 13: notebooklm.v1alpha1.Artifact.slide_deck_preview:type_name -> notebooklm.v1alpha1.ArtifactSlideDeckPreview
 	14,  // 14: notebooklm.v1alpha1.Artifact.processing_timestamps:type_name -> notebooklm.v1alpha1.ArtifactTimestamps
 	41,  // 15: notebooklm.v1alpha1.Artifact.flashcard_config:type_name -> notebooklm.v1alpha1.ArtifactFlashcardConfig
 	20,  // 16: notebooklm.v1alpha1.Artifact.app:type_name -> notebooklm.v1alpha1.App
 	13,  // 17: notebooklm.v1alpha1.Artifact.file_details:type_name -> notebooklm.v1alpha1.ArtifactFileDetails
 	15,  // 18: notebooklm.v1alpha1.ArtifactTimestamps.rows:type_name -> notebooklm.v1alpha1.ArtifactTimestampRow
-	349, // 19: notebooklm.v1alpha1.ArtifactSource.source_id:type_name -> notebooklm.v1alpha1.SourceId
+	350, // 19: notebooklm.v1alpha1.ArtifactSource.source_id:type_name -> notebooklm.v1alpha1.SourceId
 	17,  // 20: notebooklm.v1alpha1.ArtifactSource.text_fragments:type_name -> notebooklm.v1alpha1.TextFragment
 	19,  // 21: notebooklm.v1alpha1.Report.sections:type_name -> notebooklm.v1alpha1.Section
 	24,  // 22: notebooklm.v1alpha1.ArtifactNotePreview.config:type_name -> notebooklm.v1alpha1.ArtifactNoteConfig
@@ -26288,7 +26361,7 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	12,  // 44: notebooklm.v1alpha1.CreateArtifactRequest.artifact:type_name -> notebooklm.v1alpha1.Artifact
 	8,   // 45: notebooklm.v1alpha1.GetArtifactRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
 	12,  // 46: notebooklm.v1alpha1.UpdateArtifactRequest.artifact:type_name -> notebooklm.v1alpha1.Artifact
-	350, // 47: notebooklm.v1alpha1.UpdateArtifactRequest.update_mask:type_name -> google.protobuf.FieldMask
+	351, // 47: notebooklm.v1alpha1.UpdateArtifactRequest.update_mask:type_name -> google.protobuf.FieldMask
 	8,   // 48: notebooklm.v1alpha1.ListArtifactsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
 	12,  // 49: notebooklm.v1alpha1.ListArtifactsResponse.artifacts:type_name -> notebooklm.v1alpha1.Artifact
 	12,  // 50: notebooklm.v1alpha1.QueryArtifactsResponse.artifacts:type_name -> notebooklm.v1alpha1.Artifact
@@ -26307,7 +26380,7 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	210, // 63: notebooklm.v1alpha1.UniversalAudioDetails.sources:type_name -> notebooklm.v1alpha1.SourceIdList
 	61,  // 64: notebooklm.v1alpha1.UniversalVideoOptions.details:type_name -> notebooklm.v1alpha1.UniversalVideoDetails
 	62,  // 65: notebooklm.v1alpha1.UniversalVideoDetails.sources:type_name -> notebooklm.v1alpha1.UniversalArtifactSources
-	351, // 66: notebooklm.v1alpha1.DiscoverSourcesResponse.sources:type_name -> notebooklm.v1alpha1.Source
+	352, // 66: notebooklm.v1alpha1.DiscoverSourcesResponse.sources:type_name -> notebooklm.v1alpha1.Source
 	68,  // 67: notebooklm.v1alpha1.GenerateFreeFormStreamedRequest.history:type_name -> notebooklm.v1alpha1.GenerateFreeFormStreamedHistoryEntry
 	69,  // 68: notebooklm.v1alpha1.GenerateFreeFormStreamedRequest.options:type_name -> notebooklm.v1alpha1.GenerateFreeFormStreamedOptions
 	72,  // 69: notebooklm.v1alpha1.ChatCitationSegment.range:type_name -> notebooklm.v1alpha1.ChatCharacterRange
@@ -26340,31 +26413,31 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	77,  // 96: notebooklm.v1alpha1.ChatFollowUpList.follow_up:type_name -> notebooklm.v1alpha1.ChatFollowUp
 	92,  // 97: notebooklm.v1alpha1.GenerateReportSuggestionsResponse.suggestions:type_name -> notebooklm.v1alpha1.ReportSuggestion
 	8,   // 98: notebooklm.v1alpha1.GetProjectAnalyticsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	348, // 99: notebooklm.v1alpha1.GetProjectAnalyticsRequest.requested_at:type_name -> google.protobuf.Timestamp
+	349, // 99: notebooklm.v1alpha1.GetProjectAnalyticsRequest.requested_at:type_name -> google.protobuf.Timestamp
 	162, // 100: notebooklm.v1alpha1.GetProjectAnalyticsRequest.mode:type_name -> notebooklm.v1alpha1.Int32List
 	96,  // 101: notebooklm.v1alpha1.ProjectAnalytics.series:type_name -> notebooklm.v1alpha1.ProjectAnalyticsSeries
 	97,  // 102: notebooklm.v1alpha1.ProjectAnalyticsSeries.buckets:type_name -> notebooklm.v1alpha1.ProjectAnalyticsBuckets
 	98,  // 103: notebooklm.v1alpha1.ProjectAnalyticsBuckets.points:type_name -> notebooklm.v1alpha1.ProjectAnalyticsPointList
 	99,  // 104: notebooklm.v1alpha1.ProjectAnalyticsPointList.points:type_name -> notebooklm.v1alpha1.ProjectAnalyticsPoint
-	348, // 105: notebooklm.v1alpha1.ProjectAnalyticsPoint.time:type_name -> google.protobuf.Timestamp
+	349, // 105: notebooklm.v1alpha1.ProjectAnalyticsPoint.time:type_name -> google.protobuf.Timestamp
 	9,   // 106: notebooklm.v1alpha1.ListFeaturedProjectsRequest.context_surface:type_name -> notebooklm.v1alpha1.RequestSurface
 	10,  // 107: notebooklm.v1alpha1.ListFeaturedProjectsRequest.context_caps:type_name -> notebooklm.v1alpha1.RequestClientCaps
 	101, // 108: notebooklm.v1alpha1.FeaturedProjectPresentation.images:type_name -> notebooklm.v1alpha1.FeaturedProjectImage
-	351, // 109: notebooklm.v1alpha1.FeaturedProject.sources:type_name -> notebooklm.v1alpha1.Source
-	352, // 110: notebooklm.v1alpha1.FeaturedProject.metadata:type_name -> notebooklm.v1alpha1.ProjectMetadata
-	353, // 111: notebooklm.v1alpha1.FeaturedProject.chatbot_config:type_name -> notebooklm.v1alpha1.ChatbotConfig
+	352, // 109: notebooklm.v1alpha1.FeaturedProject.sources:type_name -> notebooklm.v1alpha1.Source
+	353, // 110: notebooklm.v1alpha1.FeaturedProject.metadata:type_name -> notebooklm.v1alpha1.ProjectMetadata
+	354, // 111: notebooklm.v1alpha1.FeaturedProject.chatbot_config:type_name -> notebooklm.v1alpha1.ChatbotConfig
 	104, // 112: notebooklm.v1alpha1.FeaturedProject.limits:type_name -> notebooklm.v1alpha1.FeaturedProjectLimits
 	102, // 113: notebooklm.v1alpha1.FeaturedProject.presentation:type_name -> notebooklm.v1alpha1.FeaturedProjectPresentation
 	103, // 114: notebooklm.v1alpha1.ListFeaturedProjectsResponse.projects:type_name -> notebooklm.v1alpha1.FeaturedProject
 	108, // 115: notebooklm.v1alpha1.AddSourceRequest.sources:type_name -> notebooklm.v1alpha1.SourceInput
 	8,   // 116: notebooklm.v1alpha1.AddSourceRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	351, // 117: notebooklm.v1alpha1.AddSourcesResponse.sources:type_name -> notebooklm.v1alpha1.Source
+	352, // 117: notebooklm.v1alpha1.AddSourcesResponse.sources:type_name -> notebooklm.v1alpha1.Source
 	109, // 118: notebooklm.v1alpha1.SourceInput.google_docs:type_name -> notebooklm.v1alpha1.GoogleDocsSourceInput
 	110, // 119: notebooklm.v1alpha1.SourceInput.text:type_name -> notebooklm.v1alpha1.SourceTextInput
 	162, // 120: notebooklm.v1alpha1.CreateNoteRequest.note_type:type_name -> notebooklm.v1alpha1.Int32List
 	8,   // 121: notebooklm.v1alpha1.CreateNoteRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
 	8,   // 122: notebooklm.v1alpha1.DeleteNotesRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	348, // 123: notebooklm.v1alpha1.GetNotesRequest.since:type_name -> google.protobuf.Timestamp
+	349, // 123: notebooklm.v1alpha1.GetNotesRequest.since:type_name -> google.protobuf.Timestamp
 	8,   // 124: notebooklm.v1alpha1.GetNotesRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
 	115, // 125: notebooklm.v1alpha1.MutateNoteRequest.updates:type_name -> notebooklm.v1alpha1.NoteUpdates
 	8,   // 126: notebooklm.v1alpha1.MutateNoteRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
@@ -26409,12 +26482,12 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	148, // 165: notebooklm.v1alpha1.ListRecentlyViewedProjectsFilterB.unknown_3:type_name -> notebooklm.v1alpha1.StringList
 	148, // 166: notebooklm.v1alpha1.ListRecentlyViewedProjectsFilterC.unknown_1:type_name -> notebooklm.v1alpha1.StringList
 	148, // 167: notebooklm.v1alpha1.ListRecentlyViewedProjectsFilterC.values:type_name -> notebooklm.v1alpha1.StringList
-	354, // 168: notebooklm.v1alpha1.MutateProjectRequest.updates:type_name -> notebooklm.v1alpha1.Project
+	355, // 168: notebooklm.v1alpha1.MutateProjectRequest.updates:type_name -> notebooklm.v1alpha1.Project
 	151, // 169: notebooklm.v1alpha1.MutateProjectCoverRequest.updates:type_name -> notebooklm.v1alpha1.ProjectCoverMutation
 	8,   // 170: notebooklm.v1alpha1.MutateProjectCoverRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
 	152, // 171: notebooklm.v1alpha1.ProjectCoverMutation.unknown_4:type_name -> notebooklm.v1alpha1.ProjectCoverMutationUnknown4
 	153, // 172: notebooklm.v1alpha1.ProjectCoverMutation.cover:type_name -> notebooklm.v1alpha1.ProjectCoverSelection
-	355, // 173: notebooklm.v1alpha1.ProjectCoverSelection.clear:type_name -> google.protobuf.Empty
+	356, // 173: notebooklm.v1alpha1.ProjectCoverSelection.clear:type_name -> google.protobuf.Empty
 	162, // 174: notebooklm.v1alpha1.ProjectCoverSelection.preset:type_name -> notebooklm.v1alpha1.Int32List
 	210, // 175: notebooklm.v1alpha1.MutateSourceRequest.source_id:type_name -> notebooklm.v1alpha1.SourceIdList
 	155, // 176: notebooklm.v1alpha1.MutateSourceRequest.updates:type_name -> notebooklm.v1alpha1.MutateSourceUpdates
@@ -26427,7 +26500,7 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	210, // 183: notebooklm.v1alpha1.LoadSourceRequest.source:type_name -> notebooklm.v1alpha1.SourceIdList
 	162, // 184: notebooklm.v1alpha1.LoadSourceRequest.mode:type_name -> notebooklm.v1alpha1.Int32List
 	8,   // 185: notebooklm.v1alpha1.LoadSourceRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	351, // 186: notebooklm.v1alpha1.LoadSourceResponse.source:type_name -> notebooklm.v1alpha1.Source
+	352, // 186: notebooklm.v1alpha1.LoadSourceResponse.source:type_name -> notebooklm.v1alpha1.Source
 	164, // 187: notebooklm.v1alpha1.LoadSourceResponse.content:type_name -> notebooklm.v1alpha1.LoadedSourceContent
 	165, // 188: notebooklm.v1alpha1.LoadedSourceContent.rows:type_name -> notebooklm.v1alpha1.LoadedSourceRows
 	166, // 189: notebooklm.v1alpha1.LoadedSourceRows.rows:type_name -> notebooklm.v1alpha1.LoadedSourceRow
@@ -26449,7 +26522,7 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	8,   // 205: notebooklm.v1alpha1.GetConversationHistoryRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
 	189, // 206: notebooklm.v1alpha1.GetConversationHistoryResponse.messages:type_name -> notebooklm.v1alpha1.ChatMessage
 	8,   // 207: notebooklm.v1alpha1.DeleteChatHistoryRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	348, // 208: notebooklm.v1alpha1.ChatMessage.timestamp:type_name -> google.protobuf.Timestamp
+	349, // 208: notebooklm.v1alpha1.ChatMessage.timestamp:type_name -> google.protobuf.Timestamp
 	190, // 209: notebooklm.v1alpha1.ChatMessage.rich_content:type_name -> notebooklm.v1alpha1.RichContent
 	192, // 210: notebooklm.v1alpha1.RichContent.segment:type_name -> notebooklm.v1alpha1.ContentSegment
 	213, // 211: notebooklm.v1alpha1.RichContent.grounding:type_name -> notebooklm.v1alpha1.Grounding
@@ -26516,258 +26589,259 @@ var file_notebooklm_v1alpha1_orchestration_proto_depIdxs = []int32{
 	8,   // 272: notebooklm.v1alpha1.BulkImportFromResearchWireRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
 	162, // 273: notebooklm.v1alpha1.BulkImportFromResearchWireRequest.marker:type_name -> notebooklm.v1alpha1.Int32List
 	255, // 274: notebooklm.v1alpha1.BulkImportFromResearchWireRequest.sources:type_name -> notebooklm.v1alpha1.BulkImportTextSource
-	256, // 275: notebooklm.v1alpha1.BulkImportTextSource.content:type_name -> notebooklm.v1alpha1.BulkImportTextContent
-	351, // 276: notebooklm.v1alpha1.BulkImportFromResearchResponse.results:type_name -> notebooklm.v1alpha1.Source
-	8,   // 277: notebooklm.v1alpha1.GetAudioFormatsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	261, // 278: notebooklm.v1alpha1.GetAudioFormatsResponse.audio_kinds:type_name -> notebooklm.v1alpha1.AudioFormatList
-	261, // 279: notebooklm.v1alpha1.GetAudioFormatsResponse.video_kinds:type_name -> notebooklm.v1alpha1.AudioFormatList
-	261, // 280: notebooklm.v1alpha1.GetAudioFormatsResponse.slide_kinds:type_name -> notebooklm.v1alpha1.AudioFormatList
-	262, // 281: notebooklm.v1alpha1.GetAudioFormatsResponse.doc_templates:type_name -> notebooklm.v1alpha1.DocTemplateList
-	263, // 282: notebooklm.v1alpha1.AudioFormatList.items:type_name -> notebooklm.v1alpha1.AudioFormat
-	264, // 283: notebooklm.v1alpha1.DocTemplateList.items:type_name -> notebooklm.v1alpha1.DocTemplate
-	266, // 284: notebooklm.v1alpha1.LogEventRequest.events:type_name -> notebooklm.v1alpha1.LogEventEntry
-	267, // 285: notebooklm.v1alpha1.LogEventEntry.slot:type_name -> notebooklm.v1alpha1.LogEventSlot
-	268, // 286: notebooklm.v1alpha1.LogEventEntry.context:type_name -> notebooklm.v1alpha1.LogEventContext
-	269, // 287: notebooklm.v1alpha1.LogEventContext.marker:type_name -> notebooklm.v1alpha1.LogEventMarker
-	271, // 288: notebooklm.v1alpha1.LogEventResponse.entries:type_name -> notebooklm.v1alpha1.PromoLogEntry
-	272, // 289: notebooklm.v1alpha1.PromoLogEntry.slot:type_name -> notebooklm.v1alpha1.PromoSlot
-	273, // 290: notebooklm.v1alpha1.PromoLogEntry.cards:type_name -> notebooklm.v1alpha1.PromoCard
-	274, // 291: notebooklm.v1alpha1.PromoCard.render:type_name -> notebooklm.v1alpha1.PromoCardRender
-	283, // 292: notebooklm.v1alpha1.PromoCard.refs:type_name -> notebooklm.v1alpha1.PromoCardRefList
-	275, // 293: notebooklm.v1alpha1.PromoCardRender.content:type_name -> notebooklm.v1alpha1.PromoCardContent
-	280, // 294: notebooklm.v1alpha1.PromoCardRender.impression_event:type_name -> notebooklm.v1alpha1.PromoCardEvent
-	276, // 295: notebooklm.v1alpha1.PromoCardContent.icon:type_name -> notebooklm.v1alpha1.PromoCardIcon
-	277, // 296: notebooklm.v1alpha1.PromoCardContent.action:type_name -> notebooklm.v1alpha1.PromoCardAction
-	278, // 297: notebooklm.v1alpha1.PromoCardAction.link:type_name -> notebooklm.v1alpha1.PromoCardLinkWrapper
-	280, // 298: notebooklm.v1alpha1.PromoCardAction.click_event:type_name -> notebooklm.v1alpha1.PromoCardEvent
-	279, // 299: notebooklm.v1alpha1.PromoCardLinkWrapper.link:type_name -> notebooklm.v1alpha1.PromoCardLink
-	281, // 300: notebooklm.v1alpha1.PromoCardEvent.context:type_name -> notebooklm.v1alpha1.PromoCardEventContext
-	272, // 301: notebooklm.v1alpha1.PromoCardEventContext.slot:type_name -> notebooklm.v1alpha1.PromoSlot
-	283, // 302: notebooklm.v1alpha1.PromoCardEventContext.refs:type_name -> notebooklm.v1alpha1.PromoCardRefList
-	282, // 303: notebooklm.v1alpha1.PromoCardRefList.refs:type_name -> notebooklm.v1alpha1.PromoCardRef
-	8,   // 304: notebooklm.v1alpha1.ReviseArtifactRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	287, // 305: notebooklm.v1alpha1.ReviseArtifactRequest.instructions:type_name -> notebooklm.v1alpha1.ArtifactRevisionInstructions
-	288, // 306: notebooklm.v1alpha1.ArtifactRevisionInstructions.instructions:type_name -> notebooklm.v1alpha1.ArtifactRevisionInstruction
-	8,   // 307: notebooklm.v1alpha1.StartDeepResearchWireRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	290, // 308: notebooklm.v1alpha1.StartDeepResearchWireRequest.query:type_name -> notebooklm.v1alpha1.ResearchQuery
-	12,  // 309: notebooklm.v1alpha1.ReviseArtifactResponse.artifact:type_name -> notebooklm.v1alpha1.Artifact
-	8,   // 310: notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	210, // 311: notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest.source_refs:type_name -> notebooklm.v1alpha1.SourceIdList
-	293, // 312: notebooklm.v1alpha1.GenerateArtifactSuggestionsResponse.suggestions:type_name -> notebooklm.v1alpha1.ArtifactSuggestion
-	8,   // 313: notebooklm.v1alpha1.GetLabelsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	299, // 314: notebooklm.v1alpha1.GetLabelsResponse.labels:type_name -> notebooklm.v1alpha1.Label
-	210, // 315: notebooklm.v1alpha1.Label.sources:type_name -> notebooklm.v1alpha1.SourceIdList
-	300, // 316: notebooklm.v1alpha1.ArtifactUserState.playback_position:type_name -> notebooklm.v1alpha1.PlaybackPosition
-	8,   // 317: notebooklm.v1alpha1.UpsertArtifactUserStateRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	301, // 318: notebooklm.v1alpha1.UpsertArtifactUserStateRequest.state:type_name -> notebooklm.v1alpha1.ArtifactUserState
-	301, // 319: notebooklm.v1alpha1.UpsertArtifactUserStateResponse.state:type_name -> notebooklm.v1alpha1.ArtifactUserState
-	301, // 320: notebooklm.v1alpha1.GetArtifactUserStateResponse.state:type_name -> notebooklm.v1alpha1.ArtifactUserState
-	8,   // 321: notebooklm.v1alpha1.CreateLabelRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	309, // 322: notebooklm.v1alpha1.CreateLabelRequest.labels:type_name -> notebooklm.v1alpha1.LabelCreation
-	8,   // 323: notebooklm.v1alpha1.MutateLabelsModeRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	308, // 324: notebooklm.v1alpha1.MutateLabelsModeRequest.mode:type_name -> notebooklm.v1alpha1.LabelMode
-	299, // 325: notebooklm.v1alpha1.CreateLabelResponse.label:type_name -> notebooklm.v1alpha1.Label
-	299, // 326: notebooklm.v1alpha1.CreateLabelResponse.labels:type_name -> notebooklm.v1alpha1.Label
-	8,   // 327: notebooklm.v1alpha1.MutateLabelRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	312, // 328: notebooklm.v1alpha1.MutateLabelRequest.mutation:type_name -> notebooklm.v1alpha1.MutateLabelMutation
-	313, // 329: notebooklm.v1alpha1.MutateLabelMutation.entry:type_name -> notebooklm.v1alpha1.MutateLabelEntry
-	314, // 330: notebooklm.v1alpha1.MutateLabelEntry.name:type_name -> notebooklm.v1alpha1.LabelNameChange
-	210, // 331: notebooklm.v1alpha1.MutateLabelEntry.sources:type_name -> notebooklm.v1alpha1.SourceIdList
-	210, // 332: notebooklm.v1alpha1.MutateLabelEntry.alternate_sources:type_name -> notebooklm.v1alpha1.SourceIdList
-	299, // 333: notebooklm.v1alpha1.MutateLabelResponse.label:type_name -> notebooklm.v1alpha1.Label
-	9,   // 334: notebooklm.v1alpha1.ListModelOptionsRequest.surface:type_name -> notebooklm.v1alpha1.RequestSurface
-	10,  // 335: notebooklm.v1alpha1.ListModelOptionsRequest.caps:type_name -> notebooklm.v1alpha1.RequestClientCaps
-	326, // 336: notebooklm.v1alpha1.ListModelOptionsResponse.models:type_name -> notebooklm.v1alpha1.ModelOption
-	8,   // 337: notebooklm.v1alpha1.UpdateProjectUserStateRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	328, // 338: notebooklm.v1alpha1.UpdateProjectUserStateRequest.value:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateValue
-	330, // 339: notebooklm.v1alpha1.UpdateProjectUserStateRequest.keys:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateKeys
-	329, // 340: notebooklm.v1alpha1.UpdateProjectUserStateValue.detail:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateValueInner
-	332, // 341: notebooklm.v1alpha1.UpdateProjectUserStateResponse.result:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateResult
-	8,   // 342: notebooklm.v1alpha1.ListExpertIntelligenceContentRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	337, // 343: notebooklm.v1alpha1.ListExpertIntelligenceContentResponse.items:type_name -> notebooklm.v1alpha1.ExpertIntelligenceItem
-	338, // 344: notebooklm.v1alpha1.ExpertIntelligenceItem.publication_time:type_name -> notebooklm.v1alpha1.ExpertIntelligencePublicationTime
-	341, // 345: notebooklm.v1alpha1.GenerateAccessTokenResponse.ttl:type_name -> notebooklm.v1alpha1.AccessTokenTTL
-	342, // 346: notebooklm.v1alpha1.GenerateAccessTokenResponse.scopes:type_name -> notebooklm.v1alpha1.AccessTokenScopes
-	8,   // 347: notebooklm.v1alpha1.CopyProjectRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
-	43,  // 348: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateArtifact:input_type -> notebooklm.v1alpha1.CreateArtifactRequest
-	44,  // 349: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifact:input_type -> notebooklm.v1alpha1.GetArtifactRequest
-	45,  // 350: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateArtifact:input_type -> notebooklm.v1alpha1.UpdateArtifactRequest
-	46,  // 351: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RenameArtifact:input_type -> notebooklm.v1alpha1.RenameArtifactRequest
-	47,  // 352: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteArtifact:input_type -> notebooklm.v1alpha1.DeleteArtifactRequest
-	48,  // 353: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListArtifacts:input_type -> notebooklm.v1alpha1.ListArtifactsRequest
-	50,  // 354: notebooklm.v1alpha1.LabsTailwindOrchestrationService.QueryArtifacts:input_type -> notebooklm.v1alpha1.QueryArtifactsRequest
-	52,  // 355: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ActOnSources:input_type -> notebooklm.v1alpha1.ActOnSourcesRequest
-	106, // 356: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddSources:input_type -> notebooklm.v1alpha1.AddSourceRequest
-	159, // 357: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CheckSourceFreshness:input_type -> notebooklm.v1alpha1.CheckSourceFreshnessRequest
-	135, // 358: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteSources:input_type -> notebooklm.v1alpha1.DeleteSourcesRequest
-	66,  // 359: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DiscoverSources:input_type -> notebooklm.v1alpha1.DiscoverSourcesRequest
-	161, // 360: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LoadSource:input_type -> notebooklm.v1alpha1.LoadSourceRequest
-	154, // 361: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateSource:input_type -> notebooklm.v1alpha1.MutateSourceRequest
-	173, // 362: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RefreshSource:input_type -> notebooklm.v1alpha1.RefreshSourceRequest
-	53,  // 363: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverview:input_type -> notebooklm.v1alpha1.CreateAudioOverviewRequest
-	64,  // 364: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioOverview:input_type -> notebooklm.v1alpha1.GetAudioOverviewRequest
-	65,  // 365: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteAudioOverview:input_type -> notebooklm.v1alpha1.DeleteAudioOverviewRequest
-	54,  // 366: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateVideoOverview:input_type -> notebooklm.v1alpha1.CreateVideoOverviewRequest
-	55,  // 367: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateUniversalArtifact:input_type -> notebooklm.v1alpha1.CreateUniversalArtifactRequest
-	111, // 368: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateNote:input_type -> notebooklm.v1alpha1.CreateNoteRequest
-	112, // 369: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteNotes:input_type -> notebooklm.v1alpha1.DeleteNotesRequest
-	113, // 370: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetNotes:input_type -> notebooklm.v1alpha1.GetNotesRequest
-	114, // 371: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateNote:input_type -> notebooklm.v1alpha1.MutateNoteRequest
-	133, // 372: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateProject:input_type -> notebooklm.v1alpha1.CreateProjectRequest
-	134, // 373: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteProjects:input_type -> notebooklm.v1alpha1.DeleteProjectsRequest
-	136, // 374: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProject:input_type -> notebooklm.v1alpha1.GetProjectRequest
-	100, // 375: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListFeaturedProjects:input_type -> notebooklm.v1alpha1.ListFeaturedProjectsRequest
-	143, // 376: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListRecentlyViewedProjects:input_type -> notebooklm.v1alpha1.ListRecentlyViewedProjectsRequest
-	149, // 377: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProject:input_type -> notebooklm.v1alpha1.MutateProjectRequest
-	150, // 378: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProjectCover:input_type -> notebooklm.v1alpha1.MutateProjectCoverRequest
-	158, // 379: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RemoveRecentlyViewedProject:input_type -> notebooklm.v1alpha1.RemoveRecentlyViewedProjectRequest
-	70,  // 380: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamed:input_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedRequest
-	79,  // 381: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamedWire:input_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedWireRequest
-	177, // 382: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateNotebookGuide:input_type -> notebooklm.v1alpha1.GenerateNotebookGuideRequest
-	178, // 383: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateOutline:input_type -> notebooklm.v1alpha1.GenerateOutlineRequest
-	91,  // 384: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateReportSuggestions:input_type -> notebooklm.v1alpha1.GenerateReportSuggestionsRequest
-	179, // 385: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateSection:input_type -> notebooklm.v1alpha1.GenerateSectionRequest
-	180, // 386: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDraft:input_type -> notebooklm.v1alpha1.StartDraftRequest
-	181, // 387: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartSection:input_type -> notebooklm.v1alpha1.StartSectionRequest
-	356, // 388: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateMagicView:input_type -> notebooklm.v1alpha1.GenerateMagicViewRequest
-	94,  // 389: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProjectAnalytics:input_type -> notebooklm.v1alpha1.GetProjectAnalyticsRequest
-	182, // 390: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SubmitFeedback:input_type -> notebooklm.v1alpha1.SubmitFeedbackRequest
-	183, // 391: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversations:input_type -> notebooklm.v1alpha1.GetConversationsRequest
-	186, // 392: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversationHistory:input_type -> notebooklm.v1alpha1.GetConversationHistoryRequest
-	188, // 393: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteChatHistory:input_type -> notebooklm.v1alpha1.DeleteChatHistoryRequest
-	119, // 394: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetOrCreateAccount:input_type -> notebooklm.v1alpha1.GetOrCreateAccountRequest
-	120, // 395: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateAccount:input_type -> notebooklm.v1alpha1.MutateAccountRequest
-	230, // 396: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddFileSource:input_type -> notebooklm.v1alpha1.AddFileSourceRequest
-	232, // 397: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RateConversationTurn:input_type -> notebooklm.v1alpha1.RateConversationTurnRequest
-	234, // 398: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartFastResearch:input_type -> notebooklm.v1alpha1.StartFastResearchRequest
-	236, // 399: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearch:input_type -> notebooklm.v1alpha1.StartDeepResearchRequest
-	289, // 400: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearchWire:input_type -> notebooklm.v1alpha1.StartDeepResearchWireRequest
-	238, // 401: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetDeepResearchSessions:input_type -> notebooklm.v1alpha1.GetDeepResearchSessionsRequest
-	239, // 402: notebooklm.v1alpha1.LabsTailwindOrchestrationService.PollDeepResearch:input_type -> notebooklm.v1alpha1.PollDeepResearchRequest
-	250, // 403: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteDeepResearch:input_type -> notebooklm.v1alpha1.DeleteDeepResearchRequest
-	252, // 404: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearch:input_type -> notebooklm.v1alpha1.BulkImportFromResearchRequest
-	254, // 405: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearchWire:input_type -> notebooklm.v1alpha1.BulkImportFromResearchWireRequest
-	259, // 406: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioFormats:input_type -> notebooklm.v1alpha1.GetAudioFormatsRequest
-	174, // 407: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateDocumentGuides:input_type -> notebooklm.v1alpha1.GenerateDocumentGuidesRequest
-	265, // 408: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LogEvent:input_type -> notebooklm.v1alpha1.LogEventRequest
-	284, // 409: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReportContent:input_type -> notebooklm.v1alpha1.ReportContentRequest
-	286, // 410: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReviseArtifact:input_type -> notebooklm.v1alpha1.ReviseArtifactRequest
-	292, // 411: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifactSuggestions:input_type -> notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest
-	227, // 412: notebooklm.v1alpha1.LabsTailwindOrchestrationService.FetchInteractivityToken:input_type -> notebooklm.v1alpha1.FetchInteractivityTokenRequest
-	295, // 413: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SDPExchange:input_type -> notebooklm.v1alpha1.SDPExchangeRequest
-	297, // 414: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetLabels:input_type -> notebooklm.v1alpha1.GetLabelsRequest
-	302, // 415: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpsertArtifactUserState:input_type -> notebooklm.v1alpha1.UpsertArtifactUserStateRequest
-	304, // 416: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifactUserState:input_type -> notebooklm.v1alpha1.GetArtifactUserStateRequest
-	306, // 417: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateLabel:input_type -> notebooklm.v1alpha1.CreateLabelRequest
-	307, // 418: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabelsMode:input_type -> notebooklm.v1alpha1.MutateLabelsModeRequest
-	311, // 419: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabel:input_type -> notebooklm.v1alpha1.MutateLabelRequest
-	316, // 420: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteLabels:input_type -> notebooklm.v1alpha1.DeleteLabelsRequest
-	317, // 421: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifact:input_type -> notebooklm.v1alpha1.GenerateArtifactRequest
-	318, // 422: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelDiscoverSourcesJob:input_type -> notebooklm.v1alpha1.CancelDiscoverSourcesJobRequest
-	319, // 423: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelGeneration:input_type -> notebooklm.v1alpha1.CancelGenerationRequest
-	321, // 424: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExportToDrive:input_type -> notebooklm.v1alpha1.ExportToDriveRequest
-	323, // 425: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateFeaturedNotebookStatus:input_type -> notebooklm.v1alpha1.UpdateFeaturedNotebookStatusRequest
-	324, // 426: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListModelOptions:input_type -> notebooklm.v1alpha1.ListModelOptionsRequest
-	327, // 427: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateProjectUserState:input_type -> notebooklm.v1alpha1.UpdateProjectUserStateRequest
-	333, // 428: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExecuteWritingFunction:input_type -> notebooklm.v1alpha1.ExecuteWritingFunctionRequest
-	335, // 429: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListExpertIntelligenceContent:input_type -> notebooklm.v1alpha1.ListExpertIntelligenceContentRequest
-	339, // 430: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateAccessToken:input_type -> notebooklm.v1alpha1.GenerateAccessTokenRequest
-	343, // 431: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetMagicView:input_type -> notebooklm.v1alpha1.GetMagicViewRequest
-	345, // 432: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CopyProject:input_type -> notebooklm.v1alpha1.CopyProjectRequest
-	347, // 433: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverviewLegacy:input_type -> notebooklm.v1alpha1.CreateAudioOverviewLegacyRequest
-	139, // 434: notebooklm.v1alpha1.InteractionEventService.LogInteractionEvent:input_type -> notebooklm.v1alpha1.LogInteractionEventRequest
-	12,  // 435: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateArtifact:output_type -> notebooklm.v1alpha1.Artifact
-	12,  // 436: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifact:output_type -> notebooklm.v1alpha1.Artifact
-	12,  // 437: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateArtifact:output_type -> notebooklm.v1alpha1.Artifact
-	12,  // 438: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RenameArtifact:output_type -> notebooklm.v1alpha1.Artifact
-	355, // 439: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteArtifact:output_type -> google.protobuf.Empty
-	49,  // 440: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListArtifacts:output_type -> notebooklm.v1alpha1.ListArtifactsResponse
-	51,  // 441: notebooklm.v1alpha1.LabsTailwindOrchestrationService.QueryArtifacts:output_type -> notebooklm.v1alpha1.QueryArtifactsResponse
-	355, // 442: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ActOnSources:output_type -> google.protobuf.Empty
-	107, // 443: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddSources:output_type -> notebooklm.v1alpha1.AddSourcesResponse
-	160, // 444: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CheckSourceFreshness:output_type -> notebooklm.v1alpha1.CheckSourceFreshnessResponse
-	355, // 445: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteSources:output_type -> google.protobuf.Empty
-	67,  // 446: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DiscoverSources:output_type -> notebooklm.v1alpha1.DiscoverSourcesResponse
-	163, // 447: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LoadSource:output_type -> notebooklm.v1alpha1.LoadSourceResponse
-	351, // 448: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateSource:output_type -> notebooklm.v1alpha1.Source
-	351, // 449: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RefreshSource:output_type -> notebooklm.v1alpha1.Source
-	12,  // 450: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverview:output_type -> notebooklm.v1alpha1.Artifact
-	357, // 451: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioOverview:output_type -> notebooklm.v1alpha1.AudioOverview
-	355, // 452: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteAudioOverview:output_type -> google.protobuf.Empty
-	12,  // 453: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateVideoOverview:output_type -> notebooklm.v1alpha1.Artifact
-	12,  // 454: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateUniversalArtifact:output_type -> notebooklm.v1alpha1.Artifact
-	358, // 455: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateNote:output_type -> notebooklm.v1alpha1.NoteRecord
-	355, // 456: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteNotes:output_type -> google.protobuf.Empty
-	359, // 457: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetNotes:output_type -> notebooklm.v1alpha1.GetNotesWireResponse
-	360, // 458: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateNote:output_type -> notebooklm.v1alpha1.Note
-	354, // 459: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateProject:output_type -> notebooklm.v1alpha1.Project
-	355, // 460: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteProjects:output_type -> google.protobuf.Empty
-	354, // 461: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProject:output_type -> notebooklm.v1alpha1.Project
-	105, // 462: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListFeaturedProjects:output_type -> notebooklm.v1alpha1.ListFeaturedProjectsResponse
-	361, // 463: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListRecentlyViewedProjects:output_type -> notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse
-	354, // 464: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProject:output_type -> notebooklm.v1alpha1.Project
-	354, // 465: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProjectCover:output_type -> notebooklm.v1alpha1.Project
-	355, // 466: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RemoveRecentlyViewedProject:output_type -> google.protobuf.Empty
-	78,  // 467: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamed:output_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedResponse
-	86,  // 468: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamedWire:output_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedWireResponse
-	362, // 469: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateNotebookGuide:output_type -> notebooklm.v1alpha1.GenerateNotebookGuideResponse
-	363, // 470: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateOutline:output_type -> notebooklm.v1alpha1.GenerateOutlineResponse
-	93,  // 471: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateReportSuggestions:output_type -> notebooklm.v1alpha1.GenerateReportSuggestionsResponse
-	364, // 472: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateSection:output_type -> notebooklm.v1alpha1.GenerateSectionResponse
-	365, // 473: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDraft:output_type -> notebooklm.v1alpha1.StartDraftResponse
-	366, // 474: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartSection:output_type -> notebooklm.v1alpha1.StartSectionResponse
-	367, // 475: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateMagicView:output_type -> notebooklm.v1alpha1.GenerateMagicViewResponse
-	95,  // 476: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProjectAnalytics:output_type -> notebooklm.v1alpha1.ProjectAnalytics
-	355, // 477: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SubmitFeedback:output_type -> google.protobuf.Empty
-	184, // 478: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversations:output_type -> notebooklm.v1alpha1.GetConversationsResponse
-	187, // 479: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversationHistory:output_type -> notebooklm.v1alpha1.GetConversationHistoryResponse
-	355, // 480: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteChatHistory:output_type -> google.protobuf.Empty
-	126, // 481: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetOrCreateAccount:output_type -> notebooklm.v1alpha1.Account
-	126, // 482: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateAccount:output_type -> notebooklm.v1alpha1.Account
-	231, // 483: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddFileSource:output_type -> notebooklm.v1alpha1.AddFileSourceResponse
-	233, // 484: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RateConversationTurn:output_type -> notebooklm.v1alpha1.RateConversationTurnResponse
-	235, // 485: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartFastResearch:output_type -> notebooklm.v1alpha1.StartFastResearchResponse
-	237, // 486: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearch:output_type -> notebooklm.v1alpha1.StartDeepResearchResponse
-	237, // 487: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearchWire:output_type -> notebooklm.v1alpha1.StartDeepResearchResponse
-	240, // 488: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetDeepResearchSessions:output_type -> notebooklm.v1alpha1.GetDeepResearchSessionsResponse
-	241, // 489: notebooklm.v1alpha1.LabsTailwindOrchestrationService.PollDeepResearch:output_type -> notebooklm.v1alpha1.PollDeepResearchResponse
-	251, // 490: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteDeepResearch:output_type -> notebooklm.v1alpha1.DeleteDeepResearchResponse
-	257, // 491: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearch:output_type -> notebooklm.v1alpha1.BulkImportFromResearchResponse
-	257, // 492: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearchWire:output_type -> notebooklm.v1alpha1.BulkImportFromResearchResponse
-	260, // 493: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioFormats:output_type -> notebooklm.v1alpha1.GetAudioFormatsResponse
-	368, // 494: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateDocumentGuides:output_type -> notebooklm.v1alpha1.GenerateDocumentGuidesResponse
-	270, // 495: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LogEvent:output_type -> notebooklm.v1alpha1.LogEventResponse
-	285, // 496: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReportContent:output_type -> notebooklm.v1alpha1.ReportContentResponse
-	12,  // 497: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReviseArtifact:output_type -> notebooklm.v1alpha1.Artifact
-	294, // 498: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifactSuggestions:output_type -> notebooklm.v1alpha1.GenerateArtifactSuggestionsResponse
-	228, // 499: notebooklm.v1alpha1.LabsTailwindOrchestrationService.FetchInteractivityToken:output_type -> notebooklm.v1alpha1.FetchInteractivityTokenResponse
-	296, // 500: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SDPExchange:output_type -> notebooklm.v1alpha1.SDPExchangeResponse
-	298, // 501: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetLabels:output_type -> notebooklm.v1alpha1.GetLabelsResponse
-	303, // 502: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpsertArtifactUserState:output_type -> notebooklm.v1alpha1.UpsertArtifactUserStateResponse
-	305, // 503: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifactUserState:output_type -> notebooklm.v1alpha1.GetArtifactUserStateResponse
-	310, // 504: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateLabel:output_type -> notebooklm.v1alpha1.CreateLabelResponse
-	310, // 505: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabelsMode:output_type -> notebooklm.v1alpha1.CreateLabelResponse
-	315, // 506: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabel:output_type -> notebooklm.v1alpha1.MutateLabelResponse
-	355, // 507: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteLabels:output_type -> google.protobuf.Empty
-	12,  // 508: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifact:output_type -> notebooklm.v1alpha1.Artifact
-	355, // 509: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelDiscoverSourcesJob:output_type -> google.protobuf.Empty
-	320, // 510: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelGeneration:output_type -> notebooklm.v1alpha1.CancelGenerationResponse
-	322, // 511: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExportToDrive:output_type -> notebooklm.v1alpha1.ExportToDriveResponse
-	355, // 512: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateFeaturedNotebookStatus:output_type -> google.protobuf.Empty
-	325, // 513: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListModelOptions:output_type -> notebooklm.v1alpha1.ListModelOptionsResponse
-	331, // 514: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateProjectUserState:output_type -> notebooklm.v1alpha1.UpdateProjectUserStateResponse
-	334, // 515: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExecuteWritingFunction:output_type -> notebooklm.v1alpha1.ExecuteWritingFunctionResponse
-	336, // 516: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListExpertIntelligenceContent:output_type -> notebooklm.v1alpha1.ListExpertIntelligenceContentResponse
-	340, // 517: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateAccessToken:output_type -> notebooklm.v1alpha1.GenerateAccessTokenResponse
-	344, // 518: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetMagicView:output_type -> notebooklm.v1alpha1.GetMagicViewResponse
-	346, // 519: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CopyProject:output_type -> notebooklm.v1alpha1.CopyProjectResponse
-	357, // 520: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverviewLegacy:output_type -> notebooklm.v1alpha1.AudioOverview
-	355, // 521: notebooklm.v1alpha1.InteractionEventService.LogInteractionEvent:output_type -> google.protobuf.Empty
-	435, // [435:522] is the sub-list for method output_type
-	348, // [348:435] is the sub-list for method input_type
-	348, // [348:348] is the sub-list for extension type_name
-	348, // [348:348] is the sub-list for extension extendee
-	0,   // [0:348] is the sub-list for field type_name
+	257, // 275: notebooklm.v1alpha1.BulkImportTextSource.content:type_name -> notebooklm.v1alpha1.BulkImportTextContent
+	256, // 276: notebooklm.v1alpha1.BulkImportTextSource.unknown_3:type_name -> notebooklm.v1alpha1.BulkImportTextSourceLink
+	352, // 277: notebooklm.v1alpha1.BulkImportFromResearchResponse.results:type_name -> notebooklm.v1alpha1.Source
+	8,   // 278: notebooklm.v1alpha1.GetAudioFormatsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	262, // 279: notebooklm.v1alpha1.GetAudioFormatsResponse.audio_kinds:type_name -> notebooklm.v1alpha1.AudioFormatList
+	262, // 280: notebooklm.v1alpha1.GetAudioFormatsResponse.video_kinds:type_name -> notebooklm.v1alpha1.AudioFormatList
+	262, // 281: notebooklm.v1alpha1.GetAudioFormatsResponse.slide_kinds:type_name -> notebooklm.v1alpha1.AudioFormatList
+	263, // 282: notebooklm.v1alpha1.GetAudioFormatsResponse.doc_templates:type_name -> notebooklm.v1alpha1.DocTemplateList
+	264, // 283: notebooklm.v1alpha1.AudioFormatList.items:type_name -> notebooklm.v1alpha1.AudioFormat
+	265, // 284: notebooklm.v1alpha1.DocTemplateList.items:type_name -> notebooklm.v1alpha1.DocTemplate
+	267, // 285: notebooklm.v1alpha1.LogEventRequest.events:type_name -> notebooklm.v1alpha1.LogEventEntry
+	268, // 286: notebooklm.v1alpha1.LogEventEntry.slot:type_name -> notebooklm.v1alpha1.LogEventSlot
+	269, // 287: notebooklm.v1alpha1.LogEventEntry.context:type_name -> notebooklm.v1alpha1.LogEventContext
+	270, // 288: notebooklm.v1alpha1.LogEventContext.marker:type_name -> notebooklm.v1alpha1.LogEventMarker
+	272, // 289: notebooklm.v1alpha1.LogEventResponse.entries:type_name -> notebooklm.v1alpha1.PromoLogEntry
+	273, // 290: notebooklm.v1alpha1.PromoLogEntry.slot:type_name -> notebooklm.v1alpha1.PromoSlot
+	274, // 291: notebooklm.v1alpha1.PromoLogEntry.cards:type_name -> notebooklm.v1alpha1.PromoCard
+	275, // 292: notebooklm.v1alpha1.PromoCard.render:type_name -> notebooklm.v1alpha1.PromoCardRender
+	284, // 293: notebooklm.v1alpha1.PromoCard.refs:type_name -> notebooklm.v1alpha1.PromoCardRefList
+	276, // 294: notebooklm.v1alpha1.PromoCardRender.content:type_name -> notebooklm.v1alpha1.PromoCardContent
+	281, // 295: notebooklm.v1alpha1.PromoCardRender.impression_event:type_name -> notebooklm.v1alpha1.PromoCardEvent
+	277, // 296: notebooklm.v1alpha1.PromoCardContent.icon:type_name -> notebooklm.v1alpha1.PromoCardIcon
+	278, // 297: notebooklm.v1alpha1.PromoCardContent.action:type_name -> notebooklm.v1alpha1.PromoCardAction
+	279, // 298: notebooklm.v1alpha1.PromoCardAction.link:type_name -> notebooklm.v1alpha1.PromoCardLinkWrapper
+	281, // 299: notebooklm.v1alpha1.PromoCardAction.click_event:type_name -> notebooklm.v1alpha1.PromoCardEvent
+	280, // 300: notebooklm.v1alpha1.PromoCardLinkWrapper.link:type_name -> notebooklm.v1alpha1.PromoCardLink
+	282, // 301: notebooklm.v1alpha1.PromoCardEvent.context:type_name -> notebooklm.v1alpha1.PromoCardEventContext
+	273, // 302: notebooklm.v1alpha1.PromoCardEventContext.slot:type_name -> notebooklm.v1alpha1.PromoSlot
+	284, // 303: notebooklm.v1alpha1.PromoCardEventContext.refs:type_name -> notebooklm.v1alpha1.PromoCardRefList
+	283, // 304: notebooklm.v1alpha1.PromoCardRefList.refs:type_name -> notebooklm.v1alpha1.PromoCardRef
+	8,   // 305: notebooklm.v1alpha1.ReviseArtifactRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	288, // 306: notebooklm.v1alpha1.ReviseArtifactRequest.instructions:type_name -> notebooklm.v1alpha1.ArtifactRevisionInstructions
+	289, // 307: notebooklm.v1alpha1.ArtifactRevisionInstructions.instructions:type_name -> notebooklm.v1alpha1.ArtifactRevisionInstruction
+	8,   // 308: notebooklm.v1alpha1.StartDeepResearchWireRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	291, // 309: notebooklm.v1alpha1.StartDeepResearchWireRequest.query:type_name -> notebooklm.v1alpha1.ResearchQuery
+	12,  // 310: notebooklm.v1alpha1.ReviseArtifactResponse.artifact:type_name -> notebooklm.v1alpha1.Artifact
+	8,   // 311: notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	210, // 312: notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest.source_refs:type_name -> notebooklm.v1alpha1.SourceIdList
+	294, // 313: notebooklm.v1alpha1.GenerateArtifactSuggestionsResponse.suggestions:type_name -> notebooklm.v1alpha1.ArtifactSuggestion
+	8,   // 314: notebooklm.v1alpha1.GetLabelsRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	300, // 315: notebooklm.v1alpha1.GetLabelsResponse.labels:type_name -> notebooklm.v1alpha1.Label
+	210, // 316: notebooklm.v1alpha1.Label.sources:type_name -> notebooklm.v1alpha1.SourceIdList
+	301, // 317: notebooklm.v1alpha1.ArtifactUserState.playback_position:type_name -> notebooklm.v1alpha1.PlaybackPosition
+	8,   // 318: notebooklm.v1alpha1.UpsertArtifactUserStateRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	302, // 319: notebooklm.v1alpha1.UpsertArtifactUserStateRequest.state:type_name -> notebooklm.v1alpha1.ArtifactUserState
+	302, // 320: notebooklm.v1alpha1.UpsertArtifactUserStateResponse.state:type_name -> notebooklm.v1alpha1.ArtifactUserState
+	302, // 321: notebooklm.v1alpha1.GetArtifactUserStateResponse.state:type_name -> notebooklm.v1alpha1.ArtifactUserState
+	8,   // 322: notebooklm.v1alpha1.CreateLabelRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	310, // 323: notebooklm.v1alpha1.CreateLabelRequest.labels:type_name -> notebooklm.v1alpha1.LabelCreation
+	8,   // 324: notebooklm.v1alpha1.MutateLabelsModeRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	309, // 325: notebooklm.v1alpha1.MutateLabelsModeRequest.mode:type_name -> notebooklm.v1alpha1.LabelMode
+	300, // 326: notebooklm.v1alpha1.CreateLabelResponse.label:type_name -> notebooklm.v1alpha1.Label
+	300, // 327: notebooklm.v1alpha1.CreateLabelResponse.labels:type_name -> notebooklm.v1alpha1.Label
+	8,   // 328: notebooklm.v1alpha1.MutateLabelRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	313, // 329: notebooklm.v1alpha1.MutateLabelRequest.mutation:type_name -> notebooklm.v1alpha1.MutateLabelMutation
+	314, // 330: notebooklm.v1alpha1.MutateLabelMutation.entry:type_name -> notebooklm.v1alpha1.MutateLabelEntry
+	315, // 331: notebooklm.v1alpha1.MutateLabelEntry.name:type_name -> notebooklm.v1alpha1.LabelNameChange
+	210, // 332: notebooklm.v1alpha1.MutateLabelEntry.sources:type_name -> notebooklm.v1alpha1.SourceIdList
+	210, // 333: notebooklm.v1alpha1.MutateLabelEntry.alternate_sources:type_name -> notebooklm.v1alpha1.SourceIdList
+	300, // 334: notebooklm.v1alpha1.MutateLabelResponse.label:type_name -> notebooklm.v1alpha1.Label
+	9,   // 335: notebooklm.v1alpha1.ListModelOptionsRequest.surface:type_name -> notebooklm.v1alpha1.RequestSurface
+	10,  // 336: notebooklm.v1alpha1.ListModelOptionsRequest.caps:type_name -> notebooklm.v1alpha1.RequestClientCaps
+	327, // 337: notebooklm.v1alpha1.ListModelOptionsResponse.models:type_name -> notebooklm.v1alpha1.ModelOption
+	8,   // 338: notebooklm.v1alpha1.UpdateProjectUserStateRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	329, // 339: notebooklm.v1alpha1.UpdateProjectUserStateRequest.value:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateValue
+	331, // 340: notebooklm.v1alpha1.UpdateProjectUserStateRequest.keys:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateKeys
+	330, // 341: notebooklm.v1alpha1.UpdateProjectUserStateValue.detail:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateValueInner
+	333, // 342: notebooklm.v1alpha1.UpdateProjectUserStateResponse.result:type_name -> notebooklm.v1alpha1.UpdateProjectUserStateResult
+	8,   // 343: notebooklm.v1alpha1.ListExpertIntelligenceContentRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	338, // 344: notebooklm.v1alpha1.ListExpertIntelligenceContentResponse.items:type_name -> notebooklm.v1alpha1.ExpertIntelligenceItem
+	339, // 345: notebooklm.v1alpha1.ExpertIntelligenceItem.publication_time:type_name -> notebooklm.v1alpha1.ExpertIntelligencePublicationTime
+	342, // 346: notebooklm.v1alpha1.GenerateAccessTokenResponse.ttl:type_name -> notebooklm.v1alpha1.AccessTokenTTL
+	343, // 347: notebooklm.v1alpha1.GenerateAccessTokenResponse.scopes:type_name -> notebooklm.v1alpha1.AccessTokenScopes
+	8,   // 348: notebooklm.v1alpha1.CopyProjectRequest.context:type_name -> notebooklm.v1alpha1.RequestContext
+	43,  // 349: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateArtifact:input_type -> notebooklm.v1alpha1.CreateArtifactRequest
+	44,  // 350: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifact:input_type -> notebooklm.v1alpha1.GetArtifactRequest
+	45,  // 351: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateArtifact:input_type -> notebooklm.v1alpha1.UpdateArtifactRequest
+	46,  // 352: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RenameArtifact:input_type -> notebooklm.v1alpha1.RenameArtifactRequest
+	47,  // 353: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteArtifact:input_type -> notebooklm.v1alpha1.DeleteArtifactRequest
+	48,  // 354: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListArtifacts:input_type -> notebooklm.v1alpha1.ListArtifactsRequest
+	50,  // 355: notebooklm.v1alpha1.LabsTailwindOrchestrationService.QueryArtifacts:input_type -> notebooklm.v1alpha1.QueryArtifactsRequest
+	52,  // 356: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ActOnSources:input_type -> notebooklm.v1alpha1.ActOnSourcesRequest
+	106, // 357: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddSources:input_type -> notebooklm.v1alpha1.AddSourceRequest
+	159, // 358: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CheckSourceFreshness:input_type -> notebooklm.v1alpha1.CheckSourceFreshnessRequest
+	135, // 359: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteSources:input_type -> notebooklm.v1alpha1.DeleteSourcesRequest
+	66,  // 360: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DiscoverSources:input_type -> notebooklm.v1alpha1.DiscoverSourcesRequest
+	161, // 361: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LoadSource:input_type -> notebooklm.v1alpha1.LoadSourceRequest
+	154, // 362: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateSource:input_type -> notebooklm.v1alpha1.MutateSourceRequest
+	173, // 363: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RefreshSource:input_type -> notebooklm.v1alpha1.RefreshSourceRequest
+	53,  // 364: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverview:input_type -> notebooklm.v1alpha1.CreateAudioOverviewRequest
+	64,  // 365: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioOverview:input_type -> notebooklm.v1alpha1.GetAudioOverviewRequest
+	65,  // 366: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteAudioOverview:input_type -> notebooklm.v1alpha1.DeleteAudioOverviewRequest
+	54,  // 367: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateVideoOverview:input_type -> notebooklm.v1alpha1.CreateVideoOverviewRequest
+	55,  // 368: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateUniversalArtifact:input_type -> notebooklm.v1alpha1.CreateUniversalArtifactRequest
+	111, // 369: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateNote:input_type -> notebooklm.v1alpha1.CreateNoteRequest
+	112, // 370: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteNotes:input_type -> notebooklm.v1alpha1.DeleteNotesRequest
+	113, // 371: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetNotes:input_type -> notebooklm.v1alpha1.GetNotesRequest
+	114, // 372: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateNote:input_type -> notebooklm.v1alpha1.MutateNoteRequest
+	133, // 373: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateProject:input_type -> notebooklm.v1alpha1.CreateProjectRequest
+	134, // 374: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteProjects:input_type -> notebooklm.v1alpha1.DeleteProjectsRequest
+	136, // 375: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProject:input_type -> notebooklm.v1alpha1.GetProjectRequest
+	100, // 376: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListFeaturedProjects:input_type -> notebooklm.v1alpha1.ListFeaturedProjectsRequest
+	143, // 377: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListRecentlyViewedProjects:input_type -> notebooklm.v1alpha1.ListRecentlyViewedProjectsRequest
+	149, // 378: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProject:input_type -> notebooklm.v1alpha1.MutateProjectRequest
+	150, // 379: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProjectCover:input_type -> notebooklm.v1alpha1.MutateProjectCoverRequest
+	158, // 380: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RemoveRecentlyViewedProject:input_type -> notebooklm.v1alpha1.RemoveRecentlyViewedProjectRequest
+	70,  // 381: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamed:input_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedRequest
+	79,  // 382: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamedWire:input_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedWireRequest
+	177, // 383: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateNotebookGuide:input_type -> notebooklm.v1alpha1.GenerateNotebookGuideRequest
+	178, // 384: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateOutline:input_type -> notebooklm.v1alpha1.GenerateOutlineRequest
+	91,  // 385: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateReportSuggestions:input_type -> notebooklm.v1alpha1.GenerateReportSuggestionsRequest
+	179, // 386: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateSection:input_type -> notebooklm.v1alpha1.GenerateSectionRequest
+	180, // 387: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDraft:input_type -> notebooklm.v1alpha1.StartDraftRequest
+	181, // 388: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartSection:input_type -> notebooklm.v1alpha1.StartSectionRequest
+	357, // 389: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateMagicView:input_type -> notebooklm.v1alpha1.GenerateMagicViewRequest
+	94,  // 390: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProjectAnalytics:input_type -> notebooklm.v1alpha1.GetProjectAnalyticsRequest
+	182, // 391: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SubmitFeedback:input_type -> notebooklm.v1alpha1.SubmitFeedbackRequest
+	183, // 392: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversations:input_type -> notebooklm.v1alpha1.GetConversationsRequest
+	186, // 393: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversationHistory:input_type -> notebooklm.v1alpha1.GetConversationHistoryRequest
+	188, // 394: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteChatHistory:input_type -> notebooklm.v1alpha1.DeleteChatHistoryRequest
+	119, // 395: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetOrCreateAccount:input_type -> notebooklm.v1alpha1.GetOrCreateAccountRequest
+	120, // 396: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateAccount:input_type -> notebooklm.v1alpha1.MutateAccountRequest
+	230, // 397: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddFileSource:input_type -> notebooklm.v1alpha1.AddFileSourceRequest
+	232, // 398: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RateConversationTurn:input_type -> notebooklm.v1alpha1.RateConversationTurnRequest
+	234, // 399: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartFastResearch:input_type -> notebooklm.v1alpha1.StartFastResearchRequest
+	236, // 400: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearch:input_type -> notebooklm.v1alpha1.StartDeepResearchRequest
+	290, // 401: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearchWire:input_type -> notebooklm.v1alpha1.StartDeepResearchWireRequest
+	238, // 402: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetDeepResearchSessions:input_type -> notebooklm.v1alpha1.GetDeepResearchSessionsRequest
+	239, // 403: notebooklm.v1alpha1.LabsTailwindOrchestrationService.PollDeepResearch:input_type -> notebooklm.v1alpha1.PollDeepResearchRequest
+	250, // 404: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteDeepResearch:input_type -> notebooklm.v1alpha1.DeleteDeepResearchRequest
+	252, // 405: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearch:input_type -> notebooklm.v1alpha1.BulkImportFromResearchRequest
+	254, // 406: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearchWire:input_type -> notebooklm.v1alpha1.BulkImportFromResearchWireRequest
+	260, // 407: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioFormats:input_type -> notebooklm.v1alpha1.GetAudioFormatsRequest
+	174, // 408: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateDocumentGuides:input_type -> notebooklm.v1alpha1.GenerateDocumentGuidesRequest
+	266, // 409: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LogEvent:input_type -> notebooklm.v1alpha1.LogEventRequest
+	285, // 410: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReportContent:input_type -> notebooklm.v1alpha1.ReportContentRequest
+	287, // 411: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReviseArtifact:input_type -> notebooklm.v1alpha1.ReviseArtifactRequest
+	293, // 412: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifactSuggestions:input_type -> notebooklm.v1alpha1.GenerateArtifactSuggestionsRequest
+	227, // 413: notebooklm.v1alpha1.LabsTailwindOrchestrationService.FetchInteractivityToken:input_type -> notebooklm.v1alpha1.FetchInteractivityTokenRequest
+	296, // 414: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SDPExchange:input_type -> notebooklm.v1alpha1.SDPExchangeRequest
+	298, // 415: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetLabels:input_type -> notebooklm.v1alpha1.GetLabelsRequest
+	303, // 416: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpsertArtifactUserState:input_type -> notebooklm.v1alpha1.UpsertArtifactUserStateRequest
+	305, // 417: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifactUserState:input_type -> notebooklm.v1alpha1.GetArtifactUserStateRequest
+	307, // 418: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateLabel:input_type -> notebooklm.v1alpha1.CreateLabelRequest
+	308, // 419: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabelsMode:input_type -> notebooklm.v1alpha1.MutateLabelsModeRequest
+	312, // 420: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabel:input_type -> notebooklm.v1alpha1.MutateLabelRequest
+	317, // 421: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteLabels:input_type -> notebooklm.v1alpha1.DeleteLabelsRequest
+	318, // 422: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifact:input_type -> notebooklm.v1alpha1.GenerateArtifactRequest
+	319, // 423: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelDiscoverSourcesJob:input_type -> notebooklm.v1alpha1.CancelDiscoverSourcesJobRequest
+	320, // 424: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelGeneration:input_type -> notebooklm.v1alpha1.CancelGenerationRequest
+	322, // 425: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExportToDrive:input_type -> notebooklm.v1alpha1.ExportToDriveRequest
+	324, // 426: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateFeaturedNotebookStatus:input_type -> notebooklm.v1alpha1.UpdateFeaturedNotebookStatusRequest
+	325, // 427: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListModelOptions:input_type -> notebooklm.v1alpha1.ListModelOptionsRequest
+	328, // 428: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateProjectUserState:input_type -> notebooklm.v1alpha1.UpdateProjectUserStateRequest
+	334, // 429: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExecuteWritingFunction:input_type -> notebooklm.v1alpha1.ExecuteWritingFunctionRequest
+	336, // 430: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListExpertIntelligenceContent:input_type -> notebooklm.v1alpha1.ListExpertIntelligenceContentRequest
+	340, // 431: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateAccessToken:input_type -> notebooklm.v1alpha1.GenerateAccessTokenRequest
+	344, // 432: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetMagicView:input_type -> notebooklm.v1alpha1.GetMagicViewRequest
+	346, // 433: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CopyProject:input_type -> notebooklm.v1alpha1.CopyProjectRequest
+	348, // 434: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverviewLegacy:input_type -> notebooklm.v1alpha1.CreateAudioOverviewLegacyRequest
+	139, // 435: notebooklm.v1alpha1.InteractionEventService.LogInteractionEvent:input_type -> notebooklm.v1alpha1.LogInteractionEventRequest
+	12,  // 436: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateArtifact:output_type -> notebooklm.v1alpha1.Artifact
+	12,  // 437: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifact:output_type -> notebooklm.v1alpha1.Artifact
+	12,  // 438: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateArtifact:output_type -> notebooklm.v1alpha1.Artifact
+	12,  // 439: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RenameArtifact:output_type -> notebooklm.v1alpha1.Artifact
+	356, // 440: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteArtifact:output_type -> google.protobuf.Empty
+	49,  // 441: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListArtifacts:output_type -> notebooklm.v1alpha1.ListArtifactsResponse
+	51,  // 442: notebooklm.v1alpha1.LabsTailwindOrchestrationService.QueryArtifacts:output_type -> notebooklm.v1alpha1.QueryArtifactsResponse
+	356, // 443: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ActOnSources:output_type -> google.protobuf.Empty
+	107, // 444: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddSources:output_type -> notebooklm.v1alpha1.AddSourcesResponse
+	160, // 445: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CheckSourceFreshness:output_type -> notebooklm.v1alpha1.CheckSourceFreshnessResponse
+	356, // 446: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteSources:output_type -> google.protobuf.Empty
+	67,  // 447: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DiscoverSources:output_type -> notebooklm.v1alpha1.DiscoverSourcesResponse
+	163, // 448: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LoadSource:output_type -> notebooklm.v1alpha1.LoadSourceResponse
+	352, // 449: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateSource:output_type -> notebooklm.v1alpha1.Source
+	352, // 450: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RefreshSource:output_type -> notebooklm.v1alpha1.Source
+	12,  // 451: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverview:output_type -> notebooklm.v1alpha1.Artifact
+	358, // 452: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioOverview:output_type -> notebooklm.v1alpha1.AudioOverview
+	356, // 453: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteAudioOverview:output_type -> google.protobuf.Empty
+	12,  // 454: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateVideoOverview:output_type -> notebooklm.v1alpha1.Artifact
+	12,  // 455: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateUniversalArtifact:output_type -> notebooklm.v1alpha1.Artifact
+	359, // 456: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateNote:output_type -> notebooklm.v1alpha1.NoteRecord
+	356, // 457: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteNotes:output_type -> google.protobuf.Empty
+	360, // 458: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetNotes:output_type -> notebooklm.v1alpha1.GetNotesWireResponse
+	361, // 459: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateNote:output_type -> notebooklm.v1alpha1.Note
+	355, // 460: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateProject:output_type -> notebooklm.v1alpha1.Project
+	356, // 461: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteProjects:output_type -> google.protobuf.Empty
+	355, // 462: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProject:output_type -> notebooklm.v1alpha1.Project
+	105, // 463: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListFeaturedProjects:output_type -> notebooklm.v1alpha1.ListFeaturedProjectsResponse
+	362, // 464: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListRecentlyViewedProjects:output_type -> notebooklm.v1alpha1.ListRecentlyViewedProjectsResponse
+	355, // 465: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProject:output_type -> notebooklm.v1alpha1.Project
+	355, // 466: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateProjectCover:output_type -> notebooklm.v1alpha1.Project
+	356, // 467: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RemoveRecentlyViewedProject:output_type -> google.protobuf.Empty
+	78,  // 468: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamed:output_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedResponse
+	86,  // 469: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateFreeFormStreamedWire:output_type -> notebooklm.v1alpha1.GenerateFreeFormStreamedWireResponse
+	363, // 470: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateNotebookGuide:output_type -> notebooklm.v1alpha1.GenerateNotebookGuideResponse
+	364, // 471: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateOutline:output_type -> notebooklm.v1alpha1.GenerateOutlineResponse
+	93,  // 472: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateReportSuggestions:output_type -> notebooklm.v1alpha1.GenerateReportSuggestionsResponse
+	365, // 473: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateSection:output_type -> notebooklm.v1alpha1.GenerateSectionResponse
+	366, // 474: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDraft:output_type -> notebooklm.v1alpha1.StartDraftResponse
+	367, // 475: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartSection:output_type -> notebooklm.v1alpha1.StartSectionResponse
+	368, // 476: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateMagicView:output_type -> notebooklm.v1alpha1.GenerateMagicViewResponse
+	95,  // 477: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetProjectAnalytics:output_type -> notebooklm.v1alpha1.ProjectAnalytics
+	356, // 478: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SubmitFeedback:output_type -> google.protobuf.Empty
+	184, // 479: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversations:output_type -> notebooklm.v1alpha1.GetConversationsResponse
+	187, // 480: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetConversationHistory:output_type -> notebooklm.v1alpha1.GetConversationHistoryResponse
+	356, // 481: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteChatHistory:output_type -> google.protobuf.Empty
+	126, // 482: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetOrCreateAccount:output_type -> notebooklm.v1alpha1.Account
+	126, // 483: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateAccount:output_type -> notebooklm.v1alpha1.Account
+	231, // 484: notebooklm.v1alpha1.LabsTailwindOrchestrationService.AddFileSource:output_type -> notebooklm.v1alpha1.AddFileSourceResponse
+	233, // 485: notebooklm.v1alpha1.LabsTailwindOrchestrationService.RateConversationTurn:output_type -> notebooklm.v1alpha1.RateConversationTurnResponse
+	235, // 486: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartFastResearch:output_type -> notebooklm.v1alpha1.StartFastResearchResponse
+	237, // 487: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearch:output_type -> notebooklm.v1alpha1.StartDeepResearchResponse
+	237, // 488: notebooklm.v1alpha1.LabsTailwindOrchestrationService.StartDeepResearchWire:output_type -> notebooklm.v1alpha1.StartDeepResearchResponse
+	240, // 489: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetDeepResearchSessions:output_type -> notebooklm.v1alpha1.GetDeepResearchSessionsResponse
+	241, // 490: notebooklm.v1alpha1.LabsTailwindOrchestrationService.PollDeepResearch:output_type -> notebooklm.v1alpha1.PollDeepResearchResponse
+	251, // 491: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteDeepResearch:output_type -> notebooklm.v1alpha1.DeleteDeepResearchResponse
+	258, // 492: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearch:output_type -> notebooklm.v1alpha1.BulkImportFromResearchResponse
+	258, // 493: notebooklm.v1alpha1.LabsTailwindOrchestrationService.BulkImportFromResearchWire:output_type -> notebooklm.v1alpha1.BulkImportFromResearchResponse
+	261, // 494: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetAudioFormats:output_type -> notebooklm.v1alpha1.GetAudioFormatsResponse
+	369, // 495: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateDocumentGuides:output_type -> notebooklm.v1alpha1.GenerateDocumentGuidesResponse
+	271, // 496: notebooklm.v1alpha1.LabsTailwindOrchestrationService.LogEvent:output_type -> notebooklm.v1alpha1.LogEventResponse
+	286, // 497: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReportContent:output_type -> notebooklm.v1alpha1.ReportContentResponse
+	12,  // 498: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ReviseArtifact:output_type -> notebooklm.v1alpha1.Artifact
+	295, // 499: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifactSuggestions:output_type -> notebooklm.v1alpha1.GenerateArtifactSuggestionsResponse
+	228, // 500: notebooklm.v1alpha1.LabsTailwindOrchestrationService.FetchInteractivityToken:output_type -> notebooklm.v1alpha1.FetchInteractivityTokenResponse
+	297, // 501: notebooklm.v1alpha1.LabsTailwindOrchestrationService.SDPExchange:output_type -> notebooklm.v1alpha1.SDPExchangeResponse
+	299, // 502: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetLabels:output_type -> notebooklm.v1alpha1.GetLabelsResponse
+	304, // 503: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpsertArtifactUserState:output_type -> notebooklm.v1alpha1.UpsertArtifactUserStateResponse
+	306, // 504: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetArtifactUserState:output_type -> notebooklm.v1alpha1.GetArtifactUserStateResponse
+	311, // 505: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateLabel:output_type -> notebooklm.v1alpha1.CreateLabelResponse
+	311, // 506: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabelsMode:output_type -> notebooklm.v1alpha1.CreateLabelResponse
+	316, // 507: notebooklm.v1alpha1.LabsTailwindOrchestrationService.MutateLabel:output_type -> notebooklm.v1alpha1.MutateLabelResponse
+	356, // 508: notebooklm.v1alpha1.LabsTailwindOrchestrationService.DeleteLabels:output_type -> google.protobuf.Empty
+	12,  // 509: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateArtifact:output_type -> notebooklm.v1alpha1.Artifact
+	356, // 510: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelDiscoverSourcesJob:output_type -> google.protobuf.Empty
+	321, // 511: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CancelGeneration:output_type -> notebooklm.v1alpha1.CancelGenerationResponse
+	323, // 512: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExportToDrive:output_type -> notebooklm.v1alpha1.ExportToDriveResponse
+	356, // 513: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateFeaturedNotebookStatus:output_type -> google.protobuf.Empty
+	326, // 514: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListModelOptions:output_type -> notebooklm.v1alpha1.ListModelOptionsResponse
+	332, // 515: notebooklm.v1alpha1.LabsTailwindOrchestrationService.UpdateProjectUserState:output_type -> notebooklm.v1alpha1.UpdateProjectUserStateResponse
+	335, // 516: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ExecuteWritingFunction:output_type -> notebooklm.v1alpha1.ExecuteWritingFunctionResponse
+	337, // 517: notebooklm.v1alpha1.LabsTailwindOrchestrationService.ListExpertIntelligenceContent:output_type -> notebooklm.v1alpha1.ListExpertIntelligenceContentResponse
+	341, // 518: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GenerateAccessToken:output_type -> notebooklm.v1alpha1.GenerateAccessTokenResponse
+	345, // 519: notebooklm.v1alpha1.LabsTailwindOrchestrationService.GetMagicView:output_type -> notebooklm.v1alpha1.GetMagicViewResponse
+	347, // 520: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CopyProject:output_type -> notebooklm.v1alpha1.CopyProjectResponse
+	358, // 521: notebooklm.v1alpha1.LabsTailwindOrchestrationService.CreateAudioOverviewLegacy:output_type -> notebooklm.v1alpha1.AudioOverview
+	356, // 522: notebooklm.v1alpha1.InteractionEventService.LogInteractionEvent:output_type -> google.protobuf.Empty
+	436, // [436:523] is the sub-list for method output_type
+	349, // [349:436] is the sub-list for method input_type
+	349, // [349:349] is the sub-list for extension type_name
+	349, // [349:349] is the sub-list for extension extendee
+	0,   // [0:349] is the sub-list for field type_name
 }
 
 func init() { file_notebooklm_v1alpha1_orchestration_proto_init() }
@@ -29767,7 +29841,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[249].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BulkImportTextContent); i {
+			switch v := v.(*BulkImportTextSourceLink); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29779,7 +29853,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[250].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BulkImportFromResearchResponse); i {
+			switch v := v.(*BulkImportTextContent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29791,7 +29865,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[251].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BulkImportResult); i {
+			switch v := v.(*BulkImportFromResearchResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29803,7 +29877,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[252].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetAudioFormatsRequest); i {
+			switch v := v.(*BulkImportResult); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29815,7 +29889,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[253].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetAudioFormatsResponse); i {
+			switch v := v.(*GetAudioFormatsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29827,7 +29901,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[254].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudioFormatList); i {
+			switch v := v.(*GetAudioFormatsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29839,7 +29913,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[255].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DocTemplateList); i {
+			switch v := v.(*AudioFormatList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29851,7 +29925,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[256].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AudioFormat); i {
+			switch v := v.(*DocTemplateList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29863,7 +29937,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[257].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DocTemplate); i {
+			switch v := v.(*AudioFormat); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29875,7 +29949,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[258].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LogEventRequest); i {
+			switch v := v.(*DocTemplate); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29887,7 +29961,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[259].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LogEventEntry); i {
+			switch v := v.(*LogEventRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29899,7 +29973,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[260].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LogEventSlot); i {
+			switch v := v.(*LogEventEntry); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29911,7 +29985,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[261].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LogEventContext); i {
+			switch v := v.(*LogEventSlot); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29923,7 +29997,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[262].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LogEventMarker); i {
+			switch v := v.(*LogEventContext); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29935,7 +30009,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[263].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LogEventResponse); i {
+			switch v := v.(*LogEventMarker); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29947,7 +30021,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[264].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoLogEntry); i {
+			switch v := v.(*LogEventResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29959,7 +30033,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[265].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoSlot); i {
+			switch v := v.(*PromoLogEntry); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29971,7 +30045,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[266].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCard); i {
+			switch v := v.(*PromoSlot); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29983,7 +30057,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[267].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardRender); i {
+			switch v := v.(*PromoCard); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -29995,7 +30069,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[268].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardContent); i {
+			switch v := v.(*PromoCardRender); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30007,7 +30081,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[269].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardIcon); i {
+			switch v := v.(*PromoCardContent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30019,7 +30093,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[270].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardAction); i {
+			switch v := v.(*PromoCardIcon); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30031,7 +30105,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[271].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardLinkWrapper); i {
+			switch v := v.(*PromoCardAction); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30043,7 +30117,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[272].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardLink); i {
+			switch v := v.(*PromoCardLinkWrapper); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30055,7 +30129,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[273].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardEvent); i {
+			switch v := v.(*PromoCardLink); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30067,7 +30141,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[274].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardEventContext); i {
+			switch v := v.(*PromoCardEvent); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30079,7 +30153,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[275].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardRef); i {
+			switch v := v.(*PromoCardEventContext); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30091,7 +30165,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[276].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PromoCardRefList); i {
+			switch v := v.(*PromoCardRef); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30103,7 +30177,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[277].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ReportContentRequest); i {
+			switch v := v.(*PromoCardRefList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30115,7 +30189,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[278].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ReportContentResponse); i {
+			switch v := v.(*ReportContentRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30127,7 +30201,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[279].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ReviseArtifactRequest); i {
+			switch v := v.(*ReportContentResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30139,7 +30213,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[280].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ArtifactRevisionInstructions); i {
+			switch v := v.(*ReviseArtifactRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30151,7 +30225,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[281].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ArtifactRevisionInstruction); i {
+			switch v := v.(*ArtifactRevisionInstructions); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30163,7 +30237,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[282].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*StartDeepResearchWireRequest); i {
+			switch v := v.(*ArtifactRevisionInstruction); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30175,7 +30249,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[283].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ResearchQuery); i {
+			switch v := v.(*StartDeepResearchWireRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30187,7 +30261,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[284].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ReviseArtifactResponse); i {
+			switch v := v.(*ResearchQuery); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30199,7 +30273,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[285].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateArtifactSuggestionsRequest); i {
+			switch v := v.(*ReviseArtifactResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30211,7 +30285,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[286].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ArtifactSuggestion); i {
+			switch v := v.(*GenerateArtifactSuggestionsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30223,7 +30297,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[287].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateArtifactSuggestionsResponse); i {
+			switch v := v.(*ArtifactSuggestion); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30235,7 +30309,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[288].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SDPExchangeRequest); i {
+			switch v := v.(*GenerateArtifactSuggestionsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30247,7 +30321,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[289].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*SDPExchangeResponse); i {
+			switch v := v.(*SDPExchangeRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30259,7 +30333,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[290].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetLabelsRequest); i {
+			switch v := v.(*SDPExchangeResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30271,7 +30345,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[291].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetLabelsResponse); i {
+			switch v := v.(*GetLabelsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30283,7 +30357,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[292].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Label); i {
+			switch v := v.(*GetLabelsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30295,7 +30369,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[293].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PlaybackPosition); i {
+			switch v := v.(*Label); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30307,7 +30381,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[294].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ArtifactUserState); i {
+			switch v := v.(*PlaybackPosition); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30319,7 +30393,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[295].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpsertArtifactUserStateRequest); i {
+			switch v := v.(*ArtifactUserState); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30331,7 +30405,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[296].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpsertArtifactUserStateResponse); i {
+			switch v := v.(*UpsertArtifactUserStateRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30343,7 +30417,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[297].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetArtifactUserStateRequest); i {
+			switch v := v.(*UpsertArtifactUserStateResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30355,7 +30429,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[298].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetArtifactUserStateResponse); i {
+			switch v := v.(*GetArtifactUserStateRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30367,7 +30441,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[299].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CreateLabelRequest); i {
+			switch v := v.(*GetArtifactUserStateResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30379,7 +30453,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[300].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MutateLabelsModeRequest); i {
+			switch v := v.(*CreateLabelRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30391,7 +30465,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[301].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LabelMode); i {
+			switch v := v.(*MutateLabelsModeRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30403,7 +30477,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[302].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LabelCreation); i {
+			switch v := v.(*LabelMode); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30415,7 +30489,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[303].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CreateLabelResponse); i {
+			switch v := v.(*LabelCreation); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30427,7 +30501,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[304].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MutateLabelRequest); i {
+			switch v := v.(*CreateLabelResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30439,7 +30513,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[305].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MutateLabelMutation); i {
+			switch v := v.(*MutateLabelRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30451,7 +30525,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[306].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MutateLabelEntry); i {
+			switch v := v.(*MutateLabelMutation); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30463,7 +30537,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[307].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LabelNameChange); i {
+			switch v := v.(*MutateLabelEntry); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30475,7 +30549,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[308].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MutateLabelResponse); i {
+			switch v := v.(*LabelNameChange); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30487,7 +30561,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[309].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*DeleteLabelsRequest); i {
+			switch v := v.(*MutateLabelResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30499,7 +30573,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[310].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateArtifactRequest); i {
+			switch v := v.(*DeleteLabelsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30511,7 +30585,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[311].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CancelDiscoverSourcesJobRequest); i {
+			switch v := v.(*GenerateArtifactRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30523,7 +30597,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[312].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CancelGenerationRequest); i {
+			switch v := v.(*CancelDiscoverSourcesJobRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30535,7 +30609,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[313].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CancelGenerationResponse); i {
+			switch v := v.(*CancelGenerationRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30547,7 +30621,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[314].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExportToDriveRequest); i {
+			switch v := v.(*CancelGenerationResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30559,7 +30633,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[315].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExportToDriveResponse); i {
+			switch v := v.(*ExportToDriveRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30571,7 +30645,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[316].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateFeaturedNotebookStatusRequest); i {
+			switch v := v.(*ExportToDriveResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30583,7 +30657,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[317].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListModelOptionsRequest); i {
+			switch v := v.(*UpdateFeaturedNotebookStatusRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30595,7 +30669,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[318].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListModelOptionsResponse); i {
+			switch v := v.(*ListModelOptionsRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30607,7 +30681,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[319].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ModelOption); i {
+			switch v := v.(*ListModelOptionsResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30619,7 +30693,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[320].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateProjectUserStateRequest); i {
+			switch v := v.(*ModelOption); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30631,7 +30705,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[321].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateProjectUserStateValue); i {
+			switch v := v.(*UpdateProjectUserStateRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30643,7 +30717,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[322].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateProjectUserStateValueInner); i {
+			switch v := v.(*UpdateProjectUserStateValue); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30655,7 +30729,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[323].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateProjectUserStateKeys); i {
+			switch v := v.(*UpdateProjectUserStateValueInner); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30667,7 +30741,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[324].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateProjectUserStateResponse); i {
+			switch v := v.(*UpdateProjectUserStateKeys); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30679,7 +30753,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[325].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*UpdateProjectUserStateResult); i {
+			switch v := v.(*UpdateProjectUserStateResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30691,7 +30765,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[326].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExecuteWritingFunctionRequest); i {
+			switch v := v.(*UpdateProjectUserStateResult); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30703,7 +30777,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[327].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExecuteWritingFunctionResponse); i {
+			switch v := v.(*ExecuteWritingFunctionRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30715,7 +30789,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[328].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListExpertIntelligenceContentRequest); i {
+			switch v := v.(*ExecuteWritingFunctionResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30727,7 +30801,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[329].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListExpertIntelligenceContentResponse); i {
+			switch v := v.(*ListExpertIntelligenceContentRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30739,7 +30813,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[330].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExpertIntelligenceItem); i {
+			switch v := v.(*ListExpertIntelligenceContentResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30751,7 +30825,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[331].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ExpertIntelligencePublicationTime); i {
+			switch v := v.(*ExpertIntelligenceItem); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30763,7 +30837,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[332].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateAccessTokenRequest); i {
+			switch v := v.(*ExpertIntelligencePublicationTime); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30775,7 +30849,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[333].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GenerateAccessTokenResponse); i {
+			switch v := v.(*GenerateAccessTokenRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30787,7 +30861,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[334].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AccessTokenTTL); i {
+			switch v := v.(*GenerateAccessTokenResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30799,7 +30873,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[335].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AccessTokenScopes); i {
+			switch v := v.(*AccessTokenTTL); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30811,7 +30885,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[336].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetMagicViewRequest); i {
+			switch v := v.(*AccessTokenScopes); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30823,7 +30897,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[337].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GetMagicViewResponse); i {
+			switch v := v.(*GetMagicViewRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30835,7 +30909,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[338].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CopyProjectRequest); i {
+			switch v := v.(*GetMagicViewResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30847,7 +30921,7 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[339].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CopyProjectResponse); i {
+			switch v := v.(*CopyProjectRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -30859,6 +30933,18 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 			}
 		}
 		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[340].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CopyProjectResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_notebooklm_v1alpha1_orchestration_proto_msgTypes[341].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CreateAudioOverviewLegacyRequest); i {
 			case 0:
 				return &v.state
@@ -30943,33 +31029,33 @@ func file_notebooklm_v1alpha1_orchestration_proto_init() {
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[240].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[241].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[242].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[252].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[264].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[253].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[265].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[266].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[269].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[267].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[270].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[271].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[272].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[273].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[274].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[275].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[281].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[285].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[292].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[301].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[276].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[282].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[286].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[293].OneofWrappers = []interface{}{}
 	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[302].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[317].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[322].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[325].OneofWrappers = []interface{}{}
-	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[339].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[303].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[318].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[323].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[326].OneofWrappers = []interface{}{}
+	file_notebooklm_v1alpha1_orchestration_proto_msgTypes[340].OneofWrappers = []interface{}{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_notebooklm_v1alpha1_orchestration_proto_rawDesc,
 			NumEnums:      7,
-			NumMessages:   341,
+			NumMessages:   342,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
