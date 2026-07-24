@@ -165,7 +165,8 @@ message SourceMetadata {
     google.protobuf.Int32Value last_update_time_seconds = 2;
     google.protobuf.Timestamp last_modified_time = 3;
     RevisionData revision_data = 4;
-    SourceType source_type = 5;
+    // Present zero is distinct from an omitted source type on the wire.
+    optional SourceType source_type = 5;
     SourceSettings.SourceStatus status = 7;
     // Source origin URL(s), e.g. the web page or Gutenberg URL a source was
     // imported from.
@@ -265,6 +266,8 @@ message SourceSettingsDetail {
   SourceIssueList issues = 3;
   // Present-but-empty in most captures; individual code meanings unconfirmed.
   SourceSettingsIntList detail_codes = 4;
+  // Present-but-empty in a source settings variant; meanings unconfirmed.
+  SourceSettingsIntList unknown_5 = 5;
   // Observed [1]; individual code meanings unconfirmed.
   repeated int64 state_codes = 7;
 }

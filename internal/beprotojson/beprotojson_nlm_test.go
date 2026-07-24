@@ -98,7 +98,7 @@ func TestUnmarshal(t *testing.T) {
 									Nanos:   818692000,
 								},
 							},
-							SourceType: pb.SourceType_SOURCE_TYPE_YOUTUBE_VIDEO,
+							SourceType: pb.SourceType_SOURCE_TYPE_YOUTUBE_VIDEO.Enum(),
 							MetadataType: &pb.SourceMetadata_Youtube{
 								Youtube: &pb.YoutubeSourceMetadata{
 									YoutubeUrl: "https://www.youtube.com/watch?v=hkhDdcM5V94",

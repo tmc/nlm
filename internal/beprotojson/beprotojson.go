@@ -128,9 +128,9 @@ func (o MarshalOptions) marshalSingleValue(fd protoreflect.FieldDescriptor, v pr
 			return nil
 		}
 		fields := msg.Descriptor().Fields()
-		if flatStringListMessage(msg.Descriptor()) && fields.Len() == 1 {
+		if flatListMessage(msg.Descriptor()) && fields.Len() == 1 {
 			field := fields.Get(0)
-			if field.IsList() && field.Kind() == protoreflect.StringKind {
+			if field.IsList() {
 				return o.marshalValue(field, msg.Get(field))
 			}
 		}
@@ -683,11 +683,12 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 
 		// Populate fields from array
 		fields := msgReflect.Descriptor().Fields()
-		// AccessTokenScopes is carried as ["scope"] rather than [["scope"]].
-		// Treat its whole value as field 1 before walking it positionally.
-		if flatStringListMessage(msgReflect.Descriptor()) && len(v) > 0 && !isArray(v[0]) && fields.Len() == 1 {
+		// Some one-field repeated-value messages are carried without their
+		// usual positional wrapper. Treat the whole value as field 1 before
+		// walking it positionally.
+		if flatListMessage(msgReflect.Descriptor()) && len(v) > 0 && !isArray(v[0]) && fields.Len() == 1 {
 			field := fields.Get(0)
-			if field.IsList() && field.Kind() == protoreflect.StringKind {
+			if field.IsList() {
 				if err := o.setRepeatedField(msgReflect, field, v); err != nil {
 					return fmt.Errorf("field %s: %w", field.FullName(), err)
 				}
@@ -800,10 +801,15 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 	}
 }
 
-// flatStringListMessage reports messages whose sole repeated string field is
-// carried without the usual nested positional wrapper.
-func flatStringListMessage(md protoreflect.MessageDescriptor) bool {
-	return md.FullName() == "notebooklm.v1alpha1.AccessTokenScopes"
+// flatListMessage reports messages whose sole repeated field is carried
+// without the usual nested positional wrapper.
+func flatListMessage(md protoreflect.MessageDescriptor) bool {
+	switch md.FullName() {
+	case "notebooklm.v1alpha1.AccessTokenScopes",
+		"notebooklm.v1alpha1.SourceSettingsIntList":
+		return true
+	}
+	return false
 }
 
 // setObjectMessage populates an object-encoded message field from a JSON object
