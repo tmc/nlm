@@ -102,6 +102,15 @@ func TestEncodeRPCArgs(t *testing.T) {
 			want:      []interface{}{"proj456", "delete", []string{"s1", "s2"}},
 		},
 		{
+			name: "field name with digit",
+			msg: &notebooklm.CreateUniversalArtifactRequest{
+				ProjectId: "project123",
+				Unknown_6: []int32{1},
+			},
+			argFormat: "[%project_id%, %unknown_6%]",
+			want:      []interface{}{"project123", []interface{}{int64(1)}},
+		},
+		{
 			name: "chat command - GenerateFreeFormStreamed",
 			msg: &notebooklm.GenerateFreeFormStreamedRequest{
 				ProjectId: "notebook123",

@@ -531,6 +531,8 @@ message CreateUniversalArtifactRequest {
     RequestContext context = 1;
     string project_id = 2;
     UniversalArtifactOptions options = 3;
+    // Semantics unconfirmed. Observed as [1] on a slide request.
+    repeated int32 unknown_6 = 6;
 }
 
 message UniversalArtifactOptions {
@@ -541,8 +543,20 @@ message UniversalArtifactOptions {
     UniversalAudioOptions audio = 7;
     // Field 8 is null in observed requests.
     UniversalVideoOptions video = 9;
-    // Fields 10 through 16 are null in observed requests.
+    // Fields 11 through 16 are null in observed requests.
+    UniversalArtifactOptionsUnknown10 unknown_10 = 10;
     repeated UniversalSlideOptions slides = 17;
+}
+
+// UniversalArtifactOptionsUnknown10 is the observed [null, [kind, null,
+// optional_text]] trailer. Its semantics are unconfirmed.
+message UniversalArtifactOptionsUnknown10 {
+    UniversalArtifactOptionsUnknown10Details details = 2;
+}
+
+message UniversalArtifactOptionsUnknown10Details {
+    int32 value = 1;
+    string text = 3;
 }
 
 message UniversalArtifactSourceGroup {
@@ -582,7 +596,8 @@ message UniversalArtifactSources {
 }
 
 message UniversalSlideOptions {
-    // Field 1 is null in observed requests.
+    // Semantics unconfirmed. Observed as a plan-mode instruction string.
+    string unknown_1 = 1;
     string language = 2;
     int32 format = 3;
     int32 style = 4;
@@ -1235,7 +1250,7 @@ service LabsTailwindOrchestrationService {
     // Decode-complete binding for the polymorphic R7cb6c request envelope.
     rpc CreateUniversalArtifact(CreateUniversalArtifactRequest) returns (Artifact) {
         option (rpc_id) = "R7cb6c";
-        option (arg_format) = "[%context%, %project_id%, %options%]";
+        option (arg_format) = "[%context%, %project_id%, %options%, null, null, %unknown_6%]";
     }
     
     // Note operations

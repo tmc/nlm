@@ -34,6 +34,11 @@ func Encode{{.Method.GoName}}Args(req *{{$pkgName}}.{{.Method.Input.GoIdent.GoNa
 		// In production, this should be handled better
 		return []interface{}{}
 	}
+	{{- if eq .Method.GoName "CreateUniversalArtifact" }}
+	if req.GetUnknown_6() == nil {
+		return args[:3]
+	}
+	{{- end }}
 	return args
 }
 
