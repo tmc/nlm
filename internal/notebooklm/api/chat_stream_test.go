@@ -187,6 +187,25 @@ func TestBuildChatArgsCorpusShape(t *testing.T) {
 	}
 }
 
+func TestBuildChatArgsPreservesEmptyHistory(t *testing.T) {
+	c := &Client{}
+	got, err := c.buildChatArgs(ChatRequest{
+		ProjectID:      "project-id",
+		Prompt:         "prompt",
+		SourceIDs:      []string{"source-id"},
+		ConversationID: "conversation-id",
+		History:        []ChatMessage{{Content: "", Role: 1}},
+		SeqNum:         0,
+	})
+	if err != nil {
+		t.Fatalf("buildChatArgs() error = %v", err)
+	}
+	const want = `[[[["source-id"]]],"prompt",[["",null,1]],[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],"conversation-id",null,null,"project-id",1]`
+	if got != want {
+		t.Fatalf("buildChatArgs() = %s, want %s", got, want)
+	}
+}
+
 func mockChatStream(t *testing.T, texts ...string) string {
 	t.Helper()
 

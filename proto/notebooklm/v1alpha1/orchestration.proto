@@ -606,7 +606,7 @@ message DiscoverSourcesResponse {
 
 message GenerateFreeFormStreamedHistoryEntry {
     // Wire shape: [content, null, role]
-    string content = 1;
+    optional string content = 1;
     int32 role = 3;  // 1 = user, 2 = assistant
 }
 
@@ -699,9 +699,28 @@ message GenerateFreeFormStreamedWireRequest {
     repeated GenerateFreeFormStreamedHistoryEntry history = 3;
     ChatStreamOptions options = 4;
     string conversation_id = 5;
-    // Fields 6 and 7 are null in observed requests.
+    // Field 6 is null in observed requests.
+    optional string unknown_7 = 7;
     string notebook_id = 8;
-    int32 sequence_number = 9;
+    optional int32 sequence_number = 9;
+    ChatStreamUnknown13 unknown_13 = 13;
+}
+
+// ChatStreamUnknown13 is an opaque repeated row carried by some streamed chat
+// requests. Field meanings are unconfirmed.
+message ChatStreamUnknown13 {
+    repeated ChatStreamUnknown13Entry entries = 1;
+}
+
+message ChatStreamUnknown13Entry {
+    string id = 1;
+    ChatStreamUnknown13Values values = 2;
+}
+
+message ChatStreamUnknown13Values {
+    optional string value = 1;
+    optional int32 first = 2;
+    optional int32 second = 3;
 }
 
 message ChatSourceSelection {

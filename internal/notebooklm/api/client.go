@@ -4226,9 +4226,11 @@ func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 	if len(wireReq.History) > 0 {
 		history = make([]*pb.GenerateFreeFormStreamedHistoryEntry, 0, len(wireReq.History))
 		for _, entry := range wireReq.History {
-			history = append(history, &pb.GenerateFreeFormStreamedHistoryEntry{Content: entry.Content, Role: entry.Role})
+			content := entry.Content
+			history = append(history, &pb.GenerateFreeFormStreamedHistoryEntry{Content: &content, Role: entry.Role})
 		}
 	}
+	sequenceNumber := wireReq.SequenceNumber
 	args := method.EncodeGenerateFreeFormStreamedWireArgs(&pb.GenerateFreeFormStreamedWireRequest{
 		Sources:        sources,
 		Prompt:         wireReq.Prompt,
@@ -4236,7 +4238,7 @@ func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 		Options:        &pb.ChatStreamOptions{Mode: wireReq.Options.Mode, CitationModes: &pb.Int32List{Value: 1}, FollowUp: &pb.ChatFollowUpOptions{Enabled: 1, Modes: []int32{1, 3}}},
 		ConversationId: wireReq.ConversationID,
 		NotebookId:     wireReq.NotebookID,
-		SequenceNumber: wireReq.SequenceNumber,
+		SequenceNumber: &sequenceNumber,
 	})
 
 	argsJSON, err := json.Marshal(args)
