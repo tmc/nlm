@@ -116,33 +116,60 @@ func streamFrame(body []byte, start, declared int) ([]byte, int, error) {
 	if target < 0 {
 		return nil, start, fmt.Errorf("length %d is too small", declared)
 	}
-	// Most frames count the two framing newlines. A captured continuation
-	// stream adds ten more bytes after its first answer frame. Keep that
-	// observed variant narrow: it must still end at a delimiter and form JSON.
-	targets := []int{target}
-	if continuationTarget := declared - 12; continuationTarget >= 0 {
-		targets = append(targets, continuationTarget)
+	var ends []int
+	if end := start + target; end <= len(body) {
+		ends = append(ends, end)
 	}
-	for _, target := range targets {
-		var ends []int
-		if end := start + target; end <= len(body) {
-			ends = append(ends, end)
+	if end, ok := streamFrameEndRunes(body, start, target, false); ok {
+		ends = append(ends, end)
+	}
+	if end, ok := streamFrameEndRunes(body, start, target, true); ok {
+		ends = append(ends, end)
+	}
+	for _, end := range ends {
+		next, ok := streamFrameDelimiter(body, end)
+		if !ok || !json.Valid(body[start:end]) {
+			continue
 		}
-		if end, ok := streamFrameEndRunes(body, start, target, false); ok {
-			ends = append(ends, end)
-		}
-		if end, ok := streamFrameEndRunes(body, start, target, true); ok {
-			ends = append(ends, end)
-		}
-		for _, end := range ends {
-			next, ok := streamFrameDelimiter(body, end)
-			if !ok || !json.Valid(body[start:end]) {
-				continue
-			}
-			return body[start:end], next, nil
-		}
+		return body[start:end], next, nil
+	}
+	if frame, next, ok := streamContinuationFrame(body, start, target); ok {
+		return frame, next, nil
 	}
 	return nil, start, fmt.Errorf("length %d does not delimit a valid frame", declared)
+}
+
+// streamContinuationFrame recognizes the observed continuation framing where
+// a declared count reaches into the following decimal length line. It derives
+// the boundary from that next line instead of relying on a fixed offset.
+func streamContinuationFrame(body []byte, start, target int) ([]byte, int, bool) {
+	limit := start + target
+	if limit > len(body) {
+		limit = len(body)
+	}
+	for search := limit; search > start; {
+		relativeEnd := bytes.LastIndexByte(body[start:search], '\n')
+		if relativeEnd < 0 {
+			break
+		}
+		end := start + relativeEnd
+		search = end
+		next, ok := streamFrameDelimiter(body, end)
+		if !ok || !streamNextLength(body, next) || !json.Valid(body[start:end]) {
+			continue
+		}
+		return body[start:end], next, true
+	}
+	return nil, start, false
+}
+
+func streamNextLength(body []byte, start int) bool {
+	end := bytes.IndexByte(body[start:], '\n')
+	if end <= 0 {
+		return false
+	}
+	_, err := strconv.Atoi(string(body[start : start+end]))
+	return err == nil
 }
 
 func streamFrameDelimiter(body []byte, end int) (int, bool) {

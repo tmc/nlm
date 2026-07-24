@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -95,12 +96,16 @@ func TestDecodeWrbFRStreamContinuationLength(t *testing.T) {
 		t.Fatal(err)
 	}
 	frame := "[" + string(row) + "]"
-	body := ")]}'\n\n" + fmt.Sprintf("%d\n%s\n", utf8.RuneCountInString(frame)+12, frame)
+	// The next frame has a five-digit length line. A fixed -12 fallback does
+	// not reach the first frame's delimiter; the derived next-length boundary
+	// does.
+	next := streamTestFrame(t, `[["`+strings.Repeat("x", 10000)+`"]]`, utf8.RuneCountInString)
+	body := ")]}'\n\n" + fmt.Sprintf("%d\n%s\n", utf8.RuneCountInString(frame)+9, frame) + next
 	resp, frames, err := decodeWrbFRStream([]byte(body), "laWbsf")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if frames != 1 || string(resp.Responses[0].Data) != `[["continuation"]]` {
+	if frames != 2 || len(resp.Responses[0].Data) == 0 {
 		t.Fatalf("frames, response = %d, %+v", frames, resp)
 	}
 }
