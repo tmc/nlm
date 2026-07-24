@@ -664,7 +664,8 @@ func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, 
 
 func (c *Client) RefreshSource(projectID, sourceID string) (*pb.Source, error) {
 	req := &pb.RefreshSourceRequest{
-		SourceId:  sourceID,
+		Source:    &pb.SourceIdList{SourceId: sourceID},
+		Context:   conversationRequestContext(),
 		ProjectId: projectID,
 	}
 	ctx := context.Background()
