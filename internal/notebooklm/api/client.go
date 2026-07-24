@@ -3489,10 +3489,8 @@ func (c *Client) parseArtifactFromResponse(data interface{}) *pb.Artifact {
 	if stateCode, ok := int32At(artifactData, 4); ok {
 		artifact.State = pb.ArtifactState(stateCode)
 	}
-	for _, sourceID := range parseArtifactSourceIDs(artifactData) {
-		artifact.Sources = append(artifact.Sources, &pb.ArtifactSource{
-			SourceId: &pb.SourceId{SourceId: sourceID},
-		})
+	for _, source := range parseArtifactSources(artifactData) {
+		artifact.Sources = append(artifact.Sources, source)
 	}
 
 	// A finished artifact carries its rendered output as download URLs deep in
@@ -3543,7 +3541,7 @@ func hasArtifactDownloadURL(data interface{}) bool {
 	return len(extractArtifactDownloadURLs(data)) > 0
 }
 
-func parseArtifactSourceIDs(artifactData []interface{}) []string {
+func parseArtifactSources(artifactData []interface{}) []*pb.ArtifactSource {
 	if len(artifactData) <= 3 {
 		return nil
 	}
@@ -3553,17 +3551,28 @@ func parseArtifactSourceIDs(artifactData []interface{}) []string {
 		return nil
 	}
 
-	var sourceIDs []string
+	var sources []*pb.ArtifactSource
 	seen := make(map[string]bool)
-	appendArtifactSourceIDs(sourcesData, seen, &sourceIDs)
-	return sourceIDs
+	appendArtifactSources(sourcesData, seen, &sources)
+	return sources
 }
 
-func appendArtifactSourceIDs(values []interface{}, seen map[string]bool, out *[]string) {
+func appendArtifactSources(values []interface{}, seen map[string]bool, out *[]*pb.ArtifactSource) {
+	if len(values) >= 3 {
+		if id, ok := artifactSourceID(values[0]); ok && id != "" && !seen[id] {
+			seen[id] = true
+			source := &pb.ArtifactSource{SourceId: &pb.SourceId{SourceId: id}}
+			if unknown3, ok := int32At(values, 2); ok {
+				source.Unknown_3 = unknown3
+			}
+			*out = append(*out, source)
+			return
+		}
+	}
 	if len(values) == 1 {
 		if id, ok := values[0].(string); ok && id != "" && !seen[id] {
 			seen[id] = true
-			*out = append(*out, id)
+			*out = append(*out, &pb.ArtifactSource{SourceId: &pb.SourceId{SourceId: id}})
 			return
 		}
 	}
@@ -3572,8 +3581,17 @@ func appendArtifactSourceIDs(values []interface{}, seen map[string]bool, out *[]
 		if !ok {
 			continue
 		}
-		appendArtifactSourceIDs(nested, seen, out)
+		appendArtifactSources(nested, seen, out)
 	}
+}
+
+func artifactSourceID(value interface{}) (string, bool) {
+	values, ok := value.([]interface{})
+	if !ok || len(values) != 1 {
+		return "", false
+	}
+	id, ok := values[0].(string)
+	return id, ok
 }
 
 // Guidebook operations
