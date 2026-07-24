@@ -649,8 +649,23 @@ service NotebookLM {
 */
 
 message GenerateMagicViewRequest {
-    string project_id = 1;
-    repeated string source_ids = 2;
+    MagicViewRequestContext context = 1;
+    string project_id = 2;
+}
+
+message MagicViewRequestContext {
+    optional int32 version = 1;
+    MagicViewRequestSurface surface = 3;
+    MagicViewRequestCaps caps = 4;
+}
+
+message MagicViewRequestSurface {
+    optional int32 value = 1;
+}
+
+message MagicViewRequestCaps {
+    optional int32 version = 1;
+    repeated int32 capability_codes = 11;
 }
 
 message MagicViewItem {
@@ -658,8 +673,7 @@ message MagicViewItem {
 }
 
 message GenerateMagicViewResponse {
-    string title = 1;
-    repeated MagicViewItem items = 4;
+    int32 status = 1; // captured opaque status code; meaning unconfirmed
 }
 
 // Sharing and Guidebooks services are defined in sharing.proto

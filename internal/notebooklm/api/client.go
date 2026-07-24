@@ -3907,9 +3907,14 @@ func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGu
 }
 
 func (c *Client) GenerateMagicView(projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
+	_ = sourceIDs // The captured uK8f7c request carries only context and project ID.
 	req := &pb.GenerateMagicViewRequest{
+		Context: &pb.MagicViewRequestContext{
+			Version: proto.Int32(2),
+			Surface: &pb.MagicViewRequestSurface{Value: proto.Int32(1)},
+			Caps:    &pb.MagicViewRequestCaps{Version: proto.Int32(1), CapabilityCodes: []int32{1, 3}},
+		},
 		ProjectId: projectID,
-		SourceIds: sourceIDs,
 	}
 	ctx := context.Background()
 	magicView, err := c.orchestrationService.GenerateMagicView(ctx, req)

@@ -1078,14 +1078,7 @@ func runMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
 	if err != nil {
 		return fmt.Errorf("generate magic view: %w", err)
 	}
-	if title := resp.GetTitle(); title != "" {
-		fmt.Println(title)
-	}
-	for _, item := range resp.GetItems() {
-		if t := item.GetTitle(); t != "" {
-			fmt.Printf("- %s\n", t)
-		}
-	}
+	fmt.Printf("Magic View status: %d\n", resp.GetStatus())
 	return nil
 }
 

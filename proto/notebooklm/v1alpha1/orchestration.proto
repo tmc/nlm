@@ -1335,7 +1335,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc GenerateMagicView(GenerateMagicViewRequest) returns (GenerateMagicViewResponse) {
         option (rpc_id) = "uK8f7c";
-        option (arg_format) = "[%project_id%, %source_ids%]";
+        option (arg_format) = "[%context%, %project_id%]";
     }
     
     // Analytics and feedback
