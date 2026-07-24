@@ -382,6 +382,8 @@ message ArtifactSlideEditInstruction {
 // pair EncodeCreateSlideDeckArgs sends on create (see
 // internal/method/labs_tailwind_overview_custom.go SlideDeckFormat).
 message ArtifactSlideDeckConfig {
+    option (omit_trailing_nulls) = true;
+
     // Observed as a user-provided string; meaning unconfirmed.
     string unknown_1 = 1;
     string language = 2;

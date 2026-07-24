@@ -69,6 +69,9 @@ extend google.protobuf.MessageOptions {
   // array. batchexecute uses the object form for messages whose fields have
   // large, sparse numbers, to avoid emitting a long run of leading nulls.
   bool object_encoded = 51030;
+
+  // Whether trailing unset fields are omitted from the positional array.
+  bool omit_trailing_nulls = 51031;
 }
 
 // Custom options for services

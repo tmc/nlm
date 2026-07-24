@@ -77,6 +77,11 @@ func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
 		}
 		// Unset fields remain nil (JSON null) to match batchexecute protocol
 	}
+	if messageBoolOption(md.Descriptor(), extOmitTrailingNulls) {
+		for len(result) > 0 && result[len(result)-1] == nil {
+			result = result[:len(result)-1]
+		}
+	}
 
 	return json.Marshal(result)
 }
@@ -852,8 +857,9 @@ func (o UnmarshalOptions) setObjectMessage(m protoreflect.Message, fd protorefle
 // name from the global registry so this codec stays decoupled from the
 // concrete generated package that declares them.
 const (
-	extJSONBool      = "notebooklm.v1alpha1.json_bool"
-	extObjectEncoded = "notebooklm.v1alpha1.object_encoded"
+	extJSONBool          = "notebooklm.v1alpha1.json_bool"
+	extObjectEncoded     = "notebooklm.v1alpha1.object_encoded"
+	extOmitTrailingNulls = "notebooklm.v1alpha1.omit_trailing_nulls"
 )
 
 // fieldBoolOption reports whether the named bool extension is set to true on a
