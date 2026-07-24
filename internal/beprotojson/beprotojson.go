@@ -127,6 +127,13 @@ func (o MarshalOptions) marshalSingleValue(fd protoreflect.FieldDescriptor, v pr
 		if !msg.IsValid() {
 			return nil
 		}
+		fields := msg.Descriptor().Fields()
+		if flatStringListMessage(msg.Descriptor()) && fields.Len() == 1 {
+			field := fields.Get(0)
+			if field.IsList() && field.Kind() == protoreflect.StringKind {
+				return o.marshalValue(field, msg.Get(field))
+			}
+		}
 		// Handle well-known types specially. A wrapper's presence carries the
 		// value, so a present wrapper emits its value even when that value is
 		// the zero value (Get returns the zero value when the inner field is
@@ -676,6 +683,18 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 
 		// Populate fields from array
 		fields := msgReflect.Descriptor().Fields()
+		// AccessTokenScopes is carried as ["scope"] rather than [["scope"]].
+		// Treat its whole value as field 1 before walking it positionally.
+		if flatStringListMessage(msgReflect.Descriptor()) && len(v) > 0 && !isArray(v[0]) && fields.Len() == 1 {
+			field := fields.Get(0)
+			if field.IsList() && field.Kind() == protoreflect.StringKind {
+				if err := o.setRepeatedField(msgReflect, field, v); err != nil {
+					return fmt.Errorf("field %s: %w", field.FullName(), err)
+				}
+				m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+				return nil
+			}
+		}
 		for i := 0; i < len(v); i++ {
 			if v[i] == nil {
 				if o.DebugFieldMapping {
@@ -779,6 +798,12 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 		m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
 		return nil
 	}
+}
+
+// flatStringListMessage reports messages whose sole repeated string field is
+// carried without the usual nested positional wrapper.
+func flatStringListMessage(md protoreflect.MessageDescriptor) bool {
+	return md.FullName() == "notebooklm.v1alpha1.AccessTokenScopes"
 }
 
 // setObjectMessage populates an object-encoded message field from a JSON object

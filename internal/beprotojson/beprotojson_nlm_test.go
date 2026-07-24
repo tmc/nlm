@@ -175,6 +175,24 @@ func TestUnmarshal(t *testing.T) {
 	}
 }
 
+func TestAccessTokenScopesRoundTrip(t *testing.T) {
+	const wire = `["token",[3599],["https://example.invalid/auth/drive"]]`
+	var got pb.GenerateAccessTokenResponse
+	if err := Unmarshal([]byte(wire), &got); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]string{"https://example.invalid/auth/drive"}, got.GetScopes().GetScope()); diff != "" {
+		t.Fatalf("scopes (-want +got):\n%s", diff)
+	}
+	out, err := Marshal(&got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != wire {
+		t.Fatalf("Marshal() = %s, want %s", out, wire)
+	}
+}
+
 func TestSpanGroupLoneSpanElement(t *testing.T) {
 	// A one-element SpanGroup can elide the repeated-field wrapper. The lone
 	// Span must still be recognized as one shape-union element, not three
