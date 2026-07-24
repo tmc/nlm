@@ -97,6 +97,7 @@ const (
 	LabsTailwindOrchestrationService_DeleteLabels_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteLabels"
 	LabsTailwindOrchestrationService_GenerateArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateArtifact"
 	LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_FullMethodName      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CancelDiscoverSourcesJob"
+	LabsTailwindOrchestrationService_CancelGeneration_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CancelGeneration"
 	LabsTailwindOrchestrationService_ExportToDrive_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ExportToDrive"
 	LabsTailwindOrchestrationService_UpdateFeaturedNotebookStatus_FullMethodName  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpdateFeaturedNotebookStatus"
 	LabsTailwindOrchestrationService_ListModelOptions_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListModelOptions"
@@ -450,6 +451,10 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// TODO(har): trigger by canceling a running fast-research /
 	// deep-research / discover-sources flow before completion.
 	CancelDiscoverSourcesJob(ctx context.Context, in *CancelDiscoverSourcesJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// CancelGeneration (XgrPMd). The captured request has a null leading
+	// placeholder followed by the generation identifier. The server returns
+	// an empty array on success.
+	CancelGeneration(ctx context.Context, in *CancelGenerationRequest, opts ...grpc.CallOption) (*CancelGenerationResponse, error)
 	// ExportToDrive (Krh3pd). Pushes notebook artifacts to the user's
 	// Drive. JS-bundle-verified; no HAR yet.
 	// TODO(har): trigger by clicking "Export to Drive" on a notebook.
@@ -1225,6 +1230,15 @@ func (c *labsTailwindOrchestrationServiceClient) CancelDiscoverSourcesJob(ctx co
 	return out, nil
 }
 
+func (c *labsTailwindOrchestrationServiceClient) CancelGeneration(ctx context.Context, in *CancelGenerationRequest, opts ...grpc.CallOption) (*CancelGenerationResponse, error) {
+	out := new(CancelGenerationResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CancelGeneration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *labsTailwindOrchestrationServiceClient) ExportToDrive(ctx context.Context, in *ExportToDriveRequest, opts ...grpc.CallOption) (*ExportToDriveResponse, error) {
 	out := new(ExportToDriveResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ExportToDrive_FullMethodName, in, out, opts...)
@@ -1656,6 +1670,10 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// TODO(har): trigger by canceling a running fast-research /
 	// deep-research / discover-sources flow before completion.
 	CancelDiscoverSourcesJob(context.Context, *CancelDiscoverSourcesJobRequest) (*emptypb.Empty, error)
+	// CancelGeneration (XgrPMd). The captured request has a null leading
+	// placeholder followed by the generation identifier. The server returns
+	// an empty array on success.
+	CancelGeneration(context.Context, *CancelGenerationRequest) (*CancelGenerationResponse, error)
 	// ExportToDrive (Krh3pd). Pushes notebook artifacts to the user's
 	// Drive. JS-bundle-verified; no HAR yet.
 	// TODO(har): trigger by clicking "Export to Drive" on a notebook.
@@ -1931,6 +1949,9 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateArtifact(cont
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CancelDiscoverSourcesJob(context.Context, *CancelDiscoverSourcesJobRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelDiscoverSourcesJob not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CancelGeneration(context.Context, *CancelGenerationRequest) (*CancelGenerationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelGeneration not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) ExportToDrive(context.Context, *ExportToDriveRequest) (*ExportToDriveResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExportToDrive not implemented")
@@ -3332,6 +3353,24 @@ func _LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_Handler(srv inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_CancelGeneration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelGenerationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CancelGeneration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CancelGeneration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CancelGeneration(ctx, req.(*CancelGenerationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_ExportToDrive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ExportToDriveRequest)
 	if err := dec(in); err != nil {
@@ -3810,6 +3849,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CancelDiscoverSourcesJob",
 			Handler:    _LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_Handler,
+		},
+		{
+			MethodName: "CancelGeneration",
+			Handler:    _LabsTailwindOrchestrationService_CancelGeneration_Handler,
 		},
 		{
 			MethodName: "ExportToDrive",

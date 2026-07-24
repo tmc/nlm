@@ -1837,6 +1837,30 @@ func (c *LabsTailwindOrchestrationServiceClient) CancelDiscoverSourcesJob(ctx co
 	return &result, nil
 }
 
+// CancelGeneration calls the CancelGeneration RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) CancelGeneration(ctx context.Context, req *notebooklmv1alpha1.CancelGenerationRequest) (*notebooklmv1alpha1.CancelGenerationResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "XgrPMd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       method.EncodeCancelGenerationArgs(req),
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CancelGeneration: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.CancelGenerationResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CancelGeneration: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // ExportToDrive calls the ExportToDrive RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) ExportToDrive(ctx context.Context, req *notebooklmv1alpha1.ExportToDriveRequest) (*notebooklmv1alpha1.ExportToDriveResponse, error) {
 	// Build the RPC call

@@ -1678,6 +1678,14 @@ service LabsTailwindOrchestrationService {
         // wire shape unverified; capture HAR before encoding
     }
 
+    // CancelGeneration (XgrPMd). The captured request has a null leading
+    // placeholder followed by the generation identifier. The server returns
+    // an empty array on success.
+    rpc CancelGeneration(CancelGenerationRequest) returns (CancelGenerationResponse) {
+        option (rpc_id) = "XgrPMd";
+        option (arg_format) = "[null, %generation_id%]";
+    }
+
     // ExportToDrive (Krh3pd). Pushes notebook artifacts to the user's
     // Drive. JS-bundle-verified; no HAR yet.
     // TODO(har): trigger by clicking "Export to Drive" on a notebook.
@@ -3297,6 +3305,13 @@ message CancelDiscoverSourcesJobRequest {
     string project_id = 1;
     string job_id = 2;
 }
+
+// CancelGeneration (XgrPMd).
+message CancelGenerationRequest {
+    string generation_id = 2;
+}
+
+message CancelGenerationResponse {}
 
 // ExportToDrive (Krh3pd). wire shape unverified.
 message ExportToDriveRequest {

@@ -274,6 +274,7 @@ const (
 	RPCDeleteLabels                  = "GyzE7e"        // DeleteLabels — bulk delete by label_id. HAR-verified 2026-04-26.
 	RPCGenerateArtifact              = "Rytqqe"        // GenerateArtifact — distinct from CreateArtifact (R7cb6c). TODO(har).
 	RPCCancelDiscoverSourcesJob      = "Zbrupe"        // CancelDiscoverSourcesJob (cancels the in-flight Es3dTe/Ljjv0c job). TODO(har).
+	RPCCancelGeneration              = "XgrPMd"        // CancelGeneration — cancels a generation by id. HAR-verified 2026-07-24.
 	RPCExportToDrive                 = "Krh3pd"        // ExportToDrive (export notebook artifacts to user's Drive). TODO(har).
 	RPCUpdateFeaturedNotebookStatus  = "DemIHe"        // UpdateFeaturedNotebookStatus (admin/internal). TODO(har).
 	RPCListModelOptions              = "EnujNd"        // ListModelOptions (returns the available chat/generation models). TODO(har).
