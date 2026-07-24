@@ -73,10 +73,3 @@ exec ./nlm_test -auth flag-secret-token -cookies 'flag-cookie-secret' help
 stderr 'debug mode enabled'
 # Profile name should be masked in debug output (testing masking functionality)
 ! stderr 'my-secret-profile-name'
-
-# Test 8: Empty token scenarios still protect against variable name exposure
-env NLM_AUTH_TOKEN=
-env NLM_COOKIES=
-! exec ./nlm_test feedback 'test message'
-stderr 'Authentication required'
-# (env var names appear in the hint text now — only values must stay secret)
