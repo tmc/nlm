@@ -1943,7 +1943,7 @@ message CheckSourceFreshnessRequest {
 }
 
 message CheckSourceFreshnessResponse {
-    bool is_fresh = 2 [(json_bool) = true];
+    optional bool is_fresh = 2 [(json_bool) = true];
     SourceIdList source = 3;
 }
 
