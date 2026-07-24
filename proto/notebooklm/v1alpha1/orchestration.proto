@@ -1881,9 +1881,13 @@ message ListRecentlyViewedProjectsFilterA {
 
 message ListRecentlyViewedProjectsFilterB {
     StringList values = 1;
+    // Present-but-empty in the full web request variant.
+    StringList unknown_3 = 3;
 }
 
 message ListRecentlyViewedProjectsFilterC {
+    // Present-but-empty in the full web request variant.
+    StringList unknown_1 = 1;
     // field 1 null; field 2 a present-but-empty string list.
     StringList values = 2;
 }

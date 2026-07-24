@@ -6,6 +6,7 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/beprotojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestListRecentlyViewedProjectsFullRequestKeepsLiveEncoder(t *testing.T) {
@@ -24,5 +25,31 @@ func TestListRecentlyViewedProjectsFullRequestKeepsLiveEncoder(t *testing.T) {
 	const want = `[null,1,null,[2]]`
 	if string(got) != want {
 		t.Fatalf("live encoder = %s, want %s", got, want)
+	}
+}
+
+func TestListRecentlyViewedProjectsFilterVariantsRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		wire string
+		want string
+		msg  proto.Message
+	}{
+		{"filter B", `[null,null,[]]`, `[null,null,[]]`, &pb.ListRecentlyViewedProjectsFilterB{}},
+		{"filter C", `[[]]`, `[[],null]`, &pb.ListRecentlyViewedProjectsFilterC{}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if err := beprotojson.Unmarshal([]byte(test.wire), test.msg); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			got, err := beprotojson.Marshal(test.msg)
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			if string(got) != test.want {
+				t.Fatalf("round trip = %s, want %s", got, test.want)
+			}
+		})
 	}
 }

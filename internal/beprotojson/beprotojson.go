@@ -272,6 +272,9 @@ func (o UnmarshalOptions) Unmarshal(b []byte, m proto.Message) error {
 			fd := fields.ByNumber(1)
 			if fd != nil && fd.IsList() && fd.Message() != nil {
 				// Keep positional format: position 0 = repeated field value.
+			} else if fd != nil && fd.Message() != nil && flatListMessage(fd.Message()) {
+				// Keep the positional wrapper for a singular flat-list message.
+				// The inner empty list is field 1's value, not an extra envelope.
 			} else if fd != nil && fd.Message() != nil && len(innerArr) == 1 {
 				inner := fd.Message().Fields().ByNumber(1)
 				if inner != nil && inner.IsList() && inner.Message() != nil {
@@ -806,7 +809,8 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 func flatListMessage(md protoreflect.MessageDescriptor) bool {
 	switch md.FullName() {
 	case "notebooklm.v1alpha1.AccessTokenScopes",
-		"notebooklm.v1alpha1.SourceSettingsIntList":
+		"notebooklm.v1alpha1.SourceSettingsIntList",
+		"notebooklm.v1alpha1.StringList":
 		return true
 	}
 	return false
