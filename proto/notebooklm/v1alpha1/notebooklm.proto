@@ -135,7 +135,8 @@ message Source {
   string title = 2;
   SourceMetadata metadata = 3;
   SourceSettings settings = 4;
-  repeated google.protobuf.Int32Value warnings = 5;
+  // Observed as bare integers. Their semantics are unconfirmed.
+  repeated int32 warnings = 5;
   // Content-download URL (usercontent.google.com/download?c=…).
   string download_url = 6;
   // Drive viewer/upload URL for the source blob.

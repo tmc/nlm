@@ -651,7 +651,7 @@ func formatSourceStatus(src *pb.Source) string {
 	if len(src.Warnings) > 0 {
 		var codes []string
 		for _, w := range src.Warnings {
-			codes = append(codes, fmt.Sprintf("warn:%d", w.GetValue()))
+			codes = append(codes, fmt.Sprintf("warn:%d", w))
 		}
 		return strings.Join(codes, ",")
 	}

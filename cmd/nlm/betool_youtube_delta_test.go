@@ -860,6 +860,20 @@ func TestGenerateReportSuggestionsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSourceWarningsBareIntegersRoundTrip(t *testing.T) {
+	const wire = `[["source-id"],"title",null,null,[1]]`
+	msg := &notebooklmv1alpha1.Source{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatal(err)
+	}
+	if got := msg.GetWarnings(); len(got) != 1 || got[0] != 1 {
+		t.Fatalf("warnings = %v, want [1]", got)
+	}
+	if deltas, err := diffWireAgainstProto([]byte(wire), msg); err != nil || len(deltas) != 0 {
+		t.Fatalf("diff = %v, %v; want lossless", deltas, err)
+	}
+}
+
 // TestTailRequestVariantsRoundTrip guards four low-frequency request shapes.
 func TestTailRequestVariantsRoundTrip(t *testing.T) {
 	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`
