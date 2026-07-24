@@ -825,6 +825,41 @@ func TestSubmitFeedbackRequestRoundTrip(t *testing.T) {
 	}
 }
 
+func TestGenerateReportSuggestionsRoundTrip(t *testing.T) {
+	const requestWire = `[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9,11]]],"project-id",[["source-1"],["source-2"]]]`
+	method, err := resolveMethod("GenerateReportSuggestions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := method.NewRequest()
+	if err := beprotojson.Unmarshal([]byte(requestWire), request); err != nil {
+		t.Fatal(err)
+	}
+	if deltas, err := diffWireAgainstProto([]byte(requestWire), request); err != nil || len(deltas) != 0 {
+		t.Fatalf("request diff = %v, %v; want lossless", deltas, err)
+	}
+	got, err := json.Marshal(genmethod.EncodeGenerateReportSuggestionsArgs(request.(*notebooklmv1alpha1.GenerateReportSuggestionsRequest)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != requestWire {
+		t.Fatalf("encoder = %s, want %s", got, requestWire)
+	}
+
+	const responseWire = `[[["title","description",null,[["source-1"],["source-2"]],"prompt",2]]]`
+	response := method.NewResponse()
+	if err := beprotojson.Unmarshal([]byte(responseWire), response); err != nil {
+		t.Fatal(err)
+	}
+	if deltas, err := diffWireAgainstProto([]byte(responseWire), response); err != nil || len(deltas) != 0 {
+		t.Fatalf("response diff = %v, %v; want lossless", deltas, err)
+	}
+	gotIDs := reportSuggestionSourceIDs(response.(*notebooklmv1alpha1.GenerateReportSuggestionsResponse).GetSuggestions()[0])
+	if len(gotIDs) != 2 || gotIDs[0] != "source-1" || gotIDs[1] != "source-2" {
+		t.Fatalf("source IDs = %v, want [source-1 source-2]", gotIDs)
+	}
+}
+
 // TestTailRequestVariantsRoundTrip guards four low-frequency request shapes.
 func TestTailRequestVariantsRoundTrip(t *testing.T) {
 	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`

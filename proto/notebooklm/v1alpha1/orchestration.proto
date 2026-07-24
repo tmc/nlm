@@ -796,15 +796,16 @@ message ChatFollowUpList {
 }
 
 message GenerateReportSuggestionsRequest {
-    string project_id = 1;
-    repeated string source_ids = 2;
+    RequestContext context = 1;
+    string project_id = 2;
+    repeated SourceIdList source_ids = 3;
 }
 
 message ReportSuggestion {
     string title = 1;
     string description = 2;
     // field 3 is null in observed responses
-    repeated string source_ids = 4;
+    repeated SourceIdList source_ids = 4;
     string prompt = 5;
     int32 count = 6;
 }
@@ -1364,7 +1365,7 @@ service LabsTailwindOrchestrationService {
     // is the live id.
     rpc GenerateReportSuggestions(GenerateReportSuggestionsRequest) returns (GenerateReportSuggestionsResponse) {
         option (rpc_id) = "ciyUvf";
-        option (arg_format) = "[%project_id%]";
+        option (arg_format) = "[%context%, %project_id%, %source_ids%]";
     }
     rpc GenerateSection(GenerateSectionRequest) returns (GenerateSectionResponse) {
         option (rpc_id) = "BeTrYd";

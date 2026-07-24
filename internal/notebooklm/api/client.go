@@ -5295,7 +5295,7 @@ func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReport
 				for _, ref := range refs {
 					if inner, ok := ref.([]interface{}); ok && len(inner) > 0 {
 						if id, ok := inner[0].(string); ok {
-							s.SourceIds = append(s.SourceIds, id)
+							s.SourceIds = append(s.SourceIds, &pb.SourceIdList{SourceId: id})
 						}
 					}
 				}

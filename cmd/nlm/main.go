@@ -2627,7 +2627,7 @@ func createReport(c *api.Client, notebookID, reportType string, extra []string, 
 				if description == "" {
 					description = s.GetDescription()
 				}
-				suggestionIDs = s.GetSourceIds()
+				suggestionIDs = reportSuggestionSourceIDs(s)
 				fmt.Fprintf(os.Stderr, "Matched suggestion %q (%d sources)\n", s.GetTitle(), len(suggestionIDs))
 				break
 			}
@@ -2690,7 +2690,7 @@ func generateReport(c *api.Client, notebookID string, opts reportOptions) error 
 		chatReq := api.ChatRequest{
 			ProjectID: notebookID,
 			Prompt:    prompt,
-			SourceIDs: unionIDs(flagIDs, s.GetSourceIds()),
+			SourceIDs: unionIDs(flagIDs, reportSuggestionSourceIDs(s)),
 		}
 		res, err := streamChatResponse(c, chatReq, opts.Render)
 		if err != nil {
@@ -2704,6 +2704,19 @@ func generateReport(c *api.Client, notebookID string, opts reportOptions) error 
 	}
 
 	return nil
+}
+
+func reportSuggestionSourceIDs(s *pb.ReportSuggestion) []string {
+	if s == nil {
+		return nil
+	}
+	ids := make([]string, 0, len(s.GetSourceIds()))
+	for _, source := range s.GetSourceIds() {
+		if id := source.GetSourceId(); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // readReportSuggestions reads suggestions from stdin (one title per line) or
