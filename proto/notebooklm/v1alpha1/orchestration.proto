@@ -895,6 +895,7 @@ message CreateNoteRequest {
 message DeleteNotesRequest {
     string project_id = 1;
     repeated string note_ids = 3;
+    RequestContext context = 4;
 }
 
 message GetNotesRequest {
@@ -1221,7 +1222,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc DeleteNotes(DeleteNotesRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "AH0mwd";
-        option (arg_format) = "[%project_id%, null, %note_ids%, [2]]";
+        option (arg_format) = "[%project_id%, null, %note_ids%, %context%]";
     }
     rpc GetNotes(GetNotesRequest) returns (GetNotesWireResponse) {
         option (rpc_id) = "cFji9";

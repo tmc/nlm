@@ -1567,6 +1567,7 @@ func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
 	req := &pb.DeleteNotesRequest{
 		ProjectId: projectID,
 		NoteIds:   noteIDs,
+		Context:   conversationRequestContext(),
 	}
 	_, err := c.orchestrationService.DeleteNotes(context.Background(), req)
 	if err != nil {
