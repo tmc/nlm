@@ -3399,16 +3399,14 @@ message AccessTokenScopes {
     repeated string scope = 1;
 }
 
-// GetMagicView (rtY7md). Read companion to GenerateMagicView (uK8f7c).
+// GetMagicView (rtY7md). The captured request is [project_id] and the
+// response is a single opaque status code. Its enum meaning is unconfirmed.
 message GetMagicViewRequest {
     string project_id = 1;
-    string magic_view_id = 2;
 }
 
 message GetMagicViewResponse {
-    string magic_view_id = 1;
-    string content = 2;
-    google.protobuf.Timestamp generated_at = 3;
+    int32 status = 1;
 }
 
 // CopyProject (te3DCe). Duplicates a notebook.
