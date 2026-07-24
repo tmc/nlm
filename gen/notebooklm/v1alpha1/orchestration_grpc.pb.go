@@ -123,14 +123,8 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// its rendering path. The earlier BnLyuf id was a different,
 	// unreachable inference that returned 400.
 	//
-	// No HAR evidence in the surveyed corpus (the UI never fires this
-	// ID). api.Client.GetArtifact still uses the gArtLc scan fallback;
-	// a future direct caller can target v9rmvd once a wire shape is
-	// captured.
-	//
-	// TODO(har): capture the request/response shape by hitting v9rmvd
-	// directly (e.g., from a custom JS console snippet) and refine
-	// GetArtifactRequest/Response.
+	// Direct captures use [artifact_id, context]. The live API retains its
+	// positional parser as the projection oracle.
 	GetArtifact(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	UpdateArtifact(ctx context.Context, in *UpdateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	RenameArtifact(ctx context.Context, in *RenameArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
@@ -1341,14 +1335,8 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// its rendering path. The earlier BnLyuf id was a different,
 	// unreachable inference that returned 400.
 	//
-	// No HAR evidence in the surveyed corpus (the UI never fires this
-	// ID). api.Client.GetArtifact still uses the gArtLc scan fallback;
-	// a future direct caller can target v9rmvd once a wire shape is
-	// captured.
-	//
-	// TODO(har): capture the request/response shape by hitting v9rmvd
-	// directly (e.g., from a custom JS console snippet) and refine
-	// GetArtifactRequest/Response.
+	// Direct captures use [artifact_id, context]. The live API retains its
+	// positional parser as the projection oracle.
 	GetArtifact(context.Context, *GetArtifactRequest) (*Artifact, error)
 	UpdateArtifact(context.Context, *UpdateArtifactRequest) (*Artifact, error)
 	RenameArtifact(context.Context, *RenameArtifactRequest) (*Artifact, error)

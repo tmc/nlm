@@ -96,6 +96,19 @@ message Artifact {
     // Likely an opaque sort/pagination cursor; kept generic since its use is
     // unconfirmed.
     string update_cursor = 22;
+    string viewer_url = 24;
+    ArtifactFileDetails file_details = 25;
+}
+
+// ArtifactFileDetails is the five-string trailer returned by direct
+// GetArtifact reads. The field meanings beyond filename and MIME type are
+// unconfirmed; URLs are retained independently for lossless round-tripping.
+message ArtifactFileDetails {
+    string filename = 1;
+    string mime_type = 2;
+    string url_3 = 3;
+    string url_4 = 4;
+    string url_5 = 5;
 }
 
 // ArtifactTimestamps is the wrapped list carried at Artifact field 18:
@@ -407,13 +420,10 @@ message CreateArtifactRequest {
     Artifact artifact = 3;
 }
 
-// GetArtifactRequest. The wire id is v9rmvd (per JS bundle binding to
-// /LabsTailwindOrchestrationService.GetArtifact). The web UI never
-// fires this RPC, preferring a gArtLc scan + filter, so the request
-// shape is unverified by HAR. arg_format = "[%artifact_id%]" is the
-// likely shape based on sibling artifact RPCs.
+// GetArtifactRequest is [artifact_id, context].
 message GetArtifactRequest {
     string artifact_id = 1;
+    RequestContext context = 2;
 }
 
 message UpdateArtifactRequest {
@@ -1061,17 +1071,11 @@ service LabsTailwindOrchestrationService {
     // its rendering path. The earlier BnLyuf id was a different,
     // unreachable inference that returned 400.
     //
-    // No HAR evidence in the surveyed corpus (the UI never fires this
-    // ID). api.Client.GetArtifact still uses the gArtLc scan fallback;
-    // a future direct caller can target v9rmvd once a wire shape is
-    // captured.
-    //
-    // TODO(har): capture the request/response shape by hitting v9rmvd
-    // directly (e.g., from a custom JS console snippet) and refine
-    // GetArtifactRequest/Response.
+    // Direct captures use [artifact_id, context]. The live API retains its
+    // positional parser as the projection oracle.
     rpc GetArtifact(GetArtifactRequest) returns (Artifact) {
         option (rpc_id) = "v9rmvd";
-        option (arg_format) = "[%artifact_id%]";
+        option (arg_format) = "[%artifact_id%, %context%]";
     }
     rpc UpdateArtifact(UpdateArtifactRequest) returns (Artifact) {
         option (rpc_id) = "DJezBc";
