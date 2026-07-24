@@ -1850,15 +1850,16 @@ message InteractionEventTarget {
     string artifact_id = 1;
 }
 
-// ListRecentlyViewedProjectsRequest wire (HAR-verified, more-requests2):
-//   [null, 1, null, <RequestContext>, null, <filter>]
-// Field 1 ([0]) and fields 3/5 ([2]/[4]) are null; field 2 is a constant 1;
-// field 4 is the shared client-capabilities preamble; field 6 is a filter
-// scaffold ([[null,null,[]],[[]],[null,[]]]) whose inner lists are empty on
-// an unfiltered "recently viewed" fetch.
+// ListRecentlyViewedProjectsRequest has two captured wire variants. The live
+// command uses the short [null, 1, null, [2]] form. Full web requests carry
+// [project_id, null, context, null, 0, filter]; older full requests instead
+// put context at field 4 and page 1 at field 2.
 message ListRecentlyViewedProjectsRequest {
+    string project_id = 1;
     optional int32 page = 2;                 // observed 1
-    RequestContext context = 4;
+    RequestContext context = 3;
+    RequestContext legacy_context = 4;
+    optional int32 unknown_5 = 5; // observed 0
     ListRecentlyViewedProjectsFilter filter = 6;
 }
 
