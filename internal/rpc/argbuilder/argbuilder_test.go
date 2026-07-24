@@ -114,14 +114,14 @@ func TestEncodeRPCArgs(t *testing.T) {
 			// A scalar field wrapped in a one-element array. This must not be
 			// misparsed as a bare field (which would drop the brackets).
 			name:      "scalar field in nested array",
-			msg:       &notebooklm.CheckSourceFreshnessRequest{SourceId: "sid"},
+			msg:       &notebooklm.SourceIdList{SourceId: "sid"},
 			argFormat: "[%source_id%]",
 			want:      []interface{}{"sid"},
 		},
 		{
 			// The full source-freshness wire shape: [null, [source_id], [2]].
 			name:      "source freshness shape",
-			msg:       &notebooklm.CheckSourceFreshnessRequest{SourceId: "sid"},
+			msg:       &notebooklm.SourceIdList{SourceId: "sid"},
 			argFormat: "[null, [%source_id%], [2]]",
 			want:      []interface{}{nil, []interface{}{"sid"}, []interface{}{2}},
 		},
