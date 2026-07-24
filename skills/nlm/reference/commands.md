@@ -203,7 +203,6 @@ nlm auth [profile]
 nlm auth --authuser N
 nlm refresh
 nlm mcp
-nlm feedback <message>
 ```
 
 ## Common Global Flags

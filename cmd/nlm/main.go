@@ -3304,15 +3304,6 @@ func shareNotebook(c *api.Client, notebookID string) error {
 	return nil
 }
 
-func submitFeedback(c *api.Client, message string) error {
-	if err := c.SubmitFeedback("", "general", message); err != nil {
-		return err
-	}
-
-	fmt.Fprintln(os.Stderr, "Feedback submitted")
-	return nil
-}
-
 // runAccount implements 'nlm account' (read) and
 // 'nlm account set <key> <value>' (write).
 //

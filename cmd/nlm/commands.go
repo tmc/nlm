@@ -1182,12 +1182,6 @@ var commands = []command{
 		},
 	},
 	{
-		name: "feedback", argsUsage: "<message>",
-		usage: "Submit feedback to NotebookLM", section: "Other",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return submitFeedback(c, args[0]) },
-	},
-	{
 		name: "account", argsUsage: "[set <key> <value>]",
 		usage: "Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)", section: "Other",
 		minArgs: 0, maxArgs: 3,

@@ -798,6 +798,33 @@ func TestDeleteChatTurnsRequestRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSubmitFeedbackRequestRoundTrip(t *testing.T) {
+	const wire = `[["conversation-id","turn-id",123],[1,null,null,[3]],["prompt",["answer"]],null,null,[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]]`
+	method, err := resolveMethod("SubmitFeedback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg := method.NewRequest()
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatal(err)
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+	got, err := json.Marshal(genmethod.EncodeSubmitFeedbackArgs(msg.(*notebooklmv1alpha1.SubmitFeedbackRequest)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != wire {
+		t.Fatalf("encoder = %s, want %s", got, wire)
+	}
+}
+
 // TestTailRequestVariantsRoundTrip guards four low-frequency request shapes.
 func TestTailRequestVariantsRoundTrip(t *testing.T) {
 	const context = `[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]]`

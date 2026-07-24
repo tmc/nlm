@@ -207,7 +207,6 @@ markdown output.
 ```bash
 nlm auth
 nlm refresh
-nlm feedback "Great tool!"
 nlm mcp
 ```
 

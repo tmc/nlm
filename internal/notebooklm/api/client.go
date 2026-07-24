@@ -755,20 +755,6 @@ func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshness
 	return result, nil
 }
 
-func (c *Client) SubmitFeedback(projectID, feedbackType, feedbackText string) error {
-	req := &pb.SubmitFeedbackRequest{
-		ProjectId:    projectID,
-		FeedbackType: feedbackType,
-		FeedbackText: feedbackText,
-	}
-
-	_, err := c.orchestrationService.SubmitFeedback(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("submit feedback: %w", err)
-	}
-	return nil
-}
-
 // GetOrCreateAccount dispatches the ZwVcOc RPC. Returns the
 // authenticated user's NotebookLM account record. The request carries the
 // context envelope observed in the web client. Doubles as a "can the CLI

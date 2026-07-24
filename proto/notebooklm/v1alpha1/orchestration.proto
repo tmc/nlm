@@ -1390,7 +1390,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc SubmitFeedback(SubmitFeedbackRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "uNyJKe";
-        option (arg_format) = "[%project_id%, %feedback_type%, %feedback_text%]";
+        option (arg_format) = "[%turn%, %feedback%, %content%, null, null, %options%]";
     }
     
     // Conversation lifecycle
@@ -2164,9 +2164,31 @@ message StartSectionRequest {
 }
 
 message SubmitFeedbackRequest {
-    string project_id = 1;
-    string feedback_type = 2;
-    string feedback_text = 3;
+    SubmitFeedbackTurn turn = 1;
+    SubmitFeedbackSignal feedback = 2;
+    SubmitFeedbackContent content = 3;
+    // Fields 4 and 5 are null in the observed request.
+    ChatStreamOptions options = 6;
+}
+
+// SubmitFeedbackTurn identifies the conversation turn that supplied feedback.
+message SubmitFeedbackTurn {
+    string conversation_id = 1;
+    string turn_id = 2;
+    int64 opaque_number = 3; // semantics unconfirmed
+}
+
+// SubmitFeedbackSignal preserves the observed selector shape. The values'
+// meanings are unconfirmed because only one direction is captured.
+message SubmitFeedbackSignal {
+    int32 unknown_1 = 1;
+    repeated int32 unknown_4 = 4;
+}
+
+// SubmitFeedbackContent carries the question and full answer context.
+message SubmitFeedbackContent {
+    string prompt = 1;
+    repeated string answers = 2;
 }
 
 // Conversation lifecycle management

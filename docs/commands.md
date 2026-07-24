@@ -260,6 +260,5 @@ If you omit source IDs, pass `--source-ids` or `--source-match`.
 | `nlm auth` | Set up authentication from a browser profile |
 | `nlm auth --print-env` | Print shell export lines for the current session |
 | `nlm refresh` | Refresh stored credentials |
-| `nlm feedback "Message"` | Submit feedback to NotebookLM |
 | `nlm account` | Show or update authenticated account settings |
 | `nlm mcp` | Run the MCP server on stdin/stdout |

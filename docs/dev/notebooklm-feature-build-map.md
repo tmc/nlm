@@ -123,19 +123,20 @@ Confidence: high.
 
 ### 3. Artifact-scoped feedback
 
-User value: send feedback about the specific generated thing instead of a
-generic notebook-wide message.
+User value: send feedback about the specific generated thing.
 
 Evidence:
 
 - The current JavaScript bundle has separate feedback actions for chat
   responses, artifacts, mind maps, audio overviews, notebook summaries, and
   source discovery.
-- `nlm feedback` only sends a generic feedback type and message.
+- The captured feedback request includes conversation and turn identifiers;
+  the generic three-string command did not match captured traffic.
 
 Current gap:
 
-- `SubmitFeedback` exists, but the CLI exposes only generic feedback.
+- `SubmitFeedback` exists, but no CLI feedback command is exposed until a
+  target-specific request shape is verified.
 - Artifact IDs, mind map IDs, audio overview IDs, and source discovery job
   context are not surfaced as target selectors.
 
@@ -145,7 +146,7 @@ Likely implementation:
   `nlm artifact feedback <artifact-id> --rating good|bad --message ...`
   and `nlm chat feedback <conversation-id> <turn-id> ...` only when the turn
   wire shape is verified.
-- Keep `nlm feedback` as the generic fallback.
+- Do not add a generic fallback without a matching captured request.
 
 Likely files:
 
