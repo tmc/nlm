@@ -34,7 +34,6 @@ type ServiceConfig struct {
 // (constant + proto rpc method).
 // The recurring divergences are:
 //
-//   J7Gthc -> DeleteChatTurns           (we call it RateConversationTurn)
 //   Ljjv0c -> DiscoverSourcesManifold   (we call it StartFastResearch)
 //   QA9ei  -> DiscoverSourcesAsync      (we call it StartDeepResearch)
 //   e3bVqc -> ListDiscoverSourcesJob    (we call it DeleteChatHistory / GetDeepResearchSessions)
@@ -103,7 +102,7 @@ const (
 	RPCGetConversations         = "hPTbtc" // GetConversations - list conversation IDs for a notebook
 	RPCGetConversationHistory   = "khqZz"  // GetConversationHistory - retrieve chat messages
 	RPCDeleteChatHistory        = "e3bVqc" // DeleteChatHistory / PollDeepResearch - server routes by args
-	RPCRateConversationTurn     = "J7Gthc" // RateConversationTurn - mark conversation turn (thumbs up/down?)
+	RPCDeleteChatTurns          = "J7Gthc" // DeleteChatTurns - bundle name inferred; field 4 semantics unknown
 
 	// NotebookLM service - Research operations
 	//

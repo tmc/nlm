@@ -71,7 +71,7 @@ const (
 	LabsTailwindOrchestrationService_GetOrCreateAccount_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetOrCreateAccount"
 	LabsTailwindOrchestrationService_MutateAccount_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateAccount"
 	LabsTailwindOrchestrationService_AddFileSource_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/AddFileSource"
-	LabsTailwindOrchestrationService_RateConversationTurn_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RateConversationTurn"
+	LabsTailwindOrchestrationService_DeleteChatTurns_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteChatTurns"
 	LabsTailwindOrchestrationService_StartFastResearch_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartFastResearch"
 	LabsTailwindOrchestrationService_StartDeepResearch_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearch"
 	LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearchWire"
@@ -238,15 +238,10 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// a custom encoder lives at api.Client.registerFileSource. Returns
 	// the server-assigned source_id at response position [0][0][0].
 	AddFileSource(ctx context.Context, in *AddFileSourceRequest, opts ...grpc.CallOption) (*AddFileSourceResponse, error)
-	// Conversation feedback (rpc.go:65)
-	//
-	// TODO(har): wire shape unverified — no rpcids=J7Gthc seen in any
-	// capture under NotebookLM web UI capture corpus or
-	// docs/captures/. To capture: (1) load a notebook with chat history,
-	// (2) click thumbs-up or thumbs-down on an assistant reply, (3) grab
-	// the resulting batchexecute POST. Until captured, do not call this
-	// RPC — the placeholder fields are speculative.
-	RateConversationTurn(ctx context.Context, in *RateConversationTurnRequest, opts ...grpc.CallOption) (*RateConversationTurnResponse, error)
+	// DeleteChatTurns is the inferred bundle name for J7Gthc. Captured
+	// requests confirm the wire shape and conversation ID; field 4 semantics
+	// remain unknown.
+	DeleteChatTurns(ctx context.Context, in *DeleteChatTurnsRequest, opts ...grpc.CallOption) (*DeleteChatTurnsResponse, error)
 	// Research operations
 	//
 	// StartFastResearch — HAR-verified 2026-04-17 against notebook
@@ -989,9 +984,9 @@ func (c *labsTailwindOrchestrationServiceClient) AddFileSource(ctx context.Conte
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) RateConversationTurn(ctx context.Context, in *RateConversationTurnRequest, opts ...grpc.CallOption) (*RateConversationTurnResponse, error) {
-	out := new(RateConversationTurnResponse)
-	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_RateConversationTurn_FullMethodName, in, out, opts...)
+func (c *labsTailwindOrchestrationServiceClient) DeleteChatTurns(ctx context.Context, in *DeleteChatTurnsRequest, opts ...grpc.CallOption) (*DeleteChatTurnsResponse, error) {
+	out := new(DeleteChatTurnsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_DeleteChatTurns_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1450,15 +1445,10 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// a custom encoder lives at api.Client.registerFileSource. Returns
 	// the server-assigned source_id at response position [0][0][0].
 	AddFileSource(context.Context, *AddFileSourceRequest) (*AddFileSourceResponse, error)
-	// Conversation feedback (rpc.go:65)
-	//
-	// TODO(har): wire shape unverified — no rpcids=J7Gthc seen in any
-	// capture under NotebookLM web UI capture corpus or
-	// docs/captures/. To capture: (1) load a notebook with chat history,
-	// (2) click thumbs-up or thumbs-down on an assistant reply, (3) grab
-	// the resulting batchexecute POST. Until captured, do not call this
-	// RPC — the placeholder fields are speculative.
-	RateConversationTurn(context.Context, *RateConversationTurnRequest) (*RateConversationTurnResponse, error)
+	// DeleteChatTurns is the inferred bundle name for J7Gthc. Captured
+	// requests confirm the wire shape and conversation ID; field 4 semantics
+	// remain unknown.
+	DeleteChatTurns(context.Context, *DeleteChatTurnsRequest) (*DeleteChatTurnsResponse, error)
 	// Research operations
 	//
 	// StartFastResearch — HAR-verified 2026-04-17 against notebook
@@ -1858,8 +1848,8 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateAccount(context
 func (UnimplementedLabsTailwindOrchestrationServiceServer) AddFileSource(context.Context, *AddFileSourceRequest) (*AddFileSourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddFileSource not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) RateConversationTurn(context.Context, *RateConversationTurnRequest) (*RateConversationTurnResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RateConversationTurn not implemented")
+func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteChatTurns(context.Context, *DeleteChatTurnsRequest) (*DeleteChatTurnsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChatTurns not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) StartFastResearch(context.Context, *StartFastResearchRequest) (*StartFastResearchResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StartFastResearch not implemented")
@@ -2871,20 +2861,20 @@ func _LabsTailwindOrchestrationService_AddFileSource_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LabsTailwindOrchestrationService_RateConversationTurn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RateConversationTurnRequest)
+func _LabsTailwindOrchestrationService_DeleteChatTurns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteChatTurnsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LabsTailwindOrchestrationServiceServer).RateConversationTurn(ctx, in)
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteChatTurns(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LabsTailwindOrchestrationService_RateConversationTurn_FullMethodName,
+		FullMethod: LabsTailwindOrchestrationService_DeleteChatTurns_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LabsTailwindOrchestrationServiceServer).RateConversationTurn(ctx, req.(*RateConversationTurnRequest))
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteChatTurns(ctx, req.(*DeleteChatTurnsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3733,8 +3723,8 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LabsTailwindOrchestrationService_AddFileSource_Handler,
 		},
 		{
-			MethodName: "RateConversationTurn",
-			Handler:    _LabsTailwindOrchestrationService_RateConversationTurn_Handler,
+			MethodName: "DeleteChatTurns",
+			Handler:    _LabsTailwindOrchestrationService_DeleteChatTurns_Handler,
 		},
 		{
 			MethodName: "StartFastResearch",

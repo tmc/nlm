@@ -1433,17 +1433,12 @@ service LabsTailwindOrchestrationService {
         // template language can't represent. Keep the encoder in Go.
     }
 
-    // Conversation feedback (rpc.go:65)
-    //
-    // TODO(har): wire shape unverified — no rpcids=J7Gthc seen in any
-    // capture under NotebookLM web UI capture corpus or
-    // docs/captures/. To capture: (1) load a notebook with chat history,
-    // (2) click thumbs-up or thumbs-down on an assistant reply, (3) grab
-    // the resulting batchexecute POST. Until captured, do not call this
-    // RPC — the placeholder fields are speculative.
-    rpc RateConversationTurn(RateConversationTurnRequest) returns (RateConversationTurnResponse) {
+    // DeleteChatTurns is the inferred bundle name for J7Gthc. Captured
+    // requests confirm the wire shape and conversation ID; field 4 semantics
+    // remain unknown.
+    rpc DeleteChatTurns(DeleteChatTurnsRequest) returns (DeleteChatTurnsResponse) {
         option (rpc_id) = "J7Gthc";
-        // wire shape unverified; capture HAR before encoding
+        option (arg_format) = "[%options%, %conversation_id%, null, %unknown_4%]";
     }
 
     // Research operations
@@ -2738,21 +2733,16 @@ message AddFileSourceResponse {
     string filename = 2;
 }
 
-// RateConversationTurn (J7Gthc): thumbs-up/down on a chat turn.
-// TODO(har): no rpcids=J7Gthc seen in any current capture. To capture:
-// (1) load a notebook with chat history, (2) click a thumbs-up or
-// thumbs-down icon on an assistant reply. The fields below are
-// speculative — do NOT call this RPC until the wire is captured.
-message RateConversationTurnRequest {
-    string project_id = 1;
+// DeleteChatTurns is inferred from the bundle binding and the fact that
+// J7Gthc fires before feedback. The observed wire has four positions.
+message DeleteChatTurnsRequest {
+    ChatStreamOptions options = 1;
     string conversation_id = 2;
-    string turn_id = 3;
-    int32 rating = 4;  // speculative: 1=up, 2=down
+    // Field 3 is null in observed requests.
+    int32 unknown_4 = 4; // semantics unconfirmed
 }
 
-message RateConversationTurnResponse {
-    // wire shape unverified; capture HAR before encoding
-}
+message DeleteChatTurnsResponse {}
 
 // StartFastResearch (Ljjv0c): kick off a fast-research session. Wire
 // shape verified by api.startFastResearchArgs (client.go:4587), against

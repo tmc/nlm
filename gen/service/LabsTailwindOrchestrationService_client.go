@@ -1213,25 +1213,25 @@ func (c *LabsTailwindOrchestrationServiceClient) AddFileSource(ctx context.Conte
 	return &result, nil
 }
 
-// RateConversationTurn calls the RateConversationTurn RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) RateConversationTurn(ctx context.Context, req *notebooklmv1alpha1.RateConversationTurnRequest) (*notebooklmv1alpha1.RateConversationTurnResponse, error) {
+// DeleteChatTurns calls the DeleteChatTurns RPC method.
+func (c *LabsTailwindOrchestrationServiceClient) DeleteChatTurns(ctx context.Context, req *notebooklmv1alpha1.DeleteChatTurnsRequest) (*notebooklmv1alpha1.DeleteChatTurnsResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "J7Gthc",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       method.EncodeDeleteChatTurnsArgs(req),
 	}
 
 	// Execute the RPC
 	resp, err := c.rpcClient.Do(call)
 	if err != nil {
-		return nil, fmt.Errorf("RateConversationTurn: %w", err)
+		return nil, fmt.Errorf("DeleteChatTurns: %w", err)
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.RateConversationTurnResponse
+	var result notebooklmv1alpha1.DeleteChatTurnsResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("RateConversationTurn: unmarshal response: %w", err)
+		return nil, fmt.Errorf("DeleteChatTurns: unmarshal response: %w", err)
 	}
 
 	return &result, nil
