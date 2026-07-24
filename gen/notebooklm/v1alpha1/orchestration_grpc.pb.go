@@ -458,10 +458,8 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// by the featured-notebook curation surface. JS-bundle-verified;
 	// unlikely to ever be exercised by an end-user account.
 	UpdateFeaturedNotebookStatus(ctx context.Context, in *UpdateFeaturedNotebookStatusRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	// ListModelOptions (EnujNd). Returns the menu of available chat /
-	// generation models for the signed-in account. JS-bundle-verified;
-	// no HAR yet.
-	// TODO(har): trigger by opening the model-picker in chat.
+	// ListModelOptions (EnujNd) has a captured RequestContext request. The
+	// captured responses are empty, so option rows remain unmodeled.
 	ListModelOptions(ctx context.Context, in *ListModelOptionsRequest, opts ...grpc.CallOption) (*ListModelOptionsResponse, error)
 	// UpdateProjectUserState (LQhfEb). Per-user notebook state —
 	// last-viewed-at, pinned, hidden, etc. The response is not Empty: the
@@ -1666,10 +1664,8 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// by the featured-notebook curation surface. JS-bundle-verified;
 	// unlikely to ever be exercised by an end-user account.
 	UpdateFeaturedNotebookStatus(context.Context, *UpdateFeaturedNotebookStatusRequest) (*emptypb.Empty, error)
-	// ListModelOptions (EnujNd). Returns the menu of available chat /
-	// generation models for the signed-in account. JS-bundle-verified;
-	// no HAR yet.
-	// TODO(har): trigger by opening the model-picker in chat.
+	// ListModelOptions (EnujNd) has a captured RequestContext request. The
+	// captured responses are empty, so option rows remain unmodeled.
 	ListModelOptions(context.Context, *ListModelOptionsRequest) (*ListModelOptionsResponse, error)
 	// UpdateProjectUserState (LQhfEb). Per-user notebook state —
 	// last-viewed-at, pinned, hidden, etc. The response is not Empty: the

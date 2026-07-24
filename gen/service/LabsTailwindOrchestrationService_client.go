@@ -1891,7 +1891,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListModelOptions(ctx context.Co
 	call := rpc.Call{
 		ID:         "EnujNd",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       method.EncodeListModelOptionsArgs(req),
 	}
 
 	// Execute the RPC

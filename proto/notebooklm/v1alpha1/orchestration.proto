@@ -1693,13 +1693,11 @@ service LabsTailwindOrchestrationService {
         // wire shape unverified; admin-only RPC
     }
 
-    // ListModelOptions (EnujNd). Returns the menu of available chat /
-    // generation models for the signed-in account. JS-bundle-verified;
-    // no HAR yet.
-    // TODO(har): trigger by opening the model-picker in chat.
+    // ListModelOptions (EnujNd) has a captured RequestContext request. The
+    // captured responses are empty, so option rows remain unmodeled.
     rpc ListModelOptions(ListModelOptionsRequest) returns (ListModelOptionsResponse) {
         option (rpc_id) = "EnujNd";
-        // wire shape unverified; capture HAR before encoding
+        option (arg_format) = "[[%version%, null, %surface%, %caps%]]";
     }
 
     // UpdateProjectUserState (LQhfEb). Per-user notebook state —
@@ -3316,9 +3314,11 @@ message UpdateFeaturedNotebookStatusRequest {
     bool featured = 2;
 }
 
-// ListModelOptions (EnujNd). wire shape unverified.
+// ListModelOptions (EnujNd) is captured as [[version, null, surface, caps]].
 message ListModelOptionsRequest {
-    string project_id = 1;
+    optional int32 version = 1;
+    RequestSurface surface = 3;
+    RequestClientCaps caps = 4;
 }
 
 message ListModelOptionsResponse {
