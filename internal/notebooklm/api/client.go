@@ -28,7 +28,6 @@ import (
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 type Notebook = pb.Project
@@ -776,21 +775,6 @@ func (c *Client) GetOrCreateAccount() (*pb.Account, error) {
 	resp, err := c.orchestrationService.GetOrCreateAccount(context.Background(), accountRequest())
 	if err != nil {
 		return nil, fmt.Errorf("get or create account: %w", err)
-	}
-	return resp, nil
-}
-
-// MutateAccount dispatches the hT54vc RPC to update an Account
-// record. update_mask gates which AccountSettings fields are
-// applied; pass nil to update everything in account.
-func (c *Client) MutateAccount(account *pb.Account, updateMask *fieldmaskpb.FieldMask) (*pb.Account, error) {
-	req := &pb.MutateAccountRequest{
-		Account:    account,
-		UpdateMask: updateMask,
-	}
-	resp, err := c.orchestrationService.MutateAccount(context.Background(), req)
-	if err != nil {
-		return nil, fmt.Errorf("mutate account: %w", err)
 	}
 	return resp, nil
 }

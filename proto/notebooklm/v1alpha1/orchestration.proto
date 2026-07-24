@@ -940,8 +940,34 @@ message GetOrCreateAccountRequest {
 }
 
 message MutateAccountRequest {
-    Account account = 1;
-    google.protobuf.FieldMask update_mask = 2;
+    MutateAccountUpdateEnvelope update = 1;
+    RequestContext context = 2;
+}
+
+// MutateAccountUpdateEnvelope wraps the update at field 1.
+message MutateAccountUpdateEnvelope {
+    MutateAccountUpdate update = 1;
+}
+
+// MutateAccountUpdate is [null, [change...]]. Pair semantics are unconfirmed.
+message MutateAccountUpdate {
+    repeated MutateAccountChange changes = 2;
+}
+
+// MutateAccountChange carries a capability set at field 5.
+message MutateAccountChange {
+    MutateAccountCapabilitySet capability_set = 5;
+}
+
+// MutateAccountCapabilitySet is [null, null, null, [pair...]].
+message MutateAccountCapabilitySet {
+    repeated MutateAccountCapabilityPair pairs = 4;
+}
+
+// MutateAccountCapabilityPair is an observed two-integer capability pair.
+message MutateAccountCapabilityPair {
+    int32 first = 1;
+    int32 second = 2;
 }
 
 // Account: [account_id, limits, settings, unknown_4, unknown_5]. Field 2 was
@@ -1344,7 +1370,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc MutateAccount(MutateAccountRequest) returns (Account) {
         option (rpc_id) = "hT54vc";
-        option (arg_format) = "[%account%, %update_mask%]";
+        option (arg_format) = "[%update%, %context%]";
     }
 
     // Source registration for Resumable Upload (rpc.go:31)
