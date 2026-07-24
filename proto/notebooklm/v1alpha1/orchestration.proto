@@ -1728,11 +1728,11 @@ service LabsTailwindOrchestrationService {
     }
 
     // ListExpertIntelligenceContent (mVtEUb). Curated featured-content
-    // surface (the "Expert intelligence" gallery). JS-bundle-verified;
-    // no HAR.
-    // TODO(har): visit the featured/expert-content tab to capture.
+    // surface. Captured requests use [context, 1]; the second value's
+    // semantics are not yet established.
     rpc ListExpertIntelligenceContent(ListExpertIntelligenceContentRequest) returns (ListExpertIntelligenceContentResponse) {
         option (rpc_id) = "mVtEUb";
+        option (arg_format) = "[%context%, %content_kind%]";
         // wire shape unverified; capture HAR before encoding
     }
 
@@ -3405,8 +3405,8 @@ message ExecuteWritingFunctionResponse {
 
 // ListExpertIntelligenceContent (mVtEUb). Curated featured surface.
 message ListExpertIntelligenceContentRequest {
-    int32 page_size = 1;
-    string page_token = 2;
+    RequestContext context = 1;
+    int32 content_kind = 2;
 }
 
 message ListExpertIntelligenceContentResponse {
@@ -3415,10 +3415,20 @@ message ListExpertIntelligenceContentResponse {
 }
 
 message ExpertIntelligenceItem {
-    string item_id = 1;
-    string title = 2;
-    string description = 3;
-    string thumbnail_url = 4;
+    string book_id = 1;
+    int32 kind = 2;
+    string title = 3;
+    string html_description = 4;
+    string cover_url = 5;
+    bool flag = 6 [(json_bool) = true];
+    int32 category = 7;
+    repeated string authors = 8;
+    double rating = 9;
+    ExpertIntelligencePublicationTime publication_time = 10;
+}
+
+message ExpertIntelligencePublicationTime {
+    int64 seconds = 1;
 }
 
 // GenerateAccessToken (preRPe) has an empty request and returns

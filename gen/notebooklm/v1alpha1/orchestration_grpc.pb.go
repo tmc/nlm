@@ -477,9 +477,8 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// TODO(har): trigger from the artifact editor's writing toolbar.
 	ExecuteWritingFunction(ctx context.Context, in *ExecuteWritingFunctionRequest, opts ...grpc.CallOption) (*ExecuteWritingFunctionResponse, error)
 	// ListExpertIntelligenceContent (mVtEUb). Curated featured-content
-	// surface (the "Expert intelligence" gallery). JS-bundle-verified;
-	// no HAR.
-	// TODO(har): visit the featured/expert-content tab to capture.
+	// surface. Captured requests use [context, 1]; the second value's
+	// semantics are not yet established.
 	ListExpertIntelligenceContent(ctx context.Context, in *ListExpertIntelligenceContentRequest, opts ...grpc.CallOption) (*ListExpertIntelligenceContentResponse, error)
 	// GenerateAccessToken (preRPe). Per-session token mint — likely
 	// used by embed widgets or third-party surfaces that need a
@@ -1696,9 +1695,8 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// TODO(har): trigger from the artifact editor's writing toolbar.
 	ExecuteWritingFunction(context.Context, *ExecuteWritingFunctionRequest) (*ExecuteWritingFunctionResponse, error)
 	// ListExpertIntelligenceContent (mVtEUb). Curated featured-content
-	// surface (the "Expert intelligence" gallery). JS-bundle-verified;
-	// no HAR.
-	// TODO(har): visit the featured/expert-content tab to capture.
+	// surface. Captured requests use [context, 1]; the second value's
+	// semantics are not yet established.
 	ListExpertIntelligenceContent(context.Context, *ListExpertIntelligenceContentRequest) (*ListExpertIntelligenceContentResponse, error)
 	// GenerateAccessToken (preRPe). Per-session token mint — likely
 	// used by embed widgets or third-party surfaces that need a

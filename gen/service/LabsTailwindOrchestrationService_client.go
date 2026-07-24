@@ -1987,7 +1987,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListExpertIntelligenceContent(c
 	call := rpc.Call{
 		ID:         "mVtEUb",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
+		Args:       method.EncodeListExpertIntelligenceContentArgs(req),
 	}
 
 	// Execute the RPC
