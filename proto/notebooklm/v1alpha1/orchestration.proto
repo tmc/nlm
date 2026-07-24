@@ -1912,7 +1912,14 @@ message MutateProjectCoverRequest {
 
 message ProjectCoverMutation {
     // Fields 1 through 7 are null in observed requests.
+    ProjectCoverMutationUnknown4 unknown_4 = 4;
     ProjectCoverSelection cover = 8;
+}
+
+// ProjectCoverMutationUnknown4 is the [null, title] metadata tuple observed
+// on a project cover mutation. Its semantics are unconfirmed.
+message ProjectCoverMutationUnknown4 {
+    string value = 2;
 }
 
 message ProjectCoverSelection {
