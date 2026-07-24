@@ -376,7 +376,8 @@ message ArtifactSlideEditInstruction {
 // pair EncodeCreateSlideDeckArgs sends on create (see
 // internal/method/labs_tailwind_overview_custom.go SlideDeckFormat).
 message ArtifactSlideDeckConfig {
-    // Field 1 is null in every observed capture; left unmodeled.
+    // Observed as a user-provided string; meaning unconfirmed.
+    string unknown_1 = 1;
     string language = 2;
     optional int64 format = 3;
     optional int64 length = 4;
