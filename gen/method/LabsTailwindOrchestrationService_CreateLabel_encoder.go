@@ -9,11 +9,11 @@ import (
 
 // EncodeCreateLabelArgs encodes arguments for LabsTailwindOrchestrationService.CreateLabel
 // RPC ID: agX4Bc
-// Argument format: [%context%, %project_id%, null, null, null, %labels%]
+// Argument format: [%context%, %project_id%, null, null, null, %creation%, %scope%]
 func EncodeCreateLabelArgs(req *notebooklmv1alpha1.CreateLabelRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%context%, %project_id%, null, null, null, %labels%]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%context%, %project_id%, null, null, null, %creation%, %scope%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

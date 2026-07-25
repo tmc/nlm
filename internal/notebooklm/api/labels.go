@@ -78,7 +78,7 @@ func (c *Client) CreateLabel(projectID, name, emoji string) ([]Label, error) {
 	resp, err := c.orchestrationService.CreateLabel(context.Background(), &pb.CreateLabelRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
-		Labels:    []*pb.LabelCreation{{Name: name, Emoji: proto.String(emoji)}},
+		Creation:  &pb.LabelCreationRequest{Label: &pb.LabelCreation{Name: name, Emoji: proto.String(emoji)}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create label: %w", err)
@@ -148,7 +148,7 @@ func (c *Client) RenameLabel(projectID, labelID, name string) error {
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
 		LabelId:   labelID,
-		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Name: &pb.LabelNameChange{Name: name}}},
+		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Name: &pb.LabelNameChange{Name: proto.String(name)}}},
 	})
 }
 

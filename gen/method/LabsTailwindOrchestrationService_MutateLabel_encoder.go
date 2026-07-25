@@ -9,11 +9,11 @@ import (
 
 // EncodeMutateLabelArgs encodes arguments for LabsTailwindOrchestrationService.MutateLabel
 // RPC ID: le8sX
-// Argument format: [%context%, %project_id%, %label_id%, %mutation%]
+// Argument format: [%context%, %project_id%, %label_id%, %mutation%, %scope%]
 func EncodeMutateLabelArgs(req *notebooklmv1alpha1.MutateLabelRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%context%, %project_id%, %label_id%, %mutation%]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%context%, %project_id%, %label_id%, %mutation%, %scope%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

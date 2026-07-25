@@ -58,11 +58,33 @@ func TestLabelMutationEncoders(t *testing.T) {
 	create := method.EncodeCreateLabelArgs(&pb.CreateLabelRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: "project-1",
-		Labels:    []*pb.LabelCreation{{Name: "Generated Code", Emoji: proto.String("📚")}},
+		Creation:  &pb.LabelCreationRequest{Label: &pb.LabelCreation{Name: "Generated Code", Emoji: proto.String("📚")}},
 	})
+	// The collections scope selector is unset here, and CreateLabelRequest
+	// omits trailing nulls, so a notebook-scope create emits the same six
+	// positions it always has.
 	wantCreate := []interface{}{[]interface{}{float64(2)}, "project-1", nil, nil, nil, []interface{}{[]interface{}{"Generated Code", "📚"}}}
 	if !reflect.DeepEqual(create, wantCreate) {
 		t.Fatalf("create args = %#v, want %#v", create, wantCreate)
+	}
+	// A collections-scope create sends a null project_id, seeds the new
+	// collection with member notebooks, and carries the scope selector, so the
+	// trailing slot is present rather than trimmed. Mirrors a captured request.
+	createCollection := method.EncodeCreateLabelArgs(&pb.CreateLabelRequest{
+		Context: &pb.RequestContext{Version: proto.Int32(2)},
+		Creation: &pb.LabelCreationRequest{
+			Label:      &pb.LabelCreation{Name: "new collection"},
+			ProjectIds: []string{"project-1"},
+		},
+		Scope: proto.Int32(3),
+	})
+	wantCreateCollection := []interface{}{
+		[]interface{}{float64(2)}, "", nil, nil, nil,
+		[]interface{}{[]interface{}{"new collection"}, nil, []interface{}{"project-1"}},
+		int64(3),
+	}
+	if !reflect.DeepEqual(createCollection, wantCreateCollection) {
+		t.Fatalf("create collection args = %#v, want %#v", createCollection, wantCreateCollection)
 	}
 	mode := method.EncodeMutateLabelsModeArgs(&pb.MutateLabelsModeRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
@@ -100,7 +122,7 @@ func TestMutateLabelEncoders(t *testing.T) {
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: "project-1",
 		LabelId:   "label-1",
-		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Name: &pb.LabelNameChange{Name: "Renamed"}}},
+		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Name: &pb.LabelNameChange{Name: proto.String("Renamed")}}},
 	})
 	wantRename := []interface{}{[]interface{}{float64(2)}, "project-1", "label-1", []interface{}{[]interface{}{[]interface{}{"Renamed"}}}}
 	if !reflect.DeepEqual(rename, wantRename) {

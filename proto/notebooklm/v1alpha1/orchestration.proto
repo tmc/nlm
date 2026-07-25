@@ -1684,7 +1684,7 @@ service LabsTailwindOrchestrationService {
     // and DeleteLabels (GyzE7e) confirm the labels framing.
     rpc GetLabels(GetLabelsRequest) returns (GetLabelsResponse) {
         option (rpc_id) = "I3xc3c";
-        option (arg_format) = "[%context%, %project_id%]";
+        option (arg_format) = "[%context%, %project_id%, %scope%]";
     }
 
     // UpsertArtifactUserState (Fxmvse). JS bundle binds this to
@@ -1729,7 +1729,7 @@ service LabsTailwindOrchestrationService {
     // labels affordance in the source-list UI.
     rpc CreateLabel(CreateLabelRequest) returns (CreateLabelResponse) {
         option (rpc_id) = "agX4Bc";
-        option (arg_format) = "[%context%, %project_id%, null, null, null, %labels%]";
+        option (arg_format) = "[%context%, %project_id%, null, null, null, %creation%, %scope%]";
     }
     rpc MutateLabelsMode(MutateLabelsModeRequest) returns (CreateLabelResponse) {
         option (rpc_id) = "agX4Bc";
@@ -1737,7 +1737,7 @@ service LabsTailwindOrchestrationService {
     }
     rpc MutateLabel(MutateLabelRequest) returns (MutateLabelResponse) {
         option (rpc_id) = "le8sX";
-        option (arg_format) = "[%context%, %project_id%, %label_id%, %mutation%]";
+        option (arg_format) = "[%context%, %project_id%, %label_id%, %mutation%, %scope%]";
     }
     rpc DeleteLabels(DeleteLabelsRequest) returns (google.protobuf.Empty) {
         option (rpc_id) = "GyzE7e";
@@ -3426,24 +3426,61 @@ message SDPExchangeResponse {
 // notebook UI fires this on every notebook load to render the
 // source-list section headers; an empty response means the user
 // hasn't yet computed labels for this notebook.
+// GetLabelsRequest carries a trailing scope selector. In the notebook scope
+// the field is absent and project_id names the notebook; in the collections
+// scope the field is 3 and project_id is null, because collections are
+// account-scoped rather than notebook-scoped.
 message GetLabelsRequest {
+    // The notebook scope omits the trailing scope slot entirely rather than
+    // sending an explicit null, matching the real client.
+    option (omit_trailing_nulls) = true;
+
     RequestContext context = 1;
     string project_id = 2;
+    // Observed only as 3, on requests that read collections. Other values may
+    // exist; the numbering is not confirmed to be an enum, so it is kept as a
+    // plain int rather than named.
+    optional int32 scope = 3;
 }
 
+// GetLabelsResponse returns rows at a slot that depends on the request scope:
+// field 1 in the notebook scope (13 observed responses) and field 2 in the
+// collections scope (2 observed responses). The row shape is identical, so
+// both are modeled as Label.
 message GetLabelsResponse {
     repeated Label labels = 1;
+    repeated Collection collections = 2;
 }
 
-// Label is one autolabel cluster. The trailing "" in the wire tuple
-// appears to be reserved for a per-label description (always empty
-// in captures); not modeled here until a populated case is observed.
+// Label is one autolabel cluster, as returned in the notebook scope of
+// I3xc3c/agX4Bc. The collections scope returns the same four slots but with a
+// different element shape at field 2, so it is modeled separately as
+// Collection.
 message Label {
     string name = 1;             // e.g. "Generated Code", "Testing", "RPC and Networking"
     // Members of this cluster; each source id arrives wrapped as ["uuid"].
     repeated SourceIdList sources = 2;
     string label_id = 3;         // server-assigned UUID
-    optional string description = 4; // inferred; observed explicit empty string
+    // CONFIRMED emoji, not a description. Field 4 is the emoji set by the
+    // le8sX metadata mutation: a capture sets "\U0001F4C1" on one label and a
+    // later read of the same label_id returns it here. Empty in 144 of 147
+    // observed rows because most labels carry no emoji.
+    optional string emoji = 4;
+}
+
+// Collection is one collection row: a user-defined grouping of notebooks,
+// returned in the collections scope of I3xc3c/agX4Bc. It occupies the same
+// four slots as Label, but field 2 is a flat list of project ids rather than
+// the wrapped ["uuid"] elements Label.sources uses. The split is exact across
+// the corpus: 131 notebook-scope rows are wrapped and all 8 collections-scope
+// rows are flat, with no row of either kind in the other scope.
+message Collection {
+    string name = 1;
+    // Member notebooks, as bare project id strings.
+    repeated string project_ids = 2;
+    string collection_id = 3;
+    // Same emoji slot as Label.emoji, set through the le8sX metadata mutation.
+    optional string emoji = 4;
 }
 
 // PlaybackPosition is a positional (seconds, nanos) tuple that mirrors
@@ -3514,12 +3551,33 @@ message GetArtifactUserStateResponse {
     ArtifactUserState state = 1;
 }
 
-// CreateLabelRequest is the manual-label form of agX4Bc.
+// CreateLabelRequest is the manual-label form of agX4Bc. It also creates a
+// collection, with scope 3 and a null project_id; a collection create may seed
+// the new collection with member notebooks.
 message CreateLabelRequest {
+    // See GetLabelsRequest: notebook-scope creates omit the trailing slot.
+    option (omit_trailing_nulls) = true;
+
     RequestContext context = 1;
     string project_id = 2;
     // Fields 3 through 5 are null in observed requests.
-    repeated LabelCreation labels = 6;
+    LabelCreationRequest creation = 6;
+    // Observed only as 3, on requests that create a collection. See
+    // GetLabelsRequest.scope.
+    optional int32 scope = 7;
+}
+
+// LabelCreationRequest is CreateLabelRequest field 6. It is a single structure
+// rather than a list of them: slot 1 holds the label or collection being
+// created, and a collection create adds the notebooks to seed it with at
+// slot 3. Observed as [[name, emoji]] for a label and
+// [[name], null, [project_id]] for a collection.
+message LabelCreationRequest {
+    LabelCreation label = 1;
+    // Field 2 is null in observed requests.
+    // Notebooks to seed a new collection with, as bare project id strings.
+    // Absent on notebook-scope label creates.
+    repeated string project_ids = 3;
 }
 
 // MutateLabelsModeRequest is the mode form of agX4Bc. Mode 0 labels
@@ -3540,11 +3598,15 @@ message LabelCreation {
     optional string emoji = 2;
 }
 
+// CreateLabelResponse returns the full refreshed list rather than just the new
+// row, at a slot that depends on the request scope: field 2 in the notebook
+// scope (8 observed) and field 3 in the collections scope (2 observed).
 message CreateLabelResponse {
     // Field 1 (Label label) is null in every observed capture; the RPC
     // returns the full refreshed label list at field 2 instead.
     Label label = 1;
     repeated Label labels = 2;
+    repeated Collection collections = 3;
 }
 
 // MutateLabelRequest wire (HAR-verified, more-requests2):
@@ -3554,16 +3616,28 @@ message CreateLabelResponse {
 // block has two observed inner shapes: [[name, emoji]] (rename/emoji) and
 // [null, [[source_id]]] (attach source); the captured request is the latter.
 message MutateLabelRequest {
+    // See GetLabelsRequest: notebook-scope mutations omit the trailing slot.
+    option (omit_trailing_nulls) = true;
+
     RequestContext context = 1;
     string project_id = 2;
     string label_id = 3;
     MutateLabelMutation mutation = 4;
+    // Observed only as 3, on requests that mutate a collection. See
+    // GetLabelsRequest.scope.
+    optional int32 scope = 5;
 }
 
 // MutateLabelMutation is field 4: [[null, [[source_id]]]] (source-attach form)
 // or [[name, emoji]] (metadata form). Field 1 wraps the inner mutation entry.
 message MutateLabelMutation {
     MutateLabelEntry entry = 1;
+    // Collection mutations carry a trailing list here that is empty in every
+    // observed capture, so its element type is unknown. Wrapped so the
+    // present-but-empty list marshals to [] rather than null, following the
+    // StringList idiom; the field is left unnamed because nothing has been
+    // seen inside it.
+    StringList unknown_2 = 2;
 }
 
 message MutateLabelEntry {
@@ -3573,10 +3647,23 @@ message MutateLabelEntry {
     LabelNameChange name = 1;
     repeated SourceIdList sources = 2;
     repeated SourceIdList alternate_sources = 3;
+    // CONFIRMED add: a capture attaches a project id here and a later read of
+    // the same collection shows that project as a member.
+    repeated SourceIdList add_projects = 4;
+    // Same shape as add_projects at the next slot. A capture sends it against
+    // a collection that already contains the project, and no later read of
+    // that collection was captured, so the effect is UNOBSERVED. Removal is
+    // the obvious reading but is not confirmed, so the slot is left unnamed.
+    repeated SourceIdList unknown_5 = 5;
 }
 
 message LabelNameChange {
-    string name = 1;
+    // The metadata form sends [null, emoji] to set only the emoji, so name is
+    // optional rather than a bare string.
+    optional string name = 1;
+    // CONFIRMED emoji: a capture sets it here and the label subsequently reads
+    // back with that emoji at Label.emoji.
+    optional string emoji = 2;
 }
 
 message MutateLabelResponse {
