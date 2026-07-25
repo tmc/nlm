@@ -10,6 +10,7 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
 var (
@@ -43,7 +44,20 @@ func (e *ArgumentEncoder) EncodeArgs(msg proto.Message, argFormat string) ([]int
 	}
 
 	// Build the argument array
-	return e.buildArgs(msg.ProtoReflect(), tokens)
+	args, err := e.buildArgs(msg.ProtoReflect(), tokens)
+	if err != nil {
+		return nil, err
+	}
+	// A message marked omit_trailing_nulls sends a short array rather than
+	// padding to the full arg_format width, matching a client that appends
+	// optional trailing slots only when it sets them. Trimming happens here,
+	// at the top level, so nested arrays keep their fixed positional shape.
+	if omitTrailingNulls(msg.ProtoReflect().Descriptor()) {
+		for len(args) > 0 && args[len(args)-1] == nil {
+			args = args[:len(args)-1]
+		}
+	}
+	return args, nil
 }
 
 // Token represents a parsed element from the arg_format string
@@ -424,6 +438,26 @@ func asSlice(v interface{}) (interface{}, bool) {
 	default:
 		return nil, false
 	}
+}
+
+// omitTrailingNullsExt is the message option marking a request whose trailing
+// unset slots are dropped rather than sent as explicit nulls. It is resolved by
+// name at call time so this package stays decoupled from the generated package
+// that declares it, matching how beprotojson reads the same option.
+const omitTrailingNullsExt = "notebooklm.v1alpha1.omit_trailing_nulls"
+
+// omitTrailingNulls reports whether md sets omit_trailing_nulls.
+func omitTrailingNulls(md protoreflect.MessageDescriptor) bool {
+	opts := md.Options()
+	if opts == nil {
+		return false
+	}
+	xt, err := protoregistry.GlobalTypes.FindExtensionByName(omitTrailingNullsExt)
+	if err != nil || !proto.HasExtension(opts, xt) {
+		return false
+	}
+	value, ok := proto.GetExtension(opts, xt).(bool)
+	return ok && value
 }
 
 // snakeToCamel converts snake_case to camelCase
