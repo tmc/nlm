@@ -532,11 +532,17 @@ func (o UnmarshalOptions) appendToList(list protoreflect.List, fd protoreflect.F
 				}
 			}
 			// If this is a nested array structure representing a single value,
-			// flatten it to get the actual value
+			// flatten it to get the actual value. Not every message has a
+			// field 1 — Grounding, for one, leaves wire positions 1 and 2
+			// unmodeled — and ByNumber returns nil for those, which setField
+			// would dereference. Skip instead; the value is still reported by
+			// the round-trip diff.
 			flatVal := flattenSingleValueArray(v)
 			if !isArray(flatVal) {
-				if err := o.setField(msgReflect, msgReflect.Descriptor().Fields().ByNumber(1), flatVal); err != nil {
-					return err
+				if fd := msgReflect.Descriptor().Fields().ByNumber(1); fd != nil {
+					if err := o.setField(msgReflect, fd, flatVal); err != nil {
+						return err
+					}
 				}
 			} else if arr, ok := flatVal.([]interface{}); ok {
 				if err := o.populateMessage(arr, msg); err != nil {
