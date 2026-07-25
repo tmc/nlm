@@ -92,16 +92,6 @@ func TestEncodeRPCArgs(t *testing.T) {
 			}},
 		},
 		{
-			name: "multiple fields",
-			msg: &notebooklm.ActOnSourcesRequest{
-				ProjectId: "proj456",
-				Action:    "delete",
-				SourceIds: []string{"s1", "s2"},
-			},
-			argFormat: "[%project_id%, %action%, %source_ids%]",
-			want:      []interface{}{"proj456", "delete", []string{"s1", "s2"}},
-		},
-		{
 			name: "field name with digit",
 			msg: &notebooklm.CreateUniversalArtifactRequest{
 				ProjectId: "project123",

@@ -9,11 +9,11 @@ import (
 
 // EncodeActOnSourcesArgs encodes arguments for LabsTailwindOrchestrationService.ActOnSources
 // RPC ID: yyryJe
-// Argument format: [%project_id%, %action%, %source_ids%]
+// Argument format: [%source_groups%, %options%, null, null, null, null, null, %chat_options%, %prompt_history%, %conversation_id%]
 func EncodeActOnSourcesArgs(req *notebooklmv1alpha1.ActOnSourcesRequest) []interface{} {
 	// Using generalized argument encoder. printf %q emits a properly escaped Go
 	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
-	args, err := argbuilder.EncodeRPCArgs(req, "[%project_id%, %action%, %source_ids%]")
+	args, err := argbuilder.EncodeRPCArgs(req, "[%source_groups%, %options%, null, null, null, null, null, %chat_options%, %prompt_history%, %conversation_id%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

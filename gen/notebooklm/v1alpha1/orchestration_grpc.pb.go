@@ -132,7 +132,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	ListArtifacts(ctx context.Context, in *ListArtifactsRequest, opts ...grpc.CallOption) (*ListArtifactsResponse, error)
 	QueryArtifacts(ctx context.Context, in *QueryArtifactsRequest, opts ...grpc.CallOption) (*QueryArtifactsResponse, error)
 	// Source operations
-	ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*ActOnSourcesResponse, error)
 	// AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
 	// containing the same Source descriptor LoadSource (hizoJc) returns:
 	//
@@ -559,8 +559,8 @@ func (c *labsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Cont
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *labsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*ActOnSourcesResponse, error) {
+	out := new(ActOnSourcesResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ActOnSources_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1338,7 +1338,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	ListArtifacts(context.Context, *ListArtifactsRequest) (*ListArtifactsResponse, error)
 	QueryArtifacts(context.Context, *QueryArtifactsRequest) (*QueryArtifactsResponse, error)
 	// Source operations
-	ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error)
+	ActOnSources(context.Context, *ActOnSourcesRequest) (*ActOnSourcesResponse, error)
 	// AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
 	// containing the same Source descriptor LoadSource (hizoJc) returns:
 	//
@@ -1720,7 +1720,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) ListArtifacts(context
 func (UnimplementedLabsTailwindOrchestrationServiceServer) QueryArtifacts(context.Context, *QueryArtifactsRequest) (*QueryArtifactsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryArtifacts not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ActOnSources(context.Context, *ActOnSourcesRequest) (*ActOnSourcesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActOnSources not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) AddSources(context.Context, *AddSourceRequest) (*AddSourcesResponse, error) {

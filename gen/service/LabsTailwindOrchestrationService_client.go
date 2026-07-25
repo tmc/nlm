@@ -206,7 +206,7 @@ func (c *LabsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Cont
 }
 
 // ActOnSources calls the ActOnSources RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Context, req *notebooklmv1alpha1.ActOnSourcesRequest) (*emptypb.Empty, error) {
+func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Context, req *notebooklmv1alpha1.ActOnSourcesRequest) (*notebooklmv1alpha1.ActOnSourcesResponse, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "yyryJe",
@@ -221,7 +221,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Contex
 	}
 
 	// Decode the response
-	var result emptypb.Empty
+	var result notebooklmv1alpha1.ActOnSourcesResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ActOnSources: unmarshal response: %w", err)
 	}

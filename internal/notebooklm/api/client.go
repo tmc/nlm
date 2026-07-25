@@ -767,25 +767,25 @@ func (c *Client) GetOrCreateAccount() (*pb.Account, error) {
 	return resp, nil
 }
 
-// ActOnSources performs a content transformation and returns the raw response.
-// The response typically contains the generated content (markdown text) at position [0][0]
-// or similar nested positions depending on the action.
+// ActOnSources preserves the unverified legacy action-verb request shape.
+//
+// The generated yyryJe model describes a distinct observed chat-query shape.
+// No captured request establishes how these action verbs map to that shape.
 func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) (string, error) {
-	req := &pb.ActOnSourcesRequest{
-		ProjectId: projectID,
-		Action:    action,
-		SourceIds: sourceIDs,
-	}
 	call := rpc.Call{
 		ID:         "yyryJe",
 		NotebookID: projectID,
-		Args:       method.EncodeActOnSourcesArgs(req),
+		Args:       legacyActOnSourcesArgs(projectID, action, sourceIDs),
 	}
 	resp, err := c.rpc.Do(call)
 	if err != nil {
 		return "", fmt.Errorf("act on sources: %w", err)
 	}
 	return extractTextContent(resp), nil
+}
+
+func legacyActOnSourcesArgs(projectID, action string, sourceIDs []string) []interface{} {
+	return []interface{}{projectID, action, sourceIDs}
 }
 
 // extractTextContent walks a raw JSON response looking for the first non-empty string.

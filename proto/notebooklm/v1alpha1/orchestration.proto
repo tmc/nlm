@@ -478,10 +478,47 @@ message QueryArtifactsResponse {
     repeated Artifact artifacts = 1;
 }
 
+// ActOnSourcesRequest is the yyryJe chat-query request shape observed in four
+// captures. It is not the legacy three-argument action-verb shape.
 message ActOnSourcesRequest {
-    string project_id = 1;
-    string action = 2;
-    repeated string source_ids = 3;
+    repeated ActOnSourcesSourceGroup source_groups = 1;
+    ActOnSourcesOptions options = 2;
+    // Fields 3 through 7 are null in observed requests.
+    ChatStreamOptions chat_options = 8;
+    ActOnSourcesPromptHistory prompt_history = 9;
+    string conversation_id = 10;
+}
+
+message ActOnSourcesSourceGroup {
+    SourceIdList source = 1;
+}
+
+// ActOnSourcesOptions carries numeric selectors. Their semantics are
+// unconfirmed; all observed values are 2.
+message ActOnSourcesOptions {
+    int32 unknown_7 = 7;
+    int32 unknown_10 = 10;
+}
+
+// ActOnSourcesPromptHistory is the prompt and prior-turn rows in the observed
+// chat-query shape. The numeric field's semantics are unconfirmed.
+message ActOnSourcesPromptHistory {
+    string prompt = 1;
+    repeated ActOnSourcesHistoryEntry history = 2;
+    // Observed as a string; semantics are unconfirmed.
+    string unknown_3 = 3;
+}
+
+message ActOnSourcesHistoryEntry {
+    // Present empty text is distinct from an omitted field on the wire.
+    optional string text = 1;
+    int32 unknown_3 = 3;
+}
+
+// ActOnSourcesResponse carries the observed numeric response value. Its
+// semantics are unconfirmed.
+message ActOnSourcesResponse {
+    int64 unknown_1 = 1;
 }
 
 // Audio style types (confirmed from sqTeoe RPC in HAR analysis)
@@ -1172,9 +1209,9 @@ service LabsTailwindOrchestrationService {
     }
 
     // Source operations
-    rpc ActOnSources(ActOnSourcesRequest) returns (google.protobuf.Empty) {
+    rpc ActOnSources(ActOnSourcesRequest) returns (ActOnSourcesResponse) {
         option (rpc_id) = "yyryJe";
-        option (arg_format) = "[%project_id%, %action%, %source_ids%]";
+        option (arg_format) = "[%source_groups%, %options%, null, null, null, null, null, %chat_options%, %prompt_history%, %conversation_id%]";
     }
     // AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
     // containing the same Source descriptor LoadSource (hizoJc) returns:
