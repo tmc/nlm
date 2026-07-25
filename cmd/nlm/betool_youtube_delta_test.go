@@ -1187,6 +1187,58 @@ func TestNoteMetadataRoundTrip(t *testing.T) {
 	}
 }
 
+// TestCreateNoteRichRecordRoundTrip guards the rich-note slots on a CYK0Xb
+// reply: the grounding details at field 4 and the structured document at
+// field 6, which a plain NoteRecord cannot represent.
+func TestCreateNoteRichRecordRoundTrip(t *testing.T) {
+	const grounding = `[null,null,null,[[null,10,20]],` +
+		`[[[10,20,[[[10,20,["cited text",` +
+		`[false,false,false,null,null,null,null,false,false]]]],[null,5]]]]],` +
+		`[[["src-1"],"chunk-1"]],["ground-1"]]`
+	const wire = `["note-id","",` +
+		`[1,"157962509464",[100,200],null,null,[100,200],false],` +
+		`[[` + grounding + `]],` +
+		`"Note title",` +
+		`[[[[0,10,[[[0,10,["body text",` +
+		`[false,false,false,null,null,null,null,false,false]]]],[null,6]]]]],` +
+		`null,null,[[["ground-1"],` + grounding + `]],1],[1]]`
+
+	msg := &notebooklmv1alpha1.CreateNoteRichRecord{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if msg.GetGroundingDetails() == nil || len(msg.GetGroundingDetails().GetGrounding()) != 1 {
+		t.Fatalf("grounding details lost: %+v", msg.GetGroundingDetails())
+	}
+	if msg.GetRichText().GetDocument() == nil {
+		t.Fatalf("rich document lost: %+v", msg.GetRichText())
+	}
+	deltas, err := diffWireAgainstProto([]byte(wire), msg)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if len(deltas) != 0 {
+		b, _ := json.Marshal(deltas)
+		t.Fatalf("expected lossless, got %d delta(s): %s", len(deltas), b)
+	}
+}
+
+// TestCreateNoteRequestGrounding covers the bare grounding list the request
+// carries at position 4, which the response instead wraps in one more array
+// layer.
+func TestCreateNoteRequestGrounding(t *testing.T) {
+	const wire = `["project-1","",[1],[[null,null,null,[[null,10,20]],null,` +
+		`[[["src-1"],"chunk-1"]],["ground-1"]]],"New Note",null,[2]]`
+
+	msg := &notebooklmv1alpha1.CreateNoteRequest{}
+	if err := beprotojson.Unmarshal([]byte(wire), msg); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(msg.GetGrounding()) != 1 {
+		t.Fatalf("grounding = %+v, want 1 record", msg.GetGrounding())
+	}
+}
+
 // TestCreateNoteRecordRoundTrip guards the explicit empty content string in a
 // freshly allocated CYK0Xb note shell.
 func TestCreateNoteRecordRoundTrip(t *testing.T) {

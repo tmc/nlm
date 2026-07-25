@@ -180,7 +180,7 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// Decode-complete binding for the polymorphic R7cb6c request envelope.
 	CreateUniversalArtifact(ctx context.Context, in *CreateUniversalArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Note operations
-	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*NoteRecord, error)
+	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*CreateNoteRichRecord, error)
 	DeleteNotes(ctx context.Context, in *DeleteNotesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesRichWireResponse, error)
 	MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Note, error)
@@ -676,8 +676,8 @@ func (c *labsTailwindOrchestrationServiceClient) CreateUniversalArtifact(ctx con
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*NoteRecord, error) {
-	out := new(NoteRecord)
+func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*CreateNoteRichRecord, error) {
+	out := new(CreateNoteRichRecord)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateNote_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1386,7 +1386,7 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// Decode-complete binding for the polymorphic R7cb6c request envelope.
 	CreateUniversalArtifact(context.Context, *CreateUniversalArtifactRequest) (*Artifact, error)
 	// Note operations
-	CreateNote(context.Context, *CreateNoteRequest) (*NoteRecord, error)
+	CreateNote(context.Context, *CreateNoteRequest) (*CreateNoteRichRecord, error)
 	DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error)
 	GetNotes(context.Context, *GetNotesRequest) (*GetNotesRichWireResponse, error)
 	MutateNote(context.Context, *MutateNoteRequest) (*Note, error)
@@ -1759,7 +1759,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateVideoOverview(c
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateUniversalArtifact(context.Context, *CreateUniversalArtifactRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateUniversalArtifact not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*NoteRecord, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*CreateNoteRichRecord, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNote not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error) {

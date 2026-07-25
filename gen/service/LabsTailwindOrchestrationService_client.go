@@ -518,7 +518,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateUniversalArtifact(ctx con
 }
 
 // CreateNote calls the CreateNote RPC method.
-func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, req *notebooklmv1alpha1.CreateNoteRequest) (*notebooklmv1alpha1.NoteRecord, error) {
+func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, req *notebooklmv1alpha1.CreateNoteRequest) (*notebooklmv1alpha1.CreateNoteRichRecord, error) {
 	// Build the RPC call
 	call := rpc.Call{
 		ID:         "CYK0Xb",
@@ -533,7 +533,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context,
 	}
 
 	// Decode the response
-	var result notebooklmv1alpha1.NoteRecord
+	var result notebooklmv1alpha1.CreateNoteRichRecord
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateNote: unmarshal response: %w", err)
 	}

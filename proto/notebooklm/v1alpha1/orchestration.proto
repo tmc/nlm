@@ -982,11 +982,23 @@ message SourceTextInput {
     string content = 2;
 }
 
+// CreateNoteRequest also carries the rich-note payload the web UI sends when it
+// saves a note with formatting: grounding details at field 4 and the structured
+// document at field 6, the same two slots the response returns them in.
+//
+// These are decode-only. This RPC's arg_format passes literals rather than the
+// request's own fields, because the live path allocates an empty shell and then
+// fills it in through MutateNote, so nothing here reaches the wire.
 message CreateNoteRequest {
     string project_id = 1;
     optional string content = 2;
     Int32List note_type = 3;
+    // The request carries the grounding records bare at this position, unlike
+    // the response, which wraps them in one more array layer
+    // (NoteGroundingDetails). Same element type either way.
+    repeated Grounding grounding = 4;
     string title = 5;
+    NoteRichText rich_text = 6;
     RequestContext context = 7;
 }
 
@@ -1305,7 +1317,7 @@ service LabsTailwindOrchestrationService {
     }
     
     // Note operations
-    rpc CreateNote(CreateNoteRequest) returns (NoteRecord) {
+    rpc CreateNote(CreateNoteRequest) returns (CreateNoteRichRecord) {
         option (rpc_id) = "CYK0Xb";
         // Two-step note protocol (HAR-verified 2026-04-28): CreateNote makes an
         // empty "New Note" shell; the title/body are set afterward by MutateNote.
@@ -2374,6 +2386,24 @@ message NoteRichText {
     }
 }
 
+// CreateNoteRichRecord is the CYK0Xb response tuple. It is NoteRecord plus the
+// two rich-note slots: the same grounding-details list and structured document
+// GetNotesRichRecord carries, in the same positions. NoteRecord itself cannot
+// model them because it lives in notebooklm.proto, which this file imports
+// rather than the other way around.
+//
+// Only note_id is read by the live CreateNote path, which allocates a shell and
+// then fills it in through MutateNote; the remaining fields are decode-only.
+message CreateNoteRichRecord {
+    string note_id = 1;
+    optional string content_text = 2;
+    NoteMetadata metadata = 3;
+    NoteGroundingDetails grounding_details = 4;
+    string title = 5;
+    NoteRichText rich_text = 6;
+    repeated int32 note_type = 7;
+}
+
 // NoteGroundingDetails wraps the unkeyed grounding-detail list at note field 4.
 // For rich notes, each item is byte-for-byte equal to the Grounding part of the
 // corresponding source-keyed GroundingRecord in RichDocument.grounding.
@@ -2506,6 +2536,19 @@ message SpanElement {
 // hyperlink target). Boolean marks are carried as JSON booleans on the wire,
 // not batchexecute's 1/0; exact bold/italic/code meanings are not yet
 // confirmed, so they are modeled generically.
+//
+// KNOWN ASYMMETRY, deliberately not modeled: responses carry these flags as
+// JSON booleans but CYK0Xb requests carry the identical structure with 1/0
+// instead ([0,0,0,null,null,null,null,0,0] against
+// [false,false,false,null,null,null,null,false,false]). The split is by
+// direction and absolute across the corpus — 1960 numeric occurrences on
+// requests, 1931 boolean on responses, no crossover — with no discriminator
+// field to key on. json_bool is a static per-field choice, so no single
+// setting round-trips both, and the same asymmetry affects ListItem and
+// SpanTableRowMeta. Preserving it would mean either a form-remembering codec
+// or a duplicate request-side span tree, both of which touch the shared path
+// that carries ~687k spans, for a field no client of this package sends.
+// Two CYK0Xb request records therefore stay lossy on purpose.
 message TextMarks {
     optional bool flag1 = 1 [(json_bool) = true];
     optional bool flag2 = 2 [(json_bool) = true];
