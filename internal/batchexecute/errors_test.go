@@ -255,6 +255,32 @@ func TestIsErrorResponse(t *testing.T) {
 	}
 }
 
+// TestStatusFrameStillReportsAPIError guards the live client path. Execute
+// classifies a failed RPC by handing the decoded response to IsErrorResponse,
+// which reads the status code out of Data. Recording the code in Status must
+// not stop that from happening, or a server-side failure would be returned to
+// callers as if it were a successful empty result.
+func TestStatusFrameStillReportsAPIError(t *testing.T) {
+	raw := ")]}'\n\n" + `[["wrb.fr","R7cb6c",null,null,null,[3],"generic"]]`
+	responses, err := decodeResponse(raw)
+	if err != nil {
+		t.Fatalf("decodeResponse: %v", err)
+	}
+	if len(responses) != 1 {
+		t.Fatalf("got %d responses, want 1", len(responses))
+	}
+	if responses[0].Status != 3 {
+		t.Fatalf("status = %d, want 3", responses[0].Status)
+	}
+	apiError, isError := IsErrorResponse(&responses[0])
+	if !isError {
+		t.Fatal("IsErrorResponse = false, want true for a status-3 frame")
+	}
+	if apiError.ErrorCode == nil || apiError.ErrorCode.Code != 3 {
+		t.Errorf("error code = %+v, want code 3", apiError.ErrorCode)
+	}
+}
+
 func TestParseAPIError(t *testing.T) {
 	tests := []struct {
 		name          string

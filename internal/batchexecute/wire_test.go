@@ -115,6 +115,55 @@ func TestWireDecodeResponse(t *testing.T) {
 	}
 }
 
+// TestDecodeResponseStatusFrame covers frames that carry a gRPC canonical
+// status code at position 5 because position 2 has no payload. batchexecute
+// tunnels RPC failures in-band, so these arrive with HTTP 200 and must not be
+// mistaken for a response message: the bare code either looks like a lossy
+// field or, when it happens to fit field 1 of the response type, passes as a
+// successful decode. The status codes below are the ones observed on the wire.
+func TestDecodeResponseStatusFrame(t *testing.T) {
+	tests := []struct {
+		name   string
+		rpcID  string
+		frame  string
+		status int
+	}{
+		{name: "invalid argument", rpcID: "R7cb6c", frame: `[3]`, status: 3},
+		{name: "not found", rpcID: "rtY7md", frame: `[5]`, status: 5},
+		{name: "unimplemented", rpcID: "yyryJe", frame: `[12]`, status: 12},
+		{name: "internal", rpcID: "Rytqqe", frame: `[13]`, status: 13},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			raw := ")]}'\n\n" + fmt.Sprintf(`[["wrb.fr",%q,null,null,null,%s,"generic"]]`, tt.rpcID, tt.frame)
+			resp, err := DecodeResponse(raw)
+			if err != nil {
+				t.Fatalf("DecodeResponse: %v", err)
+			}
+			if len(resp.Responses) != 1 {
+				t.Fatalf("got %d responses, want 1", len(resp.Responses))
+			}
+			if got := resp.Responses[0].Status; got != tt.status {
+				t.Errorf("status = %d, want %d", got, tt.status)
+			}
+		})
+	}
+}
+
+// TestDecodeResponsePayloadHasNoStatus pins the other half of the rule: a frame
+// carrying a real payload at position 2 reports status 0, so a successful
+// response is never suppressed as a failure.
+func TestDecodeResponsePayloadHasNoStatus(t *testing.T) {
+	raw := ")]}'\n\n" + `[["wrb.fr","CCqFvf","[[[\"nb-123\",\"My Notebook\"]]]",null,null,null,"generic"]]`
+	resp, err := DecodeResponse(raw)
+	if err != nil {
+		t.Fatalf("DecodeResponse: %v", err)
+	}
+	if got := resp.Responses[0].Status; got != 0 {
+		t.Errorf("status = %d, want 0 for a frame with a payload", got)
+	}
+}
+
 func TestResponseRoundTrip(t *testing.T) {
 	spec := `{"responses":[{"id":"CCqFvf","index":0,"data":[[["nb-123","My Notebook"]]]}]}`
 	var resp WireResponse

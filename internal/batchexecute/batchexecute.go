@@ -39,6 +39,11 @@ type Response struct {
 	ID    string          `json:"id"`
 	Data  json.RawMessage `json:"data"`
 	Error string          `json:"error"`
+	// Status is the gRPC canonical status code carried at frame position 5
+	// when position 2 holds no payload, or 0 when the frame carries a real
+	// response. A non-zero Status means Data is a status code rather than an
+	// RPC message, so it must not be unmarshaled into a response type.
+	Status int `json:"status,omitempty"`
 }
 
 // Trace captures one batchexecute HTTP exchange.
@@ -516,9 +521,13 @@ func decodeResponse(raw string) ([]Response, error) {
 			}
 		}
 
-		// If position 2 is null/empty, try position 5 (actual data)
+		// If position 2 is null/empty, position 5 carries a gRPC canonical
+		// status code rather than a payload. Record it so callers can tell a
+		// failed RPC from a successful one; see the same handling in
+		// extractResponses.
 		if responseData == nil && len(rpcData) > 5 && rpcData[5] != nil {
 			responseData = rpcData[5]
+			resp.Status = statusCodeFromSlot(rpcData[5])
 		}
 
 		// Try position 10 for data (seen in Jules output)

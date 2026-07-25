@@ -160,13 +160,16 @@ func TestDecodeResponse(t *testing.T) {
 			err: nil,
 		},
 		{
-			name:  "YouTube Source Addition Response",
+			// Position 2 is null and position 5 holds a gRPC status code, so
+			// this frame reports a failed RPC rather than a source addition.
+			name:  "YouTube Source Addition Error Status",
 			input: `[["wrb.fr","izAoDd",null,null,null,[3],"generic"]]`,
 			expected: []Response{
 				{
-					ID:    "izAoDd",
-					Index: 0,
-					Data:  json.RawMessage("[3]"),
+					ID:     "izAoDd",
+					Index:  0,
+					Data:   json.RawMessage("[3]"),
+					Status: 3,
 				},
 			},
 			err: nil,

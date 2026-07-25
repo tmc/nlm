@@ -252,6 +252,24 @@ func processChunks(chunks []string) ([]Response, error) {
 	return allResponses, nil
 }
 
+// statusCodeFromSlot reads the gRPC canonical status code out of a frame's
+// position-5 value. The observed shape is a single-element list, [3] or [13];
+// a bare number is accepted as well. It returns 0 when the value is neither,
+// which leaves the frame treated as a normal payload.
+func statusCodeFromSlot(slot interface{}) int {
+	switch value := slot.(type) {
+	case float64:
+		return int(value)
+	case []interface{}:
+		if len(value) > 0 {
+			if code, ok := value[0].(float64); ok {
+				return int(code)
+			}
+		}
+	}
+	return 0
+}
+
 // extractResponses extracts Response objects from RPC data
 func extractResponses(data [][]interface{}) ([]Response, error) {
 	var responses []Response
@@ -296,9 +314,16 @@ func extractResponses(data [][]interface{}) ([]Response, error) {
 				}
 			}
 		} else if len(rpcData) > 5 && rpcData[5] != nil {
-			// Position 5 contains error codes or fallback data (e.g., [16] for UNAUTHENTICATED)
+			// Position 5 carries a gRPC canonical status code when position 2
+			// is null: the frame is ["wrb.fr",id,null,null,null,[code],...],
+			// e.g. [3] INVALID_ARGUMENT, [13] INTERNAL, [16] UNAUTHENTICATED.
+			// batchexecute tunnels these in-band, so the HTTP status is still
+			// 200. Data is retained for IsErrorResponse and for callers that
+			// inspect the raw code, but Status marks the frame as carrying no
+			// RPC payload so it is not mistaken for a response message.
 			if rawData, err := json.Marshal(rpcData[5]); err == nil {
 				resp.Data = rawData
+				resp.Status = statusCodeFromSlot(rpcData[5])
 			}
 		}
 

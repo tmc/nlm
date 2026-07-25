@@ -52,6 +52,10 @@ type WireRPCResponse struct {
 	Index int             `json:"index"`
 	Data  json.RawMessage `json:"data,omitempty"`
 	Error string          `json:"error,omitempty"`
+	// Status is the gRPC canonical status code for frames that carry one at
+	// position 5 instead of a payload at position 2. Non-zero means Data is a
+	// status code, not an RPC message.
+	Status int `json:"status,omitempty"`
 }
 
 // DecodeRequest parses a raw batchexecute request form body — the verbatim
@@ -199,10 +203,11 @@ func DecodeResponse(body string) (*WireResponse, error) {
 	out := &WireResponse{}
 	for _, r := range responses {
 		out.Responses = append(out.Responses, WireRPCResponse{
-			ID:    r.ID,
-			Index: r.Index,
-			Data:  r.Data,
-			Error: r.Error,
+			ID:     r.ID,
+			Index:  r.Index,
+			Data:   r.Data,
+			Error:  r.Error,
+			Status: r.Status,
 		})
 	}
 	return out, nil
