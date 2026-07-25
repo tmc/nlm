@@ -209,6 +209,14 @@ func auditCorpusStream(audit *corpusAudit, file string, record int, rpcID string
 		appendCorpusFailures(audit, file, record, "response", []string{rpcID}, entry.Response.Status, status, err)
 		return
 	}
+	if first := response.Responses[0]; first.Status != 0 {
+		audit.Records = append(audit.Records, corpusAuditRecord{
+			File: file, Record: record, Side: "response", RPCID: rpcID,
+			Status: "transport_no_payload", HTTPStatus: entry.Response.Status,
+			Error: corpusStatusError(first.Status),
+		})
+		return
+	}
 	audit.Records = append(audit.Records, auditCorpusWire(file, record, "response", rpcID, entry.Response.Status, response.Responses[0].Data))
 }
 
@@ -307,11 +315,33 @@ func auditCorpusResponse(audit *corpusAudit, file string, record int, expected [
 			})
 			continue
 		}
+		// A frame that carries a gRPC status code instead of a payload has no
+		// response message to model. Attempting to unmarshal the bare code
+		// would either report it as a lossy field or, when the code happens to
+		// fit field 1 of the response type, silently pass as lossless.
+		if call.Status != 0 {
+			audit.Records = append(audit.Records, corpusAuditRecord{
+				File: file, Record: record, Side: "response", RPCID: call.ID,
+				Status: "transport_no_payload", HTTPStatus: entry.Response.Status,
+				Error: corpusStatusError(call.Status),
+			})
+			continue
+		}
 		audit.Records = append(audit.Records, auditCorpusWire(file, record, "response", call.ID, entry.Response.Status, call.Data))
 	}
 	for _, id := range missingCorpusRPCIDs(expected, seen) {
 		appendCorpusFailures(audit, file, record, "response", []string{id}, entry.Response.Status, "transport_no_payload", fmt.Errorf("response envelope contains no payload for rpc_id"))
 	}
+}
+
+// corpusStatusError describes a gRPC status code carried in place of a
+// response payload, using the shared error dictionary so the wording matches
+// what the client reports at runtime.
+func corpusStatusError(status int) string {
+	if code, ok := batchexecute.GetErrorCode(status); ok {
+		return fmt.Sprintf("rpc failed with status %d (%s); frame carries no payload", status, code.Message)
+	}
+	return fmt.Sprintf("rpc failed with status %d; frame carries no payload", status)
 }
 
 func missingCorpusRPCIDs(expected []string, seen map[string]bool) []string {
