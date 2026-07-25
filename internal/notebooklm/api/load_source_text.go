@@ -171,22 +171,68 @@ func loadSourceTextFromProto(response *pb.LoadSourceResponse) LoadSourceText {
 	if content == nil || content.GetRows() == nil {
 		return out
 	}
-	for _, row := range content.GetRows().GetRows() {
+	for i, row := range content.GetRows().GetRows() {
 		if row == nil || row.GetText() == nil {
 			continue
 		}
+		// Every row but the first opens an outer content block, and only that
+		// row's first fragment carries the flag. Mirrors extractFragments,
+		// which passes i != 0 to extractChunks and there ands it with first.
+		blockStart := i != 0
+		first := true
+		marker := listMarkerFromProto(row.GetText().GetListItem())
 		for _, span := range row.GetText().GetSpans() {
 			if span == nil || span.GetText() == nil {
 				continue
 			}
+			bold, italic := spanStyleFromProto(span.GetText().GetFlags())
 			out.Fragments = append(out.Fragments, TextFragment{
-				Start: int(span.GetStart()),
-				End:   int(span.GetEnd()),
-				Text:  span.GetText().GetText(),
+				Start:      int(span.GetStart()),
+				End:        int(span.GetEnd()),
+				Text:       span.GetText().GetText(),
+				ListMarker: marker,
+				Bold:       bold,
+				Italic:     italic,
+				BlockStart: blockStart && first,
 			})
+			first = false
 		}
 	}
 	return out
+}
+
+// spanStyleFromProto reproduces decodeTextStyle against the decoded flags.
+//
+// decodeTextStyle reads the style slot positionally and only reports bold when
+// that slot's first element is the scalar true. No capture carries that shape:
+// every style slot in the corpus is either empty or a nested array, the
+// bold-looking form being ["bar", [true]] rather than ["bar", true]. The bold
+// branch is therefore unreachable, and the legacy projection reports bold for
+// no span at all — italic alone survives, read from position 2.
+//
+// The proto models that [true] as flags.bold, so returning the field directly
+// would report bold where the legacy projection never does. Whether [true]
+// ought to mean bold is a live question — it plausibly should, and 250 spans
+// carry it — but answering it would change user-visible source rendering. This
+// mirrors the legacy behavior exactly and leaves the semantics to a separate,
+// deliberate change.
+func spanStyleFromProto(flags *pb.LoadedSourceSpanFlags) (bold, italic bool) {
+	return false, flags.GetItalic()
+}
+
+// listMarkerFromProto returns the bullet glyph of a list item, or "" when the
+// row is not a list item. ListItemMarker is a shape union: most items carry
+// the marker object at field 4, while a newer variant puts metadata there and
+// shifts the marker to field 5. The legacy decoder finds either by searching
+// for wire key 101, which is ListMarker.bullet.
+func listMarkerFromProto(item *pb.ListItem) string {
+	if item == nil {
+		return ""
+	}
+	if marker := item.GetMarker().GetMarker(); marker != nil {
+		return marker.GetBullet()
+	}
+	return item.GetTrailingMarker().GetBullet()
 }
 
 // decodeLoadSourceText parses the positional wire shape observed against a
