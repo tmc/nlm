@@ -15,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -4000,9 +3999,11 @@ func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error
 
 // ChatMessage represents a message in chat history for the wire protocol.
 type ChatMessage struct {
-	Content   string // Message text
-	Role      int    // 1 = user, 2 = assistant
-	MessageID string // Server-assigned message UUID (from GetConversationHistory)
+	Content   string       // Message text
+	Role      int          // 1 = user, 2 = assistant
+	MessageID string       // Server-assigned message UUID (from GetConversationHistory)
+	Citations []Citation   // Source citations (assistant messages from GetConversationHistory)
+	Rich      *RichContent // Decoded answer-body span tree; nil when the turn carries none
 }
 
 // ChatRequest contains parameters for a chat request.
@@ -4030,12 +4031,21 @@ const (
 // the same source twice), and one slot can emit multiple Citations (the
 // model cited multiple sources together under a single [N]).
 type Citation struct {
-	SourceIndex int     // 1-based citation slot; matches [N] in the response text.
-	SourceID    string  // Project source identifier behind this citation.
-	Title       string  // Source title or excerpt
-	StartChar   int     // Start character offset in the response text
-	EndChar     int     // End character offset in the response text
-	Confidence  float64 // Server-reported citation confidence score (0.0–1.0); 0 if unknown
+	SourceIndex int    // 1-based citation slot; matches [N] in the response text.
+	SourceID    string // Granular chunk/passage identifier behind this citation (not a notebook source id).
+	// ParentSourceID is the notebook-source UUID that owns SourceID's passage.
+	// A citation grounds a chunk of a source, so SourceID is a chunk handle that
+	// is absent from the project source list; ParentSourceID is the source that
+	// IS in the list, so it — not SourceID — resolves to a title. Empty when the
+	// frame did not embed the parent (older frames, or the reply-span slot shape).
+	ParentSourceID string
+	Title          string  // Source title, resolved from ParentSourceID in the project source list.
+	StartChar      int     // Start character offset in the response (answer) text.
+	EndChar        int     // End character offset in the response (answer) text.
+	Confidence     float64 // Server-reported citation confidence score (0.0–1.0); 0 if unknown
+	Excerpt        string  // Verbatim cited source text, as sent by the server.
+	SourceStart    int     // Start offset of the excerpt within the source document (0 if unknown).
+	SourceEnd      int     // End offset of the excerpt within the source document (0 if unknown).
 }
 
 // ChatChunk is a parsed chunk from the chat stream with phase metadata.
@@ -4045,6 +4055,7 @@ type ChatChunk struct {
 	Phase     ChatChunkPhase // Whether this is thinking or answer
 	Citations []Citation     // Source citations (populated on final/near-final chunks)
 	FollowUps []string       // Suggested follow-up questions
+	Rich      *RichContent   // Answer-body span tree over the CUMULATIVE answer; replaced each chunk, so the last answer chunk carries the full tree. nil when the frame has no tree.
 }
 
 // chatEndpoint is the gRPC-Web endpoint for GenerateFreeFormStreamed.
@@ -4203,6 +4214,65 @@ func (c *Client) buildChatWireRequest(req ChatRequest) *chatWireRequest {
 		NotebookID:     req.ProjectID,
 		SequenceNumber: int32(req.SeqNum),
 	}
+}
+
+func buildChatWireArgs(req *chatWireRequest) []interface{} {
+	var sourceIDArrays []interface{}
+	for _, id := range req.SourceIDs {
+		sourceIDArrays = append(sourceIDArrays, []interface{}{[]interface{}{id}})
+	}
+
+	var history interface{}
+	if len(req.History) > 0 {
+		var historyEntries []interface{}
+		for _, msg := range req.History {
+			historyEntries = append(historyEntries, []interface{}{msg.Content, nil, msg.Role})
+		}
+		history = historyEntries
+	}
+
+	options := []interface{}{2, nil, []interface{}{1}, []interface{}{1}}
+	options = []interface{}{
+		req.Options.Mode,
+		nil,
+		int32SliceToInterfaces(req.Options.CitationModes),
+		int32SliceToInterfaces(req.Options.FollowUpModes),
+	}
+
+	notebookID := req.NotebookID
+	if notebookID == "" {
+		notebookID = req.ProjectID
+	}
+
+	return []interface{}{
+		sourceIDArrays,
+		req.Prompt,
+		history,
+		options,
+		req.ConversationID,
+		nilIfEmpty(req.DraftResponseID),
+		nilIfEmpty(req.ParentResponseID),
+		notebookID,
+		req.SequenceNumber,
+	}
+}
+
+func int32SliceToInterfaces(values []int32) []interface{} {
+	if len(values) == 0 {
+		return []interface{}{}
+	}
+	out := make([]interface{}, 0, len(values))
+	for _, value := range values {
+		out = append(out, value)
+	}
+	return out
+}
+
+func nilIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // buildChatArgs builds the inner JSON args for a chat request.
@@ -4589,6 +4659,7 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 				Phase:     ChatChunkAnswer,
 				Citations: payload.Citations,
 				FollowUps: payload.FollowUps,
+				Rich:      payload.Rich,
 			}) {
 				return nil
 			}
@@ -4827,6 +4898,7 @@ type chatPayload struct {
 	Text      string
 	Citations []Citation
 	FollowUps []string
+	Rich      *RichContent // answer-body span tree (inner[0][4]); nil when absent
 
 	wirePhase    int
 	hasWirePhase bool
@@ -4864,6 +4936,74 @@ func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
 	return extractChatPayloadLegacy(innerJSON, sourceIDs)
 }
 
+// groundingParentSourceID returns the project source a grounding's chunk
+// belongs to. The chunk reference pairs the parent source id with the chunk's
+// own UUID, and only the citation shape carries that UUID -- a reply-span
+// shape lands in the same slot without one, so require it before reading the
+// parent. It is the typed counterpart of parentSourceID.
+func groundingParentSourceID(detail *pb.Grounding) string {
+	for _, ref := range detail.GetChunkRefs() {
+		if !looksLikeSourceID(ref.GetRefId()) {
+			continue
+		}
+		if parent := ref.GetChunk().GetSourceId(); parent != "" {
+			return parent
+		}
+	}
+	return ""
+}
+
+// groundingExcerpt returns the verbatim cited source text of a grounding
+// record, concatenating its span leaves in document order. It is the typed
+// counterpart of extractExcerptText, which walks the same spans untyped.
+func groundingExcerpt(detail *pb.Grounding) string {
+	if detail == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, span := range detail.GetSourceSpans().GetSpans() {
+		appendSpanText(span, &b)
+	}
+	return b.String()
+}
+
+// appendSpanText appends a span's text, descending through every shape that
+// can carry text. A span holds its content at one of several positions --
+// the usual leaf/group union, a table of cell spans, a code block, or a
+// hidden "thinking" block -- and the untyped walk this mirrors reaches all of
+// them, so missing one silently truncates an excerpt.
+func appendSpanText(span *pb.Span, b *strings.Builder) {
+	if span == nil {
+		return
+	}
+	appendSpanContentText(span.GetContent(), b)
+	for _, row := range span.GetTable().GetRows() {
+		for _, cell := range row.GetCells() {
+			appendSpanText(cell, b)
+		}
+	}
+	if code := span.GetCodeBlock(); code != nil {
+		b.WriteString(code.GetCode())
+	}
+	appendSpanContentText(span.GetHiddenContent(), b)
+}
+
+// appendSpanContentText appends a content union's text, descending groups.
+func appendSpanContentText(content *pb.SpanContent, b *strings.Builder) {
+	if content == nil {
+		return
+	}
+	if leaf := content.GetLeaf(); leaf != nil {
+		b.WriteString(leaf.GetText())
+		return
+	}
+	// Group children are a scalar-or-span union; bare scalar leaves carry no
+	// text, so only the span arm contributes.
+	for _, child := range content.GetGroup().GetSpans() {
+		appendSpanText(child.GetSpan(), b)
+	}
+}
+
 func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse, sourceIDs []string) []Citation {
 	mappings := response.GetSourceMappings()
 	groundings := response.GetCitations()
@@ -4872,24 +5012,46 @@ func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse,
 		if mapping == nil {
 			continue
 		}
-		var confidence float64
-		if i < len(groundings) && groundings[i] != nil {
-			confidence = groundings[i].GetScore()
-		}
 		start, end := 0, 0
 		if r := mapping.GetRange(); r != nil {
 			start, end = int(r.GetStart()), int(r.GetEnd())
 		}
 		for _, sourceIndex := range mapping.GetSourceIndices() {
-			if sourceIndex < 0 || int(sourceIndex) >= len(sourceIDs) {
+			if sourceIndex < 0 {
 				continue
 			}
+			// Per-source detail lives at citations[sourceIndex], not at the
+			// marker index: confidence, the verbatim excerpt, and the source
+			// UUID the frame embeds at grounding position [6]. Prefer that
+			// UUID over the request's source list, which does not cover every
+			// index a frame can reference.
+			var detail *pb.Grounding
+			if int(sourceIndex) < len(groundings) {
+				detail = groundings[sourceIndex]
+			}
+			sourceID := detail.GetSourceId().GetSourceId()
+			if sourceID == "" && int(sourceIndex) < len(sourceIDs) {
+				sourceID = sourceIDs[sourceIndex]
+			}
+			if sourceID == "" {
+				continue
+			}
+			// The first reply span is the excerpt's range within the source
+			// body, as opposed to start/end, which index the answer text.
+			var sourceStart, sourceEnd int
+			if spans := detail.GetReplySpans(); len(spans) > 0 {
+				sourceStart, sourceEnd = int(spans[0].GetStart()), int(spans[0].GetEnd())
+			}
 			citations = append(citations, Citation{
-				SourceIndex: i + 1,
-				SourceID:    sourceIDs[sourceIndex],
-				StartChar:   start,
-				EndChar:     end,
-				Confidence:  confidence,
+				SourceIndex:    i + 1,
+				SourceID:       sourceID,
+				ParentSourceID: groundingParentSourceID(detail),
+				StartChar:      start,
+				EndChar:        end,
+				Confidence:     detail.GetScore(),
+				Excerpt:        groundingExcerpt(detail),
+				SourceStart:    sourceStart,
+				SourceEnd:      sourceEnd,
 			})
 		}
 	}
@@ -4910,10 +5072,16 @@ func extractChatPayloadLegacy(innerJSON string, sourceIDs []string) chatPayload 
 	var p chatPayload
 
 	// [0][0] = answer text (cumulative)
+	// [0][4] = answer-body span tree (paragraphs, lists, separators, inline
+	//          marks) over the same flat text. The tree is cumulative like the
+	//          text, so it describes the whole answer as of this chunk. It is
+	//          the same segment shape as the replay path, so one decoder serves
+	//          both; a flat renderer that ignores it renders raw markdown.
 	if inner, ok := arr[0].([]interface{}); ok && len(inner) > 0 {
 		if text, ok := inner[0].(string); ok {
 			p.Text = text
 		}
+		p.Rich = decodeRichContentFromSegment(inner)
 		if len(inner) > 8 {
 			if phase, ok := inner[8].(float64); ok {
 				p.wirePhase = int(phase)
@@ -4968,24 +5136,38 @@ func debugDumpChatWirePositions(innerJSON string) {
 //
 // Wire layout (inner chat payload):
 //
-//	[1] = citation details array, each entry (one per slot, i-th slot == [i+1]
-//	      in the narrative text):
+//	citationData = per-SOURCE detail array. citationData[j] describes one cited
+//	source and holds:
 //	  [2] = confidence (float64)
-//	  [3] = ranges array
-//	  [4] = excerpts array → nested text segments
+//	  [3] = [[null, start, end]] — the excerpt's offset range within the SOURCE
+//	        document (SourceStart/SourceEnd)
+//	  [4] = nested excerpt tree → the verbatim cited source text. Its outer nodes
+//	        carry the same [start, end] offsets as [3]; verified equal across all
+//	        observed frames, so [3] is read directly as the simpler field.
+//	  [5] = [[[sourceUUID], chunkUUID]] — the passage this detail cites. The
+//	        INNER sourceUUID (slot[5][0][0][0]) is the notebook source that owns
+//	        the passage — the id that resolves to a title in the project source
+//	        list. Read as ParentSourceID. A different [5] shape,
+//	        [[uuid], [null, start, end]], is a reply-span, not a citation source,
+//	        and is skipped by the shape guard.
+//	  [6] = [chunkUUID] — a granular chunk/passage handle, NOT the notebook
+//	        source. Read as SourceID for back-compat, but it is absent from the
+//	        project source list, so titles resolve off [5]'s parent, not [6].
+//	        (Present in history frames; absent in some live frames, hence the
+//	        sourceIDs fallback below.)
 //
-//	[2] = source mappings array, same length and ordering as [1]. Each entry
-//	      is [charRange, srcIndices]:
-//	  [0] = char range: [null, start, end]
-//	  [1] = source_indices ([]int, zero-based into request's source_ids). A
-//	        single slot can cite more than one source.
+//	mappingData = per-marker array. mappingData[i] is one `[N]` marker in the
+//	narrative (N == i+1) and holds [charRange, srcIndices]:
+//	  [0] = char range [null, start, end] into the ANSWER text
+//	  [1] = srcIndices: zero-based indices into citationData. One marker can
+//	        cite several sources, each with its own confidence and excerpt.
 //
-// The narrative's `[N]` markers index into this *slot* ordering — [1] is
-// citationData[0] / mappingData[0], regardless of which project source that
-// slot happens to reference. SourceIndex therefore carries the slot number
-// (1-based), and SourceID carries the resolved project source behind it.
-// sourceIDs is the source-id list sent in the original ChatRequest, used to
-// turn per-slot srcIndices into stable identifiers.
+// A Citation is emitted per (marker, source) pair: SourceIndex is the 1-based
+// marker number (matches the narrative's [N]); StartChar/EndChar are the
+// answer-text span of that marker; SourceID/Confidence/Excerpt come from the
+// referenced citationData[srcIdx]. sourceIDs is the source-id list sent in the
+// original ChatRequest, used to resolve srcIndices when the frame does not
+// embed source UUIDs at citationData[srcIdx][6].
 func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string) []Citation {
 	mapArr, _ := mappingData.([]interface{})
 	citArr, _ := citationData.([]interface{})
@@ -4997,7 +5179,7 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 			continue
 		}
 
-		// [0] = char range [null, start, end]
+		// [0] = char range [null, start, end] into the answer text.
 		var startChar, endChar int
 		if rangeArr, ok := entryArr[0].([]interface{}); ok && len(rangeArr) >= 3 {
 			if v, ok := rangeArr[1].(float64); ok {
@@ -5008,29 +5190,12 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 			}
 		}
 
-		// [1] = source_indices (zero-based into sourceIDs). Emit one
-		// Citation per (slot, srcIdx) pair so callers can render the
-		// full "[3] cites src_a, src_b" case; all share SourceIndex=i+1.
+		// [1] = srcIndices into citationData. Emit one Citation per
+		// (marker, source) pair so callers can render the full
+		// "[3] cites src_a, src_b" case; all share SourceIndex=i+1.
 		idxArr, ok := entryArr[1].([]interface{})
 		if !ok || len(idxArr) == 0 {
 			continue
-		}
-
-		// Pre-compute shared slot-level metadata (confidence, excerpt) from
-		// citationData[i] so every emitted Citation for this slot carries it.
-		var confidence float64
-		var excerpt string
-		if i < len(citArr) {
-			if slotArr, ok := citArr[i].([]interface{}); ok {
-				if len(slotArr) > 2 {
-					if v, ok := slotArr[2].(float64); ok {
-						confidence = v
-					}
-				}
-				if len(slotArr) > 4 {
-					excerpt = extractExcerptText(slotArr[4])
-				}
-			}
 		}
 
 		for _, idx := range idxArr {
@@ -5038,57 +5203,226 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 			if v, ok := idx.(float64); ok {
 				srcIdx = int(v)
 			}
-			// Skip srcIdx values we can't resolve in the request's source
-			// list. Emitting a Citation with an empty SourceID would just
-			// render as a blank footer line nobody can act on.
-			if srcIdx < 0 || srcIdx >= len(sourceIDs) {
+			if srcIdx < 0 {
 				continue
 			}
+
+			// Per-source detail lives at citationData[srcIdx]: confidence,
+			// excerpt, the excerpt's source-body offsets, the parent source UUID
+			// (slot [5]), and (in history frames) the chunk UUID (slot [6]).
+			var confidence float64
+			var excerpt, embeddedID, parentID string
+			var srcStart, srcEnd int
+			if srcIdx < len(citArr) {
+				if slotArr, ok := citArr[srcIdx].([]interface{}); ok {
+					if len(slotArr) > 2 {
+						if v, ok := slotArr[2].(float64); ok {
+							confidence = v
+						}
+					}
+					if len(slotArr) > 3 {
+						srcStart, srcEnd = sourceBodyRange(slotArr[3])
+					}
+					if len(slotArr) > 4 {
+						excerpt = extractExcerptText(slotArr[4])
+					}
+					if len(slotArr) > 5 {
+						parentID = parentSourceID(slotArr[5])
+					}
+					if len(slotArr) > 6 {
+						embeddedID = firstSourceID(slotArr[6])
+					}
+				}
+			}
+
+			// Resolve the source id: prefer the frame's embedded UUID, else
+			// fall back to the request's source list. Skip if neither
+			// resolves — a Citation with an empty SourceID is unactionable.
+			sourceID := embeddedID
+			if sourceID == "" && srcIdx < len(sourceIDs) {
+				sourceID = sourceIDs[srcIdx]
+			}
+			if sourceID == "" {
+				// Every history frame observed embeds a source UUID at
+				// citationData[srcIdx][6]; a miss here means either a wire
+				// change or a frame lacking [6] with no request source list
+				// to fall back to. Surface it under NLM_DEBUG so it does not
+				// vanish silently as a dropped citation.
+				if os.Getenv("NLM_DEBUG") == "true" {
+					fmt.Fprintf(os.Stderr, "DEBUG: citation dropped: srcIdx %d has no embedded source UUID and no request source list\n", srcIdx)
+				}
+				continue
+			}
+
 			citations = append(citations, Citation{
-				SourceIndex: i + 1, // 1-based slot — matches narrative's [N]
-				SourceID:    sourceIDs[srcIdx],
-				StartChar:   startChar,
-				EndChar:     endChar,
-				Confidence:  confidence,
-				Title:       excerpt,
+				SourceIndex:    i + 1, // 1-based marker — matches narrative's [N]
+				SourceID:       sourceID,
+				ParentSourceID: parentID,
+				StartChar:      startChar,
+				EndChar:        endChar,
+				Confidence:     confidence,
+				Excerpt:        excerpt,
+				SourceStart:    srcStart,
+				SourceEnd:      srcEnd,
 			})
 		}
 	}
 	return citations
 }
 
-// extractExcerptText navigates the nested excerpt structure to find text.
-// Structure: excerpts_array → [N] → [2] segments → [M] → [2] text
-func extractExcerptText(data interface{}) string {
-	excerptArr, ok := data.([]interface{})
-	if !ok || len(excerptArr) == 0 {
-		return ""
-	}
-	for _, excerpt := range excerptArr {
-		eArr, ok := excerpt.([]interface{})
-		if !ok || len(eArr) < 3 {
-			continue
+// firstSourceID pulls the leading source UUID out of a citationData[srcIdx][6]
+// node. Observed shape is [sourceUUID] (a one-element string list); it tolerates
+// a bare string or deeper nesting by returning the first UUID-looking string it
+// finds.
+func firstSourceID(node interface{}) string {
+	switch v := node.(type) {
+	case string:
+		if looksLikeSourceID(v) {
+			return v
 		}
-		// [2] = segments array
-		segments, ok := eArr[2].([]interface{})
-		if !ok {
-			continue
-		}
-		for _, seg := range segments {
-			segArr, ok := seg.([]interface{})
-			if !ok || len(segArr) < 3 {
-				continue
-			}
-			// [2] = text
-			if text, ok := segArr[2].(string); ok && text != "" {
-				if len(text) > 100 {
-					return text[:97] + "..."
-				}
-				return text
+	case []interface{}:
+		for _, child := range v {
+			if id := firstSourceID(child); id != "" {
+				return id
 			}
 		}
 	}
 	return ""
+}
+
+// parentSourceID pulls the notebook-source UUID out of a citationData[srcIdx][5]
+// node. The citation shape is [[[sourceUUID], chunkUUID]]: the source that owns
+// the cited passage sits at node[0][0][0], with the chunk handle beside it at
+// node[0][1]. This source id — unlike the chunk id at slot [6] — is present in
+// the project source list, so it resolves to a title.
+//
+// A different [5] shape, [[uuid], [null, start, end]], is a reply-span rather
+// than a citation source (its second element is a numeric range, not a chunk
+// UUID); the position-exact decode below returns "" for it, so the wrong id is
+// never read as a parent.
+func parentSourceID(node interface{}) string {
+	outer, ok := node.([]interface{})
+	if !ok || len(outer) == 0 {
+		return ""
+	}
+	pair, ok := outer[0].([]interface{})
+	if !ok || len(pair) < 2 {
+		return ""
+	}
+	// pair[1] must be the chunk UUID for this to be the citation shape; a range
+	// (reply-span shape) fails looksLikeSourceID and rejects the whole node.
+	if chunk, ok := pair[1].(string); !ok || !looksLikeSourceID(chunk) {
+		return ""
+	}
+	srcList, ok := pair[0].([]interface{})
+	if !ok || len(srcList) == 0 {
+		return ""
+	}
+	if id, ok := srcList[0].(string); ok && looksLikeSourceID(id) {
+		return id
+	}
+	return ""
+}
+
+// looksLikeSourceID reports whether s has the shape of a NotebookLM source
+// UUID (8-4-4-4-12 hex). It guards firstSourceID against picking up message or
+// conversation IDs that share the citation node.
+func looksLikeSourceID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, r := range s {
+		switch i {
+		case 8, 13, 18, 23:
+			if r != '-' {
+				return false
+			}
+		default:
+			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// sourceBodyRange reads the excerpt's offset range within the source document
+// from a citationData[srcIdx][3] node. The observed shape is [[null, start,
+// end]] — a one-element list wrapping [null, start, end]. Returns (0, 0) if the
+// node is absent or malformed; these offsets bracket the same span reconstructed
+// by walking the [4] excerpt tree, verified equal across all observed frames.
+func sourceBodyRange(node interface{}) (start, end int) {
+	arr, ok := node.([]interface{})
+	if !ok || len(arr) == 0 {
+		return 0, 0
+	}
+	rangeArr, ok := arr[0].([]interface{})
+	if !ok || len(rangeArr) < 3 {
+		return 0, 0
+	}
+	if v, ok := rangeArr[1].(float64); ok {
+		start = int(v)
+	}
+	if v, ok := rangeArr[2].(float64); ok {
+		end = int(v)
+	}
+	return start, end
+}
+
+// extractExcerptText navigates the server's nested excerpt structure and
+// concatenates its leaf text into the verbatim cited source passage.
+//
+// The excerpt for one citation slot is a tree of character-offset spans over
+// the SOURCE body. Every leaf span is [start, end, ["text"]] — a two-int range
+// wrapping a single-element string list. Interior nodes are [start, end,
+// [children...]] (optionally trailed by formatting metadata). Walking the tree
+// in order and appending each leaf's text reconstructs the full passage,
+// including the interior single-space leaves the server emits between words.
+func extractExcerptText(data interface{}) string {
+	var b strings.Builder
+	collectExcerptLeaves(data, &b)
+	return b.String()
+}
+
+// collectExcerptLeaves appends, in document order, the text of every
+// [start, end, ["text"]] leaf reachable from node into b.
+func collectExcerptLeaves(node interface{}, b *strings.Builder) {
+	arr, ok := node.([]interface{})
+	if !ok {
+		return
+	}
+	// Leaf: [start, end, ["text", marks?]] — two numbers then a list whose
+	// first element is the text. A formatted run carries its positional marks
+	// alongside the text (["text", [null, true]]), so the content list is not
+	// always one element long; requiring that dropped every marked run, and
+	// with it the leading fragment of excerpts that begin in one.
+	if len(arr) == 3 {
+		_, s0 := arr[0].(float64)
+		_, s1 := arr[1].(float64)
+		if s0 && s1 {
+			if inner, ok := arr[2].([]interface{}); ok && len(inner) > 0 {
+				if text, ok := inner[0].(string); ok {
+					b.WriteString(text)
+					return
+				}
+			}
+		}
+	}
+	// Code block: [start, end, null, null, null, null, [code_text, language]].
+	// The text sits at index 6 rather than in a [start, end, [...]] leaf, so
+	// the descent below never reaches it and an excerpt running into a fenced
+	// block would stop at the fence.
+	if len(arr) > 6 {
+		if code, ok := arr[6].([]interface{}); ok && len(code) > 0 {
+			if text, ok := code[0].(string); ok {
+				b.WriteString(text)
+				return
+			}
+		}
+	}
+	for _, child := range arr {
+		collectExcerptLeaves(child, b)
+	}
 }
 
 // parseFollowUps extracts follow-up suggestions from wire position [4].
@@ -5167,7 +5501,7 @@ func (c *Client) GetConversationHistory(projectID, conversationID string) ([]Cha
 	if err := beprotojson.Unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("parse conversation history: %w", err)
 	}
-	return conversationMessagesFromProto(&response), nil
+	return conversationMessagesFromProto(&response, raw), nil
 }
 
 func conversationRequestContext() *pb.RequestContext {
@@ -5181,12 +5515,19 @@ func conversationRequestContext() *pb.RequestContext {
 	}
 }
 
-func conversationMessagesFromProto(resp *pb.GetConversationHistoryResponse) []ChatMessage {
+func conversationMessagesFromProto(resp *pb.GetConversationHistoryResponse, raw []byte) []ChatMessage {
 	if resp == nil || len(resp.GetMessages()) == 0 {
 		return nil
 	}
+	// The proto GetConversationHistoryResponse models message structure but not
+	// the content block's citation detail slots ([4][1]/[4][3]), which carry
+	// each citation's verbatim excerpt and embedded source UUID, nor the
+	// answer-body span tree beside them. Recover both from the raw payload,
+	// aligned by message index: the proto decode gives the structure, the raw
+	// bytes give what the model cannot represent.
+	extras := historyCitationsByIndex(raw)
 	messages := make([]ChatMessage, 0, len(resp.GetMessages()))
-	for _, message := range resp.GetMessages() {
+	for i, message := range resp.GetMessages() {
 		if message == nil || message.GetRole() == 0 {
 			continue
 		}
@@ -5197,9 +5538,70 @@ func conversationMessagesFromProto(resp *pb.GetConversationHistoryResponse) []Ch
 		if content == "" {
 			continue
 		}
-		messages = append(messages, ChatMessage{MessageID: message.GetMessageId(), Content: content, Role: int(message.GetRole())})
+		msg := ChatMessage{MessageID: message.GetMessageId(), Content: content, Role: int(message.GetRole())}
+		if i < len(extras) {
+			msg.Citations = extras[i].citations
+			msg.Rich = extras[i].rich
+		}
+		messages = append(messages, msg)
 	}
 	return messages
+}
+
+// historyCitationsByIndex extracts per-message citations (with verbatim
+// excerpts and embedded source UUIDs) from the raw GetConversationHistory
+// payload, indexed to match the proto message order. The proto decode drops
+// the citation detail slot, so citations are parsed positionally: each
+// assistant message's content block [4] carries citationData at [1] and
+// mappingData at [3], which parseCitationsV2 fans out per (marker, source).
+// A message with no citation slot yields a nil entry, keeping indices aligned.
+func historyCitationsByIndex(raw []byte) []historyMessageExtras {
+	var data []interface{}
+	if err := json.Unmarshal(raw, &data); err != nil {
+		return nil
+	}
+	msgArrays := historyMessageArrays(data)
+	out := make([]historyMessageExtras, len(msgArrays))
+	for i, m := range msgArrays {
+		arr, ok := m.([]interface{})
+		if !ok || len(arr) <= 4 {
+			continue
+		}
+		// The content block carries the answer-body span tree alongside the
+		// citation slots, so decode it from the same position.
+		out[i].rich = decodeRichContent(arr[4])
+		block, ok := arr[4].([]interface{})
+		if !ok || len(block) <= 3 {
+			continue
+		}
+		out[i].citations = parseCitationsV2(block[1], block[3], nil)
+	}
+	return out
+}
+
+// historyMessageExtras holds the per-message data the proto decode drops: the
+// citation details and the answer-body span tree, both of which live in the
+// content block the generated message does not model.
+type historyMessageExtras struct {
+	citations []Citation
+	rich      *RichContent
+}
+
+// historyMessageArrays unwraps the GetConversationHistory envelope to the list
+// of message arrays. The payload is [[[msg1, msg2, ...]]] (wrapped) or the
+// message list directly; this mirrors the proto decoder's message ordering.
+func historyMessageArrays(data []interface{}) []interface{} {
+	if len(data) == 0 {
+		return nil
+	}
+	outer, ok := data[0].([]interface{})
+	if !ok || len(outer) == 0 {
+		return nil
+	}
+	if _, ok := outer[0].([]interface{}); ok {
+		return outer
+	}
+	return data
 }
 
 func contentSegmentText(segment *pb.ContentSegment) string {
@@ -5495,7 +5897,7 @@ func parseShareProjectResponse(projectID string, isPublic bool, resp []byte) (*p
 	if result.ShareUrl == "" && isPublic {
 		result.ShareUrl = fmt.Sprintf("https://notebooklm.google.com/notebook/%s", projectID)
 	}
-	if shareID := findStringMatching(responseData, isUUIDLike); shareID != "" {
+	if shareID := findStringMatching(responseData, isUUID); shareID != "" {
 		result.ShareId = shareID
 	}
 	return result, nil
@@ -5515,13 +5917,6 @@ func findStringMatching(v interface{}, match func(string) bool) string {
 		}
 	}
 	return ""
-}
-
-var uuidLike = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
-
-// isUUIDLike reports whether s looks like a UUID.
-func isUUIDLike(s string) bool {
-	return uuidLike.MatchString(s)
 }
 
 // Helper functions to identify and extract YouTube video IDs

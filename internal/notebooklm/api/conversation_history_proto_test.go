@@ -32,7 +32,7 @@ func TestConversationMessagesFromProto(t *testing.T) {
 		{MessageId: "user-1", Role: 1, Text: "Question"},
 		{MessageId: "assistant-1", Role: 2, RichContent: &pb.RichContent{Segment: &pb.ContentSegment{Text: proto.String("Answer")}}},
 		{MessageId: "empty", Role: 2},
-	}})
+	}}, nil)
 	want := []ChatMessage{
 		{MessageID: "user-1", Role: 1, Content: "Question"},
 		{MessageID: "assistant-1", Role: 2, Content: "Answer"},

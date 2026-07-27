@@ -3,8 +3,10 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"strings"
 	"testing"
+	"time"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -74,6 +76,39 @@ func TestParseChatResponseChunkedUsesWirePhaseForBoldAnswer(t *testing.T) {
 			t.Fatalf("chunk %d = %#v, want %#v", i, got[i], want[i])
 		}
 	}
+}
+
+func TestParseChatResponseChunkedTimesOutWithoutResponse(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer reader.Close()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if _, err := io.WriteString(writer, ")]}'\n"); err != nil {
+			return
+		}
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			if _, err := io.WriteString(writer, "1\n"); err != nil {
+				return
+			}
+		}
+	}()
+
+	c := &Client{}
+	err := c.parseChatResponseChunkedWithProgressTimeout(reader, nil, func(ChatChunk) bool {
+		t.Fatal("callback called for a stream with no response chunk")
+		return false
+	}, 20*time.Millisecond, time.Second)
+	if !IsChatStreamTimeout(err) {
+		t.Fatalf("error = %v, want chat stream timeout", err)
+	}
+	if !strings.Contains(err.Error(), "without an initial response") {
+		t.Fatalf("error = %q, want initial-response diagnostic", err)
+	}
+	<-done
 }
 
 func TestAnswerOnlyCallback(t *testing.T) {
@@ -251,11 +286,15 @@ func mockChatPayload(text string, phase int) interface{} {
 // src at project-index 99), while the footer printed "[1] = project-index-0"
 // because SourceIndex was srcIdx+1. See /tmp/nlm-impl-count.log for the repro.
 func TestParseCitationsV2SlotOrdering(t *testing.T) {
-	// Three sources in the project list, and three emitted citation slots
-	// that reference project indices in a non-monotonic order:
-	//   slot 0 (narrative [1]) → project-index 2 (src_c)
-	//   slot 1 (narrative [2]) → project-index 0 (src_a)
-	//   slot 2 (narrative [3]) → project-indices 1,2 (src_b AND src_c together)
+	// Three sources, referenced by three narrative markers in non-monotonic
+	// order. srcIndices index citationData, and each cited source carries its
+	// OWN confidence from citationData[srcIdx] — so a marker citing several
+	// sources emits one Citation per source with that source's confidence.
+	//   marker 1 → citationData[2] (src_c, conf 0.7)
+	//   marker 2 → citationData[0] (src_a, conf 0.9)
+	//   marker 3 → citationData[1] (src_b, conf 0.8) AND [2] (src_c, conf 0.7)
+	// No embedded [6] UUID here, so SourceID resolves via the sourceIDs
+	// fallback (the shape the live stream would use).
 	sourceIDs := []string{"src_a", "src_b", "src_c"}
 	mappingData := []interface{}{
 		[]interface{}{[]interface{}{nil, float64(0), float64(10)}, []interface{}{float64(2)}},
@@ -269,15 +308,15 @@ func TestParseCitationsV2SlotOrdering(t *testing.T) {
 	}
 
 	got := parseCitationsV2(citationData, mappingData, sourceIDs)
-	// One citation per (slot, srcIdx) pair: slots 0+1 have one src each,
-	// slot 2 has two → 4 total.
+	// One citation per (marker, srcIdx) pair: markers 1+2 have one src each,
+	// marker 3 has two → 4 total.
 	if len(got) != 4 {
 		t.Fatalf("got %d citations, want 4: %+v", len(got), got)
 	}
 	want := []Citation{
-		{SourceIndex: 1, SourceID: "src_c", StartChar: 0, EndChar: 10, Confidence: 0.9},
-		{SourceIndex: 2, SourceID: "src_a", StartChar: 11, EndChar: 20, Confidence: 0.8},
-		{SourceIndex: 3, SourceID: "src_b", StartChar: 21, EndChar: 30, Confidence: 0.7},
+		{SourceIndex: 1, SourceID: "src_c", StartChar: 0, EndChar: 10, Confidence: 0.7},
+		{SourceIndex: 2, SourceID: "src_a", StartChar: 11, EndChar: 20, Confidence: 0.9},
+		{SourceIndex: 3, SourceID: "src_b", StartChar: 21, EndChar: 30, Confidence: 0.8},
 		{SourceIndex: 3, SourceID: "src_c", StartChar: 21, EndChar: 30, Confidence: 0.7},
 	}
 	for i, w := range want {
@@ -297,11 +336,11 @@ func TestParseCitationsV2SlotOrdering(t *testing.T) {
 func TestParseCitationsV2SkipsUnresolvableSrcIdx(t *testing.T) {
 	sourceIDs := []string{"src_a"} // request narrowed to one source
 	mappingData := []interface{}{
-		// Slot 0: srcIdx 0 (resolves to src_a).
+		// Marker 1: srcIdx 0 → citationData[0], resolves to src_a.
 		[]interface{}{[]interface{}{nil, float64(0), float64(10)}, []interface{}{float64(0)}},
-		// Slot 1: srcIdx 5 (out of range — must be dropped).
+		// Marker 2: srcIdx 5 (past citationData and sourceIDs — dropped).
 		[]interface{}{[]interface{}{nil, float64(11), float64(20)}, []interface{}{float64(5)}},
-		// Slot 2: mixes valid (0) and invalid (3) — the valid one survives.
+		// Marker 3: mixes valid (0 → src_a) and invalid (3) — valid survives.
 		[]interface{}{[]interface{}{nil, float64(21), float64(30)}, []interface{}{float64(0), float64(3)}},
 	}
 	citationData := []interface{}{
@@ -311,9 +350,10 @@ func TestParseCitationsV2SkipsUnresolvableSrcIdx(t *testing.T) {
 	}
 
 	got := parseCitationsV2(citationData, mappingData, sourceIDs)
+	// Both surviving citations reference srcIdx 0 → citationData[0], conf 0.9.
 	want := []Citation{
 		{SourceIndex: 1, SourceID: "src_a", StartChar: 0, EndChar: 10, Confidence: 0.9},
-		{SourceIndex: 3, SourceID: "src_a", StartChar: 21, EndChar: 30, Confidence: 0.7},
+		{SourceIndex: 3, SourceID: "src_a", StartChar: 21, EndChar: 30, Confidence: 0.9},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d citations, want %d: %+v", len(got), len(want), got)
@@ -330,6 +370,55 @@ func TestParseCitationsV2SkipsUnresolvableSrcIdx(t *testing.T) {
 		if c.SourceID == "" {
 			t.Errorf("citation with empty SourceID leaked through: %+v", c)
 		}
+	}
+}
+
+// TestParseCitationsV2ParentSourceID pins the parent-vs-chunk decode. A live
+// citation slot carries [5] = [[[sourceUUID], chunkUUID]] (the source that owns
+// the passage) and [6] = [chunkUUID] (the granular handle). SourceID reads [6];
+// ParentSourceID reads slot[5][0][0][0] — the id that resolves to a title in
+// the project source list. Verified live: a notebook's 8 sources appear at
+// [5][0][0][0] while [6] carries 76 distinct chunk handles.
+func TestParseCitationsV2ParentSourceID(t *testing.T) {
+	const (
+		parentA = "11111111-2222-3333-4444-555555555555"
+		chunkA  = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+		chunkB  = "99999999-8888-7777-6666-555555555555"
+	)
+	mappingData := []interface{}{
+		[]interface{}{[]interface{}{nil, float64(0), float64(10)}, []interface{}{float64(0)}},
+		[]interface{}{[]interface{}{nil, float64(11), float64(20)}, []interface{}{float64(1)}},
+	}
+	citationData := []interface{}{
+		// Citation shape: [5] = [[[parentA], chunkA]], [6] = [chunkA].
+		[]interface{}{nil, nil, float64(0.9), nil, nil,
+			[]interface{}{[]interface{}{[]interface{}{parentA}, chunkA}},
+			[]interface{}{chunkA}},
+		// Reply-span shape: [5] = [[parentA], [null, start, end]] — the second
+		// element is a numeric range, not a chunk UUID, so ParentSourceID must
+		// stay empty (we must not read a source id out of a reply-span slot).
+		[]interface{}{nil, nil, float64(0.8), nil, nil,
+			[]interface{}{[]interface{}{[]interface{}{parentA}, []interface{}{nil, float64(1), float64(2)}}},
+			[]interface{}{chunkB}},
+	}
+
+	got := parseCitationsV2(citationData, mappingData, nil)
+	if len(got) != 2 {
+		t.Fatalf("got %d citations, want 2: %+v", len(got), got)
+	}
+	// Citation shape: chunk in SourceID, parent resolved.
+	if got[0].SourceID != chunkA {
+		t.Errorf("citation 0 SourceID = %q, want chunk %q", got[0].SourceID, chunkA)
+	}
+	if got[0].ParentSourceID != parentA {
+		t.Errorf("citation 0 ParentSourceID = %q, want parent %q", got[0].ParentSourceID, parentA)
+	}
+	// Reply-span shape: chunk in SourceID, NO parent (the guard rejected it).
+	if got[1].SourceID != chunkB {
+		t.Errorf("citation 1 SourceID = %q, want chunk %q", got[1].SourceID, chunkB)
+	}
+	if got[1].ParentSourceID != "" {
+		t.Errorf("citation 1 ParentSourceID = %q, want empty (reply-span shape)", got[1].ParentSourceID)
 	}
 }
 
@@ -362,9 +451,16 @@ func TestExtractChatPayloadResolvesScopedCitationIDs(t *testing.T) {
 }
 
 func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
+	// srcIndices index citations, not markers: one marker citing two sources
+	// reads a separate grounding record per source, each with its own score.
+	// The two arrays are usually different lengths on the wire (328 frames of
+	// 351 in the corpus), so there is no marker-aligned reading of them.
 	response := &pb.GenerateFreeFormStreamedWireResponse{
-		Answer:    &pb.ChatAnswer{Chunk: "answer"},
-		Citations: []*pb.Grounding{{Score: proto.Float64(0.9)}},
+		Answer: &pb.ChatAnswer{Chunk: "answer"},
+		Citations: []*pb.Grounding{
+			{Score: proto.Float64(0.9)},
+			{Score: proto.Float64(0.4)},
+		},
 		SourceMappings: []*pb.ChatStreamSourceMapping{{
 			Range:         &pb.OffsetRange{Start: proto.Int64(4), End: proto.Int64(10)},
 			SourceIndices: []int32{0, 1},
@@ -378,8 +474,9 @@ func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
 	if got.Text != "answer" || len(got.Citations) != 2 {
 		t.Fatalf("payload = %#v, want answer with two citations", got)
 	}
+	wantScores := []float64{0.9, 0.4}
 	for i, citation := range got.Citations {
-		if citation.SourceIndex != 1 || citation.SourceID != []string{"src-a", "src-b"}[i] || citation.StartChar != 4 || citation.EndChar != 10 || citation.Confidence != 0.9 {
+		if citation.SourceIndex != 1 || citation.SourceID != []string{"src-a", "src-b"}[i] || citation.StartChar != 4 || citation.EndChar != 10 || citation.Confidence != wantScores[i] {
 			t.Errorf("citation %d = %#v", i, citation)
 		}
 	}

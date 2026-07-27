@@ -1360,7 +1360,8 @@ service LabsTailwindOrchestrationService {
     rpc ListRecentlyViewedProjects(ListRecentlyViewedProjectsRequest) returns (ListRecentlyViewedProjectsResponse) {
         option (rpc_id) = "wXbhsf";
         // HAR/live-server-verified request shape. The longer client-capability
-        // and empty-filter scaffold is rejected by the server.
+        // and empty-filter scaffold is rejected by the server ("arguments
+        // invalid"); the short form is what the client actually sends.
         option (arg_format) = "[null, 1, null, [2]]";
         option (chunked_response) = true;
     }

@@ -16,6 +16,15 @@ type chatRenderOptions struct {
 	Verbose          bool
 	CitationMode     string
 	ResolveCitations bool
+	ExcerptBudget    int  // >0 shows the cited source span under each citation, clipped to this many chars
+	HideConfidence   bool // --citation-confidence=off: drop the (p=) column from the citation list
+	HideSpans        bool // --citation-spans=off: drop the trailing [chars N-M] from citation rows
+
+	// Whole-document output format for chat-show: "" (text, default),
+	// "markdown", or "html". OutFile and Open apply to html.
+	Format  string
+	OutFile string // --out FILE: write html here instead of stdout
+	Open    bool   // --open: open the written html file in the browser
 }
 
 type generateChatOptions struct {
@@ -56,6 +65,9 @@ func chatRenderOptionsFromGlobals(globals globalOptions) chatRenderOptions {
 		Verbose:          globals.verbose,
 		CitationMode:     globals.citationMode,
 		ResolveCitations: globals.resolveCitationsFlag,
+		ExcerptBudget:    globals.citationExcerpt.Budget(),
+		HideConfidence:   globals.hideCitationConf.Hidden(),
+		HideSpans:        globals.hideCitationSpans.Hidden(),
 	}
 }
 
@@ -76,6 +88,11 @@ func appendRenderFlags(flags *flag.FlagSet, opts *chatRenderOptions) {
 	flags.BoolVar(&opts.Verbose, "v", opts.Verbose, "")
 	flags.StringVar(&opts.CitationMode, "citations", opts.CitationMode, "")
 	flags.BoolVar(&opts.ResolveCitations, "resolve-citations", opts.ResolveCitations, "")
+	sink := &excerptBudgetSink{dst: &opts.ExcerptBudget}
+	flags.Var(sink, "citation-excerpts", "")
+	flags.Var(sink, "citation-excerpt", "") // singular alias
+	flags.Var(&offToggleSink{hidden: &opts.HideConfidence}, "citation-confidence", "")
+	flags.Var(&offToggleSink{hidden: &opts.HideSpans}, "citation-spans", "")
 }
 
 func printGenerateChatUsage(cmdName string) {
@@ -86,8 +103,11 @@ func printGenerateChatUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --prompt-file, -f <path> Read the prompt from a file ('-' reads stdin)")
 	fmt.Fprintln(os.Stderr, "  --thinking, --reasoning  Show thinking headers while streaming")
 	fmt.Fprintln(os.Stderr, "  --verbose, -v            Show full thinking traces while streaming")
-	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|list|json (default list; block/stream/tail are deprecated aliases of list)")
+	fmt.Fprintln(os.Stderr, "  --citation-confidence=off  Hide the (p=…) confidence column in the citation list")
+	fmt.Fprintln(os.Stderr, "  --citation-spans=off       Hide the trailing [chars N-M] span column in the citation list")
 	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
+	fmt.Fprintln(os.Stderr, "  --citation-excerpts[=N]  Show the cited source text under each citation (N chars, default 160)")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
 	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
@@ -133,32 +153,40 @@ func parseGenerateChatArgsWithOptions(args []string, globals globalOptions) (gen
 	appendSelectorFlags(flags, &opts.Selectors)
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
-		"conversation":      true,
-		"c":                 true,
-		"web":               true,
-		"prompt-file":       true,
-		"f":                 true,
-		"thinking":          true,
-		"reasoning":         true,
-		"thinking-jsonl":    true,
-		"verbose":           true,
-		"v":                 true,
-		"citations":         true,
-		"resolve-citations": true,
-		"source-ids":        true,
-		"source-match":      true,
-		"source-exclude":    true,
-		"label-ids":         true,
-		"label-match":       true,
-		"label-exclude":     true,
+		"conversation":        true,
+		"c":                   true,
+		"web":                 true,
+		"prompt-file":         true,
+		"f":                   true,
+		"thinking":            true,
+		"reasoning":           true,
+		"thinking-jsonl":      true,
+		"verbose":             true,
+		"v":                   true,
+		"citations":           true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
+		"source-ids":          true,
+		"source-match":        true,
+		"source-exclude":      true,
+		"label-ids":           true,
+		"label-match":         true,
+		"label-exclude":       true,
 	}, map[string]bool{
-		"web":               true,
-		"thinking":          true,
-		"reasoning":         true,
-		"thinking-jsonl":    true,
-		"verbose":           true,
-		"v":                 true,
-		"resolve-citations": true,
+		"web":                 true,
+		"thinking":            true,
+		"reasoning":           true,
+		"thinking-jsonl":      true,
+		"verbose":             true,
+		"v":                   true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
 	})
 	if err != nil {
 		return opts, nil, err
@@ -201,8 +229,11 @@ func printChatUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --history                Show previous chat conversation on start")
 	fmt.Fprintln(os.Stderr, "  --thinking, --reasoning  Show thinking headers while streaming")
 	fmt.Fprintln(os.Stderr, "  --verbose, -v            Show full thinking traces while streaming")
-	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|list|json (default list; block/stream/tail are deprecated aliases of list)")
+	fmt.Fprintln(os.Stderr, "  --citation-confidence=off  Hide the (p=…) confidence column in the citation list")
+	fmt.Fprintln(os.Stderr, "  --citation-spans=off       Hide the trailing [chars N-M] span column in the citation list")
 	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
+	fmt.Fprintln(os.Stderr, "  --citation-excerpts[=N]  Show the cited source text under each citation (N chars, default 160)")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
 	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
@@ -245,30 +276,38 @@ func parseChatArgsWithOptions(args []string, globals globalOptions) (chatOptions
 	appendSelectorFlags(flags, &opts.Selectors)
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
-		"prompt-file":       true,
-		"f":                 true,
-		"history":           true,
-		"thinking":          true,
-		"reasoning":         true,
-		"thinking-jsonl":    true,
-		"verbose":           true,
-		"v":                 true,
-		"citations":         true,
-		"resolve-citations": true,
-		"source-ids":        true,
-		"source-match":      true,
-		"source-exclude":    true,
-		"label-ids":         true,
-		"label-match":       true,
-		"label-exclude":     true,
+		"prompt-file":         true,
+		"f":                   true,
+		"history":             true,
+		"thinking":            true,
+		"reasoning":           true,
+		"thinking-jsonl":      true,
+		"verbose":             true,
+		"v":                   true,
+		"citations":           true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
+		"source-ids":          true,
+		"source-match":        true,
+		"source-exclude":      true,
+		"label-ids":           true,
+		"label-match":         true,
+		"label-exclude":       true,
 	}, map[string]bool{
-		"history":           true,
-		"thinking":          true,
-		"reasoning":         true,
-		"thinking-jsonl":    true,
-		"verbose":           true,
-		"v":                 true,
-		"resolve-citations": true,
+		"history":             true,
+		"thinking":            true,
+		"reasoning":           true,
+		"thinking-jsonl":      true,
+		"verbose":             true,
+		"v":                   true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
 	})
 	if err != nil {
 		return opts, nil, err
@@ -316,7 +355,14 @@ func printChatShowUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "Usage: nlm %s [flags] <notebook-id> <conversation-id>\n\n", cmdName)
 	fmt.Fprintln(os.Stderr, "Flags:")
 	fmt.Fprintln(os.Stderr, "  --thinking, --reasoning  Show persisted thinking traces on stderr")
-	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|list|json (default list; block/stream/tail are deprecated aliases of list)")
+	fmt.Fprintln(os.Stderr, "  --citation-confidence=off  Hide the (p=…) confidence column in the citation list")
+	fmt.Fprintln(os.Stderr, "  --citation-spans=off       Hide the trailing [chars N-M] span column in the citation list")
+	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
+	fmt.Fprintln(os.Stderr, "  --citation-excerpts[=N]  Show the cited source text under each citation (N chars, default 160); rehydrates from the saved conversation")
+	fmt.Fprintln(os.Stderr, "  --format <fmt>           Output format: text (default), markdown, or html")
+	fmt.Fprintln(os.Stderr, "  --out <file>             Write html output to a file instead of stdout (--format=html only)")
+	fmt.Fprintln(os.Stderr, "  --open                   Open the written html file in a browser (--format=html with --out)")
 }
 
 func validateChatShowArgs(cmdName string, args []string) error {
@@ -340,16 +386,36 @@ func parseChatShowArgsWithOptions(args []string, globals globalOptions) (chatRen
 	flags.BoolVar(&opts.ShowThinking, "reasoning", opts.ShowThinking, "")
 	flags.StringVar(&opts.CitationMode, "citations", opts.CitationMode, "")
 	flags.BoolVar(&opts.ResolveCitations, "resolve-citations", opts.ResolveCitations, "")
+	excerptSink := &excerptBudgetSink{dst: &opts.ExcerptBudget}
+	flags.Var(excerptSink, "citation-excerpts", "")
+	flags.Var(excerptSink, "citation-excerpt", "")
+	flags.Var(&offToggleSink{hidden: &opts.HideConfidence}, "citation-confidence", "")
+	flags.Var(&offToggleSink{hidden: &opts.HideSpans}, "citation-spans", "")
+	flags.StringVar(&opts.Format, "format", opts.Format, "")
+	flags.StringVar(&opts.OutFile, "out", opts.OutFile, "")
+	flags.BoolVar(&opts.Open, "open", opts.Open, "")
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
-		"thinking":          true,
-		"reasoning":         true,
-		"citations":         true,
-		"resolve-citations": true,
+		"thinking":            true,
+		"reasoning":           true,
+		"citations":           true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
+		"format":              true,
+		"out":                 true,
+		"open":                true,
 	}, map[string]bool{
-		"thinking":          true,
-		"reasoning":         true,
-		"resolve-citations": true,
+		"thinking":            true,
+		"reasoning":           true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
+		"open":                true,
 	})
 	if err != nil {
 		return opts, nil, err
@@ -360,7 +426,36 @@ func parseChatShowArgsWithOptions(args []string, globals globalOptions) (chatRen
 	if len(positional) != 2 {
 		return opts, nil, fmt.Errorf("want notebook id and conversation id")
 	}
+	if err := validateChatFormat(&opts); err != nil {
+		return opts, nil, err
+	}
 	return opts, positional, nil
+}
+
+// validateChatFormat normalizes and checks the --format/--out/--open trio.
+// Format defaults to "text"; markdown and html are the alternates. --out and
+// --open only apply to html; using them with another format is a usage error
+// rather than a silent no-op.
+func validateChatFormat(opts *chatRenderOptions) error {
+	switch opts.Format {
+	case "", "text":
+		opts.Format = "text"
+	case "markdown", "md":
+		opts.Format = "markdown"
+	case "html":
+		opts.Format = "html"
+	default:
+		return fmt.Errorf("unknown --format %q (want text, markdown, or html)", opts.Format)
+	}
+	if opts.Format != "html" {
+		if opts.OutFile != "" {
+			return fmt.Errorf("--out only applies to --format=html")
+		}
+		if opts.Open {
+			return fmt.Errorf("--open only applies to --format=html")
+		}
+	}
+	return nil
 }
 
 func runChatShow(args []string) error {
@@ -427,8 +522,11 @@ func printGenerateReportUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --sections <n>           Generate at most n sections (0 = all)")
 	fmt.Fprintln(os.Stderr, "  --thinking, --reasoning  Show thinking headers while streaming")
 	fmt.Fprintln(os.Stderr, "  --verbose, -v            Show full thinking traces while streaming")
-	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|block|stream|tail|overlay|json")
+	fmt.Fprintln(os.Stderr, "  --citations <mode>       Citation rendering: off|list|json (default list; block/stream/tail are deprecated aliases of list)")
+	fmt.Fprintln(os.Stderr, "  --citation-confidence=off  Hide the (p=…) confidence column in the citation list")
+	fmt.Fprintln(os.Stderr, "  --citation-spans=off       Hide the trailing [chars N-M] span column in the citation list")
 	fmt.Fprintln(os.Stderr, "  --resolve-citations      Resolve citations to file:line for txtar-archive sources")
+	fmt.Fprintln(os.Stderr, "  --citation-excerpts[=N]  Show the cited source text under each citation (N chars, default 160)")
 	fmt.Fprintln(os.Stderr, "  --source-ids <ids>       Focus on these source IDs ('a,b,c' or '-' for stdin)")
 	fmt.Fprintln(os.Stderr, "  --source-match <regex>   Focus on sources whose title or UUID matches the regex")
 	fmt.Fprintln(os.Stderr, "  --source-exclude <regex> Exclude sources whose title or UUID matches the regex")
@@ -472,29 +570,37 @@ func parseGenerateReportArgsWithOptions(args []string, globals globalOptions) (r
 	appendSelectorFlags(flags, &opts.Selectors)
 
 	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
-		"prompt":            true,
-		"instructions":      true,
-		"sections":          true,
-		"thinking":          true,
-		"reasoning":         true,
-		"thinking-jsonl":    true,
-		"verbose":           true,
-		"v":                 true,
-		"citations":         true,
-		"resolve-citations": true,
-		"source-ids":        true,
-		"source-match":      true,
-		"source-exclude":    true,
-		"label-ids":         true,
-		"label-match":       true,
-		"label-exclude":     true,
+		"prompt":              true,
+		"instructions":        true,
+		"sections":            true,
+		"thinking":            true,
+		"reasoning":           true,
+		"thinking-jsonl":      true,
+		"verbose":             true,
+		"v":                   true,
+		"citations":           true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
+		"source-ids":          true,
+		"source-match":        true,
+		"source-exclude":      true,
+		"label-ids":           true,
+		"label-match":         true,
+		"label-exclude":       true,
 	}, map[string]bool{
-		"thinking":          true,
-		"reasoning":         true,
-		"thinking-jsonl":    true,
-		"verbose":           true,
-		"v":                 true,
-		"resolve-citations": true,
+		"thinking":            true,
+		"reasoning":           true,
+		"thinking-jsonl":      true,
+		"verbose":             true,
+		"v":                   true,
+		"resolve-citations":   true,
+		"citation-excerpts":   true,
+		"citation-excerpt":    true,
+		"citation-confidence": true,
+		"citation-spans":      true,
 	})
 	if err != nil {
 		return opts, nil, err
