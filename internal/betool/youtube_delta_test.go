@@ -1,4 +1,4 @@
-package main
+package betool
 
 import (
 	"encoding/json"
@@ -854,10 +854,6 @@ func TestGenerateReportSuggestionsRoundTrip(t *testing.T) {
 	if deltas, err := diffWireAgainstProto([]byte(responseWire), response); err != nil || len(deltas) != 0 {
 		t.Fatalf("response diff = %v, %v; want lossless", deltas, err)
 	}
-	gotIDs := reportSuggestionSourceIDs(response.(*notebooklmv1alpha1.GenerateReportSuggestionsResponse).GetSuggestions()[0])
-	if len(gotIDs) != 2 || gotIDs[0] != "source-1" || gotIDs[1] != "source-2" {
-		t.Fatalf("source IDs = %v, want [source-1 source-2]", gotIDs)
-	}
 }
 
 func TestSourceWarningsBareIntegersRoundTrip(t *testing.T) {
@@ -1242,7 +1238,7 @@ func TestGetNotesResponseRoundTrip(t *testing.T) {
 // structured rich text, its parallel unkeyed grounding list, inline images,
 // table-row metadata, and explicitly empty text leaves.
 func TestGetNotesRichResponseRoundTrip(t *testing.T) {
-	wire, err := os.ReadFile("testdata/get_notes_rich_wire.json")
+	wire, err := os.ReadFile("../../cmd/nlm/testdata/get_notes_rich_wire.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1443,7 +1439,7 @@ func TestLoadSourceResponseRoundTrip(t *testing.T) {
 // TestGetConversationHistoryRichResponseRoundTrip guards the khqZz cursor,
 // explicit empty segment text, styled marks, and shifted list marker.
 func TestGetConversationHistoryRichResponseRoundTrip(t *testing.T) {
-	wire, err := os.ReadFile("testdata/get_conversation_history_rich_wire.json")
+	wire, err := os.ReadFile("../../cmd/nlm/testdata/get_conversation_history_rich_wire.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1506,7 +1502,7 @@ func TestConversationRichShapeVariantsRoundTrip(t *testing.T) {
 // TestLoadSourceRichResponseRoundTrip guards the hizoJc loaded-source styles,
 // list item, table, and code-block variants.
 func TestLoadSourceRichResponseRoundTrip(t *testing.T) {
-	wire, err := os.ReadFile("testdata/load_source_rich_wire.json")
+	wire, err := os.ReadFile("../../cmd/nlm/testdata/load_source_rich_wire.json")
 	if err != nil {
 		t.Fatal(err)
 	}

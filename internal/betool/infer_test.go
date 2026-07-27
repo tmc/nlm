@@ -1,4 +1,4 @@
-package main
+package betool
 
 import (
 	"encoding/json"
@@ -15,11 +15,11 @@ import (
 )
 
 func TestBetoolInferProtoStaticMerge(t *testing.T) {
-	raw, err := os.ReadFile("../../internal/batchexecute/testdata/list_notebooks.txt")
+	raw, err := os.ReadFile("../batchexecute/testdata/list_notebooks.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
 	}
-	out, err := runBetoolCapture(t, []string{"--json", "infer-proto", "--rpc-id=wXbhsf", "../../internal/batchexecute/testdata/list_notebooks.txt"}, string(raw))
+	out, err := runBetoolCapture(t, []string{"--json", "infer-proto", "--rpc-id=wXbhsf", "../batchexecute/testdata/list_notebooks.txt"}, string(raw))
 	if err != nil {
 		t.Fatalf("infer-proto: %v", err)
 	}

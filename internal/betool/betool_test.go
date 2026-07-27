@@ -1,4 +1,4 @@
-package main
+package betool
 
 import (
 	"bytes"
@@ -21,15 +21,10 @@ func compactStr(t *testing.T, b []byte) string {
 }
 
 func TestBeprotoUnmarshalOptionsUsesCommandDebugSettings(t *testing.T) {
-	oldParsing, oldMapping := debugParsing, debugFieldMapping
-	t.Cleanup(func() {
-		debugParsing = oldParsing
-		debugFieldMapping = oldMapping
+	options := beprotoUnmarshalOptions(betoolOptions{
+		debugParsing:      true,
+		debugFieldMapping: true,
 	})
-	debugParsing = true
-	debugFieldMapping = true
-
-	options := beprotoUnmarshalOptions()
 	if !options.DiscardUnknown {
 		t.Error("DiscardUnknown = false, want true")
 	}
@@ -87,7 +82,7 @@ func runBetoolCapture(t *testing.T, args []string, stdinData string) (string, er
 		jsonOutput = true
 		args = args[1:]
 	}
-	runErr := runBetool(args, jsonOutput)
+	runErr := Run(args, Options{JSONOutput: jsonOutput})
 	outW.Close()
 	out := <-done
 	outR.Close()
@@ -249,7 +244,7 @@ func TestBetoolProtoResponseFixture(t *testing.T) {
 	// The list_notebooks fixture decodes into a typed response with named
 	// fields. Every source field is now modeled (SourceMetadata field #4 is
 	// RevisionData), so the fixture round-trips losslessly.
-	raw, err := os.ReadFile("../../internal/batchexecute/testdata/list_notebooks.txt")
+	raw, err := os.ReadFile("../batchexecute/testdata/list_notebooks.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
 	}
@@ -297,7 +292,7 @@ func TestBetoolProtoResponseFixture(t *testing.T) {
 // assistant turn's rich_content is fully modeled down to its rich-text document
 // tree, so the segment text decodes and no element drops as "does not fit".
 func TestBetoolProtoConversationHistoryDecodes(t *testing.T) {
-	raw, err := os.ReadFile("../../internal/batchexecute/testdata/conversation_history.txt")
+	raw, err := os.ReadFile("../batchexecute/testdata/conversation_history.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
 	}
@@ -380,7 +375,7 @@ func TestBetoolProtoConversationHistoryDecodes(t *testing.T) {
 // A regression that drops the categories field would push this fixture below
 // lossless and fail here.
 func TestBetoolProtoArtifactSuggestionCategories(t *testing.T) {
-	raw, err := os.ReadFile("../../internal/batchexecute/testdata/responses/otmP3b.txt")
+	raw, err := os.ReadFile("../batchexecute/testdata/responses/otmP3b.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
 	}
@@ -434,7 +429,7 @@ func TestBetoolProtoArtifactSuggestionCategories(t *testing.T) {
 // CopyProjectResponse. CopyProject has no live caller, so the return-type
 // change is decode-only.
 func TestBetoolProtoCopyProjectResponse(t *testing.T) {
-	raw, err := os.ReadFile("../../internal/batchexecute/testdata/responses/te3DCe.txt")
+	raw, err := os.ReadFile("../batchexecute/testdata/responses/te3DCe.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
 	}
@@ -476,7 +471,7 @@ func TestBetoolProtoCopyProjectResponse(t *testing.T) {
 // hand-parses the raw JSON (not proto) and only reads OwnerName/IsPublic by Go
 // field name, so the renumber is decode-only. Fixture is PII-scrubbed.
 func TestBetoolProtoProjectDetailsResponse(t *testing.T) {
-	raw, err := os.ReadFile("../../internal/batchexecute/testdata/responses/JFMDGd.txt")
+	raw, err := os.ReadFile("../batchexecute/testdata/responses/JFMDGd.txt")
 	if err != nil {
 		t.Skipf("fixture unavailable: %v", err)
 	}
@@ -578,7 +573,7 @@ func TestBetoolProtoRequestFixtures(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.file, func(t *testing.T) {
 			raw, err := os.ReadFile(filepath.Join(
-				"../../internal/batchexecute/testdata/requests", tc.file+".txt"))
+				"../batchexecute/testdata/requests", tc.file+".txt"))
 			if err != nil {
 				t.Skipf("fixture unavailable: %v", err)
 			}

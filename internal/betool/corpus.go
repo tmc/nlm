@@ -1,4 +1,4 @@
-package main
+package betool
 
 import (
 	"bufio"
@@ -21,6 +21,7 @@ type corpusAudit struct {
 	Records     []corpusAuditRecord `json:"records"`
 	Summary     corpusAuditSummary  `json:"summary"`
 	HTTPRecords int                 `json:"-"`
+	options     betoolOptions
 }
 
 type corpusAuditRecord struct {
@@ -93,7 +94,7 @@ type corpusTrafficEntry struct {
 }
 
 func betoolAuditCorpus(opts betoolOptions) error {
-	audit := corpusAudit{}
+	audit := corpusAudit{options: opts}
 	for _, file := range opts.files {
 		if err := auditCorpusFile(&audit, file); err != nil {
 			return err
@@ -183,7 +184,7 @@ func auditCorpusStream(audit *corpusAudit, file string, record int, rpcID string
 	if err != nil {
 		appendCorpusFailures(audit, file, record, "request", []string{rpcID}, entry.Response.Status, "parser_failure", err)
 	} else {
-		audit.Records = append(audit.Records, auditCorpusWire(file, record, "request", rpcID, entry.Response.Status, requestWire))
+		audit.Records = append(audit.Records, auditCorpusWire(file, record, "request", rpcID, entry.Response.Status, requestWire, audit.options))
 	}
 
 	responseBody := []byte(entry.Response.Content.Text)
@@ -216,7 +217,7 @@ func auditCorpusStream(audit *corpusAudit, file string, record int, rpcID string
 		})
 		return
 	}
-	audit.Records = append(audit.Records, auditCorpusWire(file, record, "response", rpcID, entry.Response.Status, response.Responses[0].Data))
+	audit.Records = append(audit.Records, auditCorpusWire(file, record, "response", rpcID, entry.Response.Status, response.Responses[0].Data, audit.options))
 }
 
 func corpusURLHost(rawURL string) string {
@@ -270,7 +271,7 @@ func auditCorpusRequest(audit *corpusAudit, file string, record int, expected []
 	seen := make(map[string]bool, len(req.RPCs))
 	for _, call := range req.RPCs {
 		seen[call.ID] = true
-		audit.Records = append(audit.Records, auditCorpusWire(file, record, "request", call.ID, entry.Response.Status, call.Args))
+		audit.Records = append(audit.Records, auditCorpusWire(file, record, "request", call.ID, entry.Response.Status, call.Args, audit.options))
 	}
 	for _, id := range missingCorpusRPCIDs(expected, seen) {
 		appendCorpusFailures(audit, file, record, "request", []string{id}, entry.Response.Status, "parser_failure", fmt.Errorf("request envelope contains no payload for rpc_id"))
@@ -326,7 +327,7 @@ func auditCorpusResponse(audit *corpusAudit, file string, record int, expected [
 			})
 			continue
 		}
-		audit.Records = append(audit.Records, auditCorpusWire(file, record, "response", call.ID, entry.Response.Status, call.Data))
+		audit.Records = append(audit.Records, auditCorpusWire(file, record, "response", call.ID, entry.Response.Status, call.Data, audit.options))
 	}
 	for _, id := range missingCorpusRPCIDs(expected, seen) {
 		appendCorpusFailures(audit, file, record, "response", []string{id}, entry.Response.Status, "transport_no_payload", fmt.Errorf("response envelope contains no payload for rpc_id"))
@@ -368,7 +369,7 @@ func appendCorpusFailures(audit *corpusAudit, file string, record int, side stri
 	}
 }
 
-func auditCorpusWire(file string, record int, side, rpcID string, httpStatus int, wire json.RawMessage) corpusAuditRecord {
+func auditCorpusWire(file string, record int, side, rpcID string, httpStatus int, wire json.RawMessage, opts betoolOptions) corpusAuditRecord {
 	out := corpusAuditRecord{
 		File: file, Record: record, Side: side, RPCID: rpcID, HTTPStatus: httpStatus,
 	}
@@ -393,7 +394,7 @@ func auditCorpusWire(file string, record int, side, rpcID string, httpStatus int
 			msg = method.NewResponse()
 		}
 		candidate := candidate{method: method, msg: msg}
-		if err := beprotoUnmarshal(wire, msg); err != nil {
+		if err := beprotoUnmarshal(wire, msg, opts); err != nil {
 			candidate.err = err
 		} else {
 			candidate.deltas, candidate.err = diffWireAgainstProto(wire, msg)
