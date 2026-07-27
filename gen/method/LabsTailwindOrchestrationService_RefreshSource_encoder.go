@@ -2,7 +2,7 @@ package method
 
 import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/rpc/argbuilder"
+	"github.com/tmc/nlm/internal/argbuilder"
 )
 
 // GENERATION_BEHAVIOR: append
