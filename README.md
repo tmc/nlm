@@ -1,14 +1,17 @@
 # nlm
 
-A terminal- and CI-first [Google NotebookLM](https://notebooklm.google.com)
-client: scriptable CLI, interactive streaming chat, and MCP server in one Go
-binary.
+> **nlm** is a single-static-binary NotebookLM client for people who live in the
+> terminal and in CI. No Python venv, no runtime — one Go binary that is at once a
+> scriptable/pipeable CLI, an interactive streaming chat client, and an MCP server for
+> AI agents. Reverse-engineered wire protocol, lossless-verified.
 
 `nlm` combines compiled-protobuf wire modeling and lossless capture verification
 with source selection by name, label, or regular expression, directory-tree
 sync, rich-note rendering, and citations that resolve back to local file and
 line numbers. See the verified [competitive parity matrix](docs/dev/parity-matrix.md)
-for the evidence behind that positioning.
+for the evidence behind that positioning. A static binary by itself is not
+unique in this field; this combination is. The project is deliberately not
+trying to reproduce the Python `notebooklm-mcp-cli` kitchen-sink surface.
 
 | Capability | What is included |
 |---|---|
