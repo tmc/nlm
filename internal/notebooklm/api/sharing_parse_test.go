@@ -10,7 +10,7 @@ func TestParseShareProjectResponseFallsBackToNotebookURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseShareProjectResponse() error = %v", err)
 	}
-	if result.ShareUrl != "https://notebooklm.google.com/notebook/notebook-123" {
+	if result.ShareUrl != "https://notebook.google.com/notebook/notebook-123" {
 		t.Fatalf("ShareUrl = %q, want notebook URL fallback", result.ShareUrl)
 	}
 	if result.Settings == nil || !result.Settings.IsPublic {

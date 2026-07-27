@@ -23,6 +23,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func uploadURL(authUser string) string {
+	const base = "https://notebook.google.com/upload/_/"
+	if authUser == "" {
+		return base
+	}
+	return base + "?authuser=" + url.QueryEscape(authUser)
+}
+
+func setAuthUserHeader(header http.Header, authUser string) {
+	if authUser != "" {
+		header.Set("X-Goog-AuthUser", authUser)
+	}
+}
+
 // UploadProjectCoverImage uploads a custom cover image and associates it with
 // the notebook. The flow is HAR-verified (2026-04-25 nb-images):
 //
@@ -87,7 +101,7 @@ func (c *Client) startCustomizationUpload(ctx context.Context, projectID, displa
 		return "", fmt.Errorf("marshal metadata: %w", err)
 	}
 
-	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=" + c.authUserOrDefault()
+	uploadInitURL := uploadURL(c.config.AuthUser)
 	req, err := http.NewRequestWithContext(ctx, "POST", uploadInitURL, bytes.NewReader(metadataJSON))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
@@ -96,11 +110,11 @@ func (c *Client) startCustomizationUpload(ctx context.Context, projectID, displa
 	req.Header.Set("X-Goog-Upload-Command", "start")
 	req.Header.Set("X-Goog-Upload-Protocol", "resumable")
 	req.Header.Set("X-Goog-Upload-Header-Content-Length", fmt.Sprintf("%d", contentLength))
-	req.Header.Set("X-Goog-AuthUser", c.authUserOrDefault())
+	setAuthUserHeader(req.Header, c.config.AuthUser)
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
 		req.Header.Set("Cookie", cookies)
 	}
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	setChromeClientHints(req.Header)
 
 	client := httpClientWithTimeout(30 * time.Second)
@@ -652,7 +666,7 @@ func (c *Client) startResumableUpload(ctx context.Context, projectID, filename, 
 		return "", fmt.Errorf("marshal metadata: %w", err)
 	}
 
-	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=" + c.authUserOrDefault()
+	uploadInitURL := uploadURL(c.config.AuthUser)
 	req, err := http.NewRequestWithContext(ctx, "POST", uploadInitURL, bytes.NewReader(metadataJSON))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
@@ -663,15 +677,15 @@ func (c *Client) startResumableUpload(ctx context.Context, projectID, filename, 
 	req.Header.Set("X-Goog-Upload-Command", "start")
 	req.Header.Set("X-Goog-Upload-Protocol", "resumable")
 	req.Header.Set("X-Goog-Upload-Header-Content-Length", fmt.Sprintf("%d", contentLength))
-	req.Header.Set("X-Goog-AuthUser", c.authUserOrDefault())
+	setAuthUserHeader(req.Header, c.config.AuthUser)
 
 	// Upload uses cookies only; no Authorization or X-Same-Domain headers.
 	// The current web upload init includes Origin and Referer.
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
 		req.Header.Set("Cookie", cookies)
 	}
-	req.Header.Set("Origin", "https://notebooklm.google.com")
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Origin", "https://notebook.google.com")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	setChromeClientHints(req.Header)
 
 	if c.config.Debug {
@@ -744,13 +758,13 @@ func (c *Client) uploadFileBytes(ctx context.Context, uploadURL string, content 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
 	req.Header.Set("X-Goog-Upload-Command", "upload, finalize")
 	req.Header.Set("X-Goog-Upload-Offset", "0")
-	req.Header.Set("X-Goog-AuthUser", c.authUserOrDefault())
+	setAuthUserHeader(req.Header, c.config.AuthUser)
 
 	// Upload uses cookies only — no Authorization header
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
 		req.Header.Set("Cookie", cookies)
 	}
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	setChromeClientHints(req.Header)
 
 	client := httpClientWithTimeout(5 * time.Minute)
@@ -825,12 +839,12 @@ func (c *Client) setAuthHeaders(req *http.Request) {
 
 	// Add SAPISIDHASH authorization
 	if sapisid := extractSAPISID(cookies); sapisid != "" {
-		origin := "https://notebooklm.google.com"
+		origin := "https://notebook.google.com"
 		req.Header.Set("Authorization", generateSAPISIDHASH(sapisid, origin))
 	}
 
-	req.Header.Set("Origin", "https://notebooklm.google.com")
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Origin", "https://notebook.google.com")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	req.Header.Set("X-Same-Domain", "1")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")
 }

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/tmc/nlm/internal/authuser"
 )
 
 // ErrUnauthorized represent an unauthorized request.
@@ -639,6 +641,13 @@ func WithHeaders(headers map[string]string) Option {
 			c.config.Headers = make(map[string]string)
 		}
 		for k, v := range headers {
+			if strings.EqualFold(k, "x-goog-authuser") {
+				v = authuser.Normalize(v)
+				if v == "" {
+					delete(c.config.Headers, k)
+					continue
+				}
+			}
 			c.config.Headers[k] = v
 		}
 	}
@@ -651,6 +660,13 @@ func WithURLParams(params map[string]string) Option {
 			c.config.URLParams = make(map[string]string)
 		}
 		for k, v := range params {
+			if strings.EqualFold(k, "authuser") {
+				v = authuser.Normalize(v)
+				if v == "" {
+					delete(c.config.URLParams, k)
+					continue
+				}
+			}
 			c.config.URLParams[k] = v
 		}
 	}

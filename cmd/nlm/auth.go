@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/tmc/nlm/internal/auth"
+	"github.com/tmc/nlm/internal/authuser"
 	"golang.org/x/term"
 )
 
@@ -51,9 +52,11 @@ func parseAuthFlagsWithOptions(args []string, globals globalOptions) (*authOptio
 	// Define auth-specific flags
 	opts := &authOptions{
 		ProfileName: globals.chromeProfile,
-		TargetURL:   "https://notebooklm.google.com",
+		TargetURL:   "https://notebook.google.com",
 		Debug:       globals.debug,
-		AuthUser:    firstNonEmpty(globals.authUser, os.Getenv("NLM_AUTHUSER")),
+	}
+	if globals.authUserSet {
+		opts.AuthUser = authuser.Normalize(globals.authUser)
 	}
 
 	authFlags.BoolVar(&opts.TryAllProfiles, "all", false, "Try all available browser profiles")
@@ -393,9 +396,7 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, auth
 		blParam = firstNonEmpty(os.Getenv("NLM_BL_PARAM"), existing["NLM_BL_PARAM"])
 	}
 	signalerAuth := firstNonEmpty(os.Getenv("NLM_SIGNALER_AUTH"), existing["NLM_SIGNALER_AUTH"])
-	if authUser == "" {
-		authUser = firstNonEmpty(os.Getenv("NLM_AUTHUSER"), existing["NLM_AUTHUSER"])
-	}
+	authUser = authuser.Normalize(authUser)
 
 	// Create .nlm directory if it doesn't exist
 	nlmDir := filepath.Join(homeDir, ".nlm")
@@ -644,7 +645,7 @@ func cachedBrowserProfile() (profile, authUser string, ok bool) {
 	if profile == "" {
 		return "", "", false
 	}
-	authUser = firstNonEmpty(os.Getenv("NLM_AUTHUSER"), stored["NLM_AUTHUSER"])
+	authUser = authuser.Normalize(firstNonEmpty(os.Getenv("NLM_AUTHUSER"), stored["NLM_AUTHUSER"]))
 	return profile, authUser, true
 }
 

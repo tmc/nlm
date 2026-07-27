@@ -265,15 +265,15 @@ func artifactDownloadExtension(rawURL string) string {
 // downloadAuthed GETs fileURL with the client's session cookies and writes the
 // body to w. It is used for contribution.usercontent.google.com artifact
 // downloads, which are gated on the NotebookLM session cookie. The header set
-// and authuser query parameter mirror DownloadVideoWithAuth, which downloads
-// from the same usercontent host; without them the host answers 403.
+// and optional authuser query parameter mirror DownloadVideoWithAuth, which
+// downloads from the same usercontent host.
 func (c *Client) downloadAuthed(ctx context.Context, fileURL string, w io.Writer) error {
-	if !strings.Contains(fileURL, "authuser=") {
+	if c.config.AuthUser != "" && !strings.Contains(fileURL, "authuser=") {
 		sep := "?"
 		if strings.Contains(fileURL, "?") {
 			sep = "&"
 		}
-		fileURL += sep + "authuser=" + c.authUserOrDefault()
+		fileURL += sep + "authuser=" + c.config.AuthUser
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", fileURL, nil)
@@ -283,7 +283,7 @@ func (c *Client) downloadAuthed(ctx context.Context, fileURL string, w io.Writer
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.6")
 	req.Header.Set("Range", "bytes=0-")
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	req.Header.Set("Sec-Fetch-Dest", "document")
 	req.Header.Set("Sec-Fetch-Mode", "no-cors")
 	req.Header.Set("Sec-Fetch-Site", "cross-site")

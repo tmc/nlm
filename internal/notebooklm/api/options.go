@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/tmc/nlm/internal/authuser"
 	"github.com/tmc/nlm/internal/batchexecute"
 )
 
@@ -58,7 +59,7 @@ func WithSkipSources(skip bool) Option {
 // WithAuthUser sets the Google account index for multi-account profiles.
 func WithAuthUser(authUser string) Option {
 	return func(config *clientConfig) {
-		config.AuthUser = authUser
+		config.AuthUser = authuser.Normalize(authUser)
 	}
 }
 

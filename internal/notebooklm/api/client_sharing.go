@@ -136,12 +136,13 @@ func parseShareProjectResponse(projectID string, isPublic bool, resp []byte) (*p
 		Settings: &pb.ShareSettings{IsPublic: isPublic},
 	}
 	if url := findStringMatching(responseData, func(s string) bool {
-		return strings.HasPrefix(s, "http") && strings.Contains(s, "notebooklm.google.com")
+		return strings.HasPrefix(s, "http") &&
+			(strings.Contains(s, "notebook.google.com") || strings.Contains(s, "notebooklm.google.com"))
 	}); url != "" {
 		result.ShareUrl = url
 	}
 	if result.ShareUrl == "" && isPublic {
-		result.ShareUrl = fmt.Sprintf("https://notebooklm.google.com/notebook/%s", projectID)
+		result.ShareUrl = fmt.Sprintf("https://notebook.google.com/notebook/%s", projectID)
 	}
 	if shareID := findStringMatching(responseData, isUUID); shareID != "" {
 		result.ShareId = shareID

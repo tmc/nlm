@@ -90,15 +90,15 @@ func TestPrintPrivateShareResult(t *testing.T) {
 	}{
 		{
 			name: "url returned",
-			resp: &pb.ShareProjectResponse{ShareUrl: "https://notebooklm.google.com/share/abc"},
-			want: []string{"Private Share URL: https://notebooklm.google.com/share/abc"},
+			resp: &pb.ShareProjectResponse{ShareUrl: "https://notebook.google.com/share/abc"},
+			want: []string{"Private Share URL: https://notebook.google.com/share/abc"},
 		},
 		{
 			name: "share id only",
 			resp: &pb.ShareProjectResponse{ShareId: "share-123"},
 			want: []string{
 				"Private Share ID: share-123",
-				"Open https://notebooklm.google.com/notebook/notebook-123 in the browser to copy the invite link.",
+				"Open https://notebook.google.com/notebook/notebook-123 in the browser to copy the invite link.",
 			},
 		},
 		{

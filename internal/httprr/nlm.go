@@ -96,7 +96,9 @@ func scrubNLMAuthTokenFromBody(req *http.Request) error {
 // desyncs the match). None of them select the response — rpcids does — so
 // forcing each to a fixed placeholder (set unconditionally, so a missing authuser
 // on replay still matches the recorded authuser=1) keeps the fixture matchable
-// without weakening the match on the RPC id or arguments.
+// without weakening the match on the RPC id or arguments. The host is likewise
+// normalized to the legacy hostname used by existing recordings; this changes
+// only the replay key, not the outgoing request.
 func scrubNLMRequestID(req *http.Request) error {
 	if req.URL == nil {
 		return nil
@@ -109,6 +111,14 @@ func scrubNLMRequestID(req *http.Request) error {
 		"authuser": "0",
 	} {
 		query.Set(name, placeholder)
+	}
+	req.URL.Host = "notebooklm.google.com"
+	req.Host = "notebooklm.google.com"
+	if req.Header.Get("Origin") != "" {
+		req.Header.Set("Origin", "https://notebooklm.google.com")
+	}
+	if req.Header.Get("Referer") != "" {
+		req.Header.Set("Referer", "https://notebooklm.google.com/")
 	}
 	req.URL.RawQuery = query.Encode()
 	return nil

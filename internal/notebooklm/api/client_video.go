@@ -388,7 +388,7 @@ func (c *Client) DownloadVideoOverview(ctx context.Context, projectID string) (*
 }
 
 func manualVideoDownloadError(projectID string) error {
-	return fmt.Errorf("direct video download URL is not exposed by the current API response; download manually from https://notebooklm.google.com/notebook/%s", projectID)
+	return fmt.Errorf("direct video download URL is not exposed by the current API response; download manually from https://notebook.google.com/notebook/%s", projectID)
 }
 
 // SaveVideoToFile saves video data to a file
@@ -425,7 +425,7 @@ func (r *VideoOverviewResult) downloadVideoFromURL(ctx context.Context, url, fil
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.6")
 	req.Header.Set("Range", "bytes=0-")
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	req.Header.Set("Sec-Fetch-Dest", "video")
 	req.Header.Set("Sec-Fetch-Mode", "no-cors")
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
@@ -488,7 +488,7 @@ func (c *Client) DownloadVideoWithAuth(ctx context.Context, videoURL, filename s
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.6")
 	req.Header.Set("Range", "bytes=0-")
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	req.Header.Set("Sec-Fetch-Dest", "video")
 	req.Header.Set("Sec-Fetch-Mode", "no-cors")
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
@@ -500,12 +500,12 @@ func (c *Client) DownloadVideoWithAuth(ctx context.Context, videoURL, filename s
 	}
 
 	authToken := c.rpc.Config.AuthToken
-	if authToken != "" && !strings.Contains(videoURL, "authuser=") {
+	if authToken != "" && c.config.AuthUser != "" && !strings.Contains(videoURL, "authuser=") {
 		separator := "?"
 		if strings.Contains(videoURL, "?") {
 			separator = "&"
 		}
-		req.URL, _ = url.Parse(videoURL + separator + "authuser=" + c.authUserOrDefault())
+		req.URL, _ = url.Parse(videoURL + separator + "authuser=" + c.config.AuthUser)
 	}
 
 	if c.config.Debug {

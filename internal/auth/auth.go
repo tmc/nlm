@@ -16,6 +16,7 @@ import (
 	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
+	"github.com/tmc/nlm/internal/authuser"
 )
 
 type BrowserAuth struct {
@@ -437,7 +438,7 @@ func countNotebooks(token, cookies, authUser string) (int, error) {
 	}
 
 	// Create a new request to the notebooks API
-	req, err := http.NewRequest("GET", "https://notebooklm.google.com/gen_notebook/notebook", nil)
+	req, err := http.NewRequest("GET", "https://notebook.google.com/gen_notebook/notebook", nil)
 	if err != nil {
 		return 0, fmt.Errorf("create request: %w", err)
 	}
@@ -446,10 +447,9 @@ func countNotebooks(token, cookies, authUser string) (int, error) {
 	req.Header.Add("Cookie", cookies)
 	// Public API key from the NotebookLM web client; identifies the app, not the user.
 	req.Header.Add("x-goog-api-key", "AIzaSyDRYGVeXVJ5EQwWNjBORFQdrgzjbGsEYg0")
-	if authUser == "" {
-		authUser = "0"
+	if authUser = authuser.Normalize(authUser); authUser != "" {
+		req.Header.Add("x-goog-authuser", authUser)
 	}
-	req.Header.Add("x-goog-authuser", authUser)
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
@@ -484,7 +484,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		ProfileName:       "Default",
 		TryAllProfiles:    false,
 		ScanBeforeAuth:    true, // Default to showing profile information
-		TargetURL:         "https://notebooklm.google.com",
+		TargetURL:         "https://notebook.google.com",
 		PreferredBrowsers: []string{},
 		CheckNotebooks:    false,
 		KeepOpenSeconds:   0,
@@ -494,7 +494,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 	}
 
 	// Append authuser parameter to target URL for multi-account profiles
-	if o.AuthUser != "" {
+	if o.AuthUser = authuser.Normalize(o.AuthUser); o.AuthUser != "" {
 		if strings.Contains(o.TargetURL, "?") {
 			o.TargetURL += "&authuser=" + o.AuthUser
 		} else {
@@ -1076,7 +1076,7 @@ func (ba *BrowserAuth) gracefulShutdown(ctx context.Context) error {
 }
 
 func (ba *BrowserAuth) extractAuthData(ctx context.Context) (token, cookies string, err error) {
-	targetURL := "https://notebooklm.google.com"
+	targetURL := "https://notebook.google.com"
 	return ba.extractAuthDataForURL(ctx, targetURL)
 }
 
@@ -1295,7 +1295,7 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 		// Use current URL for cookies
 	} else {
 		// Fallback to NotebookLM
-		cookieURL = "https://notebooklm.google.com"
+		cookieURL = "https://notebook.google.com"
 	}
 
 	err = chromedp.Run(ctx,

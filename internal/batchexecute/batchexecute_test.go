@@ -18,6 +18,35 @@ import (
 //go:embed testdata/*txt
 var testdata embed.FS
 
+func TestAuthUserOptions(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		present bool
+	}{
+		{"empty", "", false},
+		{"zero", "0", false},
+		{"explicit account", "2", true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := NewClient(Config{},
+				WithURLParams(map[string]string{"authuser": test.value}),
+				WithHeaders(map[string]string{"x-goog-authuser": test.value}),
+			)
+			config := client.Config()
+			_, urlPresent := config.URLParams["authuser"]
+			_, headerPresent := config.Headers["x-goog-authuser"]
+			if urlPresent != test.present {
+				t.Fatalf("authuser URL parameter present = %v, want %v", urlPresent, test.present)
+			}
+			if headerPresent != test.present {
+				t.Fatalf("x-goog-authuser header present = %v, want %v", headerPresent, test.present)
+			}
+		})
+	}
+}
+
 func TestDecodeResponse(t *testing.T) {
 	testCases := []struct {
 		name      string

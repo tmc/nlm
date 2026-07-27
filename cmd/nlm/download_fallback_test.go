@@ -15,10 +15,10 @@ func TestAudioDownloadFallbackPrintsBrowserURL(t *testing.T) {
 	if err == nil {
 		t.Fatal("audioDownloadUnavailableError unexpectedly succeeded")
 	}
-	if !strings.Contains(out, "https://notebooklm.google.com/notebook/notebook-123") {
+	if !strings.Contains(out, "https://notebook.google.com/notebook/notebook-123") {
 		t.Fatalf("stdout did not include browser URL\nstdout:\n%s\nstderr:\n%s", out, errText)
 	}
-	if !strings.Contains(errText, "Open https://notebooklm.google.com/notebook/notebook-123 in a browser") {
+	if !strings.Contains(errText, "Open https://notebook.google.com/notebook/notebook-123 in a browser") {
 		t.Fatalf("stderr did not include browser instruction\nstdout:\n%s\nstderr:\n%s", out, errText)
 	}
 	if !strings.Contains(err.Error(), "audio overview data not found") {

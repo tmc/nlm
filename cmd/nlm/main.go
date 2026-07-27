@@ -22,6 +22,7 @@ import (
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/auth"
+	"github.com/tmc/nlm/internal/authuser"
 	"github.com/tmc/nlm/internal/batchexecute"
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/nlmmcp"
@@ -172,6 +173,7 @@ func prepareRuntime(stderr io.Writer) {
 	if authUser == "" {
 		authUser = os.Getenv("NLM_AUTHUSER")
 	}
+	authUser = authuser.Normalize(authUser)
 	if authUser != "" {
 		os.Setenv("NLM_AUTHUSER", authUser)
 	}
@@ -3308,7 +3310,7 @@ func shareNotebookPrivate(c *api.Client, notebookID string) error {
 
 func printPrivateShareResult(w io.Writer, notebookID string, resp *pb.ShareProjectResponse) {
 	if resp == nil {
-		fmt.Fprintf(w, "Project shared privately, but the server returned no share metadata. Open https://notebooklm.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
+		fmt.Fprintf(w, "Project shared privately, but the server returned no share metadata. Open https://notebook.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
 		return
 	}
 	if resp.GetShareUrl() != "" {
@@ -3317,10 +3319,10 @@ func printPrivateShareResult(w io.Writer, notebookID string, resp *pb.ShareProje
 	}
 	if resp.GetShareId() != "" {
 		fmt.Fprintf(w, "Private Share ID: %s\n", resp.GetShareId())
-		fmt.Fprintf(w, "Open https://notebooklm.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
+		fmt.Fprintf(w, "Open https://notebook.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
 		return
 	}
-	fmt.Fprintf(w, "Project shared privately, but the server returned no share URL or share ID. Open https://notebooklm.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
+	fmt.Fprintf(w, "Project shared privately, but the server returned no share URL or share ID. Open https://notebook.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
 }
 
 func getShareDetails(c *api.Client, shareID string) error {
@@ -4119,7 +4121,7 @@ func audioDownloadUnavailableError(notebookID string, err error) error {
 }
 
 func notebookBrowserURL(notebookID string) string {
-	return "https://notebooklm.google.com/notebook/" + url.PathEscape(notebookID)
+	return "https://notebook.google.com/notebook/" + url.PathEscape(notebookID)
 }
 
 func printDownloadBrowserFallback(kind, notebookID string) string {

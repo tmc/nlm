@@ -238,14 +238,6 @@ func (c *Client) unmarshalOptions() beprotojson.UnmarshalOptions {
 	return options
 }
 
-// authUserOrDefault returns the configured authuser value or "0".
-func (c *Client) authUserOrDefault() string {
-	if c.config.AuthUser != "" {
-		return c.config.AuthUser
-	}
-	return "0"
-}
-
 // setChromeClientHints sets User-Agent and the sec-ch-ua-* client hint headers,
 // plus the Sec-Fetch-* trio and Origin. Scotty's /upload/_/ endpoint rejects
 // requests without browser-style headers with 500 + X-Goog-Upload-Status: final.
@@ -261,7 +253,7 @@ func setChromeClientHints(h http.Header) {
 	h.Set("sec-ch-ua-platform", `"macOS"`)
 	h.Set("sec-ch-ua-platform-version", `"26.4.1"`)
 	h.Set("sec-ch-ua-wow64", "?0")
-	h.Set("Origin", "https://notebooklm.google.com")
+	h.Set("Origin", "https://notebook.google.com")
 	h.Set("Sec-Fetch-Site", "same-origin")
 	h.Set("Sec-Fetch-Mode", "cors")
 	h.Set("Sec-Fetch-Dest", "empty")

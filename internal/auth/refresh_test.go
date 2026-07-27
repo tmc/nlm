@@ -15,7 +15,7 @@ func TestGenerateSAPISIDHASH(t *testing.T) {
 			name:      "Example hash",
 			sapisid:   "ehxTF4-jACAOIp6k/Ax2l7oysalHiZneAB",
 			timestamp: 1757337921,
-			want:      "61ce8d584412c85e2a0a1adebcd9e2c54bc3223f",
+			want:      "30fc826e39451a7a4cd75a0621013cc4afe1d6de",
 		},
 	}
 
@@ -91,7 +91,7 @@ func TestValidateNotebookLMPageURL(t *testing.T) {
 		},
 		{
 			name:     "NotebookLM host accepted",
-			finalURL: "https://notebooklm.google.com/",
+			finalURL: "https://notebook.google.com/",
 		},
 		{
 			name:     "redirect to auth host rejected",

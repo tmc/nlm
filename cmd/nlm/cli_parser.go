@@ -14,6 +14,7 @@ type globalOptions struct {
 	authToken            string
 	cookies              string
 	authUser             string
+	authUserSet          bool
 	debug                bool
 	debugDumpPayload     bool
 	debugParsing         bool
@@ -172,6 +173,11 @@ func parseInvocation(args []string, env func(string) string, stdout, stderr io.W
 		inv.globals = opts
 		return inv, fmt.Errorf("%w: %v", errBadArgs, err)
 	}
+	flags.Visit(func(f *flag.Flag) {
+		if f.Name == "authuser" {
+			opts.authUserSet = true
+		}
+	})
 	inv.globals = opts
 	if opts.showVersion {
 		inv.action = invocationVersion

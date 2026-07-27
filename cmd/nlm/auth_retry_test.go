@@ -169,7 +169,7 @@ func TestRefreshNotebookLMPageStateUpdatesStoredSessionState(t *testing.T) {
 	}
 }
 
-func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
+func TestPersistAuthToDiskPreservesSignalerAndClearsAuthUser(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("NLM_COOKIES", "")
@@ -193,8 +193,8 @@ func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
 	if got := os.Getenv("NLM_SIGNALER_AUTH"); got != "Bearer signaler-token" {
 		t.Fatalf("NLM_SIGNALER_AUTH = %q, want Bearer signaler-token", got)
 	}
-	if got := os.Getenv("NLM_AUTHUSER"); got != "1" {
-		t.Fatalf("NLM_AUTHUSER = %q, want 1", got)
+	if got := os.Getenv("NLM_AUTHUSER"); got != "" {
+		t.Fatalf("NLM_AUTHUSER = %q, want empty", got)
 	}
 
 	data, err := os.ReadFile(filepath.Join(home, ".nlm", "env"))
@@ -205,8 +205,8 @@ func TestPersistAuthToDiskPreservesSignalerAuthorization(t *testing.T) {
 	if !strings.Contains(text, `NLM_SIGNALER_AUTH="Bearer signaler-token"`) {
 		t.Fatalf("env file missing persisted signaler auth\n%s", text)
 	}
-	if !strings.Contains(text, `NLM_AUTHUSER="1"`) {
-		t.Fatalf("env file missing persisted authuser\n%s", text)
+	if !strings.Contains(text, `NLM_AUTHUSER=""`) {
+		t.Fatalf("env file did not clear authuser\n%s", text)
 	}
 }
 

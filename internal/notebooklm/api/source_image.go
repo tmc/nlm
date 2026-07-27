@@ -29,7 +29,7 @@ func (c *Client) DownloadSourceImage(ctx context.Context, imageURL string) ([]by
 	}
 	setChromeClientHints(req.Header)
 	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
 		req.Header.Set("Cookie", cookies)
 	}

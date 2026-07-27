@@ -45,3 +45,14 @@ func TestNewWithConfigRetainsAppliedOptions(t *testing.T) {
 		t.Error("DebugFieldMapping = false, want true")
 	}
 }
+
+func TestNewWithConfigUsesCurrentNotebookHost(t *testing.T) {
+	for _, host := range []string{"", "notebooklm.google.com", "notebook.google.com"} {
+		t.Run(host, func(t *testing.T) {
+			client := NewWithConfig("token", "cookies", ServiceConfig{Host: host})
+			if got := client.Config.Host; got != "notebook.google.com" {
+				t.Fatalf("Host = %q, want notebook.google.com", got)
+			}
+		})
+	}
+}

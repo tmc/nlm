@@ -306,7 +306,7 @@ type Client struct {
 // New creates a new NotebookLM RPC client
 func New(authToken, cookies string, options ...batchexecute.Option) *Client {
 	return NewWithConfig(authToken, cookies, ServiceConfig{
-		Host: "notebooklm.google.com",
+		Host: "notebook.google.com",
 		App:  "LabsTailwindUi",
 	}, options...)
 }
@@ -323,8 +323,8 @@ func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, optio
 		sessionID = "-3785608638908410209"
 	}
 	host := serviceConfig.Host
-	if host == "" {
-		host = "notebooklm.google.com"
+	if host == "" || host == "notebooklm.google.com" {
+		host = "notebook.google.com"
 	}
 	app := serviceConfig.App
 	if app == "" {

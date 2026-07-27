@@ -727,7 +727,7 @@ func (c *Client) downloadAudioFromURL(ctx context.Context, audioURL string) ([]b
 	// Add browser-like headers and authentication cookies
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Referer", "https://notebooklm.google.com/")
+	req.Header.Set("Referer", "https://notebook.google.com/")
 
 	// Add authentication cookies from RPC client
 	if cookies := c.rpc.Config.Cookies; cookies != "" {
