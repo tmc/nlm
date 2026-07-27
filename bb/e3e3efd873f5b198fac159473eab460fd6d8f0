@@ -1,0 +1,4 @@
+commit: bbe3e3ef 2026-07-26
+agent: claude-code (Opus 4.8) session=FD626FA5 tty=not a tty
+none pid=64085 iterm=w2t1p6:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+task: remove 13 corpus-gated (/tmp/nlm-traffic, new-rec3) wire tests -> operator betool audit-corpus; kept hermetic scrubbed/encoder tests; scrubbed proto+betool-help path comments. gates: gofmt/vet(api) clean, go test ./... green, regen zero-drift beyond comment, -1481 LOC
