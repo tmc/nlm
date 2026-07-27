@@ -1,0 +1,26 @@
+# chat-show --format flag validation (offline; noAuth/noClient command)
+
+# Help lists the new format flags.
+exec ./nlm_test chat-show --help
+stderr '--format'
+stderr 'markdown'
+stderr 'html'
+stderr '--out'
+stderr '--open'
+
+# An unknown format is rejected at argument validation, before any network.
+! exec ./nlm_test chat-show --format=bogus nb-1 conv-1
+stderr 'usage: nlm chat-show'
+
+# --out without --format=html is a usage error.
+! exec ./nlm_test chat-show --out /tmp/x.html --format=text nb-1 conv-1
+stderr 'usage: nlm chat-show'
+
+# --open without --format=html is a usage error.
+! exec ./nlm_test chat-show --open --format=markdown nb-1 conv-1
+stderr 'usage: nlm chat-show'
+
+# A valid format with a missing local session fails at load, not at parsing
+# (proves the format itself parsed and validation passed).
+! exec ./nlm_test chat-show --format=markdown nb-missing conv-missing
+! stderr 'unknown --format'

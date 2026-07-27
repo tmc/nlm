@@ -85,16 +85,32 @@ func scrubNLMAuthTokenFromBody(req *http.Request) error {
 	return nil
 }
 
-// scrubNLMRequestID normalizes request IDs in URLs to make them deterministic.
+// scrubNLMRequestID normalizes the volatile per-request and per-session URL
+// parameters in a batchexecute call so a recorded request matches on replay.
+// Four params vary between a record run and a credential-free replay even for the
+// identical RPC: _reqid (a per-request counter), f.sid (the frontend session id,
+// stable only within one browser session), bl (the deployed build label, e.g.
+// boq_labs-tailwind-frontend_20260720.07_p0, which rolls with each release), and
+// authuser (the Google account index, present only when credentials are set — so
+// it appears while recording and is absent on a creds-free replay, which alone
+// desyncs the match). None of them select the response — rpcids does — so
+// forcing each to a fixed placeholder (set unconditionally, so a missing authuser
+// on replay still matches the recorded authuser=1) keeps the fixture matchable
+// without weakening the match on the RPC id or arguments.
 func scrubNLMRequestID(req *http.Request) error {
-	// Normalize the _reqid parameter in the URL
-	if req.URL != nil {
-		query := req.URL.Query()
-		if query.Get("_reqid") != "" {
-			query.Set("_reqid", "00000")
-			req.URL.RawQuery = query.Encode()
-		}
+	if req.URL == nil {
+		return nil
 	}
+	query := req.URL.Query()
+	for name, placeholder := range map[string]string{
+		"_reqid":   "00000",
+		"f.sid":    "0",
+		"bl":       "boq_placeholder",
+		"authuser": "0",
+	} {
+		query.Set(name, placeholder)
+	}
+	req.URL.RawQuery = query.Encode()
 	return nil
 }
 
@@ -128,24 +144,55 @@ func scrubNLMTimestamps(req *http.Request) error {
 func scrubNLMResponseTimestamps(buf *bytes.Buffer) error {
 	content := buf.String()
 
-	// Remove timestamps from responses
+	// A batchexecute rt=c response is LENGTH-PREFIXED: each chunk is written as
+	// "<byteLen>\n<payload>", and the reader consumes exactly byteLen bytes. So a
+	// scrub that changes the body length without updating the prefix desyncs every
+	// following chunk and the replay reader hits EOF mid-stream. Every replacement
+	// here is therefore LENGTH-PRESERVING: a 13-digit epoch-ms timestamp becomes a
+	// 13-char placeholder, and the ISO date/creation/modification replacements are
+	// padded to the exact width of what they replace. Determinism without
+	// corrupting the framing.
 	timestampPattern := regexp.MustCompile(`[0-9]{13}`)
-	content = timestampPattern.ReplaceAllString(content, `[TIMESTAMP]`)
+	content = timestampPattern.ReplaceAllString(content, `9999999999999`) // 13 chars
 
-	// Remove date strings
 	datePattern := regexp.MustCompile(`[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z?`)
-	content = datePattern.ReplaceAllString(content, `[DATE]`)
+	content = datePattern.ReplaceAllStringFunc(content, sameLenReplacement('D'))
 
-	// Remove creation/modification time fields
 	creationTimePattern := regexp.MustCompile(`"creationTime":"[^"]*"`)
-	content = creationTimePattern.ReplaceAllString(content, `"creationTime":"[TIMESTAMP]"`)
+	content = creationTimePattern.ReplaceAllStringFunc(content, sameLenFieldValue("creationTime", 'C'))
 
 	modificationTimePattern := regexp.MustCompile(`"modificationTime":"[^"]*"`)
-	content = modificationTimePattern.ReplaceAllString(content, `"modificationTime":"[TIMESTAMP]"`)
+	content = modificationTimePattern.ReplaceAllStringFunc(content, sameLenFieldValue("modificationTime", 'M'))
 
 	buf.Reset()
 	buf.WriteString(content)
 	return nil
+}
+
+// sameLenReplacement returns a replacer that maps each match to a string of the
+// same byte length, so a length-prefixed batchexecute chunk's declared size stays
+// correct after scrubbing. The fill byte identifies which scrubber ran.
+func sameLenReplacement(fill byte) func(string) string {
+	return func(match string) string {
+		return strings.Repeat(string(fill), len(match))
+	}
+}
+
+// sameLenFieldValue scrubs a "field":"value" match by filling only the value
+// with fill bytes, keeping the field name and quotes intact so the surrounding
+// JSON stays parseable. The total byte length is preserved (the chunk's
+// length prefix stays correct): the value keeps its original width. The match
+// is always `"<field>":"<value>"`, so the value width is len(match) minus the
+// fixed `"<field>":""` framing.
+func sameLenFieldValue(field string, fill byte) func(string) string {
+	prefix := `"` + field + `":"`
+	return func(match string) string {
+		valueLen := len(match) - len(prefix) - 1 // trailing quote
+		if valueLen < 0 {
+			valueLen = 0
+		}
+		return prefix + strings.Repeat(string(fill), valueLen) + `"`
+	}
 }
 
 // scrubNLMProjectListLimit truncates the project list to the first 10 projects in ListProjects responses.

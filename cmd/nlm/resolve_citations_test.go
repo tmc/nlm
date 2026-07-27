@@ -10,6 +10,9 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
+// TestResolveCitationLocations pins the txtar file:line resolution. Excerpts no
+// longer come from here — the server ships them inline on the citation — so
+// this only checks locations.
 func TestResolveCitationLocations(t *testing.T) {
 	const txtar = "" +
 		"-- main.go --\n" +
@@ -56,12 +59,12 @@ func TestResolveCitationLocations(t *testing.T) {
 
 	// "Hello()" sits at member main.go's line 3, column 6.
 	wantHello := "main.go:3:6"
-	if loc := got[keyFor(cites[0])]; loc != wantHello {
+	if loc := got[keyFor(cites[0])].Location; loc != wantHello {
 		t.Errorf("hello location = %q, want %q", loc, wantHello)
 	}
 	// "two lines" sits on README.md's line 2, column 8.
 	wantReadme := "README.md:2:8"
-	if loc := got[keyFor(cites[1])]; loc != wantReadme {
+	if loc := got[keyFor(cites[1])].Location; loc != wantReadme {
 		t.Errorf("readme location = %q, want %q", loc, wantReadme)
 	}
 }
@@ -109,6 +112,9 @@ func TestResolveCitationLocationsNoLoader(t *testing.T) {
 	}
 }
 
+// TestResolveCitationLocationsNonTxtarSource checks that a plain single-file
+// source yields no entry: there is no txtar member to pin a file:line against,
+// and excerpts no longer come from this path.
 func TestResolveCitationLocationsNonTxtarSource(t *testing.T) {
 	const plain = "Just a single-file source.\nNo txtar markers.\n"
 	body := api.LoadSourceText{
@@ -118,11 +124,35 @@ func TestResolveCitationLocationsNonTxtarSource(t *testing.T) {
 	}
 	load := func(string) (api.LoadSourceText, error) { return body, nil }
 
-	got := resolveCitationLocations(load, []api.Citation{
-		{SourceIndex: 1, SourceID: "src_plain", StartChar: 0, EndChar: 4},
-	})
+	cite := api.Citation{SourceIndex: 1, SourceID: "src_plain", StartChar: 0, EndChar: 4}
+	got := resolveCitationLocations(load, []api.Citation{cite})
 	if len(got) != 0 {
-		t.Fatalf("non-txtar source should not produce locations, got %v", got)
+		t.Fatalf("non-txtar source has no location to resolve, got %v", got)
+	}
+}
+
+// TestCitationContentKeyMatchesAcrossWhitespace pins the property chat-show's
+// citation rehydration relies on: the locally-persisted answer text and the
+// same answer refetched from GetConversationHistory can differ in whitespace
+// (the history frame strips/rewrites newlines), so the match key must collapse
+// whitespace and still agree. It must also distinguish different turns.
+func TestCitationContentKeyMatchesAcrossWhitespace(t *testing.T) {
+	persisted := "### Candidate Skills Triage List: Pass 3\n\nA rigorous third pass over the logs."
+	history := "### Candidate Skills Triage List: Pass 3   A rigorous third pass over the logs."
+	if citationContentKey(persisted) != citationContentKey(history) {
+		t.Errorf("keys differ across whitespace:\n persisted=%q\n history  =%q",
+			citationContentKey(persisted), citationContentKey(history))
+	}
+
+	other := "### Candidate Skills Triage List: Pass 2\n\nA different earlier pass."
+	if citationContentKey(persisted) == citationContentKey(other) {
+		t.Error("distinct turns collapsed to the same key")
+	}
+
+	// Empty content yields a stable (empty) key; the map lookup for a message
+	// with no content simply misses and falls back to persisted citations.
+	if citationContentKey("") != "" {
+		t.Errorf("empty content key = %q, want empty", citationContentKey(""))
 	}
 }
 

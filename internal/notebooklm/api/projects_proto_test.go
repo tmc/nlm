@@ -8,6 +8,10 @@ import (
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
+// TestListRecentlyViewedProjectsRequestEncoder pins the wXbhsf request shape to
+// the live-server-verified short form. The longer client-capability + empty-filter
+// scaffold is rejected by the server ("arguments invalid"), which broke
+// `notebook list`; this guards against reintroducing it.
 func TestListRecentlyViewedProjectsRequestEncoder(t *testing.T) {
 	got := method.EncodeListRecentlyViewedProjectsArgs(&pb.ListRecentlyViewedProjectsRequest{})
 	want := []interface{}{nil, 1, nil, []interface{}{2}}

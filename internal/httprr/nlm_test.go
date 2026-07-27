@@ -2,10 +2,12 @@ package httprr
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -152,6 +154,37 @@ func TestScrubNLMResponseTimestamps(t *testing.T) {
 
 	if bytes.Contains([]byte(result), []byte("creationTime\":\"2023-01-01T12:00:00.000Z\"")) {
 		t.Error("Creation time field was not scrubbed")
+	}
+}
+
+// The compact "field":"value" wire form must be scrubbed value-only: the field
+// name and quotes survive so the JSON stays parseable, and the total byte
+// length is preserved so a length-prefixed batchexecute chunk stays framed.
+func TestScrubNLMResponseTimestamps_ValueOnly(t *testing.T) {
+	in := `{"id":"nb1","creationTime":"2023-01-01T12:00:00.000Z","modificationTime":"1672531200000","x":1}`
+	buf := bytes.NewBufferString(in)
+	if err := scrubNLMResponseTimestamps(buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if len(out) != len(in) {
+		t.Errorf("length changed: in=%d out=%d (breaks chunk framing)", len(in), len(out))
+	}
+	// Field names and structure survive.
+	for _, want := range []string{`"creationTime":"`, `"modificationTime":"`, `"id":"nb1"`, `"x":1`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("scrubbed output lost %q:\n%s", want, out)
+		}
+	}
+	// Actual timestamp values are gone.
+	if strings.Contains(out, "2023-01-01T12:00:00.000Z") || strings.Contains(out, "1672531200000") {
+		t.Errorf("timestamp value survived scrub:\n%s", out)
+	}
+	// And it still parses as JSON.
+	var v map[string]any
+	if err := json.Unmarshal([]byte(out), &v); err != nil {
+		t.Errorf("scrubbed output is not valid JSON: %v\n%s", err, out)
 	}
 }
 

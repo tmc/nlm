@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
@@ -34,20 +34,6 @@ func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 	}
 	if got := r.Thinking(); got != "**Thinking**\nPlanning response" {
 		t.Fatalf("thinking trace = %q", got)
-	}
-}
-
-func TestInitialChatResponseWaiter(t *testing.T) {
-	var status bytes.Buffer
-	received, stop := startInitialChatResponseWaiter(&status, time.Millisecond)
-	t.Cleanup(stop)
-
-	time.Sleep(10 * time.Millisecond)
-	received()
-	stop()
-
-	if got := status.String(); !strings.Contains(got, "waiting for initial NotebookLM response") {
-		t.Fatalf("status = %q, want waiting notice", got)
 	}
 }
 
@@ -135,9 +121,9 @@ func TestChatStreamRendererThinkingModes(t *testing.T) {
 	})
 }
 
-func TestChatStreamRendererCitationModeBlock(t *testing.T) {
+func TestChatStreamRendererCitationList(t *testing.T) {
 	var out, status bytes.Buffer
-	r := newChatStreamRenderer(&out, &status, false, false, citationModeBlock)
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeList)
 	r.resolveTitle = func(id string) string {
 		if id == "src_aaa" {
 			return "Installation Guide"
@@ -148,8 +134,8 @@ func TestChatStreamRendererCitationModeBlock(t *testing.T) {
 		Phase: api.ChatChunkAnswer,
 		Text:  "Answer body.",
 		Citations: []api.Citation{
-			{SourceIndex: 1, SourceID: "src_aaa", Title: "ignored when resolver hits"},
-			{SourceIndex: 2, SourceID: "src_bbb_longidentifier", Title: "Fallback excerpt"},
+			{SourceIndex: 1, SourceID: "src_aaa", Title: "ignored when resolver hits", StartChar: 0, EndChar: 12, Confidence: 0.82},
+			{SourceIndex: 2, SourceID: "src_bbb_longidentifier", Title: "Fallback excerpt", StartChar: 20, EndChar: 40},
 		},
 	})
 	r.Finish()
@@ -158,65 +144,229 @@ func TestChatStreamRendererCitationModeBlock(t *testing.T) {
 		t.Fatalf("answer output = %q, want %q", got, "Answer body.")
 	}
 	s := status.String()
-	if !strings.Contains(s, "Sources:") {
-		t.Fatalf("status missing Sources header: %q", s)
+	if !strings.Contains(s, "Citations:") {
+		t.Fatalf("status missing Citations header: %q", s)
 	}
-	if !strings.Contains(s, "[1] src_aaa") || !strings.Contains(s, "Installation Guide") {
+	// Index, resolved title, confidence column, and span column all present.
+	if !strings.Contains(s, "[1]") || !strings.Contains(s, "Installation Guide") {
 		t.Fatalf("status missing resolved title: %q", s)
 	}
-	// Source IDs render in full (no truncation).
-	if !strings.Contains(s, "src_bbb_longidentifier") {
-		t.Fatalf("status missing full source id: %q", s)
+	if !strings.Contains(s, "p=0.82") {
+		t.Fatalf("status missing per-source confidence: %q", s)
 	}
-	// Falls back to server-supplied excerpt when resolver returns "".
+	if !strings.Contains(s, "answer 0-12") {
+		t.Fatalf("status missing labeled answer span: %q", s)
+	}
+	// Source handle renders as an 8-char prefix (not the full id) before the title.
+	if !strings.Contains(s, "src_bbb_") {
+		t.Fatalf("status missing source handle: %q", s)
+	}
+	if strings.Contains(s, "src_bbb_longidentifier") {
+		t.Fatalf("source handle should be truncated to 8 chars, got full id: %q", s)
+	}
 	if !strings.Contains(s, "Fallback excerpt") {
-		t.Fatalf("status missing fallback excerpt: %q", s)
+		t.Fatalf("status missing fallback title: %q", s)
+	}
+	// The answer body must never be spliced; superscripts are gone entirely.
+	if strings.ContainsAny(out.String(), "¹²³") {
+		t.Fatalf("answer body was spliced: %q", out.String())
 	}
 }
 
-func TestChatStreamRendererCitationModeOverlay(t *testing.T) {
-	var out, status bytes.Buffer
-	r := newChatStreamRenderer(&out, &status, false, false, citationModeOverlay)
-	// Stream the answer in two deltas; overlay mode must buffer until Finish.
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
-		Text:  "The service requires Go 1.22",
-	})
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
-		Text:  " and uses TLS by default.",
-		Citations: []api.Citation{
-			{SourceIndex: 1, SourceID: "src_a", Title: "Go 1.22 required", StartChar: 12, EndChar: 28},
-			{SourceIndex: 2, SourceID: "src_b", Title: "TLS enabled", StartChar: 29, EndChar: 52},
-		},
-	})
-
-	// Nothing should have hit stdout yet under overlay mode.
-	if got := out.String(); got != "" {
-		t.Fatalf("overlay leaked during streaming: %q", got)
+// TestChatStreamRendererCitationScan checks the default scan layout: the [n]
+// marker heads its group with only the answer span (labeled), then one row per
+// source led by that source's OWN confidence. Confidence is per-source and must
+// never be hoisted to the marker header; the answer span rides the header once.
+func TestChatStreamRendererCitationScan(t *testing.T) {
+	var status bytes.Buffer
+	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
+	r.citations = []api.Citation{
+		// Marker 1 cites two sources with DIFFERENT scores — the case the old
+		// header-hoist silently dropped.
+		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 42, EndChar: 205, Confidence: 0.91},
+		{SourceIndex: 1, SourceID: "bbbbbbbb-2", Title: "Beta", StartChar: 42, EndChar: 205, Confidence: 0.71},
+		// Source aaaaaaaa reappears under marker 2 with a different answer span.
+		{SourceIndex: 2, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 40, EndChar: 55, Confidence: 0.90},
 	}
-
-	r.Finish()
-
-	body := out.String()
-	// The full answer must be present.
-	if !strings.Contains(body, "The service requires Go 1.22") {
-		t.Fatalf("answer missing: %q", body)
-	}
-	// Superscripts must appear at the end of each cited span.
-	if !strings.Contains(body, "Go 1.22¹") {
-		t.Fatalf("missing superscript 1 marker: %q", body)
-	}
-	if !strings.Contains(body, "default².") {
-		t.Fatalf("missing superscript 2 marker: %q", body)
-	}
-
+	r.renderCitationList()
 	s := status.String()
-	if !strings.Contains(s, "¹ src_a") || !strings.Contains(s, "Go 1.22 required") {
-		t.Fatalf("footnote missing entry 1: %q", s)
+
+	// Marker 1 header carries the labeled answer span, no confidence.
+	if !strings.Contains(s, "[1] answer 42-205") {
+		t.Fatalf("marker 1 header wrong (want labeled answer span, no p=):\n%s", s)
 	}
-	if !strings.Contains(s, "² src_b") || !strings.Contains(s, "TLS enabled") {
-		t.Fatalf("footnote missing entry 2: %q", s)
+	// BOTH per-source scores appear — the whole point of the fix.
+	if !strings.Contains(s, `p=0.91 aaaaaaaa "Alpha"`) {
+		t.Fatalf("missing high-confidence source row:\n%s", s)
+	}
+	if !strings.Contains(s, `bbbbbbbb "Beta"`) || !strings.Contains(s, "p=0.71") {
+		t.Fatalf("missing low-confidence source row (both scores must show):\n%s", s)
+	}
+	// The weak score (<0.75) is amber; the strong one is not.
+	if !strings.Contains(s, ansiAmber+"p=0.71"+ansiReset) {
+		t.Fatalf("weak confidence should render amber:\n%q", s)
+	}
+	if strings.Contains(s, ansiAmber+"p=0.91") {
+		t.Fatalf("strong confidence should NOT be amber:\n%q", s)
+	}
+	// Confidence must never appear on a marker header line.
+	for line := range strings.SplitSeq(s, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "[") && strings.Contains(line, "p=") {
+			t.Fatalf("confidence leaked onto a marker header line: %q", line)
+		}
+	}
+	// Marker 2 is its own group with its own answer span and source row.
+	if !strings.Contains(s, "[2] answer 40-55") || !strings.Contains(s, `p=0.90 aaaaaaaa "Alpha"`) {
+		t.Fatalf("marker 2 group wrong:\n%s", s)
+	}
+}
+
+// TestChatStreamRendererCitationExpanded checks that --citation-excerpts
+// switches to the expanded audit view: marker header, then one row per source
+// carrying its own confidence AND its source-offset locator, with the
+// server-supplied excerpt indented beneath.
+func TestChatStreamRendererCitationExpanded(t *testing.T) {
+	var status bytes.Buffer
+	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
+	r.excerptBudget = 40 // enables the expanded view
+	r.citations = []api.Citation{
+		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 4, EndChar: 9, Confidence: 0.82, SourceStart: 965670, SourceEnd: 966914, Excerpt: "The alpha source passage that grounds this."},
+		{SourceIndex: 1, SourceID: "bbbbbbbb-2", Title: "Beta", StartChar: 4, EndChar: 9, Confidence: 0.82, SourceStart: 12000, SourceEnd: 12050, Excerpt: "The beta source passage that grounds this."},
+	}
+	r.Finish()
+	s := status.String()
+
+	// Marker header carries only the labeled answer span.
+	if !strings.Contains(s, "[1] answer 4-9") {
+		t.Fatalf("expanded marker header missing:\n%s", s)
+	}
+	// Each source on its own row with its own confidence and its source span.
+	if !strings.Contains(s, `p=0.82 aaaaaaaa "Alpha"`) || !strings.Contains(s, `p=0.82 bbbbbbbb "Beta"`) {
+		t.Fatalf("expanded source rows missing per-source confidence:\n%s", s)
+	}
+	if !strings.Contains(s, "src 965670-966914") || !strings.Contains(s, "src 12000-12050") {
+		t.Fatalf("expanded per-source source-offset locators missing:\n%s", s)
+	}
+	if !strings.Contains(s, "alpha source passage") || !strings.Contains(s, "beta source passage") {
+		t.Fatalf("expanded per-source excerpts missing:\n%s", s)
+	}
+}
+
+// TestChatStreamRendererCitationPerSourceConfidence checks that when a marker's
+// sources have differing scores, BOTH render on their own rows — the exact case
+// the old uniformConfidence header-hoist silently dropped. There is no "mixed"
+// fallback anymore: confidence is per-source, always.
+func TestChatStreamRendererCitationPerSourceConfidence(t *testing.T) {
+	var status bytes.Buffer
+	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
+	r.citations = []api.Citation{
+		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 5, EndChar: 9, Confidence: 0.82},
+		{SourceIndex: 1, SourceID: "bbbbbbbb-2", Title: "Beta", StartChar: 5, EndChar: 9, Confidence: 0.60},
+	}
+	r.renderCitationList()
+	s := status.String()
+
+	if !strings.Contains(s, "p=0.82") || !strings.Contains(s, "p=0.60") {
+		t.Fatalf("both per-source scores must render, not be collapsed:\n%s", s)
+	}
+	// The weak one (0.60 < 0.75) is amber; the strong one is not.
+	if !strings.Contains(s, ansiAmber+"p=0.60"+ansiReset) {
+		t.Fatalf("weak per-source confidence should be amber:\n%q", s)
+	}
+	// The shared answer span heads the marker once.
+	if !strings.Contains(s, "[1] answer 5-9") {
+		t.Fatalf("shared answer span should head the marker:\n%s", s)
+	}
+}
+
+// TestChatStreamRendererCitationMixedSpan checks the span guard: sources under
+// one marker share the answer span, so a payload that somehow splits it drops
+// the span from the header rather than asserting one. Per-source confidence is
+// unaffected — it still renders on every row.
+func TestChatStreamRendererCitationMixedSpan(t *testing.T) {
+	var status bytes.Buffer
+	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
+	r.citations = []api.Citation{
+		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 5, EndChar: 9, Confidence: 0.82},
+		{SourceIndex: 1, SourceID: "bbbbbbbb-2", Title: "Beta", StartChar: 20, EndChar: 30, Confidence: 0.82},
+	}
+	r.renderCitationList()
+	s := status.String()
+	if strings.Contains(s, "answer ") {
+		t.Fatalf("mixed answer span should drop from the header: %q", s)
+	}
+	// Per-source confidence still renders on the rows.
+	if !strings.Contains(s, "p=0.82") {
+		t.Fatalf("per-source confidence should still render for a mixed-span group: %q", s)
+	}
+}
+
+func TestChatStreamRendererCitationColumnToggles(t *testing.T) {
+	newRenderer := func() (*bytes.Buffer, *chatStreamRenderer) {
+		var status bytes.Buffer
+		r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
+		r.excerptBudget = 40 // expanded view so the src-offset locator is exercised too
+		r.citations = []api.Citation{
+			{SourceIndex: 1, SourceID: "src_aaaaaaaa", Title: "T", StartChar: 42, EndChar: 205, Confidence: 0.82, SourceStart: 1000, SourceEnd: 1050, Excerpt: "cited"},
+		}
+		return &status, r
+	}
+
+	// Both columns on (default): per-source confidence + labeled answer span.
+	status, r := newRenderer()
+	r.renderCitationList()
+	if s := status.String(); !strings.Contains(s, "p=0.82") || !strings.Contains(s, "answer 42-205") {
+		t.Fatalf("default should show confidence and answer span: %q", s)
+	}
+
+	// Confidence off: no p= on any row.
+	status, r = newRenderer()
+	r.showConfidence = false
+	r.renderCitationList()
+	if s := status.String(); strings.Contains(s, "p=") {
+		t.Fatalf("--citation-confidence=off should drop the p column: %q", s)
+	}
+
+	// Spans off: no answer span on the header AND no src offset on the row.
+	status, r = newRenderer()
+	r.showSpans = false
+	r.renderCitationList()
+	if s := status.String(); strings.Contains(s, "answer ") || strings.Contains(s, "src ") {
+		t.Fatalf("--citation-spans=off should drop both span labels: %q", s)
+	}
+
+	// Both off: plain [n] header + <id8> "title" row.
+	status, r = newRenderer()
+	r.showConfidence, r.showSpans = false, false
+	r.renderCitationList()
+	s := status.String()
+	if strings.Contains(s, "p=") || strings.Contains(s, "answer ") || strings.Contains(s, "src ") {
+		t.Fatalf("both off should be plain: %q", s)
+	}
+	if !strings.Contains(s, "[1]") || !strings.Contains(s, "src_aaaa") {
+		t.Fatalf("plain form missing index/handle: %q", s)
+	}
+}
+
+func TestFormatSpanLabels(t *testing.T) {
+	cases := []struct {
+		name           string
+		start, end     int
+		answer, source string
+	}{
+		{"range", 42, 205, "answer 42-205", "src 42-205"},
+		{"point", 409, 409, "answer 409", "src 409"}, // degenerate point, no range
+		{"zero sentinel", 0, 0, "", ""},              // (0,0) = "no span", never "answer 0"
+		{"missing start", -1, 5, "", ""},
+		{"inverted", 10, 5, "", ""},
+	}
+	for _, tc := range cases {
+		if got := formatAnswerSpan(tc.start, tc.end); got != tc.answer {
+			t.Errorf("%s: formatAnswerSpan(%d,%d) = %q, want %q", tc.name, tc.start, tc.end, got, tc.answer)
+		}
+		if got := formatSourceSpan(tc.start, tc.end); got != tc.source {
+			t.Errorf("%s: formatSourceSpan(%d,%d) = %q, want %q", tc.name, tc.start, tc.end, got, tc.source)
+		}
 	}
 }
 
@@ -233,7 +383,7 @@ func TestChatStreamRendererCitationModeOff(t *testing.T) {
 	r.Finish()
 
 	if got := status.String(); strings.Contains(got, "Sources:") {
-		t.Fatalf("citation block leaked under off mode: %q", got)
+		t.Fatalf("citation list leaked under off mode: %q", got)
 	}
 	if got := out.String(); got != "Answer." {
 		t.Fatalf("answer = %q, want %q", got, "Answer.")
@@ -246,17 +396,17 @@ func TestResolveCitationMode(t *testing.T) {
 		want    citationRenderMode
 		wantStr string
 	}{
-		{"", citationModeBlock, "empty default = block"},
-		{"auto", citationModeBlock, "auto = block"},
-		{"block", citationModeBlock, "explicit block"},
-		{"stream", citationModeStream, "stream"},
-		{"inline-footer", citationModeStream, "inline-footer alias"},
-		{"tail", citationModeTail, "tail"},
-		{"overlay", citationModeOverlay, "overlay"},
-		{"footnote", citationModeOverlay, "footnote alias"},
+		{"", citationModeList, "empty default = list"},
+		{"auto", citationModeList, "auto = list"},
+		{"tail", citationModeList, "tail = list (canonical alias)"},
+		{"block", citationModeList, "deprecated block = list"},
+		{"stream", citationModeList, "deprecated stream = list"},
+		{"overlay", citationModeList, "removed overlay = list"},
+		{"json", citationModeJSON, "json"},
+		{"jsonl", citationModeJSON, "jsonl alias"},
 		{"off", citationModeOff, "explicit off"},
 		{"none", citationModeOff, "none alias"},
-		{"nonsense", citationModeBlock, "unknown falls through to default"},
+		{"nonsense", citationModeList, "unknown falls through to list"},
 	}
 	for _, tc := range cases {
 		if got := resolveCitationMode(tc.flag); got != tc.want {
@@ -265,166 +415,27 @@ func TestResolveCitationMode(t *testing.T) {
 	}
 }
 
-func TestChatStreamRendererCitationModeStream(t *testing.T) {
-	var out, status bytes.Buffer
-	r := newChatStreamRenderer(&out, &status, false, false, citationModeStream)
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkAnswer, Text: "Hello "})
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkAnswer, Text: "world."})
-	// Stream must have flushed both chunks live.
-	if got := out.String(); got != "Hello world." {
-		t.Fatalf("stream live flush = %q, want %q", got, "Hello world.")
+func TestCitationModeIsDeprecatedAlias(t *testing.T) {
+	deprecated := map[string]string{
+		"block":         "block",
+		"stream":        "stream",
+		"inline-footer": "stream",
+		"overlay":       "overlay",
+		"footnote":      "overlay",
 	}
-	// Citations arrive late, only on Finish should they be emitted.
-	r.citations = []api.Citation{
-		{SourceIndex: 1, SourceID: "src_a", Title: "greeting", StartChar: 0, EndChar: 5},
-		{SourceIndex: 2, SourceID: "src_b", Title: "target", StartChar: 6, EndChar: 12},
+	for flag, want := range deprecated {
+		if got := citationModeIsDeprecatedAlias(flag); got != want {
+			t.Errorf("citationModeIsDeprecatedAlias(%q) = %q, want %q", flag, got, want)
+		}
 	}
-	r.Finish()
-	s := status.String()
-	if !strings.Contains(s, "Citations:") {
-		t.Fatalf("missing Citations footer: %q", s)
-	}
-	if !strings.Contains(s, "[1] chars 0-5") || !strings.Contains(s, "greeting") {
-		t.Fatalf("missing entry 1 with range: %q", s)
-	}
-	if !strings.Contains(s, "[2] chars 6-12") || !strings.Contains(s, "target") {
-		t.Fatalf("missing entry 2 with range: %q", s)
-	}
-	// Stream mode must not splice superscripts into the answer text.
-	if strings.ContainsAny(out.String(), "¹²³") {
-		t.Fatalf("stream mode leaked superscripts into answer: %q", out.String())
-	}
-}
-
-func TestChatStreamRendererCitationModeTail(t *testing.T) {
-	var out, status bytes.Buffer
-	r := newChatStreamRenderer(&out, &status, false, false, citationModeTail)
-	r.tailWindow = 16 // small window so we can test aging-out easily
-
-	// First delta: 10 bytes. Window is 16, so nothing should flush yet.
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkAnswer, Text: "0123456789"})
-	if got := out.String(); got != "" {
-		t.Fatalf("tail flushed too early: %q", got)
-	}
-
-	// Second delta: 20 more bytes (total 30). stable = 30-16 = 14 bytes should flush.
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkAnswer, Text: "ABCDEFGHIJKLMNOPQRST"})
-	if got := out.String(); got != "0123456789ABCD" {
-		t.Fatalf("tail flush boundary wrong: got %q, want %q", got, "0123456789ABCD")
-	}
-
-	// Citation that lands in aged-out territory (EndChar=5) should spill to footer.
-	// Citation that lands in the held tail (EndChar=30) should get inline splicing.
-	r.citations = []api.Citation{
-		{SourceIndex: 1, SourceID: "src_aged", Title: "aged out", StartChar: 0, EndChar: 5},
-		{SourceIndex: 2, SourceID: "src_tail", Title: "still held", StartChar: 24, EndChar: 30},
-	}
-	r.Finish()
-
-	body := out.String()
-	if !strings.HasPrefix(body, "0123456789ABCD") {
-		t.Fatalf("answer prefix changed unexpectedly: %q", body)
-	}
-	// Inline superscript should be at the end of the held tail (after 'T').
-	if !strings.Contains(body, "EFGHIJKLMNOPQRST²") {
-		t.Fatalf("inline superscript missing in held tail: %q", body)
-	}
-	// Aged-out citation should NOT appear inline.
-	if strings.Contains(body, "¹") {
-		t.Fatalf("aged-out citation leaked inline: %q", body)
-	}
-
-	s := status.String()
-	// Footer consistently uses [N] brackets for all entries — the inline
-	// superscript in the answer already marks which ones got spliced, and a
-	// single superscript among brackets reads as a bug.
-	if !strings.Contains(s, "[1] src_aged") {
-		t.Fatalf("footer missing aged-out entry with bracket marker: %q", s)
-	}
-	if !strings.Contains(s, "[2] src_tail") {
-		t.Fatalf("footer missing held entry with bracket marker: %q", s)
-	}
-	if strings.Contains(s, "² src_tail") {
-		t.Fatalf("footer should not mix superscript markers: %q", s)
-	}
-}
-
-func TestChatStreamRendererCitationModeTailNoCitations(t *testing.T) {
-	// Tail mode with no citations should still flush the full answer on Finish.
-	var out, status bytes.Buffer
-	r := newChatStreamRenderer(&out, &status, false, false, citationModeTail)
-	r.tailWindow = 8
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkAnswer, Text: "short"})
-	r.Finish()
-	if got := out.String(); got != "short" {
-		t.Fatalf("tail final flush = %q, want %q", got, "short")
-	}
-	if got := status.String(); got != "" {
-		t.Fatalf("no-citation footer leaked: %q", got)
-	}
-}
-
-func TestSnapToWordBoundary(t *testing.T) {
-	cases := []struct {
-		name string
-		text string
-		pos  int
-		want int
-	}{
-		{"already at space", "hello world", 5, 5},
-		{"mid-word advances to space", "answers are", 4, 7},       // "answ|ers" → "answers|"
-		{"mid-word to punctuation", "parser.go uses", 4, 6},       // "pars|er.go" → "parser|.go"
-		{"backtick is word-ish, snaps past", "foo`bar baz", 3, 7}, // "foo|`bar baz" treated as word, scans to space
-		{"end of string", "hello", 5, 5},
-		{"past end clamps to len", "hello", 10, 5},
-		{"negative clamps to 0", "hello", -1, 0},
-		{"no boundary within 32 returns original", strings.Repeat("x", 40), 3, 3},
-	}
-	for _, tc := range cases {
-		if got := snapToWordBoundary(tc.text, tc.pos); got != tc.want {
-			t.Errorf("%s: snapToWordBoundary(%q, %d) = %d, want %d", tc.name, tc.text, tc.pos, got, tc.want)
+	for _, live := range []string{"", "tail", "off", "json", "nonsense"} {
+		if got := citationModeIsDeprecatedAlias(live); got != "" {
+			t.Errorf("citationModeIsDeprecatedAlias(%q) = %q, want empty (not deprecated)", live, got)
 		}
 	}
 }
 
-func TestInsertSuperscriptsClustersToBrackets(t *testing.T) {
-	// Two citations sharing the same splice position must render as a
-	// bracketed cluster to avoid digit ambiguity ("³⁴" reading as "3⁴").
-	answer := "Hello world."
-	citations := []api.Citation{
-		{SourceIndex: 3, SourceID: "a", EndChar: 5},
-		{SourceIndex: 4, SourceID: "b", EndChar: 5},
-	}
-	got := insertSuperscripts(answer, citations)
-	want := "Hello[3,4] world."
-	if got != want {
-		t.Errorf("cluster = %q, want %q", got, want)
-	}
-}
-
-func TestInsertSuperscriptsSingletonStaysSuperscript(t *testing.T) {
-	// A single citation stays a Unicode superscript.
-	answer := "Hello world."
-	citations := []api.Citation{{SourceIndex: 3, SourceID: "a", EndChar: 5}}
-	got := insertSuperscripts(answer, citations)
-	want := "Hello³ world."
-	if got != want {
-		t.Errorf("singleton = %q, want %q", got, want)
-	}
-}
-
-func TestInsertSuperscriptsSnapsToWordBoundary(t *testing.T) {
-	// EndChar 4 lands inside "answers"; splice must snap to the end of the word.
-	answer := "Final answers are cited."
-	citations := []api.Citation{{SourceIndex: 1, SourceID: "s", EndChar: 10}} // mid-word "answ|ers"
-	got := insertSuperscripts(answer, citations)
-	want := "Final answers¹ are cited."
-	if got != want {
-		t.Errorf("insertSuperscripts snap = %q, want %q", got, want)
-	}
-}
-
-func TestRenderPersistedAssistantBlock(t *testing.T) {
+func TestRenderPersistedAssistantList(t *testing.T) {
 	var out, status bytes.Buffer
 	msg := ChatMessage{
 		Role:    "assistant",
@@ -434,64 +445,31 @@ func TestRenderPersistedAssistantBlock(t *testing.T) {
 			{SourceIndex: 2, SourceID: "src_b", Title: "Second"},
 		},
 	}
-	renderPersistedAssistant(&out, &status, msg, citationModeBlock)
+	renderPersistedAssistant(&out, &status, msg, citationModeList, persistedRenderConfig{})
 	if !strings.Contains(out.String(), "Answer body.") {
 		t.Fatalf("body missing from stdout: %q", out.String())
 	}
 	s := status.String()
-	if !strings.Contains(s, "Sources:") {
-		t.Fatalf("block footer missing: %q", s)
+	if !strings.Contains(s, "Citations:") {
+		t.Fatalf("list footer missing: %q", s)
 	}
-	if !strings.Contains(s, "[1] src_a") || !strings.Contains(s, "First") {
+	if !strings.Contains(s, "[1]") || !strings.Contains(s, "src_a \"First\"") {
 		t.Fatalf("entry 1 missing: %q", s)
 	}
-	if !strings.Contains(s, "[2] src_b") || !strings.Contains(s, "Second") {
+	if !strings.Contains(s, "[2]") || !strings.Contains(s, "src_b \"Second\"") {
 		t.Fatalf("entry 2 missing: %q", s)
-	}
-}
-
-func TestRenderPersistedAssistantOverlay(t *testing.T) {
-	var out, status bytes.Buffer
-	msg := ChatMessage{
-		Role:    "assistant",
-		Content: "Hello world.",
-		Citations: []api.Citation{
-			{SourceIndex: 1, SourceID: "src_a", Title: "greeting", EndChar: 5},
-		},
-	}
-	renderPersistedAssistant(&out, &status, msg, citationModeOverlay)
-	if !strings.Contains(out.String(), "Hello¹") {
-		t.Fatalf("overlay superscript missing (post-snap): %q", out.String())
-	}
-	if !strings.Contains(status.String(), "¹ src_a") {
-		t.Fatalf("overlay footer missing entry: %q", status.String())
 	}
 }
 
 func TestRenderPersistedAssistantNoCitations(t *testing.T) {
 	var out, status bytes.Buffer
 	msg := ChatMessage{Role: "assistant", Content: "Plain answer."}
-	renderPersistedAssistant(&out, &status, msg, citationModeBlock)
+	renderPersistedAssistant(&out, &status, msg, citationModeList, persistedRenderConfig{})
 	if got := out.String(); !strings.HasPrefix(got, "Plain answer.") {
 		t.Fatalf("body missing: %q", got)
 	}
 	if status.String() != "" {
 		t.Fatalf("footer should be empty for no citations, got %q", status.String())
-	}
-}
-
-func TestSuperscript(t *testing.T) {
-	cases := map[int]string{
-		0:  "",
-		1:  "¹",
-		2:  "²",
-		10: "¹⁰",
-		42: "⁴²",
-	}
-	for n, want := range cases {
-		if got := superscript(n); got != want {
-			t.Errorf("superscript(%d) = %q, want %q", n, got, want)
-		}
 	}
 }
 

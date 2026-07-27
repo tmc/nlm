@@ -45,6 +45,9 @@ type globalOptions struct {
 	useWebChat           bool
 	citationMode         string
 	resolveCitationsFlag bool
+	citationExcerpt      excerptBudgetFlag
+	hideCitationConf     offToggleFlag // --citation-confidence=off
+	hideCitationSpans    offToggleFlag // --citation-spans=off
 	sourceIDsFlag        string
 	sourceMatchFlag      string
 	sourceExcludeFlag    string
@@ -138,8 +141,12 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.BoolVar(&opts.thinkingJSONL, "thinking-jsonl", false, "deprecated: equivalent to --citations=json --thinking; emits thinking+answer+citation+followup JSON-lines events")
 	flags.BoolVar(&opts.verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
 	flags.BoolVar(&opts.verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
-	flags.StringVar(&opts.citationMode, "citations", "", "citation rendering: auto|off|block|stream|tail|overlay|json (default: block - answer + trailing Sources list; json emits answer+citation JSON-lines)")
+	flags.StringVar(&opts.citationMode, "citations", "", "citation rendering: off|list|json (default: list - answer + a grouped, per-[n] Citations list; json emits flat answer+citation JSON-lines). block/stream/tail are deprecated aliases of list; overlay is removed.")
 	flags.BoolVar(&opts.resolveCitationsFlag, "resolve-citations", false, "resolve each citation back to file:line when the source is a txtar archive (one extra LoadSourceText fetch per cited source)")
+	flags.Var(&opts.citationExcerpt, "citation-excerpts", "show the cited source text beneath each citation, clipped to N chars (bare flag uses "+fmt.Sprint(defaultExcerptBudget)+"); fetches each cited source, like --resolve-citations")
+	flags.Var(&opts.citationExcerpt, "citation-excerpt", "") // singular alias for --citation-excerpts
+	flags.Var(&opts.hideCitationConf, "citation-confidence", "show the (p=…) confidence column in the citation list (default on; pass =off to hide)")
+	flags.Var(&opts.hideCitationSpans, "citation-spans", "show the trailing [chars N-M] span column in the citation list (default on; pass =off to hide)")
 	flags.StringVar(&opts.sourceIDsFlag, "source-ids", "", "focus on these source IDs (e.g. 'a,b,c' or '-' for newline-delimited stdin); applies to chat, report, and transform commands")
 	flags.StringVar(&opts.sourceMatchFlag, "source-match", "", "focus on sources whose title or UUID matches this regex (e.g. '^nlm internal/' or '^132af'); unioned with --source-ids")
 	flags.StringVar(&opts.sourceExcludeFlag, "source-exclude", "", "exclude sources whose title or UUID matches this regex; applied after include selectors")
@@ -371,6 +378,8 @@ func chatCommandLocalFlags() map[string]bool {
 		"f": true, "history": true, "thinking": true, "reasoning": true,
 		"thinking-jsonl": true, "verbose": true, "v": true,
 		"citations": true, "resolve-citations": true,
+		"citation-excerpts": true, "citation-excerpt": true,
+		"citation-confidence": true, "citation-spans": true,
 		"source-ids": true, "source-match": true, "source-exclude": true,
 		"label-ids": true, "label-match": true, "label-exclude": true,
 	}
@@ -388,6 +397,9 @@ func chatShowCommandLocalFlags() map[string]bool {
 	return map[string]bool{
 		"thinking": true, "reasoning": true,
 		"citations": true, "resolve-citations": true,
+		"citation-excerpts": true, "citation-excerpt": true,
+		"citation-confidence": true, "citation-spans": true,
+		"format": true, "out": true, "open": true,
 	}
 }
 
