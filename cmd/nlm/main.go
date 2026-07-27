@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -749,10 +750,6 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 	// Try as local file
 	if _, err := os.Stat(input); err == nil {
 		fmt.Fprintf(os.Stderr, "Adding source from file: %s\n", input)
-		name := filepath.Base(input)
-		if opts.Name != "" {
-			name = opts.Name
-		}
 		if opts.PreProcess != "" {
 			fmt.Fprintf(os.Stderr, "Pre-processing file through: %s\n", opts.PreProcess)
 			file, err := os.Open(input)
@@ -764,31 +761,14 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 			if err != nil {
 				return "", err
 			}
-			if opts.MIMEType != "" {
-				fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
-				return c.AddSourceFromReader(notebookID, piped, name, opts.MIMEType)
-			}
-			return c.AddSourceFromReader(notebookID, piped, name)
+			return addLocalFileSource(c, notebookID, input, piped, opts)
 		}
-		if opts.MIMEType != "" {
-			fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
-			file, err := os.Open(input)
-			if err != nil {
-				return "", fmt.Errorf("open file: %w", err)
-			}
-			defer file.Close()
-			return c.AddSourceFromReader(notebookID, file, name, opts.MIMEType)
+		file, err := os.Open(input)
+		if err != nil {
+			return "", fmt.Errorf("open file: %w", err)
 		}
-		if opts.Name != "" {
-			// Use AddSourceFromReader to pass the custom name
-			file, err := os.Open(input)
-			if err != nil {
-				return "", fmt.Errorf("open file: %w", err)
-			}
-			defer file.Close()
-			return c.AddSourceFromReader(notebookID, file, name)
-		}
-		return c.AddSourceFromFile(notebookID, input)
+		defer file.Close()
+		return addLocalFileSource(c, notebookID, input, file, opts)
 	}
 
 	// If it's not a URL or file, treat as direct text content
@@ -810,6 +790,39 @@ func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (
 		return c.AddSourceFromText(notebookID, string(data), textName)
 	}
 	return c.AddSourceFromText(notebookID, input, textName)
+}
+
+// addLocalFileSource uploads a local file using its basename. The resumable
+// upload service uses the filename extension to select a parser, so a display
+// name such as "paper" must not replace an input name such as "paper.pdf".
+// Rename the source after the upload instead.
+type localFileSourceClient interface {
+	AddSourceFromReader(projectID string, r io.Reader, filename string, contentType ...string) (string, error)
+	MutateSource(sourceID string, updates *pb.Source) (*pb.Source, error)
+}
+
+func addLocalFileSource(c localFileSourceClient, notebookID, path string, r io.Reader, opts sourceAddOptions) (string, error) {
+	filename := filepath.Base(path)
+	var (
+		id  string
+		err error
+	)
+	if opts.MIMEType != "" {
+		fmt.Fprintf(os.Stderr, "Using specified MIME type: %s\n", opts.MIMEType)
+		id, err = c.AddSourceFromReader(notebookID, r, filename, opts.MIMEType)
+	} else {
+		id, err = c.AddSourceFromReader(notebookID, r, filename)
+	}
+	if err != nil {
+		return "", err
+	}
+	if opts.Name == "" || opts.Name == filename {
+		return id, nil
+	}
+	if _, err := c.MutateSource(id, &pb.Source{Title: opts.Name}); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: uploaded source %s but could not rename it to %q: %v\n", id, opts.Name, err)
+	}
+	return id, nil
 }
 
 // syncClientAdapter wraps *api.Client to satisfy nlmsync.Client.
@@ -1603,6 +1616,26 @@ func getArtifact(c *api.Client, artifactID string) error {
 	return nil
 }
 
+func readArtifact(c *api.Client, artifactID string, opts globalOptions) error {
+	directErr := c.ReadArtifactFile(artifactID, "md", os.Stdout)
+	if directErr == nil {
+		return nil
+	}
+	if opts.cdpURL == "" {
+		return fmt.Errorf("read artifact: direct download failed: %w", directErr)
+	}
+	url, err := c.ArtifactDownloadURLForFormat(artifactID, "md")
+	if err != nil {
+		return fmt.Errorf("read artifact: get download URL: %w", err)
+	}
+	data, err := auth.New(false).ReadTextWithRemoteBrowser(url, opts.cdpURL)
+	if err != nil {
+		return fmt.Errorf("read artifact: remote browser download: %w", err)
+	}
+	_, err = os.Stdout.Write(data)
+	return err
+}
+
 func listArtifacts(c *api.Client, projectID string) error {
 	artifacts, err := c.ListArtifacts(projectID)
 	if err != nil {
@@ -2231,6 +2264,8 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	renderer.jsonl = mode == citationModeJSON
 	renderer.jsonlIncludeThinking = wantThinking
 	renderer.resolveTitle = notebookSourceTitles(c, req.ProjectID)
+	responseReceived, stopWaiting := startInitialChatResponseWaiter(os.Stderr, 30*time.Second)
+	defer stopWaiting()
 	if opts.ResolveCitations && c != nil && req.ProjectID != "" {
 		renderer.loadSource = func(sourceID string) (api.LoadSourceText, error) {
 			return c.LoadSourceText(sourceID, req.ProjectID)
@@ -2238,6 +2273,7 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	}
 
 	err := c.StreamChat(req, func(chunk api.ChatChunk) bool {
+		responseReceived()
 		renderer.WriteChunk(chunk)
 		return true
 	})
@@ -2250,6 +2286,41 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 		Citations: renderer.citations,
 		FollowUps: renderer.followUps,
 	}, err
+}
+
+// startInitialChatResponseWaiter reports that the response stream remains open
+// while the server has not yet produced a parsed chat chunk. The notice is a
+// client-side liveness indicator, not evidence that NotebookLM has started
+// generating an answer.
+func startInitialChatResponseWaiter(status io.Writer, interval time.Duration) (received func(), stop func()) {
+	first := make(chan struct{})
+	done := make(chan struct{})
+	var firstOnce sync.Once
+	var stopOnce sync.Once
+	started := time.Now()
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		defer close(done)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Fprintf(status, "nlm: waiting for initial NotebookLM response (%s elapsed; stream is open)\n", time.Since(started).Round(time.Second))
+			case <-first:
+				return
+			}
+		}
+	}()
+
+	received = func() { firstOnce.Do(func() { close(first) }) }
+	stop = func() {
+		stopOnce.Do(func() {
+			firstOnce.Do(func() { close(first) })
+			<-done
+		})
+	}
+	return received, stop
 }
 
 // promoteThinkingToAnswer handles the case where the stream parser classified
@@ -2399,6 +2470,9 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 
 	res, streamErr := streamChatResponse(c, chatReq, opts.Render)
 	if streamErr != nil {
+		if api.IsChatStreamTimeout(streamErr) {
+			return fmt.Errorf("generate chat: %w; the streaming RPC produced no usable response; check 'nlm auth status' and 'nlm sources %s'", streamErr, projectID)
+		}
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
 		response, chatErr := c.ChatWithHistory(chatReq)
 		if chatErr != nil {

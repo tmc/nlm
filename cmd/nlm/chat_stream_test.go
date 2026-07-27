@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
@@ -33,6 +34,20 @@ func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 	}
 	if got := r.Thinking(); got != "**Thinking**\nPlanning response" {
 		t.Fatalf("thinking trace = %q", got)
+	}
+}
+
+func TestInitialChatResponseWaiter(t *testing.T) {
+	var status bytes.Buffer
+	received, stop := startInitialChatResponseWaiter(&status, time.Millisecond)
+	t.Cleanup(stop)
+
+	time.Sleep(10 * time.Millisecond)
+	received()
+	stop()
+
+	if got := status.String(); !strings.Contains(got, "waiting for initial NotebookLM response") {
+		t.Fatalf("status = %q, want waiting notice", got)
 	}
 }
 
@@ -357,8 +372,8 @@ func TestSnapToWordBoundary(t *testing.T) {
 		want int
 	}{
 		{"already at space", "hello world", 5, 5},
-		{"mid-word advances to space", "answers are", 4, 7},      // "answ|ers" → "answers|"
-		{"mid-word to punctuation", "parser.go uses", 4, 6},      // "pars|er.go" → "parser|.go"
+		{"mid-word advances to space", "answers are", 4, 7},       // "answ|ers" → "answers|"
+		{"mid-word to punctuation", "parser.go uses", 4, 6},       // "pars|er.go" → "parser|.go"
 		{"backtick is word-ish, snaps past", "foo`bar baz", 3, 7}, // "foo|`bar baz" treated as word, scans to space
 		{"end of string", "hello", 5, 5},
 		{"past end clamps to len", "hello", 10, 5},

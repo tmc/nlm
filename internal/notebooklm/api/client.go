@@ -18,6 +18,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -128,10 +130,12 @@ func httpClientWithTimeout(timeout time.Duration) *http.Client {
 // this resets the deadline on each successful read — suitable for
 // long-running streaming responses where data arrives in chunks.
 type idleTimeoutReader struct {
-	r       io.ReadCloser
-	timeout time.Duration
-	timer   *time.Timer
-	done    chan struct{}
+	r        io.ReadCloser
+	timeout  time.Duration
+	timer    *time.Timer
+	done     chan struct{}
+	close    sync.Once
+	closeErr error
 }
 
 func newIdleTimeoutReader(r io.ReadCloser, timeout time.Duration) *idleTimeoutReader {
@@ -166,9 +170,12 @@ func (r *idleTimeoutReader) Read(p []byte) (int, error) {
 }
 
 func (r *idleTimeoutReader) Close() error {
-	close(r.done)
-	r.timer.Stop()
-	return r.r.Close()
+	r.close.Do(func() {
+		close(r.done)
+		r.timer.Stop()
+		r.closeErr = r.r.Close()
+	})
+	return r.closeErr
 }
 
 // Client handles NotebookLM API interactions.
@@ -3217,7 +3224,23 @@ func (c *Client) DownloadArtifactFile(artifactID, format, filename string) error
 	if err != nil {
 		return err
 	}
-	return c.downloadAuthedFile(chosen, filename)
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("create output file: %w", err)
+	}
+	defer file.Close()
+	return c.downloadAuthed(chosen, file)
+}
+
+// ReadArtifactFile writes an artifact's rendered output to w, selecting the
+// output by filename extension. It is useful for text artifacts that callers
+// want to inspect without creating a local file.
+func (c *Client) ReadArtifactFile(artifactID, format string, w io.Writer) error {
+	chosen, err := c.ArtifactDownloadURLForFormat(artifactID, format)
+	if err != nil {
+		return err
+	}
+	return c.downloadAuthed(chosen, w)
 }
 
 // artifactDownloadExtension returns the lowercase ".ext" carried in a download
@@ -3237,12 +3260,12 @@ func artifactDownloadExtension(rawURL string) string {
 	return ""
 }
 
-// downloadAuthedFile GETs fileURL with the client's session cookies and writes
-// the body to filename. Used for contribution.usercontent.google.com artifact
+// downloadAuthed GETs fileURL with the client's session cookies and writes the
+// body to w. It is used for contribution.usercontent.google.com artifact
 // downloads, which are gated on the NotebookLM session cookie. The header set
 // and authuser query parameter mirror DownloadVideoWithAuth, which downloads
 // from the same usercontent host; without them the host answers 403.
-func (c *Client) downloadAuthedFile(fileURL, filename string) error {
+func (c *Client) downloadAuthed(fileURL string, w io.Writer) error {
 	if !strings.Contains(fileURL, "authuser=") {
 		sep := "?"
 		if strings.Contains(fileURL, "?") {
@@ -3298,13 +3321,8 @@ func (c *Client) downloadAuthedFile(fileURL, filename string) error {
 		return fmt.Errorf("download returned HTML, not a file (authentication may have expired)")
 	}
 
-	file, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("create output file: %w", err)
-	}
-	defer file.Close()
-	if _, err := io.Copy(file, resp.Body); err != nil {
-		return fmt.Errorf("write output file: %w", err)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		return fmt.Errorf("write download: %w", err)
 	}
 	return nil
 }
@@ -4033,6 +4051,33 @@ type ChatChunk struct {
 // Chat does NOT use batchexecute — it uses a dedicated gRPC-Web endpoint.
 const chatEndpoint = "/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
 
+const (
+	// NotebookLM can take several minutes to begin a response for a large
+	// notebook. Keep this bounded, but do not reject a live request merely
+	// because its first parsed chunk takes longer than a minute.
+	chatInitialResponseTimeout = 5 * time.Minute
+	chatProgressTimeout        = 120 * time.Second
+)
+
+type chatStreamTimeoutError struct {
+	timeout  time.Duration
+	progress bool
+}
+
+func (e *chatStreamTimeoutError) Error() string {
+	if e.progress {
+		return fmt.Sprintf("chat stream timed out after %s without response progress", e.timeout)
+	}
+	return fmt.Sprintf("chat stream timed out after %s without an initial response", e.timeout)
+}
+
+// IsChatStreamTimeout reports whether err was caused by a chat stream that
+// did not deliver a parsed response chunk before its deadline.
+func IsChatStreamTimeout(err error) bool {
+	var timeoutErr *chatStreamTimeoutError
+	return errors.As(err, &timeoutErr)
+}
+
 func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
 	var resp strings.Builder
 	err := c.StreamChat(ChatRequest{
@@ -4336,11 +4381,75 @@ func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk)
 		return fmt.Errorf("chat request failed: %d %s: %s", resp.StatusCode, resp.Status, string(respBody)[:min(500, len(respBody))])
 	}
 
-	// Wrap body with idle timeout: reset deadline on each chunk received.
+	// Wrap body with an idle timeout for blocked reads, then enforce a separate
+	// deadline for parsed response progress. The server can keep a connection
+	// alive with framing bytes that never produce a chat chunk.
 	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
 	defer idleBody.Close()
 
-	return c.parseChatResponseChunked(idleBody, sourceIDs, callback)
+	return c.parseChatResponseChunkedWithProgressTimeout(
+		idleBody, sourceIDs, callback, chatInitialResponseTimeout, chatProgressTimeout)
+}
+
+// parseChatResponseChunkedWithProgressTimeout closes r when the stream has not
+// produced an initial or subsequent parsed chat chunk within its deadline.
+// It deliberately tracks parsed chunks rather than socket reads: keep-alive
+// bytes and length prefixes are not useful progress to a command caller.
+func (c *Client) parseChatResponseChunkedWithProgressTimeout(r io.ReadCloser, sourceIDs []string, callback func(ChatChunk) bool, initialTimeout, progressTimeout time.Duration) error {
+	var (
+		timedOut atomic.Bool
+		sawChunk atomic.Bool
+	)
+
+	// The timeout is armed with time.AfterFunc, but Stop/Reset alone cannot make
+	// resetting race-free: if the timer fires between a parsed chunk and the
+	// Stop call, Stop returns false and the already-queued callback would still
+	// close r even though progress was made. Guard the callback with a mutex and
+	// a generation counter — a chunk bumps the generation, so a callback that was
+	// queued for an older generation becomes a no-op. finished stops all further
+	// timeouts once parsing returns.
+	var (
+		mu       sync.Mutex
+		gen      uint64
+		finished bool
+	)
+	var timer *time.Timer
+	arm := func(d time.Duration, myGen uint64) {
+		timer = time.AfterFunc(d, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			if finished || myGen != gen {
+				return // superseded by a later chunk or by completion
+			}
+			timedOut.Store(true)
+			_ = r.Close()
+		})
+	}
+	mu.Lock()
+	arm(initialTimeout, gen)
+	mu.Unlock()
+
+	timeout := initialTimeout
+	err := c.parseChatResponseChunked(r, sourceIDs, func(chunk ChatChunk) bool {
+		sawChunk.Store(true)
+		mu.Lock()
+		timeout = progressTimeout
+		gen++        // invalidate any timeout callback already queued
+		timer.Stop() // best-effort; the gen check is the real guard
+		arm(progressTimeout, gen)
+		mu.Unlock()
+		return callback(chunk)
+	})
+
+	mu.Lock()
+	finished = true
+	timer.Stop()
+	mu.Unlock()
+
+	if timedOut.Load() {
+		return &chatStreamTimeoutError{timeout: timeout, progress: sawChunk.Load()}
+	}
+	return err
 }
 
 // parseChatResponseChunked reads the stream incrementally and emits phase-aware

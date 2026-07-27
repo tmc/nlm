@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/browser"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
@@ -67,23 +68,41 @@ func (ba *BrowserAuth) GetAuthData(opts ...Option) (*AuthData, error) {
 	}, nil
 }
 
+// KeepAlive prevents the browser from being cleaned up automatically.
+// Call this before returning from auth if you want to keep the browser session alive.
+// You must call Cleanup() manually when done.
+func (ba *BrowserAuth) KeepAlive() {
+	// Clear the cancel function so cleanup() doesn't close the browser
+	ba.cancel = nil
+}
+
+// Cleanup manually cleans up browser resources
+func (ba *BrowserAuth) Cleanup() {
+	ba.cleanup()
+}
+
 type Options struct {
-	ProfileName     string
-	TryAllProfiles  bool
-	ScanBeforeAuth  bool
-	TargetURL       string
-	CheckNotebooks  bool
-	KeepOpenSeconds int    // Keep browser open for N seconds after auth
-	RemoteCDPURL    string // Remote CDP WebSocket URL (e.g. "ws://localhost:9222")
-	AuthUser        string // Google account index for multi-account profiles (e.g. "1")
+	ProfileName       string
+	TryAllProfiles    bool
+	ScanBeforeAuth    bool
+	TargetURL         string
+	PreferredBrowsers []string
+	CheckNotebooks    bool
+	KeepOpenSeconds   int    // Keep browser open for N seconds after auth
+	RemoteCDPURL      string // Remote CDP WebSocket URL (e.g. "ws://localhost:9222")
+	AuthUser          string // Google account index for multi-account profiles (e.g. "1")
 }
 
 type Option func(*Options)
 
-func WithProfileName(p string) Option        { return func(o *Options) { o.ProfileName = p } }
-func WithTryAllProfiles() Option             { return func(o *Options) { o.TryAllProfiles = true } }
-func WithScanBeforeAuth() Option             { return func(o *Options) { o.ScanBeforeAuth = true } }
-func WithTargetURL(url string) Option        { return func(o *Options) { o.TargetURL = url } }
+func WithProfileName(p string) Option { return func(o *Options) { o.ProfileName = p } }
+func WithTryAllProfiles() Option      { return func(o *Options) { o.TryAllProfiles = true } }
+func WithScanBeforeAuth() Option      { return func(o *Options) { o.ScanBeforeAuth = true } }
+func WithTargetURL(url string) Option { return func(o *Options) { o.TargetURL = url } }
+func WithoutScanBeforeAuth() Option   { return func(o *Options) { o.ScanBeforeAuth = false } }
+func WithPreferredBrowsers(browsers []string) Option {
+	return func(o *Options) { o.PreferredBrowsers = browsers }
+}
 func WithCheckNotebooks() Option             { return func(o *Options) { o.CheckNotebooks = true } }
 func WithKeepOpenSeconds(seconds int) Option { return func(o *Options) { o.KeepOpenSeconds = seconds } }
 func WithRemoteCDPURL(url string) Option     { return func(o *Options) { o.RemoteCDPURL = url } }
@@ -462,12 +481,13 @@ func countNotebooks(token, cookies, authUser string) (int, error) {
 
 func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error) {
 	o := &Options{
-		ProfileName:     "Default",
-		TryAllProfiles:  false,
-		ScanBeforeAuth:  true, // Default to showing profile information
-		TargetURL:       "https://notebooklm.google.com",
-		CheckNotebooks:  false,
-		KeepOpenSeconds: 0,
+		ProfileName:       "Default",
+		TryAllProfiles:    false,
+		ScanBeforeAuth:    true, // Default to showing profile information
+		TargetURL:         "https://notebooklm.google.com",
+		PreferredBrowsers: []string{},
+		CheckNotebooks:    false,
+		KeepOpenSeconds:   0,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -509,7 +529,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 
 		// If requested, check notebooks for each profile that has valid cookies
 		if o.CheckNotebooks {
-			fmt.Println("Checking notebook access for profiles...")
+			fmt.Fprintln(os.Stderr, "Checking notebook access for profiles...")
 
 			// Create a pool of profiles to check
 			var profilesToCheck []ProfileInfo
@@ -538,12 +558,12 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				}
 
 				if shouldCheck {
-					fmt.Printf("  Checking notebooks for %s [%s]...", p.Name, p.Browser)
+					fmt.Fprintf(os.Stderr, "  Checking notebooks for %s [%s]...", p.Name, p.Browser)
 
 					// Set up a temporary Chrome instance to authenticate
 					tempDir, err := os.MkdirTemp("", "nlm-notebook-check-*")
 					if err != nil {
-						fmt.Println(" Error: could not create temp dir")
+						fmt.Fprintln(os.Stderr, " Error: could not create temp dir")
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
@@ -558,7 +578,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					// Copy profile data
 					err = tempAuth.copyProfileDataFromPath(p.Path)
 					if err != nil {
-						fmt.Println(" Error: could not copy profile data")
+						fmt.Fprintln(os.Stderr, " Error: could not copy profile data")
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
@@ -587,7 +607,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					cancel()
 
 					if err != nil || token == "" {
-						fmt.Println(" Not authenticated")
+						fmt.Fprintln(os.Stderr, " Not authenticated")
 						updatedProfiles = append(updatedProfiles, p)
 						continue
 					}
@@ -600,13 +620,13 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					// Try to get notebooks
 					notebookCount, err := countNotebooks(token, cookies, o.AuthUser)
 					if err != nil {
-						fmt.Println(" Error counting notebooks")
+						fmt.Fprintln(os.Stderr, " Error counting notebooks")
 						updatedProfiles = append(updatedProfiles, profile)
 						continue
 					}
 
 					profile.NotebookCount = notebookCount
-					fmt.Printf(" Found %d notebooks\n", notebookCount)
+					fmt.Fprintf(os.Stderr, " Found %d notebooks\n", notebookCount)
 					updatedProfiles = append(updatedProfiles, profile)
 				} else {
 					// Skip notebook check for this profile
@@ -619,8 +639,8 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		}
 
 		// Show profile information
-		fmt.Println("Available browser profiles:")
-		fmt.Println("===========================")
+		fmt.Fprintln(os.Stderr, "Available browser profiles:")
+		fmt.Fprintln(os.Stderr, "===========================")
 		for _, p := range profiles {
 			cookieStatus := ""
 			if targetDomain != "" {
@@ -636,7 +656,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				notebookStatus = fmt.Sprintf(" [%d notebooks]", p.NotebookCount)
 			}
 
-			fmt.Printf("%d. %s [%s] - Last used: %s (%d files, %.1f MB)%s%s\n",
+			fmt.Fprintf(os.Stderr, "%d. %s [%s] - Last used: %s (%d files, %.1f MB)%s%s\n",
 				1, p.Name, p.Browser,
 				p.LastUsed.Format("2006-01-02 15:04:05"),
 				len(p.Files),
@@ -644,14 +664,14 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 				cookieStatus,
 				notebookStatus)
 		}
-		fmt.Println("===========================")
+		fmt.Fprintln(os.Stderr, "===========================")
 
 		if o.TryAllProfiles {
-			fmt.Println("Will try profiles in order shown above...")
+			fmt.Fprintln(os.Stderr, "Will try profiles in order shown above...")
 		} else {
-			fmt.Printf("Using profile: %s\n", o.ProfileName)
+			fmt.Fprintf(os.Stderr, "Using profile: %s\n", o.ProfileName)
 		}
-		fmt.Println()
+		fmt.Fprintln(os.Stderr)
 	}
 
 	// If trying all profiles, try to find one that works
@@ -735,6 +755,45 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 	return ba.extractAuthDataForURL(ctx, o.TargetURL)
 }
 
+// copyProfileData first resolves the profile name to a path and then calls copyProfileDataFromPath
+func (ba *BrowserAuth) copyProfileData(profileName string) error {
+	// If profileName is "Default" and it doesn't exist, find the most recently used profile
+	profilePath := getProfilePath()
+	sourceDir := filepath.Join(profilePath, profileName)
+
+	// Check if the requested profile exists
+	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
+		// First try the same profile name in Chrome Canary
+		canaryPath := getCanaryProfilePath()
+		canarySourceDir := filepath.Join(canaryPath, profileName)
+
+		if _, err := os.Stat(canarySourceDir); err == nil {
+			sourceDir = canarySourceDir
+			if ba.debug {
+				fmt.Printf("Using Chrome Canary profile: %s\n", sourceDir)
+			}
+		} else if profileName == "Default" {
+			// If still not found and this is Default, try to find any recent profile
+			// Try to find the most recently used profile
+			profiles, _ := ba.scanProfiles()
+			if len(profiles) > 0 {
+				sourceDir = profiles[0].Path
+				if ba.debug {
+					fmt.Printf("Profile 'Default' not found, using most recently used profile: %s [%s]\n",
+						profiles[0].Name, profiles[0].Browser)
+				}
+			} else if foundProfile := findMostRecentProfile(profilePath); foundProfile != "" {
+				sourceDir = foundProfile
+				if ba.debug {
+					fmt.Printf("Profile 'Default' not found, using most recently used profile: %s\n", sourceDir)
+				}
+			}
+		}
+	}
+
+	return ba.copyProfileDataFromPath(sourceDir)
+}
+
 // copyProfileDataFromPath copies profile data from a specific path
 func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
 	if ba.debug {
@@ -791,6 +850,125 @@ func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
 	return nil
 }
 
+// findMostRecentProfile finds the most recently used profile in the Chrome profile directory
+func findMostRecentProfile(profilePath string) string {
+	entries, err := os.ReadDir(profilePath)
+	if err != nil {
+		return ""
+	}
+
+	var mostRecent string
+	var mostRecentTime time.Time
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Skip special directories
+		if entry.Name() == "System Profile" || entry.Name() == "Guest Profile" {
+			continue
+		}
+
+		// Check for existence of key files that indicate it's a valid profile
+		validFiles := []string{"Cookies", "Login Data", "History"}
+		hasValidFiles := false
+
+		for _, file := range validFiles {
+			filePath := filepath.Join(profilePath, entry.Name(), file)
+			if _, err := os.Stat(filePath); err == nil {
+				hasValidFiles = true
+				break
+			}
+		}
+
+		if !hasValidFiles {
+			continue
+		}
+
+		// Check profile directory's modification time
+		fullPath := filepath.Join(profilePath, entry.Name())
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			continue
+		}
+
+		modTime := info.ModTime()
+		if mostRecent == "" || modTime.After(mostRecentTime) {
+			mostRecent = fullPath
+			mostRecentTime = modTime
+		}
+	}
+
+	return mostRecent
+}
+
+func (ba *BrowserAuth) startChromeExec() (string, error) {
+	debugPort := "9222"
+	debugURL := fmt.Sprintf("http://localhost:%s", debugPort)
+
+	chromePath := getChromePath()
+	if chromePath == "" {
+		return "", fmt.Errorf("chrome not found")
+	}
+
+	if ba.debug {
+		fmt.Printf("Starting Chrome from: %s\n", chromePath)
+		fmt.Printf("Using profile: %s\n", ba.tempDir)
+	}
+
+	ba.chromeCmd = exec.Command(chromePath,
+		fmt.Sprintf("--remote-debugging-port=%s", debugPort),
+		fmt.Sprintf("--user-data-dir=%s", ba.tempDir),
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-extensions",
+		"--disable-sync",
+		"--window-size=1280,800",
+	)
+
+	if ba.debug {
+		ba.chromeCmd.Stdout = os.Stdout
+		ba.chromeCmd.Stderr = os.Stderr
+	}
+
+	if err := ba.chromeCmd.Start(); err != nil {
+		return "", fmt.Errorf("start chrome: %w", err)
+	}
+
+	if err := ba.waitForDebugger(debugURL); err != nil {
+		ba.cleanup()
+		return "", err
+	}
+
+	return debugURL, nil
+}
+
+func (ba *BrowserAuth) waitForDebugger(debugURL string) error {
+	fmt.Println("Waiting for Chrome debugger...")
+
+	timeout := time.After(20 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for chrome debugger")
+		case <-ticker.C:
+			resp, err := http.Get(debugURL + "/json/version")
+			if err == nil {
+				resp.Body.Close()
+				fmt.Println("Chrome debugger ready")
+				return nil
+			}
+			if ba.debug {
+				fmt.Printf(".")
+			}
+		}
+	}
+}
+
 func (ba *BrowserAuth) cleanup() {
 	if ba.cancel != nil {
 		ba.cancel()
@@ -820,6 +998,58 @@ func copyFile(src, dst string) error {
 	return err
 }
 
+// copyDirectoryRecursive recursively copies all files and subdirectories from src to dst
+func copyDirectoryRecursive(src, dst string, debug bool) error {
+	return copyDirectoryRecursiveWithCount(src, dst, debug, nil, nil)
+}
+
+// copyDirectoryRecursiveWithCount recursively copies with file counting
+func copyDirectoryRecursiveWithCount(src, dst string, debug bool, fileCount, dirCount *int) error {
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("read directory %s: %w", src, err)
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			// Create destination directory
+			if err := os.MkdirAll(dstPath, 0755); err != nil {
+				if debug {
+					fmt.Printf("Failed to create directory %s: %v\n", dstPath, err)
+				}
+				continue
+			}
+
+			if dirCount != nil {
+				*dirCount++
+			}
+
+			// Recursively copy subdirectory
+			if err := copyDirectoryRecursiveWithCount(srcPath, dstPath, debug, fileCount, dirCount); err != nil {
+				if debug {
+					fmt.Printf("Failed to copy subdirectory %s: %v\n", srcPath, err)
+				}
+				continue
+			}
+		} else {
+			// Copy file
+			if err := copyFile(srcPath, dstPath); err != nil {
+				// Silently skip files that can't be copied
+				continue
+			}
+
+			if fileCount != nil {
+				*fileCount++
+			}
+		}
+	}
+
+	return nil
+}
+
 // gracefulShutdown performs a graceful browser shutdown to avoid crash detection
 func (ba *BrowserAuth) gracefulShutdown(ctx context.Context) error {
 	// First try to close all tabs gracefully using JavaScript
@@ -843,6 +1073,11 @@ func (ba *BrowserAuth) gracefulShutdown(ctx context.Context) error {
 	}
 
 	return err
+}
+
+func (ba *BrowserAuth) extractAuthData(ctx context.Context) (token, cookies string, err error) {
+	targetURL := "https://notebooklm.google.com"
+	return ba.extractAuthDataForURL(ctx, targetURL)
 }
 
 func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL string) (token, cookies string, err error) {
@@ -1162,4 +1397,153 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	}
 
 	return token, cookies, nil
+}
+
+// DownloadWithBrowser downloads a file using the browser with profile authentication
+// This is useful for downloading files from Google CDN that require session cookies
+func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName string) ([]byte, error) {
+	// Find the profile to use
+	profiles, err := ba.scanProfiles()
+	if err != nil {
+		return nil, fmt.Errorf("scan profiles: %w", err)
+	}
+
+	var selectedProfile *ProfileInfo
+	for _, p := range profiles {
+		if p.Name == profileName || profileName == "" {
+			selectedProfile = &p
+			break
+		}
+	}
+
+	if selectedProfile == nil && len(profiles) > 0 {
+		selectedProfile = &profiles[0] // Use most recently used
+	}
+
+	if selectedProfile == nil {
+		return nil, fmt.Errorf("no valid profiles found")
+	}
+
+	// Create temp dir and copy profile
+	tempDir, err := os.MkdirTemp("", "nlm-download-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	ba.tempDir = tempDir
+	defer ba.cleanup()
+
+	if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
+		return nil, fmt.Errorf("copy profile: %w", err)
+	}
+
+	// Set up chromedp
+	opts := []chromedp.ExecAllocatorOption{
+		chromedp.NoFirstRun,
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.UserDataDir(ba.tempDir),
+		chromedp.Flag("headless", true),
+		chromedp.ExecPath(getBrowserPathForProfile(selectedProfile.Browser)),
+	}
+
+	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
+	defer allocCancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	// Use CDP Network domain to capture the response
+	var responseBody []byte
+	var responseReceived bool
+
+	chromedp.ListenTarget(ctx, func(ev interface{}) {
+		switch ev := ev.(type) {
+		case *network.EventResponseReceived:
+			if ev.Response.URL == urlToDownload {
+				responseReceived = true
+			}
+		case *network.EventLoadingFinished:
+			if responseReceived {
+				// Get the response body
+				go func() {
+					body, err := network.GetResponseBody(ev.RequestID).Do(ctx)
+					if err == nil {
+						responseBody = body
+					}
+				}()
+			}
+		}
+	})
+
+	// Enable network and navigate to URL
+	if err := chromedp.Run(ctx,
+		network.Enable(),
+		chromedp.Navigate(urlToDownload),
+	); err != nil {
+		return nil, fmt.Errorf("navigate to URL: %w", err)
+	}
+
+	// Wait for response or timeout
+	time.Sleep(2 * time.Second)
+
+	if len(responseBody) == 0 {
+		return nil, fmt.Errorf("failed to download: no response body captured")
+	}
+
+	return responseBody, nil
+}
+
+// ReadTextWithRemoteBrowser downloads a text URL through an existing browser
+// debugging session. It is useful when a download host requires the browser's
+// live session cookies rather than the copied cookie header used by the CLI.
+func (ba *BrowserAuth) ReadTextWithRemoteBrowser(urlToRead, remoteCDPURL string) ([]byte, error) {
+	if remoteCDPURL == "" {
+		return nil, fmt.Errorf("missing remote CDP URL")
+	}
+	allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), remoteCDPURL)
+	defer allocCancel()
+
+	ctx, cancel := chromedp.NewContext(allocCtx)
+	defer cancel()
+	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	downloadDir, err := os.MkdirTemp("", "nlm-remote-download-*")
+	if err != nil {
+		return nil, fmt.Errorf("create download directory: %w", err)
+	}
+	defer os.RemoveAll(downloadDir)
+
+	if err := chromedp.Run(ctx, browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllowAndName).
+		WithDownloadPath(downloadDir).
+		WithEventsEnabled(true)); err != nil {
+		return nil, fmt.Errorf("configure browser download: %w", err)
+	}
+	if err := chromedp.Run(ctx, chromedp.Navigate(urlToRead)); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
+		return nil, fmt.Errorf("navigate to download: %w", err)
+	}
+	wake := time.NewTicker(100 * time.Millisecond)
+	defer wake.Stop()
+	for {
+		entries, err := os.ReadDir(downloadDir)
+		if err != nil {
+			return nil, fmt.Errorf("read download directory: %w", err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() || strings.HasSuffix(entry.Name(), ".crdownload") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(downloadDir, entry.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("read downloaded file: %w", err)
+			}
+			return data, nil
+		}
+		select {
+		case <-wake.C:
+		case <-ctx.Done():
+			return nil, fmt.Errorf("wait for download: %w", ctx.Err())
+		}
+	}
 }

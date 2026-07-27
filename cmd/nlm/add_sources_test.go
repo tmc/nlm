@@ -56,6 +56,85 @@ func TestRunPreProcess(t *testing.T) {
 	})
 }
 
+type fakeLocalFileSourceClient struct {
+	id          string
+	filename    string
+	content     string
+	contentType []string
+	rename      string
+}
+
+func (c *fakeLocalFileSourceClient) AddSourceFromReader(_ string, r io.Reader, filename string, contentType ...string) (string, error) {
+	content, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	c.filename = filename
+	c.content = string(content)
+	c.contentType = contentType
+	return c.id, nil
+}
+
+func (c *fakeLocalFileSourceClient) MutateSource(_ string, updates *pb.Source) (*pb.Source, error) {
+	c.rename = updates.Title
+	return updates, nil
+}
+
+func TestAddLocalFileSource(t *testing.T) {
+	tests := []struct {
+		name         string
+		path         string
+		opts         sourceAddOptions
+		wantFilename string
+		wantRename   string
+		wantType     string
+	}{
+		{
+			name:         "custom title preserves PDF extension for upload",
+			path:         "/tmp/attention.pdf",
+			opts:         sourceAddOptions{Name: "PDF-file"},
+			wantFilename: "attention.pdf",
+			wantRename:   "PDF-file",
+		},
+		{
+			name:         "default title uses basename",
+			path:         "/tmp/attention.pdf",
+			wantFilename: "attention.pdf",
+		},
+		{
+			name:         "MIME override keeps extension",
+			path:         "/tmp/attention.pdf",
+			opts:         sourceAddOptions{Name: "PDF-file", MIMEType: "application/pdf"},
+			wantFilename: "attention.pdf",
+			wantRename:   "PDF-file",
+			wantType:     "application/pdf",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeLocalFileSourceClient{id: "source-123"}
+			got, err := addLocalFileSource(client, "notebook-123", tt.path, strings.NewReader("content"), tt.opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != "source-123" {
+				t.Errorf("source ID = %q, want source-123", got)
+			}
+			if client.filename != tt.wantFilename {
+				t.Errorf("upload filename = %q, want %q", client.filename, tt.wantFilename)
+			}
+			if client.rename != tt.wantRename {
+				t.Errorf("rename = %q, want %q", client.rename, tt.wantRename)
+			}
+			if len(client.contentType) == 0 && tt.wantType != "" {
+				t.Errorf("content type = none, want %q", tt.wantType)
+			} else if len(client.contentType) > 0 && client.contentType[0] != tt.wantType {
+				t.Errorf("content type = %q, want %q", client.contentType[0], tt.wantType)
+			}
+		})
+	}
+}
+
 // TestValidateSourceInputs covers the pre-RPC fail-fast rules. The bulk
 // path is value only if callers can rely on an all-or-nothing contract; a
 // partial batch would mean some IDs made it to the server while the tail
@@ -173,6 +252,38 @@ func TestChunkedSourceNames(t *testing.T) {
 			got := chunkedSourceNames(tt.base, tt.n)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("chunkedSourceNames(%q, %d) = %v, want %v", tt.base, tt.n, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPrepareTextSource(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+		want    string
+	}{
+		{"plain text", "deadcode output\n", "deadcode output\n"},
+		{"markup fragment", "<article>text\n", "<article>text\n"},
+		{"prefixed markup", "Result:\n<result>text</result>\n", "Result:\n<result>text</result>\n"},
+		{
+			"markup envelope",
+			"<result command=\"check\">\n<output>\ntext\n</output>\n</result>\n",
+			"&lt;result command=\"check\">\n&lt;output>\ntext\n&lt;/output>\n&lt;/result>\n",
+		},
+		{
+			"markup envelope after whitespace",
+			"\n<tool.result>text</tool.result>\n",
+			"\n&lt;tool.result>text&lt;/tool.result>\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := string(prepareTextSource([]byte(tt.content)))
+			if got != tt.want {
+				t.Errorf("prepareTextSource(%q) = %q, want %q", tt.content, got, tt.want)
 			}
 		})
 	}

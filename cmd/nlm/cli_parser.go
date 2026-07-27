@@ -19,6 +19,7 @@ type globalOptions struct {
 	debugParsing         bool
 	debugFieldMapping    bool
 	chromeProfile        string
+	cdpURL               string
 	mimeType             string
 	chunkedResponse      bool
 	useDirectRPC         bool
@@ -34,6 +35,8 @@ type globalOptions struct {
 	dryRun               bool
 	maxBytes             int
 	jsonOutput           bool
+	sourceReadMarkdown   bool
+	sourceReadHTML       bool
 	packChunk            int
 	reportPrompt         string
 	reportInstructions   string
@@ -80,6 +83,7 @@ func defaultGlobalOptions(env func(string) string) globalOptions {
 	}
 	return globalOptions{
 		chromeProfile: env("NLM_BROWSER_PROFILE"),
+		cdpURL:        env("NLM_CDP_URL"),
 		authToken:     env("NLM_AUTH_TOKEN"),
 		cookies:       env("NLM_COOKIES"),
 		authUser:      env("NLM_AUTHUSER"),
@@ -106,6 +110,7 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.BoolVar(&opts.yes, "yes", false, "skip confirmation prompts")
 	flags.BoolVar(&opts.yes, "y", false, "skip confirmation prompts")
 	flags.StringVar(&opts.chromeProfile, "profile", opts.chromeProfile, "Chrome profile to use")
+	flags.StringVar(&opts.cdpURL, "cdp-url", opts.cdpURL, "remote CDP WebSocket URL")
 	flags.StringVar(&opts.authToken, "auth", opts.authToken, "auth token (or set NLM_AUTH_TOKEN)")
 	flags.StringVar(&opts.cookies, "cookies", opts.cookies, "cookies for authentication (or set NLM_COOKIES)")
 	flags.StringVar(&opts.authUser, "authuser", opts.authUser, "Google account index for multi-account profiles")
@@ -115,6 +120,8 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.StringVar(&opts.sourceName, "n", "", "custom name for added source (shorthand)")
 	flags.StringVar(&opts.replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
 	flags.BoolVar(&opts.jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (notebook list/source list/note list/notebook featured/artifact list/audio list/video list/guidebooks/chat list/label list); also enables NDJSON progress for sync")
+	flags.BoolVar(&opts.sourceReadMarkdown, "markdown", false, "render source read with inline image references (source read)")
+	flags.BoolVar(&opts.sourceReadHTML, "html", false, "render source read as a self-contained HTML document (source read)")
 	flags.BoolVar(&opts.force, "force", false, "force re-upload even if unchanged (sync)")
 	flags.BoolVar(&opts.dryRun, "dry-run", false, "show what would change without uploading (sync)")
 	flags.IntVar(&opts.maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
@@ -282,6 +289,8 @@ var postCommandGlobalFlags = map[string]bool{
 	"experimental":        true,
 	"force":               true,
 	"json":                true,
+	"markdown":            true,
+	"html":                true,
 	"skip-sources":        true,
 	"version":             true,
 	"y":                   true,

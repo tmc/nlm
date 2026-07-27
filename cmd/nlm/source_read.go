@@ -1,0 +1,486 @@
+package main
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"html"
+	"io"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+	"unicode"
+
+	"github.com/tmc/nlm/internal/auth"
+	"github.com/tmc/nlm/internal/notebooklm/api"
+)
+
+func readSource(c *api.Client, args []string, opts globalOptions) error {
+	if opts.sourceReadMarkdown && opts.sourceReadHTML {
+		return fmt.Errorf("source read: use only one of --markdown and --html")
+	}
+	nb := ""
+	if len(args) == 2 {
+		nb = args[1]
+	}
+	body, err := c.LoadSourceText(args[0], nb)
+	if err != nil {
+		return err
+	}
+	if len(body.Fragments) == 0 {
+		return fmt.Errorf("source %s has no text body (non-text source, or body not indexed)", args[0])
+	}
+	return writeSourceRead(os.Stdout, body, opts, sourceImageFetcherFor(c, opts))
+}
+
+func sourceImageFetcherFor(c *api.Client, opts globalOptions) sourceImageFetcher {
+	return func(imageURL string) ([]byte, string, error) {
+		data, contentType, err := c.DownloadSourceImage(imageURL)
+		if err == nil {
+			return data, contentType, nil
+		}
+		// Some lh3 URLs require the full browser profile, beyond the cookie
+		// bundle used for RPCs. Fetch only the image bytes needed for this
+		// self-contained Markdown export.
+		data, browserErr := auth.New(false).DownloadWithBrowser(imageURL, opts.chromeProfile)
+		if browserErr != nil {
+			return nil, "", fmt.Errorf("direct fetch: %v; browser fetch: %w", err, browserErr)
+		}
+		contentType = http.DetectContentType(data)
+		if !strings.HasPrefix(contentType, "image/") {
+			return nil, "", fmt.Errorf("browser fetch returned %q", contentType)
+		}
+		return data, contentType, nil
+	}
+}
+
+type sourceReadJSON struct {
+	SourceID  string                   `json:"source_id"`
+	Title     string                   `json:"title"`
+	Fragments []sourceReadJSONFragment `json:"fragments"`
+}
+
+type sourceReadJSONFragment struct {
+	Start      int    `json:"start"`
+	End        int    `json:"end"`
+	Text       string `json:"text,omitempty"`
+	ImageURL   string `json:"image_url,omitempty"`
+	ImageID    string `json:"image_id,omitempty"`
+	ListMarker string `json:"list_marker,omitempty"`
+	Bold       bool   `json:"bold,omitempty"`
+	Italic     bool   `json:"italic,omitempty"`
+	BlockStart bool   `json:"block_start,omitempty"`
+}
+
+type sourceImageFetcher func(imageURL string) ([]byte, string, error)
+
+func writeSourceRead(w io.Writer, body api.LoadSourceText, opts globalOptions, fetchImage sourceImageFetcher) error {
+	if opts.jsonOutput {
+		fragments := make([]sourceReadJSONFragment, len(body.Fragments))
+		for i, f := range body.Fragments {
+			fragments[i] = sourceReadJSONFragment{
+				Start:      f.Start,
+				End:        f.End,
+				Text:       f.Text,
+				ImageURL:   f.ImageURL,
+				ImageID:    f.ImageID,
+				ListMarker: f.ListMarker,
+				Bold:       f.Bold,
+				Italic:     f.Italic,
+				BlockStart: f.BlockStart,
+			}
+		}
+		return json.NewEncoder(w).Encode(sourceReadJSON{
+			SourceID:  body.SourceID,
+			Title:     body.Title,
+			Fragments: fragments,
+		})
+	}
+	if opts.sourceReadMarkdown {
+		markdown, err := sourceReadMarkdown(body, fetchImage)
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(w, markdown)
+		return err
+	}
+	if opts.sourceReadHTML {
+		document, err := sourceReadHTML(body, fetchImage)
+		if err != nil {
+			return err
+		}
+		_, err = io.WriteString(w, document)
+		return err
+	}
+	_, err := io.WriteString(w, body.Full())
+	return err
+}
+
+func sourceReadMarkdown(body api.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {
+	if len(body.Fragments) == 0 {
+		return "", nil
+	}
+	var b strings.Builder
+	cursor := body.Fragments[0].Start
+	inList := false
+	for i, f := range body.Fragments {
+		if f.BlockStart && f.ListMarker == "" && b.Len() > 0 && !strings.HasSuffix(b.String(), "\n\n") {
+			b.WriteString("\n\n")
+			cursor = f.Start
+		}
+		// The indexed HTML/table payload represents each Markdown table row as
+		// a separate fragment beginning with '|'. Its one-character offset gap
+		// is a space, not a newline, so preserve the row boundary only in the
+		// presentation-oriented Markdown view. Full remains offset-faithful.
+		if isMarkdownTableRow(f.Text) {
+			inList = false
+			if b.Len() > 0 && !strings.HasSuffix(b.String(), "\n") {
+				b.WriteByte('\n')
+			}
+			if strings.HasSuffix(b.String(), "\n") {
+				cursor = f.Start
+			}
+		}
+		if f.ListMarker != "" {
+			if b.Len() > 0 && !strings.HasSuffix(b.String(), "\n") {
+				b.WriteString("\n\n")
+			}
+			if !inList && b.Len() > 0 && !strings.HasSuffix(b.String(), "\n\n") {
+				b.WriteByte('\n')
+			}
+			b.WriteString(markdownListMarker(f.ListMarker))
+			b.WriteByte(' ')
+			b.WriteString(sourceReadMarkdownText(f))
+			b.WriteByte('\n')
+			cursor = f.End
+			inList = true
+			continue
+		}
+		inList = false
+		writePresentationGap(&b, cursor, f.Start)
+		if f.IsImage() {
+			image, err := sourceReadImageDataURI(f, fetchImage)
+			if err != nil {
+				return "", err
+			}
+			fmt.Fprintf(&b, "![%s](%s)", sourceReadImageAlt(body.Fragments, i), image)
+		} else {
+			b.WriteString(sourceReadMarkdownText(f))
+		}
+		cursor = f.End
+	}
+	return b.String(), nil
+}
+
+func sourceReadImageAlt(fragments []api.TextFragment, imageIndex int) string {
+	if imageIndex+1 >= len(fragments) {
+		return ""
+	}
+	next := fragments[imageIndex+1]
+	if next.IsImage() {
+		return ""
+	}
+	text := strings.TrimSpace(next.Text)
+	if !strings.HasPrefix(text, "Figure ") && !strings.HasPrefix(text, "Table ") && !strings.HasPrefix(text, "Chart ") {
+		return ""
+	}
+	if i := strings.IndexByte(text, '\n'); i >= 0 {
+		text = text[:i]
+	}
+	const maxAlt = 240
+	if len(text) > maxAlt {
+		text = text[:maxAlt-1] + "…"
+	}
+	return text
+}
+
+func sourceReadMarkdownText(f api.TextFragment) string {
+	text := normalizeMathNoise(f.Text)
+	if text != f.Text {
+		return text
+	}
+	return wrapMarkdownText(text, f.Bold, f.Italic)
+}
+
+func wrapMarkdownText(text string, bold, italic bool) string {
+	if (!bold && !italic) || text == "" {
+		return text
+	}
+	left := len(text) - len(strings.TrimLeft(text, " \t\n"))
+	right := len(text) - len(strings.TrimRight(text, " \t\n"))
+	if left+right >= len(text) {
+		return text
+	}
+	prefix := text[:left]
+	core := text[left : len(text)-right]
+	suffix := text[len(text)-right:]
+	marker := "_"
+	if bold {
+		marker = "**"
+	}
+	if bold && italic {
+		marker = "***"
+	}
+	return prefix + marker + core + marker + suffix
+}
+
+func markdownListMarker(marker string) string {
+	if marker == "•" || marker == "◦" || marker == "▪" {
+		return "-"
+	}
+	if strings.HasSuffix(marker, ".") {
+		return marker
+	}
+	return "-"
+}
+
+// writePresentationGap turns the server's otherwise-untyped offset gaps into
+// reading-flow whitespace. A one-character gap remains a space; a larger gap
+// is a block boundary. The offset-faithful Full method intentionally does
+// not use this heuristic.
+func writePresentationGap(b *strings.Builder, start, end int) {
+	if end <= start || b.Len() == 0 {
+		return
+	}
+	if end-start == 1 {
+		if !strings.HasSuffix(b.String(), "\n") {
+			b.WriteByte(' ')
+		}
+		return
+	}
+	if !strings.HasSuffix(b.String(), "\n\n") {
+		b.WriteString("\n\n")
+	}
+}
+
+func sourceReadImageDataURI(f api.TextFragment, fetchImage sourceImageFetcher) (string, error) {
+	if fetchImage == nil {
+		return "", fmt.Errorf("fetch source image %s: no image fetcher", f.ImageID)
+	}
+	data, contentType, err := fetchImage(f.ImageURL)
+	if err != nil {
+		return "", fmt.Errorf("fetch source image %s: %w", f.ImageID, err)
+	}
+	if !strings.HasPrefix(contentType, "image/") {
+		return "", fmt.Errorf("fetch source image %s: got %q", f.ImageID, contentType)
+	}
+	return "data:" + contentType + ";base64," + base64.StdEncoding.EncodeToString(data), nil
+}
+
+// sourceReadHTML writes a responsive reading view from the server's ordered
+// fragments. hizoJc does not expose page coordinates, so this deliberately
+// reconstructs document flow rather than trying to synthesize pixel layout.
+func sourceReadHTML(body api.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {
+	var out strings.Builder
+	out.WriteString("<!doctype html>\n<html><head><meta charset=utf-8><meta name=viewport content=\"width=device-width, initial-scale=1\"><title>")
+	out.WriteString(html.EscapeString(body.Title))
+	out.WriteString("</title><script>window.MathJax={tex:{inlineMath:[[\"$\",\"$\"],[\"\\\\(\",\"\\\\)\"]],displayMath:[[\"$$\",\"$$\"],[\"\\\\[\",\"\\\\]\"]]}};</script><script defer src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script><style>body{margin:0;background:#f6f7f8;color:#1f2328;font:18px/1.55 system-ui,sans-serif}main{max-width:52rem;margin:auto;padding:2rem;background:#fff;min-height:100vh}h1{line-height:1.2}p{margin:1em 0}img{display:block;max-width:100%;height:auto;margin:1.5em auto}table{border-collapse:collapse;display:block;max-width:100%;overflow:auto;margin:1.5em 0}th,td{border:1px solid #d0d7de;padding:.35em .6em;text-align:left}th{background:#f6f8fa}code{white-space:pre-wrap}</style></head><body><main>")
+	if body.Title != "" {
+		out.WriteString("<h1>")
+		out.WriteString(html.EscapeString(body.Title))
+		out.WriteString("</h1>")
+	}
+
+	var prose strings.Builder
+	var rows []string
+	var listItems []string
+	cursor := firstFragmentOffset(body.Fragments)
+	flushProse := func() {
+		if prose.Len() == 0 {
+			return
+		}
+		writeHTMLProse(&out, prose.String())
+		prose.Reset()
+	}
+	flushTable := func() {
+		if len(rows) == 0 {
+			return
+		}
+		writeHTMLTable(&out, rows)
+		rows = nil
+	}
+	flushList := func() {
+		if len(listItems) == 0 {
+			return
+		}
+		out.WriteString("<ul>")
+		for _, item := range listItems {
+			out.WriteString("<li>")
+			out.WriteString(item)
+			out.WriteString("</li>")
+		}
+		out.WriteString("</ul>")
+		listItems = nil
+	}
+	for i, f := range body.Fragments {
+		if f.BlockStart && f.ListMarker == "" {
+			flushTable()
+			flushList()
+			if prose.Len() > 0 && !strings.HasSuffix(prose.String(), "\n\n") {
+				prose.WriteString("\n\n")
+			}
+			cursor = f.Start
+		}
+		if f.IsImage() {
+			flushProse()
+			flushTable()
+			flushList()
+			image, err := sourceReadImageDataURI(f, fetchImage)
+			if err != nil {
+				return "", err
+			}
+			out.WriteString("<img alt=\"")
+			out.WriteString(html.EscapeString(sourceReadImageAlt(body.Fragments, i)))
+			out.WriteString("\" src=\"")
+			out.WriteString(html.EscapeString(image))
+			out.WriteString("\">")
+			cursor = f.End
+			continue
+		}
+		text := normalizeMathNoise(f.Text)
+		if isMarkdownTableRow(text) {
+			flushProse()
+			flushList()
+			rows = append(rows, text)
+			cursor = f.End
+			continue
+		}
+		flushTable()
+		if f.ListMarker != "" {
+			flushProse()
+			listItems = append(listItems, sourceReadHTMLText(text, f))
+			cursor = f.End
+			continue
+		}
+		flushList()
+		writePresentationGap(&prose, cursor, f.Start)
+		prose.WriteString(sourceReadHTMLText(text, f))
+		cursor = f.End
+	}
+	flushProse()
+	flushTable()
+	flushList()
+	out.WriteString("</main></body></html>\n")
+	return out.String(), nil
+}
+
+func firstFragmentOffset(fragments []api.TextFragment) int {
+	if len(fragments) == 0 {
+		return 0
+	}
+	return fragments[0].Start
+}
+
+func writeHTMLProse(out *strings.Builder, text string) {
+	for _, paragraph := range strings.Split(text, "\n\n") {
+		paragraph = strings.TrimSpace(paragraph)
+		if paragraph == "" {
+			continue
+		}
+		out.WriteString("<p>")
+		out.WriteString(strings.ReplaceAll(paragraph, "\n", "<br>\n"))
+		out.WriteString("</p>")
+	}
+}
+
+func sourceReadHTMLText(text string, f api.TextFragment) string {
+	text = html.EscapeString(text)
+	if f.Bold {
+		text = "<strong>" + text + "</strong>"
+	}
+	if f.Italic {
+		text = "<em>" + text + "</em>"
+	}
+	return text
+}
+
+func writeHTMLTable(out *strings.Builder, rows []string) {
+	out.WriteString("<table>")
+	for i, row := range rows {
+		if i == 1 && isMarkdownTableDivider(row) {
+			continue
+		}
+		cell := "td"
+		if i == 0 {
+			cell = "th"
+		}
+		out.WriteString("<tr>")
+		for _, value := range markdownTableCells(row) {
+			out.WriteString("<")
+			out.WriteString(cell)
+			out.WriteString(">")
+			out.WriteString(html.EscapeString(value))
+			out.WriteString("</")
+			out.WriteString(cell)
+			out.WriteString(">")
+		}
+		out.WriteString("</tr>")
+	}
+	out.WriteString("</table>")
+}
+
+func markdownTableCells(row string) []string {
+	row = strings.TrimSpace(row)
+	row = strings.TrimPrefix(row, "|")
+	row = strings.TrimSuffix(row, "|")
+	parts := strings.Split(row, "|")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
+}
+
+func isMarkdownTableDivider(row string) bool {
+	for _, cell := range markdownTableCells(row) {
+		cell = strings.Trim(cell, ":-")
+		if cell != "" {
+			return false
+		}
+	}
+	return true
+}
+
+var mathNoise = regexp.MustCompile(`([[:alpha:]\x{1D400}-\x{1D7FF}]) (subscript|superscript) ([[:alnum:]+-]+)`)
+
+// normalizeMathNoise repairs the only unambiguous flattened form observed in
+// HTML-derived sources: a math glyph followed by "subscript" or
+// "superscript" and one token. It intentionally leaves all other text alone.
+func normalizeMathNoise(text string) string {
+	if !strings.Contains(text, "subscript") && !strings.Contains(text, "superscript") {
+		return text
+	}
+	if !containsMathRune(text) {
+		return text
+	}
+	clean := mathNoise.ReplaceAllStringFunc(text, func(match string) string {
+		parts := strings.Fields(match)
+		if len(parts) != 3 {
+			return match
+		}
+		if parts[1] == "subscript" {
+			return parts[0] + "_{" + parts[2] + "}"
+		}
+		return parts[0] + "^{" + parts[2] + "}"
+	})
+	if clean == text {
+		return text
+	}
+	if strings.Contains(clean, "\n") {
+		return "$$\n" + clean + "\n$$"
+	}
+	return "$" + clean + "$"
+}
+
+func containsMathRune(text string) bool {
+	for _, r := range text {
+		if unicode.Is(unicode.Sm, r) || (r >= 0x1D400 && r <= 0x1D7FF) {
+			return true
+		}
+	}
+	return false
+}
+
+func isMarkdownTableRow(text string) bool {
+	return strings.HasPrefix(strings.TrimSpace(text), "|")
+}

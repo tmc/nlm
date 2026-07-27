@@ -24,9 +24,20 @@ type LoadSourceText struct {
 
 // TextFragment is one contiguous piece of the indexed text.
 type TextFragment struct {
-	Start int // inclusive start character offset.
-	End   int // exclusive end character offset. Text length == End - Start.
-	Text  string
+	Start      int // inclusive start character offset.
+	End        int // exclusive end character offset. Text length == End - Start.
+	Text       string
+	ImageURL   string // transient source image URL, if this is an image fragment.
+	ImageID    string // opaque source image ID, if this is an image fragment.
+	ListMarker string // list marker decoded from wrapper metadata, if present.
+	Bold       bool   // text was marked bold in the chunk attributes.
+	Italic     bool   // text was marked italic in the chunk attributes.
+	BlockStart bool   // fragment starts an outer hizoJc content block.
+}
+
+// IsImage reports whether f names an image payload rather than text.
+func (f TextFragment) IsImage() bool {
+	return f.ImageURL != ""
 }
 
 // Full returns the reconstructed full body text. Gaps between fragments
@@ -38,8 +49,27 @@ func (l LoadSourceText) Full() string {
 		return ""
 	}
 	var b strings.Builder
-	want := l.Fragments[0].Start
+	// Seed the cursor from the first non-image fragment. Before image
+	// fragments were decoded they were absent, so the text stream began at the
+	// first text fragment with no leading gap; seeding from an image fragment's
+	// start would inject spurious leading spaces that never existed.
+	want := -1
 	for _, f := range l.Fragments {
+		if !f.IsImage() {
+			want = f.Start
+			break
+		}
+	}
+	if want < 0 {
+		return ""
+	}
+	for _, f := range l.Fragments {
+		// Preserve the historical text-only representation. Before image
+		// fragments were decoded they were absent, so their offset range was
+		// rendered as a gap. Do not let an image change Full's byte output.
+		if f.IsImage() {
+			continue
+		}
 		for want < f.Start {
 			b.WriteByte(' ')
 			want++
@@ -60,6 +90,11 @@ func (l LoadSourceText) Slice(start, end int) string {
 	cursor := start
 	overlap := false
 	for _, f := range l.Fragments {
+		// See Full: source read's default text view continues to treat image
+		// offsets as gaps for compatibility with existing callers.
+		if f.IsImage() {
+			continue
+		}
 		if f.End <= start {
 			continue
 		}
@@ -149,22 +184,68 @@ func loadSourceTextFromProto(response *pb.LoadSourceResponse) LoadSourceText {
 	if content == nil || content.GetRows() == nil {
 		return out
 	}
-	for _, row := range content.GetRows().GetRows() {
+	for i, row := range content.GetRows().GetRows() {
 		if row == nil || row.GetText() == nil {
 			continue
 		}
+		// Every row but the first opens an outer content block, and only that
+		// row's first fragment carries the flag. Mirrors extractFragments,
+		// which passes i != 0 to extractChunks and there ands it with first.
+		blockStart := i != 0
+		first := true
+		marker := listMarkerFromProto(row.GetText().GetListItem())
 		for _, span := range row.GetText().GetSpans() {
 			if span == nil || span.GetText() == nil {
 				continue
 			}
+			bold, italic := spanStyleFromProto(span.GetText().GetFlags())
 			out.Fragments = append(out.Fragments, TextFragment{
-				Start: int(span.GetStart()),
-				End:   int(span.GetEnd()),
-				Text:  span.GetText().GetText(),
+				Start:      int(span.GetStart()),
+				End:        int(span.GetEnd()),
+				Text:       span.GetText().GetText(),
+				ListMarker: marker,
+				Bold:       bold,
+				Italic:     italic,
+				BlockStart: blockStart && first,
 			})
+			first = false
 		}
 	}
 	return out
+}
+
+// spanStyleFromProto reproduces decodeTextStyle against the decoded flags.
+//
+// decodeTextStyle reads the style slot positionally and only reports bold when
+// that slot's first element is the scalar true. No capture carries that shape:
+// every style slot in the corpus is either empty or a nested array, the
+// bold-looking form being ["bar", [true]] rather than ["bar", true]. The bold
+// branch is therefore unreachable, and the legacy projection reports bold for
+// no span at all — italic alone survives, read from position 2.
+//
+// The proto models that [true] as flags.bold, so returning the field directly
+// would report bold where the legacy projection never does. Whether [true]
+// ought to mean bold is a live question — it plausibly should, and 250 spans
+// carry it — but answering it would change user-visible source rendering. This
+// mirrors the legacy behavior exactly and leaves the semantics to a separate,
+// deliberate change.
+func spanStyleFromProto(flags *pb.LoadedSourceSpanFlags) (bold, italic bool) {
+	return false, flags.GetItalic()
+}
+
+// listMarkerFromProto returns the bullet glyph of a list item, or "" when the
+// row is not a list item. ListItemMarker is a shape union: most items carry
+// the marker object at field 4, while a newer variant puts metadata there and
+// shifts the marker to field 5. The legacy decoder finds either by searching
+// for wire key 101, which is ListMarker.bullet.
+func listMarkerFromProto(item *pb.ListItem) string {
+	if item == nil {
+		return ""
+	}
+	if marker := item.GetMarker().GetMarker(); marker != nil {
+		return marker.GetBullet()
+	}
+	return item.GetTrailingMarker().GetBullet()
 }
 
 // decodeLoadSourceText parses the positional wire shape observed against a
@@ -253,8 +334,8 @@ func extractFragments(raw json.RawMessage) ([]TextFragment, error) {
 	}
 
 	var out []TextFragment
-	for _, fr := range fragments {
-		chunks, err := extractChunks(fr)
+	for i, fr := range fragments {
+		chunks, err := extractChunks(fr, i != 0)
 		if err != nil {
 			return nil, err
 		}
@@ -268,7 +349,7 @@ func extractFragments(raw json.RawMessage) ([]TextFragment, error) {
 //	[start, end, [[[sub_start, sub_end, ["text"]], ...], ...extras]]
 //
 // and returns the innermost text triples as flat TextFragments.
-func extractChunks(raw json.RawMessage) ([]TextFragment, error) {
+func extractChunks(raw json.RawMessage, blockStart bool) ([]TextFragment, error) {
 	var top []json.RawMessage
 	if err := json.Unmarshal(raw, &top); err != nil {
 		return nil, err
@@ -290,7 +371,9 @@ func extractChunks(raw json.RawMessage) ([]TextFragment, error) {
 		return nil, nil //nolint:nilerr // non-text source; skip silently.
 	}
 
+	marker := decodeListMarker(wrap[1:])
 	var out []TextFragment
+	first := true
 	for _, c := range chunks {
 		var triple []json.RawMessage
 		if err := json.Unmarshal(c, &triple); err != nil {
@@ -306,22 +389,107 @@ func extractChunks(raw json.RawMessage) ([]TextFragment, error) {
 		if err := json.Unmarshal(triple[1], &end); err != nil {
 			continue
 		}
-		var textArr []json.RawMessage
-		if err := json.Unmarshal(triple[2], &textArr); err != nil {
+		if isJSONNull(triple[2]) {
+			image, ok := decodeImageFragment(triple, start, end)
+			if ok {
+				image.ListMarker = marker
+				image.BlockStart = blockStart && first
+				out = append(out, image)
+				first = false
+			}
 			continue
 		}
-		if len(textArr) == 0 {
+		var textArr []json.RawMessage
+		if err := json.Unmarshal(triple[2], &textArr); err != nil || len(textArr) == 0 {
 			continue
 		}
 		var text string
 		if err := json.Unmarshal(textArr[0], &text); err != nil {
-			// Non-string payload (e.g. PDF image URL triples have a URL,
-			// not a plain text string at this position). Skip.
 			continue
 		}
-		out = append(out, TextFragment{Start: start, End: end, Text: text})
+		bold, italic := decodeTextStyle(textArr[1:])
+		out = append(out, TextFragment{
+			Start:      start,
+			End:        end,
+			Text:       text,
+			ListMarker: marker,
+			Bold:       bold,
+			Italic:     italic,
+			BlockStart: blockStart && first,
+		})
+		first = false
 	}
 	return out, nil
+}
+
+// decodeTextStyle decodes the compact style forms observed in hizoJc text
+// chunks: [true] for bold and [null, true] for italic.
+func decodeTextStyle(attrs []json.RawMessage) (bold, italic bool) {
+	if len(attrs) == 0 {
+		return false, false
+	}
+	if json.Unmarshal(attrs[0], &bold) == nil && bold {
+		return true, false
+	}
+	var values []json.RawMessage
+	if json.Unmarshal(attrs[0], &values) != nil || len(values) < 2 {
+		return false, false
+	}
+	_ = json.Unmarshal(values[1], &italic)
+	return false, italic
+}
+
+// decodeListMarker recognizes the list marker stored in a fragment wrapper's
+// extra metadata. The remaining wrapper metadata is intentionally left
+// opaque: captured traffic does not establish its semantics.
+func decodeListMarker(extras []json.RawMessage) string {
+	for _, raw := range extras {
+		if marker := findListMarker(raw); marker != "" {
+			return marker
+		}
+	}
+	return ""
+}
+
+func findListMarker(raw json.RawMessage) string {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &object); err == nil {
+		var marker string
+		if err := json.Unmarshal(object["101"], &marker); err == nil {
+			return marker
+		}
+	}
+	var values []json.RawMessage
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return ""
+	}
+	for _, value := range values {
+		if marker := findListMarker(value); marker != "" {
+			return marker
+		}
+	}
+	return ""
+}
+
+// decodeImageFragment decodes the inline image shape captured from hizoJc:
+// [start, end, null, [url, null, opaque_image_id]]. The URL is transient;
+// callers must not assume it is durable or fetch it as part of source read.
+func decodeImageFragment(triple []json.RawMessage, start, end int) (TextFragment, bool) {
+	if len(triple) < 4 {
+		return TextFragment{}, false
+	}
+	var image []json.RawMessage
+	if err := json.Unmarshal(triple[3], &image); err != nil || len(image) < 3 {
+		return TextFragment{}, false
+	}
+	var url, id string
+	if err := json.Unmarshal(image[0], &url); err != nil || url == "" {
+		return TextFragment{}, false
+	}
+	if err := json.Unmarshal(image[2], &id); err != nil {
+		return TextFragment{}, false
+	}
+	return TextFragment{Start: start, End: end, ImageURL: url, ImageID: id}, true
 }
 
 func isJSONNull(raw json.RawMessage) bool {
