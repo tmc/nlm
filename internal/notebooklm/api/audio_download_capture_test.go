@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/httprr"
 )
 
@@ -17,12 +16,11 @@ func TestCaptureAudioDownloadRequest(t *testing.T) {
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(true),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(true),
+		WithUseDirectRPC(true),
 	)
-	client.SetUseDirectRPC(true)
 
 	// Use the test notebook that has audio ready
 	testProjectID := "00000000-0000-4000-8000-000000000001"

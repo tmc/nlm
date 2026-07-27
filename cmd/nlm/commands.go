@@ -33,6 +33,7 @@ type command struct {
 	maxArgs             int  // maximum positional args; -1 = unlimited
 	noAuth              bool // true if command does not require authentication
 	noClient            bool // true if command does not need an API client (implies noAuth)
+	directRPC           bool // true if the command requires direct RPC mode
 	hidden              bool // true to hide from help text (experimental)
 	validate            func(cmdName string, args []string) error
 	validateWithOptions func(cmdName string, args []string, opts globalOptions) error
@@ -639,11 +640,8 @@ var commands = []command{
 	{
 		name: "video-get", argsUsage: "<notebook-id>",
 		usage: "Get video overview details", section: "Video",
-		minArgs: 1, maxArgs: 1,
+		minArgs: 1, maxArgs: 1, directRPC: true,
 		run: func(c *api.Client, args []string) error {
-			// GetVideoOverview requires the direct-RPC path; enable it
-			// transparently so callers don't have to pass --direct-rpc.
-			c.SetUseDirectRPC(true)
 			result, err := c.GetVideoOverview(args[0])
 			if err != nil {
 				return err
@@ -659,7 +657,7 @@ var commands = []command{
 	{
 		name: "video-download", argsUsage: "<notebook-id> [filename]",
 		usage: "Download video file", section: "Video",
-		minArgs: 1, maxArgs: 2,
+		minArgs: 1, maxArgs: 2, directRPC: true,
 		run: func(c *api.Client, args []string) error {
 			filename := ""
 			if len(args) > 1 {

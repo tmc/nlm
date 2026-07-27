@@ -117,10 +117,10 @@ func runResolve(args []string) error {
 	if err != nil {
 		return err
 	}
-	client := api.New(authToken, cookies)
-	if authUser := os.Getenv("NLM_AUTHUSER"); authUser != "" {
-		client.SetAuthUser(authUser)
-	}
+	client := api.New(
+		api.Credentials{AuthToken: authToken, Cookies: cookies},
+		api.WithAuthUser(os.Getenv("NLM_AUTHUSER")),
+	)
 	resolved, err := designreview.ResolveAll(func(sourceID string) (api.LoadSourceText, error) {
 		return client.LoadSourceText(sourceID, *notebookID)
 	}, cites)

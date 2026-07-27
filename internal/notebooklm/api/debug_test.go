@@ -7,85 +7,12 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/tmc/nlm/internal/batchexecute"
 )
-
-// TestNLMDebugEnvironmentVariable verifies NLM_DEBUG environment variable functionality
-func TestNLMDebugEnvironmentVariable(t *testing.T) {
-	tests := []struct {
-		name     string
-		envValue string
-		want     bool
-	}{
-		{
-			name:     "debug enabled with true",
-			envValue: "true",
-			want:     true,
-		},
-		{
-			name:     "debug disabled with false",
-			envValue: "false",
-			want:     false,
-		},
-		{
-			name:     "debug disabled with empty",
-			envValue: "",
-			want:     false,
-		},
-		{
-			name:     "debug disabled with other value",
-			envValue: "yes",
-			want:     false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Save and restore original value
-			origValue := os.Getenv("NLM_DEBUG")
-			defer os.Setenv("NLM_DEBUG", origValue)
-
-			// Set test value
-			if tt.envValue == "" {
-				os.Unsetenv("NLM_DEBUG")
-			} else {
-				os.Setenv("NLM_DEBUG", tt.envValue)
-			}
-
-			// Create test server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte(")]}'\n\n[[\"wrb.fr\",\"wXbhsf\",\"[[\\\"project1\\\", [], \\\"id1\\\", \\\"📚\\\"]]\",null,null,1]]"))
-			}))
-			defer server.Close()
-
-			// Create HTTP client that points to test server
-			httpClient := &http.Client{
-				Transport: &testTransport{
-					baseURL: server.URL,
-				},
-			}
-
-			// Create API client
-			client := New(
-				"test-token",
-				"test-cookies",
-				batchexecute.WithHTTPClient(httpClient),
-			)
-
-			// Verify debug setting matches expectation
-			if client.config.Debug != tt.want {
-				t.Errorf("Expected Debug=%v, got Debug=%v", tt.want, client.config.Debug)
-			}
-		})
-	}
-}
 
 func TestClientProtoDebugConfiguration(t *testing.T) {
 	client := New(
-		"test-token",
-		"test-cookies",
-		batchexecute.WithProtoDebug(true, true),
+		Credentials{AuthToken: "test-token", Cookies: "test-cookies"},
+		WithProtoDebug(true, true),
 	)
 
 	options := client.unmarshalOptions()
@@ -99,13 +26,6 @@ func TestClientProtoDebugConfiguration(t *testing.T) {
 
 // TestDebugOutputProduction verifies that debug mode produces output
 func TestDebugOutputProduction(t *testing.T) {
-	// Save and restore original values
-	origValue := os.Getenv("NLM_DEBUG")
-	defer os.Setenv("NLM_DEBUG", origValue)
-
-	// Enable debug mode
-	os.Setenv("NLM_DEBUG", "true")
-
 	// Create test server that logs requests
 	var requestReceived bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,9 +48,9 @@ func TestDebugOutputProduction(t *testing.T) {
 
 	// Create API client with debug enabled
 	client := New(
-		"test-token",
-		"test-cookies",
-		batchexecute.WithHTTPClient(httpClient),
+		Credentials{AuthToken: "test-token", Cookies: "test-cookies"},
+		WithHTTPClient(httpClient),
+		WithDebug(true),
 	)
 
 	// Make an API call
@@ -216,45 +136,26 @@ func TestDebugSkipInTestHelpers(t *testing.T) {
 	}
 }
 
-// TestClientDebugConfiguration verifies debug configuration on client creation
+// TestClientDebugConfiguration verifies debug is configured only by options
+// and reaches both API and RPC layers.
 func TestClientDebugConfiguration(t *testing.T) {
-	// Save original env var
-	origValue := os.Getenv("NLM_DEBUG")
-	defer func() {
-		if origValue == "" {
-			os.Unsetenv("NLM_DEBUG")
-		} else {
-			os.Setenv("NLM_DEBUG", origValue)
-		}
-	}()
+	t.Setenv("NLM_DEBUG", "true")
 
-	t.Run("debug from environment", func(t *testing.T) {
-		os.Setenv("NLM_DEBUG", "true")
+	withoutOption := New(Credentials{AuthToken: "test-token", Cookies: "test-cookies"})
+	if withoutOption.config.Debug {
+		t.Error("Debug = true without WithDebug")
+	}
 
-		client := New(
-			"test-token",
-			"test-cookies",
-		)
-
-		if !client.config.Debug {
-			t.Error("Expected debug to be enabled from environment variable")
-		}
-	})
-
-	t.Run("debug from environment takes precedence", func(t *testing.T) {
-		os.Setenv("NLM_DEBUG", "true")
-
-		client := New(
-			"test-token",
-			"test-cookies",
-			batchexecute.WithDebug(false), // Explicitly set to false
-		)
-
-		// Environment variable takes precedence over options
-		if !client.config.Debug {
-			t.Error("Expected NLM_DEBUG environment variable to take precedence")
-		}
-	})
+	withOption := New(
+		Credentials{AuthToken: "test-token", Cookies: "test-cookies"},
+		WithDebug(true),
+	)
+	if !withOption.config.Debug {
+		t.Error("API Debug = false, want true")
+	}
+	if !withOption.rpc.Config.Debug {
+		t.Error("RPC Debug = false, want true")
+	}
 }
 
 // mockTestingT implements a minimal testing.T interface for testing test helpers

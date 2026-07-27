@@ -11,7 +11,6 @@ import (
 
 	method "github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/batchexecute"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -44,7 +43,7 @@ func TestDeleteSourcesUsesNotebookContext(t *testing.T) {
 		}),
 	}
 
-	client := New("auth", "cookie", batchexecute.WithHTTPClient(httpClient))
+	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
 	if err := client.DeleteSources("project-123", []string{"source-1", "source-2"}); err != nil {
 		t.Fatalf("DeleteSources: %v", err)
 	}
@@ -123,7 +122,7 @@ func TestDeleteSourcesBatchesRequests(t *testing.T) {
 	for i := 1; i <= 25; i++ {
 		ids = append(ids, fmt.Sprintf("source-%02d", i))
 	}
-	client := New("auth", "cookie", batchexecute.WithHTTPClient(httpClient))
+	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
 	if err := client.DeleteSources("project-123", ids); err != nil {
 		t.Fatalf("DeleteSources: %v", err)
 	}
@@ -172,7 +171,7 @@ func TestDeleteSourcesBatchErrorIdentifiesFailedRange(t *testing.T) {
 	for i := 1; i <= 25; i++ {
 		ids = append(ids, fmt.Sprintf("source-%02d", i))
 	}
-	client := New("auth", "cookie", batchexecute.WithHTTPClient(httpClient))
+	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
 	err := client.DeleteSources("project-123", ids)
 	if err == nil {
 		t.Fatal("DeleteSources succeeded, want batch error")

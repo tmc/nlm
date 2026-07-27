@@ -174,16 +174,37 @@ func prepareRuntime(stderr io.Writer) {
 		os.Setenv("NLM_AUTHUSER", authUser)
 	}
 
-	// Set skip sources flag if specified
-	if skipSources {
-		os.Setenv("NLM_SKIP_SOURCES", "true")
-		if debug {
-			fmt.Fprintf(stderr, "nlm: skipping source fetching for chat\n")
-		}
+	if skipSources && debug {
+		fmt.Fprintf(stderr, "nlm: skipping source fetching for chat\n")
 	}
 
 	// Start auto-refresh manager if credentials exist
 	startAutoRefreshIfEnabled()
+}
+
+func newNotebookLMClient(credentials api.Credentials, directRPC bool, options ...api.Option) *api.Client {
+	defaults := []api.Option{
+		api.WithDebug(debug),
+		api.WithProtoDebug(debugParsing, debugFieldMapping),
+		api.WithAuthUser(authUser),
+		api.WithUseDirectRPC(useDirectRPC || directRPC),
+		api.WithSkipSources(skipSources),
+	}
+	return api.New(credentials, append(defaults, options...)...)
+}
+
+func notebookLMBatchOptions() []batchexecute.Option {
+	options := []batchexecute.Option{
+		batchexecute.WithDebug(debug),
+		batchexecute.WithProtoDebug(debugParsing, debugFieldMapping),
+	}
+	if authUser != "" {
+		options = append(options,
+			batchexecute.WithURLParams(map[string]string{"authuser": authUser}),
+			batchexecute.WithHeaders(map[string]string{"x-goog-authuser": authUser}),
+		)
+	}
+	return options
 }
 
 func runCLI(args []string, env func(string) string, stdout, stderr io.Writer) int {
@@ -293,19 +314,11 @@ func run(inv invocation) error {
 		return fmt.Errorf("authentication required")
 	}
 
-	var opts []batchexecute.Option
-
-	// Add debug option if enabled
-	if debug {
-		opts = append(opts, batchexecute.WithDebug(true))
-	}
-	if debugParsing || debugFieldMapping {
-		opts = append(opts, batchexecute.WithProtoDebug(debugParsing, debugFieldMapping))
-	}
+	var opts []api.Option
 
 	// Add rt=c parameter if chunked response format is requested
 	if chunkedResponse {
-		opts = append(opts, batchexecute.WithURLParams(map[string]string{
+		opts = append(opts, api.WithURLParams(map[string]string{
 			"rt": "c",
 		}))
 		if debug {
@@ -338,16 +351,12 @@ func run(inv invocation) error {
 			fmt.Fprintln(os.Stderr, "nlm: authentication expired, refreshing credentials...")
 		}
 
-		client := api.New(authToken, cookies, opts...)
-		if debug {
-			client.SetDebug(true)
-		}
-		if authUser != "" {
-			client.SetAuthUser(authUser)
-		}
-		// Set direct RPC flag if specified
-		if useDirectRPC {
-			client.SetUseDirectRPC(true)
+		client := newNotebookLMClient(
+			api.Credentials{AuthToken: authToken, Cookies: cookies},
+			entry.directRPC,
+			opts...,
+		)
+		if useDirectRPC || entry.directRPC {
 			if debug {
 				fmt.Fprintf(os.Stderr, "nlm: using direct RPC for audio/video operations\n")
 			}
@@ -1435,11 +1444,7 @@ func getAnalytics(c *api.Client, projectID string) error {
 }
 
 func listFeaturedProjects(c *api.Client) error {
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(
-		authToken,
-		cookies,
-		batchexecute.WithProtoDebug(debugParsing, debugFieldMapping),
-	)
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies, notebookLMBatchOptions()...)
 	resp, err := orchClient.ListFeaturedProjects(context.Background(), &pb.ListFeaturedProjectsRequest{})
 	if err != nil {
 		return fmt.Errorf("list featured projects: %w", err)
@@ -1518,11 +1523,7 @@ func checkSourceFreshness(c *api.Client, sourceID, notebookID string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "note: pass notebook-id as the second argument to enable client-side Drive-source validation")
 	}
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(
-		authToken,
-		cookies,
-		batchexecute.WithProtoDebug(debugParsing, debugFieldMapping),
-	)
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies, notebookLMBatchOptions()...)
 	req := &pb.CheckSourceFreshnessRequest{Source: &pb.SourceIdList{SourceId: sourceID}, Context: &pb.RequestContext{
 		Version: proto.Int32(2),
 		Surface: &pb.RequestSurface{Value: proto.Int32(1)},
@@ -3736,10 +3737,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 	// text for file:line) stays gated behind its flags below. Offline replay
 	// (no auth) still degrades to name-only rather than erroring.
 	if authToken != "" && cookies != "" {
-		c := api.New(authToken, cookies)
-		if debug {
-			c.SetDebug(true)
-		}
+		c := newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, false)
 		// One source-list fetch backs both title resolution and the
 		// removed-source hint, so a stranded citation (its source re-synced
 		// to a new UUID) reads as "removed" rather than a bare handle.
@@ -3960,10 +3958,7 @@ func listChatConversationsWithAuth(notebookID string) error {
 	if authToken == "" || cookies == "" {
 		return fmt.Errorf("authentication required for server-side listing; run 'nlm auth' first")
 	}
-	c := api.New(authToken, cookies)
-	if debug {
-		c.SetDebug(true)
-	}
+	c := newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, false)
 	return listChatConversations(c, notebookID)
 }
 
@@ -4829,7 +4824,7 @@ func startAutoRefreshIfEnabled() {
 	}
 
 	// Create and start token manager
-	tokenManager := auth.NewTokenManager(debug || os.Getenv("NLM_DEBUG") == "true")
+	tokenManager := auth.NewTokenManager(debug)
 	if err := tokenManager.StartAutoRefreshManager(); err != nil {
 		if debug {
 			fmt.Fprintf(os.Stderr, "nlm: failed to start auto-refresh: %v\n", err)
@@ -5049,7 +5044,6 @@ func printDownloadBrowserFallback(kind, notebookID string) string {
 
 func downloadVideoOverview(c *api.Client, notebookID string, filename string) error {
 	fmt.Fprintf(os.Stderr, "Downloading video overview for notebook %s...\n", notebookID)
-	c.SetUseDirectRPC(true)
 
 	// Generate default filename if not provided
 	if filename == "" {

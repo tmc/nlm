@@ -192,33 +192,35 @@ type Client struct {
 	orchestrationService *service.LabsTailwindOrchestrationServiceClient
 	sharingService       *service.LabsTailwindSharingServiceClient
 	guidebooksService    *service.LabsTailwindGuidebooksServiceClient
-	config               struct {
-		Debug        bool
-		UseDirectRPC bool   // Use direct RPC calls instead of orchestration service
-		AuthUser     string // Google account index for multi-account profiles
-	}
+	config               clientConfig
 }
 
 // New creates a new NotebookLM API client.
-func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
-	// Auth validation is handled by callers; no warning here.
-
-	// Add debug option if needed
-	if os.Getenv("NLM_DEBUG") == "true" {
-		opts = append(opts, batchexecute.WithDebug(true))
+func New(credentials Credentials, options ...Option) *Client {
+	var config clientConfig
+	for _, option := range options {
+		option(&config)
 	}
 
-	// Create the client
+	batchOptions := append([]batchexecute.Option(nil), config.batchOptions...)
+	batchOptions = append(batchOptions,
+		batchexecute.WithDebug(config.Debug),
+		batchexecute.WithProtoDebug(config.DebugParsing, config.DebugFieldMapping),
+	)
+	if config.AuthUser != "" {
+		batchOptions = append(batchOptions,
+			batchexecute.WithURLParams(map[string]string{"authuser": config.AuthUser}),
+			batchexecute.WithHeaders(map[string]string{"x-goog-authuser": config.AuthUser}),
+		)
+	}
+
 	client := &Client{
-		rpc:                  rpc.New(authToken, cookies, opts...),
-		orchestrationService: service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies, opts...),
-		sharingService:       service.NewLabsTailwindSharingServiceClient(authToken, cookies, opts...),
-		guidebooksService:    service.NewLabsTailwindGuidebooksServiceClient(authToken, cookies, opts...),
+		rpc:                  rpc.New(credentials.AuthToken, credentials.Cookies, batchOptions...),
+		orchestrationService: service.NewLabsTailwindOrchestrationServiceClient(credentials.AuthToken, credentials.Cookies, batchOptions...),
+		sharingService:       service.NewLabsTailwindSharingServiceClient(credentials.AuthToken, credentials.Cookies, batchOptions...),
+		guidebooksService:    service.NewLabsTailwindGuidebooksServiceClient(credentials.AuthToken, credentials.Cookies, batchOptions...),
+		config:               config,
 	}
-
-	// Debug is set via SetDebug or NLM_DEBUG env
-	client.config.Debug = os.Getenv("NLM_DEBUG") == "true"
-
 	return client
 }
 
@@ -235,20 +237,6 @@ func (c *Client) unmarshalOptions() beprotojson.UnmarshalOptions {
 	options.DebugParsing = config.DebugParsing
 	options.DebugFieldMapping = config.DebugFieldMapping
 	return options
-}
-
-// SetUseDirectRPC configures whether to use direct RPC calls
-func (c *Client) SetUseDirectRPC(use bool) {
-	c.config.UseDirectRPC = use
-}
-
-func (c *Client) SetDebug(debug bool) {
-	c.config.Debug = debug
-}
-
-// SetAuthUser sets the Google account index for multi-account profiles.
-func (c *Client) SetAuthUser(authUser string) {
-	c.config.AuthUser = authUser
 }
 
 // authUserOrDefault returns the configured authuser value or "0".
@@ -2985,14 +2973,12 @@ func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
 	req.Header.Set("Sec-Fetch-Site", "cross-site")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
 
-	// Get cookies from environment (same as nlm client uses)
-	cookies := os.Getenv("NLM_COOKIES")
+	cookies := c.rpc.Config.Cookies
 	if cookies != "" {
 		req.Header.Set("Cookie", cookies)
 	}
 
-	// Get auth token and add as query parameter if needed
-	authToken := os.Getenv("NLM_AUTH_TOKEN")
+	authToken := c.rpc.Config.AuthToken
 	if authToken != "" && !strings.Contains(videoURL, "authuser=") {
 		separator := "?"
 		if strings.Contains(videoURL, "?") {
@@ -4192,7 +4178,7 @@ func (c *Client) ChatWithHistory(req ChatRequest) (string, error) {
 
 // resolveSourceIDs fills in source IDs from the project if not provided.
 func (c *Client) resolveSourceIDs(projectID string, sourceIDs []string) []string {
-	if len(sourceIDs) > 0 || os.Getenv("NLM_SKIP_SOURCES") == "true" {
+	if len(sourceIDs) > 0 || c.config.SkipSources {
 		return sourceIDs
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -4645,7 +4631,7 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 			continue
 		}
 
-		payload := extractChatPayloadWithOptions(innerStr, sourceIDs, c.unmarshalOptions())
+		payload := extractChatPayloadWithOptions(innerStr, sourceIDs, c.unmarshalOptions(), c.config.Debug)
 		text := payload.Text
 		if text == "" {
 			continue
@@ -4963,10 +4949,10 @@ const (
 )
 
 func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
-	return extractChatPayloadWithOptions(innerJSON, sourceIDs, beprotojson.UnmarshalOptions{DiscardUnknown: true})
+	return extractChatPayloadWithOptions(innerJSON, sourceIDs, beprotojson.UnmarshalOptions{DiscardUnknown: true}, false)
 }
 
-func extractChatPayloadWithOptions(innerJSON string, sourceIDs []string, options beprotojson.UnmarshalOptions) chatPayload {
+func extractChatPayloadWithOptions(innerJSON string, sourceIDs []string, options beprotojson.UnmarshalOptions, debug bool) chatPayload {
 	var generated pb.GenerateFreeFormStreamedWireResponse
 	if err := options.Unmarshal([]byte(innerJSON), &generated); err == nil {
 		payload := chatPayload{
@@ -4993,7 +4979,7 @@ func extractChatPayloadWithOptions(innerJSON string, sourceIDs []string, options
 		}
 		return payload
 	}
-	return extractChatPayloadLegacy(innerJSON, sourceIDs)
+	return extractChatPayloadLegacy(innerJSON, sourceIDs, debug)
 }
 
 // groundingParentSourceID returns the project source a grounding's chunk
@@ -5267,7 +5253,7 @@ func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse,
 	return citations
 }
 
-func extractChatPayloadLegacy(innerJSON string, sourceIDs []string) chatPayload {
+func extractChatPayloadLegacy(innerJSON string, sourceIDs []string, debug bool) chatPayload {
 	var data interface{}
 	if err := json.Unmarshal([]byte(innerJSON), &data); err != nil {
 		return chatPayload{}
@@ -5296,7 +5282,7 @@ func extractChatPayloadLegacy(innerJSON string, sourceIDs []string) chatPayload 
 	// [1] = citation details (confidence, ranges, excerpts)
 	// [2] = source mappings (char range → source_indices into request's source_ids)
 	if len(arr) > 2 {
-		p.Citations = parseCitationsV2(arr[1], arr[2], sourceIDs)
+		p.Citations = parseCitationsV2WithDebug(arr[1], arr[2], sourceIDs, debug)
 	}
 
 	// [4] = structured follow-ups: [[text, null, ..., type_code], ...]
@@ -5378,6 +5364,10 @@ func debugDumpChatWirePositions(innerJSON string) {
 // source-id list sent in the original ChatRequest, used to resolve srcIndices
 // when the frame does not embed source UUIDs at citationData[srcIdx][6].
 func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string) []Citation {
+	return parseCitationsV2WithDebug(citationData, mappingData, sourceIDs, false)
+}
+
+func parseCitationsV2WithDebug(citationData, mappingData interface{}, sourceIDs []string, debug bool) []Citation {
 	mapArr, _ := mappingData.([]interface{})
 	citArr, _ := citationData.([]interface{})
 
@@ -5455,9 +5445,9 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 				// Every history frame observed embeds a source UUID at
 				// citationData[srcIdx][6]; a miss here means either a wire
 				// change or a frame lacking [6] with no request source list
-				// to fall back to. Surface it under NLM_DEBUG so it does not
+				// to fall back to. Surface it under debug mode so it does not
 				// vanish silently as a dropped citation.
-				if os.Getenv("NLM_DEBUG") == "true" {
+				if debug {
 					fmt.Fprintf(os.Stderr, "DEBUG: citation dropped: srcIdx %d has no embedded source UUID and no request source list\n", srcIdx)
 				}
 				continue

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/httprr"
 )
 
@@ -23,10 +22,9 @@ func TestCaptureAudioCreateRequest(t *testing.T) {
 
 	// Create API client
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(true),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(true),
 	)
 
 	// Use a test notebook ID (or create one)

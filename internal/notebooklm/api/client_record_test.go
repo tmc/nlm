@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/httprr"
 )
 
@@ -31,10 +30,9 @@ func TestListProjectsWithRecording(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Call the API method
@@ -107,10 +105,9 @@ func TestCreateProjectWithRecording(t *testing.T) {
 
 	// Use environment credentials for both recording and replay
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(true),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(true),
 	)
 
 	// Call the API method
@@ -147,10 +144,9 @@ func TestAddSourceFromTextWithRecording(t *testing.T) {
 
 	// Use environment credentials for both recording and replay
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(true),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(true),
 	)
 
 	// First, we need a project to add sources to

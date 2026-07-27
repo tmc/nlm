@@ -337,17 +337,16 @@ func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, optio
 		"hl":    "en",
 		"rt":    "c",
 	}
-	authUser := os.Getenv("NLM_AUTHUSER")
-	if authUser != "" {
-		urlParams["authuser"] = authUser
-	}
 	for k, v := range serviceConfig.URLParams {
 		if v == "" {
 			continue
 		}
 		switch k {
-		case "bl", "f.sid", "rt", "authuser":
+		case "bl", "f.sid", "rt":
 			// Prefer live session parameters over generated defaults.
+			continue
+		case "authuser":
+			// Configure the account explicitly with batchexecute options.
 			continue
 		default:
 			urlParams[k] = v
@@ -370,9 +369,6 @@ func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, optio
 			"pragma":          "no-cache",
 		},
 		URLParams: urlParams,
-	}
-	if authUser != "" {
-		config.Headers["x-goog-authuser"] = authUser
 	}
 	client := batchexecute.NewClient(config, options...)
 	return &Client{

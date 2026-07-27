@@ -90,6 +90,7 @@ func defaultGlobalOptions(env func(string) string) globalOptions {
 		authToken:     env("NLM_AUTH_TOKEN"),
 		cookies:       env("NLM_COOKIES"),
 		authUser:      env("NLM_AUTHUSER"),
+		debug:         env("NLM_DEBUG") == "true",
 	}
 }
 

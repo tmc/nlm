@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/httprr"
 )
 
@@ -33,10 +32,9 @@ func TestCaptureCitationParentHop(t *testing.T) {
 	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
 
 	client := New(
-		"test-auth-token",
-		"test-cookies",
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: "test-auth-token", Cookies: "test-cookies"},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	const projectID = "6c313fd7-049a-4475-aa0f-0fb3ee8de65f"

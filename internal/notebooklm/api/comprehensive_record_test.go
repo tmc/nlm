@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/httprr"
 )
 
@@ -30,10 +29,9 @@ func TestNotebookCommands_ListProjects(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	projects, err := client.ListRecentlyViewedProjects()
@@ -63,10 +61,9 @@ func TestNotebookCommands_CreateProject(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	project, err := client.CreateProject("Test Project for Recording", "📝")
@@ -100,10 +97,9 @@ func TestNotebookCommands_DeleteProject(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// First create a project to delete
@@ -137,10 +133,9 @@ func TestSourceCommands_ListSources(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -177,10 +172,9 @@ func TestSourceCommands_AddTextSource(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -224,10 +218,9 @@ func TestSourceCommands_AddURLSource(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -271,10 +264,9 @@ func TestSourceCommands_DeleteSource(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -319,10 +311,9 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -375,10 +366,9 @@ func TestAudioCommands_CreateAudioOverview(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -417,10 +407,9 @@ func TestAudioCommands_GetAudioOverview(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -463,10 +452,9 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -504,10 +492,9 @@ func TestGenerationCommands_GenerateOutline(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// Get a project to test with
@@ -545,10 +532,9 @@ func TestMiscCommands_Heartbeat(t *testing.T) {
 	}
 
 	_ = New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// The heartbeat method might not exist or might be a no-op
@@ -571,10 +557,9 @@ func TestVideoCommands_CreateVideoOverview(t *testing.T) {
 	}
 
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(false),
 	)
 
 	// First, we need a project to create video for

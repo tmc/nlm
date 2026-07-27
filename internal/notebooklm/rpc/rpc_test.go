@@ -6,14 +6,17 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 )
 
-func TestNewWithConfigUsesAuthUserFromEnv(t *testing.T) {
-	t.Setenv("NLM_AUTHUSER", "2")
+func TestNewWithConfigUsesExplicitAuthUser(t *testing.T) {
+	t.Setenv("NLM_AUTHUSER", "3")
 
 	client := NewWithConfig("token", "cookies", ServiceConfig{
 		URLParams: map[string]string{
 			"authuser": "1",
 		},
-	})
+	},
+		batchexecute.WithURLParams(map[string]string{"authuser": "2"}),
+		batchexecute.WithHeaders(map[string]string{"x-goog-authuser": "2"}),
+	)
 
 	if got := client.Config.URLParams["authuser"]; got != "2" {
 		t.Fatalf("authuser URL param = %q, want 2", got)

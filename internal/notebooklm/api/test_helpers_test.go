@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/httprr"
 )
 
@@ -87,10 +86,9 @@ func DebugHTTPRecorder(t *testing.T) {
 
 	// Create client
 	client := New(
-		authToken,
-		cookies,
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(true),
+		Credentials{AuthToken: authToken, Cookies: cookies},
+		WithHTTPClient(httpClient),
+		WithDebug(true),
 	)
 
 	// Make a simple API call

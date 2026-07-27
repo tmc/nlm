@@ -164,10 +164,7 @@ func chatShowNotebook(notebookID string, opts chatRenderOptions) error {
 	docs := make([]notebookChatDocument, 0, len(records))
 	var historyClient *api.Client
 	if opts.ExcerptBudget > 0 && authToken != "" && cookies != "" {
-		historyClient = api.New(authToken, cookies)
-		if debug {
-			historyClient.SetDebug(true)
-		}
+		historyClient = newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, false)
 	}
 	for _, record := range records {
 		doc := notebookDocumentFromSession(record.Session)
@@ -243,10 +240,7 @@ func notebookChatRenderContext(notebookID string, opts chatRenderOptions) chatRe
 		return ctx
 	}
 
-	c := api.New(authToken, cookies)
-	if debug {
-		c.SetDebug(true)
-	}
+	c := newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, false)
 	sourceIndex := newNotebookSourceIndex(c, notebookID)
 	ctx.resolveTitle = sourceIndex.title
 	ctx.sourceRemoved = sourceIndex.removed
