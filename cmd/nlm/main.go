@@ -1113,7 +1113,7 @@ func getAudioOverview(c *api.Client, projectID string) error {
 
 	// Optionally save the audio file
 	if result.AudioData != "" {
-		audioData, err := result.GetAudioBytes()
+		audioData, err := result.AudioBytes()
 		if err != nil {
 			return fmt.Errorf("decode audio data: %w", err)
 		}
@@ -1385,7 +1385,7 @@ func createAudioOverviewWithOptions(c *api.Client, projectID string, instruction
 
 	// Save audio file if available
 	if result.AudioData != "" {
-		audioData, err := result.GetAudioBytes()
+		audioData, err := result.AudioBytes()
 		if err != nil {
 			return fmt.Errorf("decode audio data: %w", err)
 		}

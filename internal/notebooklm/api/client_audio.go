@@ -420,8 +420,8 @@ type AudioOverviewResult struct {
 	IsReady   bool
 }
 
-// GetAudioBytes returns the decoded audio data
-func (r *AudioOverviewResult) GetAudioBytes() ([]byte, error) {
+// AudioBytes returns the decoded audio data
+func (r *AudioOverviewResult) AudioBytes() ([]byte, error) {
 	if r.AudioData == "" {
 		return nil, fmt.Errorf("no audio data available")
 	}
@@ -753,7 +753,7 @@ func (c *Client) downloadAudioFromURL(ctx context.Context, audioURL string) ([]b
 		if c.config.Debug {
 			fmt.Printf("Got HTML auth redirect, falling back to browser download\n")
 		}
-		return nil, fmt.Errorf("Google CDN requires browser authentication - use 'nlm audio download' to open in browser")
+		return nil, fmt.Errorf("google CDN requires browser authentication; use 'nlm audio download' to open in browser")
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent {
@@ -778,7 +778,7 @@ func (r *AudioOverviewResult) SaveAudioToFile(filename string) error {
 		return fmt.Errorf("no audio data to save")
 	}
 
-	audioBytes, err := r.GetAudioBytes()
+	audioBytes, err := r.AudioBytes()
 	if err != nil {
 		return fmt.Errorf("decode audio data: %w", err)
 	}
