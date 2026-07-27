@@ -177,27 +177,6 @@ func sanitizeResponseCookies(buf *bytes.Buffer) error {
 
 var setCookiePattern = regexp.MustCompile(`(?i)Set-Cookie: [^\r\n]+`)
 
-// defaultRecordMatcher creates a key for a request based on the notebooklm RPC endpoint
-func defaultRecordMatcher(req *http.Request) string {
-	// Extract RPC function ID from the request body
-	body, _ := io.ReadAll(req.Body)
-	req.Body = io.NopCloser(bytes.NewReader(body)) // Restore for later use
-
-	// Extract RPC endpoint ID for NotebookLM API calls
-	// The format is typically something like: [["VUsiyb",["arg1","arg2"]]]
-	funcIDPattern := regexp.MustCompile(`\[\["([a-zA-Z0-9]+)",`)
-	matches := funcIDPattern.FindSubmatch(body)
-
-	if len(matches) >= 2 {
-		funcID := string(matches[1])
-		return fmt.Sprintf("%s_%s", req.Method, funcID)
-	}
-
-	// Fall back to URL path based matching for non-RPC calls
-	path := req.URL.Path
-	return fmt.Sprintf("%s_%s", req.Method, path)
-}
-
 // sanitizeAuthHeaders removes sensitive auth headers to avoid leaking credentials
 func sanitizeAuthHeaders(req *http.Request) error {
 	sensitiveHeaders := []string{"Authorization", "Cookie"}
@@ -420,11 +399,6 @@ func (rr *RecordReplay) replayRoundTrip(req *http.Request) (*http.Response, erro
 	return resp, nil
 }
 
-// recordRequest records an HTTP interaction (legacy compatibility)
-func (rt *RecordReplay) recordRequest(req *http.Request) (*http.Response, error) {
-	return rt.recordRoundTrip(req)
-}
-
 // reqWire returns the wire-format HTTP request log entry.
 func (rr *RecordReplay) reqWire(req *http.Request) (string, error) {
 	// Make a copy to avoid modifying the original
@@ -513,16 +487,6 @@ func (rr *RecordReplay) Close() error {
 		return err
 	}
 	return nil
-}
-
-// saveRecording saves a recording to disk (legacy compatibility)
-func (rt *RecordReplay) saveRecording(key string, recording interface{}) {
-	// Legacy compatibility - no-op
-}
-
-// loadRecordings loads all recordings for a key from disk (legacy compatibility)
-func (rt *RecordReplay) loadRecordings(key string) ([]interface{}, error) {
-	return nil, fmt.Errorf("legacy method not implemented")
 }
 
 // CleanFileName cleans a test name to be suitable as a filename.
