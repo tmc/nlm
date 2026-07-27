@@ -1,14 +1,96 @@
 ---
 title: Remaining Gaps and Audit Notes
-date: 2026-05-16
+date: 2026-07-27
 ---
 
 # nlm Remaining Gaps
 
-This file was re-audited against the current tree on 2026-05-16. The local
-release gate (`go test ./...`) passes. The items below are remaining
-deferred, low-priority, or HAR-dependent gaps after checking the live CLI,
-API, and MCP code paths; they are not current local test blockers.
+This file was re-audited against the current tree and the verified competitive
+analysis on 2026-07-27. The items below are real gaps after checking the live
+CLI, API, MCP, and protocol-modeling paths. They are not claims inferred from
+missing documentation.
+
+## Capabilities That Are Already Present
+
+These are not gaps:
+
+- `nlm auth login` drives Chrome, Brave, or Edge headlessly and extracts the
+  token and cookies from an already signed-in profile without copy-paste.
+- `nlm chat` is a streaming interactive client with persistent on-disk
+  sessions, history, and slash commands.
+- Chat and generation commands select sources by UUID, title regular
+  expression, and server-side label.
+- `nlm research --md` emits the deep-research Markdown report.
+- `create_note` and `add_source_text` provide MCP context injection;
+  `start_deep_research` and `poll_deep_research` provide asynchronous research.
+- Directory-tree sync, RichDocument note rendering, and txtar citation
+  `file:line` resolution are implemented.
+
+The authentication constraint is narrower: browser login harvests credentials
+from a profile already signed into Google. It does not provide unattended SSO
+on a fresh machine.
+
+## Confirmed Product Gaps
+
+### 1. Broad artifact export
+
+Slide decks can be downloaded as PDF or PPTX, and audio/video have dedicated
+download paths. There is no general artifact-export command and no structured
+flashcard, quiz, report, data-table, or mind-map export.
+
+Flashcard card content and mind-map structure are not sufficiently modeled to
+invent exporters. Any work on those formats starts with a real capture and a
+lossless corpus gate.
+
+Status: high priority, capture-blocked for flashcard cards and mind-map
+structure. Rendered server outputs may support narrower exports without new
+wire modeling and should be assessed separately.
+
+### 2. Proactive credential refresh
+
+The CLI already has a reactive recovery path: after an authentication-shaped
+failure, commands with a cached browser profile silently re-run browser
+authentication and retry once. Environment-only CI credentials fail directly
+because no local browser profile can refresh them.
+
+The older proactive `TokenManager` path is not functional with real `SNlM0e`
+tokens: `ParseAuthToken` expects an artificial `token:timestamp` shape, and the
+signaler request does not capture and install a renewed NotebookLM token in the
+live client.
+
+Status: reactive browser-profile recovery works; proactive refresh remains
+open. Prefer the verified browser re-harvest path unless a capture proves that
+the signaler endpoint can mint the needed token.
+
+### 3. Deep-research inline citations
+
+`nlm research --md` emits the report and a structured citation list, but does
+not weave those citations into the Markdown as links or footnotes.
+
+Status: open, no new wire modeling required.
+
+### 4. MCP watch and progress
+
+The stdio MCP server exposes 38 tools, including research start and poll, but
+has no blocking watch tool and emits no MCP progress notifications. It also
+lacks HTTP/SSE transport, in-MCP authentication recovery, and a local
+file-path injection tool.
+
+Status: watch/progress is the first MCP gap to close. Text injection already
+works through `add_source_text`; do not describe context injection itself as
+missing.
+
+### 5. Agent onboarding and competitive breadth
+
+The in-repo skill is concise and delegates to current `--help`, but there is no
+one-shot `nlm --ai` documentation dump or skill installer. The MCP surface also
+omits some sharing, batch, and cross-notebook operations exposed by broader
+competitors. AI-assisted auto-labeling is not implemented.
+
+Status: open. Preserve the lean skill design; improve discovery and
+distribution rather than copying a kitchen-sink command surface.
+
+## Lower-Priority Protocol and API Work
 
 ### 1. Generated analytics proto remains scalar
 
@@ -76,15 +158,6 @@ service, and the `ChatGoal` enum values may not match server expectations.
 
 Status: open. Low usage; verify when there is a real caller.
 
-### 6. Auth-expiry mid-session auto-refresh
-
-When the session cookies expire during a long-running command, the CLI now
-detects auth-shaped API and transport failures and surfaces a targeted
-"run `nlm auth`" message.
-
-Status: low-priority polish. The remaining possible improvement is automatic
-refresh after a 401/Unauthenticated response.
-
 ## Truly HAR-Blocked
 
 ### 1. `izAoDd` drag-drop bulk add shape
@@ -106,13 +179,17 @@ Status: HAR-blocked for semantics only. The current fallback is safe.
 
 ## Next Work
 
-1. Decide whether AUrzMb should stay typed API-only or get generated proto
+1. Capture and lossless-verify flashcard/quiz payloads before modeling card
+   content or adding structured export.
+2. Add deep-research inline Markdown citations.
+3. Add MCP research watch/progress behavior.
+4. Remove or replace the nonfunctional proactive token-refresh scaffold; keep
+   reactive browser-profile recovery as the verified path.
+5. Decide whether AUrzMb should stay typed API-only or get generated proto
    metric-series messages.
-2. Decide whether `video download` should keep the current manual-fallback
+6. Decide whether `video download` should keep the current manual-fallback
    UX or get a real CDN capture and a browser-assisted path.
-3. Remove dead generated RPC stubs so future audits do not
-   mistake them for live command paths.
-4. Re-capture `artifact get` against the live service and either verify
+7. Re-capture `artifact get` against the live service and either verify
    `v9rmvd` or keep the list-scan fallback as the canonical path.
-5. Verify `chat config` end-to-end (or hide it until there is a real caller).
-6. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.
+8. Verify `chat config` end-to-end (or hide it until there is a real caller).
+9. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.
