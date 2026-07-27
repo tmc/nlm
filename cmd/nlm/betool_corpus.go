@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/rpcinfo"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -394,7 +393,7 @@ func auditCorpusWire(file string, record int, side, rpcID string, httpStatus int
 			msg = method.NewResponse()
 		}
 		candidate := candidate{method: method, msg: msg}
-		if err := beprotojson.Unmarshal(wire, msg); err != nil {
+		if err := beprotoUnmarshal(wire, msg); err != nil {
 			candidate.err = err
 		} else {
 			candidate.deltas, candidate.err = diffWireAgainstProto(wire, msg)

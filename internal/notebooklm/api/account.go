@@ -37,7 +37,7 @@ func (c *Client) GetAccountStatus() (*AccountStatus, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get account status: %w", err)
 	}
-	status, err := parseAccountStatusProto(resp)
+	status, err := parseAccountStatusProtoWithOptions(resp, c.unmarshalOptions())
 	if err != nil {
 		return nil, fmt.Errorf("get account status: decode response: %w", err)
 	}
@@ -45,8 +45,12 @@ func (c *Client) GetAccountStatus() (*AccountStatus, error) {
 }
 
 func parseAccountStatusProto(raw []byte) (*AccountStatus, error) {
+	return parseAccountStatusProtoWithOptions(raw, beprotojson.UnmarshalOptions{DiscardUnknown: true})
+}
+
+func parseAccountStatusProtoWithOptions(raw []byte, options beprotojson.UnmarshalOptions) (*AccountStatus, error) {
 	account := new(pb.Account)
-	if err := beprotojson.Unmarshal(raw, account); err != nil {
+	if err := options.Unmarshal(raw, account); err != nil {
 		return nil, fmt.Errorf("account proto decode: %w", err)
 	}
 	limits := account.GetLimits()

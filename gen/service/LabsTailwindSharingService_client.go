@@ -13,11 +13,21 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // LabsTailwindSharingServiceClient is a generated client for the LabsTailwindSharingService service.
 type LabsTailwindSharingServiceClient struct {
 	rpcClient *rpc.Client
+}
+
+func (c *LabsTailwindSharingServiceClient) unmarshal(b []byte, m proto.Message) error {
+	config := c.rpcClient.Config
+	return (beprotojson.UnmarshalOptions{
+		DiscardUnknown:    true,
+		DebugParsing:      config.DebugParsing,
+		DebugFieldMapping: config.DebugFieldMapping,
+	}).Unmarshal(b, m)
 }
 
 // NewLabsTailwindSharingServiceClient creates a new client for the LabsTailwindSharingService service.
@@ -53,7 +63,7 @@ func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *
 
 	// Decode the response
 	var result notebooklmv1alpha1.ShareAudioResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ShareAudio: unmarshal response: %w", err)
 	}
 
@@ -77,7 +87,7 @@ func (c *LabsTailwindSharingServiceClient) GetProjectDetails(ctx context.Context
 
 	// Decode the response
 	var result notebooklmv1alpha1.ProjectDetails
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetProjectDetails: unmarshal response: %w", err)
 	}
 
@@ -101,7 +111,7 @@ func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req
 
 	// Decode the response
 	var result notebooklmv1alpha1.ShareProjectResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ShareProject: unmarshal response: %w", err)
 	}
 
@@ -125,7 +135,7 @@ func (c *LabsTailwindSharingServiceClient) CreateAccessRequest(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.CreateAccessRequestResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateAccessRequest: unmarshal response: %w", err)
 	}
 

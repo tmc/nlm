@@ -589,6 +589,15 @@ func WithDebug(debug bool) Option {
 	}
 }
 
+// WithProtoDebug enables beprotojson parsing diagnostics for responses decoded
+// by clients built with this option.
+func WithProtoDebug(debugParsing, debugFieldMapping bool) Option {
+	return func(c *Client) {
+		c.config.DebugParsing = debugParsing
+		c.config.DebugFieldMapping = debugFieldMapping
+	}
+}
+
 func WithDebugDumpPayload(debugDumpPayload bool) Option {
 	return func(c *Client) {
 		c.config.DebugDumpPayload = debugDumpPayload
@@ -662,6 +671,10 @@ type Config struct {
 	URLParams map[string]string
 	Debug     bool
 	UseHTTP   bool
+
+	// Protobuf response decoding diagnostics.
+	DebugParsing      bool
+	DebugFieldMapping bool
 
 	// Retry configuration
 	MaxRetries    int           // Maximum number of retry attempts (default: 3)

@@ -1,6 +1,10 @@
 package rpc
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/tmc/nlm/internal/batchexecute"
+)
 
 func TestNewWithConfigUsesAuthUserFromEnv(t *testing.T) {
 	t.Setenv("NLM_AUTHUSER", "2")
@@ -16,5 +20,25 @@ func TestNewWithConfigUsesAuthUserFromEnv(t *testing.T) {
 	}
 	if got := client.Config.Headers["x-goog-authuser"]; got != "2" {
 		t.Fatalf("x-goog-authuser header = %q, want 2", got)
+	}
+}
+
+func TestNewWithConfigRetainsAppliedOptions(t *testing.T) {
+	client := NewWithConfig(
+		"token",
+		"cookies",
+		ServiceConfig{},
+		batchexecute.WithDebug(true),
+		batchexecute.WithProtoDebug(true, true),
+	)
+
+	if !client.Config.Debug {
+		t.Error("Debug = false, want true")
+	}
+	if !client.Config.DebugParsing {
+		t.Error("DebugParsing = false, want true")
+	}
+	if !client.Config.DebugFieldMapping {
+		t.Error("DebugFieldMapping = false, want true")
 	}
 }

@@ -20,6 +20,27 @@ func compactStr(t *testing.T, b []byte) string {
 	return buf.String()
 }
 
+func TestBeprotoUnmarshalOptionsUsesCommandDebugSettings(t *testing.T) {
+	oldParsing, oldMapping := debugParsing, debugFieldMapping
+	t.Cleanup(func() {
+		debugParsing = oldParsing
+		debugFieldMapping = oldMapping
+	})
+	debugParsing = true
+	debugFieldMapping = true
+
+	options := beprotoUnmarshalOptions()
+	if !options.DiscardUnknown {
+		t.Error("DiscardUnknown = false, want true")
+	}
+	if !options.DebugParsing {
+		t.Error("DebugParsing = false, want true")
+	}
+	if !options.DebugFieldMapping {
+		t.Error("DebugFieldMapping = false, want true")
+	}
+}
+
 // runBetoolCapture runs a betool invocation, feeding stdinData on stdin and
 // capturing stdout. It restores os.Stdin/os.Stdout before returning.
 func runBetoolCapture(t *testing.T, args []string, stdinData string) (string, error) {

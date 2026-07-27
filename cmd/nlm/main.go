@@ -23,7 +23,6 @@ import (
 	"github.com/tmc/nlm/gen/service"
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/beprotojson"
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/nlmmcp"
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -183,11 +182,6 @@ func prepareRuntime(stderr io.Writer) {
 		}
 	}
 
-	// Set beprotojson debug options if requested
-	if debugParsing || debugFieldMapping {
-		beprotojson.SetGlobalDebugOptions(debugParsing, debugFieldMapping)
-	}
-
 	// Start auto-refresh manager if credentials exist
 	startAutoRefreshIfEnabled()
 }
@@ -304,6 +298,9 @@ func run(inv invocation) error {
 	// Add debug option if enabled
 	if debug {
 		opts = append(opts, batchexecute.WithDebug(true))
+	}
+	if debugParsing || debugFieldMapping {
+		opts = append(opts, batchexecute.WithProtoDebug(debugParsing, debugFieldMapping))
 	}
 
 	// Add rt=c parameter if chunked response format is requested
@@ -1438,7 +1435,11 @@ func getAnalytics(c *api.Client, projectID string) error {
 }
 
 func listFeaturedProjects(c *api.Client) error {
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(
+		authToken,
+		cookies,
+		batchexecute.WithProtoDebug(debugParsing, debugFieldMapping),
+	)
 	resp, err := orchClient.ListFeaturedProjects(context.Background(), &pb.ListFeaturedProjectsRequest{})
 	if err != nil {
 		return fmt.Errorf("list featured projects: %w", err)
@@ -1517,7 +1518,11 @@ func checkSourceFreshness(c *api.Client, sourceID, notebookID string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "note: pass notebook-id as the second argument to enable client-side Drive-source validation")
 	}
-	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
+	orchClient := service.NewLabsTailwindOrchestrationServiceClient(
+		authToken,
+		cookies,
+		batchexecute.WithProtoDebug(debugParsing, debugFieldMapping),
+	)
 	req := &pb.CheckSourceFreshnessRequest{Source: &pb.SourceIdList{SourceId: sourceID}, Context: &pb.RequestContext{
 		Version: proto.Int32(2),
 		Surface: &pb.RequestSurface{Value: proto.Int32(1)},

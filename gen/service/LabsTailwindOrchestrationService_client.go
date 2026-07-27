@@ -13,12 +13,22 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // LabsTailwindOrchestrationServiceClient is a generated client for the LabsTailwindOrchestrationService service.
 type LabsTailwindOrchestrationServiceClient struct {
 	rpcClient *rpc.Client
+}
+
+func (c *LabsTailwindOrchestrationServiceClient) unmarshal(b []byte, m proto.Message) error {
+	config := c.rpcClient.Config
+	return (beprotojson.UnmarshalOptions{
+		DiscardUnknown:    true,
+		DebugParsing:      config.DebugParsing,
+		DebugFieldMapping: config.DebugFieldMapping,
+	}).Unmarshal(b, m)
 }
 
 // NewLabsTailwindOrchestrationServiceClient creates a new client for the LabsTailwindOrchestrationService service.
@@ -54,7 +64,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateArtifact(ctx context.Cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateArtifact: unmarshal response: %w", err)
 	}
 
@@ -78,7 +88,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetArtifact(ctx context.Context
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetArtifact: unmarshal response: %w", err)
 	}
 
@@ -102,7 +112,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("UpdateArtifact: unmarshal response: %w", err)
 	}
 
@@ -126,7 +136,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("RenameArtifact: unmarshal response: %w", err)
 	}
 
@@ -150,7 +160,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Cont
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteArtifact: unmarshal response: %w", err)
 	}
 
@@ -174,7 +184,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListArtifacts(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.ListArtifactsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ListArtifacts: unmarshal response: %w", err)
 	}
 
@@ -198,7 +208,7 @@ func (c *LabsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.QueryArtifactsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("QueryArtifacts: unmarshal response: %w", err)
 	}
 
@@ -222,7 +232,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.ActOnSourcesResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ActOnSources: unmarshal response: %w", err)
 	}
 
@@ -246,7 +256,7 @@ func (c *LabsTailwindOrchestrationServiceClient) AddSources(ctx context.Context,
 
 	// Decode the response
 	var result notebooklmv1alpha1.AddSourcesResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("AddSources: unmarshal response: %w", err)
 	}
 
@@ -270,7 +280,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CheckSourceFreshness(ctx contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.CheckSourceFreshnessResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CheckSourceFreshness: unmarshal response: %w", err)
 	}
 
@@ -294,7 +304,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteSources(ctx context.Conte
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteSources: unmarshal response: %w", err)
 	}
 
@@ -318,7 +328,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Con
 
 	// Decode the response
 	var result notebooklmv1alpha1.DiscoverSourcesResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DiscoverSources: unmarshal response: %w", err)
 	}
 
@@ -342,7 +352,7 @@ func (c *LabsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context,
 
 	// Decode the response
 	var result notebooklmv1alpha1.LoadSourceResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("LoadSource: unmarshal response: %w", err)
 	}
 
@@ -366,7 +376,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateSource(ctx context.Contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.Source
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateSource: unmarshal response: %w", err)
 	}
 
@@ -390,7 +400,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.Source
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("RefreshSource: unmarshal response: %w", err)
 	}
 
@@ -414,7 +424,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateAudioOverview: unmarshal response: %w", err)
 	}
 
@@ -438,7 +448,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetAudioOverview(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.AudioOverview
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetAudioOverview: unmarshal response: %w", err)
 	}
 
@@ -462,7 +472,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteAudioOverview: unmarshal response: %w", err)
 	}
 
@@ -486,7 +496,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateVideoOverview: unmarshal response: %w", err)
 	}
 
@@ -510,7 +520,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateUniversalArtifact(ctx con
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateUniversalArtifact: unmarshal response: %w", err)
 	}
 
@@ -534,7 +544,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context,
 
 	// Decode the response
 	var result notebooklmv1alpha1.CreateNoteRichRecord
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateNote: unmarshal response: %w", err)
 	}
 
@@ -558,7 +568,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteNotes: unmarshal response: %w", err)
 	}
 
@@ -582,7 +592,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, r
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetNotesRichWireResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetNotes: unmarshal response: %w", err)
 	}
 
@@ -606,7 +616,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context,
 
 	// Decode the response
 	var result notebooklmv1alpha1.Note
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateNote: unmarshal response: %w", err)
 	}
 
@@ -630,7 +640,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateProject(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.Project
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateProject: unmarshal response: %w", err)
 	}
 
@@ -654,7 +664,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteProjects(ctx context.Cont
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteProjects: unmarshal response: %w", err)
 	}
 
@@ -678,7 +688,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProject(ctx context.Context,
 
 	// Decode the response
 	var result notebooklmv1alpha1.Project
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetProject: unmarshal response: %w", err)
 	}
 
@@ -702,7 +712,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListFeaturedProjects(ctx contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.ListFeaturedProjectsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ListFeaturedProjects: unmarshal response: %w", err)
 	}
 
@@ -726,7 +736,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListRecentlyViewedProjects(ctx 
 
 	// Decode the response
 	var result notebooklmv1alpha1.ListRecentlyViewedProjectsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ListRecentlyViewedProjects: unmarshal response: %w", err)
 	}
 
@@ -750,7 +760,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateProject(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.Project
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateProject: unmarshal response: %w", err)
 	}
 
@@ -774,7 +784,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateProjectCover(ctx context.
 
 	// Decode the response
 	var result notebooklmv1alpha1.Project
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateProjectCover: unmarshal response: %w", err)
 	}
 
@@ -798,7 +808,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("RemoveRecentlyViewedProject: unmarshal response: %w", err)
 	}
 
@@ -822,7 +832,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamed(ctx co
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateFreeFormStreamedResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateFreeFormStreamed: unmarshal response: %w", err)
 	}
 
@@ -846,7 +856,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamedWire(ct
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateFreeFormStreamedWireResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateFreeFormStreamedWire: unmarshal response: %w", err)
 	}
 
@@ -870,7 +880,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateNotebookGuide(ctx conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateNotebookGuideResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateNotebookGuide: unmarshal response: %w", err)
 	}
 
@@ -894,7 +904,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateOutline(ctx context.Con
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateOutlineResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateOutline: unmarshal response: %w", err)
 	}
 
@@ -918,7 +928,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateReportSuggestions(ctx c
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateReportSuggestionsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateReportSuggestions: unmarshal response: %w", err)
 	}
 
@@ -942,7 +952,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateSection(ctx context.Con
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateSectionResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateSection: unmarshal response: %w", err)
 	}
 
@@ -966,7 +976,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartDraft(ctx context.Context,
 
 	// Decode the response
 	var result notebooklmv1alpha1.StartDraftResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("StartDraft: unmarshal response: %w", err)
 	}
 
@@ -990,7 +1000,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartSection(ctx context.Contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.StartSectionResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("StartSection: unmarshal response: %w", err)
 	}
 
@@ -1014,7 +1024,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateMagicView(ctx context.C
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateMagicViewResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateMagicView: unmarshal response: %w", err)
 	}
 
@@ -1038,7 +1048,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProjectAnalytics(ctx context
 
 	// Decode the response
 	var result notebooklmv1alpha1.ProjectAnalytics
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetProjectAnalytics: unmarshal response: %w", err)
 	}
 
@@ -1062,7 +1072,7 @@ func (c *LabsTailwindOrchestrationServiceClient) SubmitFeedback(ctx context.Cont
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("SubmitFeedback: unmarshal response: %w", err)
 	}
 
@@ -1086,7 +1096,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetConversations(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetConversationsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetConversations: unmarshal response: %w", err)
 	}
 
@@ -1110,7 +1120,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetConversationHistory(ctx cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetConversationHistoryResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetConversationHistory: unmarshal response: %w", err)
 	}
 
@@ -1134,7 +1144,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteChatHistory(ctx context.C
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteChatHistory: unmarshal response: %w", err)
 	}
 
@@ -1158,7 +1168,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetOrCreateAccount(ctx context.
 
 	// Decode the response
 	var result notebooklmv1alpha1.Account
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetOrCreateAccount: unmarshal response: %w", err)
 	}
 
@@ -1182,7 +1192,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateAccount(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.Account
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateAccount: unmarshal response: %w", err)
 	}
 
@@ -1206,7 +1216,7 @@ func (c *LabsTailwindOrchestrationServiceClient) AddFileSource(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.AddFileSourceResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("AddFileSource: unmarshal response: %w", err)
 	}
 
@@ -1230,7 +1240,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteChatTurns(ctx context.Con
 
 	// Decode the response
 	var result notebooklmv1alpha1.DeleteChatTurnsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteChatTurns: unmarshal response: %w", err)
 	}
 
@@ -1254,7 +1264,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartFastResearch(ctx context.C
 
 	// Decode the response
 	var result notebooklmv1alpha1.StartFastResearchResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("StartFastResearch: unmarshal response: %w", err)
 	}
 
@@ -1278,7 +1288,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartDeepResearch(ctx context.C
 
 	// Decode the response
 	var result notebooklmv1alpha1.StartDeepResearchResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("StartDeepResearch: unmarshal response: %w", err)
 	}
 
@@ -1302,7 +1312,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartDeepResearchWire(ctx conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.StartDeepResearchResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("StartDeepResearchWire: unmarshal response: %w", err)
 	}
 
@@ -1326,7 +1336,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetDeepResearchSessions(ctx con
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetDeepResearchSessionsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetDeepResearchSessions: unmarshal response: %w", err)
 	}
 
@@ -1350,7 +1360,7 @@ func (c *LabsTailwindOrchestrationServiceClient) PollDeepResearch(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.PollDeepResearchResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("PollDeepResearch: unmarshal response: %w", err)
 	}
 
@@ -1374,7 +1384,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.
 
 	// Decode the response
 	var result notebooklmv1alpha1.DeleteDeepResearchResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteDeepResearch: unmarshal response: %w", err)
 	}
 
@@ -1398,7 +1408,7 @@ func (c *LabsTailwindOrchestrationServiceClient) BulkImportFromResearch(ctx cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.BulkImportFromResearchResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("BulkImportFromResearch: unmarshal response: %w", err)
 	}
 
@@ -1422,7 +1432,7 @@ func (c *LabsTailwindOrchestrationServiceClient) BulkImportFromResearchWire(ctx 
 
 	// Decode the response
 	var result notebooklmv1alpha1.BulkImportFromResearchResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("BulkImportFromResearchWire: unmarshal response: %w", err)
 	}
 
@@ -1446,7 +1456,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetAudioFormats(ctx context.Con
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetAudioFormatsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetAudioFormats: unmarshal response: %w", err)
 	}
 
@@ -1470,7 +1480,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateDocumentGuidesResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateDocumentGuides: unmarshal response: %w", err)
 	}
 
@@ -1494,7 +1504,7 @@ func (c *LabsTailwindOrchestrationServiceClient) LogEvent(ctx context.Context, r
 
 	// Decode the response
 	var result notebooklmv1alpha1.LogEventResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("LogEvent: unmarshal response: %w", err)
 	}
 
@@ -1518,7 +1528,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ReportContent(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.ReportContentResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ReportContent: unmarshal response: %w", err)
 	}
 
@@ -1542,7 +1552,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ReviseArtifact(ctx context.Cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ReviseArtifact: unmarshal response: %w", err)
 	}
 
@@ -1566,7 +1576,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifactSuggestions(ctx
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateArtifactSuggestionsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateArtifactSuggestions: unmarshal response: %w", err)
 	}
 
@@ -1590,7 +1600,7 @@ func (c *LabsTailwindOrchestrationServiceClient) FetchInteractivityToken(ctx con
 
 	// Decode the response
 	var result notebooklmv1alpha1.FetchInteractivityTokenResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("FetchInteractivityToken: unmarshal response: %w", err)
 	}
 
@@ -1614,7 +1624,7 @@ func (c *LabsTailwindOrchestrationServiceClient) SDPExchange(ctx context.Context
 
 	// Decode the response
 	var result notebooklmv1alpha1.SDPExchangeResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("SDPExchange: unmarshal response: %w", err)
 	}
 
@@ -1638,7 +1648,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetLabels(ctx context.Context, 
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetLabelsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetLabels: unmarshal response: %w", err)
 	}
 
@@ -1662,7 +1672,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpsertArtifactUserState(ctx con
 
 	// Decode the response
 	var result notebooklmv1alpha1.UpsertArtifactUserStateResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("UpsertArtifactUserState: unmarshal response: %w", err)
 	}
 
@@ -1686,7 +1696,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetArtifactUserState(ctx contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetArtifactUserStateResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetArtifactUserState: unmarshal response: %w", err)
 	}
 
@@ -1710,7 +1720,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateLabel(ctx context.Context
 
 	// Decode the response
 	var result notebooklmv1alpha1.CreateLabelResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateLabel: unmarshal response: %w", err)
 	}
 
@@ -1734,7 +1744,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateLabelsMode(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.CreateLabelResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateLabelsMode: unmarshal response: %w", err)
 	}
 
@@ -1758,7 +1768,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateLabel(ctx context.Context
 
 	// Decode the response
 	var result notebooklmv1alpha1.MutateLabelResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("MutateLabel: unmarshal response: %w", err)
 	}
 
@@ -1782,7 +1792,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteLabels(ctx context.Contex
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteLabels: unmarshal response: %w", err)
 	}
 
@@ -1806,7 +1816,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifact(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.Artifact
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateArtifact: unmarshal response: %w", err)
 	}
 
@@ -1830,7 +1840,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CancelDiscoverSourcesJob(ctx co
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CancelDiscoverSourcesJob: unmarshal response: %w", err)
 	}
 
@@ -1854,7 +1864,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CancelGeneration(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.CancelGenerationResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CancelGeneration: unmarshal response: %w", err)
 	}
 
@@ -1878,7 +1888,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ExportToDrive(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.ExportToDriveResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ExportToDrive: unmarshal response: %w", err)
 	}
 
@@ -1902,7 +1912,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateFeaturedNotebookStatus(ct
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("UpdateFeaturedNotebookStatus: unmarshal response: %w", err)
 	}
 
@@ -1926,7 +1936,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListModelOptions(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.ListModelOptionsResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ListModelOptions: unmarshal response: %w", err)
 	}
 
@@ -1950,7 +1960,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.UpdateProjectUserStateResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("UpdateProjectUserState: unmarshal response: %w", err)
 	}
 
@@ -1974,7 +1984,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ExecuteWritingFunction(ctx cont
 
 	// Decode the response
 	var result notebooklmv1alpha1.ExecuteWritingFunctionResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ExecuteWritingFunction: unmarshal response: %w", err)
 	}
 
@@ -1998,7 +2008,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListExpertIntelligenceContent(c
 
 	// Decode the response
 	var result notebooklmv1alpha1.ListExpertIntelligenceContentResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ListExpertIntelligenceContent: unmarshal response: %w", err)
 	}
 
@@ -2022,7 +2032,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateAccessToken(ctx context
 
 	// Decode the response
 	var result notebooklmv1alpha1.GenerateAccessTokenResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GenerateAccessToken: unmarshal response: %w", err)
 	}
 
@@ -2046,7 +2056,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetMagicView(ctx context.Contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.GetMagicViewResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetMagicView: unmarshal response: %w", err)
 	}
 
@@ -2070,7 +2080,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context
 
 	// Decode the response
 	var result notebooklmv1alpha1.CopyProjectResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CopyProject: unmarshal response: %w", err)
 	}
 
@@ -2094,7 +2104,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverviewLegacy(ctx c
 
 	// Decode the response
 	var result notebooklmv1alpha1.AudioOverview
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("CreateAudioOverviewLegacy: unmarshal response: %w", err)
 	}
 

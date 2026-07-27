@@ -5,6 +5,15 @@ import (
 	"log"
 )
 
+func ExampleWithProtoDebug() {
+	client := NewClient(Config{}, WithProtoDebug(true, true))
+	config := client.Config()
+	fmt.Println(config.DebugParsing, config.DebugFieldMapping)
+
+	// Output:
+	// true true
+}
+
 // ExampleAPIError demonstrates how API errors are detected and handled
 func ExampleAPIError() {
 	// Example 1: Authentication error code

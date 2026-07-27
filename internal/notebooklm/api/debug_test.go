@@ -81,6 +81,22 @@ func TestNLMDebugEnvironmentVariable(t *testing.T) {
 	}
 }
 
+func TestClientProtoDebugConfiguration(t *testing.T) {
+	client := New(
+		"test-token",
+		"test-cookies",
+		batchexecute.WithProtoDebug(true, true),
+	)
+
+	options := client.unmarshalOptions()
+	if !options.DebugParsing {
+		t.Error("DebugParsing = false, want true")
+	}
+	if !options.DebugFieldMapping {
+		t.Error("DebugFieldMapping = false, want true")
+	}
+}
+
 // TestDebugOutputProduction verifies that debug mode produces output
 func TestDebugOutputProduction(t *testing.T) {
 	// Save and restore original values

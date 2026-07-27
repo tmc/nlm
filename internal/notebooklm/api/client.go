@@ -222,6 +222,21 @@ func New(authToken, cookies string, opts ...batchexecute.Option) *Client {
 	return client
 }
 
+func (c *Client) unmarshal(b []byte, m proto.Message) error {
+	return c.unmarshalOptions().Unmarshal(b, m)
+}
+
+func (c *Client) unmarshalOptions() beprotojson.UnmarshalOptions {
+	options := beprotojson.UnmarshalOptions{DiscardUnknown: true}
+	if c == nil || c.rpc == nil {
+		return options
+	}
+	config := c.rpc.Config
+	options.DebugParsing = config.DebugParsing
+	options.DebugFieldMapping = config.DebugFieldMapping
+	return options
+}
+
 // SetUseDirectRPC configures whether to use direct RPC calls
 func (c *Client) SetUseDirectRPC(use bool) {
 	c.config.UseDirectRPC = use
@@ -436,7 +451,7 @@ func (c *Client) MutateProject(projectID string, updates *pb.Project) (*Notebook
 		return nil, fmt.Errorf("mutate project: %w", err)
 	}
 	var project pb.Project
-	if err := beprotojson.Unmarshal(resp, &project); err != nil {
+	if err := c.unmarshal(resp, &project); err != nil {
 		return nil, fmt.Errorf("mutate project: unmarshal response: %w", err)
 	}
 	return &project, nil
@@ -672,7 +687,7 @@ func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, 
 		return nil, fmt.Errorf("mutate source: %w", err)
 	}
 	var source pb.Source
-	if err := beprotojson.Unmarshal(resp, &source); err != nil {
+	if err := c.unmarshal(resp, &source); err != nil {
 		return nil, fmt.Errorf("mutate source: unmarshal response: %w", err)
 	}
 	return &source, nil
@@ -2271,7 +2286,7 @@ func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instr
 	if err != nil {
 		return "", fmt.Errorf("create %s app artifact: %w", kind.String(), err)
 	}
-	return createdArtifactIDFromProto(resp)
+	return createdArtifactIDFromProtoWithOptions(resp, c.unmarshalOptions())
 }
 
 func (c *Client) createArtifactSourceIDs(projectID string, sourceIDs []string) ([]string, error) {
@@ -2578,7 +2593,7 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 	})
 	if err == nil {
 		var parseErr error
-		overviews, parseErr = audioOverviewResultsFromProtoArtifacts(projectID, resp)
+		overviews, parseErr = audioOverviewResultsFromProtoArtifactsWithOptions(projectID, resp, c.unmarshalOptions())
 		if c.config.Debug && parseErr != nil {
 			fmt.Printf("Error parsing audio overview artifacts: %v\n", parseErr)
 		}
@@ -2610,8 +2625,12 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 }
 
 func audioOverviewResultsFromProtoArtifacts(projectID string, raw []byte) ([]*AudioOverviewResult, error) {
+	return audioOverviewResultsFromProtoArtifactsWithOptions(projectID, raw, beprotojson.UnmarshalOptions{DiscardUnknown: true})
+}
+
+func audioOverviewResultsFromProtoArtifactsWithOptions(projectID string, raw []byte, options beprotojson.UnmarshalOptions) ([]*AudioOverviewResult, error) {
 	var response pb.ListArtifactsResponse
-	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+	if err := options.Unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("decode artifact response: %w", err)
 	}
 	overviews := make([]*AudioOverviewResult, 0)
@@ -3039,7 +3058,7 @@ func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
 		return nil, fmt.Errorf("list artifacts RPC: %w", err)
 	}
 
-	return artifactsFromProtoResponse(resp)
+	return artifactsFromProtoResponseWithOptions(resp, c.unmarshalOptions())
 }
 
 // artifactsFromProtoResponse decodes the common gArtLc response through the
@@ -3048,8 +3067,12 @@ func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
 // a contribution.usercontent.google.com download URL proves readiness even
 // when the state enum is 3 (the generated FAILED value).
 func artifactsFromProtoResponse(raw []byte) ([]*pb.Artifact, error) {
+	return artifactsFromProtoResponseWithOptions(raw, beprotojson.UnmarshalOptions{DiscardUnknown: true})
+}
+
+func artifactsFromProtoResponseWithOptions(raw []byte, options beprotojson.UnmarshalOptions) ([]*pb.Artifact, error) {
 	var response pb.ListArtifactsResponse
-	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+	if err := options.Unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("decode artifact response: %w", err)
 	}
 	var wire interface{}
@@ -3744,20 +3767,24 @@ func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sour
 	if err != nil {
 		return "", fmt.Errorf("create slide deck: %w", err)
 	}
-	return createdArtifactIDFromProto(resp)
+	return createdArtifactIDFromProtoWithOptions(resp, c.unmarshalOptions())
 }
 
 // createdArtifactIDFromProto projects the nested Artifact response returned
 // by legacy R7cb6c create paths. The custom request encoders remain in place;
 // only response decoding moves to the generated Artifact message.
 func createdArtifactIDFromProto(resp []byte) (string, error) {
+	return createdArtifactIDFromProtoWithOptions(resp, beprotojson.UnmarshalOptions{DiscardUnknown: true})
+}
+
+func createdArtifactIDFromProtoWithOptions(resp []byte, options beprotojson.UnmarshalOptions) (string, error) {
 	var outer []json.RawMessage
 	if err := json.Unmarshal(resp, &outer); err != nil {
 		return "", fmt.Errorf("decode create response: %w", err)
 	}
 	if len(outer) > 0 {
 		var artifact pb.Artifact
-		if err := beprotojson.Unmarshal(outer[0], &artifact); err == nil && artifact.GetArtifactId() != "" {
+		if err := options.Unmarshal(outer[0], &artifact); err == nil && artifact.GetArtifactId() != "" {
 			return artifact.GetArtifactId(), nil
 		}
 	}
@@ -4618,7 +4645,7 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 			continue
 		}
 
-		payload := extractChatPayload(innerStr, sourceIDs)
+		payload := extractChatPayloadWithOptions(innerStr, sourceIDs, c.unmarshalOptions())
 		text := payload.Text
 		if text == "" {
 			continue
@@ -4936,8 +4963,12 @@ const (
 )
 
 func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
+	return extractChatPayloadWithOptions(innerJSON, sourceIDs, beprotojson.UnmarshalOptions{DiscardUnknown: true})
+}
+
+func extractChatPayloadWithOptions(innerJSON string, sourceIDs []string, options beprotojson.UnmarshalOptions) chatPayload {
 	var generated pb.GenerateFreeFormStreamedWireResponse
-	if err := beprotojson.Unmarshal([]byte(innerJSON), &generated); err == nil {
+	if err := options.Unmarshal([]byte(innerJSON), &generated); err == nil {
 		payload := chatPayload{
 			Text: generated.GetAnswer().GetChunk(),
 			Rich: generated.GetAnswer().GetDocument(),
@@ -5754,7 +5785,7 @@ func (c *Client) GetConversationHistory(projectID, conversationID string) ([]Cha
 		return nil, fmt.Errorf("get conversation history: %w", err)
 	}
 	var response pb.GetConversationHistoryResponse
-	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+	if err := c.unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("parse conversation history: %w", err)
 	}
 	return conversationMessagesFromProto(&response, raw), nil
@@ -6472,7 +6503,7 @@ func (c *Client) pollResearch(
 		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
 
-	sessions, err := parseDeepResearchSessionsProto(resp)
+	sessions, err := parseDeepResearchSessionsProtoWithOptions(resp, c.unmarshalOptions())
 	if err != nil {
 		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
@@ -6544,8 +6575,12 @@ type deepResearchSession struct {
 // this adapter preserves the public poll projection for both fast and deep
 // session variants.
 func parseDeepResearchSessionsProto(resp json.RawMessage) ([]deepResearchSession, error) {
+	return parseDeepResearchSessionsProtoWithOptions(resp, beprotojson.UnmarshalOptions{DiscardUnknown: true})
+}
+
+func parseDeepResearchSessionsProtoWithOptions(resp json.RawMessage, options beprotojson.UnmarshalOptions) ([]deepResearchSession, error) {
 	var decoded pb.GetDeepResearchSessionsResponse
-	if err := beprotojson.Unmarshal(resp, &decoded); err != nil {
+	if err := options.Unmarshal(resp, &decoded); err != nil {
 		return nil, fmt.Errorf("decode sessions proto: %w", err)
 	}
 	return deepResearchSessionsFromProto(decoded.GetSessions()), nil
@@ -6877,7 +6912,7 @@ func (c *Client) BulkImportFromResearch(projectID, conversationID string, source
 		return nil, fmt.Errorf("bulk import from research: %w", err)
 	}
 	var wire pb.BulkImportFromResearchResponse
-	if err := beprotojson.Unmarshal(resp, &wire); err != nil {
+	if err := c.unmarshal(resp, &wire); err != nil {
 		return nil, fmt.Errorf("bulk import from research: decode response: %w", err)
 	}
 	return bulkImportResultsFromProto(&wire), nil

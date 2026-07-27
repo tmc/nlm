@@ -47,9 +47,8 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	{{- end }}
 	"github.com/tmc/nlm/internal/batchexecute"
-	{{- if $hasNonEmptyResponse }}
 	"github.com/tmc/nlm/internal/beprotojson"
-	{{- end }}
+	"google.golang.org/protobuf/proto"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	{{- if $hasEmptyResponse }}
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -61,6 +60,15 @@ import (
 // {{.Service.GoName}}Client is a generated client for the {{.Service.GoName}} service.
 type {{.Service.GoName}}Client struct {
 	rpcClient *rpc.Client
+}
+
+func (c *{{.Service.GoName}}Client) unmarshal(b []byte, m proto.Message) error {
+	config := c.rpcClient.Config
+	return (beprotojson.UnmarshalOptions{
+		DiscardUnknown:    true,
+		DebugParsing:      config.DebugParsing,
+		DebugFieldMapping: config.DebugFieldMapping,
+	}).Unmarshal(b, m)
 }
 
 // New{{.Service.GoName}}Client creates a new client for the {{.Service.GoName}} service.
@@ -123,7 +131,7 @@ func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *{{$pkg
 	{{- else }}
 	var result {{$pkgName}}.{{.Output.GoIdent.GoName}}
 	{{- end }}
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("{{.GoName}}: unmarshal response: %w", err)
 	}
 	

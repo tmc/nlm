@@ -13,12 +13,22 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // InteractionEventServiceClient is a generated client for the InteractionEventService service.
 type InteractionEventServiceClient struct {
 	rpcClient *rpc.Client
+}
+
+func (c *InteractionEventServiceClient) unmarshal(b []byte, m proto.Message) error {
+	config := c.rpcClient.Config
+	return (beprotojson.UnmarshalOptions{
+		DiscardUnknown:    true,
+		DebugParsing:      config.DebugParsing,
+		DebugFieldMapping: config.DebugFieldMapping,
+	}).Unmarshal(b, m)
 }
 
 // NewInteractionEventServiceClient creates a new client for the InteractionEventService service.
@@ -54,7 +64,7 @@ func (c *InteractionEventServiceClient) LogInteractionEvent(ctx context.Context,
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("LogInteractionEvent: unmarshal response: %w", err)
 	}
 

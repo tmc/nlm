@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/beprotojson"
 )
 
 // LoadSourceText is the decoded full-text body of a source as returned by
@@ -158,7 +157,7 @@ func (c *Client) LoadSourceText(sourceID, notebookID string) (LoadSourceText, er
 		return LoadSourceText{}, err
 	}
 	var response pb.LoadSourceResponse
-	if err := beprotojson.Unmarshal(raw, &response); err == nil {
+	if err := c.unmarshal(raw, &response); err == nil {
 		return loadSourceTextFromProto(&response), nil
 	}
 	return decodeLoadSourceText(raw)

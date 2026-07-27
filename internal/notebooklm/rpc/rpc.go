@@ -374,9 +374,10 @@ func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, optio
 	if authUser != "" {
 		config.Headers["x-goog-authuser"] = authUser
 	}
+	client := batchexecute.NewClient(config, options...)
 	return &Client{
-		Config: config,
-		client: batchexecute.NewClient(config, options...),
+		Config: client.Config(),
+		client: client,
 	}
 }
 

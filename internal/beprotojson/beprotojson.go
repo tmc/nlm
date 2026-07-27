@@ -184,19 +184,9 @@ type UnmarshalOptions struct {
 	DebugFieldMapping bool
 }
 
-var defaultUnmarshalOptions = UnmarshalOptions{
-	DiscardUnknown: true,
-}
-
-// SetGlobalDebugOptions sets debug options for all beprotojson unmarshaling
-func SetGlobalDebugOptions(debugParsing, debugFieldMapping bool) {
-	defaultUnmarshalOptions.DebugParsing = debugParsing
-	defaultUnmarshalOptions.DebugFieldMapping = debugFieldMapping
-}
-
 // Unmarshal reads the given batchexecute JSON data into the given proto.Message.
 func Unmarshal(b []byte, m proto.Message) error {
-	return defaultUnmarshalOptions.Unmarshal(b, m)
+	return (UnmarshalOptions{DiscardUnknown: true}).Unmarshal(b, m)
 }
 
 // Unmarshal reads the given batchexecute JSON data into the given proto.Message using options in UnmarshalOptions.

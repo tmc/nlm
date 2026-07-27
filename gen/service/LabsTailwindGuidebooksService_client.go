@@ -13,12 +13,22 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // LabsTailwindGuidebooksServiceClient is a generated client for the LabsTailwindGuidebooksService service.
 type LabsTailwindGuidebooksServiceClient struct {
 	rpcClient *rpc.Client
+}
+
+func (c *LabsTailwindGuidebooksServiceClient) unmarshal(b []byte, m proto.Message) error {
+	config := c.rpcClient.Config
+	return (beprotojson.UnmarshalOptions{
+		DiscardUnknown:    true,
+		DebugParsing:      config.DebugParsing,
+		DebugFieldMapping: config.DebugFieldMapping,
+	}).Unmarshal(b, m)
 }
 
 // NewLabsTailwindGuidebooksServiceClient creates a new client for the LabsTailwindGuidebooksService service.
@@ -54,7 +64,7 @@ func (c *LabsTailwindGuidebooksServiceClient) DeleteGuidebook(ctx context.Contex
 
 	// Decode the response
 	var result emptypb.Empty
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("DeleteGuidebook: unmarshal response: %w", err)
 	}
 
@@ -78,7 +88,7 @@ func (c *LabsTailwindGuidebooksServiceClient) GetGuidebook(ctx context.Context, 
 
 	// Decode the response
 	var result notebooklmv1alpha1.Guidebook
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetGuidebook: unmarshal response: %w", err)
 	}
 
@@ -102,7 +112,7 @@ func (c *LabsTailwindGuidebooksServiceClient) ListRecentlyViewedGuidebooks(ctx c
 
 	// Decode the response
 	var result notebooklmv1alpha1.ListRecentlyViewedGuidebooksResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ListRecentlyViewedGuidebooks: unmarshal response: %w", err)
 	}
 
@@ -126,7 +136,7 @@ func (c *LabsTailwindGuidebooksServiceClient) PublishGuidebook(ctx context.Conte
 
 	// Decode the response
 	var result notebooklmv1alpha1.PublishGuidebookResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("PublishGuidebook: unmarshal response: %w", err)
 	}
 
@@ -150,7 +160,7 @@ func (c *LabsTailwindGuidebooksServiceClient) GetGuidebookDetails(ctx context.Co
 
 	// Decode the response
 	var result notebooklmv1alpha1.GuidebookDetails
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GetGuidebookDetails: unmarshal response: %w", err)
 	}
 
@@ -174,7 +184,7 @@ func (c *LabsTailwindGuidebooksServiceClient) ShareGuidebook(ctx context.Context
 
 	// Decode the response
 	var result notebooklmv1alpha1.ShareGuidebookResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ShareGuidebook: unmarshal response: %w", err)
 	}
 
@@ -198,7 +208,7 @@ func (c *LabsTailwindGuidebooksServiceClient) GuidebookGenerateAnswer(ctx contex
 
 	// Decode the response
 	var result notebooklmv1alpha1.GuidebookGenerateAnswerResponse
-	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+	if err := c.unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("GuidebookGenerateAnswer: unmarshal response: %w", err)
 	}
 

@@ -29,6 +29,18 @@ type betoolOptions struct {
 	samplesDir string   // infer-proto corpus directory
 }
 
+func beprotoUnmarshal(b []byte, m proto.Message) error {
+	return beprotoUnmarshalOptions().Unmarshal(b, m)
+}
+
+func beprotoUnmarshalOptions() beprotojson.UnmarshalOptions {
+	return beprotojson.UnmarshalOptions{
+		DiscardUnknown:    true,
+		DebugParsing:      debugParsing,
+		DebugFieldMapping: debugFieldMapping,
+	}
+}
+
 // betool is a hidden developer command that translates raw batchexecute
 // network payloads into a readable summary (or JSON) and back. It performs no network I/O
 // and needs no authentication: it is a pure codec over the wire protocol,
@@ -218,7 +230,7 @@ func betoolDecodeRequest(input []byte, opts betoolOptions) error {
 			return err
 		}
 		msg := method.NewRequest()
-		if err := beprotojson.Unmarshal(r.Args, msg); err != nil {
+		if err := beprotoUnmarshal(r.Args, msg); err != nil {
 			if hint := nullInRepeatedHint(err, method.Request.Descriptor(), r.Args); hint != "" {
 				return fmt.Errorf("rpc %s (%s): %s: %w", method.RPCID, method.FullName(), hint, err)
 			}
@@ -297,7 +309,7 @@ func betoolDecodeResponse(input []byte, opts betoolOptions) error {
 		}
 		msg := method.NewResponse()
 		if len(r.Data) > 0 {
-			if err := beprotojson.Unmarshal(r.Data, msg); err != nil {
+			if err := beprotoUnmarshal(r.Data, msg); err != nil {
 				if hint := nullInRepeatedHint(err, method.Response.Descriptor(), r.Data); hint != "" {
 					return fmt.Errorf("rpc %s (%s): %s: %w", method.RPCID, method.FullName(), hint, err)
 				}
