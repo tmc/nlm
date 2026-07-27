@@ -304,10 +304,10 @@ func TestParseChatShowBackfill(t *testing.T) {
 
 func TestSaveChatSessionWritesConversationFile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	session := &ChatSession{
+	session := &chatSession{
 		NotebookID:     "nb",
 		ConversationID: "12345678-1234-1234-1234-123456789abc",
-		Messages:       []ChatMessage{{Role: "user", Content: "hello"}},
+		Messages:       []storedMessage{{Role: "user", Content: "hello"}},
 	}
 	if err := saveChatSession(session); err != nil {
 		t.Fatalf("saveChatSession: %v", err)
@@ -323,10 +323,10 @@ func TestSaveChatSessionWritesConversationFile(t *testing.T) {
 func TestChatSessionRichRoundTrip(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	rich := testProtoRichDocument("hello")
-	session := &ChatSession{
+	session := &chatSession{
 		NotebookID:     "nb",
 		ConversationID: "12345678-1234-1234-1234-123456789abc",
-		Messages: []ChatMessage{{
+		Messages: []storedMessage{{
 			Role: "assistant", Content: "hello", Rich: rich,
 		}},
 	}
@@ -352,18 +352,18 @@ func TestChatSessionRichRoundTrip(t *testing.T) {
 
 func TestSaveChatSessionForConversationDoesNotReplaceDefault(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	active := &ChatSession{
+	active := &chatSession{
 		NotebookID:     "nb",
 		ConversationID: "aaaaaaaa-1234-1234-1234-123456789abc",
-		Messages:       []ChatMessage{{Role: "assistant", Content: "active"}},
+		Messages:       []storedMessage{{Role: "assistant", Content: "active"}},
 	}
 	if err := saveChatSession(active); err != nil {
 		t.Fatal(err)
 	}
-	backfilled := &ChatSession{
+	backfilled := &chatSession{
 		NotebookID:     "nb",
 		ConversationID: "bbbbbbbb-1234-1234-1234-123456789abc",
-		Messages:       []ChatMessage{{Role: "assistant", Content: "older"}},
+		Messages:       []storedMessage{{Role: "assistant", Content: "older"}},
 	}
 	if err := saveChatSessionForConversation(backfilled); err != nil {
 		t.Fatal(err)
@@ -392,7 +392,7 @@ func TestMergeChatHistory(t *testing.T) {
 	localCitations := []api.Citation{{SourceIndex: 2, SourceID: "local"}}
 	tests := []struct {
 		name              string
-		message           ChatMessage
+		message           storedMessage
 		rich              map[string]*pb.RichDocument
 		citations         map[string][]api.Citation
 		wantChanged       bool
@@ -400,7 +400,7 @@ func TestMergeChatHistory(t *testing.T) {
 	}{
 		{
 			name: "fills gaps",
-			message: ChatMessage{
+			message: storedMessage{
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 			},
 			rich:        map[string]*pb.RichDocument{key: serverRich},
@@ -409,7 +409,7 @@ func TestMergeChatHistory(t *testing.T) {
 		},
 		{
 			name: "preserves local data",
-			message: ChatMessage{
+			message: storedMessage{
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 				Rich: localRich, Citations: localCitations,
 			},
@@ -418,7 +418,7 @@ func TestMergeChatHistory(t *testing.T) {
 		},
 		{
 			name: "server flat leaves local flat",
-			message: ChatMessage{
+			message: storedMessage{
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 			},
 			rich:      map[string]*pb.RichDocument{},
@@ -427,7 +427,7 @@ func TestMergeChatHistory(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			session := &ChatSession{Messages: []ChatMessage{test.message}}
+			session := &chatSession{Messages: []storedMessage{test.message}}
 			changed, richCount, citationCount := mergeChatHistory(session, test.rich, test.citations)
 			if changed != test.wantChanged || richCount != test.wantRich || citationCount != test.wantCit {
 				t.Fatalf("merge = %v,%d,%d, want %v,%d,%d", changed, richCount, citationCount, test.wantChanged, test.wantRich, test.wantCit)

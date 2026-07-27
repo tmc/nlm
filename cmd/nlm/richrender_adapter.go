@@ -142,7 +142,7 @@ func collapseWhitespace(text string) string {
 	return richrender.CollapseWhitespace(text)
 }
 
-func renderPersistedAssistant(out, status io.Writer, m ChatMessage, mode citationRenderMode, cfg persistedRenderConfig) {
+func renderPersistedAssistant(out, status io.Writer, m storedMessage, mode citationRenderMode, cfg persistedRenderConfig) {
 	richrender.RenderPersistedAssistant(out, status, richrender.StoredMessage{
 		Role:      m.Role,
 		Content:   m.Content,

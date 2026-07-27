@@ -30,8 +30,8 @@ func maskProfileName(profile string) string {
 	return "****"
 }
 
-// AuthOptions contains the CLI options for the auth command
-type AuthOptions struct {
+// authOptions contains the CLI options for the auth command
+type authOptions struct {
 	TryAllProfiles  bool
 	ProfileName     string
 	TargetURL       string
@@ -44,12 +44,12 @@ type AuthOptions struct {
 	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
 }
 
-func parseAuthFlagsWithOptions(args []string, globals globalOptions) (*AuthOptions, []string, error) {
+func parseAuthFlagsWithOptions(args []string, globals globalOptions) (*authOptions, []string, error) {
 	// Create a new FlagSet
 	authFlags := flag.NewFlagSet("auth", flag.ContinueOnError)
 
 	// Define auth-specific flags
-	opts := &AuthOptions{
+	opts := &authOptions{
 		ProfileName: globals.chromeProfile,
 		TargetURL:   "https://notebooklm.google.com",
 		Debug:       globals.debug,

@@ -39,7 +39,7 @@ func TestChatMessageCitationParentRoundTrip(t *testing.T) {
 		chunk  = "cccccccc-1111-2222-3333-444444444444"
 		parent = "11111111-2222-3333-4444-555555555555"
 	)
-	message := ChatMessage{
+	message := storedMessage{
 		Role:    "assistant",
 		Content: "Grounded claim. [1]",
 		Citations: []api.Citation{
@@ -51,7 +51,7 @@ func TestChatMessageCitationParentRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	var got ChatMessage
+	var got storedMessage
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}

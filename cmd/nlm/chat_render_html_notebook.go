@@ -15,7 +15,7 @@ import (
 )
 
 type localChatSessionRecord struct {
-	Session  *ChatSession
+	Session  *chatSession
 	FileName string
 }
 
@@ -23,12 +23,12 @@ type localChatSessionRecord struct {
 // It scans both the current flat store and any nested store beneath ~/.nlm, then
 // removes the duplicate made when the active conversation is also saved in the
 // legacy notebook-wide file.
-func loadNotebookSessions(notebookID string) ([]*ChatSession, error) {
+func loadNotebookSessions(notebookID string) ([]*chatSession, error) {
 	records, err := loadNotebookSessionRecords(notebookID)
 	if err != nil {
 		return nil, err
 	}
-	sessions := make([]*ChatSession, len(records))
+	sessions := make([]*chatSession, len(records))
 	for i := range records {
 		sessions[i] = records[i].Session
 	}
@@ -57,7 +57,7 @@ func loadNotebookSessionRecords(notebookID string) ([]localChatSessionRecord, er
 		if err != nil {
 			return nil
 		}
-		var session ChatSession
+		var session chatSession
 		if json.Unmarshal(data, &session) != nil || session.NotebookID != notebookID {
 			return nil
 		}
@@ -110,14 +110,14 @@ func notebookSessionRecordLess(a, b localChatSessionRecord) bool {
 	return a.FileName < b.FileName
 }
 
-func notebookSessionTime(session *ChatSession) time.Time {
+func notebookSessionTime(session *chatSession) time.Time {
 	if !session.UpdatedAt.IsZero() {
 		return session.UpdatedAt
 	}
 	return session.CreatedAt
 }
 
-func notebookDocumentFromSession(session *ChatSession) chatDocument {
+func notebookDocumentFromSession(session *chatSession) chatDocument {
 	doc := chatDocument{
 		NotebookID:     session.NotebookID,
 		ConversationID: session.ConversationID,

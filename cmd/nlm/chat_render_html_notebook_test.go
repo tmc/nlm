@@ -15,41 +15,41 @@ func TestLoadNotebookSessions(t *testing.T) {
 	now := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
 	sessions := []struct {
 		name    string
-		session ChatSession
+		session chatSession
 	}{
 		{
 			name: "chat-nb-old.json",
-			session: ChatSession{
+			session: chatSession{
 				NotebookID:     "nb",
 				ConversationID: "old",
-				Messages:       []ChatMessage{{Role: "user", Content: "old"}},
+				Messages:       []storedMessage{{Role: "user", Content: "old"}},
 				CreatedAt:      now.Add(-3 * time.Hour),
 			},
 		},
 		{
 			name: "chats/nb/new.json",
-			session: ChatSession{
+			session: chatSession{
 				NotebookID:     "nb",
 				ConversationID: "new",
-				Messages:       []ChatMessage{{Role: "user", Content: "new"}},
+				Messages:       []storedMessage{{Role: "user", Content: "new"}},
 				UpdatedAt:      now,
 			},
 		},
 		{
 			name: "chat-nb-new.json",
-			session: ChatSession{
+			session: chatSession{
 				NotebookID:     "nb",
 				ConversationID: "new",
-				Messages:       []ChatMessage{{Role: "user", Content: "stale duplicate"}},
+				Messages:       []storedMessage{{Role: "user", Content: "stale duplicate"}},
 				UpdatedAt:      now.Add(-time.Hour),
 			},
 		},
 		{
 			name: "chat-other.json",
-			session: ChatSession{
+			session: chatSession{
 				NotebookID:     "other",
 				ConversationID: "other",
-				Messages:       []ChatMessage{{Role: "user", Content: "other notebook"}},
+				Messages:       []storedMessage{{Role: "user", Content: "other notebook"}},
 			},
 		},
 	}

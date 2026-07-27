@@ -51,21 +51,21 @@ var (
 	jsonOutput        bool // NDJSON output for sync
 )
 
-// ChatSession represents a persistent chat conversation
-type ChatSession struct {
-	NotebookID     string        `json:"notebook_id"`
-	ConversationID string        `json:"conversation_id,omitempty"`
-	Messages       []ChatMessage `json:"messages"`
-	SeqNum         int           `json:"seq_num,omitempty"`          // Next sequence number for this session
-	LastResponseID string        `json:"last_response_id,omitempty"` // ID of last assistant response (for threading)
-	CreatedAt      time.Time     `json:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"`
+// chatSession represents a persistent chat conversation
+type chatSession struct {
+	NotebookID     string          `json:"notebook_id"`
+	ConversationID string          `json:"conversation_id,omitempty"`
+	Messages       []storedMessage `json:"messages"`
+	SeqNum         int             `json:"seq_num,omitempty"`          // Next sequence number for this session
+	LastResponseID string          `json:"last_response_id,omitempty"` // ID of last assistant response (for threading)
+	CreatedAt      time.Time       `json:"created_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
-// ChatMessage represents a single message in the conversation.
+// storedMessage represents a single message in the conversation.
 // Local storage preserves transient stream data (reasoning, citations)
 // that the server discards after generation completes.
-type ChatMessage struct {
+type storedMessage struct {
 	Role      string    `json:"role"` // "user" or "assistant"
 	Content   string    `json:"content"`
 	Timestamp time.Time `json:"timestamp"`
@@ -80,7 +80,7 @@ type ChatMessage struct {
 	Rich      *pb.RichDocument `json:"rich,omitempty"`      // Answer-body span tree (paragraphs, lists, inline marks); nil for turns generated before this was captured
 }
 
-func (m ChatMessage) MarshalJSON() ([]byte, error) {
+func (m storedMessage) MarshalJSON() ([]byte, error) {
 	var rich json.RawMessage
 	if m.Rich != nil {
 		data, err := protojson.Marshal(m.Rich)
@@ -110,7 +110,7 @@ func (m ChatMessage) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (m *ChatMessage) UnmarshalJSON(data []byte) error {
+func (m *storedMessage) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		Role      string          `json:"role"`
 		Content   string          `json:"content"`
@@ -124,7 +124,7 @@ func (m *ChatMessage) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
-	*m = ChatMessage{
+	*m = storedMessage{
 		Role:      raw.Role,
 		Content:   raw.Content,
 		Timestamp: raw.Timestamp,
@@ -2159,10 +2159,10 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 	}
 
 	// Save to local session so future --conversation calls can continue.
-	session := &ChatSession{
+	session := &chatSession{
 		NotebookID:     projectID,
 		ConversationID: convID,
-		Messages: []ChatMessage{
+		Messages: []storedMessage{
 			{Role: "user", Content: prompt, Timestamp: time.Now()},
 		},
 		CreatedAt: time.Now(),
@@ -2177,7 +2177,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 		answer = thinking
 	}
 	if answer != "" {
-		session.Messages = append(session.Messages, ChatMessage{
+		session.Messages = append(session.Messages, storedMessage{
 			Role: "assistant", Content: answer, Timestamp: time.Now(),
 			Thinking:  res.Thinking,
 			Citations: res.Citations,
@@ -2571,10 +2571,10 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 	// Load or create session for history continuity
 	session, err := loadChatSession(notebookID)
 	if err != nil {
-		session = &ChatSession{
+		session = &chatSession{
 			NotebookID:     notebookID,
 			ConversationID: uuid.New().String(),
-			Messages:       []ChatMessage{},
+			Messages:       []storedMessage{},
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
@@ -2584,7 +2584,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 	}
 
 	// Add user message
-	session.Messages = append(session.Messages, ChatMessage{
+	session.Messages = append(session.Messages, storedMessage{
 		Role: "user", Content: prompt, Timestamp: time.Now(),
 	})
 
@@ -2620,7 +2620,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 		response = strings.TrimSpace(res.Thinking)
 	}
 	if response != "" {
-		session.Messages = append(session.Messages, ChatMessage{
+		session.Messages = append(session.Messages, storedMessage{
 			Role: "assistant", Content: response, Timestamp: time.Now(),
 			Thinking:  res.Thinking,
 			Citations: res.Citations,
@@ -2663,16 +2663,16 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 	conversationID = resolveConversationID(c, notebookID, conversationID)
 	session, err := loadChatSessionForConv(notebookID, conversationID)
 	if err != nil {
-		session = &ChatSession{
+		session = &chatSession{
 			NotebookID:     notebookID,
 			ConversationID: conversationID,
-			Messages:       []ChatMessage{},
+			Messages:       []storedMessage{},
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
 	}
 	session.ConversationID = conversationID
-	session.Messages = append(session.Messages, ChatMessage{
+	session.Messages = append(session.Messages, storedMessage{
 		Role: "user", Content: prompt, Timestamp: time.Now(),
 	})
 	wireHistory := buildWireHistory(session)
@@ -2702,7 +2702,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 		response = strings.TrimSpace(res.Thinking)
 	}
 	if response != "" {
-		session.Messages = append(session.Messages, ChatMessage{
+		session.Messages = append(session.Messages, storedMessage{
 			Role: "assistant", Content: response, Timestamp: time.Now(),
 			Thinking:  res.Thinking,
 			Citations: res.Citations,
@@ -2731,10 +2731,10 @@ func interactiveChatWithConv(c *api.Client, notebookID, conversationID string, o
 			fmt.Fprintf(os.Stderr, "nlm: could not fetch server history: %v\n", fetchErr)
 		}
 
-		session = &ChatSession{
+		session = &chatSession{
 			NotebookID:     notebookID,
 			ConversationID: conversationID,
-			Messages:       []ChatMessage{},
+			Messages:       []storedMessage{},
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
@@ -2746,7 +2746,7 @@ func interactiveChatWithConv(c *api.Client, notebookID, conversationID string, o
 				if m.Role == 2 {
 					role = "assistant"
 				}
-				session.Messages = append(session.Messages, ChatMessage{
+				session.Messages = append(session.Messages, storedMessage{
 					Role:    role,
 					Content: m.Content,
 				})
@@ -2820,7 +2820,7 @@ func resolveConversationID(c *api.Client, notebookID, partial string) string {
 	return partial
 }
 
-func loadChatSessionByConversation(notebookID, conversationID string) (*ChatSession, error) {
+func loadChatSessionByConversation(notebookID, conversationID string) (*chatSession, error) {
 	if session, err := loadChatSessionForConv(notebookID, conversationID); err == nil {
 		return session, nil
 	}
@@ -2859,7 +2859,7 @@ func citationContentKey(content string) string {
 // mergeChatHistory fills local gaps from server history without replacing
 // stream-only or already-persisted data. Thinking is intentionally untouched:
 // the history endpoint does not preserve the live reasoning trace.
-func mergeChatHistory(session *ChatSession, rich map[string]*pb.RichDocument, citations map[string][]api.Citation) (changed bool, richCount, citationCount int) {
+func mergeChatHistory(session *chatSession, rich map[string]*pb.RichDocument, citations map[string][]api.Citation) (changed bool, richCount, citationCount int) {
 	for i := range session.Messages {
 		message := &session.Messages[i]
 		if message.Role != "assistant" {
@@ -3102,7 +3102,7 @@ func listChatConversations(c *api.Client, notebookID string) error {
 
 	// Also get local sessions for this notebook
 	localSessions, _ := listLocalChatSessions(notebookID)
-	localByConv := make(map[string]*ChatSession)
+	localByConv := make(map[string]*chatSession)
 	for i := range localSessions {
 		if localSessions[i].ConversationID != "" {
 			localByConv[localSessions[i].ConversationID] = &localSessions[i]
@@ -3403,13 +3403,13 @@ func shortID(id string) string {
 	return id[:8]
 }
 
-func loadChatSessionForConv(notebookID, conversationID string) (*ChatSession, error) {
+func loadChatSessionForConv(notebookID, conversationID string) (*chatSession, error) {
 	path := getChatSessionPathForConv(notebookID, conversationID)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var session ChatSession
+	var session chatSession
 	if err := json.Unmarshal(data, &session); err != nil {
 		return nil, err
 	}
@@ -3418,7 +3418,7 @@ func loadChatSessionForConv(notebookID, conversationID string) (*ChatSession, er
 
 // listLocalChatSessions returns all local chat sessions for a given notebook ID.
 // If notebookID is empty, returns sessions for all notebooks.
-func listLocalChatSessions(notebookID string) ([]ChatSession, error) {
+func listLocalChatSessions(notebookID string) ([]chatSession, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -3428,7 +3428,7 @@ func listLocalChatSessions(notebookID string) ([]ChatSession, error) {
 	if err != nil {
 		return nil, nil
 	}
-	var sessions []ChatSession
+	var sessions []chatSession
 	for _, entry := range entries {
 		if !strings.HasPrefix(entry.Name(), "chat-") || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
@@ -3437,7 +3437,7 @@ func listLocalChatSessions(notebookID string) ([]ChatSession, error) {
 		if err != nil {
 			continue
 		}
-		var session ChatSession
+		var session chatSession
 		if err := json.Unmarshal(data, &session); err != nil {
 			continue
 		}
@@ -3448,14 +3448,14 @@ func listLocalChatSessions(notebookID string) ([]ChatSession, error) {
 	return sessions, nil
 }
 
-func loadChatSession(notebookID string) (*ChatSession, error) {
+func loadChatSession(notebookID string) (*chatSession, error) {
 	path := getChatSessionPath(notebookID)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var session ChatSession
+	var session chatSession
 	if err := json.Unmarshal(data, &session); err != nil {
 		return nil, err
 	}
@@ -3463,7 +3463,7 @@ func loadChatSession(notebookID string) (*ChatSession, error) {
 	return &session, nil
 }
 
-func saveChatSession(session *ChatSession) error {
+func saveChatSession(session *chatSession) error {
 	data, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
 		return err
@@ -3481,7 +3481,7 @@ func saveChatSession(session *ChatSession) error {
 // saveChatSessionForConversation updates only the selected conversation file.
 // A read-only chat-show of an older conversation must not replace the notebook's
 // default active-session file merely because --backfill filled local gaps.
-func saveChatSessionForConversation(session *ChatSession) error {
+func saveChatSessionForConversation(session *chatSession) error {
 	if session.ConversationID == "" {
 		return fmt.Errorf("conversation id is empty")
 	}
@@ -3533,7 +3533,7 @@ func listChatSessions() error {
 	return flush()
 }
 
-func showRecentHistory(session *ChatSession, maxMessages int) {
+func showRecentHistory(session *chatSession, maxMessages int) {
 	messages := session.Messages
 	start := 0
 	if len(messages) > maxMessages {
@@ -3550,10 +3550,10 @@ func showRecentHistory(session *ChatSession, maxMessages int) {
 	}
 }
 
-// buildWireHistory converts a ChatSession's messages into the wire format expected
+// buildWireHistory converts a chatSession's messages into the wire format expected
 // by the NotebookLM chat API. Messages are ordered newest-first, with each entry
 // being [content, null, role] where role 1=user, 2=assistant.
-func buildWireHistory(session *ChatSession) []api.ChatMessage {
+func buildWireHistory(session *chatSession) []api.ChatMessage {
 	msgs := session.Messages
 	// Exclude the last message (it's the current user prompt, sent separately)
 	if len(msgs) > 1 {
@@ -3617,10 +3617,10 @@ func interactiveChat(c *api.Client, notebookID string, opts chatOptions) error {
 	}
 	session, err := loadChatSession(notebookID)
 	if err != nil {
-		session = &ChatSession{
+		session = &chatSession{
 			NotebookID:     notebookID,
 			ConversationID: uuid.New().String(),
-			Messages:       []ChatMessage{},
+			Messages:       []storedMessage{},
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
 		}
@@ -3633,7 +3633,7 @@ func interactiveChat(c *api.Client, notebookID string, opts chatOptions) error {
 
 // runInteractiveChat runs the interactive chat loop with the given session.
 // sourceIDs, when non-empty, scopes every request in the loop to that subset.
-func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string, opts chatOptions) error {
+func runInteractiveChat(c *api.Client, session *chatSession, sourceIDs []string, opts chatOptions) error {
 	notebookID := session.NotebookID
 
 	fmt.Println("\nNotebookLM Interactive Chat")
@@ -3751,7 +3751,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 			continue
 		case "/reset":
 			if confirmAction("Are you sure you want to clear chat history?") {
-				session.Messages = []ChatMessage{}
+				session.Messages = []storedMessage{}
 				session.ConversationID = uuid.New().String()
 				convShort = session.ConversationID[:8]
 				session.UpdatedAt = time.Now()
@@ -3763,10 +3763,10 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 			if err := saveChatSession(session); err != nil && debug {
 				fmt.Fprintf(os.Stderr, "Debug: save failed: %v\n", err)
 			}
-			session = &ChatSession{
+			session = &chatSession{
 				NotebookID:     notebookID,
 				ConversationID: uuid.New().String(),
-				Messages:       []ChatMessage{},
+				Messages:       []storedMessage{},
 				CreatedAt:      time.Now(),
 				UpdatedAt:      time.Now(),
 			}
@@ -3780,9 +3780,9 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 			}
 			oldShort := convShort
 			// Deep copy messages
-			forkedMsgs := make([]ChatMessage, len(session.Messages))
+			forkedMsgs := make([]storedMessage, len(session.Messages))
 			copy(forkedMsgs, session.Messages)
-			session = &ChatSession{
+			session = &chatSession{
 				NotebookID:     notebookID,
 				ConversationID: uuid.New().String(),
 				Messages:       forkedMsgs,
@@ -3848,7 +3848,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 			continue
 		}
 
-		userMsg := ChatMessage{
+		userMsg := storedMessage{
 			Role:      "user",
 			Content:   input,
 			Timestamp: time.Now(),
@@ -3880,13 +3880,13 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 				fmt.Printf("\nChat API error: %v\n", err)
 				fallbackResponse := getFallbackResponse(input, notebookID)
 				fmt.Printf("Assistant: %s\n", fallbackResponse)
-				session.Messages = append(session.Messages, ChatMessage{
+				session.Messages = append(session.Messages, storedMessage{
 					Role: "assistant", Content: fallbackResponse, Timestamp: time.Now(),
 					SeqNum: session.SeqNum,
 				})
 			} else {
 				fmt.Print(response)
-				session.Messages = append(session.Messages, ChatMessage{
+				session.Messages = append(session.Messages, storedMessage{
 					Role: "assistant", Content: response, Timestamp: time.Now(),
 					Citations: res.Citations,
 					Rich:      res.Rich,
@@ -3896,7 +3896,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 		} else {
 			response := strings.TrimSpace(res.Answer)
 			if response != "" {
-				session.Messages = append(session.Messages, ChatMessage{
+				session.Messages = append(session.Messages, storedMessage{
 					Role: "assistant", Content: response, Timestamp: time.Now(),
 					Thinking:  res.Thinking,
 					Citations: res.Citations,
