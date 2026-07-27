@@ -11,17 +11,14 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 )
 
-// MarshalOptions is a configurable JSON format marshaler.
-type MarshalOptions struct {
-}
+type marshaler struct{}
 
 // Marshal writes the given proto.Message in batchexecute JSON format.
 func Marshal(m proto.Message) ([]byte, error) {
-	return MarshalOptions{}.Marshal(m)
+	return marshaler{}.marshal(m)
 }
 
-// Marshal writes the given proto.Message in batchexecute JSON format using options in MarshalOptions.
-func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
+func (o marshaler) marshal(m proto.Message) ([]byte, error) {
 	if m == nil || !m.ProtoReflect().IsValid() {
 		return []byte("null"), nil
 	}
@@ -85,7 +82,7 @@ func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
 }
 
 // marshalValue converts a protobuf value to its batchexecute JSON representation
-func (o MarshalOptions) marshalValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) interface{} {
+func (o marshaler) marshalValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) interface{} {
 	if fd.IsList() {
 		list := v.List()
 		result := make([]interface{}, list.Len())
@@ -98,7 +95,7 @@ func (o MarshalOptions) marshalValue(fd protoreflect.FieldDescriptor, v protoref
 }
 
 // marshalSingleValue converts a single protobuf value
-func (o MarshalOptions) marshalSingleValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) interface{} {
+func (o marshaler) marshalSingleValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) interface{} {
 	switch fd.Kind() {
 	case protoreflect.BoolKind:
 		// A field tagged (json_bool) is carried as a JSON boolean; the default
@@ -157,7 +154,7 @@ func (o MarshalOptions) marshalSingleValue(fd protoreflect.FieldDescriptor, v pr
 			return []interface{}{seconds, nanos}
 		default:
 			// Recursively marshal nested message
-			if nestedBytes, err := o.Marshal(msg.Interface()); err == nil {
+			if nestedBytes, err := o.marshal(msg.Interface()); err == nil {
 				var result interface{}
 				if err := json.Unmarshal(nestedBytes, &result); err == nil {
 					return result
