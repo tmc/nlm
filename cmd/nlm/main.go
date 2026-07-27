@@ -1621,11 +1621,12 @@ func getArtifact(c *api.Client, artifactID string) error {
 }
 
 func readArtifact(c *api.Client, artifactID string, opts globalOptions) error {
-	if err := c.ReadArtifactFile(artifactID, "md", os.Stdout); err == nil {
+	directErr := c.ReadArtifactFile(artifactID, "md", os.Stdout)
+	if directErr == nil {
 		return nil
 	}
 	if opts.cdpURL == "" {
-		return fmt.Errorf("read artifact: direct download failed")
+		return fmt.Errorf("read artifact: direct download failed: %w", directErr)
 	}
 	url, err := c.ArtifactDownloadURLForFormat(artifactID, "md")
 	if err != nil {

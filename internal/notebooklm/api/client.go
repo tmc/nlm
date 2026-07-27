@@ -4457,27 +4457,53 @@ func (c *Client) parseChatResponseChunkedWithProgressTimeout(r io.ReadCloser, so
 	var (
 		timedOut atomic.Bool
 		sawChunk atomic.Bool
-		finished atomic.Bool
 	)
-	timeout := initialTimeout
-	timer := time.AfterFunc(timeout, func() {
-		if finished.Load() {
-			return
-		}
-		timedOut.Store(true)
-		_ = r.Close()
-	})
 
+	// The timeout is armed with time.AfterFunc, but Stop/Reset alone cannot make
+	// resetting race-free: if the timer fires between a parsed chunk and the
+	// Stop call, Stop returns false and the already-queued callback would still
+	// close r even though progress was made. Guard the callback with a mutex and
+	// a generation counter — a chunk bumps the generation, so a callback that was
+	// queued for an older generation becomes a no-op. finished stops all further
+	// timeouts once parsing returns.
+	var (
+		mu       sync.Mutex
+		gen      uint64
+		finished bool
+	)
+	var timer *time.Timer
+	arm := func(d time.Duration, myGen uint64) {
+		timer = time.AfterFunc(d, func() {
+			mu.Lock()
+			defer mu.Unlock()
+			if finished || myGen != gen {
+				return // superseded by a later chunk or by completion
+			}
+			timedOut.Store(true)
+			_ = r.Close()
+		})
+	}
+	mu.Lock()
+	arm(initialTimeout, gen)
+	mu.Unlock()
+
+	timeout := initialTimeout
 	err := c.parseChatResponseChunked(r, sourceIDs, func(chunk ChatChunk) bool {
-		timeout = progressTimeout
 		sawChunk.Store(true)
-		if timer.Stop() {
-			timer.Reset(progressTimeout)
-		}
+		mu.Lock()
+		timeout = progressTimeout
+		gen++        // invalidate any timeout callback already queued
+		timer.Stop() // best-effort; the gen check is the real guard
+		arm(progressTimeout, gen)
+		mu.Unlock()
 		return callback(chunk)
 	})
-	finished.Store(true)
+
+	mu.Lock()
+	finished = true
 	timer.Stop()
+	mu.Unlock()
+
 	if timedOut.Load() {
 		return &chatStreamTimeoutError{timeout: timeout, progress: sawChunk.Load()}
 	}

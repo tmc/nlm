@@ -209,6 +209,31 @@ func TestFull_NoGap(t *testing.T) {
 	}
 }
 
+// Regression: an image as the FIRST fragment must not inject a leading gap.
+// Full seeds its cursor from the first non-image fragment; seeding from the
+// image's Start would emit spurious leading spaces up to the first text.
+func TestFull_LeadingImageNoGap(t *testing.T) {
+	l := LoadSourceText{Fragments: []TextFragment{
+		{Start: 0, End: 10, ImageURL: "https://example/i.png"},
+		{Start: 10, End: 15, Text: "hello"},
+	}}
+	if got := l.Full(); got != "hello" {
+		t.Errorf("Full = %q, want %q", got, "hello")
+	}
+}
+
+// An image BETWEEN text fragments is still treated as a gap (historical behavior).
+func TestFull_InteriorImageIsGap(t *testing.T) {
+	l := LoadSourceText{Fragments: []TextFragment{
+		{Start: 0, End: 2, Text: "ab"},
+		{Start: 2, End: 4, ImageURL: "https://example/i.png"},
+		{Start: 4, End: 6, Text: "cd"},
+	}}
+	if got := l.Full(); got != "ab  cd" {
+		t.Errorf("Full = %q, want %q", got, "ab  cd")
+	}
+}
+
 // Sanity: Slice across fragment boundary concatenates cleanly.
 func TestSlice_CrossFragment(t *testing.T) {
 	l := LoadSourceText{Fragments: []TextFragment{

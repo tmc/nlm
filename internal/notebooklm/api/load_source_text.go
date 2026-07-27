@@ -49,7 +49,20 @@ func (l LoadSourceText) Full() string {
 		return ""
 	}
 	var b strings.Builder
-	want := l.Fragments[0].Start
+	// Seed the cursor from the first non-image fragment. Before image
+	// fragments were decoded they were absent, so the text stream began at the
+	// first text fragment with no leading gap; seeding from an image fragment's
+	// start would inject spurious leading spaces that never existed.
+	want := -1
+	for _, f := range l.Fragments {
+		if !f.IsImage() {
+			want = f.Start
+			break
+		}
+	}
+	if want < 0 {
+		return ""
+	}
 	for _, f := range l.Fragments {
 		// Preserve the historical text-only representation. Before image
 		// fragments were decoded they were absent, so their offset range was
