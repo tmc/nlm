@@ -232,8 +232,8 @@ var errorCodeDictionary = map[int]ErrorCode{
 		Retryable:   false,
 	},
 	13: {
-		Code:        13,
-		Type:        ErrorTypeServerError,
+		Code: 13,
+		Type: ErrorTypeServerError,
 		// gRPC INTERNAL — the server hit an unexpected condition. For
 		// AddSourceFromText this most often means the payload tripped a
 		// content-shape limit (single chunk too large, embedded markers
