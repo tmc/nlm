@@ -1,4 +1,4 @@
-package main
+package richrender
 
 import (
 	"bytes"
@@ -375,7 +375,7 @@ func TestRenderChatHTMLResolvedLocationAndTitle(t *testing.T) {
 		}},
 	}
 	ctx := chatRenderContext{
-		resolveTitle: func(id string) string {
+		ResolveTitle: func(id string) string {
 			if id == "res0res0res0res0" {
 				return "notebook-title"
 			}

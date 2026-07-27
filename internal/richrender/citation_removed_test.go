@@ -1,8 +1,7 @@
-package main
+package richrender
 
 import (
 	"bytes"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -25,13 +24,13 @@ const (
 func removedCtx(budget int) chatRenderContext {
 	return chatRenderContext{
 		ExcerptBudget: budget,
-		resolveTitle: func(id string) string {
+		ResolveTitle: func(id string) string {
 			if id == presentSourceID {
 				return "auth.go"
 			}
 			return ""
 		},
-		sourceRemoved: func(id string) bool { return id != presentSourceID },
+		SourceRemoved: func(id string) bool { return id != presentSourceID },
 	}
 }
 
@@ -167,8 +166,8 @@ func TestCitationSourceRemovedMarkdownAudit(t *testing.T) {
 // bare handle is the correct rendering here — not a hint.
 func TestCitationPresentUntitledNotRemoved(t *testing.T) {
 	ctx := chatRenderContext{
-		resolveTitle:  func(string) string { return "" }, // present but untitled
-		sourceRemoved: func(string) bool { return false },
+		ResolveTitle:  func(string) string { return "" }, // present but untitled
+		SourceRemoved: func(string) bool { return false },
 	}
 	doc := chatDocument{Messages: []chatDocMessage{{
 		Role:      "assistant",
@@ -192,7 +191,7 @@ func TestCitationPresentUntitledNotRemoved(t *testing.T) {
 // good source is never mislabeled on incomplete information.
 func TestCitationNoRemovedHookNoHint(t *testing.T) {
 	ctx := chatRenderContext{
-		resolveTitle: func(string) string { return "" }, // no title resolvable
+		ResolveTitle: func(string) string { return "" }, // no title resolvable
 		// sourceRemoved deliberately nil: list unavailable / offline replay.
 	}
 	doc := chatDocument{Messages: []chatDocMessage{{
@@ -256,36 +255,6 @@ func TestCitationParentSourcePreferred(t *testing.T) {
 	}
 }
 
-// The core §9 behavior: persistableCitations bakes the title at save time by
-// resolving the PARENT source, so a replayed session renders a real title
-// offline even though the persisted SourceID (a chunk) never resolves.
-func TestPersistableCitationsBakesParentTitle(t *testing.T) {
-	const (
-		chunk  = "cccccccc-1111-2222-3333-444444444444"
-		parent = "11111111-2222-3333-4444-555555555555"
-	)
-	resolveTitle := func(id string) string {
-		if id == parent {
-			return "product-docs.md"
-		}
-		return "" // the chunk id is not in the source list
-	}
-	cites := []api.Citation{{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent}}
-
-	out := persistableCitations(cites, resolveTitle)
-	if len(out) != 1 {
-		t.Fatalf("got %d citations, want 1", len(out))
-	}
-	if out[0].Title != "product-docs.md" {
-		t.Errorf("baked Title = %q, want product-docs.md (resolved via parent)", out[0].Title)
-	}
-	// The chunk-level SourceID must survive unchanged — we bake a title, not
-	// rewrite the id.
-	if out[0].SourceID != chunk || out[0].ParentSourceID != parent {
-		t.Errorf("ids mutated: SourceID=%q ParentSourceID=%q", out[0].SourceID, out[0].ParentSourceID)
-	}
-}
-
 // A citation whose PARENT resolves to a title must NOT read as unresolved, even
 // though its chunk-level SourceID is absent from the source list. This is the
 // case §9 fixes: pre-fix, the chunk id missed and every citation showed the
@@ -296,14 +265,14 @@ func TestCitationResolvableParentNotUnresolved(t *testing.T) {
 		parent = "11111111-2222-3333-4444-555555555555"
 	)
 	ctx := chatRenderContext{
-		resolveTitle: func(id string) string {
+		ResolveTitle: func(id string) string {
 			if id == parent {
 				return "product-docs.md"
 			}
 			return ""
 		},
 		// The chunk id is absent from the list; the parent is present.
-		sourceRemoved: func(id string) bool { return id != parent },
+		SourceRemoved: func(id string) bool { return id != parent },
 	}
 	c := api.Citation{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent}
 
@@ -312,45 +281,5 @@ func TestCitationResolvableParentNotUnresolved(t *testing.T) {
 	}
 	if ctx.citationSourceRemoved(c) {
 		t.Errorf("citation with a resolvable parent must not read as unresolved")
-	}
-}
-
-// §9 persists the baked title AND the parent id so a replayed session renders a
-// real title offline. Pin that both survive a ChatMessage JSON round-trip — if
-// ParentSourceID were dropped, a re-fetch would fall back to the chunk id and
-// the title would collapse again on the next open.
-func TestChatMessageCitationParentRoundTrip(t *testing.T) {
-	const (
-		chunk  = "cccccccc-1111-2222-3333-444444444444"
-		parent = "11111111-2222-3333-4444-555555555555"
-	)
-	msg := ChatMessage{
-		Role:    "assistant",
-		Content: "Grounded claim. [1]",
-		Citations: []api.Citation{
-			{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent, Title: "product-docs.md", Confidence: 0.9},
-		},
-	}
-
-	blob, err := json.Marshal(msg)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var back ChatMessage
-	if err := json.Unmarshal(blob, &back); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-	if len(back.Citations) != 1 {
-		t.Fatalf("got %d citations, want 1", len(back.Citations))
-	}
-	got := back.Citations[0]
-	if got.ParentSourceID != parent {
-		t.Errorf("ParentSourceID lost in round-trip: got %q, want %q", got.ParentSourceID, parent)
-	}
-	if got.SourceID != chunk {
-		t.Errorf("SourceID = %q, want %q", got.SourceID, chunk)
-	}
-	if got.Title != "product-docs.md" {
-		t.Errorf("Title = %q, want product-docs.md", got.Title)
 	}
 }

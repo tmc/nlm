@@ -1,4 +1,4 @@
-package main
+package richrender
 
 import (
 	"fmt"
@@ -38,7 +38,7 @@ func renderNoteText(out io.Writer, doc noteDocument) error {
 		}
 		body = strings.TrimSuffix(buf.String(), "\n")
 	}
-	renderPersistedAssistant(out, out, ChatMessage{
+	renderPersistedAssistant(out, out, StoredMessage{
 		Role:      "assistant",
 		Content:   body,
 		Citations: doc.Citations,

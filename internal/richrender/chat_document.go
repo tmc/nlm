@@ -1,4 +1,4 @@
-package main
+package richrender
 
 import (
 	"encoding/json"
@@ -94,8 +94,8 @@ type chatRenderContext struct {
 	HideSpans        bool // drop the answer/src span labels
 	IncludeFollowUps bool // retain generated trailing prompts in HTML
 
-	resolveTitle func(sourceID string) string
-	loadSource   func(sourceID string) (api.LoadSourceText, error)
+	ResolveTitle func(sourceID string) string
+	LoadSource   func(sourceID string) (api.LoadSourceText, error)
 
 	// sourceRemoved reports whether a citation's source ID is absent from the
 	// notebook source list. A citation handle is a granular chunk/passage ID, so
@@ -103,7 +103,7 @@ type chatRenderContext struct {
 	// present; the renderers therefore treat a miss as "title unavailable", not
 	// "removed". It returns false when the list can't be determined (offline /
 	// unauthed), so a renderer only shows the hint on solid evidence. May be nil.
-	sourceRemoved func(sourceID string) bool
+	SourceRemoved func(sourceID string) bool
 }
 
 // citationSourceTitle returns the best display title for a citation: a resolved
@@ -112,8 +112,8 @@ type chatRenderContext struct {
 // It resolves off the parent source (ParentSourceID), since the chunk-level
 // SourceID is not in the project source list; see citationSourceID.
 func (ctx chatRenderContext) citationSourceTitle(c api.Citation) string {
-	if ctx.resolveTitle != nil {
-		if t := ctx.resolveTitle(citationSourceID(c)); t != "" {
+	if ctx.ResolveTitle != nil {
+		if t := ctx.ResolveTitle(citationSourceID(c)); t != "" {
 			return t
 		}
 	}
@@ -139,13 +139,13 @@ func citationSourceID(c api.Citation) string {
 // titled citation is never flagged. Presence is checked against the parent
 // source id, matching where the title resolves.
 func (ctx chatRenderContext) citationSourceRemoved(c api.Citation) bool {
-	if ctx.sourceRemoved == nil {
+	if ctx.SourceRemoved == nil {
 		return false
 	}
 	if ctx.citationSourceTitle(c) != "" {
 		return false
 	}
-	return ctx.sourceRemoved(citationSourceID(c))
+	return ctx.SourceRemoved(citationSourceID(c))
 }
 
 // citationLocations resolves the "file:line:col" locators for a set of
@@ -154,10 +154,10 @@ func (ctx chatRenderContext) citationSourceRemoved(c api.Citation) bool {
 // that want the raw offset fall back to SourceStart/SourceEnd themselves. The
 // resolve is batched so repeated citations into one source cost a single fetch.
 func (ctx chatRenderContext) citationLocations(cites []api.Citation) map[citationKey]string {
-	if ctx.loadSource == nil {
+	if ctx.LoadSource == nil {
 		return nil
 	}
-	resolved := resolveCitationLocations(ctx.loadSource, cites)
+	resolved := resolveCitationLocations(ctx.LoadSource, cites)
 	if len(resolved) == 0 {
 		return nil
 	}

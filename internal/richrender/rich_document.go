@@ -1,4 +1,4 @@
-package main
+package richrender
 
 // Rich-document scaffolding for the answer body.
 //

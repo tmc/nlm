@@ -1,4 +1,4 @@
-package main
+package richrender
 
 import (
 	"fmt"
