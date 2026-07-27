@@ -1,10 +1,13 @@
 package api
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 
+	genmethod "github.com/tmc/nlm/gen/method"
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
+	"google.golang.org/protobuf/proto"
 )
 
 // Label is one autolabel cluster returned by GetLabels (I3xc3c). The wire
@@ -27,15 +30,37 @@ func (c *Client) GetLabels(projectID string) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetLabels,
-		NotebookID: projectID,
-		Args:       []interface{}{[]interface{}{2}, projectID},
+	response, err := c.orchestrationService.GetLabels(context.Background(), &pb.GetLabelsRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get labels: %w", err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(response), nil
+}
+
+func labelsFromProtoResponse(response *pb.GetLabelsResponse) []Label {
+	if response == nil {
+		return nil
+	}
+	labels := make([]Label, 0, len(response.GetLabels()))
+	for _, label := range response.GetLabels() {
+		if label == nil {
+			continue
+		}
+		item := Label{Name: label.GetName(), LabelID: label.GetLabelId()}
+		for _, source := range label.GetSources() {
+			if sourceID := source.GetSourceId(); sourceID != "" {
+				item.SourceIDs = append(item.SourceIDs, sourceID)
+			}
+		}
+		if item.LabelID == "" && item.Name == "" {
+			continue
+		}
+		labels = append(labels, item)
+	}
+	return labels
 }
 
 // CreateLabel creates a new manual label and returns the refreshed label
@@ -50,18 +75,15 @@ func (c *Client) CreateLabel(projectID, name, emoji string) ([]Label, error) {
 	if name == "" {
 		return nil, fmt.Errorf("label name required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCMutateLabels,
-		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{2}, projectID, nil, nil, nil,
-			[]interface{}{[]interface{}{name, emoji}},
-		},
+	resp, err := c.orchestrationService.CreateLabel(context.Background(), &pb.CreateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		Labels:    []*pb.LabelCreation{{Name: name, Emoji: proto.String(emoji)}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create label: %w", err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: resp.GetLabels()}), nil
 }
 
 // LabelUnlabeled assigns existing labels to sources that don't yet belong
@@ -82,42 +104,37 @@ func (c *Client) RelabelAll(projectID string) ([]Label, error) {
 	return c.mutateLabelsMode(projectID, 1)
 }
 
-// GenerateLabels is a legacy alias for the empty-mode autolabel-recompute
-// trigger. Behaviour appears equivalent to RelabelAll on observed traffic;
-// new callers should prefer RelabelAll.
+// GenerateLabels triggers the empty-mode autolabel recompute form.
 //
 // Wire request: [[2], project_id, null, null, []].
 func (c *Client) GenerateLabels(projectID string) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCMutateLabels,
-		NotebookID: projectID,
-		Args:       []interface{}{[]interface{}{2}, projectID, nil, nil, []interface{}{}},
+	resp, err := c.orchestrationService.MutateLabelsMode(context.Background(), &pb.MutateLabelsModeRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		Mode:      &pb.LabelMode{},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generate labels: %w", err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: resp.GetLabels()}), nil
 }
 
 func (c *Client) mutateLabelsMode(projectID string, mode int) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCMutateLabels,
-		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{2}, projectID, nil, nil,
-			[]interface{}{mode},
-		},
+	resp, err := c.orchestrationService.MutateLabelsMode(context.Background(), &pb.MutateLabelsModeRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		Mode:      &pb.LabelMode{Value: proto.Int32(int32(mode))},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("mutate labels (mode %d): %w", mode, err)
 	}
-	return parseLabelsResponse(resp)
+	return labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: resp.GetLabels()}), nil
 }
 
 // RenameLabel sets a new display name on an existing label.
@@ -127,7 +144,12 @@ func (c *Client) RenameLabel(projectID, labelID, name string) error {
 	if name == "" {
 		return fmt.Errorf("name required")
 	}
-	return c.mutateLabel(projectID, labelID, []interface{}{[]interface{}{name}})
+	return c.mutateLabelProto(&pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		LabelId:   labelID,
+		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{Name: &pb.LabelNameChange{Name: name}}},
+	})
 }
 
 // SetLabelEmoji sets (or clears, if emoji is empty) the emoji on an
@@ -151,10 +173,31 @@ func (c *Client) AttachLabelSource(projectID, labelID, sourceID string) error {
 	if sourceID == "" {
 		return fmt.Errorf("source ID required")
 	}
-	return c.mutateLabel(projectID, labelID, []interface{}{
-		nil,
-		[]interface{}{[]interface{}{sourceID}},
+	return c.mutateLabelProto(&pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		LabelId:   labelID,
+		Mutation: &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{
+			Sources: []*pb.SourceIdList{{SourceId: sourceID}},
+		}},
 	})
+}
+
+func (c *Client) mutateLabelProto(req *pb.MutateLabelRequest) error {
+	if req.GetProjectId() == "" {
+		return fmt.Errorf("project ID required")
+	}
+	if req.GetLabelId() == "" {
+		return fmt.Errorf("label ID required")
+	}
+	if _, err := c.rpc.Do(rpc.Call{
+		ID:         rpc.RPCMutateLabel,
+		NotebookID: req.GetProjectId(),
+		Args:       genmethod.EncodeMutateLabelArgs(req),
+	}); err != nil {
+		return fmt.Errorf("mutate label: %w", err)
+	}
+	return nil
 }
 
 // mutateLabel calls le8sX with the inner mutation payload. The outer envelope
@@ -193,67 +236,12 @@ func (c *Client) DeleteLabels(projectID string, labelIDs []string) error {
 	if len(labelIDs) == 0 {
 		return fmt.Errorf("at least one label ID required")
 	}
-	ids := make([]interface{}, len(labelIDs))
-	for i, id := range labelIDs {
-		ids[i] = id
-	}
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCDeleteLabels,
-		NotebookID: projectID,
-		Args:       []interface{}{[]interface{}{2}, projectID, ids},
+	_, err := c.orchestrationService.DeleteLabels(context.Background(), &pb.DeleteLabelsRequest{
+		ProjectId: projectID,
+		LabelIds:  labelIDs,
 	})
 	if err != nil {
 		return fmt.Errorf("delete labels: %w", err)
 	}
 	return nil
-}
-
-func parseLabelsResponse(resp []byte) ([]Label, error) {
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse labels response: %w", err)
-	}
-	// agX4Bc returns [null, [[row, ...]]]; the leading null is a status slot.
-	// Unwrap it so the rest of this function only sees the row container.
-	if len(data) >= 2 && data[0] == nil {
-		if inner, ok := data[1].([]interface{}); ok {
-			data = inner
-		}
-	}
-	// The wire response may arrive either flat ([row, row, ...]) or wrapped
-	// ([[row, row, ...]]). Detect a wrapper by checking whether the first
-	// element is itself a list-of-rows (i.e. its first element is a list).
-	items := data
-	if outer, ok := interfaceSliceAt(data, 0); ok {
-		if _, innerIsRow := interfaceSliceAt(outer, 0); innerIsRow {
-			items = outer
-		}
-	}
-	labels := make([]Label, 0, len(items))
-	for _, item := range items {
-		row, ok := item.([]interface{})
-		if !ok {
-			continue
-		}
-		l := Label{
-			Name:    stringAt(row, 0),
-			LabelID: stringAt(row, 2),
-		}
-		if srcs, ok := interfaceSliceAt(row, 1); ok {
-			for _, s := range srcs {
-				inner, ok := s.([]interface{})
-				if !ok {
-					continue
-				}
-				if id := stringAt(inner, 0); id != "" {
-					l.SourceIDs = append(l.SourceIDs, id)
-				}
-			}
-		}
-		if l.LabelID == "" && l.Name == "" {
-			continue
-		}
-		labels = append(labels, l)
-	}
-	return labels, nil
 }

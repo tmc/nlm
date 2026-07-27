@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // TestFormatSourceStatus pins the precedence between the parsed-metadata
@@ -55,14 +54,14 @@ func TestFormatSourceStatus(t *testing.T) {
 			name: "warnings beat enabled",
 			src: &pb.Source{
 				Metadata: &pb.SourceMetadata{Status: pb.SourceSettings_SOURCE_STATUS_ENABLED},
-				Warnings: []*wrapperspb.Int32Value{wrapperspb.Int32(7)},
+				Warnings: []int32{7},
 			},
 			want: "warn:7",
 		},
 		{
 			name: "multiple warnings",
 			src: &pb.Source{
-				Warnings: []*wrapperspb.Int32Value{wrapperspb.Int32(7), wrapperspb.Int32(9)},
+				Warnings: []int32{7, 9},
 			},
 			want: "warn:7,warn:9",
 		},

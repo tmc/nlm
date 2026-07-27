@@ -1,10 +1,65 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
+	method "github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestGetAudioFormatsGeneratedEncoderMatchesCapturedSentinel(t *testing.T) {
+	req := &pb.GetAudioFormatsRequest{
+		Context: &pb.RequestContext{
+			Version: proto.Int32(2),
+			Caps: &pb.RequestClientCaps{
+				Version:         proto.Int32(1),
+				CapabilityCodes: []int32{1},
+			},
+			ArtifactTypes: &pb.RequestArtifactTypeFilter{Types: []int32{1, 4, 8, 10, 2, 3, 6, 9}},
+		},
+		Mode: proto.Int32(1),
+	}
+
+	got, err := json.Marshal(method.EncodeGetAudioFormatsArgs(req))
+	if err != nil {
+		t.Fatalf("marshal generated args: %v", err)
+	}
+	const want = `[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]],null,1]`
+	if string(got) != want {
+		t.Fatalf("generated audio-formats wire args = %s, want %s", got, want)
+	}
+}
+
+func TestCreateUniversalArtifactVideoEncoderMatchesCapturedShape(t *testing.T) {
+	req := &pb.CreateUniversalArtifactRequest{
+		Context: &pb.RequestContext{
+			Version:       proto.Int32(2),
+			Caps:          &pb.RequestClientCaps{Version: proto.Int32(1), CapabilityCodes: []int32{1}},
+			ArtifactTypes: &pb.RequestArtifactTypeFilter{Types: []int32{1, 4, 8, 10, 2, 3, 6, 9}},
+		},
+		ProjectId: "project-1",
+		Options: &pb.UniversalArtifactOptions{
+			Kind:         3,
+			SourceGroups: []*pb.UniversalArtifactSourceGroup{{Source: &pb.SourceIdList{SourceId: "source-1"}}},
+			Video: &pb.UniversalVideoOptions{Details: &pb.UniversalVideoDetails{
+				Sources: []*pb.UniversalArtifactSources{{SourceId: "source-1"}},
+				Prompt:  proto.String("make a viral instagram reel"),
+				Style:   4,
+			}},
+		},
+	}
+
+	got, err := json.Marshal(method.EncodeCreateUniversalArtifactArgs(req))
+	if err != nil {
+		t.Fatalf("marshal generated args: %v", err)
+	}
+	const want = `[[2,null,null,[1,null,null,null,null,null,null,null,null,null,[1]],[[1,4,8,10,2,3,6,9]]],"project-1",[null,null,3,[[["source-1"]]],null,null,null,null,[null,null,[[["source-1"]],null,"make a viral instagram reel",null,4]]]]`
+	if string(got) != want {
+		t.Fatalf("generated video args = %s, want %s", got, want)
+	}
+}
 
 func TestAudioOverviewResultFromProto(t *testing.T) {
 	t.Parallel()
@@ -30,6 +85,17 @@ func TestAudioOverviewResultFromProto(t *testing.T) {
 	}
 	if !result.IsReady {
 		t.Fatal("IsReady = false, want true")
+	}
+}
+
+func TestVideoOverviewResultFromProto(t *testing.T) {
+	result := videoOverviewResultFromProto("project-123", &pb.Artifact{
+		ArtifactId: "video-123",
+		Title:      "Video title",
+		State:      pb.ArtifactState_ARTIFACT_STATE_READY,
+	})
+	if result.ProjectID != "project-123" || result.VideoID != "video-123" || result.Title != "Video title" || !result.IsReady {
+		t.Fatalf("video result = %+v, want projected ready artifact", result)
 	}
 }
 

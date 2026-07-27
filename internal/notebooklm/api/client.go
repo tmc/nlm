@@ -27,7 +27,7 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
-	"google.golang.org/protobuf/types/known/fieldmaskpb"
+	"google.golang.org/protobuf/proto"
 )
 
 type Notebook = pb.Project
@@ -585,18 +585,17 @@ func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
 // on one item doesn't mask the rest. The izAoDd bulk wire envelope is
 // unverified: do not dispatch bulk through this method without HAR
 // evidence that the current argument layout matches what the web UI emits.
-// Do not dispatch bulk through this method until the web UI AddSources envelope is captured.
-func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Project, error) {
+func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.AddSourcesResponse, error) {
 	req := &pb.AddSourceRequest{
 		Sources:   sources,
 		ProjectId: projectID,
 	}
 	ctx := context.Background()
-	project, err := c.orchestrationService.AddSources(ctx, req)
+	resp, err := c.orchestrationService.AddSources(ctx, req)
 	if err != nil {
 		return nil, wrapSourceAddError("add sources", err)
 	}
-	return project, nil
+	return resp, nil
 }
 
 // deleteSourcesBatchSize is the largest batch size known to work reliably
@@ -620,20 +619,17 @@ func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
 }
 
 func (c *Client) deleteSourcesBatch(projectID string, sourceIDs []string) error {
-	// Wire format: [repeated_source_ids, project_context]
-	//   field 1: repeated SourceId — each ID wrapped as ["id"]
-	//   field 2: ProjectContext [2]
-	wrappedIDs := make([]interface{}, len(sourceIDs))
-	for i, id := range sourceIDs {
-		wrappedIDs[i] = []interface{}{id}
+	// Wire format: [repeated_source_ids, project_context]. Keep the request
+	// typed and let the generated encoder preserve the captured positional
+	// envelope.
+	req := &pb.DeleteSourcesRequest{Context: &pb.RequestContext{Version: proto.Int32(2)}}
+	for _, id := range sourceIDs {
+		req.SourceIds = append(req.SourceIds, &pb.SourceIdList{SourceId: id})
 	}
 	_, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCDeleteSources,
 		NotebookID: projectID,
-		Args: []interface{}{
-			wrappedIDs,
-			[]interface{}{2}, // ProjectContext
-		},
+		Args:       method.EncodeDeleteSourcesArgs(req),
 	})
 	if err != nil {
 		return fmt.Errorf("delete sources: %w", err)
@@ -643,8 +639,10 @@ func (c *Client) deleteSourcesBatch(projectID string, sourceIDs []string) error 
 
 func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, error) {
 	req := &pb.MutateSourceRequest{
-		SourceId: sourceID,
-		Updates:  updates,
+		SourceId: &pb.SourceIdList{SourceId: sourceID},
+		Updates: &pb.MutateSourceUpdates{Update: &pb.MutateSourceUpdate{
+			Title: &pb.MutateSourceTitle{Title: updates.GetTitle()},
+		}},
 	}
 	// Bypass the service client: its generated encoder uses argbuilder and
 	// produces the wrong wire format. Use the HAR-verified encoder from
@@ -666,7 +664,8 @@ func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, 
 
 func (c *Client) RefreshSource(projectID, sourceID string) (*pb.Source, error) {
 	req := &pb.RefreshSourceRequest{
-		SourceId:  sourceID,
+		Source:    &pb.SourceIdList{SourceId: sourceID},
+		Context:   conversationRequestContext(),
 		ProjectId: projectID,
 	}
 	ctx := context.Background()
@@ -702,14 +701,14 @@ func (c *Client) DiscoverSources(projectID, query string) (*pb.DiscoverSourcesRe
 
 func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
 	req := &pb.LoadSourceRequest{
-		SourceId: sourceID,
+		Source: &pb.SourceIdList{SourceId: sourceID},
 	}
 	ctx := context.Background()
-	source, err := c.orchestrationService.LoadSource(ctx, req)
+	resp, err := c.orchestrationService.LoadSource(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("load source: %w", err)
 	}
-	return source, nil
+	return resp.GetSource(), nil
 }
 
 // LoadSourceRaw calls the LoadSource RPC (hizoJc) and returns the raw JSON
@@ -745,7 +744,8 @@ func (c *Client) LoadSourceRaw(sourceID, notebookID string) (json.RawMessage, er
 
 func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
 	req := &pb.CheckSourceFreshnessRequest{
-		SourceId: sourceID,
+		Source:  &pb.SourceIdList{SourceId: sourceID},
+		Context: conversationRequestContext(),
 	}
 	ctx := context.Background()
 	result, err := c.orchestrationService.CheckSourceFreshness(ctx, req)
@@ -755,66 +755,37 @@ func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshness
 	return result, nil
 }
 
-func (c *Client) SubmitFeedback(projectID, feedbackType, feedbackText string) error {
-	req := &pb.SubmitFeedbackRequest{
-		ProjectId:    projectID,
-		FeedbackType: feedbackType,
-		FeedbackText: feedbackText,
-	}
-
-	_, err := c.orchestrationService.SubmitFeedback(context.Background(), req)
-	if err != nil {
-		return fmt.Errorf("submit feedback: %w", err)
-	}
-	return nil
-}
-
 // GetOrCreateAccount dispatches the ZwVcOc RPC. Returns the
-// authenticated user's NotebookLM account record. Empty request body
-// (the auth token identifies the user). Doubles as a "can the CLI
+// authenticated user's NotebookLM account record. The request carries the
+// context envelope observed in the web client. Doubles as a "can the CLI
 // talk to the server" sanity check.
 func (c *Client) GetOrCreateAccount() (*pb.Account, error) {
-	resp, err := c.orchestrationService.GetOrCreateAccount(context.Background(), &pb.GetOrCreateAccountRequest{})
+	resp, err := c.orchestrationService.GetOrCreateAccount(context.Background(), accountRequest())
 	if err != nil {
 		return nil, fmt.Errorf("get or create account: %w", err)
 	}
 	return resp, nil
 }
 
-// MutateAccount dispatches the hT54vc RPC to update an Account
-// record. update_mask gates which AccountSettings fields are
-// applied; pass nil to update everything in account.
-func (c *Client) MutateAccount(account *pb.Account, updateMask *fieldmaskpb.FieldMask) (*pb.Account, error) {
-	req := &pb.MutateAccountRequest{
-		Account:    account,
-		UpdateMask: updateMask,
-	}
-	resp, err := c.orchestrationService.MutateAccount(context.Background(), req)
-	if err != nil {
-		return nil, fmt.Errorf("mutate account: %w", err)
-	}
-	return resp, nil
-}
-
-// ActOnSources performs a content transformation and returns the raw response.
-// The response typically contains the generated content (markdown text) at position [0][0]
-// or similar nested positions depending on the action.
+// ActOnSources preserves the unverified legacy action-verb request shape.
+//
+// The generated yyryJe model describes a distinct observed chat-query shape.
+// No captured request establishes how these action verbs map to that shape.
 func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) (string, error) {
-	req := &pb.ActOnSourcesRequest{
-		ProjectId: projectID,
-		Action:    action,
-		SourceIds: sourceIDs,
-	}
 	call := rpc.Call{
 		ID:         "yyryJe",
 		NotebookID: projectID,
-		Args:       method.EncodeActOnSourcesArgs(req),
+		Args:       legacyActOnSourcesArgs(projectID, action, sourceIDs),
 	}
 	resp, err := c.rpc.Do(call)
 	if err != nil {
 		return "", fmt.Errorf("act on sources: %w", err)
 	}
 	return extractTextContent(resp), nil
+}
+
+func legacyActOnSourcesArgs(projectID, action string, sourceIDs []string) []interface{} {
+	return []interface{}{projectID, action, sourceIDs}
 }
 
 // extractTextContent walks a raw JSON response looking for the first non-empty string.
@@ -1542,8 +1513,8 @@ func isUUID(s string) bool {
 func (c *Client) CreateNote(projectID string, title string, initialContent string) (*Note, error) {
 	req := &pb.CreateNoteRequest{
 		ProjectId: projectID,
-		Content:   initialContent,
-		NoteType:  []int32{1},
+		Content:   proto.String(initialContent),
+		NoteType:  &pb.Int32List{Value: 1},
 		Title:     title,
 	}
 	ctx := context.Background()
@@ -1562,11 +1533,13 @@ func (c *Client) MutateNote(projectID string, noteID string, content string, tit
 	req := &pb.MutateNoteRequest{
 		ProjectId: projectID,
 		NoteId:    noteID,
-		Updates: []*pb.NoteUpdate{{
-			Content: content,
-			Title:   title,
-			Tags:    []string{},
-		}},
+		Updates: &pb.NoteUpdates{Update: &pb.NoteUpdateGroup{Update: &pb.NoteUpdate{
+			Content:    content,
+			Title:      title,
+			Tags:       &pb.NoteTags{},
+			UpdateMode: proto.Int32(0),
+			StateCode:  proto.Int32(0),
+		}}},
 	}
 	ctx := context.Background()
 	note, err := c.orchestrationService.MutateNote(ctx, req)
@@ -1580,6 +1553,7 @@ func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
 	req := &pb.DeleteNotesRequest{
 		ProjectId: projectID,
 		NoteIds:   noteIDs,
+		Context:   conversationRequestContext(),
 	}
 	_, err := c.orchestrationService.DeleteNotes(context.Background(), req)
 	if err != nil {
@@ -1589,85 +1563,77 @@ func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
 }
 
 func (c *Client) GetNotes(projectID string) ([]*Note, error) {
-	var rawErr error
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetNotes,
-		NotebookID: projectID,
-		Args:       []interface{}{projectID},
-	})
-	if err == nil {
-		notes, parseErr := parseNotesResponse(resp)
-		if parseErr == nil {
-			return notes, nil
-		}
-		if c.config.Debug {
-			fmt.Printf("GetNotes raw parser failed, falling back to generated decoder: %v\n", parseErr)
-		}
-		rawErr = parseErr
-	} else {
-		rawErr = err
-	}
-	if c.config.Debug {
-		fmt.Printf("GetNotes raw path failed, falling back to generated decoder: %v\n", rawErr)
-	}
-
 	req := &pb.GetNotesRequest{ProjectId: projectID}
 	response, rpcErr := c.orchestrationService.GetNotes(context.Background(), req)
 	if rpcErr != nil {
-		return nil, fmt.Errorf("get notes: %w", rawErr)
+		return nil, fmt.Errorf("get notes: %w", rpcErr)
 	}
-	return response.Notes, nil
+	return notesFromWireResponse(response), nil
 }
 
-func parseNotesResponse(resp []byte) ([]*Note, error) {
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse notes response: %w", err)
+// notesFromWireResponse adapts the generated response to the public Note
+// slice while preserving the legacy parser's ordering and nil-item behavior.
+func notesFromWireResponse(response *pb.GetNotesRichWireResponse) []*pb.Note {
+	if response == nil {
+		return nil
 	}
-
-	items := data
-	if top, ok := interfaceSliceAt(data, 0); ok {
-		items = top
-	}
-
-	notes := make([]*Note, 0, len(items))
-	for _, item := range items {
-		note := parseNoteFromResponse(item)
-		if note != nil {
-			notes = append(notes, note)
+	notes := make([]*pb.Note, 0, len(response.GetEntries()))
+	for _, entry := range response.GetEntries() {
+		if entry == nil {
+			continue
 		}
+		note := noteFromRecord(entry.GetNote())
+		if note == nil {
+			// A keyed tombstone has an ID and a null record. Preserve the
+			// legacy parser's public ID-only projection.
+			if entry.GetNoteId() == "" {
+				continue
+			}
+			note = &pb.Note{NoteId: entry.GetNoteId()}
+		}
+		if note.NoteId == "" {
+			note.NoteId = entry.GetNoteId()
+		}
+		notes = append(notes, note)
 	}
-	return notes, nil
+	return notes
 }
 
-func parseNoteFromResponse(data interface{}) *Note {
-	wrapper, ok := data.([]interface{})
-	if !ok || len(wrapper) == 0 {
+func noteFromRecord(note *pb.GetNotesRichRecord) *pb.Note {
+	if note == nil {
 		return nil
 	}
-
-	noteData := wrapper
-	if nested, ok := interfaceSliceAt(wrapper, 1); ok {
-		noteData = nested
-	}
-
-	noteID := stringAt(wrapper, 0)
-	if noteID == "" {
-		noteID = stringAt(noteData, 0)
-	}
-	if noteID == "" {
-		return nil
-	}
-
+	// Keep the public GetNotes projection identical to the legacy parser. The
+	// wire record also carries metadata and note_type, but that parser never
+	// exposed those positions.
 	return &pb.Note{
-		NoteId:      noteID,
-		ContentText: stringAt(noteData, 1),
-		Title:       stringAt(noteData, 4),
-		RichText:    stringAt(noteData, 5),
+		NoteId:      note.GetNoteId(),
+		ContentText: note.GetContentText(),
+		Title:       note.GetTitle(),
+		RichText:    note.GetRichText().GetPlainText(),
 	}
 }
 
 // Audio operations
+
+func universalArtifactRequestContext() *pb.RequestContext {
+	return &pb.RequestContext{
+		Version: proto.Int32(2),
+		Caps: &pb.RequestClientCaps{
+			Version:         proto.Int32(1),
+			CapabilityCodes: []int32{1},
+		},
+		ArtifactTypes: &pb.RequestArtifactTypeFilter{Types: []int32{1, 4, 8, 10, 2, 3, 6, 9}},
+	}
+}
+
+func universalArtifactSourceGroups(sourceIDs []string) []*pb.UniversalArtifactSourceGroup {
+	groups := make([]*pb.UniversalArtifactSourceGroup, 0, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		groups = append(groups, &pb.UniversalArtifactSourceGroup{Source: &pb.SourceIdList{SourceId: sourceID}})
+	}
+	return groups
+}
 
 func (c *Client) CreateAudioOverview(projectID string, instructions string) (*AudioOverviewResult, error) {
 	return c.CreateAudioOverviewWithOptions(projectID, CreateAudioOverviewOptions{
@@ -1696,6 +1662,31 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 	if len(sourceIDs) == 0 {
 		return nil, fmt.Errorf("project has no sources - add sources before creating audio overview")
 	}
+	if opts.Instructions == "" && opts.AudioType == pb.AudioType_AUDIO_TYPE_DEEP_DIVE &&
+		opts.Length == pb.AudioLength_AUDIO_LENGTH_DEFAULT && opts.Language == "en" {
+		audioSources := make([]*pb.SourceIdList, 0, len(sourceIDs))
+		for _, sourceID := range sourceIDs {
+			audioSources = append(audioSources, &pb.SourceIdList{SourceId: sourceID})
+		}
+		artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), &pb.CreateUniversalArtifactRequest{
+			Context:   universalArtifactRequestContext(),
+			ProjectId: projectID,
+			Options: &pb.UniversalArtifactOptions{
+				Kind:         1,
+				SourceGroups: universalArtifactSourceGroups(sourceIDs),
+				Audio: &pb.UniversalAudioOptions{Details: &pb.UniversalAudioDetails{
+					Style:    int32(opts.Length),
+					Sources:  audioSources,
+					Language: opts.Language,
+					Enabled:  int32(opts.AudioType),
+				}},
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create audio overview: %w", wrapCreateAudioOverviewError(err))
+		}
+		return &AudioOverviewResult{ProjectID: projectID, AudioID: artifact.GetArtifactId(), Title: artifact.GetTitle(), IsReady: false}, nil
+	}
 
 	// Default: use orchestration service with new proto fields
 	req := &pb.CreateAudioOverviewRequest{
@@ -1707,7 +1698,7 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 		Language:           opts.Language,
 	}
 	ctx := context.Background()
-	audioOverview, err := c.orchestrationService.CreateAudioOverview(ctx, req)
+	artifact, err := c.orchestrationService.CreateAudioOverview(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create audio overview: %w", wrapCreateAudioOverviewError(err))
 	}
@@ -1715,8 +1706,8 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 	// Audio data must be fetched later via polling (audio-get/audio-download).
 	result := &AudioOverviewResult{
 		ProjectID: projectID,
-		AudioID:   audioOverview.GetAudioId(),
-		Title:     audioOverview.GetTitle(),
+		AudioID:   artifact.GetArtifactId(),
+		Title:     artifact.GetTitle(),
 		IsReady:   false, // Audio generation is always async
 	}
 	return result, nil
@@ -2087,19 +2078,22 @@ type AudioFormat struct {
 // see proto/notebooklm/v1alpha1/orchestration.proto:1505 for the
 // canonical shape and the four observed kinds.
 func (c *Client) GetAudioFormats() ([]AudioFormat, error) {
-	// Fixed sentinel: [[2, null, null, [1, null × 9, [1]], [[1,4,2,3,6,5]]], null, 1]
-	sentinel := []interface{}{
-		[]interface{}{
-			2, nil, nil,
-			[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
-			[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
+	// Fixed sentinel captured from the web UI. Keep its context typed so the
+	// generated encoder owns the positional envelope.
+	req := &pb.GetAudioFormatsRequest{
+		Context: &pb.RequestContext{
+			Version: proto.Int32(2),
+			Caps: &pb.RequestClientCaps{
+				Version:         proto.Int32(1),
+				CapabilityCodes: []int32{1},
+			},
+			ArtifactTypes: &pb.RequestArtifactTypeFilter{Types: []int32{1, 4, 8, 10, 2, 3, 6, 9}},
 		},
-		nil,
-		1,
+		Mode: proto.Int32(1),
 	}
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:   rpc.RPCGetAudioFormats,
-		Args: sentinel,
+		Args: method.EncodeGetAudioFormatsArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get audio formats: %w", err)
@@ -2190,44 +2184,44 @@ func (c *Client) CreateVideoOverviewWithOptions(projectID string, opts CreateVid
 		return nil, fmt.Errorf("project has no sources - add sources before creating video overview")
 	}
 
-	// Build request and use the proper encoder via R7cb6c
-	req := &pb.CreateVideoOverviewRequest{
-		ProjectId:          projectID,
-		AudioType:          opts.AudioType,
-		SourceIds:          sourceIDs,
-		CustomInstructions: opts.Instructions,
-		VideoStyle:         opts.VideoStyle,
-		Language:           opts.Language,
+	req := &pb.CreateUniversalArtifactRequest{
+		Context:   universalArtifactRequestContext(),
+		ProjectId: projectID,
+		Options: &pb.UniversalArtifactOptions{
+			Kind:         3,
+			SourceGroups: universalArtifactSourceGroups(sourceIDs),
+			Video: &pb.UniversalVideoOptions{Details: &pb.UniversalVideoDetails{
+				Sources: universalVideoSources(sourceIDs),
+				Prompt:  proto.String(opts.Instructions),
+				Style:   int32(opts.VideoStyle),
+			}},
+		},
 	}
 
-	args := intmethod.EncodeCreateVideoOverviewArgs(req)
-
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCCreateVideoOverview,
-		NotebookID: projectID,
-		Args:       args,
-	})
+	artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), req)
 	if err != nil {
 		return nil, fmt.Errorf("create video overview: %w", err)
 	}
+	return videoOverviewResultFromProto(projectID, artifact), nil
+}
 
-	result := &VideoOverviewResult{
-		ProjectID: projectID,
-		IsReady:   false, // Video generation is async
+func universalVideoSources(sourceIDs []string) []*pb.UniversalArtifactSources {
+	sources := make([]*pb.UniversalArtifactSources, 0, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		sources = append(sources, &pb.UniversalArtifactSources{SourceId: sourceID})
 	}
+	return sources
+}
 
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return nil, fmt.Errorf("parse video response: %w", err)
+func videoOverviewResultFromProto(projectID string, artifact *pb.Artifact) *VideoOverviewResult {
+	result := &VideoOverviewResult{ProjectID: projectID}
+	if artifact == nil {
+		return result
 	}
-
-	if len(responseData) > 0 {
-		if videoData, ok := responseData[0].([]interface{}); ok {
-			result = videoOverviewResultFromArtifactData(projectID, videoData)
-		}
-	}
-
-	return result, nil
+	result.VideoID = artifact.GetArtifactId()
+	result.Title = artifact.GetTitle()
+	result.IsReady = artifact.GetState() == pb.ArtifactState_ARTIFACT_STATE_READY
+	return result
 }
 
 func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instructions string, sourceIDs []string) (string, error) {
@@ -2257,7 +2251,7 @@ func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instr
 	if err != nil {
 		return "", fmt.Errorf("create %s app artifact: %w", kind.String(), err)
 	}
-	return parseCreatedArtifactID(resp)
+	return createdArtifactIDFromProto(resp)
 }
 
 func (c *Client) createArtifactSourceIDs(projectID string, sourceIDs []string) ([]string, error) {
@@ -2555,15 +2549,16 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 
 	resp, err := c.rpc.Do(rpc.Call{
 		ID: rpc.RPCListArtifacts,
-		Args: []interface{}{
-			[]interface{}{2},
-			projectID,
-		},
+		Args: method.EncodeListArtifactsArgs(&pb.ListArtifactsRequest{
+			Context:   universalArtifactRequestContext(),
+			ProjectId: projectID,
+			Filter:    `NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"`,
+		}),
 		NotebookID: projectID,
 	})
 	if err == nil {
 		var parseErr error
-		overviews, parseErr = audioOverviewResultsFromArtifacts(projectID, resp)
+		overviews, parseErr = audioOverviewResultsFromProtoArtifacts(projectID, resp)
 		if c.config.Debug && parseErr != nil {
 			fmt.Printf("Error parsing audio overview artifacts: %v\n", parseErr)
 		}
@@ -2592,6 +2587,26 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 		return overviews, nil
 	}
 	return []*AudioOverviewResult{}, nil
+}
+
+func audioOverviewResultsFromProtoArtifacts(projectID string, raw []byte) ([]*AudioOverviewResult, error) {
+	var response pb.ListArtifactsResponse
+	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("decode artifact response: %w", err)
+	}
+	overviews := make([]*AudioOverviewResult, 0)
+	for _, artifact := range response.GetArtifacts() {
+		if artifact == nil || artifact.GetType() != pb.ArtifactType_ARTIFACT_TYPE_AUDIO_OVERVIEW {
+			continue
+		}
+		overviews = append(overviews, &AudioOverviewResult{
+			ProjectID: projectID,
+			AudioID:   artifact.GetArtifactId(),
+			Title:     artifact.GetTitle(),
+			IsReady:   artifact.GetState() == pb.ArtifactState_ARTIFACT_STATE_READY,
+		})
+	}
+	return overviews, nil
 }
 
 // ListVideoOverviews returns video overviews for a notebook
@@ -2990,19 +3005,89 @@ func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
 
 // ListArtifacts returns artifacts for a project using direct RPC
 func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
+	req := &pb.ListArtifactsRequest{
+		Context:   universalArtifactRequestContext(),
+		ProjectId: projectID,
+		Filter:    `NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"`,
+	}
 	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCListArtifacts,
-		Args: []interface{}{
-			[]interface{}{2}, // filter parameter - 2 seems to be for all artifacts
-			projectID,
-		},
+		ID:         rpc.RPCListArtifacts,
+		Args:       method.EncodeListArtifactsArgs(req),
 		NotebookID: projectID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list artifacts RPC: %w", err)
 	}
 
-	return c.parseArtifactsResponse(resp)
+	return artifactsFromProtoResponse(resp)
+}
+
+// artifactsFromProtoResponse decodes the common gArtLc response through the
+// generated message while retaining the legacy READY rule for rendered
+// artifacts. The positional state value is ambiguous for slide artifacts:
+// a contribution.usercontent.google.com download URL proves readiness even
+// when the state enum is 3 (the generated FAILED value).
+func artifactsFromProtoResponse(raw []byte) ([]*pb.Artifact, error) {
+	var response pb.ListArtifactsResponse
+	if err := beprotojson.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("decode artifact response: %w", err)
+	}
+	var wire interface{}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return nil, fmt.Errorf("inspect artifact response: %w", err)
+	}
+	artifacts := make([]*pb.Artifact, 0, len(response.GetArtifacts()))
+	for _, generated := range response.GetArtifacts() {
+		if generated == nil {
+			continue
+		}
+		// Keep the public projection of parseArtifactsResponse stable while
+		// letting the generated decoder own all positional field handling.
+		artifact := &pb.Artifact{
+			ArtifactId: generated.GetArtifactId(),
+			Type:       generated.GetType(),
+			State:      generated.GetState(),
+			Sources:    generated.GetSources(),
+		}
+		if artifactHasDownloadURL(wire, artifact.GetArtifactId()) {
+			artifact.State = pb.ArtifactState_ARTIFACT_STATE_READY
+		}
+		artifacts = append(artifacts, artifact)
+	}
+	return artifacts, nil
+}
+
+// artifactHasDownloadURL reports whether one nested payload contains both
+// the artifact ID and a rendered download URL. It deliberately avoids
+// depending on positional indexes; the generated message remains the source
+// of typed fields and this walk only preserves the documented state override.
+func artifactHasDownloadURL(value interface{}, artifactID string) bool {
+	var walk func(interface{}) (bool, bool, bool)
+	walk = func(value interface{}) (hasID, hasURL, matched bool) {
+		switch value := value.(type) {
+		case string:
+			return value == artifactID, strings.HasPrefix(value, artifactDownloadURLPrefix), false
+		case []interface{}:
+			for _, child := range value {
+				childID, childURL, childMatched := walk(child)
+				if childMatched {
+					return true, true, true
+				}
+				// Only an ID directly in this array identifies the artifact
+				// row. Do not combine an ID from one sibling row with a URL
+				// from another row at an outer wrapper.
+				if _, isString := child.(string); isString {
+					hasID = hasID || childID
+				}
+				hasURL = hasURL || childURL
+			}
+			return hasID, hasURL, hasID && hasURL
+		default:
+			return false, false, false
+		}
+	}
+	_, _, matched := walk(value)
+	return matched
 }
 
 // GetArtifact returns a single artifact by ID.
@@ -3390,10 +3475,8 @@ func (c *Client) parseArtifactFromResponse(data interface{}) *pb.Artifact {
 	if stateCode, ok := int32At(artifactData, 4); ok {
 		artifact.State = pb.ArtifactState(stateCode)
 	}
-	for _, sourceID := range parseArtifactSourceIDs(artifactData) {
-		artifact.Sources = append(artifact.Sources, &pb.ArtifactSource{
-			SourceId: &pb.SourceId{SourceId: sourceID},
-		})
+	for _, source := range parseArtifactSources(artifactData) {
+		artifact.Sources = append(artifact.Sources, source)
 	}
 
 	// A finished artifact carries its rendered output as download URLs deep in
@@ -3444,7 +3527,7 @@ func hasArtifactDownloadURL(data interface{}) bool {
 	return len(extractArtifactDownloadURLs(data)) > 0
 }
 
-func parseArtifactSourceIDs(artifactData []interface{}) []string {
+func parseArtifactSources(artifactData []interface{}) []*pb.ArtifactSource {
 	if len(artifactData) <= 3 {
 		return nil
 	}
@@ -3454,17 +3537,28 @@ func parseArtifactSourceIDs(artifactData []interface{}) []string {
 		return nil
 	}
 
-	var sourceIDs []string
+	var sources []*pb.ArtifactSource
 	seen := make(map[string]bool)
-	appendArtifactSourceIDs(sourcesData, seen, &sourceIDs)
-	return sourceIDs
+	appendArtifactSources(sourcesData, seen, &sources)
+	return sources
 }
 
-func appendArtifactSourceIDs(values []interface{}, seen map[string]bool, out *[]string) {
+func appendArtifactSources(values []interface{}, seen map[string]bool, out *[]*pb.ArtifactSource) {
+	if len(values) >= 3 {
+		if id, ok := artifactSourceID(values[0]); ok && id != "" && !seen[id] {
+			seen[id] = true
+			source := &pb.ArtifactSource{SourceId: &pb.SourceId{SourceId: id}}
+			if unknown3, ok := int32At(values, 2); ok {
+				source.Unknown_3 = unknown3
+			}
+			*out = append(*out, source)
+			return
+		}
+	}
 	if len(values) == 1 {
 		if id, ok := values[0].(string); ok && id != "" && !seen[id] {
 			seen[id] = true
-			*out = append(*out, id)
+			*out = append(*out, &pb.ArtifactSource{SourceId: &pb.SourceId{SourceId: id}})
 			return
 		}
 	}
@@ -3473,8 +3567,17 @@ func appendArtifactSourceIDs(values []interface{}, seen map[string]bool, out *[]
 		if !ok {
 			continue
 		}
-		appendArtifactSourceIDs(nested, seen, out)
+		appendArtifactSources(nested, seen, out)
 	}
+}
+
+func artifactSourceID(value interface{}) (string, bool) {
+	values, ok := value.([]interface{})
+	if !ok || len(values) != 1 {
+		return "", false
+	}
+	id, ok := values[0].(string)
+	return id, ok
 }
 
 // Guidebook operations
@@ -3581,6 +3684,24 @@ func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sour
 	if len(sourceIDs) == 0 {
 		return "", fmt.Errorf("notebook has no sources")
 	}
+	if instructions == "" && format == SlideDeckFormatDetailed {
+		artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), &pb.CreateUniversalArtifactRequest{
+			Context:   universalArtifactRequestContext(),
+			ProjectId: projectID,
+			Options: &pb.UniversalArtifactOptions{
+				Kind:         8,
+				SourceGroups: universalArtifactSourceGroups(sourceIDs),
+				Slides:       []*pb.UniversalSlideOptions{{Language: "en", Format: 2, Style: 4}},
+			},
+		})
+		if err != nil {
+			return "", fmt.Errorf("create slide deck: %w", err)
+		}
+		if artifact.GetArtifactId() == "" {
+			return "", fmt.Errorf("create returned no artifact id (the server may have rejected it, e.g. quota exhausted); check 'nlm artifact list'")
+		}
+		return artifact.GetArtifactId(), nil
+	}
 
 	args := intmethod.EncodeCreateSlideDeckArgs(projectID, sourceIDs, instructions, "en", format)
 	call := rpc.Call{
@@ -3592,29 +3713,21 @@ func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sour
 	if err != nil {
 		return "", fmt.Errorf("create slide deck: %w", err)
 	}
-	return parseCreatedArtifactID(resp)
+	return createdArtifactIDFromProto(resp)
 }
 
-func parseCreatedArtifactID(resp []byte) (string, error) {
-	// Response is [[artifact_id, title, type, ...]] — unwrap outer array.
-	var raw []interface{}
-	if err := json.Unmarshal(resp, &raw); err != nil {
-		return "", fmt.Errorf("parse artifact response: %w", err)
+// createdArtifactIDFromProto projects the nested Artifact response returned
+// by legacy R7cb6c create paths. The custom request encoders remain in place;
+// only response decoding moves to the generated Artifact message.
+func createdArtifactIDFromProto(resp []byte) (string, error) {
+	var outer []json.RawMessage
+	if err := json.Unmarshal(resp, &outer); err != nil {
+		return "", fmt.Errorf("decode create response: %w", err)
 	}
-	// Try direct string at [0], then the nested [[id, title, ...]] shape. An
-	// empty-string id is treated as no id at all: the server returns a blank
-	// id when a create is rejected (e.g. quota exhausted) without an RPC-level
-	// error, and returning ("", nil) would let callers print a blank line as
-	// if creation succeeded. Fall through to the format error instead so the
-	// failure is visible.
-	if len(raw) > 0 {
-		if id, ok := raw[0].(string); ok && id != "" {
-			return id, nil
-		}
-		if inner, ok := raw[0].([]interface{}); ok && len(inner) > 0 {
-			if id, ok := inner[0].(string); ok && id != "" {
-				return id, nil
-			}
+	if len(outer) > 0 {
+		var artifact pb.Artifact
+		if err := beprotojson.Unmarshal(outer[0], &artifact); err == nil && artifact.GetArtifactId() != "" {
+			return artifact.GetArtifactId(), nil
 		}
 	}
 	return "", fmt.Errorf("create returned no artifact id (the server may have rejected it, e.g. quota exhausted); check 'nlm artifact list'")
@@ -3768,72 +3881,47 @@ type SourceGuide struct {
 // with the 4-level nested shape [[[["source_id"]]]]. The response shape is
 // [[[null, ["summary"], [["topic", "topic", ...]], []]]].
 func (c *Client) GenerateSourceGuide(sourceID string) (*SourceGuide, error) {
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGenerateDocumentGuides,
-		Args: []interface{}{
-			[]interface{}{
-				[]interface{}{
-					[]interface{}{sourceID},
-				},
-			},
-		},
+	resp, err := c.orchestrationService.GenerateDocumentGuides(context.Background(), &pb.GenerateDocumentGuidesRequest{
+		Sources: &pb.GenerateDocumentGuideSources{Source: &pb.GenerateDocumentGuideSource{
+			Source: &pb.SourceIdList{SourceId: sourceID},
+		}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generate source guide: %w", err)
 	}
-	var outer [][]interface{}
-	if err := json.Unmarshal(resp, &outer); err != nil {
-		return nil, fmt.Errorf("generate source guide: unmarshal response: %w", err)
-	}
+	return sourceGuideFromProto(resp), nil
+}
+
+func sourceGuideFromProto(resp *pb.GenerateDocumentGuidesResponse) *SourceGuide {
 	g := &SourceGuide{}
-	if len(outer) == 0 || len(outer[0]) == 0 {
-		return g, nil
+	if resp == nil || len(resp.GetGuides()) == 0 {
+		return g
 	}
-	inner, _ := outer[0][0].([]interface{})
-	if len(inner) >= 2 {
-		if sumArr, ok := inner[1].([]interface{}); ok && len(sumArr) > 0 {
-			g.Summary, _ = sumArr[0].(string)
-		}
-	}
-	if len(inner) >= 3 {
-		if topicOuter, ok := inner[2].([]interface{}); ok && len(topicOuter) > 0 {
-			if topicArr, ok := topicOuter[0].([]interface{}); ok {
-				for _, t := range topicArr {
-					if s, ok := t.(string); ok {
-						g.KeyTopics = append(g.KeyTopics, s)
-					}
-				}
-			}
-		}
-	}
-	return g, nil
+	guide := resp.GetGuides()[0]
+	g.Summary = guide.GetSummary().GetText()
+	g.KeyTopics = append(g.KeyTopics, guide.GetTopics().GetTopics()...)
+	return g
 }
 
 func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGuideResponse, error) {
-	req := &pb.GenerateNotebookGuideRequest{
+	guide, err := c.orchestrationService.GenerateNotebookGuide(context.Background(), &pb.GenerateNotebookGuideRequest{
 		ProjectId: projectID,
-	}
-	// Bypass the service client: its generated encoder drops guide_type
-	// (arg_format="[%project_id%]" omits the enum field).
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGenerateNotebookGuide,
-		NotebookID: projectID,
-		Args:       intmethod.EncodeGenerateNotebookGuideArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("generate notebook guide: %w", err)
 	}
-	var guide pb.GenerateNotebookGuideResponse
-	if err := beprotojson.Unmarshal(resp, &guide); err != nil {
-		return nil, fmt.Errorf("generate notebook guide: unmarshal response: %w", err)
-	}
-	return &guide, nil
+	return guide, nil
 }
 
 func (c *Client) GenerateMagicView(projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
+	_ = sourceIDs // The captured uK8f7c request carries only context and project ID.
 	req := &pb.GenerateMagicViewRequest{
+		Context: &pb.MagicViewRequestContext{
+			Version: proto.Int32(2),
+			Surface: &pb.MagicViewRequestSurface{Value: proto.Int32(1)},
+			Caps:    &pb.MagicViewRequestCaps{Version: proto.Int32(1), CapabilityCodes: []int32{1, 3}},
+		},
 		ProjectId: projectID,
-		SourceIds: sourceIDs,
 	}
 	ctx := context.Background()
 	magicView, err := c.orchestrationService.GenerateMagicView(ctx, req)
@@ -4133,7 +4221,29 @@ func nilIfEmpty(s string) interface{} {
 // buildChatArgs builds the inner JSON args for a chat request.
 // Wire format: [[[[source_ids]]],prompt,history,[2,null,[1],[1]],conv_id,null,null,notebook_id,seq_num]
 func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
-	args := buildChatWireArgs(c.buildChatWireRequest(req))
+	wireReq := c.buildChatWireRequest(req)
+	sources := make([]*pb.ChatSourceSelection, 0, len(wireReq.SourceIDs))
+	for _, sourceID := range wireReq.SourceIDs {
+		sources = append(sources, &pb.ChatSourceSelection{Source: &pb.SourceIdList{SourceId: sourceID}})
+	}
+	var history []*pb.GenerateFreeFormStreamedHistoryEntry
+	if len(wireReq.History) > 0 {
+		history = make([]*pb.GenerateFreeFormStreamedHistoryEntry, 0, len(wireReq.History))
+		for _, entry := range wireReq.History {
+			content := entry.Content
+			history = append(history, &pb.GenerateFreeFormStreamedHistoryEntry{Content: &content, Role: entry.Role})
+		}
+	}
+	sequenceNumber := wireReq.SequenceNumber
+	args := method.EncodeGenerateFreeFormStreamedWireArgs(&pb.GenerateFreeFormStreamedWireRequest{
+		Sources:        sources,
+		Prompt:         wireReq.Prompt,
+		History:        history,
+		Options:        &pb.ChatStreamOptions{Mode: wireReq.Options.Mode, CitationModes: &pb.Int32List{Value: 1}, FollowUp: &pb.ChatFollowUpOptions{Enabled: 1, Modes: []int32{1, 3}}},
+		ConversationId: wireReq.ConversationID,
+		NotebookId:     wireReq.NotebookID,
+		SequenceNumber: &sequenceNumber,
+	})
 
 	argsJSON, err := json.Marshal(args)
 	if err != nil {
@@ -4677,6 +4787,65 @@ const (
 )
 
 func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
+	var generated pb.GenerateFreeFormStreamedWireResponse
+	if err := beprotojson.Unmarshal([]byte(innerJSON), &generated); err == nil {
+		payload := chatPayload{Text: generated.GetAnswer().GetChunk()}
+		payload.Citations = citationsFromProtoStream(&generated, sourceIDs)
+		// The generated response intentionally does not model the phase
+		// marker carried inside the answer tuple. Preserve that one small
+		// transport concern from the legacy extractor.
+		var raw []interface{}
+		if json.Unmarshal([]byte(innerJSON), &raw) == nil && len(raw) > 0 {
+			if answer, ok := raw[0].([]interface{}); ok && len(answer) > 8 {
+				if phase, ok := answer[8].(float64); ok {
+					payload.wirePhase = int(phase)
+					payload.hasWirePhase = true
+				}
+			}
+			// Preserve the legacy follow-up projection until its generated
+			// shape is behaviorally verified across all stream variants.
+			if len(raw) > 4 {
+				payload.FollowUps = parseFollowUps(raw[4])
+			}
+		}
+		return payload
+	}
+	return extractChatPayloadLegacy(innerJSON, sourceIDs)
+}
+
+func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse, sourceIDs []string) []Citation {
+	mappings := response.GetSourceMappings()
+	groundings := response.GetCitations()
+	citations := make([]Citation, 0)
+	for i, mapping := range mappings {
+		if mapping == nil {
+			continue
+		}
+		var confidence float64
+		if i < len(groundings) && groundings[i] != nil {
+			confidence = groundings[i].GetScore()
+		}
+		start, end := 0, 0
+		if r := mapping.GetRange(); r != nil {
+			start, end = int(r.GetStart()), int(r.GetEnd())
+		}
+		for _, sourceIndex := range mapping.GetSourceIndices() {
+			if sourceIndex < 0 || int(sourceIndex) >= len(sourceIDs) {
+				continue
+			}
+			citations = append(citations, Citation{
+				SourceIndex: i + 1,
+				SourceID:    sourceIDs[sourceIndex],
+				StartChar:   start,
+				EndChar:     end,
+				Confidence:  confidence,
+			})
+		}
+	}
+	return citations
+}
+
+func extractChatPayloadLegacy(innerJSON string, sourceIDs []string) chatPayload {
 	var data interface{}
 	if err := json.Unmarshal([]byte(innerJSON), &data); err != nil {
 		return chatPayload{}
@@ -4893,14 +5062,8 @@ func parseFollowUps(data interface{}) []string {
 
 // DeleteChatHistory deletes all chat history for a notebook.
 func (c *Client) DeleteChatHistory(projectID string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCDeleteChatHistory,
-		NotebookID: projectID,
-		Args: []interface{}{
-			nil,
-			nil,
-			projectID,
-		},
+	_, err := c.orchestrationService.DeleteChatHistory(context.Background(), &pb.DeleteChatHistoryRequest{
+		ProjectId: projectID,
 	})
 	if err != nil {
 		return fmt.Errorf("delete chat history: %w", err)
@@ -4910,149 +5073,89 @@ func (c *Client) DeleteChatHistory(projectID string) error {
 
 // GetConversations returns conversation IDs for a notebook.
 func (c *Client) GetConversations(projectID string) ([]string, error) {
-	resp, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCGetConversations,
-		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{},
-			nil,
-			projectID,
-			20,
-		},
+	resp, err := c.orchestrationService.GetConversations(context.Background(), &pb.GetConversationsRequest{
+		Context:   &pb.RequestContext{},
+		ProjectId: projectID,
+		Limit:     20,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get conversations: %w", err)
 	}
+	return conversationIDsFromProto(resp), nil
+}
 
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
-		return nil, fmt.Errorf("parse conversations: %w", err)
+func conversationIDsFromProto(resp *pb.GetConversationsResponse) []string {
+	if resp == nil || len(resp.GetConversations()) == 0 {
+		return []string{}
 	}
-
-	var convIDs []string
-	// Response format: [[[conv_id1], [conv_id2]]]
-	if len(data) > 0 {
-		if outer, ok := data[0].([]interface{}); ok {
-			for _, item := range outer {
-				if arr, ok := item.([]interface{}); ok && len(arr) > 0 {
-					if id, ok := arr[0].(string); ok {
-						convIDs = append(convIDs, id)
-					}
-				}
-			}
+	ids := make([]string, 0, len(resp.GetConversations()))
+	for _, conversation := range resp.GetConversations() {
+		if conversation != nil {
+			ids = append(ids, conversation.GetConversationId())
 		}
 	}
-	return convIDs, nil
+	return ids
 }
 
 // GetConversationHistory retrieves the message history for a specific conversation.
 func (c *Client) GetConversationHistory(projectID, conversationID string) ([]ChatMessage, error) {
-	// Wire format: [[], null, null, conversation_id, limit]
-	// Project ID is conveyed via the source-path URL parameter (NotebookID field).
-	resp, err := c.rpc.Do(rpc.Call{
+	req := &pb.GetConversationHistoryRequest{
+		Context:        conversationRequestContext(),
+		ConversationId: conversationID,
+		Limit:          proto.Int32(20),
+	}
+	raw, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCGetConversationHistory,
 		NotebookID: projectID,
-		Args: []interface{}{
-			[]interface{}{},
-			nil,
-			nil,
-			conversationID,
-			20,
-		},
+		Args:       method.EncodeGetConversationHistoryArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get conversation history: %w", err)
 	}
-
-	var data []interface{}
-	if err := json.Unmarshal(resp, &data); err != nil {
+	var response pb.GetConversationHistoryResponse
+	if err := beprotojson.Unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("parse conversation history: %w", err)
 	}
-
-	// Response format: [[[msg1, msg2, ...]]] where each message is:
-	// [0]=message_id, [1]=timestamp ([epoch_s, nanos]), [2]=role (1=user, 2=assistant),
-	// [3]=null, [4]=content_segments (nested arrays with text + formatting)
-	var messages []ChatMessage
-	var msgArrays []interface{}
-
-	if len(data) > 0 {
-		if outer, ok := data[0].([]interface{}); ok {
-			if len(outer) > 0 {
-				if _, ok := outer[0].([]interface{}); ok {
-					msgArrays = outer
-				} else {
-					msgArrays = data
-				}
-			}
-		}
-	}
-
-	for _, item := range msgArrays {
-		arr, ok := item.([]interface{})
-		if !ok || len(arr) < 3 {
-			continue
-		}
-
-		messageID, _ := arr[0].(string)
-		role := 0
-		if r, ok := arr[2].(float64); ok {
-			role = int(r)
-		}
-
-		// User messages: [message_id, timestamp, 1, content_text] — plain string at [3].
-		// Assistant messages: [message_id, timestamp, 2, null, content_segments] — nested at [4].
-		var content string
-		if role == 1 && len(arr) > 3 {
-			content, _ = arr[3].(string)
-		} else if len(arr) > 4 {
-			content = extractContentSegments(arr[4])
-		}
-
-		if content != "" && role > 0 {
-			msg := ChatMessage{
-				Content: content,
-				Role:    role,
-			}
-			if messageID != "" {
-				msg.MessageID = messageID
-			}
-			messages = append(messages, msg)
-		}
-	}
-
-	return messages, nil
+	return conversationMessagesFromProto(&response), nil
 }
 
-// extractContentSegments concatenates text from the content_segments array at
-// position [4] of a GetConversationHistory message. Each segment is either a
-// simple [text, lang] pair or a complex [start, end, ...rich_text...] span.
-func extractContentSegments(v interface{}) string {
-	segments, ok := v.([]interface{})
-	if !ok {
+func conversationRequestContext() *pb.RequestContext {
+	return &pb.RequestContext{
+		Version: proto.Int32(2),
+		Surface: &pb.RequestSurface{Value: proto.Int32(1)},
+		Caps: &pb.RequestClientCaps{
+			Version:         proto.Int32(1),
+			CapabilityCodes: []int32{1, 3},
+		},
+	}
+}
+
+func conversationMessagesFromProto(resp *pb.GetConversationHistoryResponse) []ChatMessage {
+	if resp == nil || len(resp.GetMessages()) == 0 {
+		return nil
+	}
+	messages := make([]ChatMessage, 0, len(resp.GetMessages()))
+	for _, message := range resp.GetMessages() {
+		if message == nil || message.GetRole() == 0 {
+			continue
+		}
+		content := message.GetText()
+		if content == "" && message.GetRichContent() != nil {
+			content = contentSegmentText(message.GetRichContent().GetSegment())
+		}
+		if content == "" {
+			continue
+		}
+		messages = append(messages, ChatMessage{MessageID: message.GetMessageId(), Content: content, Role: int(message.GetRole())})
+	}
+	return messages
+}
+
+func contentSegmentText(segment *pb.ContentSegment) string {
+	if segment == nil {
 		return ""
 	}
-	var b strings.Builder
-	for _, seg := range segments {
-		arr, ok := seg.([]interface{})
-		if !ok || len(arr) == 0 {
-			continue
-		}
-		// Simple segment: first element is the text string.
-		if s, ok := arr[0].(string); ok {
-			b.WriteString(s)
-			continue
-		}
-		// Complex segment with char offsets: look for nested text.
-		// Format: [start_char, end_char, ...nested...] or [start, end, null, null, null, null, [text, lang]]
-		for _, elem := range arr {
-			if sub, ok := elem.([]interface{}); ok {
-				if s, ok := sub[0].(string); ok {
-					b.WriteString(s)
-				}
-			}
-		}
-	}
-	return b.String()
+	return segment.GetText()
 }
 
 // ChatGoal represents a conversational goal setting.
@@ -5192,7 +5295,7 @@ func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReport
 				for _, ref := range refs {
 					if inner, ok := ref.([]interface{}); ok && len(inner) > 0 {
 						if id, ok := inner[0].(string); ok {
-							s.SourceIds = append(s.SourceIds, id)
+							s.SourceIds = append(s.SourceIds, &pb.SourceIdList{SourceId: id})
 						}
 					}
 				}
@@ -5214,17 +5317,36 @@ func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReport
 }
 
 func (c *Client) GetProjectDetails(shareID string) (*pb.ProjectDetails, error) {
-	resp, err := c.rpc.Do(rpc.Call{
-		ID: rpc.RPCGetProjectDetails,
-		Args: []interface{}{
-			shareID,
-			[]interface{}{2},
-		},
+	resp, err := c.sharingService.GetProjectDetails(context.Background(), &pb.GetProjectDetailsRequest{
+		ShareId: shareID,
+		Context: &pb.RequestContext{Version: proto.Int32(2)},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get project details: %w", err)
 	}
-	return parseProjectDetailsResponse(resp)
+	return projectDetailsFromProto(resp), nil
+}
+
+// projectDetailsFromProto preserves the public ProjectDetails projection while
+// letting the generated message own wire decoding and presence handling.
+func projectDetailsFromProto(details *pb.ProjectDetails) *pb.ProjectDetails {
+	if details == nil {
+		return nil
+	}
+	out := &pb.ProjectDetails{}
+	if collaborators := details.GetCollaborators(); len(collaborators) > 0 {
+		if profile := collaborators[0].GetProfile(); profile != nil {
+			out.OwnerName = profile.GetDisplayName()
+		}
+	}
+	if flags := details.GetFlags(); flags != nil {
+		if flags.Flag_1 != nil {
+			out.IsPublic = flags.GetFlag_1()
+		} else if flags.Flag_0 != nil {
+			out.IsPublic = flags.GetFlag_0()
+		}
+	}
+	return out
 }
 
 // Sharing operations
@@ -5326,31 +5448,6 @@ func parseShareProjectResponse(projectID string, isPublic bool, resp []byte) (*p
 		result.ShareId = shareID
 	}
 	return result, nil
-}
-
-func parseProjectDetailsResponse(resp []byte) (*pb.ProjectDetails, error) {
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return nil, fmt.Errorf("parse project details response: %w", err)
-	}
-
-	details := &pb.ProjectDetails{}
-	owners, ok := interfaceSliceAt(responseData, 0)
-	if ok && len(owners) > 0 {
-		if firstOwner, ok := interfaceSliceAt(owners, 0); ok {
-			if profile, ok := interfaceSliceAt(firstOwner, 3); ok {
-				details.OwnerName = stringAt(profile, 0)
-			}
-		}
-	}
-	if flags, ok := interfaceSliceAt(responseData, 1); ok {
-		if isPublic, ok := boolAt(flags, 1); ok {
-			details.IsPublic = isPublic
-		} else if isPublic, ok := boolAt(flags, 0); ok {
-			details.IsPublic = isPublic
-		}
-	}
-	return details, nil
 }
 
 func findStringMatching(v interface{}, match func(string) bool) string {
@@ -5580,15 +5677,10 @@ func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, err
 // GetDeepResearchSessions; ConversationID is the key for
 // DeleteDeepResearch.
 //
-// Wire shape verified across three independent CDP captures spanning
-// 2026-04-10 through 2026-04-17, three different notebooks and three
-// different queries. Request args are five positions:
+// Request args are five positions:
 //
-//	[0] nil               placeholder
-//	[1] [1]               opaque one-element list; likely a
-//	                      service-version tag or mode enum — bytes
-//	                      captured verbatim, do not infer semantics
-//	                      without a second HAR confirming meaning.
+//	[0] context           standard request envelope
+//	[1] nil               placeholder
 //	[2] [query, 1]        query string plus an opaque trailing 1
 //	[3] 5                 scalar that matches session[1][2] in the
 //	                      GetDeepResearchSessions response
@@ -5596,16 +5688,16 @@ func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, err
 //
 // Response is a two-element JSON array: [research_id, conversation_id].
 func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult, error) {
+	req := &pb.StartDeepResearchWireRequest{
+		Context:   conversationRequestContext(),
+		ProjectId: projectID,
+		Query:     &pb.ResearchQuery{Query: query, Mode: 1},
+		Mode:      5,
+	}
 	resp, err := c.rpc.Do(rpc.Call{
 		ID:         rpc.RPCStartDeepResearch,
 		NotebookID: projectID,
-		Args: []interface{}{
-			nil,
-			[]interface{}{1},
-			[]interface{}{query, 1},
-			5,
-			projectID,
-		},
+		Args:       method.EncodeStartDeepResearchWireArgs(req),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("start deep research: %w", err)
@@ -5673,7 +5765,7 @@ func (c *Client) pollResearch(
 		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
 
-	sessions, err := parseDeepResearchSessions(resp, c.rpc.Config.Debug)
+	sessions, err := parseDeepResearchSessionsProto(resp)
 	if err != nil {
 		return nil, fmt.Errorf("poll %s research: %w", kind, err)
 	}
@@ -5695,7 +5787,11 @@ func (c *Client) pollResearch(
 				Query:          s.Query,
 				Plan:           s.Plan,
 			}
-			result.Report, result.Sources = decode(s.MainBlob)
+			if s.Report != "" || len(s.Sources) > 0 {
+				result.Report, result.Sources = s.Report, s.Sources
+			} else {
+				result.Report, result.Sources = decode(s.MainBlob)
+			}
 			return result, nil
 		}
 		// State 1 (running) or an unrecognized state (6 observed but
@@ -5732,6 +5828,75 @@ type deepResearchSession struct {
 	ResearchID     string          // session inner[5][0]; empty for fast-mode
 	Plan           []byte          // base64-decoded protobuf of the LLM plan (deep only)
 	MainBlob       json.RawMessage // session inner[3]; null during RUNNING
+	Report         string
+	Sources        []ResearchSource
+}
+
+// parseDeepResearchSessionsProto decodes the e3bVqc session list through the
+// generated response model. The positional parser remains the test oracle;
+// this adapter preserves the public poll projection for both fast and deep
+// session variants.
+func parseDeepResearchSessionsProto(resp json.RawMessage) ([]deepResearchSession, error) {
+	var decoded pb.GetDeepResearchSessionsResponse
+	if err := beprotojson.Unmarshal(resp, &decoded); err != nil {
+		return nil, fmt.Errorf("decode sessions proto: %w", err)
+	}
+	return deepResearchSessionsFromProto(decoded.GetSessions()), nil
+}
+
+func deepResearchSessionsFromProto(decoded []*pb.DeepResearchSession) []deepResearchSession {
+	sessions := make([]deepResearchSession, 0, len(decoded))
+	for _, session := range decoded {
+		if session == nil || session.GetDetails() == nil {
+			continue
+		}
+		details := session.GetDetails()
+		ds := deepResearchSession{
+			ConversationID: session.GetConversationId(),
+			ProjectID:      details.GetProjectId(),
+			Query:          details.GetQuery().GetText(),
+			Mode:           int(details.GetMode()),
+			State:          int(details.GetState()),
+		}
+		if metadata := details.GetMetadata(); metadata != nil {
+			ds.ResearchID = metadata.GetResearchId()
+			if plan, err := base64.StdEncoding.DecodeString(metadata.GetPlan()); err == nil {
+				ds.Plan = plan
+			}
+		}
+		main := details.GetMainBlob()
+		if main == nil {
+			sessions = append(sessions, ds)
+			continue
+		}
+		ds.MainBlob = json.RawMessage("{}")
+		entries := main.GetReportTree()
+		offset := 0
+		if ds.Mode == 5 {
+			offset = 1
+			if len(entries) > 0 && entries[0].GetDetail() != nil {
+				ds.Report = entries[0].GetDetail().GetMarkdown()
+			}
+		} else {
+			ds.Report = main.GetExtra()
+		}
+		for _, entry := range entries[offset:] {
+			if entry == nil {
+				continue
+			}
+			citationIndex := 0
+			if ds.Mode == 5 {
+				citationIndex = int(entry.GetRank())
+			}
+			ds.Sources = append(ds.Sources, ResearchSource{
+				URL: entry.GetUrl(), Title: entry.GetTitle(),
+				Snippet: entry.GetSummary(), Rank: int(entry.GetKind()),
+				FaviconURL: entry.GetFaviconUrl(), CitationIndex: citationIndex,
+			})
+		}
+		sessions = append(sessions, ds)
+	}
+	return sessions
 }
 
 // parseDeepResearchSessions decodes the top-level e3bVqc response
@@ -5928,10 +6093,9 @@ func decodeFastMainBlob(main json.RawMessage) (string, []ResearchSource) {
 //
 // Response: empty JSON array on success.
 func (c *Client) DeleteDeepResearch(projectID, conversationID string) error {
-	_, err := c.rpc.Do(rpc.Call{
-		ID:         rpc.RPCDeleteDeepResearch,
-		NotebookID: projectID,
-		Args:       deleteDeepResearchArgs(conversationID, projectID),
+	_, err := c.orchestrationService.DeleteDeepResearch(context.Background(), &pb.DeleteDeepResearchRequest{
+		ProjectId:      projectID,
+		ConversationId: conversationID,
 	})
 	if err != nil {
 		return fmt.Errorf("delete deep research: %w", err)
@@ -5939,9 +6103,8 @@ func (c *Client) DeleteDeepResearch(projectID, conversationID string) error {
 	return nil
 }
 
-// deleteDeepResearchArgs produces the 4-position LBwxtb delete shape.
-// Exposed as a pure function so tests can golden-check the encoding
-// without the rpc.Client round-trip.
+// deleteDeepResearchArgs is the legacy 4-position LBwxtb shape retained as a
+// fixture oracle. Live calls use the generated request encoder above.
 func deleteDeepResearchArgs(conversationID, projectID string) []interface{} {
 	return []interface{}{
 		nil,
@@ -6006,7 +6169,11 @@ func (c *Client) BulkImportFromResearch(projectID, conversationID string, source
 	if err != nil {
 		return nil, fmt.Errorf("bulk import from research: %w", err)
 	}
-	return parseBulkImportResponse(resp)
+	var wire pb.BulkImportFromResearchResponse
+	if err := beprotojson.Unmarshal(resp, &wire); err != nil {
+		return nil, fmt.Errorf("bulk import from research: decode response: %w", err)
+	}
+	return bulkImportResultsFromProto(&wire), nil
 }
 
 // bulkImportArgs produces the 5-position LBwxtb bulk-import shape.
@@ -6029,42 +6196,28 @@ func bulkImportArgs(conversationID, projectID string, sources []BulkImportSource
 	}
 }
 
-// parseBulkImportResponse extracts source_id, title, and URL from the
-// rich server response. Unknown positions are skipped; the response
-// layout is wide (same basic shape as FLmJqe's RefreshSource response)
-// so we decode only the fields the CLI surfaces and leave the rest to
-// future callers if richer metadata is ever needed.
-//
-// Response layout per CDP capture 2026-04-17:
-//
-//	[source, source, ..., source]
-//	source = [[source_id], title, metadata_body, [null, final_state]]
-//	metadata_body[7] = [url]   // single-element URL list
-func parseBulkImportResponse(raw json.RawMessage) ([]BulkImportResult, error) {
-	var outer []json.RawMessage
-	if err := json.Unmarshal(raw, &outer); err != nil {
-		return nil, fmt.Errorf("bulk import response: outer decode: %w", err)
+// bulkImportResultsFromProto preserves the narrow public projection returned
+// by BulkImportFromResearch while the generated Source message owns wire
+// decoding.
+func bulkImportResultsFromProto(response *pb.BulkImportFromResearchResponse) []BulkImportResult {
+	if response == nil {
+		return nil
 	}
-	results := make([]BulkImportResult, 0, len(outer))
-	for _, rawSrc := range outer {
-		var src []json.RawMessage
-		if err := json.Unmarshal(rawSrc, &src); err != nil || len(src) < 3 {
+	results := make([]BulkImportResult, 0, len(response.GetResults()))
+	for _, source := range response.GetResults() {
+		if source == nil {
 			continue
 		}
-		r := BulkImportResult{}
-		var idArr []string
-		if err := json.Unmarshal(src[0], &idArr); err == nil && len(idArr) > 0 {
-			r.SourceID = idArr[0]
+		result := BulkImportResult{
+			SourceID: source.GetSourceId().GetSourceId(),
+			Title:    source.GetTitle(),
 		}
-		_ = json.Unmarshal(src[1], &r.Title)
-		var body []json.RawMessage
-		if err := json.Unmarshal(src[2], &body); err == nil && len(body) > 7 {
-			var urlArr []string
-			if err := json.Unmarshal(body[7], &urlArr); err == nil && len(urlArr) > 0 {
-				r.URL = urlArr[0]
+		if metadata := source.GetMetadata(); metadata != nil {
+			if urls := metadata.GetSourceUrls(); len(urls) > 0 {
+				result.URL = urls[0]
 			}
 		}
-		results = append(results, r)
+		results = append(results, result)
 	}
-	return results, nil
+	return results
 }

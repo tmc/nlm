@@ -1,11 +1,42 @@
 package argbuilder
 
 import (
+	"encoding/json"
 	"testing"
 
 	notebooklm "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"google.golang.org/protobuf/proto"
 )
+
+// TestEncodeRPCArgsMessage covers positional encoding of nested messages.
+func TestEncodeRPCArgsMessage(t *testing.T) {
+	zero := int32(0)
+	req := &notebooklm.MutateNoteRequest{
+		ProjectId: "abc-123",
+		NoteId:    "note-xyz",
+		Updates: &notebooklm.NoteUpdates{Update: &notebooklm.NoteUpdateGroup{Update: &notebooklm.NoteUpdate{
+			Content:    "body text",
+			Title:      "the title",
+			Tags:       &notebooklm.NoteTags{},
+			UpdateMode: &zero,
+			StateCode:  &zero,
+		}}},
+	}
+	format := `[%project_id%, %note_id%, %updates%]`
+	want := `["abc-123","note-xyz",[[["body text","the title",[],0,null,0]]]]`
+
+	got, err := EncodeRPCArgs(req, format)
+	if err != nil {
+		t.Fatalf("EncodeRPCArgs() error = %v", err)
+	}
+	b, err := json.Marshal(got)
+	if err != nil {
+		t.Fatalf("marshal args: %v", err)
+	}
+	if string(b) != want {
+		t.Errorf("MutateNote args:\n got: %s\nwant: %s", b, want)
+	}
+}
 
 func TestEncodeRPCArgs(t *testing.T) {
 	tests := []struct {
@@ -47,20 +78,27 @@ func TestEncodeRPCArgs(t *testing.T) {
 		{
 			name: "nested array with field",
 			msg: &notebooklm.DeleteSourcesRequest{
-				SourceIds: []string{"src1", "src2", "src3"},
+				SourceIds: []*notebooklm.SourceIdList{
+					{SourceId: "src1"},
+					{SourceId: "src2"},
+					{SourceId: "src3"},
+				},
 			},
-			argFormat: "[[%source_ids%]]",
-			want:      []interface{}{[]string{"src1", "src2", "src3"}},
+			argFormat: "[%source_ids%]",
+			want: []interface{}{[]interface{}{
+				[]interface{}{"src1"},
+				[]interface{}{"src2"},
+				[]interface{}{"src3"},
+			}},
 		},
 		{
-			name: "multiple fields",
-			msg: &notebooklm.ActOnSourcesRequest{
-				ProjectId: "proj456",
-				Action:    "delete",
-				SourceIds: []string{"s1", "s2"},
+			name: "field name with digit",
+			msg: &notebooklm.CreateUniversalArtifactRequest{
+				ProjectId: "project123",
+				Unknown_6: []int32{1},
 			},
-			argFormat: "[%project_id%, %action%, %source_ids%]",
-			want:      []interface{}{"proj456", "delete", []string{"s1", "s2"}},
+			argFormat: "[%project_id%, %unknown_6%]",
+			want:      []interface{}{"project123", []interface{}{int64(1)}},
 		},
 		{
 			name: "chat command - GenerateFreeFormStreamed",
@@ -70,6 +108,21 @@ func TestEncodeRPCArgs(t *testing.T) {
 			},
 			argFormat: "[%project_id%, %prompt%]",
 			want:      []interface{}{"notebook123", "test prompt"},
+		},
+		{
+			// A scalar field wrapped in a one-element array. This must not be
+			// misparsed as a bare field (which would drop the brackets).
+			name:      "scalar field in nested array",
+			msg:       &notebooklm.SourceIdList{SourceId: "sid"},
+			argFormat: "[%source_id%]",
+			want:      []interface{}{"sid"},
+		},
+		{
+			// The full source-freshness wire shape: [null, [source_id], [2]].
+			name:      "source freshness shape",
+			msg:       &notebooklm.SourceIdList{SourceId: "sid"},
+			argFormat: "[null, [%source_id%], [2]]",
+			want:      []interface{}{nil, []interface{}{"sid"}, []interface{}{2}},
 		},
 	}
 

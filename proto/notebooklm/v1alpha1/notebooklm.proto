@@ -18,18 +18,98 @@ message Project {
   string emoji = 4;
   ProjectMetadata metadata = 6;
   ChatbotConfig chatbot_config = 8;
+  // Single per-notebook boolean flag (observed [false]); carried positionally.
+  repeated bool state_flags = 9 [(json_bool) = true]; // meaning unconfirmed
+  // Three per-notebook capability flags (observed [true,true,true]); exact
+  // meaning unconfirmed, so carried positionally.
+  repeated bool flags = 10 [(json_bool) = true];
+  // Per-notebook limits/quotas, e.g. [6,500,500,500000,6] or, on a few
+  // notebooks, [null,500,600,500000,3] with the first slot elided — modeled as
+  // a message of optional fields so a null slot round-trips as null rather than
+  // breaking a repeated int64 (which cannot hold a null element).
+  ProjectLimits limits = 11;
+  // Cover-image/presentation block for the notebook, e.g.
+  // [false, [[id, filename, 1, 2, image_url]], null, "Summary here", false].
+  // Same positional shape as orchestration.proto's FeaturedProjectPresentation
+  // / FeaturedProjectImage (not reused directly to avoid a circular import:
+  // orchestration.proto already imports this file).
+  ProjectCoverPresentation cover_presentation = 15;
+}
+
+// ProjectLimits is Project field 11: a 5-slot quota tuple. Modeled as optional
+// fields (not repeated int64) because the first slot is null on some notebooks.
+message ProjectLimits {
+    optional int64 tier = 1;            // observed 6, or null
+    optional int64 notebook_limit = 2;  // observed 500
+    optional int64 source_limit = 3;    // observed 500/600
+    optional int64 upload_limit = 4;    // observed 500000
+    optional int64 tier_2 = 5;          // observed 6/3
+}
+
+// ProjectCoverPresentation is Project field 15: a cover-image/presentation
+// block, positionally identical to orchestration.proto's
+// FeaturedProjectPresentation.
+message ProjectCoverPresentation {
+    optional bool curated = 1 [(json_bool) = true];
+    repeated ProjectCoverImage images = 2;
+    optional string provider = 3;
+    optional string description = 4;
+    // Meaning unconfirmed; varies among featured presentations.
+    optional bool presentation_flag = 5 [(json_bool) = true];
+}
+
+// ProjectCoverImage: [id, filename, position, image_kind, image_url]. Field 1
+// holds a UUID (not a URL) in this context, unlike orchestration.proto's
+// FeaturedProjectImage.url — otherwise the same shape.
+message ProjectCoverImage {
+    optional string id = 1;
+    // Original image filename.
+    optional string filename = 2;
+    optional int64 position = 3;   // confirmed 1-based image position
+    optional int64 image_kind = 4; // inferred image-kind code; observed 2
+    // Serving URL for the image (lh3.googleusercontent.com/notebooklm/…).
+    optional string image_url = 5;
 }
 
 message ProjectMetadata {
     int32 user_role = 1;
-    bool session_active = 2;  // or similar
-    // bool something = 3;
+    optional bool session_active = 2 [(json_bool) = true];  // or similar
+    // Meaning inferred; true in every observed owned and featured project.
+    optional bool is_initialized = 3 [(json_bool) = true];
     // field 4 reserved/unknown
     // field 5 reserved/unknown
     google.protobuf.Timestamp create_time = 9;
     google.protobuf.Timestamp modified_time = 6;  // or similar
     int32 type = 7;
-    bool is_starred = 8;
+    optional bool is_starred = 8 [(json_bool) = true];
+    // Inferred from false on owned projects and true on public featured ones.
+    optional bool is_shared = 13 [(json_bool) = true];
+    // Meaning unconfirmed; true in every observed project.
+    optional bool is_accessible = 14 [(json_bool) = true];
+    optional int64 access_state = 15; // inferred access code; observed 1
+    // Inferred from false on owned projects and true on public featured ones.
+    optional bool is_read_only = 16 [(json_bool) = true];
+    // Meaning unconfirmed; varies independently among featured projects.
+    optional bool secondary_access_flag = 18 [(json_bool) = true];
+    optional int64 sharing_state = 19; // inferred sharing code; observed 1/3
+    // [null, [null, 1]]: small nested message, meaning unconfirmed.
+    ProjectMetadataExtra ownership_details = 20; // inferred; present on owned projects
+    // Meaning unconfirmed; varies among featured projects.
+    optional bool discovery_flag = 23 [(json_bool) = true];
+}
+
+// ProjectMetadataExtra is ProjectMetadata field 20: [null, [null, 1]].
+// Field 1 is null in all observed captures; field 2 is itself a 2-field
+// message whose own field 1 is null and field 2 an observed int (1).
+message ProjectMetadataExtra {
+    // field 1 ([0]) is null in all observed captures; left unmodeled.
+    ProjectMetadataExtraInner detail = 2; // [1]
+}
+
+message ProjectMetadataExtraInner {
+    // Observed true in ListRecentlyViewedProjects captures (null in GetProject).
+    optional bool recent_project_flag = 1 [(json_bool) = true];
+    optional int32 ownership_code = 2; // [1] inferred; observed 1/2
 }
 
 message ChatGoalConfig {
@@ -55,7 +135,27 @@ message Source {
   string title = 2;
   SourceMetadata metadata = 3;
   SourceSettings settings = 4;
-  repeated google.protobuf.Int32Value warnings = 5;
+  // Observed as bare integers. Their semantics are unconfirmed.
+  repeated int32 warnings = 5;
+  // Content-download URL (usercontent.google.com/download?c=…).
+  string download_url = 6;
+  // Drive viewer/upload URL for the source blob.
+  string viewer_url = 7;
+  // Blob reference describing the stored source content.
+  SourceBlob blob = 8;
+}
+
+message SourceBlob {
+  // Blobref path, e.g. "/contrib_service/blobrefs/notebooklm/nos_files/…".
+  string blob_ref = 1;
+  // field 2 reserved/unknown (observed null)
+  string mime_type = 3;
+  // Opaque upload tokens carried with the blob.
+  BlobTokens tokens = 4;
+}
+
+message BlobTokens {
+  repeated string token = 1;
 }
 
 message SourceMetadata {
@@ -65,9 +165,52 @@ message SourceMetadata {
     }
     google.protobuf.Int32Value last_update_time_seconds = 2;
     google.protobuf.Timestamp last_modified_time = 3;
-    // google.internal.labs.tailwind.common.v1.RevisionData revision_data = 4;
-    SourceType source_type = 5;
+    RevisionData revision_data = 4;
+    // Present zero is distinct from an omitted source type on the wire.
+    optional SourceType source_type = 5;
     SourceSettings.SourceStatus status = 7;
+    // Source origin URL(s), e.g. the web page or Gutenberg URL a source was
+    // imported from.
+    repeated string source_urls = 8;
+    optional int64 content_length = 9; // inferred source length/count; unit unconfirmed
+    // Underlying file descriptor for uploaded/imported sources.
+    SourceFile file = 10;
+    // Human-readable source title/heading.
+    string heading = 12;
+    google.protobuf.Timestamp indexed_time = 15;
+    // Detected source languages with confidence scores, e.g.
+    // [[["en", 0.988], ["lb", 0.012]]] — an outer list carrying one ranked
+    // list of [lang, confidence] guesses.
+    SourceLanguageDetection language_detection = 17;
+    // Source MIME type, e.g. "application/pdf".
+    string mime_type = 20;
+}
+
+// SourceLanguageDetection is SourceMetadata field 17:
+// [[[lang, confidence], ...]] — field 1 wraps the ranked guess list.
+message SourceLanguageDetection {
+    repeated SourceLanguageGuess guesses = 1;
+}
+
+message SourceLanguageGuess {
+    string language = 1;   // BCP-47 code, e.g. "en", "lb"
+    double confidence = 2; // 0..1
+}
+
+message SourceFile {
+  // Drive/document identifier for the file.
+  string document_id = 1;
+  // Size in pages or units (observed 59 for a PDF).
+  int64 size = 2;
+  string mime_type = 3;
+  // Inferred Drive resource key; observed as an explicit empty string.
+  optional string resource_key = 4;
+}
+
+message RevisionData {
+  // Revision identifier (UUID).
+  string revision_id = 1;
+  google.protobuf.Timestamp revision_time = 2;
 }
 
 
@@ -87,12 +230,17 @@ enum SourceType {
 
 message GoogleDocsSourceMetadata {
     string document_id = 1;
+    // Opaque resource/revision token for the doc (often empty).
+    optional string resource_key = 2;
+    int64 size = 3; // inferred document size/count; unit unconfirmed
 }
 
 
 message YoutubeSourceMetadata {
     string youtube_url = 1;
     string video_id = 2;
+    // Channel or uploader name.
+    string channel = 3;
 }
 
 
@@ -104,7 +252,44 @@ message SourceSettings {
       SOURCE_STATUS_ERROR = 3;
     }
     SourceStatus status = 2;
-    // google.internal.labs.tailwind.common.v1.SourceIssue reason = 3;
+    // Reason/issue detail for a source in an error or disabled state
+    // (observed [null,null,[]] — only the repeated issue list at field 3 is
+    // populated, empty when the source is healthy).
+    SourceSettingsDetail detail = 3;
+    // Observed as 0 and 3; meaning unconfirmed.
+    optional int32 unknown_4 = 4;
+}
+
+message SourceSettingsDetail {
+  // field 1 reserved/unknown
+  // Size/quota triple observed [null, 650690, 500000] on some sources.
+  SourceSettingsSize size = 2;
+  // Issue list for the source, always present (empty [] when the source is
+  // healthy).
+  SourceIssueList issues = 3;
+  // Present-but-empty in most captures; individual code meanings unconfirmed.
+  SourceSettingsIntList detail_codes = 4;
+  // Present-but-empty in a source settings variant; meanings unconfirmed.
+  SourceSettingsIntList unknown_5 = 5;
+  // Observed [1]; individual code meanings unconfirmed.
+  repeated int64 state_codes = 7;
+}
+
+// SourceSettingsSize is SourceSettingsDetail field 2: [null, 650690, 500000],
+// a byte/char size pair (field 1 null in observed captures).
+message SourceSettingsSize {
+  optional int64 content_size = 2; // inferred current size; observed 650690
+  optional int64 size_limit = 3;   // inferred limit; observed 500000
+}
+
+// SourceSettingsIntList wraps a repeated int64 so a present-but-empty list
+// round-trips as [] rather than null.
+message SourceSettingsIntList {
+  repeated int64 items = 1;
+}
+
+message SourceIssueList {
+  repeated SourceIssue issues = 1;
 }
 
 message SourceIssue {
@@ -131,14 +316,72 @@ message SourceIssue {
 
 message Note {
   string note_id = 1;
+  // A freshly created note (CreateNote/CYK0Xb) carries an explicit empty
+  // string here; plain proto3 drops it as the default value on re-encode,
+  // so that one degenerate CreateNote position is not round-trip-preserved
+  // (all content-bearing MutateNote replies are lossless).
   string content_text = 2;
+  NoteMetadata metadata = 3;
   string title = 5;
   string rich_text = 6;
   repeated int32 note_type = 7;
 }
 
+// NoteRecord is the response-side note tuple. Unlike Note, content_text has
+// presence because CreateNote returns an explicit empty string.
+message NoteRecord {
+  string note_id = 1;
+  optional string content_text = 2;
+  NoteMetadata metadata = 3;
+  string title = 5;
+  string rich_text = 6;
+  repeated int32 note_type = 7;
+}
+
+// GetNotesEntry is one keyed GetNotes result: [note_id, note].
+message GetNotesEntry {
+  string note_id = 1;
+  NoteRecord note = 2;
+}
+
+// NoteMetadata is the note-metadata blob carried at Note position [2] in
+// CreateNote (CYK0Xb) and MutateNote (cYAfTb) replies:
+//
+//   [1, "157962509464", [secs, nanos], null, null, [secs, nanos], false]
+//
+// field_1 is a constant 1; note_id_int is the server-side numeric note id
+// (stable across a note's lifetime); the two timestamp pairs are the note's
+// created and last-modified times (equal on the first write, the modified
+// pair advancing on each subsequent MutateNote). Positions [3] and [4] are
+// null in all observed captures; field_7 is a constant false. Modeled with
+// optional scalars so the trailing false and the interior nulls round-trip.
+message NoteMetadata {
+  optional int64 version = 1;          // inferred schema version; observed 1
+  string note_id_int = 2;             // server numeric note id (wire: quoted string)
+  NoteTimestamp created = 3;          // [secs, nanos]
+  // positions [3], [4] are null in observed captures; left unmodeled.
+  NoteTimestamp modified = 6;         // [secs, nanos]
+  // Meaning unconfirmed; constant false in observed captures.
+  optional bool trailing_flag = 7 [(json_bool) = true];
+}
+
+// NoteTimestamp is an inline [seconds, nanos] pair (two positional int
+// fields, not a wrapped google.protobuf.Timestamp).
+message NoteTimestamp {
+  optional int64 seconds = 1;
+  optional int32 nanos = 2;
+}
+
 message GetNotesResponse {
   repeated Note notes = 1;
+  // Server timestamp of the notes snapshot.
+  google.protobuf.Timestamp fetch_time = 2;
+}
+
+// GetNotesWireResponse is the keyed response shape returned by cFji9.
+message GetNotesWireResponse {
+  repeated GetNotesEntry entries = 1;
+  google.protobuf.Timestamp fetch_time = 2;
 }
 
 message AudioOverview {
@@ -164,12 +407,80 @@ message GenerateDocumentGuidesResponse {
   repeated DocumentGuide guides = 1;
 }
 
+// DocumentGuide is one per-source guide in a GenerateDocumentGuides (tr032e)
+// reply. HAR-verified wire (more-requests3, keyed by source_id):
+//
+//   [ [[source_id]], [summary], [[topic, topic, ...]], [] ]
+//
+// The live reader (api.Client.GenerateSourceGuide) hand-parses these
+// positions directly; this message mirrors the wire for betool/beprotojson
+// decode. Positions [1] and [2] wrap their payload one level deep, so each is
+// modeled as a small wrapper message.
 message DocumentGuide {
-  string content = 1;
+  DocumentGuideId source_id = 1;      // [[source_id]]
+  DocumentGuideSummary summary = 2;   // [summary_text]
+  DocumentGuideTopics topics = 3;     // [[topic, topic, ...]]
+  DocumentGuideExtra extra = 4; // [] in observed captures; meaning unconfirmed
+}
+
+// DocumentGuideId wraps the doubly-nested source id at DocumentGuide[0]:
+// [[source_id]].
+message DocumentGuideId {
+  repeated string id = 1;
+}
+
+// DocumentGuideSummary wraps the summary text at DocumentGuide[1]: [summary].
+message DocumentGuideSummary {
+  string text = 1;
+}
+
+// DocumentGuideTopics wraps the key-topic chips at DocumentGuide[2]:
+// [[topic, topic, ...]].
+message DocumentGuideTopics {
+  repeated string topics = 1;
+}
+
+// DocumentGuideExtra is the empty list at DocumentGuide[3]. Modeled as a
+// present-but-empty message so the [] round-trips rather than collapsing to
+// null (mirrors ProjectCollaboratorTags).
+message DocumentGuideExtra {
+  repeated string items = 1;
 }
 
 message GenerateNotebookGuideResponse {
-  string content = 1;
+  NotebookGuide guide = 1;
+  // Guide identifier (UUID).
+  string guide_id = 2;
+}
+
+message NotebookGuide {
+  GuideSummary summary = 1;
+  GuideQuestions questions = 2;
+  // fields 3,4 reserved/unknown (observed null)
+  GuideScoredQuestions scored_questions = 6;
+}
+
+message GuideSummary {
+  string text = 1;
+}
+
+message GuideQuestions {
+  repeated GuideQuestion items = 1;
+}
+
+message GuideQuestion {
+  string question = 1;
+  // Suggested prompt that expands the question.
+  string prompt = 2;
+}
+
+message GuideScoredQuestions {
+  repeated GuideScoredQuestion items = 1;
+}
+
+message GuideScoredQuestion {
+  string question = 1;
+  int64 score = 2;
 }
 
 message GenerateOutlineResponse {
@@ -344,8 +655,23 @@ service NotebookLM {
 */
 
 message GenerateMagicViewRequest {
-    string project_id = 1;
-    repeated string source_ids = 2;
+    MagicViewRequestContext context = 1;
+    string project_id = 2;
+}
+
+message MagicViewRequestContext {
+    optional int32 version = 1;
+    MagicViewRequestSurface surface = 3;
+    MagicViewRequestCaps caps = 4;
+}
+
+message MagicViewRequestSurface {
+    optional int32 value = 1;
+}
+
+message MagicViewRequestCaps {
+    optional int32 version = 1;
+    repeated int32 capability_codes = 11;
 }
 
 message MagicViewItem {
@@ -353,8 +679,7 @@ message MagicViewItem {
 }
 
 message GenerateMagicViewResponse {
-    string title = 1;
-    repeated MagicViewItem items = 4;
+    int32 status = 1; // captured opaque status code; meaning unconfirmed
 }
 
 // Sharing and Guidebooks services are defined in sharing.proto

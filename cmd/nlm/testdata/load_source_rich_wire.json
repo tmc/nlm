@@ -1,0 +1,18 @@
+[
+  null,
+  null,
+  null,
+  [
+    [
+      [
+        [0, 4, [[[0, 4, ["Text", [true, null, null, "link", ["Inter", 400, 11], [1, 2, 3], null, true, null, 1]]]], [null, 1], null, [null, null, 0, {"101": "•", "102": 1, "103": 1, "104": 0}]]],
+        [4, 8, null, null, [5, 1, [[4, 8, [[4, 8, [[4, 8, [[[4, 8, ["Cell"]]]]]]]]]]]],
+        [8, 12, null, null, null, null, ["code", "go"]]
+      ]
+    ],
+    [],
+    [
+      [1, [false, false, false, null, ["Inter", 400, 11], [1, 2, 3], null, null, false]]
+    ]
+  ]
+]

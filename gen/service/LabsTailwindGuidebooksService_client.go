@@ -12,7 +12,6 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -44,7 +43,7 @@ func (c *LabsTailwindGuidebooksServiceClient) DeleteGuidebook(ctx context.Contex
 	call := rpc.Call{
 		ID:         "ARGkVc",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeDeleteGuidebookArgsV2(req),
+		Args:       method.EncodeDeleteGuidebookArgs(req),
 	}
 
 	// Execute the RPC
@@ -116,7 +115,7 @@ func (c *LabsTailwindGuidebooksServiceClient) PublishGuidebook(ctx context.Conte
 	call := rpc.Call{
 		ID:         "R6smae",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodePublishGuidebookArgsV2(req),
+		Args:       method.EncodePublishGuidebookArgs(req),
 	}
 
 	// Execute the RPC
@@ -164,7 +163,7 @@ func (c *LabsTailwindGuidebooksServiceClient) ShareGuidebook(ctx context.Context
 	call := rpc.Call{
 		ID:         "OTl0K",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeShareGuidebookArgsV2(req),
+		Args:       method.EncodeShareGuidebookArgs(req),
 	}
 
 	// Execute the RPC
@@ -188,7 +187,7 @@ func (c *LabsTailwindGuidebooksServiceClient) GuidebookGenerateAnswer(ctx contex
 	call := rpc.Call{
 		ID:         "itA0pc",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeGuidebookGenerateAnswerArgsV2(req),
+		Args:       method.EncodeGuidebookGenerateAnswerArgs(req),
 	}
 
 	// Execute the RPC

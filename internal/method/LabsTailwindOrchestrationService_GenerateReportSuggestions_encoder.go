@@ -12,8 +12,8 @@ import (
 // Shape: [ProjectContext, "notebook-id", [["src1"], ["src2"], ...]].
 func EncodeGenerateReportSuggestionsArgs(req *notebooklmv1alpha1.GenerateReportSuggestionsRequest) []interface{} {
 	var sourceRefs []interface{}
-	for _, id := range req.GetSourceIds() {
-		sourceRefs = append(sourceRefs, []interface{}{id})
+	for _, source := range req.GetSourceIds() {
+		sourceRefs = append(sourceRefs, []interface{}{source.GetSourceId()})
 	}
 
 	projectContext := []interface{}{

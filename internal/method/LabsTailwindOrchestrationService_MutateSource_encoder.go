@@ -21,11 +21,8 @@ import (
 // carries the new title at its field 1. Only title updates are supported by
 // this encoder today — other Source fields are ignored.
 func EncodeMutateSourceArgs(req *notebooklmv1alpha1.MutateSourceRequest) []interface{} {
-	id := req.GetSourceId()
-	var title string
-	if upd := req.GetUpdates(); upd != nil {
-		title = upd.GetTitle()
-	}
+	id := req.GetSourceId().GetSourceId()
+	title := req.GetUpdates().GetUpdate().GetTitle().GetTitle()
 	return []interface{}{
 		nil,
 		[]interface{}{id},

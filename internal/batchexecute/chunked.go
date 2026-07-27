@@ -1,7 +1,6 @@
 package batchexecute
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,42 +16,15 @@ import (
 // <chunk-data>
 // ...
 func parseChunkedResponse(r io.Reader) ([]Response, error) {
-	// First, strip the prefix if present
-	br := bufio.NewReader(r)
-
-	// The response format is )]}'\n\n or )]}'\n
-	// We need to consume the entire prefix including newlines
-	prefix, err := br.Peek(6) // Peek enough to see )]}'\n
-	if err != nil && err != io.EOF {
-		// If we can't peek 6, try 4
-		prefix, err = br.Peek(4)
-		if err != nil && err != io.EOF {
-			return nil, fmt.Errorf("peek response prefix: %w", err)
-		}
+	remaining, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	// Debug: print what we see
-	if len(prefix) > 0 {
-	}
-
-	// Check for and discard the )]}' prefix with newlines
-	if len(prefix) >= 4 && string(prefix[:4]) == ")]}'" {
-		// Read the first line ()]}')
-		_, err := br.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return nil, fmt.Errorf("read prefix line: %w", err)
-		}
-
-		// Check if there's an additional empty line and consume it
-		nextByte, err := br.Peek(1)
-		if err == nil && len(nextByte) > 0 && nextByte[0] == '\n' {
-			br.ReadByte() // Consume the extra newline
-		}
-	}
-
-	// Read all remaining data.
-	remaining, _ := io.ReadAll(br)
-	raw := strings.TrimSpace(string(remaining))
+	// Strip the ")]}'" anti-JSON-hijacking marker. Servers emit it in several
+	// layouts — contiguous ")]}'\n\n" or with each character on its own line
+	// (")\n]\n}'\n\n") — so normalize any of them.
+	raw := strings.TrimSpace(stripAntiHijackPrefix(string(remaining)))
 
 	// Check for numeric-only responses (error codes like 277566, or success codes like 0, 1)
 	// before attempting bracket-based chunk extraction.
@@ -62,6 +34,11 @@ func parseChunkedResponse(r io.Reader) ([]Response, error) {
 			Data: json.RawMessage(raw),
 		}}, nil
 	}
+
+	// Sanitize control characters that appear unescaped inside JSON string
+	// values (NotebookLM markdown bodies contain literal newlines) so that the
+	// bracket scan and json.Unmarshal below see valid JSON.
+	raw = sanitizeJSONControlChars(raw)
 
 	// Split into chunks. The batchexecute chunked format uses length
 	// prefixes, but the exact counting varies. Instead of trusting the
@@ -275,6 +252,24 @@ func processChunks(chunks []string) ([]Response, error) {
 	return allResponses, nil
 }
 
+// statusCodeFromSlot reads the gRPC canonical status code out of a frame's
+// position-5 value. The observed shape is a single-element list, [3] or [13];
+// a bare number is accepted as well. It returns 0 when the value is neither,
+// which leaves the frame treated as a normal payload.
+func statusCodeFromSlot(slot interface{}) int {
+	switch value := slot.(type) {
+	case float64:
+		return int(value)
+	case []interface{}:
+		if len(value) > 0 {
+			if code, ok := value[0].(float64); ok {
+				return int(code)
+			}
+		}
+	}
+	return 0
+}
+
 // extractResponses extracts Response objects from RPC data
 func extractResponses(data [][]interface{}) ([]Response, error) {
 	var responses []Response
@@ -312,16 +307,23 @@ func extractResponses(data [][]interface{}) ([]Response, error) {
 		if rpcData[2] != nil {
 			switch data := rpcData[2].(type) {
 			case string:
-				resp.Data = unescapeResponseData(data)
+				resp.Data = normalizeResponseData(unescapeResponseData(data))
 			default:
 				if rawData, err := json.Marshal(data); err == nil {
 					resp.Data = rawData
 				}
 			}
 		} else if len(rpcData) > 5 && rpcData[5] != nil {
-			// Position 5 contains error codes or fallback data (e.g., [16] for UNAUTHENTICATED)
+			// Position 5 carries a gRPC canonical status code when position 2
+			// is null: the frame is ["wrb.fr",id,null,null,null,[code],...],
+			// e.g. [3] INVALID_ARGUMENT, [13] INTERNAL, [16] UNAUTHENTICATED.
+			// batchexecute tunnels these in-band, so the HTTP status is still
+			// 200. Data is retained for IsErrorResponse and for callers that
+			// inspect the raw code, but Status marks the frame as carrying no
+			// RPC payload so it is not mistaken for a response message.
 			if rawData, err := json.Marshal(rpcData[5]); err == nil {
 				resp.Data = rawData
+				resp.Status = statusCodeFromSlot(rpcData[5])
 			}
 		}
 

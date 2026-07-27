@@ -1,11 +1,32 @@
 package api
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
 
-func TestParseAccountStatus(t *testing.T) {
+	genmethod "github.com/tmc/nlm/gen/method"
+)
+
+func TestAccountRequestEncoderMatchesCorpus(t *testing.T) {
+	got := genmethod.EncodeGetOrCreateAccountArgs(accountRequest())
+	want := []interface{}{[]interface{}{2, nil, []interface{}{1}, []interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1, 3}}}}
+	gotJSON, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantJSON, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotJSON) != string(wantJSON) {
+		t.Fatalf("encoded account request = %#v, want %#v", got, want)
+	}
+}
+
+func TestParseAccountStatusProto(t *testing.T) {
 	data := []byte(`[[null,[6,500,300,500000,2],[true,null,null,true,[null,null,null,[[2,2,2]]],null,false,null,false],[[1]],[true,1,3,2]]]`)
 
-	got, err := parseAccountStatus(data)
+	got, err := parseAccountStatusProto(data)
 	if err != nil {
 		t.Fatalf("parseAccountStatus() error = %v", err)
 	}

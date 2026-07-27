@@ -1,0 +1,65 @@
+# Test the hidden betool wire-codec subcommand surface (offline, no auth).
+# Payload round-trip fidelity is covered by TestBetool in betool_test.go and
+# by the codec tests in internal/batchexecute; this script covers dispatch,
+# visibility, and error handling.
+
+# betool is hidden from help.
+exec ./nlm_test --help
+! stderr 'betool'
+
+# betool is hidden even under --experimental (like other developer tools).
+exec ./nlm_test --experimental --help
+! stderr 'betool'
+
+# Missing mode errors and exits non-zero.
+! exec ./nlm_test betool
+stderr 'missing mode'
+
+# Unknown mode errors and exits non-zero.
+! exec ./nlm_test betool frobnicate
+stderr 'unknown mode'
+
+# help mode prints usage and exits 0.
+exec ./nlm_test betool help
+stderr 'Translate raw batchexecute'
+stderr 'decode-request'
+stderr 'encode-response'
+
+# The documented round-trip example must decode with --json, since the encode
+# modes consume JSON and the decode default is now human-readable text. This
+# guards the regression where the example showed a plain decode-response piped
+# into encode-response (which fails on the text output).
+exec ./nlm_test betool help
+stderr 'nlm --json betool decode-response'
+
+# Default decode output is human-readable text, not JSON: it names the RPC and
+# previews the data, and is NOT the structured "responses" JSON that
+# encode-response consumes. (The JSON round-trip is covered in Go by
+# TestBetoolRoundTripResponse.)
+exec ./nlm_test betool decode-response testdata/betool/response.txt
+stdout 'response'
+stdout 'CCqFvf'
+! stdout '"responses"'
+
+# The same body with the global --json flag emits the structured JSON that
+# encode-response can round-trip.
+exec ./nlm_test --json betool decode-response testdata/betool/response.txt
+stdout '"responses"'
+stdout '"CCqFvf"'
+
+# Too many arguments is rejected.
+! exec ./nlm_test betool decode-request a.txt b.txt
+stderr 'at most one input file'
+
+# A missing input file is reported clearly (does not require auth).
+! exec ./nlm_test betool decode-request does-not-exist.txt
+stderr 'read does-not-exist.txt'
+! stderr 'Authentication required'
+
+# --proto/--verify only apply to decode modes.
+! exec ./nlm_test betool encode-request --proto
+stderr 'apply only to decode'
+
+# Unknown flag is rejected.
+! exec ./nlm_test betool decode-response --bogus
+stderr 'unknown flag'

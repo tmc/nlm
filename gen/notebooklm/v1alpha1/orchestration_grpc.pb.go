@@ -22,52 +22,92 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	LabsTailwindOrchestrationService_CreateArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateArtifact"
-	LabsTailwindOrchestrationService_GetArtifact_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetArtifact"
-	LabsTailwindOrchestrationService_UpdateArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpdateArtifact"
-	LabsTailwindOrchestrationService_RenameArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RenameArtifact"
-	LabsTailwindOrchestrationService_DeleteArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteArtifact"
-	LabsTailwindOrchestrationService_ListArtifacts_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListArtifacts"
-	LabsTailwindOrchestrationService_QueryArtifacts_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/QueryArtifacts"
-	LabsTailwindOrchestrationService_ActOnSources_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ActOnSources"
-	LabsTailwindOrchestrationService_AddSources_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/AddSources"
-	LabsTailwindOrchestrationService_CheckSourceFreshness_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CheckSourceFreshness"
-	LabsTailwindOrchestrationService_DeleteSources_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteSources"
-	LabsTailwindOrchestrationService_DiscoverSources_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DiscoverSources"
-	LabsTailwindOrchestrationService_LoadSource_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/LoadSource"
-	LabsTailwindOrchestrationService_MutateSource_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateSource"
-	LabsTailwindOrchestrationService_RefreshSource_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RefreshSource"
-	LabsTailwindOrchestrationService_CreateAudioOverview_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateAudioOverview"
-	LabsTailwindOrchestrationService_GetAudioOverview_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetAudioOverview"
-	LabsTailwindOrchestrationService_DeleteAudioOverview_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteAudioOverview"
-	LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateVideoOverview"
-	LabsTailwindOrchestrationService_CreateNote_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateNote"
-	LabsTailwindOrchestrationService_DeleteNotes_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteNotes"
-	LabsTailwindOrchestrationService_GetNotes_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetNotes"
-	LabsTailwindOrchestrationService_MutateNote_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateNote"
-	LabsTailwindOrchestrationService_CreateProject_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateProject"
-	LabsTailwindOrchestrationService_DeleteProjects_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteProjects"
-	LabsTailwindOrchestrationService_GetProject_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetProject"
-	LabsTailwindOrchestrationService_ListFeaturedProjects_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListFeaturedProjects"
-	LabsTailwindOrchestrationService_ListRecentlyViewedProjects_FullMethodName  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListRecentlyViewedProjects"
-	LabsTailwindOrchestrationService_MutateProject_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateProject"
-	LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_FullMethodName = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RemoveRecentlyViewedProject"
-	LabsTailwindOrchestrationService_GenerateDocumentGuides_FullMethodName      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateDocumentGuides"
-	LabsTailwindOrchestrationService_GenerateFreeFormStreamed_FullMethodName    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
-	LabsTailwindOrchestrationService_GenerateNotebookGuide_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateNotebookGuide"
-	LabsTailwindOrchestrationService_GenerateOutline_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateOutline"
-	LabsTailwindOrchestrationService_GenerateReportSuggestions_FullMethodName   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateReportSuggestions"
-	LabsTailwindOrchestrationService_GenerateSection_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateSection"
-	LabsTailwindOrchestrationService_StartDraft_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDraft"
-	LabsTailwindOrchestrationService_StartSection_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartSection"
-	LabsTailwindOrchestrationService_GenerateMagicView_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateMagicView"
-	LabsTailwindOrchestrationService_GetProjectAnalytics_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetProjectAnalytics"
-	LabsTailwindOrchestrationService_SubmitFeedback_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/SubmitFeedback"
-	LabsTailwindOrchestrationService_GetConversations_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetConversations"
-	LabsTailwindOrchestrationService_GetConversationHistory_FullMethodName      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetConversationHistory"
-	LabsTailwindOrchestrationService_DeleteChatHistory_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteChatHistory"
-	LabsTailwindOrchestrationService_GetOrCreateAccount_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetOrCreateAccount"
-	LabsTailwindOrchestrationService_MutateAccount_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateAccount"
+	LabsTailwindOrchestrationService_CreateArtifact_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateArtifact"
+	LabsTailwindOrchestrationService_GetArtifact_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetArtifact"
+	LabsTailwindOrchestrationService_UpdateArtifact_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpdateArtifact"
+	LabsTailwindOrchestrationService_RenameArtifact_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RenameArtifact"
+	LabsTailwindOrchestrationService_DeleteArtifact_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteArtifact"
+	LabsTailwindOrchestrationService_ListArtifacts_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListArtifacts"
+	LabsTailwindOrchestrationService_QueryArtifacts_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/QueryArtifacts"
+	LabsTailwindOrchestrationService_ActOnSources_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ActOnSources"
+	LabsTailwindOrchestrationService_AddSources_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/AddSources"
+	LabsTailwindOrchestrationService_CheckSourceFreshness_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CheckSourceFreshness"
+	LabsTailwindOrchestrationService_DeleteSources_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteSources"
+	LabsTailwindOrchestrationService_DiscoverSources_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DiscoverSources"
+	LabsTailwindOrchestrationService_LoadSource_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/LoadSource"
+	LabsTailwindOrchestrationService_MutateSource_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateSource"
+	LabsTailwindOrchestrationService_RefreshSource_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RefreshSource"
+	LabsTailwindOrchestrationService_CreateAudioOverview_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateAudioOverview"
+	LabsTailwindOrchestrationService_GetAudioOverview_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetAudioOverview"
+	LabsTailwindOrchestrationService_DeleteAudioOverview_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteAudioOverview"
+	LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateVideoOverview"
+	LabsTailwindOrchestrationService_CreateUniversalArtifact_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateUniversalArtifact"
+	LabsTailwindOrchestrationService_CreateNote_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateNote"
+	LabsTailwindOrchestrationService_DeleteNotes_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteNotes"
+	LabsTailwindOrchestrationService_GetNotes_FullMethodName                      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetNotes"
+	LabsTailwindOrchestrationService_MutateNote_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateNote"
+	LabsTailwindOrchestrationService_CreateProject_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateProject"
+	LabsTailwindOrchestrationService_DeleteProjects_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteProjects"
+	LabsTailwindOrchestrationService_GetProject_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetProject"
+	LabsTailwindOrchestrationService_ListFeaturedProjects_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListFeaturedProjects"
+	LabsTailwindOrchestrationService_ListRecentlyViewedProjects_FullMethodName    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListRecentlyViewedProjects"
+	LabsTailwindOrchestrationService_MutateProject_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateProject"
+	LabsTailwindOrchestrationService_MutateProjectCover_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateProjectCover"
+	LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_FullMethodName   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/RemoveRecentlyViewedProject"
+	LabsTailwindOrchestrationService_GenerateFreeFormStreamed_FullMethodName      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
+	LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_FullMethodName  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateFreeFormStreamedWire"
+	LabsTailwindOrchestrationService_GenerateNotebookGuide_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateNotebookGuide"
+	LabsTailwindOrchestrationService_GenerateOutline_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateOutline"
+	LabsTailwindOrchestrationService_GenerateReportSuggestions_FullMethodName     = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateReportSuggestions"
+	LabsTailwindOrchestrationService_GenerateSection_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateSection"
+	LabsTailwindOrchestrationService_StartDraft_FullMethodName                    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDraft"
+	LabsTailwindOrchestrationService_StartSection_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartSection"
+	LabsTailwindOrchestrationService_GenerateMagicView_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateMagicView"
+	LabsTailwindOrchestrationService_GetProjectAnalytics_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetProjectAnalytics"
+	LabsTailwindOrchestrationService_SubmitFeedback_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/SubmitFeedback"
+	LabsTailwindOrchestrationService_GetConversations_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetConversations"
+	LabsTailwindOrchestrationService_GetConversationHistory_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetConversationHistory"
+	LabsTailwindOrchestrationService_DeleteChatHistory_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteChatHistory"
+	LabsTailwindOrchestrationService_GetOrCreateAccount_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetOrCreateAccount"
+	LabsTailwindOrchestrationService_MutateAccount_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateAccount"
+	LabsTailwindOrchestrationService_AddFileSource_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/AddFileSource"
+	LabsTailwindOrchestrationService_DeleteChatTurns_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteChatTurns"
+	LabsTailwindOrchestrationService_StartFastResearch_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartFastResearch"
+	LabsTailwindOrchestrationService_StartDeepResearch_FullMethodName             = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearch"
+	LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName         = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/StartDeepResearchWire"
+	LabsTailwindOrchestrationService_GetDeepResearchSessions_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetDeepResearchSessions"
+	LabsTailwindOrchestrationService_PollDeepResearch_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/PollDeepResearch"
+	LabsTailwindOrchestrationService_DeleteDeepResearch_FullMethodName            = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteDeepResearch"
+	LabsTailwindOrchestrationService_BulkImportFromResearch_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/BulkImportFromResearch"
+	LabsTailwindOrchestrationService_BulkImportFromResearchWire_FullMethodName    = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/BulkImportFromResearchWire"
+	LabsTailwindOrchestrationService_GetAudioFormats_FullMethodName               = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetAudioFormats"
+	LabsTailwindOrchestrationService_GenerateDocumentGuides_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateDocumentGuides"
+	LabsTailwindOrchestrationService_LogEvent_FullMethodName                      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/LogEvent"
+	LabsTailwindOrchestrationService_ReportContent_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ReportContent"
+	LabsTailwindOrchestrationService_ReviseArtifact_FullMethodName                = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ReviseArtifact"
+	LabsTailwindOrchestrationService_GenerateArtifactSuggestions_FullMethodName   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateArtifactSuggestions"
+	LabsTailwindOrchestrationService_FetchInteractivityToken_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/FetchInteractivityToken"
+	LabsTailwindOrchestrationService_SDPExchange_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/SDPExchange"
+	LabsTailwindOrchestrationService_GetLabels_FullMethodName                     = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetLabels"
+	LabsTailwindOrchestrationService_UpsertArtifactUserState_FullMethodName       = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpsertArtifactUserState"
+	LabsTailwindOrchestrationService_GetArtifactUserState_FullMethodName          = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetArtifactUserState"
+	LabsTailwindOrchestrationService_CreateLabel_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateLabel"
+	LabsTailwindOrchestrationService_MutateLabelsMode_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateLabelsMode"
+	LabsTailwindOrchestrationService_MutateLabel_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/MutateLabel"
+	LabsTailwindOrchestrationService_DeleteLabels_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/DeleteLabels"
+	LabsTailwindOrchestrationService_GenerateArtifact_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateArtifact"
+	LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_FullMethodName      = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CancelDiscoverSourcesJob"
+	LabsTailwindOrchestrationService_CancelGeneration_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CancelGeneration"
+	LabsTailwindOrchestrationService_ExportToDrive_FullMethodName                 = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ExportToDrive"
+	LabsTailwindOrchestrationService_UpdateFeaturedNotebookStatus_FullMethodName  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpdateFeaturedNotebookStatus"
+	LabsTailwindOrchestrationService_ListModelOptions_FullMethodName              = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListModelOptions"
+	LabsTailwindOrchestrationService_UpdateProjectUserState_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/UpdateProjectUserState"
+	LabsTailwindOrchestrationService_ExecuteWritingFunction_FullMethodName        = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ExecuteWritingFunction"
+	LabsTailwindOrchestrationService_ListExpertIntelligenceContent_FullMethodName = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/ListExpertIntelligenceContent"
+	LabsTailwindOrchestrationService_GenerateAccessToken_FullMethodName           = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GenerateAccessToken"
+	LabsTailwindOrchestrationService_GetMagicView_FullMethodName                  = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/GetMagicView"
+	LabsTailwindOrchestrationService_CopyProject_FullMethodName                   = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CopyProject"
+	LabsTailwindOrchestrationService_CreateAudioOverviewLegacy_FullMethodName     = "/notebooklm.v1alpha1.LabsTailwindOrchestrationService/CreateAudioOverviewLegacy"
 )
 
 // LabsTailwindOrchestrationServiceClient is the client API for LabsTailwindOrchestrationService service.
@@ -76,6 +116,15 @@ const (
 type LabsTailwindOrchestrationServiceClient interface {
 	// Artifact operations
 	CreateArtifact(ctx context.Context, in *CreateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
+	// GetArtifact (v9rmvd). The JS bundle binds v9rmvd to
+	// /LabsTailwindOrchestrationService.GetArtifact, so the RPC does
+	// exist on the wire — it just isn't invoked by the live web UI,
+	// which prefers gArtLc (ListArtifacts) + client-side filter for
+	// its rendering path. The earlier BnLyuf id was a different,
+	// unreachable inference that returned 400.
+	//
+	// Direct captures use [artifact_id, context]. The live API retains its
+	// positional parser as the projection oracle.
 	GetArtifact(ctx context.Context, in *GetArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	UpdateArtifact(ctx context.Context, in *UpdateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	RenameArtifact(ctx context.Context, in *RenameArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
@@ -83,24 +132,57 @@ type LabsTailwindOrchestrationServiceClient interface {
 	ListArtifacts(ctx context.Context, in *ListArtifactsRequest, opts ...grpc.CallOption) (*ListArtifactsResponse, error)
 	QueryArtifacts(ctx context.Context, in *QueryArtifactsRequest, opts ...grpc.CallOption) (*QueryArtifactsResponse, error)
 	// Source operations
-	ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*Project, error)
+	ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*ActOnSourcesResponse, error)
+	// AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
+	// containing the same Source descriptor LoadSource (hizoJc) returns:
+	//
+	//	[ [source_id], title, [source_metadata], [null,2], ... ]
+	//
+	// not a Project envelope.
+	AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*AddSourcesResponse, error)
 	CheckSourceFreshness(ctx context.Context, in *CheckSourceFreshnessRequest, opts ...grpc.CallOption) (*CheckSourceFreshnessResponse, error)
 	DeleteSources(ctx context.Context, in *DeleteSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// DiscoverSources (Es3dTe). Per the JS bundle binding to
+	// /LabsTailwindOrchestrationService.DiscoverSources. The previous
+	// rpc_id "qXyaNe" was a speculative inference that does not match
+	// any JS bundle entry or HAR capture; corrected to Es3dTe.
+	//
+	// No HAR yet for the wire shape. arg_format below is a likely
+	// shape based on sibling RPCs but is unverified — TODO(har):
+	// capture by triggering "Discover sources" from the source-add
+	// UI.
+	//
+	// Note: the related research-flow RPCs (Ljjv0c, QA9ei, e3bVqc,
+	// LBwxtb) are bound by the JS bundle to DiscoverSources*-family
+	// names (DiscoverSourcesManifold, DiscoverSourcesAsync,
+	// ListDiscoverSourcesJob, FinishDiscoverSourcesRun); the
+	// "research" feature is layered on top of the DiscoverSources job
+	// system.
 	DiscoverSources(ctx context.Context, in *DiscoverSourcesRequest, opts ...grpc.CallOption) (*DiscoverSourcesResponse, error)
-	LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*Source, error)
+	// LoadSource (hizoJc) returns a Source descriptor and loaded content. The
+	// HAR (more-requests3) source shape is
+	//
+	//	[ [source_id], title,
+	//	  [null, status, [added_ts], [origin_source_id, [origin_ts]], type,
+	//	   null, 1, null, byte_size, null×5, [indexed_ts], null×4, mime_type],
+	//	  [null, 2], null, download_url, viewer_url, ... ]
+	//
+	// AddSources (izAoDd) returns the same descriptor inside a list.
+	LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*LoadSourceResponse, error)
 	MutateSource(ctx context.Context, in *MutateSourceRequest, opts ...grpc.CallOption) (*Source, error)
 	RefreshSource(ctx context.Context, in *RefreshSourceRequest, opts ...grpc.CallOption) (*Source, error)
 	// Audio operations
-	CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error)
+	CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*Artifact, error)
 	GetAudioOverview(ctx context.Context, in *GetAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error)
 	DeleteAudioOverview(ctx context.Context, in *DeleteAudioOverviewRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
-	CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*VideoOverview, error)
+	CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*Artifact, error)
+	// Decode-complete binding for the polymorphic R7cb6c request envelope.
+	CreateUniversalArtifact(ctx context.Context, in *CreateUniversalArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
 	// Note operations
-	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Note, error)
+	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*NoteRecord, error)
 	DeleteNotes(ctx context.Context, in *DeleteNotesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesResponse, error)
+	GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesRichWireResponse, error)
 	MutateNote(ctx context.Context, in *MutateNoteRequest, opts ...grpc.CallOption) (*Note, error)
 	// Project operations
 	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*Project, error)
@@ -109,12 +191,27 @@ type LabsTailwindOrchestrationServiceClient interface {
 	ListFeaturedProjects(ctx context.Context, in *ListFeaturedProjectsRequest, opts ...grpc.CallOption) (*ListFeaturedProjectsResponse, error)
 	ListRecentlyViewedProjects(ctx context.Context, in *ListRecentlyViewedProjectsRequest, opts ...grpc.CallOption) (*ListRecentlyViewedProjectsResponse, error)
 	MutateProject(ctx context.Context, in *MutateProjectRequest, opts ...grpc.CallOption) (*Project, error)
+	MutateProjectCover(ctx context.Context, in *MutateProjectCoverRequest, opts ...grpc.CallOption) (*Project, error)
 	RemoveRecentlyViewedProject(ctx context.Context, in *RemoveRecentlyViewedProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Generation operations
-	GenerateDocumentGuides(ctx context.Context, in *GenerateDocumentGuidesRequest, opts ...grpc.CallOption) (*GenerateDocumentGuidesResponse, error)
+	//
+	// Per-source guide generation (tr032e) is not declared here; the wire
+	// call is keyed by source_id with a 4-level-nested arg shape that the
+	// [%project_id%]-style arg_format cannot express. It's invoked directly
+	// via rpc.Do in the api package (see api.Client.GenerateSourceGuide).
 	GenerateFreeFormStreamed(ctx context.Context, in *GenerateFreeFormStreamedRequest, opts ...grpc.CallOption) (LabsTailwindOrchestrationService_GenerateFreeFormStreamedClient, error)
+	// Decode-complete positional binding for captured gRPC-Web request and
+	// response frames. The logical method above remains the live API surface.
+	GenerateFreeFormStreamedWire(ctx context.Context, in *GenerateFreeFormStreamedWireRequest, opts ...grpc.CallOption) (LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireClient, error)
 	GenerateNotebookGuide(ctx context.Context, in *GenerateNotebookGuideRequest, opts ...grpc.CallOption) (*GenerateNotebookGuideResponse, error)
 	GenerateOutline(ctx context.Context, in *GenerateOutlineRequest, opts ...grpc.CallOption) (*GenerateOutlineResponse, error)
+	// GenerateReportSuggestions (ciyUvf). HAR-verified; see
+	// internal/method/LabsTailwindOrchestrationService_GenerateReportSuggestions_encoder.go.
+	//
+	// GHsKob is a legacy/predecessor id for the same logical RPC. It
+	// does not appear in the current JS bundle (boq_labs-tailwind-frontend)
+	// and has no observed wire traffic. Treat GHsKob as dead; ciyUvf
+	// is the live id.
 	GenerateReportSuggestions(ctx context.Context, in *GenerateReportSuggestionsRequest, opts ...grpc.CallOption) (*GenerateReportSuggestionsResponse, error)
 	GenerateSection(ctx context.Context, in *GenerateSectionRequest, opts ...grpc.CallOption) (*GenerateSectionResponse, error)
 	StartDraft(ctx context.Context, in *StartDraftRequest, opts ...grpc.CallOption) (*StartDraftResponse, error)
@@ -130,6 +227,265 @@ type LabsTailwindOrchestrationServiceClient interface {
 	// Account operations
 	GetOrCreateAccount(ctx context.Context, in *GetOrCreateAccountRequest, opts ...grpc.CallOption) (*Account, error)
 	MutateAccount(ctx context.Context, in *MutateAccountRequest, opts ...grpc.CallOption) (*Account, error)
+	// Source registration for Resumable Upload (rpc.go:31)
+	//
+	// Request shape, captured from api.Client.registerFileSource
+	// (internal/notebooklm/api/client.go:952):
+	//
+	//	[[[filename]], project_id, [2], [1, null × 9, [1]]]
+	//
+	// The arg_format directive cannot express the deeply-nested wrapper;
+	// a custom encoder lives at api.Client.registerFileSource. Returns
+	// the server-assigned source_id at response position [0][0][0].
+	AddFileSource(ctx context.Context, in *AddFileSourceRequest, opts ...grpc.CallOption) (*AddFileSourceResponse, error)
+	// DeleteChatTurns is the inferred bundle name for J7Gthc. Captured
+	// requests confirm the wire shape and conversation ID; field 4 semantics
+	// remain unknown.
+	DeleteChatTurns(ctx context.Context, in *DeleteChatTurnsRequest, opts ...grpc.CallOption) (*DeleteChatTurnsResponse, error)
+	// Research operations
+	//
+	// StartFastResearch — HAR-verified 2026-04-17 against notebook
+	// 00000000-0000-4000-8000-000000000006 (rpc.go:68). Request shape
+	// (api.startFastResearchArgs at client.go:4587):
+	//
+	//	[[query, 1], null, 1, project_id]
+	//
+	// Response is a one-element array: [conversation_id]. Mode enum at
+	// position [2] is 1 for fast (5 for deep, see StartDeepResearch).
+	StartFastResearch(ctx context.Context, in *StartFastResearchRequest, opts ...grpc.CallOption) (*StartFastResearchResponse, error)
+	// StartDeepResearch is the legacy request variant retained for generated
+	// client compatibility. New callers use StartDeepResearchWire below.
+	StartDeepResearch(ctx context.Context, in *StartDeepResearchRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error)
+	// StartDeepResearchWire is the canonical QA9ei request. A successful
+	// 2026-07-23 CLI capture verified its shape exactly:
+	//
+	//	[context, null, [query, 1], 5, project_id]
+	StartDeepResearchWire(ctx context.Context, in *StartDeepResearchWireRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error)
+	// GetDeepResearchSessions (rpc.go:71). Polymorphic with
+	// DeleteChatHistory: same e3bVqc id, server discriminates on
+	// request payload shape. The deep/fast-session list call uses
+	// [null, null, project_id] (api.Client.pollResearch at
+	// client.go:4758). Returns ALL deep + fast sessions for the
+	// notebook; the caller scans by (research_id, mode=5) for deep or
+	// (conversation_id, mode=1) for fast.
+	GetDeepResearchSessions(ctx context.Context, in *GetDeepResearchSessionsRequest, opts ...grpc.CallOption) (*GetDeepResearchSessionsResponse, error)
+	// PollDeepResearch is the job-handle variant of e3bVqc. It returns the
+	// same session shape as GetDeepResearchSessions, but a successful
+	// 2026-07-23 CLI capture shows a standard context envelope and a handle
+	// in position two: [context, null, job_handle].
+	PollDeepResearch(ctx context.Context, in *PollDeepResearchRequest, opts ...grpc.CallOption) (*PollDeepResearchResponse, error)
+	// DeleteDeepResearch (rpc.go:72). Soft-delete a research session;
+	// server transitions state 2 -> 5 (the row is retained, future poll
+	// queries skip state=5). HAR-verified 2026-04-17. Polymorphic with
+	// BulkImportFromResearch: same LBwxtb id, server discriminates on
+	// arg-4 presence (delete = 4-position, bulk-import = 5-position).
+	// Request shape (api.deleteDeepResearchArgs at client.go:5034):
+	//
+	//	[null, [1], conversation_id, project_id]
+	DeleteDeepResearch(ctx context.Context, in *DeleteDeepResearchRequest, opts ...grpc.CallOption) (*DeleteDeepResearchResponse, error)
+	// BulkImportFromResearch (rpc.go:73). 5-position polymorphic
+	// variant of LBwxtb that imports a batch of URL+title pairs from a
+	// research session. HAR-verified 2026-04-17 against notebook
+	// 00000000-0000-4000-8000-000000000006, conversation
+	// 00000000-0000-4000-8000-000000000401, ten URL sources. Request
+	// shape (api.bulkImportArgs at client.go:5102):
+	//
+	//	[null, [1], conversation_id, project_id, [source_1, ..., source_N]]
+	//
+	// Each source tuple is 11-position; encoded by Go helper because
+	// arg_format cannot represent the inner [null, null, [url, title],
+	// null × 7, 2] tuple shape.
+	BulkImportFromResearch(ctx context.Context, in *BulkImportFromResearchRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error)
+	BulkImportFromResearchWire(ctx context.Context, in *BulkImportFromResearchWireRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error)
+	// GetAudioFormats (rpc.go:89). HAR-verified across the captured
+	// /tmp/nlm-traffic corpus. Request payload observed verbatim:
+	//
+	//	[[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
+	//
+	// Returns the audio-overview style menu (Deep Dive, Brief,
+	// Critique, Debate). The opaque inner [1, null × 9, [1]] and
+	// ordering vector [[1,4,8,10,2,3,6,9]] are bytes captured verbatim;
+	// semantics not yet decoded.
+	GetAudioFormats(ctx context.Context, in *GetAudioFormatsRequest, opts ...grpc.CallOption) (*GetAudioFormatsResponse, error)
+	// GenerateDocumentGuides (rpc.go:82). Per-source guide RPC: the
+	// wire call is keyed by source_id with a 4-level-nested arg shape
+	// [[[[source_id]]]] that the arg_format template cannot express.
+	// Invoked via api.Client.GenerateSourceGuide (client.go:3010);
+	// response is [[[null, [summary], [[topic, ...]], []]]]. The
+	// request message exists at line 709 (GenerateDocumentGuidesRequest).
+	GenerateDocumentGuides(ctx context.Context, in *GenerateDocumentGuidesRequest, opts ...grpc.CallOption) (*GenerateDocumentGuidesResponse, error)
+	// LogEvent / GetPromoCampaign (rpc.go:98). The constant in rpc.go is
+	// labelled "LogEvent" but HAR evidence (notebooklm.google.com.jsonl
+	// hits across 12+ captures spanning 2026-04-19..2026-04-23) shows it
+	// is actually a promo/upsell-card placement lookup. The web UI fires
+	// it once per page load. Request shape:
+	//
+	//	[[[[null, "1", 627], [null × 9, [null, null, 2]], 1]]]
+	//
+	// The middle-positional 627 looks like the campaign/promo slot ID;
+	// "1" is locale or surface; the [null, null, 2] tail is opaque.
+	// Response carries the upsell card payload (icon URL, title, CTA
+	// link, the user's tier — e.g. "NOTEBOOKLM_TIER_PRO_CONSUMER_USER").
+	// The Go side does not call this RPC; it is documented here so the
+	// proto matches what the wire actually does.
+	LogEvent(ctx context.Context, in *LogEventRequest, opts ...grpc.CallOption) (*LogEventResponse, error)
+	// ReportContent. User-initiated abuse/safety report. The JS bundle
+	// binds the live ReportContent endpoint to OmVMXc; the historical
+	// rJKx8e id never surfaced in any HAR capture or in the bundle, so
+	// it is treated as stale (kept as RPCReportContentLegacy for
+	// compatibility, no proto entry).
+	// TODO(har): no rpcids=OmVMXc seen in any capture under
+	// the current web-UI corpus. To capture:
+	// open an artifact, click the kebab menu -> "Report", fill the
+	// dialog, submit. The placeholder fields are speculative.
+	ReportContent(ctx context.Context, in *ReportContentRequest, opts ...grpc.CallOption) (*ReportContentResponse, error)
+	// ReviseArtifact (rpc.go:131). Re-runs an artifact generator with a
+	// free-form revision instruction.
+	// The response is the revised Artifact row, including type-specific edit
+	// instructions when the revision remains pending.
+	ReviseArtifact(ctx context.Context, in *ReviseArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
+	// GenerateArtifactSuggestions / AudioTopicSuggestions (rpc.go:133).
+	// The web UI calls this before R7cb6c (CreateUniversalArtifact) to
+	// get a list of AI-generated topic blueprints. Wire format
+	// verified against HAR (create-audio, 2026-04-14):
+	//
+	//	[[kind], project_id, [[src1], [src2], ...], variation]
+	//
+	// Only audio (kind=2) is HAR-verified; video and slide kinds are
+	// not covered. The variation int re-rolls suggestions (1, 2, 5, 6
+	// observed). See internal/method/labs_tailwind_artifact_suggestions.go.
+	GenerateArtifactSuggestions(ctx context.Context, in *GenerateArtifactSuggestionsRequest, opts ...grpc.CallOption) (*GenerateArtifactSuggestionsResponse, error)
+	// FetchInteractivityToken (rpc.go:50). Voice-session auth + ICE
+	// server config for the WebRTC interactive-audio mode. Request is
+	// the empty payload []. Response is a positional JSON envelope
+	// whose [0] field is a JSON-encoded string carrying
+	// {lifetimeDuration, iceServers, blockStatus, iceTransportPolicy}.
+	// See internal/interactiveaudio/signaling.go:36 and the existing
+	// FetchInteractivityTokenRequest/Response messages at line 858+.
+	FetchInteractivityToken(ctx context.Context, in *FetchInteractivityTokenRequest, opts ...grpc.CallOption) (*FetchInteractivityTokenResponse, error)
+	// SDPExchange (rpc.go:51). WebRTC SDP offer/answer exchange for
+	// the interactive-audio voice session. Request payload is a single
+	// string holding {"sdp": "...", "type": "offer"} JSON; the server
+	// returns the answer SDP wrapped the same way. See
+	// internal/interactiveaudio/signaling.go:52.
+	SDPExchange(ctx context.Context, in *SDPExchangeRequest, opts ...grpc.CallOption) (*SDPExchangeResponse, error)
+	// GetLabels (I3xc3c). JS bundle binds this to
+	// /LabsTailwindOrchestrationService.GetLabels. HAR-verified across
+	// 8+ NotebookLM web UI captures (2026-04-23).
+	// Returns the notebook's labels (a.k.a. autolabel/source-grouping
+	// clusters): per-label tuples carrying a label, a member source
+	// list, and a server-assigned group UUID.
+	//
+	// Most notebooks return [] (no labels computed yet). Notebooks
+	// where the user has invoked autolabel return populated entries.
+	//
+	// Wire request: [[2], project_id]
+	//
+	//	[0] = [2] is an opaque mode/operation enum (constant across
+	//	      all captures); semantics not yet decoded.
+	//
+	// Wire response: [] OR [[label, [[src_id], ...], group_uuid, ""], ...]
+	//
+	// Earlier rounds of this proto called this method GetSourceGroups
+	// — the canonical service name (per JS bundle) is GetLabels, and
+	// the related operations CreateLabel (agX4Bc), MutateLabel (le8sX),
+	// and DeleteLabels (GyzE7e) confirm the labels framing.
+	GetLabels(ctx context.Context, in *GetLabelsRequest, opts ...grpc.CallOption) (*GetLabelsResponse, error)
+	// UpsertArtifactUserState (Fxmvse). JS bundle binds this to
+	// /LabsTailwindOrchestrationService.UpsertArtifactUserState. The
+	// companion read RPC is GetArtifactUserState (ulBSjf).
+	//
+	// HAR-verified 2026-04-25 against
+	// NotebookLM web UI interactive-audio capture set
+	// (22 samples). The web UI fires this every ~5s during interactive
+	// audio-overview playback to persist the listener's playback
+	// position. The request body is
+	//
+	//	[%context%, %artifact_id%, %state%]
+	//
+	// where state encodes a single PlaybackPosition (seconds + nanos)
+	// wrapped as [[[seconds, nanos]]] — see ArtifactUserState below.
+	UpsertArtifactUserState(ctx context.Context, in *UpsertArtifactUserStateRequest, opts ...grpc.CallOption) (*UpsertArtifactUserStateResponse, error)
+	// GetArtifactUserState (ulBSjf). Read companion to
+	// UpsertArtifactUserState (Fxmvse). Both are bound by the JS bundle
+	// to /LabsTailwindOrchestrationService.GetArtifactUserState.
+	//
+	// No standalone HAR observed: the read path is rolled into the
+	// gArtLc (ListArtifacts) response — each artifact tuple already
+	// carries the saved ArtifactUserState inline at a late field
+	// position (the same [[[seconds, nanos]]] shape that Fxmvse
+	// upserts). The dedicated ulBSjf read is reserved for hosts that
+	// need the per-artifact value without re-listing.
+	// TODO(har): capture a direct ulBSjf request to confirm the
+	// request body shape; the read response is expected to mirror
+	// UpsertArtifactUserStateResponse (a single ArtifactUserState).
+	GetArtifactUserState(ctx context.Context, in *GetArtifactUserStateRequest, opts ...grpc.CallOption) (*GetArtifactUserStateResponse, error)
+	// CreateLabel / MutateLabel / DeleteLabels — write companions to
+	// GetLabels (I3xc3c). All three are bound by the JS bundle but no
+	// HAR has been captured yet; trigger by interacting with the
+	// labels affordance in the source-list UI.
+	CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error)
+	MutateLabelsMode(ctx context.Context, in *MutateLabelsModeRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error)
+	MutateLabel(ctx context.Context, in *MutateLabelRequest, opts ...grpc.CallOption) (*MutateLabelResponse, error)
+	DeleteLabels(ctx context.Context, in *DeleteLabelsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
+	// and CreateUniversalArtifact (R7cb6c). Captured requests carry a
+	// context envelope followed by an artifact ID. The operation name is
+	// inferred from the bundle; the server-side effect is unconfirmed.
+	GenerateArtifact(ctx context.Context, in *GenerateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
+	// CancelDiscoverSourcesJob (Zbrupe). Cancels an in-flight
+	// DiscoverSources / DiscoverSourcesAsync / DiscoverSourcesManifold
+	// job. JS-bundle-verified; no HAR yet.
+	// TODO(har): trigger by canceling a running fast-research /
+	// deep-research / discover-sources flow before completion.
+	CancelDiscoverSourcesJob(ctx context.Context, in *CancelDiscoverSourcesJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// CancelGeneration (XgrPMd). The captured request has a null leading
+	// placeholder followed by the generation identifier. The server returns
+	// an empty array on success.
+	CancelGeneration(ctx context.Context, in *CancelGenerationRequest, opts ...grpc.CallOption) (*CancelGenerationResponse, error)
+	// ExportToDrive (Krh3pd). Pushes notebook artifacts to the user's
+	// Drive. JS-bundle-verified; no HAR yet.
+	// TODO(har): trigger by clicking "Export to Drive" on a notebook.
+	ExportToDrive(ctx context.Context, in *ExportToDriveRequest, opts ...grpc.CallOption) (*ExportToDriveResponse, error)
+	// UpdateFeaturedNotebookStatus (DemIHe). Admin/internal. Fired only
+	// by the featured-notebook curation surface. JS-bundle-verified;
+	// unlikely to ever be exercised by an end-user account.
+	UpdateFeaturedNotebookStatus(ctx context.Context, in *UpdateFeaturedNotebookStatusRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// ListModelOptions (EnujNd) has a captured RequestContext request. The
+	// captured responses are empty, so option rows remain unmodeled.
+	ListModelOptions(ctx context.Context, in *ListModelOptionsRequest, opts ...grpc.CallOption) (*ListModelOptionsResponse, error)
+	// UpdateProjectUserState (LQhfEb). Per-user notebook state —
+	// last-viewed-at, pinned, hidden, etc. The response is not Empty: the
+	// wire carries a nested result message ([null, 2]) at field 2.
+	// TODO(har): request wire shape still unverified; capture before encoding.
+	UpdateProjectUserState(ctx context.Context, in *UpdateProjectUserStateRequest, opts ...grpc.CallOption) (*UpdateProjectUserStateResponse, error)
+	// ExecuteWritingFunction (likKIe). In-document writing assistant —
+	// rewrite, expand, summarize a selection inside an artifact.
+	// JS-bundle-verified; no HAR.
+	// TODO(har): trigger from the artifact editor's writing toolbar.
+	ExecuteWritingFunction(ctx context.Context, in *ExecuteWritingFunctionRequest, opts ...grpc.CallOption) (*ExecuteWritingFunctionResponse, error)
+	// ListExpertIntelligenceContent (mVtEUb). Curated featured-content
+	// surface. Captured requests use [context, 1]; the second value's
+	// semantics are not yet established.
+	ListExpertIntelligenceContent(ctx context.Context, in *ListExpertIntelligenceContentRequest, opts ...grpc.CallOption) (*ListExpertIntelligenceContentResponse, error)
+	// GenerateAccessToken (preRPe). Per-session token mint — likely
+	// used by embed widgets or third-party surfaces that need a
+	// short-lived credential. JS-bundle-verified; no HAR.
+	GenerateAccessToken(ctx context.Context, in *GenerateAccessTokenRequest, opts ...grpc.CallOption) (*GenerateAccessTokenResponse, error)
+	// GetMagicView (rtY7md). Read companion to GenerateMagicView
+	// (uK8f7c). JS-bundle-verified; no HAR.
+	// TODO(har): trigger by opening a previously-generated Magic View.
+	GetMagicView(ctx context.Context, in *GetMagicViewRequest, opts ...grpc.CallOption) (*GetMagicViewResponse, error)
+	// CopyProject (te3DCe). Duplicates an existing notebook (sources,
+	// artifacts, settings) into a new project. Response HAR-observed as a
+	// single status int [3]; not consumed by any live caller.
+	CopyProject(ctx context.Context, in *CopyProjectRequest, opts ...grpc.CallOption) (*CopyProjectResponse, error)
+	// CreateAudioOverview (AHyHrd). The legacy audio-overview creator.
+	// The production surface now goes through CreateUniversalArtifact
+	// (R7cb6c with kind=2), but a direct AHyHrd path is still wired in
+	// api.Client.createAudioOverviewDirectRPC (client.go:1407) as a
+	// fallback. JS-bundle-verified; HAR-observed under that fallback.
+	CreateAudioOverviewLegacy(ctx context.Context, in *CreateAudioOverviewLegacyRequest, opts ...grpc.CallOption) (*AudioOverview, error)
 }
 
 type labsTailwindOrchestrationServiceClient struct {
@@ -203,8 +559,8 @@ func (c *labsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Cont
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
+func (c *labsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Context, in *ActOnSourcesRequest, opts ...grpc.CallOption) (*ActOnSourcesResponse, error) {
+	out := new(ActOnSourcesResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ActOnSources_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -212,8 +568,8 @@ func (c *labsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Contex
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*Project, error) {
-	out := new(Project)
+func (c *labsTailwindOrchestrationServiceClient) AddSources(ctx context.Context, in *AddSourceRequest, opts ...grpc.CallOption) (*AddSourcesResponse, error) {
+	out := new(AddSourcesResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_AddSources_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -248,8 +604,8 @@ func (c *labsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Con
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*Source, error) {
-	out := new(Source)
+func (c *labsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context, in *LoadSourceRequest, opts ...grpc.CallOption) (*LoadSourceResponse, error) {
+	out := new(LoadSourceResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_LoadSource_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -275,8 +631,8 @@ func (c *labsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*AudioOverview, error) {
-	out := new(AudioOverview)
+func (c *labsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, in *CreateAudioOverviewRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateAudioOverview_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -302,8 +658,8 @@ func (c *labsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*VideoOverview, error) {
-	out := new(VideoOverview)
+func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, in *CreateVideoOverviewRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateVideoOverview_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -311,8 +667,17 @@ func (c *labsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*Note, error) {
-	out := new(Note)
+func (c *labsTailwindOrchestrationServiceClient) CreateUniversalArtifact(ctx context.Context, in *CreateUniversalArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateUniversalArtifact_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*NoteRecord, error) {
+	out := new(NoteRecord)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateNote_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -329,8 +694,8 @@ func (c *labsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesResponse, error) {
-	out := new(GetNotesResponse)
+func (c *labsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, in *GetNotesRequest, opts ...grpc.CallOption) (*GetNotesRichWireResponse, error) {
+	out := new(GetNotesRichWireResponse)
 	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetNotes_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -401,18 +766,18 @@ func (c *labsTailwindOrchestrationServiceClient) MutateProject(ctx context.Conte
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx context.Context, in *RemoveRecentlyViewedProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_FullMethodName, in, out, opts...)
+func (c *labsTailwindOrchestrationServiceClient) MutateProjectCover(ctx context.Context, in *MutateProjectCoverRequest, opts ...grpc.CallOption) (*Project, error) {
+	out := new(Project)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_MutateProjectCover_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *labsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx context.Context, in *GenerateDocumentGuidesRequest, opts ...grpc.CallOption) (*GenerateDocumentGuidesResponse, error) {
-	out := new(GenerateDocumentGuidesResponse)
-	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GenerateDocumentGuides_FullMethodName, in, out, opts...)
+func (c *labsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx context.Context, in *RemoveRecentlyViewedProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -445,6 +810,38 @@ type labsTailwindOrchestrationServiceGenerateFreeFormStreamedClient struct {
 
 func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedClient) Recv() (*GenerateFreeFormStreamedResponse, error) {
 	m := new(GenerateFreeFormStreamedResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GenerateFreeFormStreamedWire(ctx context.Context, in *GenerateFreeFormStreamedWireRequest, opts ...grpc.CallOption) (LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireClient, error) {
+	stream, err := c.cc.NewStream(ctx, &LabsTailwindOrchestrationService_ServiceDesc.Streams[1], LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireClient interface {
+	Recv() (*GenerateFreeFormStreamedWireResponse, error)
+	grpc.ClientStream
+}
+
+type labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireClient struct {
+	grpc.ClientStream
+}
+
+func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireClient) Recv() (*GenerateFreeFormStreamedWireResponse, error) {
+	m := new(GenerateFreeFormStreamedWireResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -577,12 +974,363 @@ func (c *labsTailwindOrchestrationServiceClient) MutateAccount(ctx context.Conte
 	return out, nil
 }
 
+func (c *labsTailwindOrchestrationServiceClient) AddFileSource(ctx context.Context, in *AddFileSourceRequest, opts ...grpc.CallOption) (*AddFileSourceResponse, error) {
+	out := new(AddFileSourceResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_AddFileSource_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) DeleteChatTurns(ctx context.Context, in *DeleteChatTurnsRequest, opts ...grpc.CallOption) (*DeleteChatTurnsResponse, error) {
+	out := new(DeleteChatTurnsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_DeleteChatTurns_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) StartFastResearch(ctx context.Context, in *StartFastResearchRequest, opts ...grpc.CallOption) (*StartFastResearchResponse, error) {
+	out := new(StartFastResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_StartFastResearch_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) StartDeepResearch(ctx context.Context, in *StartDeepResearchRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error) {
+	out := new(StartDeepResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_StartDeepResearch_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) StartDeepResearchWire(ctx context.Context, in *StartDeepResearchWireRequest, opts ...grpc.CallOption) (*StartDeepResearchResponse, error) {
+	out := new(StartDeepResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GetDeepResearchSessions(ctx context.Context, in *GetDeepResearchSessionsRequest, opts ...grpc.CallOption) (*GetDeepResearchSessionsResponse, error) {
+	out := new(GetDeepResearchSessionsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetDeepResearchSessions_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) PollDeepResearch(ctx context.Context, in *PollDeepResearchRequest, opts ...grpc.CallOption) (*PollDeepResearchResponse, error) {
+	out := new(PollDeepResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_PollDeepResearch_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.Context, in *DeleteDeepResearchRequest, opts ...grpc.CallOption) (*DeleteDeepResearchResponse, error) {
+	out := new(DeleteDeepResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_DeleteDeepResearch_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) BulkImportFromResearch(ctx context.Context, in *BulkImportFromResearchRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error) {
+	out := new(BulkImportFromResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_BulkImportFromResearch_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) BulkImportFromResearchWire(ctx context.Context, in *BulkImportFromResearchWireRequest, opts ...grpc.CallOption) (*BulkImportFromResearchResponse, error) {
+	out := new(BulkImportFromResearchResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_BulkImportFromResearchWire_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GetAudioFormats(ctx context.Context, in *GetAudioFormatsRequest, opts ...grpc.CallOption) (*GetAudioFormatsResponse, error) {
+	out := new(GetAudioFormatsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetAudioFormats_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx context.Context, in *GenerateDocumentGuidesRequest, opts ...grpc.CallOption) (*GenerateDocumentGuidesResponse, error) {
+	out := new(GenerateDocumentGuidesResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GenerateDocumentGuides_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) LogEvent(ctx context.Context, in *LogEventRequest, opts ...grpc.CallOption) (*LogEventResponse, error) {
+	out := new(LogEventResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_LogEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) ReportContent(ctx context.Context, in *ReportContentRequest, opts ...grpc.CallOption) (*ReportContentResponse, error) {
+	out := new(ReportContentResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ReportContent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) ReviseArtifact(ctx context.Context, in *ReviseArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ReviseArtifact_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GenerateArtifactSuggestions(ctx context.Context, in *GenerateArtifactSuggestionsRequest, opts ...grpc.CallOption) (*GenerateArtifactSuggestionsResponse, error) {
+	out := new(GenerateArtifactSuggestionsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GenerateArtifactSuggestions_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) FetchInteractivityToken(ctx context.Context, in *FetchInteractivityTokenRequest, opts ...grpc.CallOption) (*FetchInteractivityTokenResponse, error) {
+	out := new(FetchInteractivityTokenResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_FetchInteractivityToken_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) SDPExchange(ctx context.Context, in *SDPExchangeRequest, opts ...grpc.CallOption) (*SDPExchangeResponse, error) {
+	out := new(SDPExchangeResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_SDPExchange_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GetLabels(ctx context.Context, in *GetLabelsRequest, opts ...grpc.CallOption) (*GetLabelsResponse, error) {
+	out := new(GetLabelsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetLabels_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) UpsertArtifactUserState(ctx context.Context, in *UpsertArtifactUserStateRequest, opts ...grpc.CallOption) (*UpsertArtifactUserStateResponse, error) {
+	out := new(UpsertArtifactUserStateResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_UpsertArtifactUserState_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GetArtifactUserState(ctx context.Context, in *GetArtifactUserStateRequest, opts ...grpc.CallOption) (*GetArtifactUserStateResponse, error) {
+	out := new(GetArtifactUserStateResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetArtifactUserState_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CreateLabel(ctx context.Context, in *CreateLabelRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error) {
+	out := new(CreateLabelResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateLabel_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) MutateLabelsMode(ctx context.Context, in *MutateLabelsModeRequest, opts ...grpc.CallOption) (*CreateLabelResponse, error) {
+	out := new(CreateLabelResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_MutateLabelsMode_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) MutateLabel(ctx context.Context, in *MutateLabelRequest, opts ...grpc.CallOption) (*MutateLabelResponse, error) {
+	out := new(MutateLabelResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_MutateLabel_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) DeleteLabels(ctx context.Context, in *DeleteLabelsRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_DeleteLabels_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GenerateArtifact(ctx context.Context, in *GenerateArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
+	out := new(Artifact)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GenerateArtifact_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CancelDiscoverSourcesJob(ctx context.Context, in *CancelDiscoverSourcesJobRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CancelGeneration(ctx context.Context, in *CancelGenerationRequest, opts ...grpc.CallOption) (*CancelGenerationResponse, error) {
+	out := new(CancelGenerationResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CancelGeneration_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) ExportToDrive(ctx context.Context, in *ExportToDriveRequest, opts ...grpc.CallOption) (*ExportToDriveResponse, error) {
+	out := new(ExportToDriveResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ExportToDrive_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) UpdateFeaturedNotebookStatus(ctx context.Context, in *UpdateFeaturedNotebookStatusRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_UpdateFeaturedNotebookStatus_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) ListModelOptions(ctx context.Context, in *ListModelOptionsRequest, opts ...grpc.CallOption) (*ListModelOptionsResponse, error) {
+	out := new(ListModelOptionsResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ListModelOptions_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx context.Context, in *UpdateProjectUserStateRequest, opts ...grpc.CallOption) (*UpdateProjectUserStateResponse, error) {
+	out := new(UpdateProjectUserStateResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_UpdateProjectUserState_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) ExecuteWritingFunction(ctx context.Context, in *ExecuteWritingFunctionRequest, opts ...grpc.CallOption) (*ExecuteWritingFunctionResponse, error) {
+	out := new(ExecuteWritingFunctionResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ExecuteWritingFunction_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) ListExpertIntelligenceContent(ctx context.Context, in *ListExpertIntelligenceContentRequest, opts ...grpc.CallOption) (*ListExpertIntelligenceContentResponse, error) {
+	out := new(ListExpertIntelligenceContentResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_ListExpertIntelligenceContent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GenerateAccessToken(ctx context.Context, in *GenerateAccessTokenRequest, opts ...grpc.CallOption) (*GenerateAccessTokenResponse, error) {
+	out := new(GenerateAccessTokenResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GenerateAccessToken_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) GetMagicView(ctx context.Context, in *GetMagicViewRequest, opts ...grpc.CallOption) (*GetMagicViewResponse, error) {
+	out := new(GetMagicViewResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_GetMagicView_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context, in *CopyProjectRequest, opts ...grpc.CallOption) (*CopyProjectResponse, error) {
+	out := new(CopyProjectResponse)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CopyProject_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *labsTailwindOrchestrationServiceClient) CreateAudioOverviewLegacy(ctx context.Context, in *CreateAudioOverviewLegacyRequest, opts ...grpc.CallOption) (*AudioOverview, error) {
+	out := new(AudioOverview)
+	err := c.cc.Invoke(ctx, LabsTailwindOrchestrationService_CreateAudioOverviewLegacy_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LabsTailwindOrchestrationServiceServer is the server API for LabsTailwindOrchestrationService service.
 // All implementations must embed UnimplementedLabsTailwindOrchestrationServiceServer
 // for forward compatibility
 type LabsTailwindOrchestrationServiceServer interface {
 	// Artifact operations
 	CreateArtifact(context.Context, *CreateArtifactRequest) (*Artifact, error)
+	// GetArtifact (v9rmvd). The JS bundle binds v9rmvd to
+	// /LabsTailwindOrchestrationService.GetArtifact, so the RPC does
+	// exist on the wire — it just isn't invoked by the live web UI,
+	// which prefers gArtLc (ListArtifacts) + client-side filter for
+	// its rendering path. The earlier BnLyuf id was a different,
+	// unreachable inference that returned 400.
+	//
+	// Direct captures use [artifact_id, context]. The live API retains its
+	// positional parser as the projection oracle.
 	GetArtifact(context.Context, *GetArtifactRequest) (*Artifact, error)
 	UpdateArtifact(context.Context, *UpdateArtifactRequest) (*Artifact, error)
 	RenameArtifact(context.Context, *RenameArtifactRequest) (*Artifact, error)
@@ -590,24 +1338,57 @@ type LabsTailwindOrchestrationServiceServer interface {
 	ListArtifacts(context.Context, *ListArtifactsRequest) (*ListArtifactsResponse, error)
 	QueryArtifacts(context.Context, *QueryArtifactsRequest) (*QueryArtifactsResponse, error)
 	// Source operations
-	ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error)
-	AddSources(context.Context, *AddSourceRequest) (*Project, error)
+	ActOnSources(context.Context, *ActOnSourcesRequest) (*ActOnSourcesResponse, error)
+	// AddSources (izAoDd). HAR (more-requests3) shows the reply is a list
+	// containing the same Source descriptor LoadSource (hizoJc) returns:
+	//
+	//	[ [source_id], title, [source_metadata], [null,2], ... ]
+	//
+	// not a Project envelope.
+	AddSources(context.Context, *AddSourceRequest) (*AddSourcesResponse, error)
 	CheckSourceFreshness(context.Context, *CheckSourceFreshnessRequest) (*CheckSourceFreshnessResponse, error)
 	DeleteSources(context.Context, *DeleteSourcesRequest) (*emptypb.Empty, error)
+	// DiscoverSources (Es3dTe). Per the JS bundle binding to
+	// /LabsTailwindOrchestrationService.DiscoverSources. The previous
+	// rpc_id "qXyaNe" was a speculative inference that does not match
+	// any JS bundle entry or HAR capture; corrected to Es3dTe.
+	//
+	// No HAR yet for the wire shape. arg_format below is a likely
+	// shape based on sibling RPCs but is unverified — TODO(har):
+	// capture by triggering "Discover sources" from the source-add
+	// UI.
+	//
+	// Note: the related research-flow RPCs (Ljjv0c, QA9ei, e3bVqc,
+	// LBwxtb) are bound by the JS bundle to DiscoverSources*-family
+	// names (DiscoverSourcesManifold, DiscoverSourcesAsync,
+	// ListDiscoverSourcesJob, FinishDiscoverSourcesRun); the
+	// "research" feature is layered on top of the DiscoverSources job
+	// system.
 	DiscoverSources(context.Context, *DiscoverSourcesRequest) (*DiscoverSourcesResponse, error)
-	LoadSource(context.Context, *LoadSourceRequest) (*Source, error)
+	// LoadSource (hizoJc) returns a Source descriptor and loaded content. The
+	// HAR (more-requests3) source shape is
+	//
+	//	[ [source_id], title,
+	//	  [null, status, [added_ts], [origin_source_id, [origin_ts]], type,
+	//	   null, 1, null, byte_size, null×5, [indexed_ts], null×4, mime_type],
+	//	  [null, 2], null, download_url, viewer_url, ... ]
+	//
+	// AddSources (izAoDd) returns the same descriptor inside a list.
+	LoadSource(context.Context, *LoadSourceRequest) (*LoadSourceResponse, error)
 	MutateSource(context.Context, *MutateSourceRequest) (*Source, error)
 	RefreshSource(context.Context, *RefreshSourceRequest) (*Source, error)
 	// Audio operations
-	CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*AudioOverview, error)
+	CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*Artifact, error)
 	GetAudioOverview(context.Context, *GetAudioOverviewRequest) (*AudioOverview, error)
 	DeleteAudioOverview(context.Context, *DeleteAudioOverviewRequest) (*emptypb.Empty, error)
 	// Video operations (uses same R7cb6c RPC as audio but with mode=3)
-	CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error)
+	CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*Artifact, error)
+	// Decode-complete binding for the polymorphic R7cb6c request envelope.
+	CreateUniversalArtifact(context.Context, *CreateUniversalArtifactRequest) (*Artifact, error)
 	// Note operations
-	CreateNote(context.Context, *CreateNoteRequest) (*Note, error)
+	CreateNote(context.Context, *CreateNoteRequest) (*NoteRecord, error)
 	DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error)
-	GetNotes(context.Context, *GetNotesRequest) (*GetNotesResponse, error)
+	GetNotes(context.Context, *GetNotesRequest) (*GetNotesRichWireResponse, error)
 	MutateNote(context.Context, *MutateNoteRequest) (*Note, error)
 	// Project operations
 	CreateProject(context.Context, *CreateProjectRequest) (*Project, error)
@@ -616,12 +1397,27 @@ type LabsTailwindOrchestrationServiceServer interface {
 	ListFeaturedProjects(context.Context, *ListFeaturedProjectsRequest) (*ListFeaturedProjectsResponse, error)
 	ListRecentlyViewedProjects(context.Context, *ListRecentlyViewedProjectsRequest) (*ListRecentlyViewedProjectsResponse, error)
 	MutateProject(context.Context, *MutateProjectRequest) (*Project, error)
+	MutateProjectCover(context.Context, *MutateProjectCoverRequest) (*Project, error)
 	RemoveRecentlyViewedProject(context.Context, *RemoveRecentlyViewedProjectRequest) (*emptypb.Empty, error)
 	// Generation operations
-	GenerateDocumentGuides(context.Context, *GenerateDocumentGuidesRequest) (*GenerateDocumentGuidesResponse, error)
+	//
+	// Per-source guide generation (tr032e) is not declared here; the wire
+	// call is keyed by source_id with a 4-level-nested arg shape that the
+	// [%project_id%]-style arg_format cannot express. It's invoked directly
+	// via rpc.Do in the api package (see api.Client.GenerateSourceGuide).
 	GenerateFreeFormStreamed(*GenerateFreeFormStreamedRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedServer) error
+	// Decode-complete positional binding for captured gRPC-Web request and
+	// response frames. The logical method above remains the live API surface.
+	GenerateFreeFormStreamedWire(*GenerateFreeFormStreamedWireRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireServer) error
 	GenerateNotebookGuide(context.Context, *GenerateNotebookGuideRequest) (*GenerateNotebookGuideResponse, error)
 	GenerateOutline(context.Context, *GenerateOutlineRequest) (*GenerateOutlineResponse, error)
+	// GenerateReportSuggestions (ciyUvf). HAR-verified; see
+	// internal/method/LabsTailwindOrchestrationService_GenerateReportSuggestions_encoder.go.
+	//
+	// GHsKob is a legacy/predecessor id for the same logical RPC. It
+	// does not appear in the current JS bundle (boq_labs-tailwind-frontend)
+	// and has no observed wire traffic. Treat GHsKob as dead; ciyUvf
+	// is the live id.
 	GenerateReportSuggestions(context.Context, *GenerateReportSuggestionsRequest) (*GenerateReportSuggestionsResponse, error)
 	GenerateSection(context.Context, *GenerateSectionRequest) (*GenerateSectionResponse, error)
 	StartDraft(context.Context, *StartDraftRequest) (*StartDraftResponse, error)
@@ -637,6 +1433,265 @@ type LabsTailwindOrchestrationServiceServer interface {
 	// Account operations
 	GetOrCreateAccount(context.Context, *GetOrCreateAccountRequest) (*Account, error)
 	MutateAccount(context.Context, *MutateAccountRequest) (*Account, error)
+	// Source registration for Resumable Upload (rpc.go:31)
+	//
+	// Request shape, captured from api.Client.registerFileSource
+	// (internal/notebooklm/api/client.go:952):
+	//
+	//	[[[filename]], project_id, [2], [1, null × 9, [1]]]
+	//
+	// The arg_format directive cannot express the deeply-nested wrapper;
+	// a custom encoder lives at api.Client.registerFileSource. Returns
+	// the server-assigned source_id at response position [0][0][0].
+	AddFileSource(context.Context, *AddFileSourceRequest) (*AddFileSourceResponse, error)
+	// DeleteChatTurns is the inferred bundle name for J7Gthc. Captured
+	// requests confirm the wire shape and conversation ID; field 4 semantics
+	// remain unknown.
+	DeleteChatTurns(context.Context, *DeleteChatTurnsRequest) (*DeleteChatTurnsResponse, error)
+	// Research operations
+	//
+	// StartFastResearch — HAR-verified 2026-04-17 against notebook
+	// 00000000-0000-4000-8000-000000000006 (rpc.go:68). Request shape
+	// (api.startFastResearchArgs at client.go:4587):
+	//
+	//	[[query, 1], null, 1, project_id]
+	//
+	// Response is a one-element array: [conversation_id]. Mode enum at
+	// position [2] is 1 for fast (5 for deep, see StartDeepResearch).
+	StartFastResearch(context.Context, *StartFastResearchRequest) (*StartFastResearchResponse, error)
+	// StartDeepResearch is the legacy request variant retained for generated
+	// client compatibility. New callers use StartDeepResearchWire below.
+	StartDeepResearch(context.Context, *StartDeepResearchRequest) (*StartDeepResearchResponse, error)
+	// StartDeepResearchWire is the canonical QA9ei request. A successful
+	// 2026-07-23 CLI capture verified its shape exactly:
+	//
+	//	[context, null, [query, 1], 5, project_id]
+	StartDeepResearchWire(context.Context, *StartDeepResearchWireRequest) (*StartDeepResearchResponse, error)
+	// GetDeepResearchSessions (rpc.go:71). Polymorphic with
+	// DeleteChatHistory: same e3bVqc id, server discriminates on
+	// request payload shape. The deep/fast-session list call uses
+	// [null, null, project_id] (api.Client.pollResearch at
+	// client.go:4758). Returns ALL deep + fast sessions for the
+	// notebook; the caller scans by (research_id, mode=5) for deep or
+	// (conversation_id, mode=1) for fast.
+	GetDeepResearchSessions(context.Context, *GetDeepResearchSessionsRequest) (*GetDeepResearchSessionsResponse, error)
+	// PollDeepResearch is the job-handle variant of e3bVqc. It returns the
+	// same session shape as GetDeepResearchSessions, but a successful
+	// 2026-07-23 CLI capture shows a standard context envelope and a handle
+	// in position two: [context, null, job_handle].
+	PollDeepResearch(context.Context, *PollDeepResearchRequest) (*PollDeepResearchResponse, error)
+	// DeleteDeepResearch (rpc.go:72). Soft-delete a research session;
+	// server transitions state 2 -> 5 (the row is retained, future poll
+	// queries skip state=5). HAR-verified 2026-04-17. Polymorphic with
+	// BulkImportFromResearch: same LBwxtb id, server discriminates on
+	// arg-4 presence (delete = 4-position, bulk-import = 5-position).
+	// Request shape (api.deleteDeepResearchArgs at client.go:5034):
+	//
+	//	[null, [1], conversation_id, project_id]
+	DeleteDeepResearch(context.Context, *DeleteDeepResearchRequest) (*DeleteDeepResearchResponse, error)
+	// BulkImportFromResearch (rpc.go:73). 5-position polymorphic
+	// variant of LBwxtb that imports a batch of URL+title pairs from a
+	// research session. HAR-verified 2026-04-17 against notebook
+	// 00000000-0000-4000-8000-000000000006, conversation
+	// 00000000-0000-4000-8000-000000000401, ten URL sources. Request
+	// shape (api.bulkImportArgs at client.go:5102):
+	//
+	//	[null, [1], conversation_id, project_id, [source_1, ..., source_N]]
+	//
+	// Each source tuple is 11-position; encoded by Go helper because
+	// arg_format cannot represent the inner [null, null, [url, title],
+	// null × 7, 2] tuple shape.
+	BulkImportFromResearch(context.Context, *BulkImportFromResearchRequest) (*BulkImportFromResearchResponse, error)
+	BulkImportFromResearchWire(context.Context, *BulkImportFromResearchWireRequest) (*BulkImportFromResearchResponse, error)
+	// GetAudioFormats (rpc.go:89). HAR-verified across the captured
+	// /tmp/nlm-traffic corpus. Request payload observed verbatim:
+	//
+	//	[[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
+	//
+	// Returns the audio-overview style menu (Deep Dive, Brief,
+	// Critique, Debate). The opaque inner [1, null × 9, [1]] and
+	// ordering vector [[1,4,8,10,2,3,6,9]] are bytes captured verbatim;
+	// semantics not yet decoded.
+	GetAudioFormats(context.Context, *GetAudioFormatsRequest) (*GetAudioFormatsResponse, error)
+	// GenerateDocumentGuides (rpc.go:82). Per-source guide RPC: the
+	// wire call is keyed by source_id with a 4-level-nested arg shape
+	// [[[[source_id]]]] that the arg_format template cannot express.
+	// Invoked via api.Client.GenerateSourceGuide (client.go:3010);
+	// response is [[[null, [summary], [[topic, ...]], []]]]. The
+	// request message exists at line 709 (GenerateDocumentGuidesRequest).
+	GenerateDocumentGuides(context.Context, *GenerateDocumentGuidesRequest) (*GenerateDocumentGuidesResponse, error)
+	// LogEvent / GetPromoCampaign (rpc.go:98). The constant in rpc.go is
+	// labelled "LogEvent" but HAR evidence (notebooklm.google.com.jsonl
+	// hits across 12+ captures spanning 2026-04-19..2026-04-23) shows it
+	// is actually a promo/upsell-card placement lookup. The web UI fires
+	// it once per page load. Request shape:
+	//
+	//	[[[[null, "1", 627], [null × 9, [null, null, 2]], 1]]]
+	//
+	// The middle-positional 627 looks like the campaign/promo slot ID;
+	// "1" is locale or surface; the [null, null, 2] tail is opaque.
+	// Response carries the upsell card payload (icon URL, title, CTA
+	// link, the user's tier — e.g. "NOTEBOOKLM_TIER_PRO_CONSUMER_USER").
+	// The Go side does not call this RPC; it is documented here so the
+	// proto matches what the wire actually does.
+	LogEvent(context.Context, *LogEventRequest) (*LogEventResponse, error)
+	// ReportContent. User-initiated abuse/safety report. The JS bundle
+	// binds the live ReportContent endpoint to OmVMXc; the historical
+	// rJKx8e id never surfaced in any HAR capture or in the bundle, so
+	// it is treated as stale (kept as RPCReportContentLegacy for
+	// compatibility, no proto entry).
+	// TODO(har): no rpcids=OmVMXc seen in any capture under
+	// the current web-UI corpus. To capture:
+	// open an artifact, click the kebab menu -> "Report", fill the
+	// dialog, submit. The placeholder fields are speculative.
+	ReportContent(context.Context, *ReportContentRequest) (*ReportContentResponse, error)
+	// ReviseArtifact (rpc.go:131). Re-runs an artifact generator with a
+	// free-form revision instruction.
+	// The response is the revised Artifact row, including type-specific edit
+	// instructions when the revision remains pending.
+	ReviseArtifact(context.Context, *ReviseArtifactRequest) (*Artifact, error)
+	// GenerateArtifactSuggestions / AudioTopicSuggestions (rpc.go:133).
+	// The web UI calls this before R7cb6c (CreateUniversalArtifact) to
+	// get a list of AI-generated topic blueprints. Wire format
+	// verified against HAR (create-audio, 2026-04-14):
+	//
+	//	[[kind], project_id, [[src1], [src2], ...], variation]
+	//
+	// Only audio (kind=2) is HAR-verified; video and slide kinds are
+	// not covered. The variation int re-rolls suggestions (1, 2, 5, 6
+	// observed). See internal/method/labs_tailwind_artifact_suggestions.go.
+	GenerateArtifactSuggestions(context.Context, *GenerateArtifactSuggestionsRequest) (*GenerateArtifactSuggestionsResponse, error)
+	// FetchInteractivityToken (rpc.go:50). Voice-session auth + ICE
+	// server config for the WebRTC interactive-audio mode. Request is
+	// the empty payload []. Response is a positional JSON envelope
+	// whose [0] field is a JSON-encoded string carrying
+	// {lifetimeDuration, iceServers, blockStatus, iceTransportPolicy}.
+	// See internal/interactiveaudio/signaling.go:36 and the existing
+	// FetchInteractivityTokenRequest/Response messages at line 858+.
+	FetchInteractivityToken(context.Context, *FetchInteractivityTokenRequest) (*FetchInteractivityTokenResponse, error)
+	// SDPExchange (rpc.go:51). WebRTC SDP offer/answer exchange for
+	// the interactive-audio voice session. Request payload is a single
+	// string holding {"sdp": "...", "type": "offer"} JSON; the server
+	// returns the answer SDP wrapped the same way. See
+	// internal/interactiveaudio/signaling.go:52.
+	SDPExchange(context.Context, *SDPExchangeRequest) (*SDPExchangeResponse, error)
+	// GetLabels (I3xc3c). JS bundle binds this to
+	// /LabsTailwindOrchestrationService.GetLabels. HAR-verified across
+	// 8+ NotebookLM web UI captures (2026-04-23).
+	// Returns the notebook's labels (a.k.a. autolabel/source-grouping
+	// clusters): per-label tuples carrying a label, a member source
+	// list, and a server-assigned group UUID.
+	//
+	// Most notebooks return [] (no labels computed yet). Notebooks
+	// where the user has invoked autolabel return populated entries.
+	//
+	// Wire request: [[2], project_id]
+	//
+	//	[0] = [2] is an opaque mode/operation enum (constant across
+	//	      all captures); semantics not yet decoded.
+	//
+	// Wire response: [] OR [[label, [[src_id], ...], group_uuid, ""], ...]
+	//
+	// Earlier rounds of this proto called this method GetSourceGroups
+	// — the canonical service name (per JS bundle) is GetLabels, and
+	// the related operations CreateLabel (agX4Bc), MutateLabel (le8sX),
+	// and DeleteLabels (GyzE7e) confirm the labels framing.
+	GetLabels(context.Context, *GetLabelsRequest) (*GetLabelsResponse, error)
+	// UpsertArtifactUserState (Fxmvse). JS bundle binds this to
+	// /LabsTailwindOrchestrationService.UpsertArtifactUserState. The
+	// companion read RPC is GetArtifactUserState (ulBSjf).
+	//
+	// HAR-verified 2026-04-25 against
+	// NotebookLM web UI interactive-audio capture set
+	// (22 samples). The web UI fires this every ~5s during interactive
+	// audio-overview playback to persist the listener's playback
+	// position. The request body is
+	//
+	//	[%context%, %artifact_id%, %state%]
+	//
+	// where state encodes a single PlaybackPosition (seconds + nanos)
+	// wrapped as [[[seconds, nanos]]] — see ArtifactUserState below.
+	UpsertArtifactUserState(context.Context, *UpsertArtifactUserStateRequest) (*UpsertArtifactUserStateResponse, error)
+	// GetArtifactUserState (ulBSjf). Read companion to
+	// UpsertArtifactUserState (Fxmvse). Both are bound by the JS bundle
+	// to /LabsTailwindOrchestrationService.GetArtifactUserState.
+	//
+	// No standalone HAR observed: the read path is rolled into the
+	// gArtLc (ListArtifacts) response — each artifact tuple already
+	// carries the saved ArtifactUserState inline at a late field
+	// position (the same [[[seconds, nanos]]] shape that Fxmvse
+	// upserts). The dedicated ulBSjf read is reserved for hosts that
+	// need the per-artifact value without re-listing.
+	// TODO(har): capture a direct ulBSjf request to confirm the
+	// request body shape; the read response is expected to mirror
+	// UpsertArtifactUserStateResponse (a single ArtifactUserState).
+	GetArtifactUserState(context.Context, *GetArtifactUserStateRequest) (*GetArtifactUserStateResponse, error)
+	// CreateLabel / MutateLabel / DeleteLabels — write companions to
+	// GetLabels (I3xc3c). All three are bound by the JS bundle but no
+	// HAR has been captured yet; trigger by interacting with the
+	// labels affordance in the source-list UI.
+	CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error)
+	MutateLabelsMode(context.Context, *MutateLabelsModeRequest) (*CreateLabelResponse, error)
+	MutateLabel(context.Context, *MutateLabelRequest) (*MutateLabelResponse, error)
+	DeleteLabels(context.Context, *DeleteLabelsRequest) (*emptypb.Empty, error)
+	// GenerateArtifact (Rytqqe). Distinct from CreateArtifact (xpWGLf)
+	// and CreateUniversalArtifact (R7cb6c). Captured requests carry a
+	// context envelope followed by an artifact ID. The operation name is
+	// inferred from the bundle; the server-side effect is unconfirmed.
+	GenerateArtifact(context.Context, *GenerateArtifactRequest) (*Artifact, error)
+	// CancelDiscoverSourcesJob (Zbrupe). Cancels an in-flight
+	// DiscoverSources / DiscoverSourcesAsync / DiscoverSourcesManifold
+	// job. JS-bundle-verified; no HAR yet.
+	// TODO(har): trigger by canceling a running fast-research /
+	// deep-research / discover-sources flow before completion.
+	CancelDiscoverSourcesJob(context.Context, *CancelDiscoverSourcesJobRequest) (*emptypb.Empty, error)
+	// CancelGeneration (XgrPMd). The captured request has a null leading
+	// placeholder followed by the generation identifier. The server returns
+	// an empty array on success.
+	CancelGeneration(context.Context, *CancelGenerationRequest) (*CancelGenerationResponse, error)
+	// ExportToDrive (Krh3pd). Pushes notebook artifacts to the user's
+	// Drive. JS-bundle-verified; no HAR yet.
+	// TODO(har): trigger by clicking "Export to Drive" on a notebook.
+	ExportToDrive(context.Context, *ExportToDriveRequest) (*ExportToDriveResponse, error)
+	// UpdateFeaturedNotebookStatus (DemIHe). Admin/internal. Fired only
+	// by the featured-notebook curation surface. JS-bundle-verified;
+	// unlikely to ever be exercised by an end-user account.
+	UpdateFeaturedNotebookStatus(context.Context, *UpdateFeaturedNotebookStatusRequest) (*emptypb.Empty, error)
+	// ListModelOptions (EnujNd) has a captured RequestContext request. The
+	// captured responses are empty, so option rows remain unmodeled.
+	ListModelOptions(context.Context, *ListModelOptionsRequest) (*ListModelOptionsResponse, error)
+	// UpdateProjectUserState (LQhfEb). Per-user notebook state —
+	// last-viewed-at, pinned, hidden, etc. The response is not Empty: the
+	// wire carries a nested result message ([null, 2]) at field 2.
+	// TODO(har): request wire shape still unverified; capture before encoding.
+	UpdateProjectUserState(context.Context, *UpdateProjectUserStateRequest) (*UpdateProjectUserStateResponse, error)
+	// ExecuteWritingFunction (likKIe). In-document writing assistant —
+	// rewrite, expand, summarize a selection inside an artifact.
+	// JS-bundle-verified; no HAR.
+	// TODO(har): trigger from the artifact editor's writing toolbar.
+	ExecuteWritingFunction(context.Context, *ExecuteWritingFunctionRequest) (*ExecuteWritingFunctionResponse, error)
+	// ListExpertIntelligenceContent (mVtEUb). Curated featured-content
+	// surface. Captured requests use [context, 1]; the second value's
+	// semantics are not yet established.
+	ListExpertIntelligenceContent(context.Context, *ListExpertIntelligenceContentRequest) (*ListExpertIntelligenceContentResponse, error)
+	// GenerateAccessToken (preRPe). Per-session token mint — likely
+	// used by embed widgets or third-party surfaces that need a
+	// short-lived credential. JS-bundle-verified; no HAR.
+	GenerateAccessToken(context.Context, *GenerateAccessTokenRequest) (*GenerateAccessTokenResponse, error)
+	// GetMagicView (rtY7md). Read companion to GenerateMagicView
+	// (uK8f7c). JS-bundle-verified; no HAR.
+	// TODO(har): trigger by opening a previously-generated Magic View.
+	GetMagicView(context.Context, *GetMagicViewRequest) (*GetMagicViewResponse, error)
+	// CopyProject (te3DCe). Duplicates an existing notebook (sources,
+	// artifacts, settings) into a new project. Response HAR-observed as a
+	// single status int [3]; not consumed by any live caller.
+	CopyProject(context.Context, *CopyProjectRequest) (*CopyProjectResponse, error)
+	// CreateAudioOverview (AHyHrd). The legacy audio-overview creator.
+	// The production surface now goes through CreateUniversalArtifact
+	// (R7cb6c with kind=2), but a direct AHyHrd path is still wired in
+	// api.Client.createAudioOverviewDirectRPC (client.go:1407) as a
+	// fallback. JS-bundle-verified; HAR-observed under that fallback.
+	CreateAudioOverviewLegacy(context.Context, *CreateAudioOverviewLegacyRequest) (*AudioOverview, error)
 	mustEmbedUnimplementedLabsTailwindOrchestrationServiceServer()
 }
 
@@ -665,10 +1720,10 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) ListArtifacts(context
 func (UnimplementedLabsTailwindOrchestrationServiceServer) QueryArtifacts(context.Context, *QueryArtifactsRequest) (*QueryArtifactsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryArtifacts not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) ActOnSources(context.Context, *ActOnSourcesRequest) (*emptypb.Empty, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ActOnSources(context.Context, *ActOnSourcesRequest) (*ActOnSourcesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActOnSources not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) AddSources(context.Context, *AddSourceRequest) (*Project, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) AddSources(context.Context, *AddSourceRequest) (*AddSourcesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddSources not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) CheckSourceFreshness(context.Context, *CheckSourceFreshnessRequest) (*CheckSourceFreshnessResponse, error) {
@@ -680,7 +1735,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteSources(context
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DiscoverSources(context.Context, *DiscoverSourcesRequest) (*DiscoverSourcesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DiscoverSources not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) LoadSource(context.Context, *LoadSourceRequest) (*Source, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) LoadSource(context.Context, *LoadSourceRequest) (*LoadSourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LoadSource not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateSource(context.Context, *MutateSourceRequest) (*Source, error) {
@@ -689,7 +1744,7 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateSource(context.
 func (UnimplementedLabsTailwindOrchestrationServiceServer) RefreshSource(context.Context, *RefreshSourceRequest) (*Source, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RefreshSource not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*AudioOverview, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateAudioOverview(context.Context, *CreateAudioOverviewRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateAudioOverview not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GetAudioOverview(context.Context, *GetAudioOverviewRequest) (*AudioOverview, error) {
@@ -698,16 +1753,19 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GetAudioOverview(cont
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteAudioOverview(context.Context, *DeleteAudioOverviewRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteAudioOverview not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*VideoOverview, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateVideoOverview(context.Context, *CreateVideoOverviewRequest) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateVideoOverview not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*Note, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateUniversalArtifact(context.Context, *CreateUniversalArtifactRequest) (*Artifact, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateUniversalArtifact not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*NoteRecord, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateNote not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteNotes(context.Context, *DeleteNotesRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteNotes not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) GetNotes(context.Context, *GetNotesRequest) (*GetNotesResponse, error) {
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetNotes(context.Context, *GetNotesRequest) (*GetNotesRichWireResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNotes not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateNote(context.Context, *MutateNoteRequest) (*Note, error) {
@@ -731,14 +1789,17 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) ListRecentlyViewedPro
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateProject(context.Context, *MutateProjectRequest) (*Project, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MutateProject not implemented")
 }
+func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateProjectCover(context.Context, *MutateProjectCoverRequest) (*Project, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MutateProjectCover not implemented")
+}
 func (UnimplementedLabsTailwindOrchestrationServiceServer) RemoveRecentlyViewedProject(context.Context, *RemoveRecentlyViewedProjectRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveRecentlyViewedProject not implemented")
 }
-func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateDocumentGuides(context.Context, *GenerateDocumentGuidesRequest) (*GenerateDocumentGuidesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GenerateDocumentGuides not implemented")
-}
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateFreeFormStreamed(*GenerateFreeFormStreamedRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedServer) error {
 	return status.Errorf(codes.Unimplemented, "method GenerateFreeFormStreamed not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateFreeFormStreamedWire(*GenerateFreeFormStreamedWireRequest, LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireServer) error {
+	return status.Errorf(codes.Unimplemented, "method GenerateFreeFormStreamedWire not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateNotebookGuide(context.Context, *GenerateNotebookGuideRequest) (*GenerateNotebookGuideResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GenerateNotebookGuide not implemented")
@@ -781,6 +1842,120 @@ func (UnimplementedLabsTailwindOrchestrationServiceServer) GetOrCreateAccount(co
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateAccount(context.Context, *MutateAccountRequest) (*Account, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MutateAccount not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) AddFileSource(context.Context, *AddFileSourceRequest) (*AddFileSourceResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddFileSource not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteChatTurns(context.Context, *DeleteChatTurnsRequest) (*DeleteChatTurnsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChatTurns not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) StartFastResearch(context.Context, *StartFastResearchRequest) (*StartFastResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartFastResearch not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) StartDeepResearch(context.Context, *StartDeepResearchRequest) (*StartDeepResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartDeepResearch not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) StartDeepResearchWire(context.Context, *StartDeepResearchWireRequest) (*StartDeepResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartDeepResearchWire not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetDeepResearchSessions(context.Context, *GetDeepResearchSessionsRequest) (*GetDeepResearchSessionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDeepResearchSessions not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) PollDeepResearch(context.Context, *PollDeepResearchRequest) (*PollDeepResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PollDeepResearch not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteDeepResearch(context.Context, *DeleteDeepResearchRequest) (*DeleteDeepResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteDeepResearch not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) BulkImportFromResearch(context.Context, *BulkImportFromResearchRequest) (*BulkImportFromResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BulkImportFromResearch not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) BulkImportFromResearchWire(context.Context, *BulkImportFromResearchWireRequest) (*BulkImportFromResearchResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BulkImportFromResearchWire not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetAudioFormats(context.Context, *GetAudioFormatsRequest) (*GetAudioFormatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAudioFormats not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateDocumentGuides(context.Context, *GenerateDocumentGuidesRequest) (*GenerateDocumentGuidesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateDocumentGuides not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) LogEvent(context.Context, *LogEventRequest) (*LogEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LogEvent not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ReportContent(context.Context, *ReportContentRequest) (*ReportContentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReportContent not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ReviseArtifact(context.Context, *ReviseArtifactRequest) (*Artifact, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReviseArtifact not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateArtifactSuggestions(context.Context, *GenerateArtifactSuggestionsRequest) (*GenerateArtifactSuggestionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateArtifactSuggestions not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) FetchInteractivityToken(context.Context, *FetchInteractivityTokenRequest) (*FetchInteractivityTokenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchInteractivityToken not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) SDPExchange(context.Context, *SDPExchangeRequest) (*SDPExchangeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SDPExchange not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetLabels(context.Context, *GetLabelsRequest) (*GetLabelsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLabels not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) UpsertArtifactUserState(context.Context, *UpsertArtifactUserStateRequest) (*UpsertArtifactUserStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpsertArtifactUserState not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetArtifactUserState(context.Context, *GetArtifactUserStateRequest) (*GetArtifactUserStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetArtifactUserState not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateLabel(context.Context, *CreateLabelRequest) (*CreateLabelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateLabel not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateLabelsMode(context.Context, *MutateLabelsModeRequest) (*CreateLabelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MutateLabelsMode not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) MutateLabel(context.Context, *MutateLabelRequest) (*MutateLabelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MutateLabel not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) DeleteLabels(context.Context, *DeleteLabelsRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteLabels not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateArtifact(context.Context, *GenerateArtifactRequest) (*Artifact, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateArtifact not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CancelDiscoverSourcesJob(context.Context, *CancelDiscoverSourcesJobRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelDiscoverSourcesJob not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CancelGeneration(context.Context, *CancelGenerationRequest) (*CancelGenerationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelGeneration not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ExportToDrive(context.Context, *ExportToDriveRequest) (*ExportToDriveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExportToDrive not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) UpdateFeaturedNotebookStatus(context.Context, *UpdateFeaturedNotebookStatusRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateFeaturedNotebookStatus not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ListModelOptions(context.Context, *ListModelOptionsRequest) (*ListModelOptionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListModelOptions not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) UpdateProjectUserState(context.Context, *UpdateProjectUserStateRequest) (*UpdateProjectUserStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateProjectUserState not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ExecuteWritingFunction(context.Context, *ExecuteWritingFunctionRequest) (*ExecuteWritingFunctionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteWritingFunction not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) ListExpertIntelligenceContent(context.Context, *ListExpertIntelligenceContentRequest) (*ListExpertIntelligenceContentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListExpertIntelligenceContent not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GenerateAccessToken(context.Context, *GenerateAccessTokenRequest) (*GenerateAccessTokenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GenerateAccessToken not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) GetMagicView(context.Context, *GetMagicViewRequest) (*GetMagicViewResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMagicView not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CopyProject(context.Context, *CopyProjectRequest) (*CopyProjectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CopyProject not implemented")
+}
+func (UnimplementedLabsTailwindOrchestrationServiceServer) CreateAudioOverviewLegacy(context.Context, *CreateAudioOverviewLegacyRequest) (*AudioOverview, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateAudioOverviewLegacy not implemented")
 }
 func (UnimplementedLabsTailwindOrchestrationServiceServer) mustEmbedUnimplementedLabsTailwindOrchestrationServiceServer() {
 }
@@ -1138,6 +2313,24 @@ func _LabsTailwindOrchestrationService_CreateVideoOverview_Handler(srv interface
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_CreateUniversalArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateUniversalArtifactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateUniversalArtifact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CreateUniversalArtifact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateUniversalArtifact(ctx, req.(*CreateUniversalArtifactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_CreateNote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateNoteRequest)
 	if err := dec(in); err != nil {
@@ -1318,6 +2511,24 @@ func _LabsTailwindOrchestrationService_MutateProject_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_MutateProjectCover_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MutateProjectCoverRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateProjectCover(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_MutateProjectCover_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateProjectCover(ctx, req.(*MutateProjectCoverRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RemoveRecentlyViewedProjectRequest)
 	if err := dec(in); err != nil {
@@ -1332,24 +2543,6 @@ func _LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_Handler(srv i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LabsTailwindOrchestrationServiceServer).RemoveRecentlyViewedProject(ctx, req.(*RemoveRecentlyViewedProjectRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _LabsTailwindOrchestrationService_GenerateDocumentGuides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GenerateDocumentGuidesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LabsTailwindOrchestrationServiceServer).GenerateDocumentGuides(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: LabsTailwindOrchestrationService_GenerateDocumentGuides_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LabsTailwindOrchestrationServiceServer).GenerateDocumentGuides(ctx, req.(*GenerateDocumentGuidesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1372,6 +2565,27 @@ type labsTailwindOrchestrationServiceGenerateFreeFormStreamedServer struct {
 }
 
 func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedServer) Send(m *GenerateFreeFormStreamedResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GenerateFreeFormStreamedWireRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(LabsTailwindOrchestrationServiceServer).GenerateFreeFormStreamedWire(m, &labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireServer{stream})
+}
+
+type LabsTailwindOrchestrationService_GenerateFreeFormStreamedWireServer interface {
+	Send(*GenerateFreeFormStreamedWireResponse) error
+	grpc.ServerStream
+}
+
+type labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireServer struct {
+	grpc.ServerStream
+}
+
+func (x *labsTailwindOrchestrationServiceGenerateFreeFormStreamedWireServer) Send(m *GenerateFreeFormStreamedWireResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -1627,6 +2841,690 @@ func _LabsTailwindOrchestrationService_MutateAccount_Handler(srv interface{}, ct
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LabsTailwindOrchestrationService_AddFileSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddFileSourceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).AddFileSource(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_AddFileSource_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).AddFileSource(ctx, req.(*AddFileSourceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_DeleteChatTurns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteChatTurnsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteChatTurns(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_DeleteChatTurns_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteChatTurns(ctx, req.(*DeleteChatTurnsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_StartFastResearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartFastResearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartFastResearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_StartFastResearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartFastResearch(ctx, req.(*StartFastResearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_StartDeepResearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartDeepResearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDeepResearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_StartDeepResearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDeepResearch(ctx, req.(*StartDeepResearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_StartDeepResearchWire_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartDeepResearchWireRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDeepResearchWire(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_StartDeepResearchWire_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).StartDeepResearchWire(ctx, req.(*StartDeepResearchWireRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GetDeepResearchSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDeepResearchSessionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetDeepResearchSessions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GetDeepResearchSessions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetDeepResearchSessions(ctx, req.(*GetDeepResearchSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_PollDeepResearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PollDeepResearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).PollDeepResearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_PollDeepResearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).PollDeepResearch(ctx, req.(*PollDeepResearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_DeleteDeepResearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteDeepResearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteDeepResearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_DeleteDeepResearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteDeepResearch(ctx, req.(*DeleteDeepResearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_BulkImportFromResearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkImportFromResearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).BulkImportFromResearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_BulkImportFromResearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).BulkImportFromResearch(ctx, req.(*BulkImportFromResearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_BulkImportFromResearchWire_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BulkImportFromResearchWireRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).BulkImportFromResearchWire(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_BulkImportFromResearchWire_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).BulkImportFromResearchWire(ctx, req.(*BulkImportFromResearchWireRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GetAudioFormats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAudioFormatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetAudioFormats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GetAudioFormats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetAudioFormats(ctx, req.(*GetAudioFormatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GenerateDocumentGuides_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateDocumentGuidesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateDocumentGuides(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GenerateDocumentGuides_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateDocumentGuides(ctx, req.(*GenerateDocumentGuidesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_LogEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LogEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).LogEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_LogEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).LogEvent(ctx, req.(*LogEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_ReportContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReportContentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).ReportContent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_ReportContent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).ReportContent(ctx, req.(*ReportContentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_ReviseArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReviseArtifactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).ReviseArtifact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_ReviseArtifact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).ReviseArtifact(ctx, req.(*ReviseArtifactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GenerateArtifactSuggestions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateArtifactSuggestionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateArtifactSuggestions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GenerateArtifactSuggestions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateArtifactSuggestions(ctx, req.(*GenerateArtifactSuggestionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_FetchInteractivityToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FetchInteractivityTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).FetchInteractivityToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_FetchInteractivityToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).FetchInteractivityToken(ctx, req.(*FetchInteractivityTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_SDPExchange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SDPExchangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).SDPExchange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_SDPExchange_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).SDPExchange(ctx, req.(*SDPExchangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GetLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GetLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetLabels(ctx, req.(*GetLabelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_UpsertArtifactUserState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpsertArtifactUserStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).UpsertArtifactUserState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_UpsertArtifactUserState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).UpsertArtifactUserState(ctx, req.(*UpsertArtifactUserStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GetArtifactUserState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetArtifactUserStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetArtifactUserState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GetArtifactUserState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetArtifactUserState(ctx, req.(*GetArtifactUserStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_CreateLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CreateLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateLabel(ctx, req.(*CreateLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_MutateLabelsMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MutateLabelsModeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateLabelsMode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_MutateLabelsMode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateLabelsMode(ctx, req.(*MutateLabelsModeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_MutateLabel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MutateLabelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateLabel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_MutateLabel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).MutateLabel(ctx, req.(*MutateLabelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_DeleteLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_DeleteLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).DeleteLabels(ctx, req.(*DeleteLabelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GenerateArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateArtifactRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateArtifact(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GenerateArtifact_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateArtifact(ctx, req.(*GenerateArtifactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelDiscoverSourcesJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CancelDiscoverSourcesJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CancelDiscoverSourcesJob(ctx, req.(*CancelDiscoverSourcesJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_CancelGeneration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelGenerationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CancelGeneration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CancelGeneration_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CancelGeneration(ctx, req.(*CancelGenerationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_ExportToDrive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportToDriveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).ExportToDrive(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_ExportToDrive_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).ExportToDrive(ctx, req.(*ExportToDriveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_UpdateFeaturedNotebookStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateFeaturedNotebookStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).UpdateFeaturedNotebookStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_UpdateFeaturedNotebookStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).UpdateFeaturedNotebookStatus(ctx, req.(*UpdateFeaturedNotebookStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_ListModelOptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListModelOptionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).ListModelOptions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_ListModelOptions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).ListModelOptions(ctx, req.(*ListModelOptionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_UpdateProjectUserState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProjectUserStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).UpdateProjectUserState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_UpdateProjectUserState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).UpdateProjectUserState(ctx, req.(*UpdateProjectUserStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_ExecuteWritingFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteWritingFunctionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).ExecuteWritingFunction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_ExecuteWritingFunction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).ExecuteWritingFunction(ctx, req.(*ExecuteWritingFunctionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_ListExpertIntelligenceContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListExpertIntelligenceContentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).ListExpertIntelligenceContent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_ListExpertIntelligenceContent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).ListExpertIntelligenceContent(ctx, req.(*ListExpertIntelligenceContentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GenerateAccessToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateAccessTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateAccessToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GenerateAccessToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GenerateAccessToken(ctx, req.(*GenerateAccessTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_GetMagicView_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMagicViewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetMagicView(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_GetMagicView_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).GetMagicView(ctx, req.(*GetMagicViewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_CopyProject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CopyProjectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CopyProject(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CopyProject_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CopyProject(ctx, req.(*CopyProjectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LabsTailwindOrchestrationService_CreateAudioOverviewLegacy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAudioOverviewLegacyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateAudioOverviewLegacy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LabsTailwindOrchestrationService_CreateAudioOverviewLegacy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LabsTailwindOrchestrationServiceServer).CreateAudioOverviewLegacy(ctx, req.(*CreateAudioOverviewLegacyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LabsTailwindOrchestrationService_ServiceDesc is the grpc.ServiceDesc for LabsTailwindOrchestrationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1711,6 +3609,10 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LabsTailwindOrchestrationService_CreateVideoOverview_Handler,
 		},
 		{
+			MethodName: "CreateUniversalArtifact",
+			Handler:    _LabsTailwindOrchestrationService_CreateUniversalArtifact_Handler,
+		},
+		{
 			MethodName: "CreateNote",
 			Handler:    _LabsTailwindOrchestrationService_CreateNote_Handler,
 		},
@@ -1751,12 +3653,12 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LabsTailwindOrchestrationService_MutateProject_Handler,
 		},
 		{
-			MethodName: "RemoveRecentlyViewedProject",
-			Handler:    _LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_Handler,
+			MethodName: "MutateProjectCover",
+			Handler:    _LabsTailwindOrchestrationService_MutateProjectCover_Handler,
 		},
 		{
-			MethodName: "GenerateDocumentGuides",
-			Handler:    _LabsTailwindOrchestrationService_GenerateDocumentGuides_Handler,
+			MethodName: "RemoveRecentlyViewedProject",
+			Handler:    _LabsTailwindOrchestrationService_RemoveRecentlyViewedProject_Handler,
 		},
 		{
 			MethodName: "GenerateNotebookGuide",
@@ -1814,6 +3716,158 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "MutateAccount",
 			Handler:    _LabsTailwindOrchestrationService_MutateAccount_Handler,
 		},
+		{
+			MethodName: "AddFileSource",
+			Handler:    _LabsTailwindOrchestrationService_AddFileSource_Handler,
+		},
+		{
+			MethodName: "DeleteChatTurns",
+			Handler:    _LabsTailwindOrchestrationService_DeleteChatTurns_Handler,
+		},
+		{
+			MethodName: "StartFastResearch",
+			Handler:    _LabsTailwindOrchestrationService_StartFastResearch_Handler,
+		},
+		{
+			MethodName: "StartDeepResearch",
+			Handler:    _LabsTailwindOrchestrationService_StartDeepResearch_Handler,
+		},
+		{
+			MethodName: "StartDeepResearchWire",
+			Handler:    _LabsTailwindOrchestrationService_StartDeepResearchWire_Handler,
+		},
+		{
+			MethodName: "GetDeepResearchSessions",
+			Handler:    _LabsTailwindOrchestrationService_GetDeepResearchSessions_Handler,
+		},
+		{
+			MethodName: "PollDeepResearch",
+			Handler:    _LabsTailwindOrchestrationService_PollDeepResearch_Handler,
+		},
+		{
+			MethodName: "DeleteDeepResearch",
+			Handler:    _LabsTailwindOrchestrationService_DeleteDeepResearch_Handler,
+		},
+		{
+			MethodName: "BulkImportFromResearch",
+			Handler:    _LabsTailwindOrchestrationService_BulkImportFromResearch_Handler,
+		},
+		{
+			MethodName: "BulkImportFromResearchWire",
+			Handler:    _LabsTailwindOrchestrationService_BulkImportFromResearchWire_Handler,
+		},
+		{
+			MethodName: "GetAudioFormats",
+			Handler:    _LabsTailwindOrchestrationService_GetAudioFormats_Handler,
+		},
+		{
+			MethodName: "GenerateDocumentGuides",
+			Handler:    _LabsTailwindOrchestrationService_GenerateDocumentGuides_Handler,
+		},
+		{
+			MethodName: "LogEvent",
+			Handler:    _LabsTailwindOrchestrationService_LogEvent_Handler,
+		},
+		{
+			MethodName: "ReportContent",
+			Handler:    _LabsTailwindOrchestrationService_ReportContent_Handler,
+		},
+		{
+			MethodName: "ReviseArtifact",
+			Handler:    _LabsTailwindOrchestrationService_ReviseArtifact_Handler,
+		},
+		{
+			MethodName: "GenerateArtifactSuggestions",
+			Handler:    _LabsTailwindOrchestrationService_GenerateArtifactSuggestions_Handler,
+		},
+		{
+			MethodName: "FetchInteractivityToken",
+			Handler:    _LabsTailwindOrchestrationService_FetchInteractivityToken_Handler,
+		},
+		{
+			MethodName: "SDPExchange",
+			Handler:    _LabsTailwindOrchestrationService_SDPExchange_Handler,
+		},
+		{
+			MethodName: "GetLabels",
+			Handler:    _LabsTailwindOrchestrationService_GetLabels_Handler,
+		},
+		{
+			MethodName: "UpsertArtifactUserState",
+			Handler:    _LabsTailwindOrchestrationService_UpsertArtifactUserState_Handler,
+		},
+		{
+			MethodName: "GetArtifactUserState",
+			Handler:    _LabsTailwindOrchestrationService_GetArtifactUserState_Handler,
+		},
+		{
+			MethodName: "CreateLabel",
+			Handler:    _LabsTailwindOrchestrationService_CreateLabel_Handler,
+		},
+		{
+			MethodName: "MutateLabelsMode",
+			Handler:    _LabsTailwindOrchestrationService_MutateLabelsMode_Handler,
+		},
+		{
+			MethodName: "MutateLabel",
+			Handler:    _LabsTailwindOrchestrationService_MutateLabel_Handler,
+		},
+		{
+			MethodName: "DeleteLabels",
+			Handler:    _LabsTailwindOrchestrationService_DeleteLabels_Handler,
+		},
+		{
+			MethodName: "GenerateArtifact",
+			Handler:    _LabsTailwindOrchestrationService_GenerateArtifact_Handler,
+		},
+		{
+			MethodName: "CancelDiscoverSourcesJob",
+			Handler:    _LabsTailwindOrchestrationService_CancelDiscoverSourcesJob_Handler,
+		},
+		{
+			MethodName: "CancelGeneration",
+			Handler:    _LabsTailwindOrchestrationService_CancelGeneration_Handler,
+		},
+		{
+			MethodName: "ExportToDrive",
+			Handler:    _LabsTailwindOrchestrationService_ExportToDrive_Handler,
+		},
+		{
+			MethodName: "UpdateFeaturedNotebookStatus",
+			Handler:    _LabsTailwindOrchestrationService_UpdateFeaturedNotebookStatus_Handler,
+		},
+		{
+			MethodName: "ListModelOptions",
+			Handler:    _LabsTailwindOrchestrationService_ListModelOptions_Handler,
+		},
+		{
+			MethodName: "UpdateProjectUserState",
+			Handler:    _LabsTailwindOrchestrationService_UpdateProjectUserState_Handler,
+		},
+		{
+			MethodName: "ExecuteWritingFunction",
+			Handler:    _LabsTailwindOrchestrationService_ExecuteWritingFunction_Handler,
+		},
+		{
+			MethodName: "ListExpertIntelligenceContent",
+			Handler:    _LabsTailwindOrchestrationService_ListExpertIntelligenceContent_Handler,
+		},
+		{
+			MethodName: "GenerateAccessToken",
+			Handler:    _LabsTailwindOrchestrationService_GenerateAccessToken_Handler,
+		},
+		{
+			MethodName: "GetMagicView",
+			Handler:    _LabsTailwindOrchestrationService_GetMagicView_Handler,
+		},
+		{
+			MethodName: "CopyProject",
+			Handler:    _LabsTailwindOrchestrationService_CopyProject_Handler,
+		},
+		{
+			MethodName: "CreateAudioOverviewLegacy",
+			Handler:    _LabsTailwindOrchestrationService_CreateAudioOverviewLegacy_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1821,6 +3875,102 @@ var LabsTailwindOrchestrationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _LabsTailwindOrchestrationService_GenerateFreeFormStreamed_Handler,
 			ServerStreams: true,
 		},
+		{
+			StreamName:    "GenerateFreeFormStreamedWire",
+			Handler:       _LabsTailwindOrchestrationService_GenerateFreeFormStreamedWire_Handler,
+			ServerStreams: true,
+		},
 	},
+	Metadata: "notebooklm/v1alpha1/orchestration.proto",
+}
+
+const (
+	InteractionEventService_LogInteractionEvent_FullMethodName = "/notebooklm.v1alpha1.InteractionEventService/LogInteractionEvent"
+)
+
+// InteractionEventServiceClient is the client API for InteractionEventService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type InteractionEventServiceClient interface {
+	LogInteractionEvent(ctx context.Context, in *LogInteractionEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type interactionEventServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewInteractionEventServiceClient(cc grpc.ClientConnInterface) InteractionEventServiceClient {
+	return &interactionEventServiceClient{cc}
+}
+
+func (c *interactionEventServiceClient) LogInteractionEvent(ctx context.Context, in *LogInteractionEventRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, InteractionEventService_LogInteractionEvent_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// InteractionEventServiceServer is the server API for InteractionEventService service.
+// All implementations must embed UnimplementedInteractionEventServiceServer
+// for forward compatibility
+type InteractionEventServiceServer interface {
+	LogInteractionEvent(context.Context, *LogInteractionEventRequest) (*emptypb.Empty, error)
+	mustEmbedUnimplementedInteractionEventServiceServer()
+}
+
+// UnimplementedInteractionEventServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedInteractionEventServiceServer struct {
+}
+
+func (UnimplementedInteractionEventServiceServer) LogInteractionEvent(context.Context, *LogInteractionEventRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LogInteractionEvent not implemented")
+}
+func (UnimplementedInteractionEventServiceServer) mustEmbedUnimplementedInteractionEventServiceServer() {
+}
+
+// UnsafeInteractionEventServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to InteractionEventServiceServer will
+// result in compilation errors.
+type UnsafeInteractionEventServiceServer interface {
+	mustEmbedUnimplementedInteractionEventServiceServer()
+}
+
+func RegisterInteractionEventServiceServer(s grpc.ServiceRegistrar, srv InteractionEventServiceServer) {
+	s.RegisterService(&InteractionEventService_ServiceDesc, srv)
+}
+
+func _InteractionEventService_LogInteractionEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LogInteractionEventRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InteractionEventServiceServer).LogInteractionEvent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InteractionEventService_LogInteractionEvent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InteractionEventServiceServer).LogInteractionEvent(ctx, req.(*LogInteractionEventRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// InteractionEventService_ServiceDesc is the grpc.ServiceDesc for InteractionEventService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var InteractionEventService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "notebooklm.v1alpha1.InteractionEventService",
+	HandlerType: (*InteractionEventServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "LogInteractionEvent",
+			Handler:    _InteractionEventService_LogInteractionEvent_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "notebooklm/v1alpha1/orchestration.proto",
 }

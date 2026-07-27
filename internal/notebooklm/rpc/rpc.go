@@ -34,7 +34,6 @@ type ServiceConfig struct {
 // (constant + proto rpc method).
 // The recurring divergences are:
 //
-//   J7Gthc -> DeleteChatTurns           (we call it RateConversationTurn)
 //   Ljjv0c -> DiscoverSourcesManifold   (we call it StartFastResearch)
 //   QA9ei  -> DiscoverSourcesAsync      (we call it StartDeepResearch)
 //   e3bVqc -> ListDiscoverSourcesJob    (we call it DeleteChatHistory / GetDeepResearchSessions)
@@ -103,7 +102,7 @@ const (
 	RPCGetConversations         = "hPTbtc" // GetConversations - list conversation IDs for a notebook
 	RPCGetConversationHistory   = "khqZz"  // GetConversationHistory - retrieve chat messages
 	RPCDeleteChatHistory        = "e3bVqc" // DeleteChatHistory / PollDeepResearch - server routes by args
-	RPCRateConversationTurn     = "J7Gthc" // RateConversationTurn - mark conversation turn (thumbs up/down?)
+	RPCDeleteChatTurns          = "J7Gthc" // DeleteChatTurns - bundle name inferred; field 4 semantics unknown
 
 	// NotebookLM service - Research operations
 	//
@@ -177,8 +176,8 @@ const (
 	// collaborators slice — per-user [email, role, display_name,
 	// avatar_url] entries plus permission flags — and not the
 	// title/emoji/thumbnail metadata that the proto's ProjectDetails
-	// message also models. api.Client.parseProjectDetailsResponse
-	// extracts only OwnerName + IsPublic from this list. The fuller
+	// message also models. api.Client extracts only OwnerName + IsPublic
+	// from the generated message. The fuller
 	// project-metadata fields may populate under different request
 	// modes (the trailing [2] arg looks like a mode enum); they
 	// remain unobserved in our corpus.
@@ -274,6 +273,7 @@ const (
 	RPCDeleteLabels                  = "GyzE7e"        // DeleteLabels — bulk delete by label_id. HAR-verified 2026-04-26.
 	RPCGenerateArtifact              = "Rytqqe"        // GenerateArtifact — distinct from CreateArtifact (R7cb6c). TODO(har).
 	RPCCancelDiscoverSourcesJob      = "Zbrupe"        // CancelDiscoverSourcesJob (cancels the in-flight Es3dTe/Ljjv0c job). TODO(har).
+	RPCCancelGeneration              = "XgrPMd"        // CancelGeneration — cancels a generation by id. HAR-verified 2026-07-24.
 	RPCExportToDrive                 = "Krh3pd"        // ExportToDrive (export notebook artifacts to user's Drive). TODO(har).
 	RPCUpdateFeaturedNotebookStatus  = "DemIHe"        // UpdateFeaturedNotebookStatus (admin/internal). TODO(har).
 	RPCListModelOptions              = "EnujNd"        // ListModelOptions (returns the available chat/generation models). TODO(har).
@@ -282,9 +282,14 @@ const (
 	RPCListExpertIntelligenceContent = "mVtEUb"        // ListExpertIntelligenceContent (curated featured-content surface). TODO(har).
 	RPCGenerateAccessToken           = "preRPe"        // GenerateAccessToken (per-session token mint, possibly for embed widgets). TODO(har).
 	RPCGetMagicView                  = "rtY7md"        // GetMagicView (companion to uK8f7c GenerateMagicView). TODO(har).
-	RPCCopyProject                   = "te3DCe"        // CopyProject (duplicate a notebook). TODO(har).
+	RPCCopyProject                   = "te3DCe"        // CopyProject (duplicate a notebook). HAR-verified: reply is a single status int.
 	RPCStreamGenerateFreeForm        = "laWbsf"        // GenerateFreeFormStreamed (chat path; the live UI uses gRPC-Web — not batchexecute — but the JS bundle still maps the rpc_id).
 	RPCCreateAccessRequest           = "n3dkHd"        // CreateAccessRequest (LabsTailwindSharingService — request access to a shared notebook). TODO(har).
+
+	// RPCLogInteractionEvent is bound by the production JavaScript descriptor
+	// to /InteractionEventService.LogInteractionEvent. It records an artifact
+	// interaction and returns an empty response.
+	RPCLogInteractionEvent = "HpN0Ub"
 )
 
 // Call represents a NotebookLM RPC call

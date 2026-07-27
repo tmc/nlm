@@ -32,6 +32,29 @@ func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
 	md := m.ProtoReflect()
 	fields := md.Descriptor().Fields()
 
+	// Shape unions marshal to the bare value of whichever case is set, at the
+	// enclosing field's position — not to a positional array padded to the
+	// case's field number. This mirrors setShapeUnion on the decode side.
+	if oneof := shapeUnion(md.Descriptor()); oneof != nil {
+		if which := md.WhichOneof(oneof); which != nil {
+			return json.Marshal(o.marshalValue(which, md.Get(which)))
+		}
+		return []byte("null"), nil
+	}
+
+	// Object-encoded messages marshal to a sparse JSON object keyed by field
+	// number, e.g. {"101": "•", "102": 1}. This mirrors setObjectMessage.
+	if messageBoolOption(md.Descriptor(), extObjectEncoded) {
+		obj := make(map[string]interface{})
+		for i := 0; i < fields.Len(); i++ {
+			field := fields.Get(i)
+			if md.Has(field) {
+				obj[strconv.Itoa(int(field.Number()))] = o.marshalValue(field, md.Get(field))
+			}
+		}
+		return json.Marshal(obj)
+	}
+
 	// Find max field number to size our array
 	maxFieldNum := 0
 	for i := 0; i < fields.Len(); i++ {
@@ -54,6 +77,11 @@ func (o MarshalOptions) Marshal(m proto.Message) ([]byte, error) {
 		}
 		// Unset fields remain nil (JSON null) to match batchexecute protocol
 	}
+	if messageBoolOption(md.Descriptor(), extOmitTrailingNulls) {
+		for len(result) > 0 && result[len(result)-1] == nil {
+			result = result[:len(result)-1]
+		}
+	}
 
 	return json.Marshal(result)
 }
@@ -75,6 +103,11 @@ func (o MarshalOptions) marshalValue(fd protoreflect.FieldDescriptor, v protoref
 func (o MarshalOptions) marshalSingleValue(fd protoreflect.FieldDescriptor, v protoreflect.Value) interface{} {
 	switch fd.Kind() {
 	case protoreflect.BoolKind:
+		// A field tagged (json_bool) is carried as a JSON boolean; the default
+		// batchexecute encoding is 1/0.
+		if fieldBoolOption(fd, extJSONBool) {
+			return v.Bool()
+		}
 		if v.Bool() {
 			return 1
 		}
@@ -99,16 +132,22 @@ func (o MarshalOptions) marshalSingleValue(fd protoreflect.FieldDescriptor, v pr
 		if !msg.IsValid() {
 			return nil
 		}
-		// Handle well-known types specially
+		fields := msg.Descriptor().Fields()
+		if flatListMessage(msg.Descriptor()) && fields.Len() == 1 {
+			field := fields.Get(0)
+			if field.IsList() {
+				return o.marshalValue(field, msg.Get(field))
+			}
+		}
+		// Handle well-known types specially. A wrapper's presence carries the
+		// value, so a present wrapper emits its value even when that value is
+		// the zero value (Get returns the zero value when the inner field is
+		// unset) — gating on Has() would drop a legitimate 0/"" back to null.
 		switch msg.Descriptor().FullName() {
 		case "google.protobuf.StringValue":
-			if msg.Has(msg.Descriptor().Fields().ByNumber(1)) {
-				return msg.Get(msg.Descriptor().Fields().ByNumber(1)).String()
-			}
+			return msg.Get(msg.Descriptor().Fields().ByNumber(1)).String()
 		case "google.protobuf.Int32Value":
-			if msg.Has(msg.Descriptor().Fields().ByNumber(1)) {
-				return int(msg.Get(msg.Descriptor().Fields().ByNumber(1)).Int())
-			}
+			return int(msg.Get(msg.Descriptor().Fields().ByNumber(1)).Int())
 		case "google.protobuf.Timestamp":
 			var seconds, nanos int64
 			if f := msg.Descriptor().Fields().ByNumber(1); msg.Has(f) {
@@ -238,6 +277,18 @@ func (o UnmarshalOptions) Unmarshal(b []byte, m proto.Message) error {
 			fd := fields.ByNumber(1)
 			if fd != nil && fd.IsList() && fd.Message() != nil {
 				// Keep positional format: position 0 = repeated field value.
+			} else if fd != nil && fd.Message() != nil && flatListMessage(fd.Message()) {
+				// Keep the positional wrapper for a singular flat-list message.
+				// The inner empty list is field 1's value, not an extra envelope.
+			} else if fd != nil && fd.Message() != nil && len(innerArr) == 1 {
+				inner := fd.Message().Fields().ByNumber(1)
+				if inner != nil && inner.IsList() && inner.Message() != nil {
+					// Keep the wrapper needed by a singular message whose first
+					// field is a repeated message. The inner array is the singular
+					// field value, not another response envelope.
+				} else {
+					arr = innerArr
+				}
 			} else {
 				arr = innerArr
 			}
@@ -349,6 +400,27 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 	if len(arr) > 0 && fd.Message() != nil {
 		list := m.Mutable(fd).List()
 
+		// A repeated shape-union element (e.g. SpanGroup.spans) can itself be
+		// single-element on the wire, with the wrapping array elided the same
+		// way any other single-element repeated field is. That elision is
+		// ambiguous exactly when the lone element's own case is a message
+		// with a trailing array field (e.g. a Span's [start, end, content]):
+		// arr's raw form [start, end, content] then looks exactly like "N
+		// top-level items" to the isNestedArray check below, instead of one
+		// element. Disambiguate by checking whether arr, taken as a whole,
+		// fits one union case before assuming it is several. A genuine
+		// 1-element wrapper ([span]) does not accidentally match here: its
+		// lone element is itself an array, which a message case's shapeMatches
+		// rejects when checked against arr's own leading position (arr[0]),
+		// so this shortcut naturally no-ops and falls through to unwrap arr[0]
+		// via the isNestedArray path below instead.
+		if oneof := shapeUnion(fd.Message()); oneof != nil && containsNestedArray(arr) {
+			if union, matched, err := o.buildShapeUnion(fd.Message(), oneof, arr); err == nil && matched {
+				list.Append(protoreflect.ValueOfMessage(union))
+				return nil
+			}
+		}
+
 		// Check if this is a double-nested array (like sources field)
 		if _, isNestedArray := arr[0].([]interface{}); isNestedArray {
 			// Pattern: [[[item1_data], [item2_data], ...]]
@@ -391,6 +463,20 @@ func (o UnmarshalOptions) setRepeatedField(m protoreflect.Message, fd protorefle
 	return nil
 }
 
+// containsNestedArray reports whether any element of arr is itself an array,
+// the signal setRepeatedField uses to tell a single Span-shaped
+// ([start, end, content]) value apart from a genuine run of independent
+// scalar leaves when deciding whether arr as a whole is one shape-union
+// element.
+func containsNestedArray(arr []interface{}) bool {
+	for _, v := range arr {
+		if _, ok := v.([]interface{}); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // isEmptyArrayCode checks if a value represents an empty array code from the NotebookLM API
 func isEmptyArrayCode(val interface{}) bool {
 	if num, isNum := val.(float64); isNum {
@@ -404,6 +490,23 @@ func isEmptyArrayCode(val interface{}) bool {
 
 func (o UnmarshalOptions) appendToList(list protoreflect.List, fd protoreflect.FieldDescriptor, val interface{}) error {
 	if fd.Message() != nil {
+		// Shape unions: a repeated field whose element type is itself a shape
+		// union (e.g. SpanGroup.spans, which holds either a bare scalar or a
+		// nested Span at each position) selects the case by the element's
+		// shape, the same way a singular shape-union field does in
+		// setMessageField. Handling this here — rather than falling through
+		// to the positional decode below — matters because the positional
+		// decode would otherwise misinterpret the union's message-case shape
+		// as numbered fields of some other message.
+		if oneof := shapeUnion(fd.Message()); oneof != nil {
+			union, _, err := o.buildShapeUnion(fd.Message(), oneof, val)
+			if err != nil {
+				return err
+			}
+			list.Append(protoreflect.ValueOfMessage(union))
+			return nil
+		}
+
 		// Get the concrete message type from the registry
 		msgType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName())
 		if err != nil {
@@ -413,23 +516,24 @@ func (o UnmarshalOptions) appendToList(list protoreflect.List, fd protoreflect.F
 		msg := msgType.New().Interface()
 		msgReflect := msg.ProtoReflect()
 
-	switch v := val.(type) {
-	case []interface{}:
-		if len(v) == 2 {
-			if nested, ok := v[1].([]interface{}); ok && len(nested) > 0 {
-				if outerID, ok := v[0].(string); ok {
-					if innerID, ok := nested[0].(string); ok && outerID == innerID {
-						if err := o.populateMessage(nested, msg); err == nil {
-							list.Append(protoreflect.ValueOfMessage(msgReflect))
-							return nil
+		switch v := val.(type) {
+		case []interface{}:
+			fieldTwo := msgReflect.Descriptor().Fields().ByNumber(2)
+			if len(v) == 2 && (fieldTwo == nil || fieldTwo.Message() == nil) {
+				if nested, ok := v[1].([]interface{}); ok && len(nested) > 0 {
+					if outerID, ok := v[0].(string); ok {
+						if innerID, ok := nested[0].(string); ok && outerID == innerID {
+							if err := o.populateMessage(nested, msg); err == nil {
+								list.Append(protoreflect.ValueOfMessage(msgReflect))
+								return nil
+							}
 						}
 					}
 				}
 			}
-		}
-		// If this is a nested array structure representing a single value,
-		// flatten it to get the actual value
-		flatVal := flattenSingleValueArray(v)
+			// If this is a nested array structure representing a single value,
+			// flatten it to get the actual value
+			flatVal := flattenSingleValueArray(v)
 			if !isArray(flatVal) {
 				if err := o.setField(msgReflect, msgReflect.Descriptor().Fields().ByNumber(1), flatVal); err != nil {
 					return err
@@ -549,9 +653,24 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 		fmt.Printf("  -> Parsing nested message: %s\n", fd.Message().FullName())
 	}
 
+	// Shape unions: a message whose only fields are the members of a single
+	// oneof represents a wire position that holds one of several alternative
+	// shapes (a text leaf vs. a nested container, say). Such a message is not
+	// populated positionally; instead the whole wire value selects one case by
+	// its shape. See setShapeUnion.
+	if oneof := shapeUnion(fd.Message()); oneof != nil {
+		return o.setShapeUnion(m, fd, oneof, val)
+	}
+
 	msgType, err := protoregistry.GlobalTypes.FindMessageByName(fd.Message().FullName())
 	if err != nil {
 		return fmt.Errorf("failed to find message type %q: %v", fd.Message().FullName(), err)
+	}
+
+	// Object-encoded messages arrive as a JSON object keyed by field number
+	// ({"101": "•", ...}) rather than a positional array.
+	if obj, ok := val.(map[string]interface{}); ok && messageBoolOption(fd.Message(), extObjectEncoded) {
+		return o.setObjectMessage(m, fd, msgType, obj)
 	}
 
 	msg := msgType.New().Interface()
@@ -572,6 +691,19 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 
 		// Populate fields from array
 		fields := msgReflect.Descriptor().Fields()
+		// Some one-field repeated-value messages are carried without their
+		// usual positional wrapper. Treat the whole value as field 1 before
+		// walking it positionally.
+		if flatListMessage(msgReflect.Descriptor()) && len(v) > 0 && !isArray(v[0]) && fields.Len() == 1 {
+			field := fields.Get(0)
+			if field.IsList() {
+				if err := o.setRepeatedField(msgReflect, field, v); err != nil {
+					return fmt.Errorf("field %s: %w", field.FullName(), err)
+				}
+				m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
+				return nil
+			}
+		}
 		for i := 0; i < len(v); i++ {
 			if v[i] == nil {
 				if o.DebugFieldMapping {
@@ -675,6 +807,213 @@ func (o UnmarshalOptions) setMessageField(m protoreflect.Message, fd protoreflec
 		m.Set(fd, protoreflect.ValueOfMessage(msgReflect))
 		return nil
 	}
+}
+
+// flatListMessage reports messages whose sole repeated field is carried
+// without the usual nested positional wrapper.
+func flatListMessage(md protoreflect.MessageDescriptor) bool {
+	switch md.FullName() {
+	case "notebooklm.v1alpha1.AccessTokenScopes",
+		"notebooklm.v1alpha1.SourceSettingsIntList",
+		"notebooklm.v1alpha1.StringList":
+		return true
+	}
+	return false
+}
+
+// setObjectMessage populates an object-encoded message field from a JSON object
+// keyed by field number ({"101": "•", "102": 1}), the sparse form batchexecute
+// uses for messages with large, sparse field numbers.
+func (o UnmarshalOptions) setObjectMessage(m protoreflect.Message, fd protoreflect.FieldDescriptor, msgType protoreflect.MessageType, obj map[string]interface{}) error {
+	msg := msgType.New()
+	fields := fd.Message().Fields()
+	for key, raw := range obj {
+		if raw == nil {
+			continue
+		}
+		num, err := strconv.Atoi(key)
+		if err != nil {
+			if o.DebugParsing {
+				fmt.Printf("  -> object-encoded %s: non-numeric key %q skipped\n", fd.Message().FullName(), key)
+			}
+			continue
+		}
+		field := fields.ByNumber(protoreflect.FieldNumber(num))
+		if field == nil {
+			if !o.DiscardUnknown {
+				return fmt.Errorf("object-encoded %s: no field %d", fd.Message().FullName(), num)
+			}
+			continue
+		}
+		if err := o.setField(msg, field, raw); err != nil {
+			return fmt.Errorf("object-encoded %s field %d: %w", fd.Message().FullName(), num, err)
+		}
+	}
+	m.Set(fd, protoreflect.ValueOfMessage(msg))
+	return nil
+}
+
+// Extension full names for the batchexecute encoding options. They are read by
+// name from the global registry so this codec stays decoupled from the
+// concrete generated package that declares them.
+const (
+	extJSONBool          = "notebooklm.v1alpha1.json_bool"
+	extObjectEncoded     = "notebooklm.v1alpha1.object_encoded"
+	extOmitTrailingNulls = "notebooklm.v1alpha1.omit_trailing_nulls"
+)
+
+// fieldBoolOption reports whether the named bool extension is set to true on a
+// field's options. It resolves the extension by name at call time; if the
+// extension is not registered (its package was never loaded), it returns false.
+func fieldBoolOption(fd protoreflect.FieldDescriptor, name protoreflect.FullName) bool {
+	return boolExtension(fd.Options(), name)
+}
+
+// messageBoolOption reports whether the named bool extension is set to true on a
+// message's options.
+func messageBoolOption(md protoreflect.MessageDescriptor, name protoreflect.FullName) bool {
+	return boolExtension(md.Options(), name)
+}
+
+func boolExtension(opts proto.Message, name protoreflect.FullName) bool {
+	if opts == nil {
+		return false
+	}
+	xt, err := protoregistry.GlobalTypes.FindExtensionByName(name)
+	if err != nil {
+		return false
+	}
+	if !proto.HasExtension(opts, xt) {
+		return false
+	}
+	v, ok := proto.GetExtension(opts, xt).(bool)
+	return ok && v
+}
+
+// shapeUnion reports whether md is a shape-union message: one whose fields are
+// exactly the members of a single oneof (no other fields). Such a message maps
+// a single wire position to one of several alternative shapes, chosen by the
+// wire value's shape rather than by field position. It returns the oneof, or
+// nil if md is an ordinary positional message.
+func shapeUnion(md protoreflect.MessageDescriptor) protoreflect.OneofDescriptor {
+	oneofs := md.Oneofs()
+	if oneofs.Len() != 1 {
+		return nil
+	}
+	oneof := oneofs.Get(0)
+	if oneof.IsSynthetic() { // proto3 optional fields are synthetic oneofs
+		return nil
+	}
+	if oneof.Fields().Len() != md.Fields().Len() {
+		return nil // md has fields outside the oneof; treat positionally
+	}
+	return oneof
+}
+
+// setShapeUnion populates a shape-union message field by selecting the oneof
+// case whose declared shape matches the wire value, then decoding val into that
+// case. Cases are tried in declaration order; the first whose leading shape is
+// compatible wins.
+func (o UnmarshalOptions) setShapeUnion(m protoreflect.Message, fd protoreflect.FieldDescriptor, oneof protoreflect.OneofDescriptor, val interface{}) error {
+	union, _, err := o.buildShapeUnion(fd.Message(), oneof, val)
+	if err != nil {
+		return err
+	}
+	m.Set(fd, protoreflect.ValueOfMessage(union))
+	return nil
+}
+
+// buildShapeUnion decodes val into a new instance of a shape-union message,
+// selecting the oneof case whose declared shape matches the wire value. Cases
+// are tried in declaration order; the first whose leading shape is compatible
+// wins. matched reports whether a case was actually selected, as opposed to
+// the forgiving empty-union fallback. Shared by setShapeUnion (a singular
+// shape-union field) and appendToList/setRepeatedField (a repeated field
+// whose element type is itself a shape union, e.g. a list that holds either a
+// bare scalar or a nested message at each position).
+func (o UnmarshalOptions) buildShapeUnion(md protoreflect.MessageDescriptor, oneof protoreflect.OneofDescriptor, val interface{}) (union protoreflect.Message, matched bool, err error) {
+	msgType, err := protoregistry.GlobalTypes.FindMessageByName(md.FullName())
+	if err != nil {
+		return protoreflect.Value{}.Message(), false, fmt.Errorf("failed to find message type %q: %v", md.FullName(), err)
+	}
+	u := msgType.New()
+
+	cases := oneof.Fields()
+	for i := 0; i < cases.Len(); i++ {
+		c := cases.Get(i)
+		if !shapeMatches(c, val) {
+			continue
+		}
+		if err := o.setField(u, c, val); err != nil {
+			if o.DebugParsing {
+				fmt.Printf("  -> shape-union case %s rejected: %v\n", c.Name(), err)
+			}
+			continue
+		}
+		return u, true, nil
+	}
+	// No case matched: leave the union empty rather than error, matching the
+	// forgiving behavior of the positional path.
+	if o.DebugParsing {
+		fmt.Printf("  -> shape-union %s: no case matched value %T\n", md.FullName(), val)
+	}
+	return u, false, nil
+}
+
+// shapeMatches reports whether a wire value is a plausible fit for a oneof case
+// field. It steers a shape union to the right variant by comparing the wire
+// value's leading shape against the case's leading field:
+//
+//   - a scalar case (string/number/bool) matches the matching scalar kind, or a
+//     single-element array wrapping it;
+//   - a message case matches an array whose first element is compatible with
+//     that message's first field (so a text leaf and a span container, both
+//     message cases, are told apart by whether element [0] is a string or an
+//     array);
+//   - a repeated case matches any array.
+func shapeMatches(c protoreflect.FieldDescriptor, val interface{}) bool {
+	switch v := val.(type) {
+	case []interface{}:
+		switch {
+		case c.IsList():
+			return true
+		case c.Message() != nil:
+			// Look one level in: does the wire's leading element fit the case
+			// message's first field? This distinguishes message cases that
+			// differ only by their contents' shape.
+			lead := c.Message().Fields()
+			if lead.Len() == 0 {
+				return len(v) == 0
+			}
+			if len(v) == 0 {
+				return true
+			}
+			return shapeMatches(lead.Get(0), v[0])
+		case len(v) == 1:
+			// A scalar case may be wrapped in a single-element array: [x].
+			return shapeMatches(c, v[0])
+		}
+		return false
+	case string:
+		return c.Kind() == protoreflect.StringKind || c.Kind() == protoreflect.BytesKind
+	case float64:
+		switch c.Kind() {
+		case protoreflect.Int32Kind, protoreflect.Int64Kind, protoreflect.Sint32Kind,
+			protoreflect.Sint64Kind, protoreflect.Sfixed32Kind, protoreflect.Sfixed64Kind,
+			protoreflect.Uint32Kind, protoreflect.Uint64Kind, protoreflect.Fixed32Kind,
+			protoreflect.Fixed64Kind, protoreflect.FloatKind, protoreflect.DoubleKind,
+			protoreflect.EnumKind:
+			return true
+		}
+		return false
+	case bool:
+		return c.Kind() == protoreflect.BoolKind
+	case map[string]interface{}:
+		return c.Message() != nil && messageBoolOption(c.Message(), extObjectEncoded)
+	case nil:
+		return true
+	}
+	return false
 }
 
 func isWrapperType(name protoreflect.FullName) bool {

@@ -485,7 +485,7 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 		t.Fatalf("Failed to generate notebook guide: %v", err)
 	}
 
-	t.Logf("Generated guide with %d characters", len(guide.Content))
+	t.Logf("Generated guide with %d characters", len(guide.GetGuide().GetSummary().GetText()))
 }
 
 // TestGenerationCommands_GenerateOutline records the generate outline command

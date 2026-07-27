@@ -1,10 +1,21 @@
 package api
 
 import (
+	"bufio"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/beprotojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestParseChatResponseChunked(t *testing.T) {
@@ -150,6 +161,45 @@ func TestBuildChatArgsUsesProtoBackedConversationState(t *testing.T) {
 	}
 	if first[0] != "Earlier question" || first[2] != float64(1) {
 		t.Fatalf("history[0] = %#v, want content/role preserved", first)
+	}
+}
+
+func TestBuildChatArgsCorpusShape(t *testing.T) {
+	t.Parallel()
+
+	c := &Client{}
+	got, err := c.buildChatArgs(ChatRequest{
+		ProjectID:      "project-id",
+		Prompt:         "prompt",
+		SourceIDs:      []string{"source-id"},
+		ConversationID: "conversation-id",
+		SeqNum:         1,
+	})
+	if err != nil {
+		t.Fatalf("buildChatArgs() error = %v", err)
+	}
+	want := `[[[["source-id"]]],"prompt",[],[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],"conversation-id",null,null,"project-id",1]`
+	if got != want {
+		t.Fatalf("buildChatArgs() = %s, want %s", got, want)
+	}
+}
+
+func TestBuildChatArgsPreservesEmptyHistory(t *testing.T) {
+	c := &Client{}
+	got, err := c.buildChatArgs(ChatRequest{
+		ProjectID:      "project-id",
+		Prompt:         "prompt",
+		SourceIDs:      []string{"source-id"},
+		ConversationID: "conversation-id",
+		History:        []ChatMessage{{Content: "", Role: 1}},
+		SeqNum:         0,
+	})
+	if err != nil {
+		t.Fatalf("buildChatArgs() error = %v", err)
+	}
+	const want = `[[[["source-id"]]],"prompt",[["",null,1]],[2,null,[1],[1,null,null,null,null,null,null,null,null,null,[1,3]]],"conversation-id",null,null,"project-id",1]`
+	if got != want {
+		t.Fatalf("buildChatArgs() = %s, want %s", got, want)
 	}
 }
 
@@ -315,6 +365,204 @@ func TestExtractChatPayloadResolvesScopedCitationIDs(t *testing.T) {
 	if got.Citations[0].SourceID != "target-src" {
 		t.Fatalf("citation source = %q, want target-src", got.Citations[0].SourceID)
 	}
+}
+
+func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
+	response := &pb.GenerateFreeFormStreamedWireResponse{
+		Answer:    &pb.ChatAnswer{Chunk: "answer"},
+		Citations: []*pb.Grounding{{Score: proto.Float64(0.9)}},
+		SourceMappings: []*pb.ChatStreamSourceMapping{{
+			Range:         &pb.OffsetRange{Start: proto.Int64(4), End: proto.Int64(10)},
+			SourceIndices: []int32{0, 1},
+		}},
+	}
+	raw, err := beprotojson.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := extractChatPayload(string(raw), []string{"src-a", "src-b"})
+	if got.Text != "answer" || len(got.Citations) != 2 {
+		t.Fatalf("payload = %#v, want answer with two citations", got)
+	}
+	for i, citation := range got.Citations {
+		if citation.SourceIndex != 1 || citation.SourceID != []string{"src-a", "src-b"}[i] || citation.StartChar != 4 || citation.EndChar != 10 || citation.Confidence != 0.9 {
+			t.Errorf("citation %d = %#v", i, citation)
+		}
+	}
+}
+
+func TestExtractChatPayloadCorpusEquivalence(t *testing.T) {
+	var files []string
+	err := filepath.WalkDir("/tmp/nlm-traffic", func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.IsDir() && entry.Name() == "notebooklm.google.com.jsonl" {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil || len(files) == 0 {
+		t.Skip("/tmp/nlm-traffic corpus is not available")
+	}
+	responses, frames := 0, 0
+	targetResponses, targetFrames, targetCitations := 0, 0, 0
+	for _, file := range files {
+		f, err := os.Open(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		scanner := bufio.NewScanner(f)
+		scanner.Buffer(make([]byte, 64*1024), 64*1024*1024)
+		for record := 1; scanner.Scan(); record++ {
+			var entry struct {
+				Request struct {
+					URL      string `json:"url"`
+					PostData struct {
+						Text string `json:"text"`
+					} `json:"postData"`
+				} `json:"request"`
+				Response struct {
+					Content struct {
+						Text     string `json:"text"`
+						Encoding string `json:"encoding"`
+					} `json:"content"`
+				} `json:"response"`
+			}
+			if json.Unmarshal(scanner.Bytes(), &entry) != nil || !strings.Contains(entry.Request.URL, "/GenerateFreeFormStreamed") || entry.Response.Content.Text == "" {
+				continue
+			}
+			sourceIDs, err := streamSourceIDs(entry.Request.PostData.Text)
+			if err != nil {
+				t.Fatalf("%s:%d source ids: %v", file, record, err)
+			}
+			body := entry.Response.Content.Text
+			if entry.Response.Content.Encoding == "base64" {
+				decoded, err := base64.StdEncoding.DecodeString(body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				body = string(decoded)
+			}
+			payloads, _, err := streamPayloads([]byte(body))
+			if err != nil {
+				t.Fatalf("%s:%d stream: %v", file, record, err)
+			}
+			responses++
+			frames += len(payloads)
+			target := strings.Contains(file, "/rich-notes2/") && record == 155
+			if target {
+				targetResponses++
+				targetFrames += len(payloads)
+			}
+			for i, payload := range payloads {
+				got, want := extractChatPayload(string(payload), sourceIDs), extractChatPayloadLegacy(string(payload), sourceIDs)
+				if got.Text != want.Text || got.wirePhase != want.wirePhase || got.hasWirePhase != want.hasWirePhase || !sameCitations(got.Citations, want.Citations) || !sameStrings(got.FollowUps, want.FollowUps) {
+					t.Fatalf("%s:%d frame %d: generated=%+v legacy=%+v", file, record, i, got, want)
+				}
+				if target {
+					targetCitations += len(got.Citations)
+				}
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+	}
+	if responses < 3 || frames < 231 {
+		t.Fatalf("stream corpus responses=%d frames=%d, want at least 3/231", responses, frames)
+	}
+	if targetResponses != 1 || targetFrames == 0 {
+		t.Fatalf("rich-notes2 record 155 responses=%d frames=%d, want 1/nonzero", targetResponses, targetFrames)
+	}
+	t.Logf("rich-notes2 record 155: payloads=%d citations=%d", targetFrames, targetCitations)
+}
+
+func streamSourceIDs(raw string) ([]string, error) {
+	if decoded, err := base64.StdEncoding.DecodeString(raw); err == nil {
+		raw = string(decoded)
+	}
+	form, err := url.ParseQuery(raw)
+	if err != nil {
+		return nil, err
+	}
+	var envelope []json.RawMessage
+	if err := json.Unmarshal([]byte(form.Get("f.req")), &envelope); err != nil || len(envelope) < 2 {
+		return nil, fmt.Errorf("bad f.req envelope")
+	}
+	var payload string
+	if err := json.Unmarshal(envelope[1], &payload); err != nil {
+		return nil, err
+	}
+	var args []json.RawMessage
+	if err := json.Unmarshal([]byte(payload), &args); err != nil || len(args) == 0 {
+		return nil, fmt.Errorf("bad stream args")
+	}
+	var groups []json.RawMessage
+	if err := json.Unmarshal(args[0], &groups); err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(groups))
+	for _, group := range groups {
+		var pair []string
+		if json.Unmarshal(group, &pair) == nil && len(pair) > 0 {
+			ids = append(ids, pair[0])
+		}
+	}
+	return ids, nil
+}
+
+func streamPayloads(body []byte) ([][]byte, int, error) {
+	frames, chunks, err := batchexecute.WrbFRFrames(body)
+	if err != nil {
+		return nil, chunks, err
+	}
+	var payloads [][]byte
+	for _, frame := range frames {
+		var rows [][]json.RawMessage
+		if err := json.Unmarshal(frame, &rows); err != nil {
+			return nil, chunks, err
+		}
+		for _, row := range rows {
+			if len(row) < 3 {
+				continue
+			}
+			var kind string
+			if json.Unmarshal(row[0], &kind) != nil || kind != "wrb.fr" {
+				continue
+			}
+			var payload string
+			if json.Unmarshal(row[2], &payload) != nil || payload == "" {
+				continue
+			}
+			payloads = append(payloads, []byte(payload))
+		}
+	}
+	return payloads, chunks, nil
+}
+
+func sameCitations(a, b []Citation) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // TestParseChatResponseAuthError verifies that an expired-auth chat response —

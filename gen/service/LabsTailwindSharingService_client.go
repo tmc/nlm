@@ -12,7 +12,6 @@ import (
 	notebooklmv1alpha1 "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
-	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
 )
 
@@ -43,7 +42,7 @@ func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *
 	call := rpc.Call{
 		ID:         "RGP97b",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeShareAudioArgsV2(req),
+		Args:       method.EncodeShareAudioArgs(req),
 	}
 
 	// Execute the RPC
@@ -91,7 +90,7 @@ func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req
 	call := rpc.Call{
 		ID:         "QDyure",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       intmethod.EncodeShareProjectArgs(req),
+		Args:       method.EncodeShareProjectArgs(req),
 	}
 
 	// Execute the RPC
@@ -104,6 +103,30 @@ func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req
 	var result notebooklmv1alpha1.ShareProjectResponse
 	if err := beprotojson.Unmarshal(resp, &result); err != nil {
 		return nil, fmt.Errorf("ShareProject: unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CreateAccessRequest calls the CreateAccessRequest RPC method.
+func (c *LabsTailwindSharingServiceClient) CreateAccessRequest(ctx context.Context, req *notebooklmv1alpha1.CreateAccessRequestRequest) (*notebooklmv1alpha1.CreateAccessRequestResponse, error) {
+	// Build the RPC call
+	call := rpc.Call{
+		ID:         "n3dkHd",
+		NotebookID: rpc.NotebookIDFromMessage(req),
+		Args:       []interface{}{}, // TODO: implement argument encoding
+	}
+
+	// Execute the RPC
+	resp, err := c.rpcClient.Do(call)
+	if err != nil {
+		return nil, fmt.Errorf("CreateAccessRequest: %w", err)
+	}
+
+	// Decode the response
+	var result notebooklmv1alpha1.CreateAccessRequestResponse
+	if err := beprotojson.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("CreateAccessRequest: unmarshal response: %w", err)
 	}
 
 	return &result, nil

@@ -28,6 +28,7 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	nlmsync "github.com/tmc/nlm/internal/sync"
 	"golang.org/x/term"
+	"google.golang.org/protobuf/proto"
 )
 
 // Global flags
@@ -650,7 +651,7 @@ func formatSourceStatus(src *pb.Source) string {
 	if len(src.Warnings) > 0 {
 		var codes []string
 		for _, w := range src.Warnings {
-			codes = append(codes, fmt.Sprintf("warn:%d", w.GetValue()))
+			codes = append(codes, fmt.Sprintf("warn:%d", w))
 		}
 		return strings.Join(codes, ",")
 	}
@@ -943,20 +944,7 @@ func listNotes(c *api.Client, notebookID string) error {
 
 	if jsonOutput {
 		enc := json.NewEncoder(os.Stdout)
-		for _, note := range notes {
-			content := note.GetRichText()
-			if content == "" {
-				content = note.GetContentText()
-			}
-			content = strings.Join(strings.Fields(content), " ")
-			if len(content) > 80 {
-				content = content[:77] + "..."
-			}
-			rec := noteListRecord{
-				NoteID:         note.GetNoteId(),
-				Title:          note.GetTitle(),
-				ContentPreview: content,
-			}
+		for _, rec := range noteListRecords(notes) {
 			if err := enc.Encode(rec); err != nil {
 				return err
 			}
@@ -966,19 +954,31 @@ func listNotes(c *api.Client, notebookID string) error {
 
 	w, flush := newListWriter(os.Stdout)
 	fmt.Fprintln(w, "ID\tTITLE\tCONTENT PREVIEW")
+	for _, rec := range noteListRecords(notes) {
+		fmt.Fprintf(w, "%s\t%s\t%s\n", rec.NoteID, rec.Title, rec.ContentPreview)
+	}
+	return flush()
+}
+
+func noteListRecords(notes []*pb.Note) []noteListRecord {
+	records := make([]noteListRecord, 0, len(notes))
 	for _, note := range notes {
+		if note == nil {
+			continue
+		}
 		content := note.GetRichText()
 		if content == "" {
 			content = note.GetContentText()
 		}
-		// Strip HTML/markdown for preview, collapse whitespace.
 		content = strings.Join(strings.Fields(content), " ")
 		if len(content) > 80 {
 			content = content[:77] + "..."
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n", note.GetNoteId(), note.GetTitle(), content)
+		records = append(records, noteListRecord{
+			NoteID: note.GetNoteId(), Title: note.GetTitle(), ContentPreview: content,
+		})
 	}
-	return flush()
+	return records
 }
 
 func readNote(c *api.Client, notebookID, noteID string) error {
@@ -1069,7 +1069,7 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 	if err != nil {
 		return fmt.Errorf("generate guide: %w", err)
 	}
-	fmt.Printf("%s\n", guide.Content)
+	fmt.Printf("%s\n", guide.GetGuide().GetSummary().GetText())
 	return nil
 }
 
@@ -1079,14 +1079,7 @@ func runMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
 	if err != nil {
 		return fmt.Errorf("generate magic view: %w", err)
 	}
-	if title := resp.GetTitle(); title != "" {
-		fmt.Println(title)
-	}
-	for _, item := range resp.GetItems() {
-		if t := item.GetTitle(); t != "" {
-			fmt.Printf("- %s\n", t)
-		}
-	}
+	fmt.Printf("Magic View status: %d\n", resp.GetStatus())
 	return nil
 }
 
@@ -1432,19 +1425,20 @@ func checkSourceFreshness(c *api.Client, sourceID, notebookID string) error {
 		fmt.Fprintln(os.Stderr, "note: pass notebook-id as the second argument to enable client-side Drive-source validation")
 	}
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies)
-	req := &pb.CheckSourceFreshnessRequest{SourceId: sourceID}
+	req := &pb.CheckSourceFreshnessRequest{Source: &pb.SourceIdList{SourceId: sourceID}, Context: &pb.RequestContext{
+		Version: proto.Int32(2),
+		Surface: &pb.RequestSurface{Value: proto.Int32(1)},
+		Caps:    &pb.RequestClientCaps{Version: proto.Int32(1), CapabilityCodes: []int32{1, 3}},
+	}}
 	fmt.Fprintf(os.Stderr, "Checking source %s...\n", sourceID)
 	resp, err := orchClient.CheckSourceFreshness(context.Background(), req)
 	if err != nil {
 		return fmt.Errorf("check source: %w", err)
 	}
-	if resp.IsFresh {
+	if resp.GetIsFresh() {
 		fmt.Printf("Source is up to date")
 	} else {
 		fmt.Printf("Source needs refresh")
-	}
-	if resp.LastChecked != nil {
-		fmt.Printf(" (last checked: %s)", resp.LastChecked.AsTime().Format(time.RFC3339))
 	}
 	fmt.Println()
 	return nil
@@ -1533,7 +1527,7 @@ func getArtifact(c *api.Client, artifactID string) error {
 	}
 
 	fmt.Printf("Artifact: %s\n", artifact.ArtifactId)
-	fmt.Printf("Project:  %s\n", artifact.ProjectId)
+	fmt.Printf("Title:    %s\n", artifact.Title)
 	fmt.Printf("Type:     %s\n", artifact.Type.String())
 	// Print the raw state code alongside the enum name. The state position in
 	// the gArtLc wire response is observed but not HAR-pinned, so exposing the
@@ -1566,21 +1560,24 @@ func getArtifact(c *api.Client, artifactID string) error {
 		}
 	}
 
-	// Type-specific content
+	// Type-specific content. These read the gArtLc-local preview/config
+	// shapes (ArtifactNotePreview, ArtifactAudioOverview, etc.), which are
+	// distinct message types from the top-level Note/AudioOverview/Report
+	// used by the Create*/Get* RPCs — see the Artifact message comment in
+	// orchestration.proto.
 	if report := artifact.TailoredReport; report != nil {
-		if report.Title != "" {
-			fmt.Printf("\nReport: %s\n", report.Title)
-		}
-		if report.Content != "" {
-			fmt.Printf("\n%s\n", report.Content)
-		}
-		for i, section := range report.Sections {
-			fmt.Printf("\n## %d. %s\n\n%s\n", i+1, section.Title, section.Content)
+		if opts := report.Options; opts != nil {
+			if opts.Instructions != "" {
+				fmt.Printf("\nReport instructions: %s\n", opts.Instructions)
+			}
+			if opts.Language != "" {
+				fmt.Printf("  Language: %s\n", opts.Language)
+			}
 		}
 	}
 
 	if note := artifact.Note; note != nil {
-		fmt.Printf("\nNote: %s (source: %s)\n", note.GetTitle(), note.GetSourceId().GetSourceId())
+		fmt.Printf("\nNote: (source refs: %d)\n", len(note.GetConfig().GetSourceRefs()))
 	}
 
 	if app := artifact.App; app != nil {
@@ -1595,12 +1592,12 @@ func getArtifact(c *api.Client, artifactID string) error {
 
 	if audio := artifact.AudioOverview; audio != nil {
 		fmt.Printf("\nAudio: status=%s\n", audio.Status)
-		if audio.Instructions != "" {
-			fmt.Printf("  Instructions: %s\n", audio.Instructions)
+		if audio.Content != nil && audio.Content.Prompt != "" {
+			fmt.Printf("  Instructions: %s\n", audio.Content.Prompt)
 		}
 	}
 
-	if video := artifact.VideoOverview; video != nil {
+	if video := artifact.VideoPreview; video != nil {
 		data, err := json.MarshalIndent(video, "", "  ")
 		if err == nil {
 			fmt.Printf("\nVideo:\n%s\n", string(data))
@@ -2630,7 +2627,7 @@ func createReport(c *api.Client, notebookID, reportType string, extra []string, 
 				if description == "" {
 					description = s.GetDescription()
 				}
-				suggestionIDs = s.GetSourceIds()
+				suggestionIDs = reportSuggestionSourceIDs(s)
 				fmt.Fprintf(os.Stderr, "Matched suggestion %q (%d sources)\n", s.GetTitle(), len(suggestionIDs))
 				break
 			}
@@ -2693,7 +2690,7 @@ func generateReport(c *api.Client, notebookID string, opts reportOptions) error 
 		chatReq := api.ChatRequest{
 			ProjectID: notebookID,
 			Prompt:    prompt,
-			SourceIDs: unionIDs(flagIDs, s.GetSourceIds()),
+			SourceIDs: unionIDs(flagIDs, reportSuggestionSourceIDs(s)),
 		}
 		res, err := streamChatResponse(c, chatReq, opts.Render)
 		if err != nil {
@@ -2707,6 +2704,19 @@ func generateReport(c *api.Client, notebookID string, opts reportOptions) error 
 	}
 
 	return nil
+}
+
+func reportSuggestionSourceIDs(s *pb.ReportSuggestion) []string {
+	if s == nil {
+		return nil
+	}
+	ids := make([]string, 0, len(s.GetSourceIds()))
+	for _, source := range s.GetSourceIds() {
+		if id := source.GetSourceId(); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // readReportSuggestions reads suggestions from stdin (one title per line) or
@@ -3304,15 +3314,6 @@ func shareNotebook(c *api.Client, notebookID string) error {
 		return fmt.Errorf("share project: server did not return a public share URL")
 	}
 	fmt.Printf("Share URL: %s\n", resp.GetShareUrl())
-	return nil
-}
-
-func submitFeedback(c *api.Client, message string) error {
-	if err := c.SubmitFeedback("", "general", message); err != nil {
-		return err
-	}
-
-	fmt.Fprintln(os.Stderr, "Feedback submitted")
 	return nil
 }
 

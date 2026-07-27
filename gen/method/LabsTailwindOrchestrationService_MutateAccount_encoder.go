@@ -9,10 +9,11 @@ import (
 
 // EncodeMutateAccountArgs encodes arguments for LabsTailwindOrchestrationService.MutateAccount
 // RPC ID: hT54vc
-// Argument format: [%account%, %update_mask%]
+// Argument format: [%update%, %context%]
 func EncodeMutateAccountArgs(req *notebooklmv1alpha1.MutateAccountRequest) []interface{} {
-	// Using generalized argument encoder
-	args, err := argbuilder.EncodeRPCArgs(req, "[%account%, %update_mask%]")
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
+	args, err := argbuilder.EncodeRPCArgs(req, "[%update%, %context%]")
 	if err != nil {
 		// Log error and return empty args as fallback
 		// In production, this should be handled better

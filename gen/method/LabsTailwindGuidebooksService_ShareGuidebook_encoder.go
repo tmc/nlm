@@ -11,7 +11,8 @@ import (
 // RPC ID: OTl0K
 // Argument format: [%guidebook_id%, %settings%]
 func EncodeShareGuidebookArgs(req *notebooklmv1alpha1.ShareGuidebookRequest) []interface{} {
-	// Using generalized argument encoder
+	// Using generalized argument encoder. printf %q emits a properly escaped Go
+	// string literal so arg_formats containing quotes (e.g. "New Note") stay valid.
 	args, err := argbuilder.EncodeRPCArgs(req, "[%guidebook_id%, %settings%]")
 	if err != nil {
 		// Log error and return empty args as fallback

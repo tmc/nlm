@@ -1144,6 +1144,19 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return runMCP(c) },
 	},
 	{
+		name: "betool", argsUsage: "<decode-request|encode-request|decode-response|encode-response|infer-proto> [file...]",
+		usage:   "Translate raw batchexecute payloads to JSON and back (offline codec)",
+		section: "Other",
+		minArgs: 0, maxArgs: -1,
+		noAuth: true, noClient: true,
+		hidden: true, // developer tool; pure wire codec, no network I/O
+		help:   func(cmdName string) { printBetoolUsage() },
+		run:    func(_ *api.Client, args []string) error { return runBetool(args, false) },
+		runWithOptions: func(_ *api.Client, args []string, opts globalOptions) error {
+			return runBetool(args, opts.jsonOutput)
+		},
+	},
+	{
 		name: "auth", argsUsage: "[profile]",
 		usage: "Set up authentication from a browser profile", section: "Other",
 		minArgs: 0, maxArgs: -1,
@@ -1167,12 +1180,6 @@ var commands = []command{
 		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
 			return refreshCredentials(opts.debug)
 		},
-	},
-	{
-		name: "feedback", argsUsage: "<message>",
-		usage: "Submit feedback to NotebookLM", section: "Other",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return submitFeedback(c, args[0]) },
 	},
 	{
 		name: "account", argsUsage: "[set <key> <value>]",

@@ -6,6 +6,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 import "notebooklm/v1alpha1/notebooklm.proto";
 import "notebooklm/v1alpha1/rpc_extensions.proto";
+import "notebooklm/v1alpha1/orchestration.proto";
 
 package notebooklm.v1alpha1;
 
@@ -37,54 +38,94 @@ message GetProjectDetailsRequest {
     // existing Go callers (api.Client.GetProjectDetails); on the wire
     // this is the project UUID.
     string share_id = 1;
+    RequestContext context = 2;
 }
 
-// ProjectDetails. The captured response in our corpus carries only
-// the collaborators payload, not the title/emoji/thumbnail that the
-// fields below also model. The legacy fields are retained for
-// backward compatibility with consumers of the generated protos and
-// may populate under request modes other than [2] (none observed
-// yet).
+// ProjectDetails is the JFMDGd (GetProjectDetails) reply.
 //
-// HAR-verified shape:
+// HAR-verified wire shape (fields 1..8 map to positions [0]..[7]):
 //
 //   [
-//     [<owner_entry>, <collaborator_entry>, ...],
-//     <flags|null>,         // [true,true] when fully public, null o/w
-//     1000,                 // opaque limit
-//     true,
-//     null,
-//     null,
-//     [3, true, true],      // permissions blob (newer captures only)
+//     [<user_entry>, ...],   // [0] collaborators (owner first)
+//     <flags|null>,          // [1] [true,true] when fully public, null o/w
+//     1000,                  // [2] opaque limit
+//     true,                  // [3]
+//     null,                  // [4]
+//     null,                  // [5]
+//     [3, true, true],       // [6] permissions blob
+//     false,                 // [7]
 //   ]
 //
-//   Entry per user:
-//     [email, role_int, [], [display_name, avatar_url]]
+//   User entry: [email, role_int, [], [display_name, avatar_url]]
+//     role_int 1 = OWNER (the only role observed in single-user captures).
 //
-//     role_int 1 = OWNER (the only role observed in single-user captures)
-//
-// api.Client.parseProjectDetailsResponse (client.go:4463) extracts
-// only OwnerName + IsPublic.
+// The live path decodes this through the generated message and projects only
+// OwnerName + IsPublic. printShareDetails
+// (main.go) reads OwnerName/IsPublic/ProjectId/Title/Emoji/SharedAt/Sources
+// by name. Those Go-named fields are retained below at high numbers (they
+// are not on the wire) for the public projection; the wire fields carry the
+// actual HAR positions for betool/beprotojson decode.
 message ProjectDetails {
-    string project_id = 1;
-    string title = 2;
-    string emoji = 3;
-    string owner_name = 4;       // populated from owner entry's display_name
-    bool is_public = 5;          // populated from response [1] flags array
-    google.protobuf.Timestamp shared_at = 6;
-    repeated SourceSummary sources = 7;
-    // Collaborator list reflects the wire's primary payload.
-    repeated ProjectCollaborator collaborators = 8;
+    // Wire positions.
+    repeated ProjectCollaborator collaborators = 1;   // [0]
+    ProjectDetailsFlags flags = 2;                    // [1] visibility flags
+    optional int64 limit = 3;                         // [2] opaque, observed 1000
+    // Meaning unconfirmed; true in every observed response.
+    optional bool access_enabled = 4 [(json_bool) = true];
+    // [4], [5] are null in observed captures; left unmodeled.
+    ProjectDetailsPermissions permissions = 7;        // [6] [3, true, true]
+    // Meaning unconfirmed; false in every observed response.
+    optional bool restriction_flag = 8 [(json_bool) = true];
+
+    // Not on the wire; populated by the hand-parser and read by the printer.
+    // Kept at high numbers to preserve the Go field names live code uses.
+    string owner_name = 20;      // hand-parsed from the owner entry's name
+    bool is_public = 21;         // hand-parsed from the flags array
+    string project_id = 22;
+    string title = 23;
+    string emoji = 24;
+    google.protobuf.Timestamp shared_at = 25;
+    repeated SourceSummary sources = 26;
 }
 
-// ProjectCollaborator captures the actual per-user wire entry.
-//   role_int observed values: 1 = OWNER. Other roles will appear once a
-//   notebook with multiple collaborators is captured.
+// ProjectDetailsFlags is the visibility flags tuple at ProjectDetails[1]:
+// [flag_0, flag_1], both true when the notebook is fully public. Present as
+// null when private.
+message ProjectDetailsFlags {
+    optional bool flag_0 = 1 [(json_bool) = true];
+    optional bool flag_1 = 2 [(json_bool) = true];
+}
+
+// ProjectDetailsPermissions is the [3, true, true] blob at ProjectDetails[6].
+message ProjectDetailsPermissions {
+    optional int64 code = 1;
+    optional bool flag_1 = 2 [(json_bool) = true];
+    optional bool flag_2 = 3 [(json_bool) = true];
+}
+
+// ProjectCollaborator is one per-user wire entry:
+// [email, role_int, [], [display_name, avatar_url]]. Field 3 is an empty list
+// in observed captures; the display name and avatar live in a nested profile
+// at position 4. role_int 1 = OWNER.
 message ProjectCollaborator {
     string email = 1;
     int32 role = 2;
-    string display_name = 3;
-    string avatar_url = 4;
+    ProjectCollaboratorTags tags = 3;   // [] in observed captures
+    ProjectUserProfile profile = 4;     // [display_name, avatar_url]
+}
+
+// ProjectCollaboratorTags is the empty list at collaborator entry position 3.
+// Modeled as a present-but-empty message so the [] round-trips (rather than
+// collapsing to null).
+message ProjectCollaboratorTags {
+    repeated string tags = 1;
+}
+
+// ProjectUserProfile is the [display_name, avatar_url] pair carried at
+// collaborator entry position 4.
+message ProjectUserProfile {
+    string display_name = 1;
+    string avatar_url = 2;
 }
 
 message SourceSummary {
@@ -242,7 +283,7 @@ service LabsTailwindSharingService {
     // Project sharing
     rpc GetProjectDetails(GetProjectDetailsRequest) returns (ProjectDetails) {
         option (rpc_id) = "JFMDGd";
-        option (arg_format) = "[%share_id%]";
+        option (arg_format) = "[%share_id%, %context%]";
     }
     rpc ShareProject(ShareProjectRequest) returns (ShareProjectResponse) {
         option (rpc_id) = "QDyure";
