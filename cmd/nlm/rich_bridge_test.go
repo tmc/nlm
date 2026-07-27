@@ -4,8 +4,74 @@ import (
 	"strings"
 	"testing"
 
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/api"
+	"google.golang.org/protobuf/proto"
 )
+
+func testProtoRichDocument(text string) *pb.RichDocument {
+	end := int64(len(text))
+	return &pb.RichDocument{Body: &pb.SpanLayers{Blocks: []*pb.Span{{
+		Start: proto.Int64(0),
+		End:   proto.Int64(end),
+		Content: &pb.SpanContent{Value: &pb.SpanContent_Group{Group: &pb.SpanGroup{
+			Spans: []*pb.SpanElement{{Value: &pb.SpanElement_Span{Span: &pb.Span{
+				Start: proto.Int64(0),
+				End:   proto.Int64(end),
+				Content: &pb.SpanContent{Value: &pb.SpanContent_Leaf{Leaf: &pb.TextLeaf{
+					Text: proto.String(text),
+				}}},
+			}}}},
+		}}},
+	}}}}
+}
+
+func TestRichDocumentFromProtoProjectsListAndInlineMark(t *testing.T) {
+	document := &pb.RichDocument{Body: &pb.SpanLayers{Blocks: []*pb.Span{
+		testProtoRichBlock(0, 5, "Intro", &pb.TextMarks{Flag2: proto.Bool(true)}, nil),
+		testProtoRichBlock(5, 10, "First", nil, testProtoListItem(0)),
+		testProtoRichBlock(10, 16, "Second", nil, testProtoListItem(0)),
+	}}}
+
+	blocks := projectRichDocument(richDocumentFromProto(document))
+	if len(blocks) != 2 {
+		t.Fatalf("got %d projected blocks, want paragraph and coalesced list", len(blocks))
+	}
+	if blocks[0].Kind != blockParagraph || len(blocks[0].Runs) != 1 || !blocks[0].Runs[0].Emphasis {
+		t.Errorf("inline-mark paragraph = %+v", blocks[0])
+	}
+	if blocks[1].Kind != blockList || len(blocks[1].Items) != 2 {
+		t.Errorf("projected list = %+v, want two coalesced items", blocks[1])
+	}
+}
+
+func testProtoRichBlock(start, end int64, text string, marks *pb.TextMarks, item *pb.ListItem) *pb.Span {
+	return &pb.Span{
+		Start: proto.Int64(start),
+		End:   proto.Int64(end),
+		Content: &pb.SpanContent{Value: &pb.SpanContent_Group{Group: &pb.SpanGroup{
+			Spans: []*pb.SpanElement{{Value: &pb.SpanElement_Span{Span: &pb.Span{
+				Start: proto.Int64(start),
+				End:   proto.Int64(end),
+				Content: &pb.SpanContent{Value: &pb.SpanContent_Leaf{Leaf: &pb.TextLeaf{
+					Text:  proto.String(text),
+					Marks: marks,
+				}}},
+			}}}},
+			ListItem: item,
+		}}},
+	}
+}
+
+func testProtoListItem(nesting int64) *pb.ListItem {
+	return &pb.ListItem{
+		Nesting: proto.Int64(nesting),
+		Marker: &pb.ListItemMarker{Value: &pb.ListItemMarker_Marker{Marker: &pb.ListMarker{
+			Bullet:     "•",
+			MarkerKind: proto.Int64(1),
+		}}},
+	}
+}
 
 // TestRichDocumentFromAPI maps a small api tree to the render model and checks
 // the structural cases: a leaf keeps its text and marks, a group keeps its

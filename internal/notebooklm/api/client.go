@@ -4012,11 +4012,11 @@ func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error
 
 // ChatMessage represents a message in chat history for the wire protocol.
 type ChatMessage struct {
-	Content   string       // Message text
-	Role      int          // 1 = user, 2 = assistant
-	MessageID string       // Server-assigned message UUID (from GetConversationHistory)
-	Citations []Citation   // Source citations (assistant messages from GetConversationHistory)
-	Rich      *RichContent // Decoded answer-body span tree; nil when the turn carries none
+	Content   string           // Message text
+	Role      int              // 1 = user, 2 = assistant
+	MessageID string           // Server-assigned message UUID (from GetConversationHistory)
+	Citations []Citation       // Source citations (assistant messages from GetConversationHistory)
+	Rich      *pb.RichDocument // Answer-body span tree; nil when the turn carries none
 }
 
 // ChatRequest contains parameters for a chat request.
@@ -4076,12 +4076,12 @@ type ExcerptRun struct {
 
 // ChatChunk is a parsed chunk from the chat stream with phase metadata.
 type ChatChunk struct {
-	Text      string         // The text content (delta for answer, full replacement for thinking)
-	Header    string         // For thinking chunks: the bold header line only
-	Phase     ChatChunkPhase // Whether this is thinking or answer
-	Citations []Citation     // Source citations (populated on final/near-final chunks)
-	FollowUps []string       // Suggested follow-up questions
-	Rich      *RichContent   // Answer-body span tree over the CUMULATIVE answer; replaced each chunk, so the last answer chunk carries the full tree. nil when the frame has no tree.
+	Text      string           // The text content (delta for answer, full replacement for thinking)
+	Header    string           // For thinking chunks: the bold header line only
+	Phase     ChatChunkPhase   // Whether this is thinking or answer
+	Citations []Citation       // Source citations (populated on final/near-final chunks)
+	FollowUps []string         // Suggested follow-up questions
+	Rich      *pb.RichDocument // Answer-body span tree over the CUMULATIVE answer; replaced each chunk, so the last answer chunk carries the full tree. nil when the frame has no tree.
 }
 
 // chatEndpoint is the gRPC-Web endpoint for GenerateFreeFormStreamed.
@@ -4924,7 +4924,7 @@ type chatPayload struct {
 	Text      string
 	Citations []Citation
 	FollowUps []string
-	Rich      *RichContent // answer-body span tree (inner[0][4]); nil when absent
+	Rich      *pb.RichDocument // answer-body span tree (inner[0][4]); nil when absent
 
 	wirePhase    int
 	hasWirePhase bool
@@ -4938,7 +4938,10 @@ const (
 func extractChatPayload(innerJSON string, sourceIDs []string) chatPayload {
 	var generated pb.GenerateFreeFormStreamedWireResponse
 	if err := beprotojson.Unmarshal([]byte(innerJSON), &generated); err == nil {
-		payload := chatPayload{Text: generated.GetAnswer().GetChunk()}
+		payload := chatPayload{
+			Text: generated.GetAnswer().GetChunk(),
+			Rich: generated.GetAnswer().GetDocument(),
+		}
 		payload.Citations = citationsFromProtoStream(&generated, sourceIDs)
 		// The generated response intentionally does not model the phase
 		// marker carried inside the answer tuple. Preserve that one small
@@ -5247,16 +5250,10 @@ func extractChatPayloadLegacy(innerJSON string, sourceIDs []string) chatPayload 
 	var p chatPayload
 
 	// [0][0] = answer text (cumulative)
-	// [0][4] = answer-body span tree (paragraphs, lists, separators, inline
-	//          marks) over the same flat text. The tree is cumulative like the
-	//          text, so it describes the whole answer as of this chunk. It is
-	//          the same segment shape as the replay path, so one decoder serves
-	//          both; a flat renderer that ignores it renders raw markdown.
 	if inner, ok := arr[0].([]interface{}); ok && len(inner) > 0 {
 		if text, ok := inner[0].(string); ok {
 			p.Text = text
 		}
-		p.Rich = decodeRichContentFromSegment(inner)
 		if len(inner) > 8 {
 			if phase, ok := inner[8].(float64); ok {
 				p.wirePhase = int(phase)
@@ -5778,12 +5775,11 @@ func conversationMessagesFromProto(resp *pb.GetConversationHistoryResponse, raw 
 	if resp == nil || len(resp.GetMessages()) == 0 {
 		return nil
 	}
-	// The proto GetConversationHistoryResponse models message structure but not
-	// the content block's citation detail slots ([4][1]/[4][3]), which carry
-	// each citation's verbatim excerpt and embedded source UUID, nor the
-	// answer-body span tree beside them. Recover both from the raw payload,
-	// aligned by message index: the proto decode gives the structure, the raw
-	// bytes give what the model cannot represent.
+	// The proto GetConversationHistoryResponse models the message and rich
+	// document, but not the content block's citation detail slots
+	// ([4][1]/[4][3]), which carry each citation's verbatim excerpt and embedded
+	// source UUID. Recover those details from the raw payload, aligned by
+	// message index.
 	extras := historyCitationsByIndex(raw)
 	messages := make([]ChatMessage, 0, len(resp.GetMessages()))
 	for i, message := range resp.GetMessages() {
@@ -5797,10 +5793,14 @@ func conversationMessagesFromProto(resp *pb.GetConversationHistoryResponse, raw 
 		if content == "" {
 			continue
 		}
-		msg := ChatMessage{MessageID: message.GetMessageId(), Content: content, Role: int(message.GetRole())}
+		msg := ChatMessage{
+			MessageID: message.GetMessageId(),
+			Content:   content,
+			Role:      int(message.GetRole()),
+			Rich:      message.GetRichContent().GetSegment().GetRichDocument(),
+		}
 		if i < len(extras) {
 			msg.Citations = extras[i].citations
-			msg.Rich = extras[i].rich
 		}
 		messages = append(messages, msg)
 	}
@@ -5826,9 +5826,6 @@ func historyCitationsByIndex(raw []byte) []historyMessageExtras {
 		if !ok || len(arr) <= 4 {
 			continue
 		}
-		// The content block carries the answer-body span tree alongside the
-		// citation slots, so decode it from the same position.
-		out[i].rich = decodeRichContent(arr[4])
 		block, ok := arr[4].([]interface{})
 		if !ok || len(block) <= 3 {
 			continue
@@ -5838,12 +5835,10 @@ func historyCitationsByIndex(raw []byte) []historyMessageExtras {
 	return out
 }
 
-// historyMessageExtras holds the per-message data the proto decode drops: the
-// citation details and the answer-body span tree, both of which live in the
-// content block the generated message does not model.
+// historyMessageExtras holds the per-message citation details that the proto
+// does not model.
 type historyMessageExtras struct {
 	citations []Citation
-	rich      *RichContent
 }
 
 // historyMessageArrays unwraps the GetConversationHistory envelope to the list

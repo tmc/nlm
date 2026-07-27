@@ -474,6 +474,69 @@ func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
 	}
 }
 
+func TestExtractChatPayloadPreservesRichDocument(t *testing.T) {
+	document := &pb.RichDocument{Body: &pb.SpanLayers{Blocks: []*pb.Span{
+		testRichBlock(0, 5, "Intro", &pb.TextMarks{Flag2: proto.Bool(true)}, nil),
+		testRichBlock(5, 10, "First", nil, testListItem(0)),
+		testRichBlock(10, 16, "Second", nil, testListItem(0)),
+	}}}
+	response := &pb.GenerateFreeFormStreamedWireResponse{
+		Answer: &pb.ChatAnswer{
+			Chunk:    "IntroFirstSecond",
+			Document: document,
+		},
+	}
+	raw, err := beprotojson.Marshal(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	payload := extractChatPayload(string(raw), nil)
+	if payload.Rich == nil {
+		t.Fatal("extractChatPayload dropped the generated rich document")
+	}
+	blocks := payload.Rich.GetBody().GetBlocks()
+	if len(blocks) != 3 {
+		t.Fatalf("got %d rich blocks, want 3", len(blocks))
+	}
+	if !blocks[0].GetContent().GetGroup().GetSpans()[0].GetSpan().GetContent().GetLeaf().GetMarks().GetFlag2() {
+		t.Error("inline mark did not survive proto decoding")
+	}
+	for i, block := range blocks[1:] {
+		if block.GetContent().GetGroup().GetListItem() == nil {
+			t.Errorf("list block %d lost its ListItem", i)
+		}
+	}
+}
+
+func testRichBlock(start, end int64, text string, marks *pb.TextMarks, item *pb.ListItem) *pb.Span {
+	return &pb.Span{
+		Start: proto.Int64(start),
+		End:   proto.Int64(end),
+		Content: &pb.SpanContent{Value: &pb.SpanContent_Group{Group: &pb.SpanGroup{
+			Spans: []*pb.SpanElement{{Value: &pb.SpanElement_Span{Span: &pb.Span{
+				Start: proto.Int64(start),
+				End:   proto.Int64(end),
+				Content: &pb.SpanContent{Value: &pb.SpanContent_Leaf{Leaf: &pb.TextLeaf{
+					Text:  proto.String(text),
+					Marks: marks,
+				}}},
+			}}}},
+			ListItem: item,
+		}}},
+	}
+}
+
+func testListItem(nesting int64) *pb.ListItem {
+	return &pb.ListItem{
+		Nesting: proto.Int64(nesting),
+		Marker: &pb.ListItemMarker{Value: &pb.ListItemMarker_Marker{Marker: &pb.ListMarker{
+			Bullet:     "•",
+			MarkerKind: proto.Int64(1),
+		}}},
+	}
+}
+
 func streamPayloads(body []byte) ([][]byte, int, error) {
 	frames, chunks, err := batchexecute.WrbFRFrames(body)
 	if err != nil {

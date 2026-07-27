@@ -144,7 +144,7 @@ func notebookDocumentFromSession(session *ChatSession) chatDocument {
 		if message.Role == "assistant" {
 			dm.Citations = message.Citations
 			if message.Rich != nil {
-				dm.Rich = richDocumentFromAPI(message.Rich)
+				dm.Rich = richDocumentFromProto(message.Rich)
 			}
 		}
 		doc.Messages = append(doc.Messages, dm)
@@ -206,7 +206,7 @@ func mergeNotebookHistory(doc *chatDocument, messages []api.ChatMessage) {
 			citations[key] = message.Citations
 		}
 		if message.Rich != nil {
-			rich[key] = richDocumentFromAPI(message.Rich)
+			rich[key] = richDocumentFromProto(message.Rich)
 		}
 	}
 	for i := range doc.Messages {

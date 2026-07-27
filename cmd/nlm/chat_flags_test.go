@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
@@ -321,15 +322,7 @@ func TestSaveChatSessionWritesConversationFile(t *testing.T) {
 
 func TestChatSessionRichRoundTrip(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	rich := &api.RichContent{Blocks: []api.RichSpan{{
-		Start: 0,
-		End:   5,
-		Children: []api.RichSpan{{
-			Start: 0,
-			End:   5,
-			Text:  "hello",
-		}},
-	}}}
+	rich := testProtoRichDocument("hello")
 	session := &ChatSession{
 		NotebookID:     "nb",
 		ConversationID: "12345678-1234-1234-1234-123456789abc",
@@ -345,12 +338,12 @@ func TestChatSessionRichRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got.Messages) != 1 || got.Messages[0].Rich == nil ||
-		len(got.Messages[0].Rich.Blocks) != 1 {
+		len(got.Messages[0].Rich.GetBody().GetBlocks()) != 1 {
 		t.Fatalf("loaded messages = %+v", got.Messages)
 	}
 	doc := chatDocument{Messages: []chatDocMessage{{
 		Role: "assistant", Content: got.Messages[0].Content,
-		Rich: richDocumentFromAPI(got.Messages[0].Rich),
+		Rich: richDocumentFromProto(got.Messages[0].Rich),
 	}}}
 	if html := renderToString(t, doc, chatRenderContext{}); !strings.Contains(html, "<p>hello</p>") {
 		t.Fatalf("rich round-trip did not take tree renderer:\n%s", html)
@@ -393,14 +386,14 @@ func TestSaveChatSessionForConversationDoesNotReplaceDefault(t *testing.T) {
 
 func TestMergeChatHistory(t *testing.T) {
 	key := citationContentKey("answer")
-	serverRich := &api.RichContent{Blocks: []api.RichSpan{{Start: 0, End: 6, Text: "answer"}}}
-	localRich := &api.RichContent{Blocks: []api.RichSpan{{Start: 0, End: 5, Text: "local"}}}
+	serverRich := testProtoRichDocument("answer")
+	localRich := testProtoRichDocument("local")
 	serverCitations := []api.Citation{{SourceIndex: 1, SourceID: "server"}}
 	localCitations := []api.Citation{{SourceIndex: 2, SourceID: "local"}}
 	tests := []struct {
 		name              string
 		message           ChatMessage
-		rich              map[string]*api.RichContent
+		rich              map[string]*pb.RichDocument
 		citations         map[string][]api.Citation
 		wantChanged       bool
 		wantRich, wantCit int
@@ -410,7 +403,7 @@ func TestMergeChatHistory(t *testing.T) {
 			message: ChatMessage{
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 			},
-			rich:        map[string]*api.RichContent{key: serverRich},
+			rich:        map[string]*pb.RichDocument{key: serverRich},
 			citations:   map[string][]api.Citation{key: serverCitations},
 			wantChanged: true, wantRich: 1, wantCit: 1,
 		},
@@ -420,7 +413,7 @@ func TestMergeChatHistory(t *testing.T) {
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 				Rich: localRich, Citations: localCitations,
 			},
-			rich:      map[string]*api.RichContent{key: serverRich},
+			rich:      map[string]*pb.RichDocument{key: serverRich},
 			citations: map[string][]api.Citation{key: serverCitations},
 		},
 		{
@@ -428,7 +421,7 @@ func TestMergeChatHistory(t *testing.T) {
 			message: ChatMessage{
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 			},
-			rich:      map[string]*api.RichContent{},
+			rich:      map[string]*pb.RichDocument{},
 			citations: map[string][]api.Citation{},
 		},
 	}

@@ -29,6 +29,7 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	nlmsync "github.com/tmc/nlm/internal/sync"
 	"golang.org/x/term"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -77,7 +78,73 @@ type ChatMessage struct {
 	// Transient stream data — only available locally, not from server history.
 	Thinking  string           `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
 	Citations []api.Citation   `json:"citations,omitempty"` // Source references from the response
-	Rich      *api.RichContent `json:"rich,omitempty"`      // Answer-body span tree (paragraphs, lists, inline marks); nil for turns generated before this was captured
+	Rich      *pb.RichDocument `json:"rich,omitempty"`      // Answer-body span tree (paragraphs, lists, inline marks); nil for turns generated before this was captured
+}
+
+func (m ChatMessage) MarshalJSON() ([]byte, error) {
+	var rich json.RawMessage
+	if m.Rich != nil {
+		data, err := protojson.Marshal(m.Rich)
+		if err != nil {
+			return nil, fmt.Errorf("marshal rich document: %w", err)
+		}
+		rich = data
+	}
+	return json.Marshal(struct {
+		Role      string          `json:"role"`
+		Content   string          `json:"content"`
+		Timestamp time.Time       `json:"timestamp"`
+		MessageID string          `json:"message_id,omitempty"`
+		SeqNum    int             `json:"seq_num,omitempty"`
+		Thinking  string          `json:"thinking,omitempty"`
+		Citations []api.Citation  `json:"citations,omitempty"`
+		Rich      json.RawMessage `json:"rich,omitempty"`
+	}{
+		Role:      m.Role,
+		Content:   m.Content,
+		Timestamp: m.Timestamp,
+		MessageID: m.MessageID,
+		SeqNum:    m.SeqNum,
+		Thinking:  m.Thinking,
+		Citations: m.Citations,
+		Rich:      rich,
+	})
+}
+
+func (m *ChatMessage) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Role      string          `json:"role"`
+		Content   string          `json:"content"`
+		Timestamp time.Time       `json:"timestamp"`
+		MessageID string          `json:"message_id,omitempty"`
+		SeqNum    int             `json:"seq_num,omitempty"`
+		Thinking  string          `json:"thinking,omitempty"`
+		Citations []api.Citation  `json:"citations,omitempty"`
+		Rich      json.RawMessage `json:"rich,omitempty"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*m = ChatMessage{
+		Role:      raw.Role,
+		Content:   raw.Content,
+		Timestamp: raw.Timestamp,
+		MessageID: raw.MessageID,
+		SeqNum:    raw.SeqNum,
+		Thinking:  raw.Thinking,
+		Citations: raw.Citations,
+	}
+	if len(raw.Rich) == 0 || string(raw.Rich) == "null" {
+		return nil
+	}
+	var rich pb.RichDocument
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw.Rich, &rich); err != nil {
+		return fmt.Errorf("unmarshal rich document: %w", err)
+	}
+	if len(rich.GetBody().GetBlocks()) != 0 {
+		m.Rich = &rich
+	}
+	return nil
 }
 
 func main() {
@@ -1829,7 +1896,7 @@ type chatStreamRenderer struct {
 	thinking             string
 	citations            []api.Citation
 	followUps            []string
-	rich                 *api.RichContent // last answer chunk's span tree (cumulative); nil when the stream carried none
+	rich                 *pb.RichDocument // last answer chunk's span tree (cumulative); nil when the stream carried none
 
 	// flushedLen tracks bytes already streamed to r.out so re-renders don't
 	// double-print; the answer always streams live now, so it just advances
@@ -2513,7 +2580,7 @@ func (r *chatStreamRenderer) Thinking() string {
 
 // Rich returns the answer-body span tree from the last answer chunk (the
 // cumulative tree over the whole answer), or nil when the stream carried none.
-func (r *chatStreamRenderer) Rich() *api.RichContent {
+func (r *chatStreamRenderer) Rich() *pb.RichDocument {
 	return r.rich
 }
 
@@ -2535,7 +2602,7 @@ type chatResult struct {
 	Thinking  string
 	Citations []api.Citation // raw citation metadata for persistence / re-rendering
 	FollowUps []string
-	Rich      *api.RichContent // answer-body span tree; nil when the stream carried none
+	Rich      *pb.RichDocument // answer-body span tree; nil when the stream carried none
 }
 
 func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptions) (chatResult, error) {
@@ -3596,7 +3663,7 @@ func citationContentKey(content string) string {
 // mergeChatHistory fills local gaps from server history without replacing
 // stream-only or already-persisted data. Thinking is intentionally untouched:
 // the history endpoint does not preserve the live reasoning trace.
-func mergeChatHistory(session *ChatSession, rich map[string]*api.RichContent, citations map[string][]api.Citation) (changed bool, richCount, citationCount int) {
+func mergeChatHistory(session *ChatSession, rich map[string]*pb.RichDocument, citations map[string][]api.Citation) (changed bool, richCount, citationCount int) {
 	for i := range session.Messages {
 		message := &session.Messages[i]
 		if message.Role != "assistant" {
@@ -3656,7 +3723,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 	// messages in a different order (newest-first) or count than the local
 	// session stores them (chronological).
 	historyCitations := map[string][]api.Citation{}
-	historyAPIRich := map[string]*api.RichContent{}
+	historyAPIRich := map[string]*pb.RichDocument{}
 	// Parsed answer-body span trees from server history, keyed the same way as
 	// historyCitations (a signature of the answer text). Populated only when the
 	// history fetch runs and a turn carries a tree; the renderers fall back to
@@ -3710,7 +3777,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 						// here). Capture it keyed the same way so the renderers can
 						// reconstruct paragraphs/lists instead of one run-on block.
 						if sm.Rich != nil {
-							historyRich[key] = richDocumentFromAPI(sm.Rich)
+							historyRich[key] = richDocumentFromProto(sm.Rich)
 							historyAPIRich[key] = sm.Rich
 						}
 					}
@@ -3781,7 +3848,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 			// (under --citation-excerpts) supplies the server's authoritative
 			// copy, so prefer it when present.
 			if m.Rich != nil {
-				dm.Rich = richDocumentFromAPI(m.Rich)
+				dm.Rich = richDocumentFromProto(m.Rich)
 			}
 			if rich, ok := historyRich[key]; ok {
 				dm.Rich = rich
