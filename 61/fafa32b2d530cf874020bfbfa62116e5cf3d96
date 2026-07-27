@@ -1,0 +1,9 @@
+commit: 61fafa32b2d530cf874020bfbfa62116e5cf3d96
+date: 2026-07-27T00:04:28-07:00
+agent: codex
+model: gpt-5
+tty: not a tty
+pid: 25379
+ITERM_SESSION_ID: w2t1p14:010EEAE8-681D-4D52-92DF-996F858A36AA
+mutation-checks: json_bool, object_encoded, omit_trailing_nulls, flat_list each failed under disabled option and passed after restore
+corpus-gate: unevaluated; /tmp/nlm-traffic absent
