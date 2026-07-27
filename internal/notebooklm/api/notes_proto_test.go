@@ -56,3 +56,43 @@ func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {
 		t.Fatalf("empty entries = %#v, want non-nil empty slice", got)
 	}
 }
+
+func TestNotesFromArtifacts(t *testing.T) {
+	artifacts := []*pb.Artifact{
+		{
+			ArtifactId: "artifact-note",
+			Title:      "Generated note",
+			Type:       pb.ArtifactType_ARTIFACT_TYPE_NOTE,
+			Note: &pb.ArtifactNotePreview{Config: &pb.ArtifactNoteConfig{
+				Prompt: "Summarize the sources.",
+			}},
+		},
+		{ArtifactId: "report", Type: pb.ArtifactType_ARTIFACT_TYPE_REPORT},
+		nil,
+	}
+	got := notesFromArtifacts(artifacts)
+	want := []*Note{{Note: &pb.Note{
+		NoteId:      "artifact-note",
+		Title:       "Generated note",
+		ContentText: "Summarize the sources.",
+	}}}
+	assertEquivalent(t, "artifact notes", want, got)
+}
+
+func TestMergeNotesPrefersNotesRPC(t *testing.T) {
+	notes := []*Note{{Note: &pb.Note{NoteId: "shared", Title: "Editable"}}}
+	artifactNotes := []*Note{
+		{Note: &pb.Note{NoteId: "shared", Title: "Artifact"}},
+		{Note: &pb.Note{NoteId: "artifact-only", Title: "Generated"}},
+	}
+	got := mergeNotes(notes, artifactNotes)
+	if len(got) != 2 {
+		t.Fatalf("merged notes = %d, want 2", len(got))
+	}
+	if got[0].GetTitle() != "Editable" {
+		t.Fatalf("shared note title = %q, want Editable", got[0].GetTitle())
+	}
+	if got[1].GetNoteId() != "artifact-only" {
+		t.Fatalf("second note ID = %q, want artifact-only", got[1].GetNoteId())
+	}
+}

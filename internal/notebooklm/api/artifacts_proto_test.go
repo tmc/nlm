@@ -74,3 +74,21 @@ func TestArtifactProtoAdapterPreservesRenderedReadyState(t *testing.T) {
 		t.Fatalf("states = %v/%v, want READY", got[0].GetState(), legacy[0].GetState())
 	}
 }
+
+func TestArtifactProtoAdapterPreservesNoteFields(t *testing.T) {
+	raw := []byte(`[[["note-1","Generated note",1,[],2,null,[null,["Summarize",2]]]]]`)
+	got, err := artifactsFromProtoResponse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("artifacts = %d, want 1", len(got))
+	}
+	artifact := got[0]
+	if artifact.GetTitle() != "Generated note" {
+		t.Fatalf("title = %q, want Generated note", artifact.GetTitle())
+	}
+	if artifact.GetNote().GetConfig().GetPrompt() != "Summarize" {
+		t.Fatalf("prompt = %q, want Summarize", artifact.GetNote().GetConfig().GetPrompt())
+	}
+}

@@ -65,9 +65,11 @@ func artifactsFromProtoResponseWithOptions(raw []byte, options beprotojson.Unmar
 		// letting the generated decoder own all positional field handling.
 		artifact := &pb.Artifact{
 			ArtifactId: generated.GetArtifactId(),
+			Title:      generated.GetTitle(),
 			Type:       generated.GetType(),
 			State:      generated.GetState(),
 			Sources:    generated.GetSources(),
+			Note:       generated.GetNote(),
 		}
 		if artifactHasDownloadURL(wire, artifact.GetArtifactId()) {
 			artifact.State = pb.ArtifactState_ARTIFACT_STATE_READY

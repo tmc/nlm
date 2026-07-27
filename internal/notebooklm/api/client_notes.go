@@ -80,7 +80,45 @@ func (c *Client) GetNotes(ctx context.Context, projectID string) ([]*Note, error
 	if rpcErr != nil {
 		return nil, fmt.Errorf("get notes: %w", rpcErr)
 	}
-	return notesFromWireResponse(response), nil
+	notes := notesFromWireResponse(response)
+	artifacts, err := c.ListArtifacts(ctx, projectID)
+	if err != nil {
+		// Preserve the notes RPC result when artifact enumeration is
+		// unavailable. Artifact-backed notes are additive.
+		return notes, nil
+	}
+	return mergeNotes(notes, notesFromArtifacts(artifacts)), nil
+}
+
+func notesFromArtifacts(artifacts []*pb.Artifact) []*Note {
+	var notes []*Note
+	for _, artifact := range artifacts {
+		if artifact == nil || artifact.GetType() != pb.ArtifactType_ARTIFACT_TYPE_NOTE {
+			continue
+		}
+		content := artifact.GetNote().GetConfig().GetPrompt()
+		notes = append(notes, &Note{Note: &pb.Note{
+			NoteId:      artifact.GetArtifactId(),
+			Title:       artifact.GetTitle(),
+			ContentText: content,
+		}})
+	}
+	return notes
+}
+
+func mergeNotes(notes, artifactNotes []*Note) []*Note {
+	seen := make(map[string]bool)
+	merged := make([]*Note, 0, len(notes)+len(artifactNotes))
+	for _, group := range [][]*Note{notes, artifactNotes} {
+		for _, note := range group {
+			if note == nil || seen[note.GetNoteId()] {
+				continue
+			}
+			seen[note.GetNoteId()] = true
+			merged = append(merged, note)
+		}
+	}
+	return merged
 }
 
 // notesFromWireResponse adapts the generated response to the public Note
