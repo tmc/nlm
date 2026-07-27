@@ -39,24 +39,6 @@ type StreamOptions struct {
 	ShowSpans            bool
 }
 
-// StoredMessage is the persisted subset of an assistant message.
-type StoredMessage struct {
-	Role      string
-	Content   string
-	Thinking  string
-	Citations []api.Citation
-}
-
-// PersistedOptions configures replay of a stored assistant message.
-type PersistedOptions struct {
-	ExcerptBudget  int
-	HideConfidence bool
-	HideSpans      bool
-	LoadSource     func(string) (api.LoadSourceText, error)
-	ResolveTitle   func(string) string
-	SourceRemoved  func(string) bool
-}
-
 // NewStreamRenderer returns a renderer that writes answer output and status separately.
 func NewStreamRenderer(out, status io.Writer, opts StreamOptions) *StreamRenderer {
 	renderer := newChatStreamRenderer(out, status, opts.ShowThinking, opts.Verbose, opts.Mode)
@@ -94,18 +76,6 @@ func WarnDeprecatedCitationMode(w io.Writer, flag string) {
 // CitationTitle returns the best available title for a citation.
 func CitationTitle(citation api.Citation, resolveTitle func(string) string) string {
 	return citationTitle(citation, resolveTitle)
-}
-
-// RenderPersistedAssistant replays a stored assistant message through the stream renderer.
-func RenderPersistedAssistant(out, status io.Writer, message StoredMessage, mode CitationMode, opts PersistedOptions) {
-	renderPersistedAssistant(out, status, message, mode, persistedRenderConfig{
-		excerptBudget:  opts.ExcerptBudget,
-		hideConfidence: opts.HideConfidence,
-		hideSpans:      opts.HideSpans,
-		loadSource:     opts.LoadSource,
-		resolveTitle:   opts.ResolveTitle,
-		sourceRemoved:  opts.SourceRemoved,
-	})
 }
 
 // RichDocumentFromProto projects a protobuf rich document for rendering.
@@ -151,79 +121,6 @@ func RenderNoteText(w io.Writer, doc NoteDocument) error {
 // RenderNotebookHTML writes a self-contained HTML collection of conversations.
 func RenderNotebookHTML(w io.Writer, docs []NotebookDocument, ctx RenderContext) error {
 	return renderNotebookHTML(w, docs, ctx)
-}
-
-// ReflowAnswer reconstructs block boundaries when flat content has none.
-func ReflowAnswer(rich *RichDocument, content string) string {
-	if !shouldReflowFromTree(rich, content) {
-		return ""
-	}
-	return flattenText(projectRichDocument(rich))
-}
-
-// ResolveCitationLocations resolves citation offsets against loaded source text.
-func ResolveCitationLocations(load func(string) (api.LoadSourceText, error), citations []api.Citation) map[CitationKey]ResolvedCitation {
-	return resolveCitationLocations(load, citations)
-}
-
-// ResolveOneCitation resolves one citation against a loaded source.
-func ResolveOneCitation(body api.LoadSourceText, citation api.Citation) (ResolvedCitation, bool) {
-	return resolveOneCitation(body, citation)
-}
-
-// KeyFor returns the stable key for a citation occurrence.
-func KeyFor(citation api.Citation) CitationKey {
-	return keyFor(citation)
-}
-
-// CitationSourceID returns the notebook source ID that owns a citation.
-func CitationSourceID(citation api.Citation) string {
-	return citationSourceID(citation)
-}
-
-// GroupCitationsByIndex groups citations by their visible source index.
-func GroupCitationsByIndex(citations []api.Citation) ([]int, map[int][]api.Citation) {
-	return groupCitationsByIndex(citations)
-}
-
-// FormatAnswerSpan formats an answer offset range.
-func FormatAnswerSpan(start, end int) string {
-	return formatAnswerSpan(start, end)
-}
-
-// FormatSourceSpan formats a source offset range.
-func FormatSourceSpan(start, end int) string {
-	return formatSourceSpan(start, end)
-}
-
-// ShortSourceID returns the display prefix of a source ID.
-func ShortSourceID(id string) string {
-	return shortSourceID(id)
-}
-
-// TruncateExcerpt truncates an excerpt and marks omitted content.
-func TruncateExcerpt(text string, max int) string {
-	return truncateExcerpt(text, max)
-}
-
-// ClipExcerpt clips an excerpt to at most max runes.
-func ClipExcerpt(text string, max int) string {
-	return clipExcerpt(text, max)
-}
-
-// DecodeNumberedExcerpt removes numbered-source escaping from an excerpt.
-func DecodeNumberedExcerpt(text string) string {
-	return decodeNumberedExcerpt(text)
-}
-
-// FormatFlattenedExcerptTable reconstructs a readable table from flattened text.
-func FormatFlattenedExcerptTable(text string) string {
-	return formatFlattenedExcerptTable(text)
-}
-
-// ClipRunes clips text to at most max runes.
-func ClipRunes(text string, max int) string {
-	return clipRunes(text, max)
 }
 
 // CollapseWhitespace replaces whitespace runs with single spaces.

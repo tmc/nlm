@@ -31,7 +31,7 @@ func renderChatText(out, status io.Writer, doc ChatDocument, mode CitationMode, 
 				body = reflowed
 			}
 		}
-		renderPersistedAssistant(out, status, StoredMessage{
+		renderPersistedAssistant(out, status, storedMessage{
 			Role:      message.Role,
 			Content:   body,
 			Thinking:  message.Thinking,

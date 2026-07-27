@@ -150,10 +150,10 @@ func (ctx RenderContext) citationSourceRemoved(c api.Citation) bool {
 
 // citationLocations resolves the "file:line:col" locators for a set of
 // citations via loadSource (the --resolve-citations txtar path), returning a
-// map keyed by CitationKey. Returns nil when no loader is configured; callers
+// map keyed by citationKey. Returns nil when no loader is configured; callers
 // that want the raw offset fall back to SourceStart/SourceEnd themselves. The
 // resolve is batched so repeated citations into one source cost a single fetch.
-func (ctx RenderContext) citationLocations(cites []api.Citation) map[CitationKey]string {
+func (ctx RenderContext) citationLocations(cites []api.Citation) map[citationKey]string {
 	if ctx.LoadSource == nil {
 		return nil
 	}
@@ -161,7 +161,7 @@ func (ctx RenderContext) citationLocations(cites []api.Citation) map[CitationKey
 	if len(resolved) == 0 {
 		return nil
 	}
-	out := make(map[CitationKey]string, len(resolved))
+	out := make(map[citationKey]string, len(resolved))
 	for k, rc := range resolved {
 		out[k] = rc.Location
 	}

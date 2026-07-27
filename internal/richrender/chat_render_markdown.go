@@ -173,7 +173,7 @@ func auditGrounds(group []api.Citation, ctx RenderContext) string {
 // auditLocator returns the source-document locator for the audit header: the
 // resolved "file:line:col" from ctx.citationLocations when available, else the
 // raw "src N–M" from SourceStart/SourceEnd, else "".
-func auditLocator(c api.Citation, locations map[CitationKey]string) string {
+func auditLocator(c api.Citation, locations map[citationKey]string) string {
 	if loc, ok := locations[keyFor(c)]; ok && loc != "" {
 		return loc
 	}

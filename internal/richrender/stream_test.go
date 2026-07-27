@@ -437,7 +437,7 @@ func TestCitationModeIsDeprecatedAlias(t *testing.T) {
 
 func TestRenderPersistedAssistantList(t *testing.T) {
 	var out, status bytes.Buffer
-	msg := StoredMessage{
+	msg := storedMessage{
 		Role:    "assistant",
 		Content: "Answer body.",
 		Citations: []api.Citation{
@@ -463,7 +463,7 @@ func TestRenderPersistedAssistantList(t *testing.T) {
 
 func TestRenderPersistedAssistantNoCitations(t *testing.T) {
 	var out, status bytes.Buffer
-	msg := StoredMessage{Role: "assistant", Content: "Plain answer."}
+	msg := storedMessage{Role: "assistant", Content: "Plain answer."}
 	renderPersistedAssistant(&out, &status, msg, citationModeList, persistedRenderConfig{})
 	if got := out.String(); !strings.HasPrefix(got, "Plain answer.") {
 		t.Fatalf("body missing: %q", got)

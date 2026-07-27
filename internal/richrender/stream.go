@@ -96,7 +96,7 @@ type StreamRenderer struct {
 	excerptBudget        int                                               // >0 enables per-citation excerpts, clipped to this many runes
 	showConfidence       bool                                              // list mode: show the (p=…) column (default on)
 	showSpans            bool                                              // list mode: show the "chars X-Y" column (default on)
-	resolvedLocations    map[CitationKey]ResolvedCitation                  // computed once at Finish; keyed by CitationKey
+	resolvedLocations    map[citationKey]resolvedCitation                  // computed once at Finish; keyed by citationKey
 	lastThinkingLen      int
 	answerBuf            strings.Builder
 	thinking             string
@@ -522,9 +522,9 @@ func (r *StreamRenderer) excerptFor(c api.Citation) string {
 // be loaded, or the source is not a pinnable txtar member. The excerpt is no
 // longer resolved here — it ships inline on the citation. Resolution is shared
 // with the batch path via resolveOneCitation so the two never diverge.
-func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (ResolvedCitation, bool) {
+func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitation, bool) {
 	if r.loadSource == nil || c.SourceID == "" {
-		return ResolvedCitation{}, false
+		return resolvedCitation{}, false
 	}
 	if r.jsonlSourceBodies == nil {
 		r.jsonlSourceBodies = make(map[string]api.LoadSourceText)
@@ -534,7 +534,7 @@ func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (ResolvedCitation,
 		loaded, err := r.loadSource(c.SourceID)
 		if err != nil {
 			r.jsonlSourceBodies[c.SourceID] = api.LoadSourceText{} // negative cache
-			return ResolvedCitation{}, false
+			return resolvedCitation{}, false
 		}
 		body = loaded
 		r.jsonlSourceBodies[c.SourceID] = body
@@ -594,6 +594,13 @@ func citationTitle(c api.Citation, resolveTitle func(string) string) string {
 	return resolveTitle(c.SourceID)
 }
 
+type storedMessage struct {
+	Role      string
+	Content   string
+	Thinking  string
+	Citations []api.Citation
+}
+
 type persistedRenderConfig struct {
 	excerptBudget  int
 	hideConfidence bool
@@ -603,7 +610,7 @@ type persistedRenderConfig struct {
 	sourceRemoved  func(string) bool
 }
 
-func renderPersistedAssistant(out, status io.Writer, m StoredMessage, mode CitationMode, cfg persistedRenderConfig) {
+func renderPersistedAssistant(out, status io.Writer, m storedMessage, mode CitationMode, cfg persistedRenderConfig) {
 	r := newChatStreamRenderer(out, status, false, false, mode)
 	r.excerptBudget = cfg.excerptBudget
 	r.showConfidence = !cfg.hideConfidence

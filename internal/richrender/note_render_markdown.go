@@ -38,7 +38,7 @@ func renderNoteText(out io.Writer, doc NoteDocument) error {
 		}
 		body = strings.TrimSuffix(buf.String(), "\n")
 	}
-	renderPersistedAssistant(out, out, StoredMessage{
+	renderPersistedAssistant(out, out, storedMessage{
 		Role:      "assistant",
 		Content:   body,
 		Citations: doc.Citations,

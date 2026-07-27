@@ -14,8 +14,6 @@ type chatDocMessage = richrender.ChatMessage
 type chatRenderContext = richrender.RenderContext
 type noteDocument = richrender.NoteDocument
 type notebookChatDocument = richrender.NotebookDocument
-type citationKey = richrender.CitationKey
-type resolvedCitation = richrender.ResolvedCitation
 type citationRenderMode = richrender.CitationMode
 type chatStreamRenderer = richrender.StreamRenderer
 type chatStreamOptions = richrender.StreamOptions
@@ -82,78 +80,6 @@ func renderNotebookHTML(w io.Writer, docs []notebookChatDocument, ctx chatRender
 	return richrender.RenderNotebookHTML(w, docs, ctx)
 }
 
-func reflowAnswer(rich *richDocument, content string) string {
-	return richrender.ReflowAnswer(rich, content)
-}
-
-func resolveCitationLocations(load func(string) (api.LoadSourceText, error), citations []api.Citation) map[citationKey]resolvedCitation {
-	return richrender.ResolveCitationLocations(load, citations)
-}
-
-func resolveOneCitation(body api.LoadSourceText, citation api.Citation) (resolvedCitation, bool) {
-	return richrender.ResolveOneCitation(body, citation)
-}
-
-func keyFor(citation api.Citation) citationKey {
-	return richrender.KeyFor(citation)
-}
-
-func citationSourceID(citation api.Citation) string {
-	return richrender.CitationSourceID(citation)
-}
-
-func groupCitationsByIndex(citations []api.Citation) ([]int, map[int][]api.Citation) {
-	return richrender.GroupCitationsByIndex(citations)
-}
-
-func formatAnswerSpan(start, end int) string {
-	return richrender.FormatAnswerSpan(start, end)
-}
-
-func formatSourceSpan(start, end int) string {
-	return richrender.FormatSourceSpan(start, end)
-}
-
-func shortSourceID(id string) string {
-	return richrender.ShortSourceID(id)
-}
-
-func truncateExcerpt(text string, max int) string {
-	return richrender.TruncateExcerpt(text, max)
-}
-
-func clipExcerpt(text string, max int) string {
-	return richrender.ClipExcerpt(text, max)
-}
-
-func decodeNumberedExcerpt(text string) string {
-	return richrender.DecodeNumberedExcerpt(text)
-}
-
-func formatFlattenedExcerptTable(text string) string {
-	return richrender.FormatFlattenedExcerptTable(text)
-}
-
-func clipRunes(text string, max int) string {
-	return richrender.ClipRunes(text, max)
-}
-
 func collapseWhitespace(text string) string {
 	return richrender.CollapseWhitespace(text)
-}
-
-func renderPersistedAssistant(out, status io.Writer, m storedMessage, mode citationRenderMode, cfg persistedRenderConfig) {
-	richrender.RenderPersistedAssistant(out, status, richrender.StoredMessage{
-		Role:      m.Role,
-		Content:   m.Content,
-		Thinking:  m.Thinking,
-		Citations: m.Citations,
-	}, mode, richrender.PersistedOptions{
-		ExcerptBudget:  cfg.excerptBudget,
-		HideConfidence: cfg.hideConfidence,
-		HideSpans:      cfg.hideSpans,
-		LoadSource:     cfg.loadSource,
-		ResolveTitle:   cfg.resolveTitle,
-		SourceRemoved:  cfg.sourceRemoved,
-	})
 }

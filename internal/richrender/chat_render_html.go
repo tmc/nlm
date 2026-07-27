@@ -541,7 +541,7 @@ var htmlMarkerRe = regexp.MustCompile(`\[(\d+(?:\s*[-,]\s*\d+)*)\]`)
 // buildCitation shapes one source under a marker: its handle, resolved title
 // and location, clipped excerpt, and per-source confidence flags (honoring
 // HideConfidence and HideSpans).
-func buildCitation(c api.Citation, ctx RenderContext, locations map[CitationKey]string, budget int) htmlCitation {
+func buildCitation(c api.Citation, ctx RenderContext, locations map[citationKey]string, budget int) htmlCitation {
 	excerpt := clipExcerpt(c.Excerpt, budget)
 	hc := htmlCitation{
 		SourceID:    c.SourceID,
