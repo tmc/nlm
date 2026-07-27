@@ -543,9 +543,9 @@ func TestBetoolProtoErrors(t *testing.T) {
 // list wrapper would drop these below lossless and fail here.
 func TestBetoolProtoRequestFixtures(t *testing.T) {
 	cases := []struct {
-		file    string // fixture basename
+		file     string // fixture basename
 		selector string // --rpc-id value (rpc_id, or method name to disambiguate)
-		typ     string
+		typ      string
 	}{
 		{"wXbhsf", "wXbhsf", "notebooklm.v1alpha1.ListRecentlyViewedProjectsRequest"},
 		{"LQhfEb", "LQhfEb", "notebooklm.v1alpha1.UpdateProjectUserStateRequest"},

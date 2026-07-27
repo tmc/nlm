@@ -16,7 +16,7 @@ func TestListRecentlyViewedProjectsFullRequestKeepsLiveEncoder(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	if req.GetProjectId() != "project-id" || req.GetContext() == nil || req.GetUnknown_5() != 0 {
-		t.Fatalf("full request did not retain its modeled fields: %+v", req)
+		t.Fatalf("full request did not retain its modeled fields: %+v", &req)
 	}
 	got, err := json.Marshal(EncodeListRecentlyViewedProjectsArgs(&req))
 	if err != nil {

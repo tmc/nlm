@@ -24,12 +24,12 @@ func TestResolveSelectorIDs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		opts      selectorOptions
-		flagIDs   []string
-		labelIDs  []string
-		want      []string
-		wantErr   string
+		name               string
+		opts               selectorOptions
+		flagIDs            []string
+		labelIDs           []string
+		want               []string
+		wantErr            string
 		wantStatusContains []string
 	}{
 		{
@@ -44,21 +44,21 @@ func TestResolveSelectorIDs(t *testing.T) {
 			want:    []string{"src-spec-1", "src-impl-1"},
 		},
 		{
-			name: "source-match only",
-			opts: selectorOptions{SourceMatch: "^spec/"},
-			want: []string{"src-spec-1", "src-spec-2", "src-draft-1"},
+			name:               "source-match only",
+			opts:               selectorOptions{SourceMatch: "^spec/"},
+			want:               []string{"src-spec-1", "src-spec-2", "src-draft-1"},
 			wantStatusContains: []string{"--source-match", "3 source(s)"},
 		},
 		{
-			name: "source-match no hits errors and lists",
-			opts: selectorOptions{SourceMatch: "^never/"},
-			wantErr: "--source-match matched no sources",
+			name:               "source-match no hits errors and lists",
+			opts:               selectorOptions{SourceMatch: "^never/"},
+			wantErr:            "--source-match matched no sources",
 			wantStatusContains: []string{"matched no sources", "spec/architecture"},
 		},
 		{
-			name: "source-exclude alone is all-minus",
-			opts: selectorOptions{SourceExclude: "draft"},
-			want: []string{"src-spec-1", "src-spec-2", "src-impl-1", "src-impl-2"},
+			name:               "source-exclude alone is all-minus",
+			opts:               selectorOptions{SourceExclude: "draft"},
+			want:               []string{"src-spec-1", "src-spec-2", "src-impl-1", "src-impl-2"},
 			wantStatusContains: []string{"--source-exclude"},
 		},
 		{
@@ -67,29 +67,29 @@ func TestResolveSelectorIDs(t *testing.T) {
 			want: []string{"src-spec-1", "src-spec-2"},
 		},
 		{
-			name: "exclude wins over include",
-			opts: selectorOptions{SourceIDs: "src-draft-1,src-spec-1", SourceExclude: "draft"},
+			name:    "exclude wins over include",
+			opts:    selectorOptions{SourceIDs: "src-draft-1,src-spec-1", SourceExclude: "draft"},
 			flagIDs: []string{"src-draft-1", "src-spec-1"},
-			want: []string{"src-spec-1"},
+			want:    []string{"src-spec-1"},
 		},
 		{
-			name: "label-match include OR semantics",
-			opts: selectorOptions{LabelMatch: "^Testing$"},
-			want: []string{"src-impl-1", "src-impl-2"},
+			name:               "label-match include OR semantics",
+			opts:               selectorOptions{LabelMatch: "^Testing$"},
+			want:               []string{"src-impl-1", "src-impl-2"},
 			wantStatusContains: []string{"label \"Testing\""},
 		},
 		{
-			name: "label-ids include unioned with label-match",
-			opts: selectorOptions{LabelMatch: "^Testing$", LabelIDs: "lbl-rpc"},
+			name:     "label-ids include unioned with label-match",
+			opts:     selectorOptions{LabelMatch: "^Testing$", LabelIDs: "lbl-rpc"},
 			labelIDs: []string{"lbl-rpc"},
 			// Order follows the labels slice (Testing first, then RPC); src-impl-1
 			// appears once via the dedup map even though both labels include it.
 			want: []string{"src-impl-1", "src-impl-2", "src-spec-2"},
 		},
 		{
-			name: "label-exclude removes tagged sources",
-			opts: selectorOptions{SourceMatch: "^impl/", LabelExclude: "^Testing$"},
-			want: nil,
+			name:    "label-exclude removes tagged sources",
+			opts:    selectorOptions{SourceMatch: "^impl/", LabelExclude: "^Testing$"},
+			want:    nil,
 			wantErr: "selectors resolved to empty set after exclusions",
 		},
 		{
@@ -98,9 +98,9 @@ func TestResolveSelectorIDs(t *testing.T) {
 			want: []string{"src-spec-1", "src-spec-2", "src-impl-1", "src-impl-2"},
 		},
 		{
-			name: "label include with no match errors",
-			opts: selectorOptions{LabelMatch: "^Nonexistent$"},
-			wantErr: "label selectors matched no labels",
+			name:               "label include with no match errors",
+			opts:               selectorOptions{LabelMatch: "^Nonexistent$"},
+			wantErr:            "label selectors matched no labels",
 			wantStatusContains: []string{"matched no labels", "Testing", "Draft"},
 		},
 		{
@@ -114,10 +114,10 @@ func TestResolveSelectorIDs(t *testing.T) {
 			wantErr: "--label-exclude: invalid regex",
 		},
 		{
-			name: "source-ids unioned with source-match",
-			opts: selectorOptions{SourceIDs: "src-impl-2", SourceMatch: "^spec/"},
+			name:    "source-ids unioned with source-match",
+			opts:    selectorOptions{SourceIDs: "src-impl-2", SourceMatch: "^spec/"},
 			flagIDs: []string{"src-impl-2"},
-			want: []string{"src-impl-2", "src-spec-1", "src-spec-2", "src-draft-1"},
+			want:    []string{"src-impl-2", "src-spec-1", "src-spec-2", "src-draft-1"},
 		},
 		{
 			name: "exclusions only with empty include list still returns all-minus",

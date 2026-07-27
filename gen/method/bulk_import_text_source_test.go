@@ -1,6 +1,5 @@
 package method
 
-
 import (
 	"encoding/json"
 	"testing"

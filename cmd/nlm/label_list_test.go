@@ -25,10 +25,10 @@ func TestRenderLabelList_TableOutput(t *testing.T) {
 		wantStat []string
 	}{
 		{
-			name:    "tty with rows",
-			labels:  labelListFixture,
-			tty:     true,
-			wantOut: []string{"LABEL ID\tNAME\tSOURCES", "lbl-1\tTesting\t2", "lbl-2\tRPC and Networking\t1", "lbl-3\tEmpty Label\t0"},
+			name:     "tty with rows",
+			labels:   labelListFixture,
+			tty:      true,
+			wantOut:  []string{"LABEL ID\tNAME\tSOURCES", "lbl-1\tTesting\t2", "lbl-2\tRPC and Networking\t1", "lbl-3\tEmpty Label\t0"},
 			wantStat: []string{"Total labels: 3"},
 		},
 		{
