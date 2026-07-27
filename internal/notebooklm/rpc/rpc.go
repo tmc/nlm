@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/tmc/nlm/internal/batchexecute"
 )
 
@@ -388,7 +387,7 @@ func (c *Client) Do(call Call) (json.RawMessage, error) {
 		fmt.Printf("ID: %s\n", call.ID)
 		fmt.Printf("NotebookID: %s\n", call.NotebookID)
 		fmt.Printf("Args:\n")
-		spew.Dump(call.Args)
+		debugDump(call.Args)
 	}
 
 	// Create request-specific URL parameters
@@ -412,7 +411,7 @@ func (c *Client) Do(call Call) (json.RawMessage, error) {
 
 	if c.Config.Debug {
 		fmt.Printf("\nRPC Request:\n")
-		spew.Dump(rpc)
+		debugDump(rpc)
 	}
 
 	resp, err := c.client.Do(rpc)
@@ -422,10 +421,21 @@ func (c *Client) Do(call Call) (json.RawMessage, error) {
 
 	if c.Config.Debug {
 		fmt.Printf("\nRPC Response:\n")
-		spew.Dump(resp)
+		debugDump(resp)
 	}
 
 	return resp.Data, nil
+}
+
+// debugDump prints v as indented JSON. RPC arguments and responses are wire
+// data, so JSON shows them in the shape they travel in; values that do not
+// marshal fall back to Go syntax.
+func debugDump(v any) {
+	if b, err := json.MarshalIndent(v, "", "  "); err == nil {
+		fmt.Printf("%s\n", b)
+		return
+	}
+	fmt.Printf("%+v\n", v)
 }
 
 // Heartbeat sends a heartbeat to keep the session alive
