@@ -974,7 +974,7 @@ func listNotes(c *api.Client, notebookID string) error {
 	return flush()
 }
 
-func noteListRecords(notes []*pb.Note) []noteListRecord {
+func noteListRecords(notes []*api.Note) []noteListRecord {
 	records := make([]noteListRecord, 0, len(notes))
 	for _, note := range notes {
 		if note == nil {
@@ -995,22 +995,28 @@ func noteListRecords(notes []*pb.Note) []noteListRecord {
 	return records
 }
 
-func readNote(c *api.Client, notebookID, noteID string) error {
+func readNoteWithOptions(c *api.Client, notebookID, noteID string, opts noteReadOptions) error {
 	notes, err := c.GetNotes(notebookID)
 	if err != nil {
 		return fmt.Errorf("get notes: %w", err)
 	}
 	for _, note := range notes {
 		if note.GetNoteId() == noteID {
-			content := note.GetRichText()
-			if content == "" {
-				content = note.GetContentText()
+			doc := noteDocumentFromAPI(note)
+			if opts.Format == "markdown" {
+				return renderNoteMarkdown(os.Stdout, doc)
 			}
-			fmt.Printf("# %s\n\n%s\n", note.GetTitle(), content)
-			return nil
+			if opts.Format == "html" {
+				return renderNoteHTMLToDestination(doc, opts)
+			}
+			return renderNoteText(os.Stdout, doc)
 		}
 	}
 	return fmt.Errorf("note %s not found", noteID)
+}
+
+func formatNoteText(title, content string) string {
+	return fmt.Sprintf("# %s\n\n%s\n", title, content)
 }
 
 // Audio operations
@@ -1106,6 +1112,20 @@ func sourceGuideCacheDir() (string, error) {
 		return "", err
 	}
 	dir := filepath.Join(base, "nlm", "source-guides")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// renderCacheDir returns the cache directory for derived HTML renders,
+// creating it on first use.
+func renderCacheDir() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(base, "nlm", "render")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -2316,7 +2336,148 @@ func truncateExcerpt(s string, max int) string {
 // exists to show. Leading/trailing whitespace is trimmed so the excerpt does not
 // open on a blank line.
 func clipExcerpt(s string, max int) string {
+	s = decodeNumberedExcerpt(s)
+	s = formatFlattenedExcerptTable(s)
 	return clipRunes(strings.TrimSpace(s), max)
+}
+
+// decodeNumberedExcerpt decodes the escaped line separators emitted by
+// JSONL-style source exports. Requiring repeated "\n<line>\t" records avoids
+// changing ordinary source text that merely mentions \n or \t.
+func decodeNumberedExcerpt(s string) string {
+	if numberedEscapeCount(s) < 2 {
+		return s
+	}
+	return strings.NewReplacer(`\n`, "\n", `\t`, "\t", `\r`, "\r").Replace(s)
+}
+
+func numberedEscapeCount(s string) int {
+	count := 0
+	for start := 0; ; {
+		i := strings.Index(s[start:], `\n`)
+		if i < 0 {
+			return count
+		}
+		i += start + len(`\n`)
+		j := i
+		for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+			j++
+		}
+		if j > i && strings.HasPrefix(s[j:], `\t`) {
+			count++
+		}
+		start = i
+	}
+}
+
+// formatFlattenedExcerptTable restores boundaries in legacy saved excerpts
+// produced before table cells were joined with tabs and newlines. A repeated
+// dotted row prefix (for example "siphon.") is strong evidence of a flattened
+// two-column table; ordinary prose and isolated identifiers are unchanged.
+func formatFlattenedExcerptTable(s string) string {
+	prefix := repeatedDottedPrefix(s)
+	if prefix == "" {
+		return s
+	}
+
+	var b strings.Builder
+	endsNewline := false
+	for rest := s; ; {
+		i := strings.Index(rest, prefix)
+		if i < 0 {
+			b.WriteString(rest)
+			break
+		}
+		head := rest[:i]
+		if b.Len() == 0 {
+			head = splitLowerUpper(head, " ")
+			b.WriteString(head)
+		} else {
+			b.WriteString(head)
+		}
+		if head != "" {
+			endsNewline = head[len(head)-1] == '\n'
+		}
+		if b.Len() > 0 && !endsNewline {
+			b.WriteByte('\n')
+		}
+		b.WriteString(prefix)
+		endsNewline = false
+		rest = rest[i+len(prefix):]
+
+		j := 0
+		for j < len(rest) && (rest[j] >= 'a' && rest[j] <= 'z' ||
+			rest[j] >= '0' && rest[j] <= '9' || rest[j] == '_' || rest[j] == '-') {
+			j++
+		}
+		b.WriteString(rest[:j])
+		if j > 0 && j < len(rest) && rest[j] >= 'A' && rest[j] <= 'Z' {
+			b.WriteByte('\t')
+		}
+		rest = rest[j:]
+	}
+	return b.String()
+}
+
+func repeatedDottedPrefix(s string) string {
+	counts := make(map[string]int)
+	for i := 0; i < len(s); i++ {
+		if s[i] != '.' {
+			continue
+		}
+		start := i
+		for start > 0 && (s[start-1] >= 'a' && s[start-1] <= 'z' ||
+			s[start-1] >= 'A' && s[start-1] <= 'Z' ||
+			s[start-1] >= '0' && s[start-1] <= '9' ||
+			s[start-1] == '_' || s[start-1] == '-') {
+			start--
+		}
+		if start == i {
+			continue
+		}
+		for suffix := start; suffix < i; suffix++ {
+			// Skip non-letters. Parenthesized for clarity: the middle term is the
+			// gap between 'Z' and 'a'. Equivalent to !unicode-letter over ASCII.
+			c := s[suffix]
+			if c < 'A' || (c > 'Z' && c < 'a') || c > 'z' {
+				continue
+			}
+			counts[s[suffix:i+1]]++
+		}
+	}
+	best := ""
+	for prefix, count := range counts {
+		if count >= 3 && len(prefix) > len(best) {
+			best = prefix
+		}
+	}
+	joined := 0
+	for start := 0; best != ""; {
+		i := strings.Index(s[start:], best)
+		if i < 0 {
+			break
+		}
+		i += start
+		if i > 0 && s[i-1] >= 'a' && s[i-1] <= 'z' {
+			joined++
+		}
+		start = i + len(best)
+	}
+	if joined < 2 {
+		return ""
+	}
+	return best
+}
+
+func splitLowerUpper(s, separator string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		if i > 0 && s[i-1] >= 'a' && s[i-1] <= 'z' && s[i] >= 'A' && s[i] <= 'Z' {
+			b.WriteString(separator)
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
 }
 
 // clipRunes truncates s to max runes, appending an ellipsis when it clips.
@@ -3200,6 +3361,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 			Role: "assistant", Content: response, Timestamp: time.Now(),
 			Thinking:  res.Thinking,
 			Citations: res.Citations,
+			Rich:      res.Rich,
 		})
 	}
 	session.UpdatedAt = time.Now()
@@ -3281,6 +3443,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 			Role: "assistant", Content: response, Timestamp: time.Now(),
 			Thinking:  res.Thinking,
 			Citations: res.Citations,
+			Rich:      res.Rich,
 		})
 	}
 	session.UpdatedAt = time.Now()
@@ -3430,6 +3593,30 @@ func citationContentKey(content string) string {
 	return s
 }
 
+// mergeChatHistory fills local gaps from server history without replacing
+// stream-only or already-persisted data. Thinking is intentionally untouched:
+// the history endpoint does not preserve the live reasoning trace.
+func mergeChatHistory(session *ChatSession, rich map[string]*api.RichContent, citations map[string][]api.Citation) (changed bool, richCount, citationCount int) {
+	for i := range session.Messages {
+		message := &session.Messages[i]
+		if message.Role != "assistant" {
+			continue
+		}
+		key := citationContentKey(message.Content)
+		if message.Rich == nil && rich[key] != nil {
+			message.Rich = rich[key]
+			richCount++
+			changed = true
+		}
+		if len(message.Citations) == 0 && len(citations[key]) > 0 {
+			message.Citations = append([]api.Citation(nil), citations[key]...)
+			citationCount++
+			changed = true
+		}
+	}
+	return changed, richCount, citationCount
+}
+
 // chatShow renders a locally-stored conversation with full citation modes.
 // Unlike chat-history (which prefers server-side), chat-show reads only the
 // local session so it can surface persisted citation metadata (char ranges,
@@ -3469,6 +3656,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 	// messages in a different order (newest-first) or count than the local
 	// session stores them (chronological).
 	historyCitations := map[string][]api.Citation{}
+	historyAPIRich := map[string]*api.RichContent{}
 	// Parsed answer-body span trees from server history, keyed the same way as
 	// historyCitations (a signature of the answer text). Populated only when the
 	// history fetch runs and a turn carries a tree; the renderers fall back to
@@ -3495,15 +3683,18 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 		resolveTitle = srcIndex.title
 		sourceRemoved = srcIndex.removed
 
-		if opts.ResolveCitations || opts.ExcerptBudget > 0 {
+		if opts.ResolveCitations || opts.ExcerptBudget > 0 || opts.Backfill {
 			// GetConversationHistory matches on the full conversation UUID; the
 			// prefix chat-list/chat-show accept returns a 0-message response.
 			// Expand it so the history fetch (and its excerpt-bearing citations)
 			// actually resolves.
 			fullConversationID := resolveConversationID(c, notebookID, conversationID)
 
-			if opts.ExcerptBudget > 0 {
+			if opts.ExcerptBudget > 0 || opts.Backfill {
 				if msgs, err := c.GetConversationHistory(notebookID, fullConversationID); err != nil {
+					if opts.Backfill {
+						return fmt.Errorf("backfill conversation history: %w", err)
+					}
 					fmt.Fprintf(os.Stderr, "nlm: could not fetch history for excerpts (auth may be expired — run 'nlm auth'): %v\n", err)
 				} else {
 					for _, sm := range msgs {
@@ -3520,6 +3711,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 						// reconstruct paragraphs/lists instead of one run-on block.
 						if sm.Rich != nil {
 							historyRich[key] = richDocumentFromAPI(sm.Rich)
+							historyAPIRich[key] = sm.Rich
 						}
 					}
 				}
@@ -3549,10 +3741,22 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 				}
 			}
 		}
+	} else if opts.Backfill {
+		return fmt.Errorf("--backfill needs auth; run 'nlm auth'")
 	} else if opts.ResolveCitations || opts.ExcerptBudget > 0 {
 		// The plain view degrades silently offline, but a user who explicitly
 		// asked for excerpts or file:line should hear why they're missing.
 		fmt.Fprintln(os.Stderr, "nlm: --citation-excerpts/--resolve-citations need auth; run 'nlm auth'. Rendering names only.")
+	}
+
+	if opts.Backfill {
+		changed, richCount, citationCount := mergeChatHistory(session, historyAPIRich, historyCitations)
+		if changed {
+			if err := saveChatSessionForConversation(session); err != nil {
+				return fmt.Errorf("save backfilled session: %w", err)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "nlm: backfill added %d rich tree(s) and %d citation set(s)\n", richCount, citationCount)
 	}
 
 	// Assemble the format-neutral document: swap in excerpt-bearing history
@@ -3587,13 +3791,14 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 	}
 
 	ctx := chatRenderContext{
-		ShowThinking:   opts.ShowThinking,
-		ExcerptBudget:  opts.ExcerptBudget,
-		HideConfidence: opts.HideConfidence,
-		HideSpans:      opts.HideSpans,
-		resolveTitle:   resolveTitle,
-		loadSource:     loadSource,
-		sourceRemoved:  sourceRemoved,
+		ShowThinking:     opts.ShowThinking,
+		ExcerptBudget:    opts.ExcerptBudget,
+		HideConfidence:   opts.HideConfidence,
+		HideSpans:        opts.HideSpans,
+		IncludeFollowUps: opts.IncludeFollowUps,
+		resolveTitle:     resolveTitle,
+		loadSource:       loadSource,
+		sourceRemoved:    sourceRemoved,
 	}
 
 	switch opts.Format {
@@ -4069,18 +4274,30 @@ func loadChatSession(notebookID string) (*ChatSession, error) {
 }
 
 func saveChatSession(session *ChatSession) error {
-	path := getChatSessionPath(session.NotebookID)
-
 	data, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	if err := os.WriteFile(getChatSessionPath(session.NotebookID), data, 0600); err != nil {
 		return err
 	}
 	if session.ConversationID == "" {
 		return nil
+	}
+	return os.WriteFile(getChatSessionPathForConv(session.NotebookID, session.ConversationID), data, 0600)
+}
+
+// saveChatSessionForConversation updates only the selected conversation file.
+// A read-only chat-show of an older conversation must not replace the notebook's
+// default active-session file merely because --backfill filled local gaps.
+func saveChatSessionForConversation(session *ChatSession) error {
+	if session.ConversationID == "" {
+		return fmt.Errorf("conversation id is empty")
+	}
+	data, err := json.MarshalIndent(session, "", "  ")
+	if err != nil {
+		return err
 	}
 	return os.WriteFile(getChatSessionPathForConv(session.NotebookID, session.ConversationID), data, 0600)
 }
@@ -4481,7 +4698,9 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 				fmt.Print(response)
 				session.Messages = append(session.Messages, ChatMessage{
 					Role: "assistant", Content: response, Timestamp: time.Now(),
-					SeqNum: session.SeqNum,
+					Citations: res.Citations,
+					Rich:      res.Rich,
+					SeqNum:    session.SeqNum,
 				})
 			}
 		} else {
@@ -4491,6 +4710,7 @@ func runInteractiveChat(c *api.Client, session *ChatSession, sourceIDs []string,
 					Role: "assistant", Content: response, Timestamp: time.Now(),
 					Thinking:  res.Thinking,
 					Citations: res.Citations,
+					Rich:      res.Rich,
 					SeqNum:    session.SeqNum,
 				})
 			}

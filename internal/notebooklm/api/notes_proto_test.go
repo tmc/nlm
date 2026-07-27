@@ -5,6 +5,7 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/beprotojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestGetNotesProtoAdapterProjection(t *testing.T) {
@@ -14,11 +15,36 @@ func TestGetNotesProtoAdapterProjection(t *testing.T) {
 		t.Fatalf("proto decoder: %v", err)
 	}
 	got := notesFromWireResponse(&wire)
-	want := []*pb.Note{
-		{NoteId: "note-1", ContentText: "body", Title: "Title", RichText: "Rich"},
-		{NoteId: "note-2", Title: "Second"},
+	want := []*Note{
+		{Note: &pb.Note{NoteId: "note-1", ContentText: "body", Title: "Title", RichText: "Rich"}},
+		{Note: &pb.Note{NoteId: "note-2", Title: "Second"}},
 	}
 	assertEquivalent(t, "notes adaptation", want, got)
+}
+
+func TestNoteFromRecordPreservesRichDocument(t *testing.T) {
+	document := &pb.RichDocument{
+		Body: &pb.SpanLayers{
+			Blocks: []*pb.Span{{Start: proto.Int64(0), End: proto.Int64(4)}},
+		},
+	}
+	grounding := []*pb.Grounding{{Score: proto.Float64(0.75)}}
+	got := noteFromRecord(&pb.GetNotesRichRecord{
+		NoteId:           "note-1",
+		ContentText:      proto.String("body"),
+		Title:            "Title",
+		RichText:         &pb.NoteRichText{Value: &pb.NoteRichText_Document{Document: document}},
+		GroundingDetails: &pb.NoteGroundingDetails{Grounding: grounding},
+	})
+	if got.GetRichText() != "" {
+		t.Fatalf("RichText = %q, want empty for document arm", got.GetRichText())
+	}
+	if got.Rich != document {
+		t.Fatal("Rich does not preserve decoded document")
+	}
+	if len(got.Grounding) != 1 || got.Grounding[0] != grounding[0] {
+		t.Fatal("Grounding does not preserve decoded details")
+	}
 }
 
 func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {

@@ -6,23 +6,40 @@ date: 2026-07-24
 # Note Rendering Design
 
 How `nlm` should turn a NotebookLM **note** into a rich, self-contained HTML
-artifact that works offline. This is a sibling to
-[Citation Rendering](citation-rendering.md), but the two share almost no
-machinery: a chat answer arrives with a decoded span tree and attached
-grounding, whereas a note is **markdown text with nothing attached**. This doc
-records that difference, so the note path is not mistakenly built on the chat
-path's tree/offset/grounding apparatus.
+artifact that works offline. It is a sibling to
+[Citation Rendering](citation-rendering.md): a rich note carries the **same
+span-tree document and grounding** a rendered chat answer does, so the note path
+should reuse the chat renderers rather than reinvent them.
 
 ## Status
 
-- **Proposed, not built.** This doc is the design; no note-rendering code exists
-  yet (`note read`/`note list` print raw text only, `cmd/nlm/main.go`
-  `readNote`/`listNotes`).
-- The **note wire shape** is verified against a real note — see §1.
-- The **chat** rich-render path (span tree at `inner[0][4]`, UTF-16 offset
-  mapping, parent-source hop, per-source excerpts) is shipped on
-  `work/citation-excerpts` and is **out of scope here** — it does not apply to
-  notes (§2).
+- ★★ **SHIPPED (2026-07-26).** Both halves are done on `stage/integration`:
+  `5a17d902` stops the flatten (`api.Note` now carries `Rich *pb.RichDocument` +
+  `Grounding`), and `8cd9b152` renders it — `note read --format
+  text|markdown|html [--out] [--open]` projects the tree through the shared chat
+  renderer, resolves `[N]` from the note's own grounding, and falls back to a
+  markdown subset for plain-arm notes. Verified live on the motivating note
+  (106-block document arm → 187 KB structural, self-contained, XSS-safe HTML).
+  Not pushed. §3–6 below are the as-built design; the flatten described in §1 is
+  the *former* behavior, now fixed.
+- ★ **PREMISE CORRECTED (2026-07-24).** An earlier draft of this doc claimed a
+  note is "markdown text with nothing attached" and that no note rich modeling
+  existed. Both are now **false**. The rich-note wire — a `RichDocument` span
+  tree plus per-source grounding — is fully modeled and decoded (proto commits
+  `74dfa8ca` "model rich note documents" and `5cd79bc4` "model rich-note payload
+  on CreateNote"): `NoteRichText` (a `oneof {plain_text | RichDocument document}`
+  union), `GetNotesRichRecord`, `GetNotesRichWireResponse`, `CreateNoteRichRecord`,
+  and `NoteGroundingDetails` all exist in `orchestration.proto`.
+- **The remaining gap is render-side, not proto-side.** `GetNotes` decodes the
+  union then **flattens it** — `noteFromRecord` (`client.go`) takes
+  `note.GetRichText().GetPlainText()` and drops the `document` arm + grounding
+  into the flat public `pb.Note.rich_text` string; `readNote`/`listNotes` print
+  that string. The tree and grounding are decoded losslessly and then thrown
+  away at the API boundary. Nothing renders them.
+- The **chat** rich-render path (span-tree decode, UTF-16 offset mapping,
+  per-source grounding/excerpts, HTML/markdown tree renderers) is shipped and is
+  the machinery to reuse — a rich note is the *same* `RichDocument`, so §3's
+  renderer is largely already written for chat.
 
 ## Motivating example
 
@@ -42,43 +59,51 @@ The owning notebook has 48 labeled sources and one server-side conversation
 
 ## 1. The model (ground truth)
 
-A note is fetched via `GetNotes` (`internal/notebooklm/api/client.go`) and
-carried as `pb.Note`. The two body-bearing fields:
+A note is fetched via `GetNotes` (cFji9) and, on the wire, its rich body is a
+shape union — **`NoteRichText`** (`orchestration.proto`):
 
-- `ContentText` — wire field 1. Flat body text.
-- `RichText` — wire field 5. In every note observed this is **also markdown**
-  (or empty), **not** a structured tree.
+```
+message NoteRichText { oneof value {
+    string plain_text = 1;
+    RichDocument document = 2;   // same tree as rendered chat content
+}}
+```
 
-`readNote` prefers `RichText`, falling back to `ContentText`. Either way what
-surfaces is **markdown with real newlines** — `#`/`###` headings, `**bold**`,
-`*italic*`, `` `code` ``, `---`, ordered/unordered lists — verified on the
-SiPhon note (29 markdown-heading lines, 0 HTML tags) and on unrelated reachable
-notes (Cybertruck, ModelIR, macOS notebooks). There is no span tree layer and no
-per-passage grounding structure anywhere in the note payload.
+Older/plain notes take the `plain_text` arm; **rich notes carry a full
+`RichDocument` span tree** (headings, paragraphs, lists, tables, code blocks —
+the identical structure the chat answer path renders). Alongside it,
+`NoteGroundingDetails grounding_details` (field 4) carries per-source grounding
+whose items are byte-for-byte equal to the `Grounding` part of the chat
+`RichDocument.grounding`. So a rich note carries **both** the structure and the
+grounding for its `[N]` markers.
 
-**Consequence:** the note's own markdown *is* the structure. Rebuilding
-paragraphs/lists/headings means parsing that markdown, not walking a tree.
+The response record is `GetNotesRichRecord` (in `GetNotesRichWireResponse`);
+`CreateNoteRichRecord` is the CYK0Xb equivalent. Both are decoded losslessly
+today.
 
-## 2. Why the chat path does not apply
+**The catch:** the public `pb.Note` is still the flat one (`string rich_text`),
+and `noteFromRecord` (`client.go`) collapses the union with
+`GetRichText().GetPlainText()` — taking the string arm and **discarding the
+`document` tree and the grounding**. `readNote`/`listNotes` then print that flat
+string. The markdown a plain `note read` shows is that flattened projection, not
+evidence the tree is absent — the tree is decoded and then dropped.
 
-The [Citation Rendering](citation-rendering.md) work renders a chat answer from
-a span tree delivered live at `inner[0][4]`, maps UTF-16 wire offsets to runes
-before slicing, and hangs per-source hovercards (title, confidence, excerpt,
-resolved via the §9 parent-source hop) off `[N]` markers whose grounding arrives
-in the same frame.
+## 2. Reuse the chat path — the note IS the same tree
 
-None of that is present for a note:
+Because a rich note's body is the same `RichDocument` the chat renderer already
+projects to HTML/markdown, the note path should **reuse the chat machinery**, not
+reinvent a markdown parser:
 
-| | Chat answer | Note |
+| | Chat answer | Rich note |
 |---|---|---|
-| Structure source | span tree (`inner[0][4]`) | markdown text only |
-| Offsets | UTF-16 wire offsets → runes | n/a (no offset payload) |
-| `[N]` markers | backed by live grounding (source id, score, excerpt) | **detached glyphs** — no grounding in the note |
-| Title resolution | §9 parent-source hop | n/a |
+| Structure source | `RichDocument` span tree | **same `RichDocument`** (`NoteRichText.document`) |
+| Offsets | UTF-16 wire offsets → runes | same |
+| `[N]` grounding | per-source `GroundingRecord` in-frame | **`NoteGroundingDetails`, in the note** — resolvable without a source-conversation refetch |
 
-So the note renderer is a **markdown → HTML** problem, not a tree-projection
-problem. Reusing the chat renderer's offset/grounding code for notes would be
-building on structure that isn't there.
+The one place notes differ from chat: a **plain** note (union arm 1) has only
+markdown text and no tree — that arm still needs a markdown→HTML fallback (§3).
+So the renderer is: rich arm → project the tree via the chat renderer; plain arm
+→ the markdown-subset fallback.
 
 ## 3. Structure rendering (the core deliverable, fully self-contained)
 

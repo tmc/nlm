@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -279,20 +280,12 @@ func mockChatPayload(text string, phase int) interface{} {
 	}
 }
 
-// TestParseCitationsV2SlotOrdering locks in the invariant that Citation.SourceIndex
-// is the 1-based *slot* number (matching [N] in the narrative), not the project
-// index of the cited source. Regression: a run with a 100+-source notebook had
-// narrative [1] referring to the first thing the model cited (e.g. slot-1 was
-// src at project-index 99), while the footer printed "[1] = project-index-0"
-// because SourceIndex was srcIdx+1. See /tmp/nlm-impl-count.log for the repro.
+// TestParseCitationsV2SlotOrdering locks in the invariant that
+// Citation.SourceIndex is the 1-based citationData index written as [N] in the
+// narrative, independent of source-mapping order.
 func TestParseCitationsV2SlotOrdering(t *testing.T) {
-	// Three sources, referenced by three narrative markers in non-monotonic
-	// order. srcIndices index citationData, and each cited source carries its
-	// OWN confidence from citationData[srcIdx] — so a marker citing several
-	// sources emits one Citation per source with that source's confidence.
-	//   marker 1 → citationData[2] (src_c, conf 0.7)
-	//   marker 2 → citationData[0] (src_a, conf 0.9)
-	//   marker 3 → citationData[1] (src_b, conf 0.8) AND [2] (src_c, conf 0.7)
+	// Three sources are referenced by grounded ranges in non-monotonic order.
+	// Each source keeps its citationData label and confidence.
 	// No embedded [6] UUID here, so SourceID resolves via the sourceIDs
 	// fallback (the shape the live stream would use).
 	sourceIDs := []string{"src_a", "src_b", "src_c"}
@@ -308,15 +301,14 @@ func TestParseCitationsV2SlotOrdering(t *testing.T) {
 	}
 
 	got := parseCitationsV2(citationData, mappingData, sourceIDs)
-	// One citation per (marker, srcIdx) pair: markers 1+2 have one src each,
-	// marker 3 has two → 4 total.
+	// One citation per (grounded range, srcIdx) pair.
 	if len(got) != 4 {
 		t.Fatalf("got %d citations, want 4: %+v", len(got), got)
 	}
 	want := []Citation{
-		{SourceIndex: 1, SourceID: "src_c", StartChar: 0, EndChar: 10, Confidence: 0.7},
-		{SourceIndex: 2, SourceID: "src_a", StartChar: 11, EndChar: 20, Confidence: 0.9},
-		{SourceIndex: 3, SourceID: "src_b", StartChar: 21, EndChar: 30, Confidence: 0.8},
+		{SourceIndex: 3, SourceID: "src_c", StartChar: 0, EndChar: 10, Confidence: 0.7},
+		{SourceIndex: 1, SourceID: "src_a", StartChar: 11, EndChar: 20, Confidence: 0.9},
+		{SourceIndex: 2, SourceID: "src_b", StartChar: 21, EndChar: 30, Confidence: 0.8},
 		{SourceIndex: 3, SourceID: "src_c", StartChar: 21, EndChar: 30, Confidence: 0.7},
 	}
 	for i, w := range want {
@@ -353,7 +345,7 @@ func TestParseCitationsV2SkipsUnresolvableSrcIdx(t *testing.T) {
 	// Both surviving citations reference srcIdx 0 → citationData[0], conf 0.9.
 	want := []Citation{
 		{SourceIndex: 1, SourceID: "src_a", StartChar: 0, EndChar: 10, Confidence: 0.9},
-		{SourceIndex: 3, SourceID: "src_a", StartChar: 21, EndChar: 30, Confidence: 0.9},
+		{SourceIndex: 1, SourceID: "src_a", StartChar: 21, EndChar: 30, Confidence: 0.9},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("got %d citations, want %d: %+v", len(got), len(want), got)
@@ -451,7 +443,7 @@ func TestExtractChatPayloadResolvesScopedCitationIDs(t *testing.T) {
 }
 
 func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
-	// srcIndices index citations, not markers: one marker citing two sources
+	// srcIndices index citations: one grounded range citing two sources
 	// reads a separate grounding record per source, each with its own score.
 	// The two arrays are usually different lengths on the wire (328 frames of
 	// 351 in the corpus), so there is no marker-aligned reading of them.
@@ -476,7 +468,7 @@ func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
 	}
 	wantScores := []float64{0.9, 0.4}
 	for i, citation := range got.Citations {
-		if citation.SourceIndex != 1 || citation.SourceID != []string{"src-a", "src-b"}[i] || citation.StartChar != 4 || citation.EndChar != 10 || citation.Confidence != wantScores[i] {
+		if citation.SourceIndex != i+1 || citation.SourceID != []string{"src-a", "src-b"}[i] || citation.StartChar != 4 || citation.EndChar != 10 || citation.Confidence != wantScores[i] {
 			t.Errorf("citation %d = %#v", i, citation)
 		}
 	}
@@ -516,7 +508,7 @@ func sameCitations(a, b []Citation) bool {
 		return false
 	}
 	for i := range a {
-		if a[i] != b[i] {
+		if !reflect.DeepEqual(a[i], b[i]) {
 			return false
 		}
 	}

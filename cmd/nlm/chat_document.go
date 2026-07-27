@@ -88,10 +88,11 @@ type chatDocMessage struct {
 // may be nil (offline / unauthed), in which case renderers degrade to the data
 // already on the citation.
 type chatRenderContext struct {
-	ShowThinking   bool
-	ExcerptBudget  int  // >0 enables per-source excerpts, clipped to this many runes
-	HideConfidence bool // drop the p= column
-	HideSpans      bool // drop the answer/src span labels
+	ShowThinking     bool
+	ExcerptBudget    int  // >0 enables per-source excerpts, clipped to this many runes
+	HideConfidence   bool // drop the p= column
+	HideSpans        bool // drop the answer/src span labels
+	IncludeFollowUps bool // retain generated trailing prompts in HTML
 
 	resolveTitle func(sourceID string) string
 	loadSource   func(sourceID string) (api.LoadSourceText, error)

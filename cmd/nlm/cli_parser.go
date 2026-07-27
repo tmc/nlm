@@ -345,6 +345,8 @@ var commandLocalFlags = map[string]map[string]bool{
 	"chat":            chatCommandLocalFlags(),
 	"chat show":       chatShowCommandLocalFlags(),
 	"chat-show":       chatShowCommandLocalFlags(),
+	"note read":       noteReadCommandLocalFlags(),
+	"read-note":       noteReadCommandLocalFlags(),
 	"app-create":      appCreateCommandLocalFlags(),
 	"app create":      appCreateCommandLocalFlags(),
 	"mindmap-create":  appCreateCommandLocalFlags(),
@@ -400,7 +402,12 @@ func chatShowCommandLocalFlags() map[string]bool {
 		"citation-excerpts": true, "citation-excerpt": true,
 		"citation-confidence": true, "citation-spans": true,
 		"format": true, "out": true, "open": true,
+		"include-follow-ups": true, "backfill": true,
 	}
+}
+
+func noteReadCommandLocalFlags() map[string]bool {
+	return map[string]bool{"format": true, "out": true, "open": true}
 }
 
 func selectorCommandLocalFlags() map[string]bool {

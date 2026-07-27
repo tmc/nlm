@@ -108,6 +108,52 @@ func TestRenderChatHTMLSelfContained(t *testing.T) {
 	}
 }
 
+func TestRenderChatHTMLMobileInteraction(t *testing.T) {
+	doc := chatDocument{
+		Messages: []chatDocMessage{{
+			Role:    "assistant",
+			Content: "A wide equation $$x_1 + x_2 + x_3 = y$$ [1]",
+			Citations: []api.Citation{{
+				SourceIndex: 1,
+				SourceID:    "source-mobile",
+				Title:       "Mobile source",
+				StartChar:   0,
+				EndChar:     15,
+				Excerpt:     "A cited passage.",
+			}},
+		}},
+	}
+	page := renderToString(t, doc, chatRenderContext{})
+	tests := []struct {
+		name string
+		want string
+	}{
+		{name: "touch detection", want: `window.matchMedia("(hover: none), (pointer: coarse)")`},
+		{name: "tap preview", want: `function touchPreview(event, anchor, marker, key)`},
+		{name: "tap pins", want: `pinnedAnchor = anchor;`},
+		{name: "tap prevents jump", want: `event.preventDefault();`},
+		{name: "tap away", want: `if (pinnedAnchor && !card.contains(event.target)) closeCard();`},
+		{name: "close affordance", want: `close.setAttribute("aria-label", "Close citation preview")`},
+		{name: "desktop hover retained", want: `a.addEventListener("mouseenter", function () { showCard(a, marker, key); });`},
+		{name: "rail stacks", want: `.rail {
+    position: static; top: auto; max-height: none; overflow: visible;`},
+		{name: "phone card", want: `position: fixed; left: 10px !important; right: 10px; top: auto !important;`},
+		{name: "touch target", want: `height: 44px; transform: translateY(-50%);`},
+		{name: "math scroll", want: `grid-column: 2; min-width: 0; max-width: 100%; overflow-x: auto;`},
+		{name: "page overflow guarded", want: `html, body { max-width: 100%; overflow-x: hidden; }`},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if !strings.Contains(page, test.want) {
+				t.Fatalf("mobile HTML missing %q", test.want)
+			}
+		})
+	}
+	if strings.Contains(page, `onclick=`) || strings.Contains(page, `ontouchstart=`) {
+		t.Fatal("mobile wiring uses inline event handlers")
+	}
+}
+
 // TestRenderChatHTMLMarkerLinking checks the citations-at-the-bottom model: the
 // answer text carries the server's own [N] markers, so the client links those
 // literal markers down to a numbered Citations section rather than deriving
@@ -168,7 +214,7 @@ func TestRenderChatHTMLEscaping(t *testing.T) {
 				Title:       `<img src=x onerror=alert(2)> & co`,
 				StartChar:   0,
 				EndChar:     3,
-				Excerpt:     `a & b <hr> </script>`,
+				Excerpt:     `a & b <hr> </script>\n1\tbad\n2\tonload=alert(3)`,
 				Confidence:  0.5,
 			}},
 		}},
@@ -193,7 +239,7 @@ func TestRenderChatHTMLEscaping(t *testing.T) {
 	// If the excerpt's </script> had closed the block early, decode would have
 	// failed or lost content. Assert the literal text round-trips intact.
 	src := p.Messages[0].Markers[0].Sources[0]
-	if src.Excerpt != `a & b <hr> </script>` {
+	if src.Excerpt != "a & b <hr> </script>\n1\tbad\n2\tonload=alert(3)" {
 		t.Errorf("excerpt round-trip = %q", src.Excerpt)
 	}
 	if src.Title != `<img src=x onerror=alert(2)> & co` {
@@ -377,6 +423,97 @@ func TestRenderChatHTMLPreservesExcerptNewlines(t *testing.T) {
 	}
 }
 
+func TestBuildCitationStructuredExcerpt(t *testing.T) {
+	runs := []api.ExcerptRun{
+		{Text: "plain "},
+		{Text: "code", Code: true},
+		{Text: " http", Link: "https://example.test/docs"},
+		{Text: " mail", Link: "mailto:test@example.test"},
+		{Text: " bad", Link: "javascript:alert(1)"},
+		{Text: ` </script><script>alert("text")</script>`},
+		{Text: " unknown", RawMarks: []interface{}{nil, true}},
+	}
+	var flat strings.Builder
+	for _, run := range runs {
+		flat.WriteString(run.Text)
+	}
+	citation := api.Citation{
+		SourceIndex: 1,
+		SourceID:    "source-1",
+		Excerpt:     flat.String(),
+		ExcerptRuns: runs,
+	}
+	got := buildCitation(citation, chatRenderContext{}, nil, 600)
+	if got.Excerpt != flat.String() {
+		t.Fatalf("flat excerpt = %q, want %q", got.Excerpt, flat.String())
+	}
+	if len(got.ExcerptRuns) != len(runs) {
+		t.Fatalf("excerpt runs = %#v", got.ExcerptRuns)
+	}
+	if !got.ExcerptRuns[1].Code {
+		t.Errorf("code run = %#v", got.ExcerptRuns[1])
+	}
+	if got.ExcerptRuns[2].Link != "https://example.test/docs" ||
+		got.ExcerptRuns[3].Link != "mailto:test@example.test" {
+		t.Errorf("safe links = %#v", got.ExcerptRuns[2:4])
+	}
+	if got.ExcerptRuns[4].Link != "" {
+		t.Errorf("unsafe link survived sanitization: %#v", got.ExcerptRuns[4])
+	}
+	if got.ExcerptRuns[6].Code || got.ExcerptRuns[6].Link != "" {
+		t.Errorf("unknown mark acquired a style: %#v", got.ExcerptRuns[6])
+	}
+
+	page := renderToString(t, chatDocument{Messages: []chatDocMessage{{
+		Role: "assistant", Content: "claim [1]", Citations: []api.Citation{citation},
+	}}}, chatRenderContext{})
+	for _, want := range []string{
+		`document.createTextNode(run.text)`,
+		`document.createElement("a")`,
+		`anchor.target = "_blank"`,
+		`anchor.rel = "noopener noreferrer"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("chat excerpt renderer missing %q", want)
+		}
+	}
+	if strings.Contains(page, `innerHTML`) {
+		t.Error("chat excerpt renderer must not use innerHTML")
+	}
+	if strings.Contains(page, `javascript:alert(1)`) {
+		t.Error("unsafe excerpt href reached the HTML payload")
+	}
+	if strings.Contains(page, `</script><script>alert("text")</script>`) {
+		t.Error("hostile excerpt text closed the JSON script")
+	}
+}
+
+func TestSafeExcerptLink(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+		ok   bool
+	}{
+		{in: "https://example.test/a", want: "https://example.test/a", ok: true},
+		{in: "HTTP://example.test/a", want: "HTTP://example.test/a", ok: true},
+		{in: "mailto:test@example.test", want: "mailto:test@example.test", ok: true},
+		{in: "/relative/path", want: "/relative/path", ok: true},
+		{in: "#anchor", want: "#anchor", ok: true},
+		{in: " javascript:alert(1) "},
+		{in: "java\tscript:alert(1)"},
+		{in: "data:text/html,bad"},
+		{in: "vbscript:bad"},
+	}
+	for _, test := range tests {
+		t.Run(test.in, func(t *testing.T) {
+			got, ok := safeExcerptLink(test.in)
+			if got != test.want || ok != test.ok {
+				t.Errorf("safeExcerptLink(%q) = %q, %v; want %q, %v", test.in, got, ok, test.want, test.ok)
+			}
+		})
+	}
+}
+
 // TestRenderChatHTMLRailAndBottom pins the layout: an assistant turn with
 // citations gets BOTH the sticky Sources rail (the at-a-glance index beside the
 // answer) and the bottom Citations section (the full read), and the inline [N]
@@ -403,6 +540,32 @@ func TestRenderChatHTMLRailAndBottom(t *testing.T) {
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("layout element %s missing from page", want)
+		}
+	}
+}
+
+func TestRenderChatHTMLRailNavigation(t *testing.T) {
+	doc := chatDocument{Messages: []chatDocMessage{{
+		Role:    "assistant",
+		Content: "Grounded claim. [1]",
+		Citations: []api.Citation{{
+			SourceIndex: 1,
+			SourceID:    "source-1",
+			StartChar:   0,
+			EndChar:     15,
+		}},
+	}}}
+	html := renderToString(t, doc, chatRenderContext{})
+	for _, want := range []string{
+		`var detail = el("a", "ref-action", "Details");`,
+		`var passage = el("button", "ref-action", "Passage");`,
+		`passage.type = "button";`,
+		`function jumpToPassage(key)`,
+		`var target = (groundEls[key] || [])[0];`,
+		`target.scrollIntoView({ block: "center", behavior: "smooth" });`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("HTML missing citation navigation %q", want)
 		}
 	}
 }
@@ -702,20 +865,20 @@ func TestRenderChatHTMLMarkerRangeExpands(t *testing.T) {
 	}
 	body := answerBody(t, renderToString(t, doc, chatRenderContext{}), 0)
 
-	// The range [1-4] keeps its brackets and dash and links both bounds.
-	if !strings.Contains(body, `[<a class="citelink" href="#cite-0-1" data-msg="0" data-cite="1">1</a>-<a class="citelink" href="#cite-0-4" data-msg="0" data-cite="4">4</a>]`) {
+	// The range [1-4] drops its brackets, uses an en dash, and links both bounds.
+	if !strings.Contains(body, `<sup class="citegroup"><a class="citelink" href="#cite-0-1" data-msg="0" data-cite="1">1</a>–<a class="citelink" href="#cite-0-4" data-msg="0" data-cite="4">4</a></sup>`) {
 		t.Errorf("range [1-4] did not expand to linked bounds: %q", body)
 	}
-	// The list [2, 3] links each index, keeping the comma and space.
-	if !strings.Contains(body, `[<a class="citelink" href="#cite-0-2" data-msg="0" data-cite="2">2</a>, <a class="citelink" href="#cite-0-3" data-msg="0" data-cite="3">3</a>]`) {
+	// The list [2, 3] links each index with a compact comma.
+	if !strings.Contains(body, `<sup class="citegroup"><a class="citelink" href="#cite-0-2" data-msg="0" data-cite="2">2</a>,<a class="citelink" href="#cite-0-3" data-msg="0" data-cite="3">3</a></sup>`) {
 		t.Errorf("list [2, 3] did not link both indices: %q", body)
 	}
-	// [9] has no citation → plain text, no link.
+	// [9] has no citation: it remains plain text inside the superscript.
 	if strings.Contains(body, `href="#cite-0-9"`) {
 		t.Errorf("[9] with no citation should not be a link: %q", body)
 	}
-	if !strings.Contains(body, "[9]") {
-		t.Errorf("[9] should survive as literal text: %q", body)
+	if !strings.Contains(body, `<sup class="citegroup">9</sup>`) {
+		t.Errorf("[9] should survive as superscript text: %q", body)
 	}
 }
 
@@ -737,6 +900,92 @@ func TestRenderChatHTMLGroundedSpanInBody(t *testing.T) {
 	// The [1] token after it still links.
 	if !strings.Contains(body, `<a class="citelink" href="#cite-0-1" data-msg="0" data-cite="1">1</a>`) {
 		t.Errorf("[1] link missing after grounded span: %q", body)
+	}
+}
+
+func TestAlignHTMLCitationsToVisibleMarkers(t *testing.T) {
+	content := "Prefix decoration. Grounded answer text [4, 7]. More source content [7-9]."
+	citations := []api.Citation{
+		{SourceIndex: 1, SourceID: "source-4", StartChar: 5, EndChar: 25},
+		{SourceIndex: 1, SourceID: "source-7", StartChar: 5, EndChar: 25},
+		{SourceIndex: 2, SourceID: "source-7", StartChar: 26, EndChar: 45},
+		{SourceIndex: 2, SourceID: "source-8", StartChar: 26, EndChar: 45},
+		{SourceIndex: 2, SourceID: "source-9", StartChar: 26, EndChar: 45},
+	}
+	got := alignHTMLCitations(content, citations)
+	wantIndices := []int{4, 7, 7, 8, 9}
+	for i, want := range wantIndices {
+		if got[i].SourceIndex != want {
+			t.Errorf("citation %d index = %d, want %d", i, got[i].SourceIndex, want)
+		}
+	}
+	runes := []rune(content)
+	for _, test := range []struct {
+		citation int
+		want     string
+	}{
+		{citation: 0, want: "Grounded answer text"},
+		{citation: 2, want: "More source content"},
+	} {
+		c := got[test.citation]
+		if text := string(runes[c.StartChar:c.EndChar]); text != test.want {
+			t.Errorf("citation %d text = %q, want %q", test.citation, text, test.want)
+		}
+	}
+
+	markers := buildMarkers(chatDocMessage{Content: content, Citations: citations}, chatRenderContext{}, 0)
+	for _, marker := range markers {
+		if marker.Index == 7 && len(marker.Spans) != 2 {
+			t.Errorf("source 7 spans = %v, want two occurrences", marker.Spans)
+		}
+	}
+}
+
+func TestRenderChatHTMLLoadsMathJaxOnlyForMath(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{name: "plain", content: "plain prose", want: false},
+		{name: "inline math", content: "equation $x^2$", want: true},
+		{name: "display math", content: "$$E = mc^2$$", want: true},
+		{name: "hostile math", content: "$<script>alert(1)</script>$", want: true},
+		{name: "inline code", content: "run `$PATH:$HOME`", want: false},
+		{name: "currency", content: "between $5 and $10 per unit", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			doc := chatDocument{Messages: []chatDocMessage{{
+				Role:    "assistant",
+				Content: test.content,
+			}}}
+			got := renderToString(t, doc, chatRenderContext{})
+			hasLoader := strings.Contains(got, `id="MathJax-script"`)
+			hasConfig := strings.Contains(got, "window.MathJax")
+			if hasLoader != test.want || hasConfig != test.want {
+				t.Fatalf("MathJax loader/config = %v/%v, want %v", hasLoader, hasConfig, test.want)
+			}
+			if test.want {
+				for _, want := range []string{
+					`https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js`,
+					`inlineMath: [['$', '$'], ['\\(', '\\)']]`,
+					`displayMath: [['$$', '$$'], ['\\[', '\\]']]`,
+				} {
+					if !strings.Contains(got, want) {
+						t.Errorf("HTML missing %q", want)
+					}
+				}
+			}
+			if test.name == "hostile math" {
+				if strings.Contains(got, "$<script>alert(1)</script>$") {
+					t.Fatal("math body was emitted as executable markup")
+				}
+				if !strings.Contains(got, "$&lt;script&gt;alert(1)&lt;/script&gt;$") {
+					t.Fatal("escaped hostile math is missing")
+				}
+			}
+		})
 	}
 }
 

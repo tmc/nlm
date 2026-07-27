@@ -57,6 +57,7 @@ type answerNode struct {
 // element lookups per turn.
 func renderAnswerBody(msgIdx int, m chatDocMessage, markers []htmlMarker) (template.HTML, error) {
 	nodes := answerNodes(msgIdx, m, markers)
+	nodes = liftSplitMathCitations(nodes, msgIdx, markersByIndex(markers))
 	var sb strings.Builder
 	for _, n := range nodes {
 		if err := renderAnswerNode(&sb, n); err != nil {
@@ -140,6 +141,10 @@ func answerNodes(msgIdx int, m chatDocMessage, markers []htmlMarker) []answerNod
 			return nodes
 		}
 	}
+	if m.Rich == nil && hasMarkdownSubset(m.Content) {
+		nodes := chatMarkdownSubsetNodes(msgIdx, m.Content, byIndex)
+		return groundMarkdownNodes(nodes, m.Content, markers, msgIdx)
+	}
 	// Flat fallback: the whole answer as one paragraph, with markers and grounded
 	// spans injected across its full rune range.
 	runes := []rune(m.Content)
@@ -148,6 +153,122 @@ func answerNodes(msgIdx int, m chatDocMessage, markers []htmlMarker) []answerNod
 		Class:    "answer-block",
 		Children: inlineNodes(msgIdx, runes, 0, len(runes), m.Content, markers, byIndex),
 	}}
+}
+
+// groundMarkdownNodes restores grounded-passage spans after Markdown syntax has
+// been projected into structural nodes. Text leaves still occur in source
+// order, so each leaf can be located monotonically in the original content and
+// split at the validated citation-span boundaries. Markdown punctuation skipped
+// by the projection is simply passed over by the source cursor.
+func groundMarkdownNodes(nodes []answerNode, content string, markers []htmlMarker, msgIdx int) []answerNode {
+	runes := []rune(content)
+	at := 0
+	var walk func([]answerNode) []answerNode
+	walk = func(in []answerNode) []answerNode {
+		var out []answerNode
+		for _, node := range in {
+			if len(node.Children) > 0 {
+				node.Children = walk(node.Children)
+				out = append(out, node)
+				continue
+			}
+			if node.Text == "" || node.Tag == "a" {
+				out = append(out, node)
+				continue
+			}
+			text := []rune(node.Text)
+			start := indexRunes(runes, text, at)
+			if start < 0 {
+				out = append(out, node)
+				continue
+			}
+			end := start + len(text)
+			at = end
+			if node.Class == "math-display" {
+				if marker := groundedMarker(start, end, markers); marker != nil {
+					out = append(out, answerNode{
+						Tag:      "span",
+						Class:    "grounded",
+						DataMsg:  strconv.Itoa(msgIdx),
+						DataCite: strconv.Itoa(marker.Index),
+						Children: []answerNode{node},
+					})
+				} else {
+					out = append(out, node)
+				}
+				continue
+			}
+			if node.Tag != "" {
+				node.Children = groundedTextNodes(msgIdx, runes, start, end, markers)
+				node.Text = ""
+				out = append(out, node)
+				continue
+			}
+			out = append(out, groundedTextNodes(msgIdx, runes, start, end, markers)...)
+		}
+		return out
+	}
+	return walk(nodes)
+}
+
+func groundedMarker(start, end int, markers []htmlMarker) *htmlMarker {
+	for i := range markers {
+		spans := markers[i].Spans
+		if len(spans) == 0 && markers[i].Span != nil {
+			spans = []htmlSpan{*markers[i].Span}
+		}
+		for _, span := range spans {
+			if max(start, span.Start) < min(end, span.End) {
+				return &markers[i]
+			}
+		}
+	}
+	return nil
+}
+
+func indexRunes(haystack, needle []rune, start int) int {
+	if len(needle) == 0 {
+		return start
+	}
+	for i := start; i+len(needle) <= len(haystack); i++ {
+		if string(haystack[i:i+len(needle)]) == string(needle) {
+			return i
+		}
+	}
+	return -1
+}
+
+func groundedTextNodes(msgIdx int, runes []rune, start, end int, markers []htmlMarker) []answerNode {
+	var segs []answerSeg
+	for i := range markers {
+		spans := markers[i].Spans
+		if len(spans) == 0 && markers[i].Span != nil {
+			spans = []htmlSpan{*markers[i].Span}
+		}
+		for _, span := range spans {
+			a, b := max(start, span.Start), min(end, span.End)
+			if a < b {
+				segs = append(segs, answerSeg{start: a, end: b, grounded: &markers[i]})
+			}
+		}
+	}
+	sortSegs(segs)
+	var out []answerNode
+	at := start
+	for _, seg := range segs {
+		if seg.start < at {
+			continue
+		}
+		if at < seg.start {
+			out = append(out, textNode(runes, at, seg.start))
+		}
+		out = append(out, groundedNode(msgIdx, runes, seg.start, seg.end, seg.grounded.Index))
+		at = seg.end
+	}
+	if at < end {
+		out = append(out, textNode(runes, at, end))
+	}
+	return out
 }
 
 // translateMarkerSpans returns a copy of markers whose grounded Spans are mapped
@@ -165,6 +286,16 @@ func translateMarkerSpans(markers []htmlMarker, u16 utf16RuneMap) []htmlMarker {
 				Start: u16.rune(out[i].Span.Start),
 				End:   u16.rune(out[i].Span.End),
 			}
+		}
+		if len(out[i].Spans) > 0 {
+			spans := make([]htmlSpan, len(out[i].Spans))
+			for j, span := range out[i].Spans {
+				spans[j] = htmlSpan{
+					Start: u16.rune(span.Start),
+					End:   u16.rune(span.End),
+				}
+			}
+			out[i].Spans = spans
 		}
 	}
 	return out
@@ -385,8 +516,24 @@ func inlineNodes(msgIdx int, runes []rune, start, end int, content string, marke
 		if s.start > cur {
 			out = append(out, textNode(runes, cur, s.start))
 		}
-		if s.grounded != nil {
+		if s.math != "" {
+			math := answerNode{Text: s.math}
+			if s.mathGrounded != nil {
+				math = answerNode{
+					Tag:      "span",
+					Class:    "grounded",
+					DataMsg:  strconv.Itoa(msgIdx),
+					DataCite: strconv.Itoa(s.mathGrounded.Index),
+					Text:     s.math,
+				}
+			}
+			lift := mathCitationLift{inner: s.inner, close: s.mathClose}
+			out = append(out, liftedMathCitationNodes(math, lift, msgIdx, byIndex)...)
+		} else if s.grounded != nil {
 			out = append(out, groundedNode(msgIdx, runes, s.start, s.end, s.grounded.Index))
+		} else if s.mathClose != "" {
+			out = append(out, answerNode{Text: s.mathClose})
+			out = append(out, markerNodes(msgIdx, s.inner, byIndex)...)
 		} else {
 			out = append(out, markerNodes(msgIdx, s.inner, byIndex)...)
 		}
@@ -402,9 +549,12 @@ func inlineNodes(msgIdx int, runes []rune, start, end int, content string, marke
 // non-nil) or a literal [N] marker token (inner is the bracket body). start/end
 // are rune offsets into content.
 type answerSeg struct {
-	start, end int
-	grounded   *htmlMarker // set → underline this range
-	inner      string      // set → the [N] token's inner text, e.g. "1" or "1-4"
+	start, end   int
+	grounded     *htmlMarker // set → underline this range
+	inner        string      // set → the [N] token's inner text, e.g. "1" or "1-4"
+	mathClose    string      // set → lift marker after this closing math delimiter
+	math         string      // set → cleaned display-math token
+	mathGrounded *htmlMarker // set → ground the cleaned display-math token
 }
 
 // answerSegments collects the grounded-span and [N]-marker segments that fall
@@ -412,23 +562,38 @@ type answerSeg struct {
 // valid (end>start, inside the block range) — the same shape the Go payload
 // already validated globally, re-checked against this block's bounds. Marker
 // tokens are found by scanning the content slice with htmlMarkerRe and mapping
-// byte offsets back to rune offsets. Grounded spans and marker tokens never
-// overlap (the payload validation rejects a span that covers a marker), so the
-// merged list needs no conflict resolution beyond the defensive skip in the
-// caller.
+// byte offsets back to rune offsets. A display-math lift expands its marker
+// segment to cover the whole equation; any grounded span contained in that
+// equation moves onto the cleaned math node. Other grounded spans and marker
+// tokens do not overlap.
 func answerSegments(runes []rune, start, end int, content string, markers []htmlMarker) []answerSeg {
 	var segs []answerSeg
 	for i := range markers {
-		sp := markers[i].Span
-		if sp == nil || sp.End <= sp.Start {
-			continue
+		spans := markers[i].Spans
+		if len(spans) == 0 && markers[i].Span != nil {
+			spans = []htmlSpan{*markers[i].Span}
 		}
-		if sp.Start < start || sp.End > end {
-			continue
+		for _, sp := range spans {
+			if sp.End <= sp.Start || sp.Start < start || sp.End > end {
+				continue
+			}
+			segs = append(segs, answerSeg{start: sp.Start, end: sp.End, grounded: &markers[i]})
 		}
-		segs = append(segs, answerSeg{start: sp.Start, end: sp.End, grounded: &markers[i]})
 	}
 	for _, tok := range markerTokens(runes, start, end) {
+		if tok.math != "" {
+			kept := segs[:0]
+			for _, seg := range segs {
+				if seg.grounded != nil && seg.start >= tok.start && seg.end <= tok.end {
+					if tok.mathGrounded == nil {
+						tok.mathGrounded = seg.grounded
+					}
+					continue
+				}
+				kept = append(kept, seg)
+			}
+			segs = kept
+		}
 		segs = append(segs, tok)
 	}
 	sortSegs(segs)
@@ -443,10 +608,24 @@ func markerTokens(runes []rune, start, end int) []answerSeg {
 	slice := string(runes[start:end])
 	var out []answerSeg
 	for _, loc := range htmlMarkerRe.FindAllStringSubmatchIndex(slice, -1) {
-		startRune := start + len([]rune(slice[:loc[0]]))
-		endRune := start + len([]rune(slice[:loc[1]]))
+		tokenStart, tokenEnd := loc[0], loc[1]
 		inner := slice[loc[2]:loc[3]]
-		out = append(out, answerSeg{start: startRune, end: endRune, inner: inner})
+		close := ""
+		math := ""
+		if mathStart, liftStart, liftEnd, lift, ok := mathCitationAt(slice, loc[0], loc[1]); ok {
+			tokenStart, tokenEnd = liftStart, liftEnd
+			inner, close = lift.inner, lift.close
+			if lift.close == "$$" {
+				tokenStart = mathStart
+				math = lift.math
+			}
+		}
+		startRune := start + len([]rune(slice[:tokenStart]))
+		endRune := start + len([]rune(slice[:tokenEnd]))
+		seg := answerSeg{
+			start: startRune, end: endRune, inner: inner, mathClose: close, math: math,
+		}
+		out = append(out, seg)
 	}
 	return out
 }
@@ -484,41 +663,32 @@ func groundedNode(msgIdx int, runes []rune, start, end, index int) answerNode {
 }
 
 // markerNodes turns one bracketed token body — "12", "1-4", "1, 2, 3" — into
-// the "[" … "]" text with a citelink anchor for each contained index we have a
-// citation for. This mirrors the client's appendMarkerLinks/appendIndexLink: the
-// brackets and separators are kept as literal text, a range expands to one link
-// per bound, and an index with no citation stays plain text. Every text piece is
-// a text node (escaped); the anchor text is likewise escaped.
+// a bracket-free superscript. A range uses an en dash, a list uses compact
+// commas, and every known index remains its own citation link.
 func markerNodes(msgIdx int, inner string, byIndex map[int]htmlMarker) []answerNode {
-	var out []answerNode
-	out = append(out, answerNode{Text: "["})
+	var children []answerNode
 	for pi, part := range strings.Split(inner, ",") {
 		if pi > 0 {
-			out = append(out, answerNode{Text: ","})
-		}
-		lead := part[:len(part)-len(strings.TrimLeft(part, " \t"))]
-		if lead != "" {
-			out = append(out, answerNode{Text: lead})
+			children = append(children, answerNode{Text: ","})
 		}
 		body := strings.TrimSpace(part)
-		if lo, sep, hi, ok := splitRange(body); ok {
-			out = append(out, indexNode(msgIdx, lo, "", byIndex))
-			if sep != "" {
-				out = append(out, answerNode{Text: sep})
-			}
-			out = append(out, indexNode(msgIdx, hi, hi, byIndex))
+		if lo, _, hi, ok := splitRange(body); ok {
+			children = append(children,
+				indexNode(msgIdx, lo, "", byIndex),
+				answerNode{Text: "–"},
+				indexNode(msgIdx, hi, hi, byIndex),
+			)
 			continue
 		}
 		if n, err := strconv.Atoi(body); err == nil {
-			out = append(out, indexNode(msgIdx, strconv.Itoa(n), "", byIndex))
+			children = append(children, indexNode(msgIdx, strconv.Itoa(n), "", byIndex))
 			continue
 		}
 		if body != "" {
-			out = append(out, answerNode{Text: body})
+			children = append(children, answerNode{Text: body})
 		}
 	}
-	out = append(out, answerNode{Text: "]"})
-	return out
+	return []answerNode{{Tag: "sup", Class: "citegroup", Children: children}}
 }
 
 // rangeRe matches a trimmed "lo-hi" index range, capturing the low bound, the
@@ -579,13 +749,20 @@ func markersByIndex(markers []htmlMarker) map[int]htmlMarker {
 // HTML. This map is the closed vocabulary of tags the renderer may produce.
 var elemTemplates = func() map[string]*template.Template {
 	m := map[string]string{
-		"p":    elemBlockSource,
-		"h4":   elemBlockSource,
-		"ul":   elemBlockSource,
-		"li":   elemBlockSource,
-		"div":  elemBlockSource,
-		"span": elemBlockSource,
-		"a":    elemBlockSource,
+		"p":      elemBlockSource,
+		"h3":     elemBlockSource,
+		"h4":     elemBlockSource,
+		"ul":     elemBlockSource,
+		"ol":     elemBlockSource,
+		"li":     elemBlockSource,
+		"div":    elemBlockSource,
+		"span":   elemBlockSource,
+		"a":      elemBlockSource,
+		"em":     elemBlockSource,
+		"strong": elemBlockSource,
+		"sup":    elemBlockSource,
+		"code":   elemBlockSource,
+		"pre":    elemBlockSource,
 	}
 	out := make(map[string]*template.Template, len(m))
 	for tag, src := range m {
