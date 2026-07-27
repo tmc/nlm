@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -24,7 +25,7 @@ func readSource(c *api.Client, args []string, opts globalOptions) error {
 	if len(args) == 2 {
 		nb = args[1]
 	}
-	body, err := c.LoadSourceText(args[0], nb)
+	body, err := c.LoadSourceText(context.Background(), args[0], nb)
 	if err != nil {
 		return err
 	}
@@ -36,7 +37,7 @@ func readSource(c *api.Client, args []string, opts globalOptions) error {
 
 func sourceImageFetcherFor(c *api.Client, opts globalOptions) sourceImageFetcher {
 	return func(imageURL string) ([]byte, string, error) {
-		data, contentType, err := c.DownloadSourceImage(imageURL)
+		data, contentType, err := c.DownloadSourceImage(context.Background(), imageURL)
 		if err == nil {
 			return data, contentType, nil
 		}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -22,7 +23,7 @@ func validateLabelRenameArgs(cmdName string, args []string) error {
 }
 
 func runLabelRename(c *api.Client, args []string) error {
-	if err := c.RenameLabel(args[0], args[1], args[2]); err != nil {
+	if err := c.RenameLabel(context.Background(), args[0], args[1], args[2]); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "Renamed %s to %q\n", args[1], args[2])

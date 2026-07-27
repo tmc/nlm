@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -50,7 +51,7 @@ func TestAddSourceFromTextTooLarge(t *testing.T) {
 
 	c := &Client{}
 	oversize := strings.Repeat("a", MaxTextSourceBytes+1)
-	_, err := c.AddSourceFromText("nb-1", oversize, "big")
+	_, err := c.AddSourceFromText(context.Background(), "nb-1", oversize, "big")
 	if err == nil {
 		t.Fatalf("AddSourceFromText accepted oversize payload")
 	}

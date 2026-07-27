@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ func validateLabelListArgs(cmdName string, args []string) error {
 }
 
 func runLabelList(c *api.Client, args []string) error {
-	labels, err := c.GetLabels(args[0])
+	labels, err := c.GetLabels(context.Background(), args[0])
 	if err != nil {
 		return err
 	}

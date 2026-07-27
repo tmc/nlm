@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -151,8 +152,8 @@ func sliceRunes(s string, start, end int) string {
 // the positional wire response into a typed LoadSourceText. The PDF variant
 // of hizoJc returns per-page image URLs instead of text; on that shape this
 // function returns Fragments == nil and no error.
-func (c *Client) LoadSourceText(sourceID, notebookID string) (LoadSourceText, error) {
-	raw, err := c.LoadSourceRaw(sourceID, notebookID)
+func (c *Client) LoadSourceText(ctx context.Context, sourceID, notebookID string) (LoadSourceText, error) {
+	raw, err := c.LoadSourceRaw(ctx, sourceID, notebookID)
 	if err != nil {
 		return LoadSourceText{}, err
 	}

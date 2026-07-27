@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"slices"
 
@@ -8,17 +9,17 @@ import (
 )
 
 type labelReader interface {
-	GetLabels(projectID string) ([]api.Label, error)
+	GetLabels(ctx context.Context, projectID string) ([]api.Label, error)
 }
 
 type labelAttacher interface {
-	AttachLabelSource(projectID, labelID, sourceID string) error
+	AttachLabelSource(ctx context.Context, projectID, labelID, sourceID string) error
 }
 
 // labelsForSource returns the IDs of labels currently attached to sourceID.
 // An empty result (with no error) means the source has no label assignments.
-func labelsForSource(c labelReader, notebookID, sourceID string) ([]string, error) {
-	labels, err := c.GetLabels(notebookID)
+func labelsForSource(ctx context.Context, c labelReader, notebookID, sourceID string) ([]string, error) {
+	labels, err := c.GetLabels(ctx, notebookID)
 	if err != nil {
 		return nil, err
 	}
@@ -31,11 +32,11 @@ func labelsForSource(c labelReader, notebookID, sourceID string) ([]string, erro
 	return ids, nil
 }
 
-func attachLabelsToSources(c labelAttacher, notebookID string, sourceIDs, labelIDs []string) error {
+func attachLabelsToSources(ctx context.Context, c labelAttacher, notebookID string, sourceIDs, labelIDs []string) error {
 	var failed []string
 	for _, sid := range sourceIDs {
 		for _, lid := range labelIDs {
-			if err := c.AttachLabelSource(notebookID, lid, sid); err != nil {
+			if err := c.AttachLabelSource(ctx, notebookID, lid, sid); err != nil {
 				failed = append(failed, fmt.Sprintf("%s/%s: %v", lid, sid, err))
 			}
 		}

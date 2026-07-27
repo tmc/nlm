@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -74,11 +75,12 @@ type ProgressFunc func(AutoChunkProgress)
 // progress may be nil. When non-nil it is called per attempt; callers
 // typically use it to print "uploaded part-N (X bytes) -> ID" or to drive
 // progress bars.
-func (c *Client) AddSourceFromTextAuto(projectID string, content []byte, baseName string, progress ProgressFunc) ([]string, error) {
+func (c *Client) AddSourceFromTextAuto(ctx context.Context, projectID string, content []byte, baseName string, progress ProgressFunc) ([]string, error) {
 	if len(content) == 0 {
 		return nil, fmt.Errorf("nothing to upload: content is empty")
 	}
 	state := &autoChunkState{
+		ctx:       ctx,
 		client:    c,
 		projectID: projectID,
 		baseName:  baseName,
@@ -96,6 +98,7 @@ func (c *Client) AddSourceFromTextAuto(projectID string, content []byte, baseNam
 }
 
 type autoChunkState struct {
+	ctx       context.Context
 	client    *Client
 	projectID string
 	baseName  string
@@ -134,7 +137,7 @@ func (s *autoChunkState) upload(data []byte, byteOffset, scheduleIdx int) error 
 func (s *autoChunkState) uploadOne(part []byte, byteOffset, scheduleIdx int) error {
 	leafIdx := len(s.ids)
 	name := autoChunkPartName(s.baseName, leafIdx)
-	id, err := s.client.AddSourceFromText(s.projectID, string(part), name)
+	id, err := s.client.AddSourceFromText(s.ctx, s.projectID, string(part), name)
 	attempt := scheduleIdx + 1
 	if err == nil {
 		s.ids = append(s.ids, id)

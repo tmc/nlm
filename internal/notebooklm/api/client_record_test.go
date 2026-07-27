@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"testing"
@@ -37,7 +38,7 @@ func TestListProjectsWithRecording(t *testing.T) {
 
 	// Call the API method
 	t.Log("Listing projects...")
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -112,7 +113,7 @@ func TestCreateProjectWithRecording(t *testing.T) {
 
 	// Call the API method
 	t.Log("Creating project...")
-	project, err := client.CreateProject("Sample Project - "+t.Name(), "📝")
+	project, err := client.CreateProject(context.Background(), "Sample Project - "+t.Name(), "📝")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -121,7 +122,7 @@ func TestCreateProjectWithRecording(t *testing.T) {
 
 	// Clean up by deleting the project
 	t.Cleanup(func() {
-		if err := client.DeleteProjects([]string{project.ProjectId}); err != nil {
+		if err := client.DeleteProjects(context.Background(), []string{project.ProjectId}); err != nil {
 			t.Logf("Failed to clean up project: %v", err)
 		}
 	})
@@ -151,7 +152,7 @@ func TestAddSourceFromTextWithRecording(t *testing.T) {
 
 	// First, we need a project to add sources to
 	t.Log("Listing projects to find available project...")
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -166,7 +167,7 @@ func TestAddSourceFromTextWithRecording(t *testing.T) {
 
 	// Call the API method
 	t.Log("Adding text source...")
-	sourceID, err := client.AddSourceFromText(projectID, "This is a sample source created by automation", "Sample Source - "+t.Name())
+	sourceID, err := client.AddSourceFromText(context.Background(), projectID, "This is a sample source created by automation", "Sample Source - "+t.Name())
 	if err != nil {
 		t.Fatalf("Failed to add text source: %v", err)
 	}
@@ -175,7 +176,7 @@ func TestAddSourceFromTextWithRecording(t *testing.T) {
 
 	// Clean up by deleting the source
 	t.Cleanup(func() {
-		if err := client.DeleteSources(projectID, []string{sourceID}); err != nil {
+		if err := client.DeleteSources(context.Background(), projectID, []string{sourceID}); err != nil {
 			t.Logf("Failed to clean up source: %v", err)
 		}
 	})

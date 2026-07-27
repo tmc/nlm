@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -80,7 +81,7 @@ func runNotebookListWithOptions(c *api.Client, args []string, globals globalOpti
 }
 
 func list(c *api.Client, opts notebookListOptions) error {
-	notebooks, err := c.ListRecentlyViewedProjects()
+	notebooks, err := c.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		return err
 	}

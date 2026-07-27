@@ -10,6 +10,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -122,7 +123,7 @@ func runResolve(args []string) error {
 		api.WithAuthUser(os.Getenv("NLM_AUTHUSER")),
 	)
 	resolved, err := designreview.ResolveAll(func(sourceID string) (api.LoadSourceText, error) {
-		return client.LoadSourceText(sourceID, *notebookID)
+		return client.LoadSourceText(context.Background(), sourceID, *notebookID)
 	}, cites)
 	if err != nil {
 		return err

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -23,7 +24,7 @@ func validateLabelUnlabeledArgs(cmdName string, args []string) error {
 }
 
 func runLabelUnlabeled(c *api.Client, args []string) error {
-	labels, err := c.LabelUnlabeled(args[0])
+	labels, err := c.LabelUnlabeled(context.Background(), args[0])
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,7 @@ func validateLabelRelabelAllArgs(cmdName string, args []string) error {
 }
 
 func runLabelRelabelAll(c *api.Client, args []string) error {
-	labels, err := c.RelabelAll(args[0])
+	labels, err := c.RelabelAll(context.Background(), args[0])
 	if err != nil {
 		return err
 	}

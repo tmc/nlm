@@ -57,7 +57,7 @@ func (c *InteractionEventServiceClient) LogInteractionEvent(ctx context.Context,
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("LogInteractionEvent: %w", err)
 	}

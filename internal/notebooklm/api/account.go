@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 
 	genmethod "github.com/tmc/nlm/gen/method"
@@ -29,8 +30,8 @@ func accountRequest() *pb.GetOrCreateAccountRequest {
 }
 
 // GetAccountStatus dispatches ZwVcOc and projects the generated account shape.
-func (c *Client) GetAccountStatus() (*AccountStatus, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) GetAccountStatus(ctx context.Context) (*AccountStatus, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:   rpc.RPCGetOrCreateAccount,
 		Args: genmethod.EncodeGetOrCreateAccountArgs(accountRequest()),
 	})

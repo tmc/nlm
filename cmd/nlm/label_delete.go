@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -22,7 +23,7 @@ func validateLabelDeleteArgs(cmdName string, args []string) error {
 }
 
 func runLabelDelete(c *api.Client, args []string) error {
-	if err := c.DeleteLabels(args[0], args[1:]); err != nil {
+	if err := c.DeleteLabels(context.Background(), args[0], args[1:]); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "Deleted %d label(s)\n", len(args)-1)

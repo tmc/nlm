@@ -120,7 +120,7 @@ func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *{{$pkg
 	}
 	
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("{{.GoName}}: %w", err)
 	}

@@ -1,6 +1,7 @@
 package batchexecute
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -102,7 +103,7 @@ func TestExecuteWithRetry(t *testing.T) {
 		}
 		client := NewClient(config)
 
-		resp, err := client.Execute([]RPC{{ID: "test", Args: []interface{}{}}})
+		resp, err := client.Execute(context.Background(), []RPC{{ID: "test", Args: []interface{}{}}})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -136,7 +137,7 @@ func TestExecuteWithRetry(t *testing.T) {
 		}
 		client := NewClient(config)
 
-		resp, err := client.Execute([]RPC{{ID: "test", Args: []interface{}{}}})
+		resp, err := client.Execute(context.Background(), []RPC{{ID: "test", Args: []interface{}{}}})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -163,7 +164,7 @@ func TestExecuteWithRetry(t *testing.T) {
 		}
 		client := NewClient(config)
 
-		_, err := client.Execute([]RPC{{ID: "test", Args: []interface{}{}}})
+		_, err := client.Execute(context.Background(), []RPC{{ID: "test", Args: []interface{}{}}})
 		if err == nil {
 			t.Fatal("expected error, got nil")
 		}

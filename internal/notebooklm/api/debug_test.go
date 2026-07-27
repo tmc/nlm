@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -54,7 +55,7 @@ func TestDebugOutputProduction(t *testing.T) {
 	)
 
 	// Make an API call
-	_, _ = client.ListRecentlyViewedProjects()
+	_, _ = client.ListRecentlyViewedProjects(context.Background())
 
 	// Restore stderr and read captured output
 	w.Close()

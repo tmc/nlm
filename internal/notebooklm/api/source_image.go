@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +15,7 @@ const maxSourceImageBytes = 25 << 20
 // DownloadSourceImage fetches a transient image URL returned by hizoJc.
 // The URL must be an HTTPS googleusercontent URL. The returned content type
 // is suitable for a data URI, with any parameters removed.
-func (c *Client) DownloadSourceImage(imageURL string) ([]byte, string, error) {
+func (c *Client) DownloadSourceImage(ctx context.Context, imageURL string) ([]byte, string, error) {
 	u, err := url.Parse(imageURL)
 	if err != nil {
 		return nil, "", fmt.Errorf("parse source image URL: %w", err)
@@ -22,7 +23,7 @@ func (c *Client) DownloadSourceImage(imageURL string) ([]byte, string, error) {
 	if u.Scheme != "https" || (u.Hostname() != "googleusercontent.com" && !strings.HasSuffix(u.Hostname(), ".googleusercontent.com")) {
 		return nil, "", fmt.Errorf("source image URL must be an HTTPS googleusercontent URL")
 	}
-	req, err := http.NewRequest(http.MethodGet, imageURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("create source image request: %w", err)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -27,7 +28,7 @@ func validateLabelGenerateArgs(cmdName string, args []string) error {
 }
 
 func runLabelGenerate(c *api.Client, args []string) error {
-	labels, err := c.GenerateLabels(args[0])
+	labels, err := c.GenerateLabels(context.Background(), args[0])
 	if err != nil {
 		return err
 	}

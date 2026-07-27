@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -240,7 +241,7 @@ var commands = []command{
 		usage: "Remove a notebook from the recently-viewed list (does not delete it)", section: "Notebook",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
-			if err := c.RemoveRecentlyViewedProject(args[0]); err != nil {
+			if err := c.RemoveRecentlyViewedProject(context.Background(), args[0]); err != nil {
 				return fmt.Errorf("remove recently viewed: %w", err)
 			}
 			fmt.Fprintf(os.Stderr, "Removed %s from recently viewed.\n", args[0])
@@ -307,7 +308,9 @@ var commands = []command{
 		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id|-|a,b,c>",
 		usage: "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)", section: "Source",
 		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return removeSource(c, args[0], args[1]) },
+		run: func(c *api.Client, args []string) error {
+			return removeSource(context.Background(), c, args[0], args[1])
+		},
 	},
 	{
 		name: "rename-source", argsUsage: "<source-id> <new-name>",
@@ -351,7 +354,7 @@ var commands = []command{
 			if len(args) == 2 {
 				nb = args[1]
 			}
-			raw, err := c.LoadSourceRaw(args[0], nb)
+			raw, err := c.LoadSourceRaw(context.Background(), args[0], nb)
 			if err != nil {
 				return err
 			}
@@ -642,7 +645,7 @@ var commands = []command{
 		usage: "Get video overview details", section: "Video",
 		minArgs: 1, maxArgs: 1, directRPC: true,
 		run: func(c *api.Client, args []string) error {
-			result, err := c.GetVideoOverview(args[0])
+			result, err := c.GetVideoOverview(context.Background(), args[0])
 			if err != nil {
 				return err
 			}
@@ -716,7 +719,7 @@ var commands = []command{
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			instructions := strings.Join(args[1:], " ")
-			art, err := c.ReviseArtifact(args[0], instructions)
+			art, err := c.ReviseArtifact(context.Background(), args[0], instructions)
 			if err != nil {
 				return err
 			}
@@ -735,7 +738,7 @@ var commands = []command{
 			if len(args) > 2 {
 				detail = args[2]
 			}
-			if err := c.ReportContent(args[0], args[1], detail); err != nil {
+			if err := c.ReportContent(context.Background(), args[0], args[1], detail); err != nil {
 				return err
 			}
 			fmt.Fprintln(os.Stderr, "Report submitted.")
@@ -749,7 +752,7 @@ var commands = []command{
 		usage: "List all guidebooks", section: "Guidebook",
 		minArgs: 0, maxArgs: 0,
 		run: func(c *api.Client, args []string) error {
-			guidebooks, err := c.ListGuidebooks()
+			guidebooks, err := c.ListGuidebooks(context.Background())
 			if err != nil {
 				return err
 			}
@@ -780,7 +783,7 @@ var commands = []command{
 		usage: "Get guidebook details", section: "Guidebook",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
-			gb, err := c.GetGuidebook(args[0])
+			gb, err := c.GetGuidebook(context.Background(), args[0])
 			if err != nil {
 				return err
 			}
@@ -798,7 +801,7 @@ var commands = []command{
 		usage: "Get detailed guidebook info with sections and analytics", section: "Guidebook",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
-			details, err := c.GetGuidebookDetails(args[0])
+			details, err := c.GetGuidebookDetails(context.Background(), args[0])
 			if err != nil {
 				return err
 			}
@@ -827,7 +830,7 @@ var commands = []command{
 		usage: "Publish a guidebook", section: "Guidebook",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
-			_, err := c.PublishGuidebook(args[0])
+			_, err := c.PublishGuidebook(context.Background(), args[0])
 			if err == nil {
 				fmt.Fprintf(os.Stderr, "Guidebook published.\n")
 			}
@@ -839,7 +842,7 @@ var commands = []command{
 		usage: "Share a guidebook", section: "Guidebook",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
-			_, err := c.ShareGuidebook(args[0])
+			_, err := c.ShareGuidebook(context.Background(), args[0])
 			if err == nil {
 				fmt.Fprintf(os.Stderr, "Guidebook shared.\n")
 			}
@@ -852,7 +855,7 @@ var commands = []command{
 		minArgs: 2, maxArgs: -1,
 		run: func(c *api.Client, args []string) error {
 			question := strings.Join(args[1:], " ")
-			resp, err := c.GuidebookAsk(args[0], question)
+			resp, err := c.GuidebookAsk(context.Background(), args[0], question)
 			if err != nil {
 				return err
 			}
@@ -865,7 +868,7 @@ var commands = []command{
 		usage: "Delete a guidebook", section: "Guidebook",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
-			err := c.DeleteGuidebook(args[0])
+			err := c.DeleteGuidebook(context.Background(), args[0])
 			if err == nil {
 				fmt.Fprintf(os.Stderr, "Guidebook deleted.\n")
 			}
@@ -919,7 +922,7 @@ var commands = []command{
 		usage: "Suggest report topics for notebook", section: "Generation",
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error {
-			resp, err := c.GenerateReportSuggestions(args[0])
+			resp, err := c.GenerateReportSuggestions(context.Background(), args[0])
 			if err != nil {
 				return err
 			}

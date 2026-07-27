@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -64,7 +65,7 @@ type fakeLocalFileSourceClient struct {
 	rename      string
 }
 
-func (c *fakeLocalFileSourceClient) AddSourceFromReader(_ string, r io.Reader, filename string, contentType ...string) (string, error) {
+func (c *fakeLocalFileSourceClient) AddSourceFromReader(_ context.Context, _ string, r io.Reader, filename string, contentType ...string) (string, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
 		return "", err
@@ -75,7 +76,7 @@ func (c *fakeLocalFileSourceClient) AddSourceFromReader(_ string, r io.Reader, f
 	return c.id, nil
 }
 
-func (c *fakeLocalFileSourceClient) MutateSource(_ string, updates *pb.Source) (*pb.Source, error) {
+func (c *fakeLocalFileSourceClient) MutateSource(_ context.Context, _ string, updates *pb.Source) (*pb.Source, error) {
 	c.rename = updates.Title
 	return updates, nil
 }
@@ -113,7 +114,7 @@ func TestAddLocalFileSource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &fakeLocalFileSourceClient{id: "source-123"}
-			got, err := addLocalFileSource(client, "notebook-123", tt.path, strings.NewReader("content"), tt.opts)
+			got, err := addLocalFileSource(context.Background(), client, "notebook-123", tt.path, strings.NewReader("content"), tt.opts)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -298,16 +299,16 @@ type fakeSourceReplaceClient struct {
 	}
 }
 
-func (f *fakeSourceReplaceClient) GetLabels(string) ([]api.Label, error) {
+func (f *fakeSourceReplaceClient) GetLabels(context.Context, string) ([]api.Label, error) {
 	return f.labels, nil
 }
 
-func (f *fakeSourceReplaceClient) DeleteSources(_ string, ids []string) error {
+func (f *fakeSourceReplaceClient) DeleteSources(_ context.Context, _ string, ids []string) error {
 	f.deleted = append(f.deleted, ids...)
 	return nil
 }
 
-func (f *fakeSourceReplaceClient) AttachLabelSource(_, labelID, sourceID string) error {
+func (f *fakeSourceReplaceClient) AttachLabelSource(_ context.Context, _, labelID, sourceID string) error {
 	f.attached = append(f.attached, struct {
 		labelID  string
 		sourceID string
@@ -324,7 +325,7 @@ func TestReplaceUploadedSourceDeletesOldAndLabelsAllParts(t *testing.T) {
 		},
 	}
 
-	replaceUploadedSource(fc, "nb", "old-src", []string{"new-1", "new-2"})
+	replaceUploadedSource(context.Background(), fc, "nb", "old-src", []string{"new-1", "new-2"})
 
 	if !reflect.DeepEqual(fc.deleted, []string{"old-src"}) {
 		t.Fatalf("deleted = %v, want [old-src]", fc.deleted)

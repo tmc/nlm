@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -166,7 +167,7 @@ func runAppCreateWithOptions(c *api.Client, args []string, globals globalOptions
 		}
 	}
 	fmt.Fprintf(os.Stderr, "Creating %s app artifact for notebook %s...\n", kind.String(), notebookID)
-	artifactID, err := c.CreateAppArtifact(notebookID, kind, opts.Instructions, sourceIDs)
+	artifactID, err := c.CreateAppArtifact(context.Background(), notebookID, kind, opts.Instructions, sourceIDs)
 	if err != nil {
 		return err
 	}
@@ -308,7 +309,7 @@ func runSlidesCreateWithOptions(c *api.Client, args []string, globals globalOpti
 		}
 	}
 
-	artifactID, err := c.CreateSlideDeckWithOptions(notebookID, instructions, sourceIDs, opts.DeckFormat)
+	artifactID, err := c.CreateSlideDeckWithOptions(context.Background(), notebookID, instructions, sourceIDs, opts.DeckFormat)
 	if err != nil {
 		return err
 	}

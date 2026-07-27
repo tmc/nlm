@@ -79,8 +79,8 @@ func (e *BatchExecuteError) Unwrap() error {
 }
 
 // Do executes a single RPC call
-func (c *Client) Do(rpc RPC) (*Response, error) {
-	return c.Execute([]RPC{rpc})
+func (c *Client) Do(ctx context.Context, rpc RPC) (*Response, error) {
+	return c.Execute(ctx, []RPC{rpc})
 }
 
 // maskSensitiveValue masks sensitive values like tokens for debug output
@@ -153,7 +153,7 @@ func buildRPCData(rpc RPC) []interface{} {
 }
 
 // Execute performs the batch execute request
-func (c *Client) Execute(rpcs []RPC) (*Response, error) {
+func (c *Client) Execute(ctx context.Context, rpcs []RPC) (*Response, error) {
 	u, err := url.Parse(fmt.Sprintf("https://%s/_/%s/data/batchexecute", c.config.Host, c.config.App))
 	if err != nil {
 		return nil, fmt.Errorf("parse url: %w", err)
@@ -247,7 +247,7 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	}
 
 	// Create request
-	req, err := http.NewRequest("POST", u.String(), strings.NewReader(formBody))
+	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), strings.NewReader(formBody))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -291,6 +291,9 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 	var requestStart time.Time
 
 	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, fmt.Errorf("execute request: %w", err)
+		}
 		if attempt > 0 {
 			// Calculate retry delay with exponential backoff
 			multiplier := 1 << uint(attempt-1)
@@ -302,7 +305,13 @@ func (c *Client) Execute(rpcs []RPC) (*Response, error) {
 			if c.config.Debug {
 				fmt.Printf("\nRetrying request (attempt %d/%d) after %v...\n", attempt, c.config.MaxRetries, delay)
 			}
-			time.Sleep(delay)
+			timer := time.NewTimer(delay)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, fmt.Errorf("execute request: %w", ctx.Err())
+			}
 		}
 
 		// Clone the request for each attempt

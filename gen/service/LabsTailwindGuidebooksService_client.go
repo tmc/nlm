@@ -57,7 +57,7 @@ func (c *LabsTailwindGuidebooksServiceClient) DeleteGuidebook(ctx context.Contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteGuidebook: %w", err)
 	}
@@ -81,7 +81,7 @@ func (c *LabsTailwindGuidebooksServiceClient) GetGuidebook(ctx context.Context, 
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetGuidebook: %w", err)
 	}
@@ -105,7 +105,7 @@ func (c *LabsTailwindGuidebooksServiceClient) ListRecentlyViewedGuidebooks(ctx c
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ListRecentlyViewedGuidebooks: %w", err)
 	}
@@ -129,7 +129,7 @@ func (c *LabsTailwindGuidebooksServiceClient) PublishGuidebook(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("PublishGuidebook: %w", err)
 	}
@@ -153,7 +153,7 @@ func (c *LabsTailwindGuidebooksServiceClient) GetGuidebookDetails(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetGuidebookDetails: %w", err)
 	}
@@ -177,7 +177,7 @@ func (c *LabsTailwindGuidebooksServiceClient) ShareGuidebook(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ShareGuidebook: %w", err)
 	}
@@ -201,7 +201,7 @@ func (c *LabsTailwindGuidebooksServiceClient) GuidebookGenerateAnswer(ctx contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GuidebookGenerateAnswer: %w", err)
 	}

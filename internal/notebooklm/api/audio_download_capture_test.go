@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestCaptureAudioDownloadRequest(t *testing.T) {
 	for requestType := 0; requestType <= 5; requestType++ {
 		t.Run(string(rune('0'+requestType)), func(t *testing.T) {
 			t.Logf("Trying GetAudioOverview with request_type=%d for project: %s", requestType, testProjectID)
-			result, err := client.getAudioOverviewDirectRPCWithType(testProjectID, requestType)
+			result, err := client.getAudioOverviewDirectRPCWithType(context.Background(), testProjectID, requestType)
 			if err != nil {
 				t.Logf("Request type %d error: %v", requestType, err)
 				return

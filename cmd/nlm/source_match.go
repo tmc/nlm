@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -54,7 +55,7 @@ func resolveSourceSelectorsWithOptions(c *api.Client, notebookID string, opts se
 	var labels []api.Label
 	var sources []sourceSummary
 	if needsSources {
-		p, perr := c.GetProject(notebookID)
+		p, perr := c.GetProject(context.Background(), notebookID)
 		if perr != nil {
 			return nil, fmt.Errorf("list sources for selectors: %w", perr)
 		}
@@ -67,7 +68,7 @@ func resolveSourceSelectorsWithOptions(c *api.Client, notebookID string, opts se
 		}
 	}
 	if needsLabels {
-		ls, lerr := c.GetLabels(notebookID)
+		ls, lerr := c.GetLabels(context.Background(), notebookID)
 		if lerr != nil {
 			return nil, fmt.Errorf("list labels for selectors: %w", lerr)
 		}

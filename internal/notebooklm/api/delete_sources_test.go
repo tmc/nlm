@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,7 +45,7 @@ func TestDeleteSourcesUsesNotebookContext(t *testing.T) {
 	}
 
 	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
-	if err := client.DeleteSources("project-123", []string{"source-1", "source-2"}); err != nil {
+	if err := client.DeleteSources(context.Background(), "project-123", []string{"source-1", "source-2"}); err != nil {
 		t.Fatalf("DeleteSources: %v", err)
 	}
 	if gotSourcePath != "/notebook/project-123" {
@@ -123,7 +124,7 @@ func TestDeleteSourcesBatchesRequests(t *testing.T) {
 		ids = append(ids, fmt.Sprintf("source-%02d", i))
 	}
 	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
-	if err := client.DeleteSources("project-123", ids); err != nil {
+	if err := client.DeleteSources(context.Background(), "project-123", ids); err != nil {
 		t.Fatalf("DeleteSources: %v", err)
 	}
 	if len(gotBodies) != 3 {
@@ -172,7 +173,7 @@ func TestDeleteSourcesBatchErrorIdentifiesFailedRange(t *testing.T) {
 		ids = append(ids, fmt.Sprintf("source-%02d", i))
 	}
 	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
-	err := client.DeleteSources("project-123", ids)
+	err := client.DeleteSources(context.Background(), "project-123", ids)
 	if err == nil {
 		t.Fatal("DeleteSources succeeded, want batch error")
 	}

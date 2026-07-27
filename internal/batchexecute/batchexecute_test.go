@@ -1,13 +1,16 @@
 package batchexecute
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -283,7 +286,7 @@ func TestExecute(t *testing.T) {
 		Index: "generic",
 	}
 
-	response, err := client.Execute([]RPC{rpc})
+	response, err := client.Execute(context.Background(), []RPC{rpc})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 		return
@@ -292,6 +295,51 @@ func TestExecute(t *testing.T) {
 	expectedData := json.RawMessage(`[null,null,[3,null,"fec1780c-5a14-4f07-8ee6-f8c3ee2930fa","nbname2",null,true],null,[false]]`)
 	if string(response.Data) != string(expectedData) {
 		t.Errorf("Unexpected response data:\ngot:  %s\nwant: %s", string(response.Data), string(expectedData))
+	}
+}
+
+func TestExecuteCancellation(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
+	defer server.Close()
+	defer close(release)
+
+	client := NewClient(Config{
+		Host:       strings.TrimPrefix(server.URL, "http://"),
+		App:        "notebooklm",
+		AuthToken:  "test-token",
+		UseHTTP:    true,
+		MaxRetries: 1,
+	}, WithHTTPClient(server.Client()))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := client.Execute(ctx, []RPC{{ID: "test"}})
+		done <- err
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("request did not reach server")
+	}
+	cancel()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("Execute error = %v, want context.Canceled", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Execute did not stop after cancellation")
 	}
 }
 
@@ -339,7 +387,7 @@ func TestChunkedResponses(t *testing.T) {
 		Index: "generic",
 	}
 
-	response, err := client.Execute([]RPC{rpc})
+	response, err := client.Execute(context.Background(), []RPC{rpc})
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 		return

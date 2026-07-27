@@ -27,13 +27,13 @@ type AnalyticsPoint struct {
 }
 
 // GetProjectAnalytics returns the AUrzMb time-series analytics for projectID.
-func (c *Client) GetProjectAnalytics(projectID string) (*ProjectAnalytics, error) {
+func (c *Client) GetProjectAnalytics(ctx context.Context, projectID string) (*ProjectAnalytics, error) {
 	req := &pb.GetProjectAnalyticsRequest{
 		ProjectId:   projectID,
 		RequestedAt: timestamppb.Now(),
 		Mode:        &pb.Int32List{Value: 2},
 	}
-	resp, err := c.orchestrationService.GetProjectAnalytics(context.Background(), req)
+	resp, err := c.orchestrationService.GetProjectAnalytics(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get project analytics: %w", err)
 	}

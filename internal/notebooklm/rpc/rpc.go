@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -378,7 +379,7 @@ func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, optio
 }
 
 // Do executes a NotebookLM RPC call
-func (c *Client) Do(call Call) (json.RawMessage, error) {
+func (c *Client) Do(ctx context.Context, call Call) (json.RawMessage, error) {
 	if c.Config.Debug {
 		fmt.Printf("\n=== RPC Call ===\n")
 		fmt.Printf("ID: %s\n", call.ID)
@@ -411,7 +412,7 @@ func (c *Client) Do(call Call) (json.RawMessage, error) {
 		debugDump(rpc)
 	}
 
-	resp, err := c.client.Do(rpc)
+	resp, err := c.client.Do(ctx, rpc)
 	if err != nil {
 		return nil, fmt.Errorf("execute rpc: %w", err)
 	}
@@ -441,15 +442,15 @@ func (c *Client) Heartbeat() error {
 }
 
 // ListNotebooks returns all notebooks
-func (c *Client) ListNotebooks() (json.RawMessage, error) {
-	return c.Do(Call{
+func (c *Client) ListNotebooks(ctx context.Context) (json.RawMessage, error) {
+	return c.Do(ctx, Call{
 		ID: RPCListRecentlyViewedProjects,
 	})
 }
 
 // CreateNotebook creates a new notebook with the given title
-func (c *Client) CreateNotebook(title string) (json.RawMessage, error) {
-	return c.Do(Call{
+func (c *Client) CreateNotebook(ctx context.Context, title string) (json.RawMessage, error) {
+	return c.Do(ctx, Call{
 		ID: RPCCreateProject,
 		Args: []interface{}{
 			title,
@@ -459,8 +460,8 @@ func (c *Client) CreateNotebook(title string) (json.RawMessage, error) {
 }
 
 // DeleteNotebook deletes a notebook by ID
-func (c *Client) DeleteNotebook(id string) error {
-	_, err := c.Do(Call{
+func (c *Client) DeleteNotebook(ctx context.Context, id string) error {
+	_, err := c.Do(ctx, Call{
 		ID: RPCDeleteProjects,
 		Args: []interface{}{
 			[]interface{}{id},

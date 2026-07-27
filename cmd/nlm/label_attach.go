@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -40,7 +41,7 @@ func runLabelAttach(c *api.Client, args []string) error {
 		return err
 	}
 
-	if err := c.AttachLabelSource(notebookID, labelID, sourceID); err != nil {
+	if err := c.AttachLabelSource(context.Background(), notebookID, labelID, sourceID); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "Attached source %s to label %s\n", sourceID, labelID)
@@ -51,7 +52,7 @@ func resolveLabelArg(c *api.Client, notebookID, arg string) (string, error) {
 	if uuidRE.MatchString(arg) {
 		return arg, nil
 	}
-	labels, err := c.GetLabels(notebookID)
+	labels, err := c.GetLabels(context.Background(), notebookID)
 	if err != nil {
 		return "", fmt.Errorf("list labels to resolve %q: %w", arg, err)
 	}
@@ -76,7 +77,7 @@ func resolveSourceArg(c *api.Client, notebookID, arg string) (string, error) {
 	if uuidRE.MatchString(arg) {
 		return arg, nil
 	}
-	project, err := c.GetProject(notebookID)
+	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return "", fmt.Errorf("list sources to resolve %q: %w", arg, err)
 	}

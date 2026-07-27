@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -41,7 +42,7 @@ func TestCaptureCitationParentHop(t *testing.T) {
 
 	// A generate-chat conversation is not in server history; discover the
 	// server-saved conversation the recorder captured rather than hard-coding it.
-	convs, err := client.GetConversations(projectID)
+	convs, err := client.GetConversations(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("GetConversations: %v", err)
 	}
@@ -49,7 +50,7 @@ func TestCaptureCitationParentHop(t *testing.T) {
 		t.Fatal("fixture has no server-side conversations")
 	}
 
-	msgs, err := client.GetConversationHistory(projectID, convs[0])
+	msgs, err := client.GetConversationHistory(context.Background(), projectID, convs[0])
 	if err != nil {
 		// The fixture was recorded when khqZz carried an empty first argument;
 		// the request now sends the shared request context there, so the
@@ -64,7 +65,7 @@ func TestCaptureCitationParentHop(t *testing.T) {
 		t.Fatalf("GetConversationHistory: %v", err)
 	}
 
-	nb, err := client.GetProject(projectID)
+	nb, err := client.GetProject(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("GetProject: %v", err)
 	}

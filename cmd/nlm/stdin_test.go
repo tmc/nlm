@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -72,7 +73,7 @@ type fakeSourceDeleteClient struct {
 	err        error
 }
 
-func (f *fakeSourceDeleteClient) DeleteSources(notebookID string, ids []string) error {
+func (f *fakeSourceDeleteClient) DeleteSources(_ context.Context, notebookID string, ids []string) error {
 	f.notebookID = notebookID
 	f.calls = append(f.calls, append([]string(nil), ids...))
 	return f.err
@@ -108,7 +109,7 @@ func TestRemoveSourceReadsStdinWithYes(t *testing.T) {
 	})
 
 	fc := new(fakeSourceDeleteClient)
-	if err := removeSource(fc, "nb-1", "-"); err != nil {
+	if err := removeSource(context.Background(), fc, "nb-1", "-"); err != nil {
 		t.Fatalf("removeSource: %v", err)
 	}
 	if fc.notebookID != "nb-1" {
@@ -161,7 +162,7 @@ func TestRemoveSourcePipedStdinRequiresYesWithoutTTY(t *testing.T) {
 	})
 
 	fc := new(fakeSourceDeleteClient)
-	err = removeSource(fc, "nb-1", "-")
+	err = removeSource(context.Background(), fc, "nb-1", "-")
 	if err == nil || !strings.Contains(err.Error(), "operation cancelled") {
 		t.Fatalf("removeSource error = %v, want operation cancelled", err)
 	}

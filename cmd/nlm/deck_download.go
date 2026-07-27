@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -91,7 +92,7 @@ func runDeckDownload(c *api.Client, args []string) error {
 		output = "deck." + opts.Format
 	}
 
-	derr := c.DownloadArtifactFile(opts.ArtifactID, opts.Format, output)
+	derr := c.DownloadArtifactFile(context.Background(), opts.ArtifactID, opts.Format, output)
 	if derr == nil {
 		fmt.Println(output)
 		fmt.Fprintf(os.Stderr, "Saved slide deck to %s\n", output)
@@ -112,7 +113,7 @@ func runDeckDownload(c *api.Client, args []string) error {
 	// browser auth context). Print the signed download URL on stdout so the user
 	// can open it in their logged-in browser — strictly more useful than the
 	// notebook URL.
-	if u, uerr := c.ArtifactDownloadURLForFormat(opts.ArtifactID, opts.Format); uerr == nil {
+	if u, uerr := c.ArtifactDownloadURLForFormat(context.Background(), opts.ArtifactID, opts.Format); uerr == nil {
 		fmt.Fprintf(os.Stderr, "Direct download failed (%v); the file requires a browser session.\n", derr)
 		fmt.Fprintf(os.Stderr, "Open this %s link while logged in to NotebookLM:\n", opts.Format)
 		fmt.Println(u)

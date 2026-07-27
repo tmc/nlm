@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -145,7 +146,7 @@ func TestBuildChatArgsUsesProtoBackedConversationState(t *testing.T) {
 	t.Parallel()
 
 	c := &Client{}
-	argsJSON, err := c.buildChatArgs(ChatRequest{
+	argsJSON, err := c.buildChatArgs(context.Background(), ChatRequest{
 		ProjectID:      "project-123",
 		Prompt:         "What changed?",
 		SourceIDs:      []string{"src-1", "src-2"},
@@ -198,7 +199,7 @@ func TestBuildChatArgsCorpusShape(t *testing.T) {
 	t.Parallel()
 
 	c := &Client{}
-	got, err := c.buildChatArgs(ChatRequest{
+	got, err := c.buildChatArgs(context.Background(), ChatRequest{
 		ProjectID:      "project-id",
 		Prompt:         "prompt",
 		SourceIDs:      []string{"source-id"},
@@ -216,7 +217,7 @@ func TestBuildChatArgsCorpusShape(t *testing.T) {
 
 func TestBuildChatArgsPreservesEmptyHistory(t *testing.T) {
 	c := &Client{}
-	got, err := c.buildChatArgs(ChatRequest{
+	got, err := c.buildChatArgs(context.Background(), ChatRequest{
 		ProjectID:      "project-id",
 		Prompt:         "prompt",
 		SourceIDs:      []string{"source-id"},

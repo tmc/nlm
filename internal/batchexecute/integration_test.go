@@ -1,6 +1,7 @@
 package batchexecute
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -94,7 +95,7 @@ func TestErrorHandlingIntegration(t *testing.T) {
 				Args: []interface{}{},
 			}
 
-			response, err := client.Do(rpc)
+			response, err := client.Do(context.Background(), rpc)
 
 			if tt.expectError {
 				if err == nil {
@@ -197,7 +198,7 @@ func TestHTTPStatusErrorHandling(t *testing.T) {
 				Args: []interface{}{},
 			}
 
-			_, err := client.Do(rpc)
+			_, err := client.Do(context.Background(), rpc)
 
 			if tt.expectError {
 				if err == nil {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -32,7 +33,7 @@ func TestCaptureAudioCreateRequest(t *testing.T) {
 
 	// Try to create audio overview
 	t.Logf("Creating audio overview for project: %s", testProjectID)
-	result, err := client.CreateAudioOverview(testProjectID, "test audio instructions")
+	result, err := client.CreateAudioOverview(context.Background(), testProjectID, "test audio instructions")
 	if err != nil {
 		t.Logf("Audio creation error (may be expected): %v", err)
 		// Don't fail - we want to capture the request even if it errors

@@ -270,10 +270,10 @@ func setChromeClientHints(h http.Header) {
 
 // Project/Notebook operations
 
-func (c *Client) ListRecentlyViewedProjects() ([]*Notebook, error) {
+func (c *Client) ListRecentlyViewedProjects(ctx context.Context) ([]*Notebook, error) {
 	req := &pb.ListRecentlyViewedProjectsRequest{}
 
-	response, err := c.orchestrationService.ListRecentlyViewedProjects(context.Background(), req)
+	response, err := c.orchestrationService.ListRecentlyViewedProjects(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
@@ -281,19 +281,19 @@ func (c *Client) ListRecentlyViewedProjects() ([]*Notebook, error) {
 	return response.Projects, nil
 }
 
-func (c *Client) CreateProject(title string, emoji string) (*Notebook, error) {
+func (c *Client) CreateProject(ctx context.Context, title string, emoji string) (*Notebook, error) {
 	req := &pb.CreateProjectRequest{
 		Title: title,
 		Emoji: emoji,
 	}
 
-	project, err := c.orchestrationService.CreateProject(context.Background(), req)
+	project, err := c.orchestrationService.CreateProject(ctx, req)
 	if err != nil {
 		count, limit := -1, -1
-		if status, statusErr := c.GetAccountStatus(); statusErr == nil {
+		if status, statusErr := c.GetAccountStatus(ctx); statusErr == nil {
 			limit = status.NotebookLimit
 		}
-		if projects, listErr := c.ListRecentlyViewedProjects(); listErr == nil {
+		if projects, listErr := c.ListRecentlyViewedProjects(ctx); listErr == nil {
 			count = len(projects)
 		}
 		return nil, classifyCreateProjectError(err, count, limit)
@@ -392,12 +392,11 @@ func classifyGetProjectError(projectID string, err error) error {
 	return err
 }
 
-func (c *Client) GetProject(projectID string) (*Notebook, error) {
+func (c *Client) GetProject(ctx context.Context, projectID string) (*Notebook, error) {
 	req := &pb.GetProjectRequest{
 		ProjectId: projectID,
 	}
 
-	ctx := context.Background()
 	project, err := c.orchestrationService.GetProject(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get project: %w", classifyGetProjectError(projectID, err))
@@ -409,12 +408,11 @@ func (c *Client) GetProject(projectID string) (*Notebook, error) {
 	return project, nil
 }
 
-func (c *Client) DeleteProjects(projectIDs []string) error {
+func (c *Client) DeleteProjects(ctx context.Context, projectIDs []string) error {
 	req := &pb.DeleteProjectsRequest{
 		ProjectIds: projectIDs,
 	}
 
-	ctx := context.Background()
 	_, err := c.orchestrationService.DeleteProjects(ctx, req)
 	if err != nil {
 		return fmt.Errorf("delete projects: %w", err)
@@ -422,7 +420,7 @@ func (c *Client) DeleteProjects(projectIDs []string) error {
 	return nil
 }
 
-func (c *Client) MutateProject(projectID string, updates *pb.Project) (*Notebook, error) {
+func (c *Client) MutateProject(ctx context.Context, projectID string, updates *pb.Project) (*Notebook, error) {
 	req := &pb.MutateProjectRequest{
 		ProjectId: projectID,
 		Updates:   updates,
@@ -430,7 +428,7 @@ func (c *Client) MutateProject(projectID string, updates *pb.Project) (*Notebook
 	// Bypass the service client: its generated argbuilder encoder serializes
 	// the Project submessage as a JSON object, which the server rejects. Use
 	// the HAR-verified positional encoder from internal/method.
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateProject,
 		NotebookID: projectID,
 		Args:       intmethod.EncodeMutateProjectArgs(req),
@@ -448,8 +446,8 @@ func (c *Client) MutateProject(projectID string, updates *pb.Project) (*Notebook
 // SetProjectDescription updates the notebook "creator notes" / description
 // via the s0tc2d MutateProject RPC. Wire format is HAR-verified
 // (2026-04-25); see internal/method/LabsTailwindOrchestrationService_MutateProject_encoder.go.
-func (c *Client) SetProjectDescription(projectID, description string) error {
-	_, err := c.rpc.Do(rpc.Call{
+func (c *Client) SetProjectDescription(ctx context.Context, projectID, description string) error {
+	_, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateProject,
 		NotebookID: projectID,
 		Args:       intmethod.MutateProjectDescriptionArgs(projectID, description),
@@ -474,7 +472,7 @@ func (c *Client) SetProjectDescription(projectID, description string) error {
 // contents (Scotty's resumable protocol is used in single-chunk mode here).
 // displayName surfaces in the upload metadata (browser sends the original
 // filename); pass any short label.
-func (c *Client) UploadProjectCoverImage(projectID, displayName string, imageBytes []byte) error {
+func (c *Client) UploadProjectCoverImage(ctx context.Context, projectID, displayName string, imageBytes []byte) error {
 	if projectID == "" {
 		return fmt.Errorf("project ID is required")
 	}
@@ -483,15 +481,15 @@ func (c *Client) UploadProjectCoverImage(projectID, displayName string, imageByt
 	}
 	imageUUID := strings.ToUpper(uuid.New().String())
 
-	uploadURL, err := c.startCustomizationUpload(projectID, displayName, imageUUID, len(imageBytes))
+	uploadURL, err := c.startCustomizationUpload(ctx, projectID, displayName, imageUUID, len(imageBytes))
 	if err != nil {
 		return fmt.Errorf("start cover upload: %w", err)
 	}
-	if err := c.uploadFileBytes(uploadURL, imageBytes); err != nil {
+	if err := c.uploadFileBytes(ctx, uploadURL, imageBytes); err != nil {
 		return fmt.Errorf("upload cover bytes: %w", err)
 	}
 
-	if _, err := c.rpc.Do(rpc.Call{
+	if _, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateProject,
 		NotebookID: projectID,
 		Args:       intmethod.MutateProjectCustomImageArgs(projectID, imageUUID),
@@ -505,7 +503,7 @@ func (c *Client) UploadProjectCoverImage(projectID, displayName string, imageByt
 // upload used for notebook cover images. Unlike source uploads, the metadata
 // body is sent as raw JSON (not base64) and includes UPLOAD_TYPE,
 // IMAGE_TYPE, IMAGE_UUID, and DISPLAY_NAME instead of SOURCE_ID.
-func (c *Client) startCustomizationUpload(projectID, displayName, imageUUID string, contentLength int) (string, error) {
+func (c *Client) startCustomizationUpload(ctx context.Context, projectID, displayName, imageUUID string, contentLength int) (string, error) {
 	metadata := struct {
 		ProjectID   string `json:"PROJECT_ID"`
 		UploadType  string `json:"UPLOAD_TYPE"`
@@ -525,7 +523,7 @@ func (c *Client) startCustomizationUpload(projectID, displayName, imageUUID stri
 	}
 
 	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=" + c.authUserOrDefault()
-	req, err := http.NewRequest("POST", uploadInitURL, bytes.NewReader(metadataJSON))
+	req, err := http.NewRequestWithContext(ctx, "POST", uploadInitURL, bytes.NewReader(metadataJSON))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -574,8 +572,8 @@ func (c *Client) startCustomizationUpload(projectID, displayName, imageUUID stri
 // SetProjectCover selects a built-in cover image for the notebook by preset
 // ID. Wire format is HAR-verified (2026-04-25); the captured request used
 // preset 4. Other valid IDs have not been catalogued.
-func (c *Client) SetProjectCover(projectID string, coverID int) error {
-	_, err := c.rpc.Do(rpc.Call{
+func (c *Client) SetProjectCover(ctx context.Context, projectID string, coverID int) error {
+	_, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateProject,
 		NotebookID: projectID,
 		Args:       intmethod.MutateProjectCoverArgs(projectID, coverID),
@@ -586,12 +584,11 @@ func (c *Client) SetProjectCover(projectID string, coverID int) error {
 	return nil
 }
 
-func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
+func (c *Client) RemoveRecentlyViewedProject(ctx context.Context, projectID string) error {
 	req := &pb.RemoveRecentlyViewedProjectRequest{
 		ProjectId: projectID,
 	}
 
-	ctx := context.Background()
 	_, err := c.orchestrationService.RemoveRecentlyViewedProject(ctx, req)
 	return err
 }
@@ -604,12 +601,11 @@ func (c *Client) RemoveRecentlyViewedProject(projectID string) error {
 // on one item doesn't mask the rest. The izAoDd bulk wire envelope is
 // unverified: do not dispatch bulk through this method without HAR
 // evidence that the current argument layout matches what the web UI emits.
-func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.AddSourcesResponse, error) {
+func (c *Client) AddSources(ctx context.Context, projectID string, sources []*pb.SourceInput) (*pb.AddSourcesResponse, error) {
 	req := &pb.AddSourceRequest{
 		Sources:   sources,
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	resp, err := c.orchestrationService.AddSources(ctx, req)
 	if err != nil {
 		return nil, wrapSourceAddError("add sources", err)
@@ -621,13 +617,13 @@ func (c *Client) AddSources(projectID string, sources []*pb.SourceInput) (*pb.Ad
 // against the tGMBJ DeleteSources RPC.
 const deleteSourcesBatchSize = 10
 
-func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
+func (c *Client) DeleteSources(ctx context.Context, projectID string, sourceIDs []string) error {
 	for start := 0; start < len(sourceIDs); start += deleteSourcesBatchSize {
 		end := start + deleteSourcesBatchSize
 		if end > len(sourceIDs) {
 			end = len(sourceIDs)
 		}
-		if err := c.deleteSourcesBatch(projectID, sourceIDs[start:end]); err != nil {
+		if err := c.deleteSourcesBatch(ctx, projectID, sourceIDs[start:end]); err != nil {
 			if len(sourceIDs) <= deleteSourcesBatchSize {
 				return err
 			}
@@ -637,7 +633,7 @@ func (c *Client) DeleteSources(projectID string, sourceIDs []string) error {
 	return nil
 }
 
-func (c *Client) deleteSourcesBatch(projectID string, sourceIDs []string) error {
+func (c *Client) deleteSourcesBatch(ctx context.Context, projectID string, sourceIDs []string) error {
 	// Wire format: [repeated_source_ids, project_context]. Keep the request
 	// typed and let the generated encoder preserve the captured positional
 	// envelope.
@@ -645,7 +641,7 @@ func (c *Client) deleteSourcesBatch(projectID string, sourceIDs []string) error 
 	for _, id := range sourceIDs {
 		req.SourceIds = append(req.SourceIds, &pb.SourceIdList{SourceId: id})
 	}
-	_, err := c.rpc.Do(rpc.Call{
+	_, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCDeleteSources,
 		NotebookID: projectID,
 		Args:       method.EncodeDeleteSourcesArgs(req),
@@ -656,7 +652,7 @@ func (c *Client) deleteSourcesBatch(projectID string, sourceIDs []string) error 
 	return nil
 }
 
-func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, error) {
+func (c *Client) MutateSource(ctx context.Context, sourceID string, updates *pb.Source) (*pb.Source, error) {
 	req := &pb.MutateSourceRequest{
 		SourceId: &pb.SourceIdList{SourceId: sourceID},
 		Updates: &pb.MutateSourceUpdates{Update: &pb.MutateSourceUpdate{
@@ -666,7 +662,7 @@ func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, 
 	// Bypass the service client: its generated encoder uses argbuilder and
 	// produces the wrong wire format. Use the HAR-verified encoder from
 	// internal/method.
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateSource,
 		NotebookID: rpc.NotebookIDFromMessage(req),
 		Args:       intmethod.EncodeMutateSourceArgs(req),
@@ -681,13 +677,12 @@ func (c *Client) MutateSource(sourceID string, updates *pb.Source) (*pb.Source, 
 	return &source, nil
 }
 
-func (c *Client) RefreshSource(projectID, sourceID string) (*pb.Source, error) {
+func (c *Client) RefreshSource(ctx context.Context, projectID, sourceID string) (*pb.Source, error) {
 	req := &pb.RefreshSourceRequest{
 		Source:    &pb.SourceIdList{SourceId: sourceID},
 		Context:   conversationRequestContext(),
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	source, err := c.orchestrationService.RefreshSource(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("refresh source: %w", err)
@@ -705,12 +700,11 @@ func (c *Client) RefreshSource(projectID, sourceID string) (*pb.Source, error) {
 // Earlier commits routed the CLI's discover-sources subcommand
 // through fast-research as a workaround; this method gives callers
 // the actual Es3dTe path.
-func (c *Client) DiscoverSources(projectID, query string) (*pb.DiscoverSourcesResponse, error) {
+func (c *Client) DiscoverSources(ctx context.Context, projectID, query string) (*pb.DiscoverSourcesResponse, error) {
 	req := &pb.DiscoverSourcesRequest{
 		ProjectId: projectID,
 		Query:     query,
 	}
-	ctx := context.Background()
 	resp, err := c.orchestrationService.DiscoverSources(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("discover sources: %w", err)
@@ -718,11 +712,10 @@ func (c *Client) DiscoverSources(projectID, query string) (*pb.DiscoverSourcesRe
 	return resp, nil
 }
 
-func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
+func (c *Client) LoadSource(ctx context.Context, sourceID string) (*pb.Source, error) {
 	req := &pb.LoadSourceRequest{
 		Source: &pb.SourceIdList{SourceId: sourceID},
 	}
-	ctx := context.Background()
 	resp, err := c.orchestrationService.LoadSource(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("load source: %w", err)
@@ -745,8 +738,8 @@ func (c *Client) LoadSource(sourceID string) (*pb.Source, error) {
 //
 // notebookID is optional but is forwarded in the `source-path` URL param
 // (`/notebook/<project_id>`) when provided, matching the web UI.
-func (c *Client) LoadSourceRaw(sourceID, notebookID string) (json.RawMessage, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) LoadSourceRaw(ctx context.Context, sourceID, notebookID string) (json.RawMessage, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCLoadSource,
 		NotebookID: notebookID,
 		Args: []interface{}{
@@ -761,12 +754,11 @@ func (c *Client) LoadSourceRaw(sourceID, notebookID string) (json.RawMessage, er
 	return resp, nil
 }
 
-func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
+func (c *Client) CheckSourceFreshness(ctx context.Context, sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
 	req := &pb.CheckSourceFreshnessRequest{
 		Source:  &pb.SourceIdList{SourceId: sourceID},
 		Context: conversationRequestContext(),
 	}
-	ctx := context.Background()
 	result, err := c.orchestrationService.CheckSourceFreshness(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("check source freshness: %w", err)
@@ -778,8 +770,8 @@ func (c *Client) CheckSourceFreshness(sourceID string) (*pb.CheckSourceFreshness
 // authenticated user's NotebookLM account record. The request carries the
 // context envelope observed in the web client. Doubles as a "can the CLI
 // talk to the server" sanity check.
-func (c *Client) GetOrCreateAccount() (*pb.Account, error) {
-	resp, err := c.orchestrationService.GetOrCreateAccount(context.Background(), accountRequest())
+func (c *Client) GetOrCreateAccount(ctx context.Context) (*pb.Account, error) {
+	resp, err := c.orchestrationService.GetOrCreateAccount(ctx, accountRequest())
 	if err != nil {
 		return nil, fmt.Errorf("get or create account: %w", err)
 	}
@@ -790,13 +782,13 @@ func (c *Client) GetOrCreateAccount() (*pb.Account, error) {
 //
 // The generated yyryJe model describes a distinct observed chat-query shape.
 // No captured request establishes how these action verbs map to that shape.
-func (c *Client) ActOnSources(projectID string, action string, sourceIDs []string) (string, error) {
+func (c *Client) ActOnSources(ctx context.Context, projectID string, action string, sourceIDs []string) (string, error) {
 	call := rpc.Call{
 		ID:         "yyryJe",
 		NotebookID: projectID,
 		Args:       legacyActOnSourcesArgs(projectID, action, sourceIDs),
 	}
-	resp, err := c.rpc.Do(call)
+	resp, err := c.rpc.Do(ctx, call)
 	if err != nil {
 		return "", fmt.Errorf("act on sources: %w", err)
 	}
@@ -880,7 +872,7 @@ func detectMIMEType(content []byte, filename string, providedType string) string
 	return detectedType
 }
 
-func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename string, contentType ...string) (string, error) {
+func (c *Client) AddSourceFromReader(ctx context.Context, projectID string, r io.Reader, filename string, contentType ...string) (string, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
 		return "", fmt.Errorf("read content: %w", err)
@@ -901,11 +893,11 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 		if c.config.Debug && (strings.HasSuffix(filename, ".json") || detectedType == "application/json") {
 			fmt.Fprintf(os.Stderr, "Handling JSON file as text: %s (MIME: %s)\n", filename, detectedType)
 		}
-		return c.AddSourceFromText(projectID, string(content), filename)
+		return c.AddSourceFromText(ctx, projectID, string(content), filename)
 	}
 
 	// Use resumable upload for binary files (PDF, etc.)
-	return c.uploadFileSource(projectID, filepath.Base(filename), content)
+	return c.uploadFileSource(ctx, projectID, filepath.Base(filename), content)
 }
 
 // MaxTextSourceBytes is the client-side ceiling for AddSourceFromText
@@ -918,11 +910,11 @@ func (c *Client) AddSourceFromReader(projectID string, r io.Reader, filename str
 // automatically at 5MB boundaries.
 const MaxTextSourceBytes = 10 * 1024 * 1024
 
-func (c *Client) AddSourceFromText(projectID string, content, title string) (string, error) {
+func (c *Client) AddSourceFromText(ctx context.Context, projectID string, content, title string) (string, error) {
 	if n := len(content); n > MaxTextSourceBytes {
 		return "", fmt.Errorf("add text source %q (%d bytes > %d limit): %w", title, n, MaxTextSourceBytes, ErrSourceTooLarge)
 	}
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCAddSources,
 		NotebookID: projectID,
 		Args: []interface{}{
@@ -951,8 +943,8 @@ func (c *Client) AddSourceFromText(projectID string, content, title string) (str
 	return sourceID, nil
 }
 
-func (c *Client) AddSourceFromBase64(projectID string, content, filename, contentType string) (string, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) AddSourceFromBase64(ctx context.Context, projectID string, content, filename, contentType string) (string, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCAddSources,
 		NotebookID: projectID,
 		Args: []interface{}{
@@ -988,9 +980,9 @@ func (c *Client) AddSourceFromBase64(projectID string, content, filename, conten
 // Doing (1) last (as earlier versions did) causes Scotty to reject (2) with
 // 500 + X-Goog-Upload-Status: final, because the SOURCE_ID in the metadata is
 // unknown to the server.
-func (c *Client) uploadFileSource(projectID, filename string, content []byte) (string, error) {
+func (c *Client) uploadFileSource(ctx context.Context, projectID, filename string, content []byte) (string, error) {
 	// Step 1: Register the source first so the server assigns a SOURCE_ID.
-	sourceID, err := c.registerFileSource(projectID, filename)
+	sourceID, err := c.registerFileSource(ctx, projectID, filename)
 	if err != nil {
 		return "", fmt.Errorf("register file source: %w", err)
 	}
@@ -1001,13 +993,13 @@ func (c *Client) uploadFileSource(projectID, filename string, content []byte) (s
 	}
 
 	// Step 2: Start the resumable upload session with the server's SOURCE_ID.
-	uploadURL, err := c.startResumableUpload(projectID, filename, sourceID, len(content))
+	uploadURL, err := c.startResumableUpload(ctx, projectID, filename, sourceID, len(content))
 	if err != nil {
 		// Scotty sometimes returns 500 with X-Goog-Upload-Status: final even
 		// though it already registered the source. The source was registered
 		// in step 1, so reconcile: if it now appears in the project, the upload
 		// effectively succeeded and reporting a failure would be misleading.
-		if isUploadFinalizedError(err) && c.sourceExistsInProject(projectID, sourceID) {
+		if isUploadFinalizedError(err) && c.sourceExistsInProject(ctx, projectID, sourceID) {
 			return sourceID, nil
 		}
 		if isUploadFinalizedError(err) {
@@ -1021,7 +1013,7 @@ func (c *Client) uploadFileSource(projectID, filename string, content []byte) (s
 	}
 
 	// Step 3: Upload the file bytes.
-	if err := c.uploadFileBytes(uploadURL, content); err != nil {
+	if err := c.uploadFileBytes(ctx, uploadURL, content); err != nil {
 		return "", fmt.Errorf("upload file bytes: %w", err)
 	}
 
@@ -1047,11 +1039,11 @@ func isUploadFinalizedError(err error) bool {
 // current source list. Used to reconcile an upload that errored but may have
 // landed. A lookup error is treated as "not found" so the caller surfaces the
 // original failure rather than masking it.
-func (c *Client) sourceExistsInProject(projectID, sourceID string) bool {
+func (c *Client) sourceExistsInProject(ctx context.Context, projectID, sourceID string) bool {
 	if sourceID == "" {
 		return false
 	}
-	project, err := c.GetProject(projectID)
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		return false
 	}
@@ -1077,7 +1069,7 @@ func buildSourceUploadMetadata(projectID, filename, sourceID string) ([]byte, er
 }
 
 // startResumableUpload initiates a resumable upload session and returns the upload URL.
-func (c *Client) startResumableUpload(projectID, filename, sourceID string, contentLength int) (string, error) {
+func (c *Client) startResumableUpload(ctx context.Context, projectID, filename, sourceID string, contentLength int) (string, error) {
 	// Build metadata payload. Field order matches Chrome's upload
 	// (PROJECT_ID, SOURCE_NAME, SOURCE_ID); Go's map marshaling sorts keys
 	// alphabetically, which Scotty rejects with 500.
@@ -1087,7 +1079,7 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 	}
 
 	uploadInitURL := "https://notebooklm.google.com/upload/_/?authuser=" + c.authUserOrDefault()
-	req, err := http.NewRequest("POST", uploadInitURL, bytes.NewReader(metadataJSON))
+	req, err := http.NewRequestWithContext(ctx, "POST", uploadInitURL, bytes.NewReader(metadataJSON))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -1168,8 +1160,8 @@ func (c *Client) startResumableUpload(projectID, filename, sourceID string, cont
 }
 
 // uploadFileBytes uploads the raw file bytes to the resumable upload URL.
-func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
-	req, err := http.NewRequest("POST", uploadURL, bytes.NewReader(content))
+func (c *Client) uploadFileBytes(ctx context.Context, uploadURL string, content []byte) error {
+	req, err := http.NewRequestWithContext(ctx, "POST", uploadURL, bytes.NewReader(content))
 	if err != nil {
 		return fmt.Errorf("create upload request: %w", err)
 	}
@@ -1220,8 +1212,8 @@ func (c *Client) uploadFileBytes(uploadURL string, content []byte) error {
 // registerFileSource registers a file as a notebook source via RPC o4cbdc and
 // returns the server-assigned SOURCE_ID. Called before the Scotty upload so the
 // upload init can reference a SOURCE_ID Scotty knows about.
-func (c *Client) registerFileSource(projectID, filename string) (string, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) registerFileSource(ctx context.Context, projectID, filename string) (string, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCAddFileSource,
 		NotebookID: projectID,
 		Args: []interface{}{
@@ -1288,7 +1280,7 @@ func generateSAPISIDHASH(sapisid, origin string) string {
 	return fmt.Sprintf("SAPISIDHASH %d_%x", timestamp, hash)
 }
 
-func (c *Client) AddSourceFromFile(projectID string, filepath string, contentType ...string) (string, error) {
+func (c *Client) AddSourceFromFile(ctx context.Context, projectID string, filepath string, contentType ...string) (string, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return "", fmt.Errorf("open file: %w", err)
@@ -1299,21 +1291,21 @@ func (c *Client) AddSourceFromFile(projectID string, filepath string, contentTyp
 	if len(contentType) > 0 {
 		providedType = contentType[0]
 	}
-	return c.AddSourceFromReader(projectID, f, filepath, providedType)
+	return c.AddSourceFromReader(ctx, projectID, f, filepath, providedType)
 }
 
-func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) {
+func (c *Client) AddSourceFromURL(ctx context.Context, projectID string, url string) (string, error) {
 	// Check if it's a YouTube URL first
 	if isYouTubeURL(url) {
 		if _, err := extractYouTubeVideoID(url); err != nil {
 			return "", fmt.Errorf("invalid YouTube URL: %w", err)
 		}
 		// Use dedicated YouTube method
-		return c.AddYouTubeSource(projectID, url)
+		return c.AddYouTubeSource(ctx, projectID, url)
 	}
 
 	// Regular URL handling
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCAddSources,
 		NotebookID: projectID,
 		Args: []interface{}{
@@ -1338,7 +1330,7 @@ func (c *Client) AddSourceFromURL(projectID string, url string) (string, error) 
 	return sourceID, nil
 }
 
-func (c *Client) AddYouTubeSource(projectID, youtubeURL string) (string, error) {
+func (c *Client) AddYouTubeSource(ctx context.Context, projectID, youtubeURL string) (string, error) {
 	sourceURL, err := normalizeYouTubeSourceURL(youtubeURL)
 	if err != nil {
 		return "", err
@@ -1356,7 +1348,7 @@ func (c *Client) AddYouTubeSource(projectID, youtubeURL string) (string, error) 
 		fmt.Printf("\nPayload Structure:\n")
 	}
 
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCAddSources,
 		NotebookID: projectID,
 		Args:       payload,
@@ -1529,26 +1521,25 @@ func isUUID(s string) bool {
 //
 // Content is sent verbatim as Markdown (the wire format the rich-text editor
 // converts to on save); callers do not need to convert from HTML.
-func (c *Client) CreateNote(projectID string, title string, initialContent string) (*Note, error) {
+func (c *Client) CreateNote(ctx context.Context, projectID string, title string, initialContent string) (*Note, error) {
 	req := &pb.CreateNoteRequest{
 		ProjectId: projectID,
 		Content:   proto.String(initialContent),
 		NoteType:  &pb.Int32List{Value: 1},
 		Title:     title,
 	}
-	ctx := context.Background()
 	shell, err := c.orchestrationService.CreateNote(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create note: %w", err)
 	}
-	note, err := c.MutateNote(projectID, shell.NoteId, initialContent, title)
+	note, err := c.MutateNote(ctx, projectID, shell.NoteId, initialContent, title)
 	if err != nil {
 		return nil, fmt.Errorf("create note: set title/body: %w", err)
 	}
 	return note, nil
 }
 
-func (c *Client) MutateNote(projectID string, noteID string, content string, title string) (*Note, error) {
+func (c *Client) MutateNote(ctx context.Context, projectID string, noteID string, content string, title string) (*Note, error) {
 	req := &pb.MutateNoteRequest{
 		ProjectId: projectID,
 		NoteId:    noteID,
@@ -1560,7 +1551,6 @@ func (c *Client) MutateNote(projectID string, noteID string, content string, tit
 			StateCode:  proto.Int32(0),
 		}}},
 	}
-	ctx := context.Background()
 	note, err := c.orchestrationService.MutateNote(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("mutate note: %w", err)
@@ -1568,22 +1558,22 @@ func (c *Client) MutateNote(projectID string, noteID string, content string, tit
 	return &Note{Note: note}, nil
 }
 
-func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
+func (c *Client) DeleteNotes(ctx context.Context, projectID string, noteIDs []string) error {
 	req := &pb.DeleteNotesRequest{
 		ProjectId: projectID,
 		NoteIds:   noteIDs,
 		Context:   conversationRequestContext(),
 	}
-	_, err := c.orchestrationService.DeleteNotes(context.Background(), req)
+	_, err := c.orchestrationService.DeleteNotes(ctx, req)
 	if err != nil {
 		return fmt.Errorf("delete notes: %w", err)
 	}
 	return nil
 }
 
-func (c *Client) GetNotes(projectID string) ([]*Note, error) {
+func (c *Client) GetNotes(ctx context.Context, projectID string) ([]*Note, error) {
 	req := &pb.GetNotesRequest{ProjectId: projectID}
-	response, rpcErr := c.orchestrationService.GetNotes(context.Background(), req)
+	response, rpcErr := c.orchestrationService.GetNotes(ctx, req)
 	if rpcErr != nil {
 		return nil, fmt.Errorf("get notes: %w", rpcErr)
 	}
@@ -1658,13 +1648,13 @@ func universalArtifactSourceGroups(sourceIDs []string) []*pb.UniversalArtifactSo
 	return groups
 }
 
-func (c *Client) CreateAudioOverview(projectID string, instructions string) (*AudioOverviewResult, error) {
-	return c.CreateAudioOverviewWithOptions(projectID, CreateAudioOverviewOptions{
+func (c *Client) CreateAudioOverview(ctx context.Context, projectID string, instructions string) (*AudioOverviewResult, error) {
+	return c.CreateAudioOverviewWithOptions(ctx, projectID, CreateAudioOverviewOptions{
 		Instructions: instructions,
 	})
 }
 
-func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAudioOverviewOptions) (*AudioOverviewResult, error) {
+func (c *Client) CreateAudioOverviewWithOptions(ctx context.Context, projectID string, opts CreateAudioOverviewOptions) (*AudioOverviewResult, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
@@ -1675,10 +1665,10 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 		opts.AudioType == pb.AudioType_AUDIO_TYPE_DEEP_DIVE &&
 		opts.Length == pb.AudioLength_AUDIO_LENGTH_DEFAULT &&
 		opts.Language == "en" {
-		return c.createAudioOverviewDirectRPC(projectID, opts.Instructions)
+		return c.createAudioOverviewDirectRPC(ctx, projectID, opts.Instructions)
 	}
 
-	sourceIDs, err := c.createArtifactSourceIDs(projectID, opts.SourceIDs)
+	sourceIDs, err := c.createArtifactSourceIDs(ctx, projectID, opts.SourceIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -1691,7 +1681,7 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 		for _, sourceID := range sourceIDs {
 			audioSources = append(audioSources, &pb.SourceIdList{SourceId: sourceID})
 		}
-		artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), &pb.CreateUniversalArtifactRequest{
+		artifact, err := c.orchestrationService.CreateUniversalArtifact(ctx, &pb.CreateUniversalArtifactRequest{
 			Context:   universalArtifactRequestContext(),
 			ProjectId: projectID,
 			Options: &pb.UniversalArtifactOptions{
@@ -1720,7 +1710,6 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 		Length:             opts.Length,
 		Language:           opts.Language,
 	}
-	ctx := context.Background()
 	artifact, err := c.orchestrationService.CreateAudioOverview(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create audio overview: %w", wrapCreateAudioOverviewError(err))
@@ -1737,8 +1726,8 @@ func (c *Client) CreateAudioOverviewWithOptions(projectID string, opts CreateAud
 }
 
 // createAudioOverviewDirectRPC uses direct RPC calls (original implementation)
-func (c *Client) createAudioOverviewDirectRPC(projectID string, instructions string) (*AudioOverviewResult, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) createAudioOverviewDirectRPC(ctx context.Context, projectID string, instructions string) (*AudioOverviewResult, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID: rpc.RPCCreateAudioOverview,
 		Args: []interface{}{
 			projectID,
@@ -1798,17 +1787,16 @@ func (c *Client) createAudioOverviewDirectRPC(projectID string, instructions str
 	return result, nil
 }
 
-func (c *Client) GetAudioOverview(projectID string) (*AudioOverviewResult, error) {
+func (c *Client) GetAudioOverview(ctx context.Context, projectID string) (*AudioOverviewResult, error) {
 	// Try direct RPC first if enabled, as it provides more complete data
 	if c.config.UseDirectRPC {
-		return c.getAudioOverviewDirectRPC(projectID)
+		return c.getAudioOverviewDirectRPC(ctx, projectID)
 	}
 
 	req := &pb.GetAudioOverviewRequest{
 		ProjectId:   projectID,
 		RequestType: 1,
 	}
-	ctx := context.Background()
 	audioOverview, err := c.orchestrationService.GetAudioOverview(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get audio overview: %w", err)
@@ -1818,7 +1806,7 @@ func (c *Client) GetAudioOverview(projectID string) (*AudioOverviewResult, error
 		return result, nil
 	}
 
-	fallback, err := c.getAudioOverviewDirectRPC(projectID)
+	fallback, err := c.getAudioOverviewDirectRPC(ctx, projectID)
 	if err == nil {
 		mergeAudioOverviewResult(result, fallback)
 	}
@@ -1841,24 +1829,24 @@ func audioOverviewResultFromProto(projectID string, audioOverview *pb.AudioOverv
 }
 
 // getAudioOverviewDirectRPC uses direct RPC to get audio overview
-func (c *Client) getAudioOverviewDirectRPC(projectID string) (*AudioOverviewResult, error) {
-	result, err := c.getAudioOverviewDirectRPCArgs(projectID, []interface{}{projectID})
+func (c *Client) getAudioOverviewDirectRPC(ctx context.Context, projectID string) (*AudioOverviewResult, error) {
+	result, err := c.getAudioOverviewDirectRPCArgs(ctx, projectID, []interface{}{projectID})
 	if err == nil && (result.AudioID != "" || result.AudioData != "" || result.Title != "") {
 		return result, nil
 	}
-	return c.getAudioOverviewDirectRPCWithType(projectID, 1)
+	return c.getAudioOverviewDirectRPCWithType(ctx, projectID, 1)
 }
 
 // getAudioOverviewDirectRPCWithType uses direct RPC with a specific request type
-func (c *Client) getAudioOverviewDirectRPCWithType(projectID string, requestType int) (*AudioOverviewResult, error) {
-	return c.getAudioOverviewDirectRPCArgs(projectID, []interface{}{
+func (c *Client) getAudioOverviewDirectRPCWithType(ctx context.Context, projectID string, requestType int) (*AudioOverviewResult, error) {
+	return c.getAudioOverviewDirectRPCArgs(ctx, projectID, []interface{}{
 		projectID,
 		requestType, // request_type - try different values
 	})
 }
 
-func (c *Client) getAudioOverviewDirectRPCArgs(projectID string, args []interface{}) (*AudioOverviewResult, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) getAudioOverviewDirectRPCArgs(ctx context.Context, projectID string, args []interface{}) (*AudioOverviewResult, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCGetAudioOverview,
 		Args:       args,
 		NotebookID: projectID,
@@ -2068,11 +2056,10 @@ func (r *AudioOverviewResult) GetAudioBytes() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(r.AudioData)
 }
 
-func (c *Client) DeleteAudioOverview(projectID string) error {
+func (c *Client) DeleteAudioOverview(ctx context.Context, projectID string) error {
 	req := &pb.DeleteAudioOverviewRequest{
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	_, err := c.orchestrationService.DeleteAudioOverview(ctx, req)
 	if err != nil {
 		return fmt.Errorf("delete audio overview: %w", err)
@@ -2100,7 +2087,7 @@ type AudioFormat struct {
 // HAR-verified against 11+ NotebookLM web UI captures (2026-04-19+);
 // see proto/notebooklm/v1alpha1/orchestration.proto:1505 for the
 // canonical shape and the four observed kinds.
-func (c *Client) GetAudioFormats() ([]AudioFormat, error) {
+func (c *Client) GetAudioFormats(ctx context.Context) ([]AudioFormat, error) {
 	// Fixed sentinel captured from the web UI. Keep its context typed so the
 	// generated encoder owns the positional envelope.
 	req := &pb.GetAudioFormatsRequest{
@@ -2114,7 +2101,7 @@ func (c *Client) GetAudioFormats() ([]AudioFormat, error) {
 		},
 		Mode: proto.Int32(1),
 	}
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:   rpc.RPCGetAudioFormats,
 		Args: method.EncodeGetAudioFormatsArgs(req),
 	})
@@ -2184,13 +2171,13 @@ func videoOverviewResultFromArtifactData(projectID string, artifactData []interf
 	return result
 }
 
-func (c *Client) CreateVideoOverview(projectID string, instructions string) (*VideoOverviewResult, error) {
-	return c.CreateVideoOverviewWithOptions(projectID, CreateVideoOverviewOptions{
+func (c *Client) CreateVideoOverview(ctx context.Context, projectID string, instructions string) (*VideoOverviewResult, error) {
+	return c.CreateVideoOverviewWithOptions(ctx, projectID, CreateVideoOverviewOptions{
 		Instructions: instructions,
 	})
 }
 
-func (c *Client) CreateVideoOverviewWithOptions(projectID string, opts CreateVideoOverviewOptions) (*VideoOverviewResult, error) {
+func (c *Client) CreateVideoOverviewWithOptions(ctx context.Context, projectID string, opts CreateVideoOverviewOptions) (*VideoOverviewResult, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
@@ -2199,7 +2186,7 @@ func (c *Client) CreateVideoOverviewWithOptions(projectID string, opts CreateVid
 		return nil, fmt.Errorf("instructions required")
 	}
 
-	sourceIDs, err := c.createArtifactSourceIDs(projectID, opts.SourceIDs)
+	sourceIDs, err := c.createArtifactSourceIDs(ctx, projectID, opts.SourceIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -2221,7 +2208,7 @@ func (c *Client) CreateVideoOverviewWithOptions(projectID string, opts CreateVid
 		},
 	}
 
-	artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), req)
+	artifact, err := c.orchestrationService.CreateUniversalArtifact(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("create video overview: %w", err)
 	}
@@ -2247,7 +2234,7 @@ func videoOverviewResultFromProto(projectID string, artifact *pb.Artifact) *Vide
 	return result
 }
 
-func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instructions string, sourceIDs []string) (string, error) {
+func (c *Client) CreateAppArtifact(ctx context.Context, projectID string, kind AppArtifactKind, instructions string, sourceIDs []string) (string, error) {
 	if projectID == "" {
 		return "", fmt.Errorf("project ID required")
 	}
@@ -2257,7 +2244,7 @@ func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instr
 	if instructions == "" {
 		return "", fmt.Errorf("instructions required")
 	}
-	resolvedSourceIDs, err := c.createArtifactSourceIDs(projectID, sourceIDs)
+	resolvedSourceIDs, err := c.createArtifactSourceIDs(ctx, projectID, sourceIDs)
 	if err != nil {
 		return "", err
 	}
@@ -2266,7 +2253,7 @@ func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instr
 	}
 
 	args := intmethod.EncodeCreateAppArtifactArgs(projectID, resolvedSourceIDs, int32(kind), instructions)
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCCreateVideoOverview,
 		NotebookID: projectID,
 		Args:       args,
@@ -2277,11 +2264,11 @@ func (c *Client) CreateAppArtifact(projectID string, kind AppArtifactKind, instr
 	return createdArtifactIDFromProtoWithOptions(resp, c.unmarshalOptions())
 }
 
-func (c *Client) createArtifactSourceIDs(projectID string, sourceIDs []string) ([]string, error) {
+func (c *Client) createArtifactSourceIDs(ctx context.Context, projectID string, sourceIDs []string) ([]string, error) {
 	if len(sourceIDs) > 0 {
 		return sourceIDs, nil
 	}
-	project, err := c.GetProject(projectID)
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("get project sources: %w", err)
 	}
@@ -2295,14 +2282,14 @@ func (c *Client) createArtifactSourceIDs(projectID string, sourceIDs []string) (
 
 // DownloadAudioOverview attempts to download the actual audio file
 // by querying for audio artifacts and downloading from the URL
-func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, error) {
-	audioOverview, err := c.GetAudioOverview(projectID)
+func (c *Client) DownloadAudioOverview(ctx context.Context, projectID string) (*AudioOverviewResult, error) {
+	audioOverview, err := c.GetAudioOverview(ctx, projectID)
 	if err == nil && audioOverview != nil && audioOverview.AudioData != "" {
 		return audioOverview, nil
 	}
 
 	// Query for audio artifacts using direct RPC (response format is complex)
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID: rpc.RPCListArtifacts, // Use gArtLc RPC
 		Args: []interface{}{
 			[]interface{}{2}, // artifact_types=[2] for ARTIFACT_TYPE_AUDIO_OVERVIEW
@@ -2456,7 +2443,7 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 	}
 
 	// Download the audio from the URL
-	audioData, err := c.downloadAudioFromURL(audioURL)
+	audioData, err := c.downloadAudioFromURL(ctx, audioURL)
 	if err != nil {
 		return nil, fmt.Errorf("download audio from URL: %w", err)
 	}
@@ -2474,7 +2461,7 @@ func (c *Client) DownloadAudioOverview(projectID string) (*AudioOverviewResult, 
 
 // downloadAudioFromURL downloads audio data from a googleusercontent URL
 // Google CDN URLs require full browser authentication context, so we use chromedp
-func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
+func (c *Client) downloadAudioFromURL(ctx context.Context, audioURL string) ([]byte, error) {
 	// Create client that follows redirects automatically
 	client := httpClientWithTimeout(60 * time.Second)
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -2491,7 +2478,7 @@ func (c *Client) downloadAudioFromURL(audioURL string) ([]byte, error) {
 		return nil
 	}
 
-	req, err := http.NewRequest("GET", audioURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", audioURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
@@ -2567,10 +2554,10 @@ func (r *AudioOverviewResult) SaveAudioToFile(filename string) error {
 }
 
 // ListAudioOverviews returns audio overviews for a notebook
-func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, error) {
+func (c *Client) ListAudioOverviews(ctx context.Context, projectID string) ([]*AudioOverviewResult, error) {
 	var overviews []*AudioOverviewResult
 
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID: rpc.RPCListArtifacts,
 		Args: method.EncodeListArtifactsArgs(&pb.ListArtifactsRequest{
 			Context:   universalArtifactRequestContext(),
@@ -2590,7 +2577,7 @@ func (c *Client) ListAudioOverviews(projectID string) ([]*AudioOverviewResult, e
 		fmt.Printf("Error listing audio overview artifacts: %v\n", err)
 	}
 
-	audioOverview, err := c.GetAudioOverview(projectID)
+	audioOverview, err := c.GetAudioOverview(ctx, projectID)
 	if err != nil {
 		if len(overviews) > 0 {
 			return overviews, nil
@@ -2637,10 +2624,10 @@ func audioOverviewResultsFromProtoArtifactsWithOptions(projectID string, raw []b
 }
 
 // ListVideoOverviews returns video overviews for a notebook
-func (c *Client) ListVideoOverviews(projectID string) ([]*VideoOverviewResult, error) {
+func (c *Client) ListVideoOverviews(ctx context.Context, projectID string) ([]*VideoOverviewResult, error) {
 	// Since there's no GetVideoOverview RPC endpoint, we need to use a different approach
 	// We can try to get the project and see if it has video overview metadata
-	project, err := c.GetProject(projectID)
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("get project for video list: %w", err)
 	}
@@ -2664,26 +2651,26 @@ func (c *Client) ListVideoOverviews(projectID string) ([]*VideoOverviewResult, e
 
 // GetVideoOverview attempts to get a video overview for a notebook
 // Since there's no official GetVideoOverview RPC endpoint, we try alternative approaches
-func (c *Client) GetVideoOverview(projectID string) (*VideoOverviewResult, error) {
+func (c *Client) GetVideoOverview(ctx context.Context, projectID string) (*VideoOverviewResult, error) {
 	if !c.config.UseDirectRPC {
 		return nil, fmt.Errorf("video overview requires --direct-rpc flag")
 	}
 
 	// Try using RPCGetAudioOverview with video-specific parameters
 	// or see if we can get video data another way
-	return c.getVideoOverviewAlternative(projectID)
+	return c.getVideoOverviewAlternative(ctx, projectID)
 }
 
 // getVideoOverviewAlternative tries alternative methods to get video data
-func (c *Client) getVideoOverviewAlternative(projectID string) (*VideoOverviewResult, error) {
+func (c *Client) getVideoOverviewAlternative(ctx context.Context, projectID string) (*VideoOverviewResult, error) {
 	// First, try to get the project to see if it has video metadata
-	project, err := c.GetProject(projectID)
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("get project for video overview: %w", err)
 	}
 
 	// Try different approaches to get video data
-	approaches := []func(string) (*VideoOverviewResult, error){
+	approaches := []func(context.Context, string) (*VideoOverviewResult, error){
 		c.tryVideoOverviewDirectRPC,
 		c.tryVideoFromCreateResponse,
 	}
@@ -2693,7 +2680,7 @@ func (c *Client) getVideoOverviewAlternative(projectID string) (*VideoOverviewRe
 			fmt.Printf("Trying video overview approach %d...\n", i+1)
 		}
 
-		result, err := approach(projectID)
+		result, err := approach(ctx, projectID)
 		if err == nil && result != nil {
 			if c.config.Debug {
 				fmt.Printf("Video overview approach %d succeeded\n", i+1)
@@ -2711,9 +2698,9 @@ func (c *Client) getVideoOverviewAlternative(projectID string) (*VideoOverviewRe
 }
 
 // tryVideoOverviewDirectRPC attempts to use GetAudioOverview RPC but for video
-func (c *Client) tryVideoOverviewDirectRPC(projectID string) (*VideoOverviewResult, error) {
+func (c *Client) tryVideoOverviewDirectRPC(ctx context.Context, projectID string) (*VideoOverviewResult, error) {
 	// Try using the audio RPC with different parameters that might work for video
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID: rpc.RPCGetAudioOverview, // Reuse audio RPC
 		Args: []interface{}{
 			projectID,
@@ -2763,12 +2750,12 @@ func (c *Client) tryVideoOverviewDirectRPC(projectID string) (*VideoOverviewResu
 }
 
 // tryVideoFromCreateResponse attempts to get video data by analyzing creation patterns
-func (c *Client) tryVideoFromCreateResponse(projectID string) (*VideoOverviewResult, error) {
+func (c *Client) tryVideoFromCreateResponse(ctx context.Context, projectID string) (*VideoOverviewResult, error) {
 	// This is a speculative approach - try to create a "get" request
 	// using the same structure as CreateVideoOverview but with different parameters
 
 	// Get sources from the project first
-	project, err := c.GetProject(projectID)
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("get sources for video: %w", err)
 	}
@@ -2800,7 +2787,7 @@ func (c *Client) tryVideoFromCreateResponse(projectID string) (*VideoOverviewRes
 		},
 	}
 
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCCreateVideoOverview, // Reuse create RPC with different args
 		NotebookID: projectID,
 		Args:       videoArgs,
@@ -2848,13 +2835,13 @@ func (c *Client) tryVideoFromCreateResponse(projectID string) (*VideoOverviewRes
 }
 
 // DownloadVideoOverview attempts to download video overview data
-func (c *Client) DownloadVideoOverview(projectID string) (*VideoOverviewResult, error) {
+func (c *Client) DownloadVideoOverview(ctx context.Context, projectID string) (*VideoOverviewResult, error) {
 	if !c.config.UseDirectRPC {
 		return nil, fmt.Errorf("video download requires --direct-rpc flag")
 	}
 
 	// Try to get video overview data
-	result, err := c.GetVideoOverview(projectID)
+	result, err := c.GetVideoOverview(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("get video overview: %w", err)
 	}
@@ -2873,7 +2860,7 @@ func manualVideoDownloadError(projectID string) error {
 // SaveVideoToFile saves video data to a file
 // Handles both base64 encoded data and URLs
 // NOTE: For URL downloads, use client.DownloadVideoWithAuth() for proper authentication
-func (r *VideoOverviewResult) SaveVideoToFile(filename string) error {
+func (r *VideoOverviewResult) SaveVideoToFile(ctx context.Context, filename string) error {
 	if r.VideoData == "" {
 		return fmt.Errorf("no video data to save")
 	}
@@ -2882,7 +2869,7 @@ func (r *VideoOverviewResult) SaveVideoToFile(filename string) error {
 	if strings.HasPrefix(r.VideoData, "http://") || strings.HasPrefix(r.VideoData, "https://") {
 		// It's a URL - try basic download (may fail without auth)
 		// For proper authentication, use client.DownloadVideoWithAuth()
-		return r.downloadVideoFromURL(r.VideoData, filename)
+		return r.downloadVideoFromURL(ctx, r.VideoData, filename)
 	} else {
 		// It's base64 encoded data
 		return r.saveBase64VideoToFile(r.VideoData, filename)
@@ -2890,12 +2877,12 @@ func (r *VideoOverviewResult) SaveVideoToFile(filename string) error {
 }
 
 // downloadVideoFromURL downloads video from a URL with proper authentication
-func (r *VideoOverviewResult) downloadVideoFromURL(url, filename string) error {
+func (r *VideoOverviewResult) downloadVideoFromURL(ctx context.Context, url, filename string) error {
 	// Create HTTP client with authentication
 	client := httpClientWithTimeout(30 * time.Second)
 
 	// Create request with proper headers
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}
@@ -2953,12 +2940,12 @@ func (r *VideoOverviewResult) saveBase64VideoToFile(base64Data, filename string)
 }
 
 // DownloadVideoWithAuth downloads a video using the client's authentication
-func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
+func (c *Client) DownloadVideoWithAuth(ctx context.Context, videoURL, filename string) error {
 	// Create HTTP client with timeout
 	client := httpClientWithTimeout(300 * time.Second)
 
 	// Create request
-	req, err := http.NewRequest("GET", videoURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", videoURL, nil)
 	if err != nil {
 		return fmt.Errorf("create video download request: %w", err)
 	}
@@ -3029,13 +3016,13 @@ func (c *Client) DownloadVideoWithAuth(videoURL, filename string) error {
 }
 
 // ListArtifacts returns artifacts for a project using direct RPC
-func (c *Client) ListArtifacts(projectID string) ([]*pb.Artifact, error) {
+func (c *Client) ListArtifacts(ctx context.Context, projectID string) ([]*pb.Artifact, error) {
 	req := &pb.ListArtifactsRequest{
 		Context:   universalArtifactRequestContext(),
 		ProjectId: projectID,
 		Filter:    `NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED"`,
 	}
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCListArtifacts,
 		Args:       method.EncodeListArtifactsArgs(req),
 		NotebookID: projectID,
@@ -3132,16 +3119,16 @@ func artifactHasDownloadURL(value interface{}, artifactID string) bool {
 // case is the same scan-and-filter that callers got before this
 // commit. The fast path is exercised first because, when it works,
 // it cuts a fan-out call to N notebooks down to a single RPC.
-func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
-	if artifact, err := c.getArtifactDirect(artifactID); err == nil && artifact != nil {
+func (c *Client) GetArtifact(ctx context.Context, artifactID string) (*pb.Artifact, error) {
+	if artifact, err := c.getArtifactDirect(ctx, artifactID); err == nil && artifact != nil {
 		return artifact, nil
 	}
-	projects, listErr := c.ListRecentlyViewedProjects()
+	projects, listErr := c.ListRecentlyViewedProjects(ctx)
 	if listErr != nil {
 		return nil, fmt.Errorf("list projects for artifact lookup: %w", listErr)
 	}
 	for _, project := range projects {
-		artifacts, listArtifactsErr := c.ListArtifacts(project.GetProjectId())
+		artifacts, listArtifactsErr := c.ListArtifacts(ctx, project.GetProjectId())
 		if listArtifactsErr != nil {
 			continue
 		}
@@ -3158,8 +3145,8 @@ func (c *Client) GetArtifact(artifactID string) (*pb.Artifact, error) {
 // but never observed on the wire in our HAR corpus, so failure is
 // expected on some accounts; callers should fall back to the gArtLc
 // list-scan when this returns an error or nil artifact.
-func (c *Client) getArtifactDirect(artifactID string) (*pb.Artifact, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) getArtifactDirect(ctx context.Context, artifactID string) (*pb.Artifact, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:   rpc.RPCGetArtifact,
 		Args: []interface{}{artifactID},
 	})
@@ -3185,8 +3172,8 @@ func (c *Client) getArtifactDirect(artifactID string) (*pb.Artifact, error) {
 // artifact has none yet (still generating) or the direct RPC is unavailable on
 // this account. It uses the v9rmvd direct fetch, whose payload carries the
 // links; the gArtLc list scan does not include them.
-func (c *Client) GetArtifactDownloadURLs(artifactID string) ([]string, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) GetArtifactDownloadURLs(ctx context.Context, artifactID string) ([]string, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:   rpc.RPCGetArtifact,
 		Args: []interface{}{artifactID},
 	})
@@ -3209,8 +3196,8 @@ func (c *Client) GetArtifactDownloadURLs(artifactID string) ([]string, error) {
 // available formats when the requested one is absent. The URL is browser-usable
 // (the contribution.usercontent.google.com host serves it to an authenticated
 // browser session); see DownloadArtifactFile for the direct-fetch caveat.
-func (c *Client) ArtifactDownloadURLForFormat(artifactID, format string) (string, error) {
-	urls, err := c.GetArtifactDownloadURLs(artifactID)
+func (c *Client) ArtifactDownloadURLForFormat(ctx context.Context, artifactID, format string) (string, error) {
+	urls, err := c.GetArtifactDownloadURLs(ctx, artifactID)
 	if err != nil {
 		return "", fmt.Errorf("get artifact download URLs: %w", err)
 	}
@@ -3240,8 +3227,8 @@ func (c *Client) ArtifactDownloadURLForFormat(artifactID, format string) (string
 // CLI's cookies do not satisfy (the same limitation audio/video CDN downloads
 // hit). Callers should fall back to ArtifactDownloadURLForFormat and hand the
 // URL to a browser when this returns a download/permission error.
-func (c *Client) DownloadArtifactFile(artifactID, format, filename string) error {
-	chosen, err := c.ArtifactDownloadURLForFormat(artifactID, format)
+func (c *Client) DownloadArtifactFile(ctx context.Context, artifactID, format, filename string) error {
+	chosen, err := c.ArtifactDownloadURLForFormat(ctx, artifactID, format)
 	if err != nil {
 		return err
 	}
@@ -3250,18 +3237,18 @@ func (c *Client) DownloadArtifactFile(artifactID, format, filename string) error
 		return fmt.Errorf("create output file: %w", err)
 	}
 	defer file.Close()
-	return c.downloadAuthed(chosen, file)
+	return c.downloadAuthed(ctx, chosen, file)
 }
 
 // ReadArtifactFile writes an artifact's rendered output to w, selecting the
 // output by filename extension. It is useful for text artifacts that callers
 // want to inspect without creating a local file.
-func (c *Client) ReadArtifactFile(artifactID, format string, w io.Writer) error {
-	chosen, err := c.ArtifactDownloadURLForFormat(artifactID, format)
+func (c *Client) ReadArtifactFile(ctx context.Context, artifactID, format string, w io.Writer) error {
+	chosen, err := c.ArtifactDownloadURLForFormat(ctx, artifactID, format)
 	if err != nil {
 		return err
 	}
-	return c.downloadAuthed(chosen, w)
+	return c.downloadAuthed(ctx, chosen, w)
 }
 
 // artifactDownloadExtension returns the lowercase ".ext" carried in a download
@@ -3286,7 +3273,7 @@ func artifactDownloadExtension(rawURL string) string {
 // downloads, which are gated on the NotebookLM session cookie. The header set
 // and authuser query parameter mirror DownloadVideoWithAuth, which downloads
 // from the same usercontent host; without them the host answers 403.
-func (c *Client) downloadAuthed(fileURL string, w io.Writer) error {
+func (c *Client) downloadAuthed(ctx context.Context, fileURL string, w io.Writer) error {
 	if !strings.Contains(fileURL, "authuser=") {
 		sep := "?"
 		if strings.Contains(fileURL, "?") {
@@ -3295,7 +3282,7 @@ func (c *Client) downloadAuthed(fileURL string, w io.Writer) error {
 		fileURL += sep + "authuser=" + c.authUserOrDefault()
 	}
 
-	req, err := http.NewRequest("GET", fileURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fileURL, nil)
 	if err != nil {
 		return fmt.Errorf("create download request: %w", err)
 	}
@@ -3352,8 +3339,8 @@ func (c *Client) downloadAuthed(fileURL string, w io.Writer) error {
 //
 // Wire format verified against HAR capture 2026-04-07 — see
 // internal/method/LabsTailwindOrchestrationService_DeleteArtifact_encoder.go.
-func (c *Client) DeleteArtifact(artifactID string) error {
-	_, err := c.rpc.Do(rpc.Call{
+func (c *Client) DeleteArtifact(ctx context.Context, artifactID string) error {
+	_, err := c.rpc.Do(ctx, rpc.Call{
 		ID: rpc.RPCDeleteArtifact,
 		Args: intmethod.EncodeDeleteArtifactArgs(&pb.DeleteArtifactRequest{
 			ArtifactId: artifactID,
@@ -3369,8 +3356,8 @@ func (c *Client) DeleteArtifact(artifactID string) error {
 //
 // Wire format: see
 // internal/method/LabsTailwindOrchestrationService_RenameArtifact_encoder.go.
-func (c *Client) RenameArtifact(artifactID, newTitle string) (*pb.Artifact, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) RenameArtifact(ctx context.Context, artifactID, newTitle string) (*pb.Artifact, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID: rpc.RPCRenameArtifact,
 		Args: intmethod.EncodeRenameArtifactArgs(&pb.RenameArtifactRequest{
 			ArtifactId: artifactID,
@@ -3413,13 +3400,13 @@ func (c *Client) parseRenameArtifactResponse(resp []byte, artifactID string) (*p
 // convention used by sibling RPCs (CreateArtifact, GenerateReportSuggestions).
 // Capture HAR by clicking "Revise" on a generated artifact and
 // confirm before promoting this off best-effort.
-func (c *Client) ReviseArtifact(artifactID, instructions string) (*pb.Artifact, error) {
+func (c *Client) ReviseArtifact(ctx context.Context, artifactID, instructions string) (*pb.Artifact, error) {
 	projectContext := []interface{}{
 		2, nil, nil,
 		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
 		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
 	}
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:   rpc.RPCReviseArtifact,
 		Args: []interface{}{projectContext, artifactID, instructions},
 	})
@@ -3446,13 +3433,13 @@ func (c *Client) ReviseArtifact(artifactID, instructions string) (*pb.Artifact, 
 // sibling artifact RPCs. Capture HAR by opening an artifact's kebab
 // menu and submitting a "Report" before promoting this off
 // best-effort. The response is not parsed beyond success/failure.
-func (c *Client) ReportContent(artifactID, reason, detail string) error {
+func (c *Client) ReportContent(ctx context.Context, artifactID, reason, detail string) error {
 	projectContext := []interface{}{
 		2, nil, nil,
 		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
 		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
 	}
-	_, err := c.rpc.Do(rpc.Call{
+	_, err := c.rpc.Do(ctx, rpc.Call{
 		ID:   rpc.RPCReportContent,
 		Args: []interface{}{projectContext, artifactID, reason, detail},
 	})
@@ -3622,66 +3609,66 @@ func artifactSourceID(value interface{}) (string, bool) {
 
 // Guidebook operations
 
-func (c *Client) ListGuidebooks() ([]*pb.Guidebook, error) {
+func (c *Client) ListGuidebooks(ctx context.Context) ([]*pb.Guidebook, error) {
 	req := &pb.ListRecentlyViewedGuidebooksRequest{}
-	resp, err := c.guidebooksService.ListRecentlyViewedGuidebooks(context.Background(), req)
+	resp, err := c.guidebooksService.ListRecentlyViewedGuidebooks(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("list guidebooks: %w", err)
 	}
 	return resp.Guidebooks, nil
 }
 
-func (c *Client) GetGuidebook(guidebookID string) (*pb.Guidebook, error) {
+func (c *Client) GetGuidebook(ctx context.Context, guidebookID string) (*pb.Guidebook, error) {
 	req := &pb.GetGuidebookRequest{GuidebookId: guidebookID}
-	resp, err := c.guidebooksService.GetGuidebook(context.Background(), req)
+	resp, err := c.guidebooksService.GetGuidebook(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get guidebook: %w", err)
 	}
 	return resp, nil
 }
 
-func (c *Client) DeleteGuidebook(guidebookID string) error {
+func (c *Client) DeleteGuidebook(ctx context.Context, guidebookID string) error {
 	req := &pb.DeleteGuidebookRequest{GuidebookId: guidebookID}
-	_, err := c.guidebooksService.DeleteGuidebook(context.Background(), req)
+	_, err := c.guidebooksService.DeleteGuidebook(ctx, req)
 	if err != nil {
 		return fmt.Errorf("delete guidebook: %w", err)
 	}
 	return nil
 }
 
-func (c *Client) PublishGuidebook(guidebookID string) (*pb.PublishGuidebookResponse, error) {
+func (c *Client) PublishGuidebook(ctx context.Context, guidebookID string) (*pb.PublishGuidebookResponse, error) {
 	req := &pb.PublishGuidebookRequest{GuidebookId: guidebookID}
-	resp, err := c.guidebooksService.PublishGuidebook(context.Background(), req)
+	resp, err := c.guidebooksService.PublishGuidebook(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("publish guidebook: %w", err)
 	}
 	return resp, nil
 }
 
-func (c *Client) ShareGuidebook(guidebookID string) (*pb.ShareGuidebookResponse, error) {
+func (c *Client) ShareGuidebook(ctx context.Context, guidebookID string) (*pb.ShareGuidebookResponse, error) {
 	req := &pb.ShareGuidebookRequest{GuidebookId: guidebookID}
-	resp, err := c.guidebooksService.ShareGuidebook(context.Background(), req)
+	resp, err := c.guidebooksService.ShareGuidebook(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("share guidebook: %w", err)
 	}
 	return resp, nil
 }
 
-func (c *Client) GetGuidebookDetails(guidebookID string) (*pb.GuidebookDetails, error) {
+func (c *Client) GetGuidebookDetails(ctx context.Context, guidebookID string) (*pb.GuidebookDetails, error) {
 	req := &pb.GetGuidebookDetailsRequest{GuidebookId: guidebookID}
-	resp, err := c.guidebooksService.GetGuidebookDetails(context.Background(), req)
+	resp, err := c.guidebooksService.GetGuidebookDetails(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("get guidebook details: %w", err)
 	}
 	return resp, nil
 }
 
-func (c *Client) GuidebookAsk(guidebookID, question string) (*pb.GuidebookGenerateAnswerResponse, error) {
+func (c *Client) GuidebookAsk(ctx context.Context, guidebookID, question string) (*pb.GuidebookGenerateAnswerResponse, error) {
 	req := &pb.GuidebookGenerateAnswerRequest{
 		GuidebookId: guidebookID,
 		Question:    question,
 	}
-	resp, err := c.guidebooksService.GuidebookGenerateAnswer(context.Background(), req)
+	resp, err := c.guidebooksService.GuidebookGenerateAnswer(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("guidebook ask: %w", err)
 	}
@@ -3701,17 +3688,17 @@ const (
 
 // CreateSlideDeck generates a detailed slide deck from every source in the
 // notebook. It is a convenience wrapper over CreateSlideDeckWithOptions.
-func (c *Client) CreateSlideDeck(projectID, instructions string) (string, error) {
-	return c.CreateSlideDeckWithOptions(projectID, instructions, nil, SlideDeckFormatDetailed)
+func (c *Client) CreateSlideDeck(ctx context.Context, projectID, instructions string) (string, error) {
+	return c.CreateSlideDeckWithOptions(ctx, projectID, instructions, nil, SlideDeckFormatDetailed)
 }
 
 // CreateSlideDeckWithOptions generates a slide deck in the given format. When
 // sourceIDs is empty, every source in the notebook is used; otherwise only the
 // listed sources are included. An empty sourceIDs slice after expansion (a
 // notebook with no sources) is an error.
-func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sourceIDs []string, format SlideDeckFormat) (string, error) {
+func (c *Client) CreateSlideDeckWithOptions(ctx context.Context, projectID, instructions string, sourceIDs []string, format SlideDeckFormat) (string, error) {
 	if len(sourceIDs) == 0 {
-		project, err := c.GetProject(projectID)
+		project, err := c.GetProject(ctx, projectID)
 		if err != nil {
 			return "", fmt.Errorf("get project sources: %w", err)
 		}
@@ -3725,7 +3712,7 @@ func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sour
 		return "", fmt.Errorf("notebook has no sources")
 	}
 	if instructions == "" && format == SlideDeckFormatDetailed {
-		artifact, err := c.orchestrationService.CreateUniversalArtifact(context.Background(), &pb.CreateUniversalArtifactRequest{
+		artifact, err := c.orchestrationService.CreateUniversalArtifact(ctx, &pb.CreateUniversalArtifactRequest{
 			Context:   universalArtifactRequestContext(),
 			ProjectId: projectID,
 			Options: &pb.UniversalArtifactOptions{
@@ -3749,7 +3736,7 @@ func (c *Client) CreateSlideDeckWithOptions(projectID, instructions string, sour
 		NotebookID: projectID,
 		Args:       args,
 	}
-	resp, err := c.rpc.Do(call)
+	resp, err := c.rpc.Do(ctx, call)
 	if err != nil {
 		return "", fmt.Errorf("create slide deck: %w", err)
 	}
@@ -3784,12 +3771,12 @@ func createdArtifactIDFromProtoWithOptions(resp []byte, options beprotojson.Unma
 // poll with ListArtifacts to check completion status.
 // CreateReport creates a report artifact via R7cb6c.
 // If targetSourceIDs is non-empty, only those sources are used; otherwise all project sources are included.
-func (c *Client) CreateReport(projectID, reportType, reportDescription, instructions string, targetSourceIDs ...string) (string, error) {
+func (c *Client) CreateReport(ctx context.Context, projectID, reportType, reportDescription, instructions string, targetSourceIDs ...string) (string, error) {
 	var sourceIDs []string
 	if len(targetSourceIDs) > 0 && len(targetSourceIDs[0]) > 0 {
 		sourceIDs = targetSourceIDs
 	} else {
-		project, err := c.GetProject(projectID)
+		project, err := c.GetProject(ctx, projectID)
 		if err != nil {
 			return "", fmt.Errorf("get project sources: %w", err)
 		}
@@ -3809,7 +3796,7 @@ func (c *Client) CreateReport(projectID, reportType, reportDescription, instruct
 		NotebookID: projectID,
 		Args:       args,
 	}
-	resp, err := c.rpc.Do(call)
+	resp, err := c.rpc.Do(ctx, call)
 	if err != nil {
 		return "", fmt.Errorf("create report: %w", err)
 	}
@@ -3851,8 +3838,8 @@ type ArtifactSuggestion struct {
 // variation controls which of several suggestion sets the server
 // returns. The UI increments this each time the user clicks "refresh";
 // 1 is a reasonable default.
-func (c *Client) GenerateArtifactSuggestions(projectID string, kind int, variation int) ([]ArtifactSuggestion, error) {
-	project, err := c.GetProject(projectID)
+func (c *Client) GenerateArtifactSuggestions(ctx context.Context, projectID string, kind int, variation int) ([]ArtifactSuggestion, error) {
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("get project sources: %w", err)
 	}
@@ -3867,7 +3854,7 @@ func (c *Client) GenerateArtifactSuggestions(projectID string, kind int, variati
 	}
 
 	args := intmethod.EncodeGenerateArtifactSuggestionsArgs(kind, projectID, sourceIDs, variation)
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCAudioTopicSuggestions,
 		NotebookID: projectID,
 		Args:       args,
@@ -3924,8 +3911,8 @@ type SourceGuide struct {
 // same tr032e RPC that post-upload processing fires, but keyed by source_id
 // with the 4-level nested shape [[[["source_id"]]]]. The response shape is
 // [[[null, ["summary"], [["topic", "topic", ...]], []]]].
-func (c *Client) GenerateSourceGuide(sourceID string) (*SourceGuide, error) {
-	resp, err := c.orchestrationService.GenerateDocumentGuides(context.Background(), &pb.GenerateDocumentGuidesRequest{
+func (c *Client) GenerateSourceGuide(ctx context.Context, sourceID string) (*SourceGuide, error) {
+	resp, err := c.orchestrationService.GenerateDocumentGuides(ctx, &pb.GenerateDocumentGuidesRequest{
 		Sources: &pb.GenerateDocumentGuideSources{Source: &pb.GenerateDocumentGuideSource{
 			Source: &pb.SourceIdList{SourceId: sourceID},
 		}},
@@ -3947,8 +3934,8 @@ func sourceGuideFromProto(resp *pb.GenerateDocumentGuidesResponse) *SourceGuide 
 	return g
 }
 
-func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGuideResponse, error) {
-	guide, err := c.orchestrationService.GenerateNotebookGuide(context.Background(), &pb.GenerateNotebookGuideRequest{
+func (c *Client) GenerateNotebookGuide(ctx context.Context, projectID string) (*pb.GenerateNotebookGuideResponse, error) {
+	guide, err := c.orchestrationService.GenerateNotebookGuide(ctx, &pb.GenerateNotebookGuideRequest{
 		ProjectId: projectID,
 	})
 	if err != nil {
@@ -3957,7 +3944,7 @@ func (c *Client) GenerateNotebookGuide(projectID string) (*pb.GenerateNotebookGu
 	return guide, nil
 }
 
-func (c *Client) GenerateMagicView(projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
+func (c *Client) GenerateMagicView(ctx context.Context, projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
 	_ = sourceIDs // The captured uK8f7c request carries only context and project ID.
 	req := &pb.GenerateMagicViewRequest{
 		Context: &pb.MagicViewRequestContext{
@@ -3967,7 +3954,6 @@ func (c *Client) GenerateMagicView(projectID string, sourceIDs []string) (*pb.Ge
 		},
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	magicView, err := c.orchestrationService.GenerateMagicView(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate magic view: %w", err)
@@ -3975,11 +3961,10 @@ func (c *Client) GenerateMagicView(projectID string, sourceIDs []string) (*pb.Ge
 	return magicView, nil
 }
 
-func (c *Client) GenerateOutline(projectID string) (*pb.GenerateOutlineResponse, error) {
+func (c *Client) GenerateOutline(ctx context.Context, projectID string) (*pb.GenerateOutlineResponse, error) {
 	req := &pb.GenerateOutlineRequest{
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	outline, err := c.orchestrationService.GenerateOutline(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate outline: %w", err)
@@ -3987,11 +3972,10 @@ func (c *Client) GenerateOutline(projectID string) (*pb.GenerateOutlineResponse,
 	return outline, nil
 }
 
-func (c *Client) GenerateSection(projectID string) (*pb.GenerateSectionResponse, error) {
+func (c *Client) GenerateSection(ctx context.Context, projectID string) (*pb.GenerateSectionResponse, error) {
 	req := &pb.GenerateSectionRequest{
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	section, err := c.orchestrationService.GenerateSection(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("generate section: %w", err)
@@ -3999,11 +3983,10 @@ func (c *Client) GenerateSection(projectID string) (*pb.GenerateSectionResponse,
 	return section, nil
 }
 
-func (c *Client) StartDraft(projectID string) (*pb.StartDraftResponse, error) {
+func (c *Client) StartDraft(ctx context.Context, projectID string) (*pb.StartDraftResponse, error) {
 	req := &pb.StartDraftRequest{
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	draft, err := c.orchestrationService.StartDraft(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("start draft: %w", err)
@@ -4011,11 +3994,10 @@ func (c *Client) StartDraft(projectID string) (*pb.StartDraftResponse, error) {
 	return draft, nil
 }
 
-func (c *Client) StartSection(projectID string) (*pb.StartSectionResponse, error) {
+func (c *Client) StartSection(ctx context.Context, projectID string) (*pb.StartSectionResponse, error) {
 	req := &pb.StartSectionRequest{
 		ProjectId: projectID,
 	}
-	ctx := context.Background()
 	section, err := c.orchestrationService.StartSection(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("start section: %w", err)
@@ -4128,9 +4110,9 @@ func IsChatStreamTimeout(err error) bool {
 	return errors.As(err, &timeoutErr)
 }
 
-func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
+func (c *Client) GenerateFreeFormStreamed(ctx context.Context, projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
 	var resp strings.Builder
-	err := c.StreamChat(ChatRequest{
+	err := c.StreamChat(ctx, ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
 		SourceIDs: sourceIDs,
@@ -4148,8 +4130,8 @@ func (c *Client) GenerateFreeFormStreamed(projectID string, prompt string, sourc
 }
 
 // GenerateFreeFormStreamedWithCallback streams the response and calls the callback for each chunk.
-func (c *Client) GenerateFreeFormStreamedWithCallback(projectID string, prompt string, sourceIDs []string, callback func(chunk string) bool) error {
-	return c.StreamChat(ChatRequest{
+func (c *Client) GenerateFreeFormStreamedWithCallback(ctx context.Context, projectID string, prompt string, sourceIDs []string, callback func(chunk string) bool) error {
+	return c.StreamChat(ctx, ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
 		SourceIDs: sourceIDs,
@@ -4158,8 +4140,8 @@ func (c *Client) GenerateFreeFormStreamedWithCallback(projectID string, prompt s
 
 // StreamChat streams the response with phase-aware ChatChunk callbacks.
 // Thinking chunks are complete reasoning traces; answer chunks are cumulative deltas.
-func (c *Client) StreamChat(req ChatRequest, callback func(ChatChunk) bool) error {
-	return c.doChatStreamedChunked(req, callback)
+func (c *Client) StreamChat(ctx context.Context, req ChatRequest, callback func(ChatChunk) bool) error {
+	return c.doChatStreamedChunked(ctx, req, callback)
 }
 
 func answerOnlyCallback(callback func(string) bool) func(ChatChunk) bool {
@@ -4172,18 +4154,18 @@ func answerOnlyCallback(callback func(string) bool) func(ChatChunk) bool {
 }
 
 // ChatWithHistory sends a chat message with full conversation history.
-func (c *Client) ChatWithHistory(req ChatRequest) (string, error) {
-	return c.doChat(req)
+func (c *Client) ChatWithHistory(ctx context.Context, req ChatRequest) (string, error) {
+	return c.doChat(ctx, req)
 }
 
 // resolveSourceIDs fills in source IDs from the project if not provided.
-func (c *Client) resolveSourceIDs(projectID string, sourceIDs []string) []string {
+func (c *Client) resolveSourceIDs(ctx context.Context, projectID string, sourceIDs []string) []string {
 	if len(sourceIDs) > 0 || c.config.SkipSources {
 		return sourceIDs
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	project, err := c.GetProjectWithContext(ctx, projectID)
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		if c.config.Debug {
 			fmt.Fprintf(os.Stderr, "DEBUG: failed to get project sources: %v\n", err)
@@ -4225,8 +4207,8 @@ type chatWireRequest struct {
 	SequenceNumber   int32
 }
 
-func (c *Client) buildChatWireRequest(req ChatRequest) *chatWireRequest {
-	req.SourceIDs = c.resolveSourceIDs(req.ProjectID, req.SourceIDs)
+func (c *Client) buildChatWireRequest(ctx context.Context, req ChatRequest) *chatWireRequest {
+	req.SourceIDs = c.resolveSourceIDs(ctx, req.ProjectID, req.SourceIDs)
 
 	if req.ConversationID == "" {
 		req.ConversationID = uuid.New().String()
@@ -4316,8 +4298,8 @@ func nilIfEmpty(s string) interface{} {
 
 // buildChatArgs builds the inner JSON args for a chat request.
 // Wire format: [[[[source_ids]]],prompt,history,[2,null,[1],[1]],conv_id,null,null,notebook_id,seq_num]
-func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
-	wireReq := c.buildChatWireRequest(req)
+func (c *Client) buildChatArgs(ctx context.Context, req ChatRequest) (string, error) {
+	wireReq := c.buildChatWireRequest(ctx, req)
 	sources := make([]*pb.ChatSourceSelection, 0, len(wireReq.SourceIDs))
 	for _, sourceID := range wireReq.SourceIDs {
 		sources = append(sources, &pb.ChatSourceSelection{Source: &pb.SourceIdList{SourceId: sourceID}})
@@ -4349,8 +4331,8 @@ func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
 }
 
 // buildChatRequestBody builds the full HTTP form body for a chat request.
-func (c *Client) buildChatRequestBody(req ChatRequest) (string, error) {
-	innerJSON, err := c.buildChatArgs(req)
+func (c *Client) buildChatRequestBody(ctx context.Context, req ChatRequest) (string, error) {
+	innerJSON, err := c.buildChatArgs(ctx, req)
 	if err != nil {
 		return "", err
 	}
@@ -4385,9 +4367,9 @@ func (c *Client) buildChatURL(notebookID string) string {
 }
 
 // doChat sends a chat request and returns the full response text.
-func (c *Client) doChat(req ChatRequest) (string, error) {
+func (c *Client) doChat(ctx context.Context, req ChatRequest) (string, error) {
 	var result strings.Builder
-	err := c.doChatStreamed(req, func(chunk string) bool {
+	err := c.doChatStreamed(ctx, req, func(chunk string) bool {
 		result.WriteString(chunk)
 		return true
 	})
@@ -4398,8 +4380,8 @@ func (c *Client) doChat(req ChatRequest) (string, error) {
 }
 
 // doChatStreamed sends a chat request and streams response chunks via callback.
-func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) bool) error {
-	body, err := c.buildChatRequestBody(req)
+func (c *Client) doChatStreamed(ctx context.Context, req ChatRequest, callback func(chunk string) bool) error {
+	body, err := c.buildChatRequestBody(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -4419,7 +4401,7 @@ func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) boo
 		}
 	}
 
-	httpReq, err := http.NewRequest("POST", chatURL, strings.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", chatURL, strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("create chat request: %w", err)
 	}
@@ -4455,18 +4437,18 @@ func (c *Client) doChatStreamed(req ChatRequest, callback func(chunk string) boo
 }
 
 // doChatStreamedChunked sends a chat request and streams phase-aware ChatChunks via callback.
-func (c *Client) doChatStreamedChunked(req ChatRequest, callback func(ChatChunk) bool) error {
-	sourceIDs := c.resolveSourceIDs(req.ProjectID, req.SourceIDs)
+func (c *Client) doChatStreamedChunked(ctx context.Context, req ChatRequest, callback func(ChatChunk) bool) error {
+	sourceIDs := c.resolveSourceIDs(ctx, req.ProjectID, req.SourceIDs)
 	req.SourceIDs = sourceIDs
 
-	body, err := c.buildChatRequestBody(req)
+	body, err := c.buildChatRequestBody(ctx, req)
 	if err != nil {
 		return err
 	}
 
 	chatURL := c.buildChatURL(req.ProjectID)
 
-	httpReq, err := http.NewRequest("POST", chatURL, strings.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", chatURL, strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("create chat request: %w", err)
 	}
@@ -5723,8 +5705,8 @@ func parseFollowUps(data interface{}) []string {
 }
 
 // DeleteChatHistory deletes all chat history for a notebook.
-func (c *Client) DeleteChatHistory(projectID string) error {
-	_, err := c.orchestrationService.DeleteChatHistory(context.Background(), &pb.DeleteChatHistoryRequest{
+func (c *Client) DeleteChatHistory(ctx context.Context, projectID string) error {
+	_, err := c.orchestrationService.DeleteChatHistory(ctx, &pb.DeleteChatHistoryRequest{
 		ProjectId: projectID,
 	})
 	if err != nil {
@@ -5734,8 +5716,8 @@ func (c *Client) DeleteChatHistory(projectID string) error {
 }
 
 // GetConversations returns conversation IDs for a notebook.
-func (c *Client) GetConversations(projectID string) ([]string, error) {
-	resp, err := c.orchestrationService.GetConversations(context.Background(), &pb.GetConversationsRequest{
+func (c *Client) GetConversations(ctx context.Context, projectID string) ([]string, error) {
+	resp, err := c.orchestrationService.GetConversations(ctx, &pb.GetConversationsRequest{
 		Context:   &pb.RequestContext{},
 		ProjectId: projectID,
 		Limit:     20,
@@ -5760,13 +5742,13 @@ func conversationIDsFromProto(resp *pb.GetConversationsResponse) []string {
 }
 
 // GetConversationHistory retrieves the message history for a specific conversation.
-func (c *Client) GetConversationHistory(projectID, conversationID string) ([]ChatMessage, error) {
+func (c *Client) GetConversationHistory(ctx context.Context, projectID, conversationID string) ([]ChatMessage, error) {
 	req := &pb.GetConversationHistoryRequest{
 		Context:        conversationRequestContext(),
 		ConversationId: conversationID,
 		Limit:          proto.Int32(20),
 	}
-	raw, err := c.rpc.Do(rpc.Call{
+	raw, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCGetConversationHistory,
 		NotebookID: projectID,
 		Args:       method.EncodeGetConversationHistoryArgs(req),
@@ -5907,7 +5889,7 @@ const (
 // SetChatConfig updates the chat configuration for a notebook via MutateProject.
 // goalConfig: [goal_type] or [goal_type, "custom_prompt"]
 // responseLengthConfig: [] for default, [4] for longer, [3] for shorter
-func (c *Client) SetChatConfig(projectID string, goal ChatGoal, customPrompt string, responseLength ResponseLength) error {
+func (c *Client) SetChatConfig(ctx context.Context, projectID string, goal ChatGoal, customPrompt string, responseLength ResponseLength) error {
 	var goalConfig interface{}
 	if goal == ChatGoalCustom && customPrompt != "" {
 		goalConfig = []interface{}{int(goal), customPrompt}
@@ -5924,7 +5906,7 @@ func (c *Client) SetChatConfig(projectID string, goal ChatGoal, customPrompt str
 		lengthConfig = []interface{}{}
 	}
 
-	_, err := c.rpc.Do(rpc.Call{
+	_, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateProject,
 		NotebookID: projectID,
 		Args: []interface{}{
@@ -5943,25 +5925,8 @@ func (c *Client) SetChatConfig(projectID string, goal ChatGoal, customPrompt str
 	return nil
 }
 
-// GetProjectWithContext is like GetProject but accepts a context for cancellation
-func (c *Client) GetProjectWithContext(ctx context.Context, projectID string) (*Notebook, error) {
-	req := &pb.GetProjectRequest{
-		ProjectId: projectID,
-	}
-
-	project, err := c.orchestrationService.GetProject(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("get project: %w", classifyGetProjectError(projectID, err))
-	}
-
-	if c.config.Debug && project.Sources != nil {
-		fmt.Fprintf(os.Stderr, "DEBUG: Successfully parsed project with %d sources\n", len(project.Sources))
-	}
-	return project, nil
-}
-
-func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReportSuggestionsResponse, error) {
-	sourceIDs := c.resolveSourceIDs(projectID, nil)
+func (c *Client) GenerateReportSuggestions(ctx context.Context, projectID string) (*pb.GenerateReportSuggestionsResponse, error) {
+	sourceIDs := c.resolveSourceIDs(ctx, projectID, nil)
 
 	// Build source refs in wire format: [["src1"],["src2"],...]
 	var sourceRefs []interface{}
@@ -5975,7 +5940,7 @@ func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReport
 		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
 	}
 
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         "ciyUvf",
 		NotebookID: projectID,
 		Args:       []interface{}{projectContext, projectID, sourceRefs},
@@ -6044,8 +6009,8 @@ func (c *Client) GenerateReportSuggestions(projectID string) (*pb.GenerateReport
 	return result, nil
 }
 
-func (c *Client) GetProjectDetails(shareID string) (*pb.ProjectDetails, error) {
-	resp, err := c.sharingService.GetProjectDetails(context.Background(), &pb.GetProjectDetailsRequest{
+func (c *Client) GetProjectDetails(ctx context.Context, shareID string) (*pb.ProjectDetails, error) {
+	resp, err := c.sharingService.GetProjectDetails(ctx, &pb.GetProjectDetailsRequest{
 		ShareId: shareID,
 		Context: &pb.RequestContext{Version: proto.Int32(2)},
 	})
@@ -6104,7 +6069,7 @@ type ShareAudioResult struct {
 // the audio. This implementation routes
 // the call to the correct LabsTailwindSharingService.ShareAudio
 // endpoint. The ShareOption argument is preserved for back-compat.
-func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAudioResult, error) {
+func (c *Client) ShareAudio(ctx context.Context, projectID string, shareOption ShareOption) (*ShareAudioResult, error) {
 	options := []int32{0}
 	if shareOption == SharePublic {
 		options[0] = 1
@@ -6113,7 +6078,7 @@ func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAu
 		ProjectId:    projectID,
 		ShareOptions: options,
 	}
-	resp, err := c.sharingService.ShareAudio(context.Background(), req)
+	resp, err := c.sharingService.ShareAudio(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("share audio: %w", err)
 	}
@@ -6132,19 +6097,19 @@ func (c *Client) ShareAudio(projectID string, shareOption ShareOption) (*ShareAu
 }
 
 // ShareProject shares a project with specified settings
-func (c *Client) ShareProject(projectID string, settings *pb.ShareSettings) (*pb.ShareProjectResponse, error) {
+func (c *Client) ShareProject(ctx context.Context, projectID string, settings *pb.ShareSettings) (*pb.ShareProjectResponse, error) {
 	if settings == nil {
 		settings = &pb.ShareSettings{}
 	}
-	return c.shareProjectDirect(projectID, settings.GetIsPublic())
+	return c.shareProjectDirect(ctx, projectID, settings.GetIsPublic())
 }
 
-func (c *Client) shareProjectDirect(projectID string, isPublic bool) (*pb.ShareProjectResponse, error) {
+func (c *Client) shareProjectDirect(ctx context.Context, projectID string, isPublic bool) (*pb.ShareProjectResponse, error) {
 	req := &pb.ShareProjectRequest{
 		ProjectId: projectID,
 		Settings:  &pb.ShareSettings{IsPublic: isPublic},
 	}
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCShareProject,
 		NotebookID: projectID,
 		Args:       intmethod.EncodeShareProjectArgs(req),
@@ -6257,13 +6222,13 @@ func canonicalYouTubeWatchURL(videoID string) (string, error) {
 }
 
 // SetInstructions sets the notebook's custom chat instructions (system prompt).
-func (c *Client) SetInstructions(projectID string, instructions string) error {
-	return c.SetChatConfig(projectID, ChatGoalCustom, instructions, ResponseLengthDefault)
+func (c *Client) SetInstructions(ctx context.Context, projectID string, instructions string) error {
+	return c.SetChatConfig(ctx, projectID, ChatGoalCustom, instructions, ResponseLengthDefault)
 }
 
 // GetInstructions returns the notebook's custom chat instructions (system prompt).
-func (c *Client) GetInstructions(projectID string) (string, error) {
-	project, err := c.GetProject(projectID)
+func (c *Client) GetInstructions(ctx context.Context, projectID string) (string, error) {
+	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
 		return "", fmt.Errorf("get project: %w", err)
 	}
@@ -6341,8 +6306,8 @@ func startFastResearchArgs(query, projectID string) []interface{} {
 //
 // (Earlier commits speculated that Es3dTe was the fast-research RPC;
 // Es3dTe is actually a different DiscoverSources entry point.)
-func (c *Client) StartFastResearch(projectID, query string) (*DeepResearchResult, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+func (c *Client) StartFastResearch(ctx context.Context, projectID, query string) (*DeepResearchResult, error) {
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCStartFastResearch,
 		NotebookID: projectID,
 		Args:       startFastResearchArgs(query, projectID),
@@ -6370,31 +6335,37 @@ func (c *Client) StartFastResearch(projectID, query string) (*DeepResearchResult
 // scanner matches on ConversationID rather than ResearchID and the
 // main_blob decoder uses the fast-mode layout (sources + summary
 // string, no markdown report header).
-func (c *Client) PollFastResearch(projectID, conversationID string) (*DeepResearchResult, error) {
+func (c *Client) PollFastResearch(ctx context.Context, projectID, conversationID string) (*DeepResearchResult, error) {
 	match := func(s deepResearchSession) bool {
 		return s.ConversationID == conversationID && s.Mode == 1
 	}
-	return c.pollResearch(projectID, "fast", match, decodeFastMainBlob)
+	return c.pollResearch(ctx, projectID, "fast", match, decodeFastMainBlob)
 }
 
 // FastResearch is a convenience wrapper: start a fast-research session
 // and block until it completes, returning the final result. For a
 // start-and-poll pattern with explicit pacing, call StartFastResearch
 // and PollFastResearch directly.
-func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, error) {
-	started, err := c.StartFastResearch(projectID, query)
+func (c *Client) FastResearch(ctx context.Context, projectID, query string) (*DeepResearchResult, error) {
+	started, err := c.StartFastResearch(ctx, projectID, query)
 	if err != nil {
 		return nil, err
 	}
 	for attempt := 0; attempt < 60; attempt++ {
-		result, err := c.PollFastResearch(projectID, started.ConversationID)
+		result, err := c.PollFastResearch(ctx, projectID, started.ConversationID)
 		if err == nil && result.Done {
 			return result, nil
 		}
 		if err != nil && !errors.Is(err, ErrResearchPolling) {
 			return nil, err
 		}
-		time.Sleep(2 * time.Second)
+		timer := time.NewTimer(2 * time.Second)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, fmt.Errorf("fast research: %w", ctx.Err())
+		}
 	}
 	return nil, fmt.Errorf("fast research: timed out waiting for completion")
 }
@@ -6415,14 +6386,14 @@ func (c *Client) FastResearch(projectID, query string) (*DeepResearchResult, err
 //	[4] project_id        notebook identifier
 //
 // Response is a two-element JSON array: [research_id, conversation_id].
-func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult, error) {
+func (c *Client) StartDeepResearch(ctx context.Context, projectID, query string) (*DeepResearchResult, error) {
 	req := &pb.StartDeepResearchWireRequest{
 		Context:   conversationRequestContext(),
 		ProjectId: projectID,
 		Query:     &pb.ResearchQuery{Query: query, Mode: 1},
 		Mode:      5,
 	}
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCStartDeepResearch,
 		NotebookID: projectID,
 		Args:       method.EncodeStartDeepResearchWireArgs(req),
@@ -6460,11 +6431,11 @@ func (c *Client) StartDeepResearch(projectID, query string) (*DeepResearchResult
 // Values 0, 3, and 4 have not been observed. The scan treats unknown
 // states as still-running rather than false-done, which is the safe
 // default.
-func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchResult, error) {
+func (c *Client) PollDeepResearch(ctx context.Context, projectID, researchID string) (*DeepResearchResult, error) {
 	match := func(s deepResearchSession) bool {
 		return s.ResearchID == researchID && s.Mode == 5
 	}
-	result, err := c.pollResearch(projectID, "deep", match, decodeDeepResearchContent)
+	result, err := c.pollResearch(ctx, projectID, "deep", match, decodeDeepResearchContent)
 	if result != nil {
 		result.ResearchID = researchID
 	}
@@ -6480,11 +6451,12 @@ func (c *Client) PollDeepResearch(projectID, researchID string) (*DeepResearchRe
 // running; the caller loops until done or a cap is hit. kind labels
 // the error messages so panic traces distinguish deep-vs-fast.
 func (c *Client) pollResearch(
+	ctx context.Context,
 	projectID, kind string,
 	match func(deepResearchSession) bool,
 	decode func(json.RawMessage) (string, []ResearchSource),
 ) (*DeepResearchResult, error) {
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCGetDeepResearchSessions,
 		NotebookID: projectID,
 		Args:       []interface{}{nil, nil, projectID},
@@ -6824,8 +6796,8 @@ func decodeFastMainBlob(main json.RawMessage) (string, []ResearchSource) {
 // shape.
 //
 // Response: empty JSON array on success.
-func (c *Client) DeleteDeepResearch(projectID, conversationID string) error {
-	_, err := c.orchestrationService.DeleteDeepResearch(context.Background(), &pb.DeleteDeepResearchRequest{
+func (c *Client) DeleteDeepResearch(ctx context.Context, projectID, conversationID string) error {
+	_, err := c.orchestrationService.DeleteDeepResearch(ctx, &pb.DeleteDeepResearchRequest{
 		ProjectId:      projectID,
 		ConversationId: conversationID,
 	})
@@ -6889,11 +6861,11 @@ type BulkImportResult struct {
 //
 // Position [2] is [url, title]; position [10] is the source_type enum
 // (2 observed for URL sources in this capture).
-func (c *Client) BulkImportFromResearch(projectID, conversationID string, sources []BulkImportSource) ([]BulkImportResult, error) {
+func (c *Client) BulkImportFromResearch(ctx context.Context, projectID, conversationID string, sources []BulkImportSource) ([]BulkImportResult, error) {
 	if len(sources) == 0 {
 		return nil, fmt.Errorf("bulk import: at least one source required")
 	}
-	resp, err := c.rpc.Do(rpc.Call{
+	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCBulkImportFromResearch,
 		NotebookID: projectID,
 		Args:       bulkImportArgs(conversationID, projectID, sources),

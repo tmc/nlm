@@ -4,6 +4,7 @@ package api
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -93,7 +94,7 @@ func DebugHTTPRecorder(t *testing.T) {
 
 	// Make a simple API call
 	t.Log("Making test API call...")
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Logf("API call failed (expected in replay mode): %v", err)
 	} else {

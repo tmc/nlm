@@ -57,7 +57,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateArtifact(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateArtifact: %w", err)
 	}
@@ -81,7 +81,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetArtifact(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetArtifact: %w", err)
 	}
@@ -105,7 +105,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("UpdateArtifact: %w", err)
 	}
@@ -129,7 +129,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("RenameArtifact: %w", err)
 	}
@@ -153,7 +153,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteArtifact: %w", err)
 	}
@@ -177,7 +177,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListArtifacts(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ListArtifacts: %w", err)
 	}
@@ -201,7 +201,7 @@ func (c *LabsTailwindOrchestrationServiceClient) QueryArtifacts(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("QueryArtifacts: %w", err)
 	}
@@ -225,7 +225,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ActOnSources(ctx context.Contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ActOnSources: %w", err)
 	}
@@ -249,7 +249,7 @@ func (c *LabsTailwindOrchestrationServiceClient) AddSources(ctx context.Context,
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("AddSources: %w", err)
 	}
@@ -273,7 +273,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CheckSourceFreshness(ctx contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CheckSourceFreshness: %w", err)
 	}
@@ -297,7 +297,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteSources(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteSources: %w", err)
 	}
@@ -321,7 +321,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DiscoverSources(ctx context.Con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DiscoverSources: %w", err)
 	}
@@ -345,7 +345,7 @@ func (c *LabsTailwindOrchestrationServiceClient) LoadSource(ctx context.Context,
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("LoadSource: %w", err)
 	}
@@ -369,7 +369,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateSource(ctx context.Contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("MutateSource: %w", err)
 	}
@@ -393,7 +393,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("RefreshSource: %w", err)
 	}
@@ -417,7 +417,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateAudioOverview: %w", err)
 	}
@@ -441,7 +441,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetAudioOverview(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetAudioOverview: %w", err)
 	}
@@ -465,7 +465,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteAudioOverview: %w", err)
 	}
@@ -489,7 +489,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateVideoOverview: %w", err)
 	}
@@ -513,7 +513,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateUniversalArtifact(ctx con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateUniversalArtifact: %w", err)
 	}
@@ -537,7 +537,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateNote(ctx context.Context,
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateNote: %w", err)
 	}
@@ -561,7 +561,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteNotes(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteNotes: %w", err)
 	}
@@ -585,7 +585,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetNotes(ctx context.Context, r
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetNotes: %w", err)
 	}
@@ -609,7 +609,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateNote(ctx context.Context,
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("MutateNote: %w", err)
 	}
@@ -633,7 +633,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateProject(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateProject: %w", err)
 	}
@@ -657,7 +657,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteProjects(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteProjects: %w", err)
 	}
@@ -681,7 +681,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProject(ctx context.Context,
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetProject: %w", err)
 	}
@@ -705,7 +705,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListFeaturedProjects(ctx contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ListFeaturedProjects: %w", err)
 	}
@@ -729,7 +729,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListRecentlyViewedProjects(ctx 
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ListRecentlyViewedProjects: %w", err)
 	}
@@ -753,7 +753,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateProject(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("MutateProject: %w", err)
 	}
@@ -777,7 +777,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateProjectCover(ctx context.
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("MutateProjectCover: %w", err)
 	}
@@ -801,7 +801,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("RemoveRecentlyViewedProject: %w", err)
 	}
@@ -825,7 +825,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamed(ctx co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateFreeFormStreamed: %w", err)
 	}
@@ -849,7 +849,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamedWire(ct
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateFreeFormStreamedWire: %w", err)
 	}
@@ -873,7 +873,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateNotebookGuide(ctx conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateNotebookGuide: %w", err)
 	}
@@ -897,7 +897,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateOutline(ctx context.Con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateOutline: %w", err)
 	}
@@ -921,7 +921,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateReportSuggestions(ctx c
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateReportSuggestions: %w", err)
 	}
@@ -945,7 +945,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateSection(ctx context.Con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateSection: %w", err)
 	}
@@ -969,7 +969,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartDraft(ctx context.Context,
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("StartDraft: %w", err)
 	}
@@ -993,7 +993,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartSection(ctx context.Contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("StartSection: %w", err)
 	}
@@ -1017,7 +1017,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateMagicView(ctx context.C
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateMagicView: %w", err)
 	}
@@ -1041,7 +1041,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetProjectAnalytics(ctx context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetProjectAnalytics: %w", err)
 	}
@@ -1065,7 +1065,7 @@ func (c *LabsTailwindOrchestrationServiceClient) SubmitFeedback(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("SubmitFeedback: %w", err)
 	}
@@ -1089,7 +1089,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetConversations(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetConversations: %w", err)
 	}
@@ -1113,7 +1113,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetConversationHistory(ctx cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetConversationHistory: %w", err)
 	}
@@ -1137,7 +1137,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteChatHistory(ctx context.C
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteChatHistory: %w", err)
 	}
@@ -1161,7 +1161,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetOrCreateAccount(ctx context.
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetOrCreateAccount: %w", err)
 	}
@@ -1185,7 +1185,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateAccount(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("MutateAccount: %w", err)
 	}
@@ -1209,7 +1209,7 @@ func (c *LabsTailwindOrchestrationServiceClient) AddFileSource(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("AddFileSource: %w", err)
 	}
@@ -1233,7 +1233,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteChatTurns(ctx context.Con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteChatTurns: %w", err)
 	}
@@ -1257,7 +1257,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartFastResearch(ctx context.C
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("StartFastResearch: %w", err)
 	}
@@ -1281,7 +1281,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartDeepResearch(ctx context.C
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("StartDeepResearch: %w", err)
 	}
@@ -1305,7 +1305,7 @@ func (c *LabsTailwindOrchestrationServiceClient) StartDeepResearchWire(ctx conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("StartDeepResearchWire: %w", err)
 	}
@@ -1329,7 +1329,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetDeepResearchSessions(ctx con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetDeepResearchSessions: %w", err)
 	}
@@ -1353,7 +1353,7 @@ func (c *LabsTailwindOrchestrationServiceClient) PollDeepResearch(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("PollDeepResearch: %w", err)
 	}
@@ -1377,7 +1377,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteDeepResearch: %w", err)
 	}
@@ -1401,7 +1401,7 @@ func (c *LabsTailwindOrchestrationServiceClient) BulkImportFromResearch(ctx cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("BulkImportFromResearch: %w", err)
 	}
@@ -1425,7 +1425,7 @@ func (c *LabsTailwindOrchestrationServiceClient) BulkImportFromResearchWire(ctx 
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("BulkImportFromResearchWire: %w", err)
 	}
@@ -1449,7 +1449,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetAudioFormats(ctx context.Con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetAudioFormats: %w", err)
 	}
@@ -1473,7 +1473,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateDocumentGuides(ctx cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateDocumentGuides: %w", err)
 	}
@@ -1497,7 +1497,7 @@ func (c *LabsTailwindOrchestrationServiceClient) LogEvent(ctx context.Context, r
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("LogEvent: %w", err)
 	}
@@ -1521,7 +1521,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ReportContent(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ReportContent: %w", err)
 	}
@@ -1545,7 +1545,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ReviseArtifact(ctx context.Cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ReviseArtifact: %w", err)
 	}
@@ -1569,7 +1569,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifactSuggestions(ctx
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateArtifactSuggestions: %w", err)
 	}
@@ -1593,7 +1593,7 @@ func (c *LabsTailwindOrchestrationServiceClient) FetchInteractivityToken(ctx con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("FetchInteractivityToken: %w", err)
 	}
@@ -1617,7 +1617,7 @@ func (c *LabsTailwindOrchestrationServiceClient) SDPExchange(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("SDPExchange: %w", err)
 	}
@@ -1641,7 +1641,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetLabels(ctx context.Context, 
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetLabels: %w", err)
 	}
@@ -1665,7 +1665,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpsertArtifactUserState(ctx con
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("UpsertArtifactUserState: %w", err)
 	}
@@ -1689,7 +1689,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetArtifactUserState(ctx contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetArtifactUserState: %w", err)
 	}
@@ -1713,7 +1713,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateLabel(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateLabel: %w", err)
 	}
@@ -1737,7 +1737,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateLabelsMode(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("MutateLabelsMode: %w", err)
 	}
@@ -1761,7 +1761,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateLabel(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("MutateLabel: %w", err)
 	}
@@ -1785,7 +1785,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteLabels(ctx context.Contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("DeleteLabels: %w", err)
 	}
@@ -1809,7 +1809,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifact(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateArtifact: %w", err)
 	}
@@ -1833,7 +1833,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CancelDiscoverSourcesJob(ctx co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CancelDiscoverSourcesJob: %w", err)
 	}
@@ -1857,7 +1857,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CancelGeneration(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CancelGeneration: %w", err)
 	}
@@ -1881,7 +1881,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ExportToDrive(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ExportToDrive: %w", err)
 	}
@@ -1905,7 +1905,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateFeaturedNotebookStatus(ct
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("UpdateFeaturedNotebookStatus: %w", err)
 	}
@@ -1929,7 +1929,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListModelOptions(ctx context.Co
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ListModelOptions: %w", err)
 	}
@@ -1953,7 +1953,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("UpdateProjectUserState: %w", err)
 	}
@@ -1977,7 +1977,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ExecuteWritingFunction(ctx cont
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ExecuteWritingFunction: %w", err)
 	}
@@ -2001,7 +2001,7 @@ func (c *LabsTailwindOrchestrationServiceClient) ListExpertIntelligenceContent(c
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ListExpertIntelligenceContent: %w", err)
 	}
@@ -2025,7 +2025,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateAccessToken(ctx context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GenerateAccessToken: %w", err)
 	}
@@ -2049,7 +2049,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GetMagicView(ctx context.Contex
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetMagicView: %w", err)
 	}
@@ -2073,7 +2073,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CopyProject(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CopyProject: %w", err)
 	}
@@ -2097,7 +2097,7 @@ func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverviewLegacy(ctx c
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateAudioOverviewLegacy: %w", err)
 	}

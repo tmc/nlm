@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"strings"
@@ -34,7 +35,7 @@ func TestNotebookCommands_ListProjects(t *testing.T) {
 		WithDebug(false),
 	)
 
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -66,7 +67,7 @@ func TestNotebookCommands_CreateProject(t *testing.T) {
 		WithDebug(false),
 	)
 
-	project, err := client.CreateProject("Test Project for Recording", "📝")
+	project, err := client.CreateProject(context.Background(), "Test Project for Recording", "📝")
 	if err != nil {
 		t.Fatalf("Failed to create project: %v", err)
 	}
@@ -75,7 +76,7 @@ func TestNotebookCommands_CreateProject(t *testing.T) {
 
 	// Store project ID for cleanup
 	t.Cleanup(func() {
-		if err := client.DeleteProjects([]string{project.ProjectId}); err != nil {
+		if err := client.DeleteProjects(context.Background(), []string{project.ProjectId}); err != nil {
 			t.Logf("Failed to clean up test project: %v", err)
 		}
 	})
@@ -103,14 +104,14 @@ func TestNotebookCommands_DeleteProject(t *testing.T) {
 	)
 
 	// First create a project to delete
-	project, err := client.CreateProject("Test Project for Delete Recording", "🗑️")
+	project, err := client.CreateProject(context.Background(), "Test Project for Delete Recording", "🗑️")
 	if err != nil {
 		t.Fatalf("Failed to create project for deletion test: %v", err)
 	}
 	t.Logf("Created project to delete: %s (%s)", project.Title, project.ProjectId)
 
 	// Now delete it
-	err = client.DeleteProjects([]string{project.ProjectId})
+	err = client.DeleteProjects(context.Background(), []string{project.ProjectId})
 	if err != nil {
 		t.Fatalf("Failed to delete project: %v", err)
 	}
@@ -139,7 +140,7 @@ func TestSourceCommands_ListSources(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -148,7 +149,7 @@ func TestSourceCommands_ListSources(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	project, err := client.GetProject(projectID)
+	project, err := client.GetProject(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("Failed to get project: %v", err)
 	}
@@ -178,7 +179,7 @@ func TestSourceCommands_AddTextSource(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -187,7 +188,7 @@ func TestSourceCommands_AddTextSource(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	sourceID, err := client.AddSourceFromText(projectID, "This is a test source for httprr recording. It contains sample text to demonstrate the API functionality.", "Test Source for Recording")
+	sourceID, err := client.AddSourceFromText(context.Background(), projectID, "This is a test source for httprr recording. It contains sample text to demonstrate the API functionality.", "Test Source for Recording")
 	if err != nil {
 		t.Fatalf("Failed to add text source: %v", err)
 	}
@@ -196,7 +197,7 @@ func TestSourceCommands_AddTextSource(t *testing.T) {
 
 	// Cleanup
 	t.Cleanup(func() {
-		if err := client.DeleteSources(projectID, []string{sourceID}); err != nil {
+		if err := client.DeleteSources(context.Background(), projectID, []string{sourceID}); err != nil {
 			t.Logf("Failed to clean up test source: %v", err)
 		}
 	})
@@ -224,7 +225,7 @@ func TestSourceCommands_AddURLSource(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -233,7 +234,7 @@ func TestSourceCommands_AddURLSource(t *testing.T) {
 	}
 
 	projectID := projects[0].ProjectId
-	sourceID, err := client.AddSourceFromURL(projectID, "https://example.com")
+	sourceID, err := client.AddSourceFromURL(context.Background(), projectID, "https://example.com")
 	if err != nil {
 		t.Fatalf("Failed to add URL source: %v", err)
 	}
@@ -242,7 +243,7 @@ func TestSourceCommands_AddURLSource(t *testing.T) {
 
 	// Cleanup
 	t.Cleanup(func() {
-		if err := client.DeleteSources(projectID, []string{sourceID}); err != nil {
+		if err := client.DeleteSources(context.Background(), projectID, []string{sourceID}); err != nil {
 			t.Logf("Failed to clean up test source: %v", err)
 		}
 	})
@@ -270,7 +271,7 @@ func TestSourceCommands_DeleteSource(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -281,14 +282,14 @@ func TestSourceCommands_DeleteSource(t *testing.T) {
 	projectID := projects[0].ProjectId
 
 	// First add a source to delete
-	sourceID, err := client.AddSourceFromText(projectID, "This is a test source that will be deleted for httprr recording.", "Test Source for Delete Recording")
+	sourceID, err := client.AddSourceFromText(context.Background(), projectID, "This is a test source that will be deleted for httprr recording.", "Test Source for Delete Recording")
 	if err != nil {
 		t.Fatalf("Failed to add source for deletion test: %v", err)
 	}
 	t.Logf("Created source to delete: %s", sourceID)
 
 	// Now delete it
-	err = client.DeleteSources(projectID, []string{sourceID})
+	err = client.DeleteSources(context.Background(), projectID, []string{sourceID})
 	if err != nil {
 		t.Fatalf("Failed to delete source: %v", err)
 	}
@@ -317,7 +318,7 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -328,7 +329,7 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 	projectID := projects[0].ProjectId
 
 	// First add a source to rename
-	sourceID, err := client.AddSourceFromText(projectID, "This is a test source that will be renamed for httprr recording.", "Original Source Name")
+	sourceID, err := client.AddSourceFromText(context.Background(), projectID, "This is a test source that will be renamed for httprr recording.", "Original Source Name")
 	if err != nil {
 		t.Fatalf("Failed to add source for rename test: %v", err)
 	}
@@ -336,7 +337,7 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 
 	// Now rename it
 	newTitle := "Renamed Source for Recording"
-	_, err = client.MutateSource(sourceID, &pb.Source{Title: newTitle})
+	_, err = client.MutateSource(context.Background(), sourceID, &pb.Source{Title: newTitle})
 	if err != nil {
 		t.Fatalf("Failed to rename source: %v", err)
 	}
@@ -344,7 +345,7 @@ func TestSourceCommands_RenameSource(t *testing.T) {
 
 	// Cleanup
 	t.Cleanup(func() {
-		if err := client.DeleteSources(projectID, []string{sourceID}); err != nil {
+		if err := client.DeleteSources(context.Background(), projectID, []string{sourceID}); err != nil {
 			t.Logf("Failed to clean up test source: %v", err)
 		}
 	})
@@ -372,7 +373,7 @@ func TestAudioCommands_CreateAudioOverview(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -383,7 +384,7 @@ func TestAudioCommands_CreateAudioOverview(t *testing.T) {
 	projectID := projects[0].ProjectId
 	instructions := "Create a brief overview suitable for recording API tests"
 
-	result, err := client.CreateAudioOverview(projectID, instructions)
+	result, err := client.CreateAudioOverview(context.Background(), projectID, instructions)
 	if err != nil {
 		t.Fatalf("Failed to create audio overview: %v", err)
 	}
@@ -413,7 +414,7 @@ func TestAudioCommands_GetAudioOverview(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -423,7 +424,7 @@ func TestAudioCommands_GetAudioOverview(t *testing.T) {
 
 	projectID := projects[0].ProjectId
 
-	result, err := client.GetAudioOverview(projectID)
+	result, err := client.GetAudioOverview(context.Background(), projectID)
 	if err != nil {
 		// This might fail if no audio overview exists, which is expected
 		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "no audio") {
@@ -458,7 +459,7 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -468,7 +469,7 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 
 	projectID := projects[0].ProjectId
 
-	guide, err := client.GenerateNotebookGuide(projectID)
+	guide, err := client.GenerateNotebookGuide(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("Failed to generate notebook guide: %v", err)
 	}
@@ -498,7 +499,7 @@ func TestGenerationCommands_GenerateOutline(t *testing.T) {
 	)
 
 	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -508,7 +509,7 @@ func TestGenerationCommands_GenerateOutline(t *testing.T) {
 
 	projectID := projects[0].ProjectId
 
-	outline, err := client.GenerateOutline(projectID)
+	outline, err := client.GenerateOutline(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("Failed to generate outline: %v", err)
 	}
@@ -564,7 +565,7 @@ func TestVideoCommands_CreateVideoOverview(t *testing.T) {
 
 	// First, we need a project to create video for
 	t.Log("Listing projects to find available project...")
-	projects, err := client.ListRecentlyViewedProjects()
+	projects, err := client.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		t.Fatalf("Failed to list projects: %v", err)
 	}
@@ -577,7 +578,7 @@ func TestVideoCommands_CreateVideoOverview(t *testing.T) {
 	t.Logf("Using project: %s", projectID)
 
 	t.Log("Creating video overview...")
-	result, err := client.CreateVideoOverview(projectID, "Create a comprehensive video overview of this notebook")
+	result, err := client.CreateVideoOverview(context.Background(), projectID, "Create a comprehensive video overview of this notebook")
 	if err != nil {
 		// Video creation might not be available yet, or might require special permissions
 		// Log the error but don't fail the test if it's a service availability issue

@@ -26,11 +26,11 @@ type Label struct {
 //
 // Wire request: [[2], project_id]. The leading [2] is a view enum required
 // by the server — single-arg forms are rejected.
-func (c *Client) GetLabels(projectID string) ([]Label, error) {
+func (c *Client) GetLabels(ctx context.Context, projectID string) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	response, err := c.orchestrationService.GetLabels(context.Background(), &pb.GetLabelsRequest{
+	response, err := c.orchestrationService.GetLabels(ctx, &pb.GetLabelsRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
 	})
@@ -68,14 +68,14 @@ func labelsFromProtoResponse(response *pb.GetLabelsResponse) []Label {
 //
 // Wire request: [[2], project_id, null, null, null, [[name, emoji]]].
 // Response: [null, [[label-row, ...]]].
-func (c *Client) CreateLabel(projectID, name, emoji string) ([]Label, error) {
+func (c *Client) CreateLabel(ctx context.Context, projectID, name, emoji string) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
 	if name == "" {
 		return nil, fmt.Errorf("label name required")
 	}
-	resp, err := c.orchestrationService.CreateLabel(context.Background(), &pb.CreateLabelRequest{
+	resp, err := c.orchestrationService.CreateLabel(ctx, &pb.CreateLabelRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
 		Creation:  &pb.LabelCreationRequest{Label: &pb.LabelCreation{Name: name, Emoji: proto.String(emoji)}},
@@ -91,8 +91,8 @@ func (c *Client) CreateLabel(projectID, name, emoji string) ([]Label, error) {
 // without recomputing the cluster set. Returns the refreshed list.
 //
 // Wire request: [[2], project_id, null, null, [0]].
-func (c *Client) LabelUnlabeled(projectID string) ([]Label, error) {
-	return c.mutateLabelsMode(projectID, 0)
+func (c *Client) LabelUnlabeled(ctx context.Context, projectID string) ([]Label, error) {
+	return c.mutateLabelsMode(ctx, projectID, 0)
 }
 
 // RelabelAll triggers a full re-cluster (mode 1) — the modern UI's "Relabel
@@ -100,18 +100,18 @@ func (c *Client) LabelUnlabeled(projectID string) ([]Label, error) {
 // return DeadlineExceeded.
 //
 // Wire request: [[2], project_id, null, null, [1]].
-func (c *Client) RelabelAll(projectID string) ([]Label, error) {
-	return c.mutateLabelsMode(projectID, 1)
+func (c *Client) RelabelAll(ctx context.Context, projectID string) ([]Label, error) {
+	return c.mutateLabelsMode(ctx, projectID, 1)
 }
 
 // GenerateLabels triggers the empty-mode autolabel recompute form.
 //
 // Wire request: [[2], project_id, null, null, []].
-func (c *Client) GenerateLabels(projectID string) ([]Label, error) {
+func (c *Client) GenerateLabels(ctx context.Context, projectID string) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.orchestrationService.MutateLabelsMode(context.Background(), &pb.MutateLabelsModeRequest{
+	resp, err := c.orchestrationService.MutateLabelsMode(ctx, &pb.MutateLabelsModeRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
 		Mode:      &pb.LabelMode{},
@@ -122,11 +122,11 @@ func (c *Client) GenerateLabels(projectID string) ([]Label, error) {
 	return labelsFromProtoResponse(&pb.GetLabelsResponse{Labels: resp.GetLabels()}), nil
 }
 
-func (c *Client) mutateLabelsMode(projectID string, mode int) ([]Label, error) {
+func (c *Client) mutateLabelsMode(ctx context.Context, projectID string, mode int) ([]Label, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
 	}
-	resp, err := c.orchestrationService.MutateLabelsMode(context.Background(), &pb.MutateLabelsModeRequest{
+	resp, err := c.orchestrationService.MutateLabelsMode(ctx, &pb.MutateLabelsModeRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
 		Mode:      &pb.LabelMode{Value: proto.Int32(int32(mode))},
@@ -140,11 +140,11 @@ func (c *Client) mutateLabelsMode(projectID string, mode int) ([]Label, error) {
 // RenameLabel sets a new display name on an existing label.
 //
 // Wire request: [[2], project_id, label_id, [[[name]]]].
-func (c *Client) RenameLabel(projectID, labelID, name string) error {
+func (c *Client) RenameLabel(ctx context.Context, projectID, labelID, name string) error {
 	if name == "" {
 		return fmt.Errorf("name required")
 	}
-	return c.mutateLabelProto(&pb.MutateLabelRequest{
+	return c.mutateLabelProto(ctx, &pb.MutateLabelRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
 		LabelId:   labelID,
@@ -157,8 +157,8 @@ func (c *Client) RenameLabel(projectID, labelID, name string) error {
 // keeps the existing name.
 //
 // Wire request: [[2], project_id, label_id, [[[null, emoji]]]].
-func (c *Client) SetLabelEmoji(projectID, labelID, emoji string) error {
-	return c.mutateLabel(projectID, labelID, []interface{}{[]interface{}{nil, emoji}})
+func (c *Client) SetLabelEmoji(ctx context.Context, projectID, labelID, emoji string) error {
+	return c.mutateLabel(ctx, projectID, labelID, []interface{}{[]interface{}{nil, emoji}})
 }
 
 // AttachLabelSource adds a source to a label without changing the label's
@@ -169,11 +169,11 @@ func (c *Client) SetLabelEmoji(projectID, labelID, emoji string) error {
 // or remove forms have not been observed.
 //
 // Wire request: [[2], project_id, label_id, [[null, [[source_id]]]]].
-func (c *Client) AttachLabelSource(projectID, labelID, sourceID string) error {
+func (c *Client) AttachLabelSource(ctx context.Context, projectID, labelID, sourceID string) error {
 	if sourceID == "" {
 		return fmt.Errorf("source ID required")
 	}
-	return c.mutateLabelProto(&pb.MutateLabelRequest{
+	return c.mutateLabelProto(ctx, &pb.MutateLabelRequest{
 		Context:   &pb.RequestContext{Version: proto.Int32(2)},
 		ProjectId: projectID,
 		LabelId:   labelID,
@@ -183,14 +183,14 @@ func (c *Client) AttachLabelSource(projectID, labelID, sourceID string) error {
 	})
 }
 
-func (c *Client) mutateLabelProto(req *pb.MutateLabelRequest) error {
+func (c *Client) mutateLabelProto(ctx context.Context, req *pb.MutateLabelRequest) error {
 	if req.GetProjectId() == "" {
 		return fmt.Errorf("project ID required")
 	}
 	if req.GetLabelId() == "" {
 		return fmt.Errorf("label ID required")
 	}
-	if _, err := c.rpc.Do(rpc.Call{
+	if _, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateLabel,
 		NotebookID: req.GetProjectId(),
 		Args:       genmethod.EncodeMutateLabelArgs(req),
@@ -204,14 +204,14 @@ func (c *Client) mutateLabelProto(req *pb.MutateLabelRequest) error {
 // is constant: [[2], project_id, label_id, [<inner>]]. The two observed
 // shapes for <inner> are [[name, emoji]] (metadata) and [null, [[source_id]]]
 // (source attach); both fit the single-element-list form passed here.
-func (c *Client) mutateLabel(projectID, labelID string, inner []interface{}) error {
+func (c *Client) mutateLabel(ctx context.Context, projectID, labelID string, inner []interface{}) error {
 	if projectID == "" {
 		return fmt.Errorf("project ID required")
 	}
 	if labelID == "" {
 		return fmt.Errorf("label ID required")
 	}
-	_, err := c.rpc.Do(rpc.Call{
+	_, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateLabel,
 		NotebookID: projectID,
 		Args: []interface{}{
@@ -229,14 +229,14 @@ func (c *Client) mutateLabel(projectID, labelID string, inner []interface{}) err
 // The server response is empty on success.
 //
 // Wire request: [[2], project_id, [label_id, ...]].
-func (c *Client) DeleteLabels(projectID string, labelIDs []string) error {
+func (c *Client) DeleteLabels(ctx context.Context, projectID string, labelIDs []string) error {
 	if projectID == "" {
 		return fmt.Errorf("project ID required")
 	}
 	if len(labelIDs) == 0 {
 		return fmt.Errorf("at least one label ID required")
 	}
-	_, err := c.orchestrationService.DeleteLabels(context.Background(), &pb.DeleteLabelsRequest{
+	_, err := c.orchestrationService.DeleteLabels(ctx, &pb.DeleteLabelsRequest{
 		ProjectId: projectID,
 		LabelIds:  labelIDs,
 	})

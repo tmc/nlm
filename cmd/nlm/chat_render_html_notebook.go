@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -170,7 +171,7 @@ func chatShowNotebook(notebookID string, opts chatRenderOptions) error {
 		doc := notebookDocumentFromSession(record.Session)
 		if historyClient != nil {
 			fullID := resolveConversationID(historyClient, notebookID, record.Session.ConversationID)
-			messages, err := historyClient.GetConversationHistory(notebookID, fullID)
+			messages, err := historyClient.GetConversationHistory(context.Background(), notebookID, fullID)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "nlm: could not fetch history for conversation %s excerpts: %v\n", shortID(record.Session.ConversationID), err)
 			} else {
@@ -250,7 +251,7 @@ func notebookChatRenderContext(notebookID string, opts chatRenderOptions) chatRe
 			if body, ok := cache[sourceID]; ok {
 				return body, nil
 			}
-			body, err := c.LoadSourceText(sourceID, notebookID)
+			body, err := c.LoadSourceText(context.Background(), sourceID, notebookID)
 			if err != nil {
 				return api.LoadSourceText{}, err
 			}

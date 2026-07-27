@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -31,7 +32,7 @@ func runLabelCreate(c *api.Client, args []string) error {
 	if len(args) == 3 {
 		emoji = args[2]
 	}
-	labels, err := c.CreateLabel(args[0], args[1], emoji)
+	labels, err := c.CreateLabel(context.Background(), args[0], args[1], emoji)
 	if err != nil {
 		return err
 	}

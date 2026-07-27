@@ -198,7 +198,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "List recently viewed notebooks. Results are paginated; use limit and offset to page through them.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input listNotebooksInput) (*mcp.CallToolResult, any, error) {
-		notebooks, err := client.ListRecentlyViewedProjects()
+		notebooks, err := client.ListRecentlyViewedProjects(context.Background())
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to list notebooks: %v", err)), nil, nil
 		}
@@ -223,7 +223,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "List sources in a notebook. Results are paginated; use limit and offset to page through them.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input listSourcesInput) (*mcp.CallToolResult, any, error) {
-		project, err := client.GetProject(input.NotebookID)
+		project, err := client.GetProject(context.Background(), input.NotebookID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to get project: %v", err)), nil, nil
 		}
@@ -247,7 +247,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "List notes in a notebook. Results are paginated; use limit and offset to page through them.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input listNotesInput) (*mcp.CallToolResult, any, error) {
-		notes, err := client.GetNotes(input.NotebookID)
+		notes, err := client.GetNotes(context.Background(), input.NotebookID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to get notes: %v", err)), nil, nil
 		}
@@ -267,7 +267,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Create a note in a notebook.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input createNoteInput) (*mcp.CallToolResult, any, error) {
-		note, err := client.CreateNote(input.NotebookID, input.Title, input.Content)
+		note, err := client.CreateNote(context.Background(), input.NotebookID, input.Title, input.Content)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to create note: %v", err)), nil, nil
 		}
@@ -280,7 +280,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Add text content as a source to a notebook.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input addSourceTextInput) (*mcp.CallToolResult, any, error) {
-		sourceID, err := client.AddSourceFromText(input.NotebookID, input.Content, input.Title)
+		sourceID, err := client.AddSourceFromText(context.Background(), input.NotebookID, input.Content, input.Title)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to add source: %v", err)), nil, nil
 		}
@@ -292,7 +292,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Delete a note from a notebook.",
 		Annotations: destructiveAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input deleteNoteInput) (*mcp.CallToolResult, any, error) {
-		if err := client.DeleteNotes(input.NotebookID, []string{input.NoteID}); err != nil {
+		if err := client.DeleteNotes(context.Background(), input.NotebookID, []string{input.NoteID}); err != nil {
 			return errorResult(fmt.Sprintf("failed to delete note: %v", err)), nil, nil
 		}
 		return textResult(fmt.Sprintf("deleted note %s", input.NoteID)), nil, nil
@@ -303,7 +303,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "List artifacts in a notebook. Results are paginated; use limit and offset to page through them.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input listArtifactsInput) (*mcp.CallToolResult, any, error) {
-		artifacts, err := client.ListArtifacts(input.NotebookID)
+		artifacts, err := client.ListArtifacts(context.Background(), input.NotebookID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to list artifacts: %v", err)), nil, nil
 		}
@@ -332,7 +332,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		if err != nil {
 			return errorResult(err.Error()), nil, nil
 		}
-		result, err := client.CreateAudioOverviewWithOptions(input.NotebookID, api.CreateAudioOverviewOptions{
+		result, err := client.CreateAudioOverviewWithOptions(context.Background(), input.NotebookID, api.CreateAudioOverviewOptions{
 			Instructions: input.Instructions,
 			AudioType:    audioType,
 			Length:       length,
@@ -350,7 +350,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Get audio overview status and details.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input getAudioOverviewInput) (*mcp.CallToolResult, any, error) {
-		result, err := client.GetAudioOverview(input.NotebookID)
+		result, err := client.GetAudioOverview(context.Background(), input.NotebookID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to get audio overview: %v", err)), nil, nil
 		}
@@ -366,7 +366,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Rename an artifact.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input renameArtifactInput) (*mcp.CallToolResult, any, error) {
-		if _, err := client.RenameArtifact(input.ArtifactID, input.NewTitle); err != nil {
+		if _, err := client.RenameArtifact(context.Background(), input.ArtifactID, input.NewTitle); err != nil {
 			return errorResult(fmt.Sprintf("failed to rename artifact: %v", err)), nil, nil
 		}
 		return textResult(fmt.Sprintf("renamed artifact %s to %q", input.ArtifactID, input.NewTitle)), nil, nil
@@ -381,7 +381,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		if input.Public {
 			option = api.SharePublic
 		}
-		result, err := client.ShareAudio(input.NotebookID, option)
+		result, err := client.ShareAudio(context.Background(), input.NotebookID, option)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to share audio: %v", err)), nil, nil
 		}
@@ -404,7 +404,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		if err != nil {
 			return errorResult(err.Error()), nil, nil
 		}
-		result, err := client.CreateVideoOverviewWithOptions(input.NotebookID, api.CreateVideoOverviewOptions{
+		result, err := client.CreateVideoOverviewWithOptions(context.Background(), input.NotebookID, api.CreateVideoOverviewOptions{
 			Instructions: input.Instructions,
 			AudioType:    audioType,
 			VideoStyle:   style,
@@ -426,7 +426,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		if err != nil {
 			return errorResult(err.Error()), nil, nil
 		}
-		artifactID, err := client.CreateAppArtifact(input.NotebookID, kind, input.Instructions, input.SourceIDs)
+		artifactID, err := client.CreateAppArtifact(context.Background(), input.NotebookID, kind, input.Instructions, input.SourceIDs)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to create app artifact: %v", err)), nil, nil
 		}
@@ -438,7 +438,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Create a slide deck from notebook sources.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input createSlideDeckInput) (*mcp.CallToolResult, any, error) {
-		artifactID, err := client.CreateSlideDeck(input.NotebookID, input.Instructions)
+		artifactID, err := client.CreateSlideDeck(context.Background(), input.NotebookID, input.Instructions)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to create slide deck: %v", err)), nil, nil
 		}
@@ -450,7 +450,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Read a specific note by ID from a notebook. Returns the note title and content.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input readNoteInput) (*mcp.CallToolResult, any, error) {
-		notes, err := client.GetNotes(input.NotebookID)
+		notes, err := client.GetNotes(context.Background(), input.NotebookID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to get notes: %v", err)), nil, nil
 		}
@@ -471,7 +471,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Set custom chat instructions (system prompt) for a notebook.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input setInstructionsInput) (*mcp.CallToolResult, any, error) {
-		if err := client.SetInstructions(input.NotebookID, input.Instructions); err != nil {
+		if err := client.SetInstructions(context.Background(), input.NotebookID, input.Instructions); err != nil {
 			return errorResult(fmt.Sprintf("failed to set instructions: %v", err)), nil, nil
 		}
 		return textResult("instructions updated"), nil, nil
@@ -482,7 +482,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Get the current custom chat instructions (system prompt) for a notebook.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input getInstructionsInput) (*mcp.CallToolResult, any, error) {
-		prompt, err := client.GetInstructions(input.NotebookID)
+		prompt, err := client.GetInstructions(context.Background(), input.NotebookID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to get instructions: %v", err)), nil, nil
 		}
@@ -497,7 +497,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Start a deep research session. Returns a research ID that can be used with poll_deep_research to check progress.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input startDeepResearchInput) (*mcp.CallToolResult, any, error) {
-		result, err := client.StartDeepResearch(input.NotebookID, input.Query)
+		result, err := client.StartDeepResearch(context.Background(), input.NotebookID, input.Query)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to start deep research: %v", err)), nil, nil
 		}
@@ -509,7 +509,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Poll an in-progress deep research session for results. Returns done=true with content when research is complete.",
 		Annotations: readOnlyAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input pollDeepResearchInput) (*mcp.CallToolResult, any, error) {
-		result, err := client.PollDeepResearch(input.NotebookID, input.ResearchID)
+		result, err := client.PollDeepResearch(context.Background(), input.NotebookID, input.ResearchID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to poll deep research: %v", err)), nil, nil
 		}
@@ -521,7 +521,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Create a new notebook.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input createNotebookInput) (*mcp.CallToolResult, any, error) {
-		notebook, err := client.CreateProject(input.Title, input.Emoji)
+		notebook, err := client.CreateProject(context.Background(), input.Title, input.Emoji)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to create notebook: %v", err)), nil, nil
 		}
@@ -533,7 +533,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Delete a notebook.",
 		Annotations: destructiveAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input deleteNotebookInput) (*mcp.CallToolResult, any, error) {
-		if err := client.DeleteProjects([]string{input.NotebookID}); err != nil {
+		if err := client.DeleteProjects(context.Background(), []string{input.NotebookID}); err != nil {
 			return errorResult(fmt.Sprintf("failed to delete notebook: %v", err)), nil, nil
 		}
 		return textResult(fmt.Sprintf("deleted notebook %s", input.NotebookID)), nil, nil
@@ -544,7 +544,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Remove a source from a notebook.",
 		Annotations: destructiveAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input deleteSourceInput) (*mcp.CallToolResult, any, error) {
-		if err := client.DeleteSources(input.NotebookID, []string{input.SourceID}); err != nil {
+		if err := client.DeleteSources(context.Background(), input.NotebookID, []string{input.SourceID}); err != nil {
 			return errorResult(fmt.Sprintf("failed to delete source: %v", err)), nil, nil
 		}
 		return textResult(fmt.Sprintf("deleted source %s from notebook %s", input.SourceID, input.NotebookID)), nil, nil
@@ -555,7 +555,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Add a source from a URL.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input addSourceURLInput) (*mcp.CallToolResult, any, error) {
-		sourceID, err := client.AddSourceFromURL(input.NotebookID, input.URL)
+		sourceID, err := client.AddSourceFromURL(context.Background(), input.NotebookID, input.URL)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to add source: %v", err)), nil, nil
 		}
@@ -567,7 +567,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Generate a NotebookLM chat response from a prompt.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input generateChatInput) (*mcp.CallToolResult, any, error) {
-		response, err := client.GenerateFreeFormStreamed(input.NotebookID, input.Prompt, nil)
+		response, err := client.GenerateFreeFormStreamed(context.Background(), input.NotebookID, input.Prompt, nil)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to generate chat: %v", err)), nil, nil
 		}
@@ -607,7 +607,7 @@ func registerGenerationTools(server *mcp.Server, client *api.Client) {
 			Description: fmt.Sprintf("Generate a %s from sources.", toolName),
 			Annotations: mutatingAnnotations,
 		}, func(ctx context.Context, req *mcp.CallToolRequest, input generateContentInput) (*mcp.CallToolResult, any, error) {
-			content, err := client.ActOnSources(input.NotebookID, action, input.SourceIDs)
+			content, err := client.ActOnSources(context.Background(), input.NotebookID, action, input.SourceIDs)
 			if err != nil {
 				return errorResult(fmt.Sprintf("failed to generate %s: %v", toolName, err)), nil, nil
 			}

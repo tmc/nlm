@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -119,7 +120,7 @@ func TestUnauthorizedFromBackendIsAuthError(t *testing.T) {
 		MaxRetries: 0,
 	}
 	client := batchexecute.NewClient(cfg)
-	_, err := client.Execute([]batchexecute.RPC{{ID: "wXbhsf", Args: []interface{}{}}})
+	_, err := client.Execute(context.Background(), []batchexecute.RPC{{ID: "wXbhsf", Args: []interface{}{}}})
 	if err == nil {
 		t.Fatal("expected error from 401, got nil")
 	}

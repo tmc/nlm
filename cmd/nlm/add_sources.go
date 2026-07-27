@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -78,7 +79,7 @@ func addSourceChunked(c *api.Client, notebookID string, content []byte, baseName
 	names := chunkedSourceNames(baseName, len(parts))
 	ids := make([]string, 0, len(parts))
 	for i, part := range parts {
-		id, err := c.AddSourceFromText(notebookID, string(part), names[i])
+		id, err := c.AddSourceFromText(context.Background(), notebookID, string(part), names[i])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "  %s rejected; re-splitting smaller: %v\n", names[i], err)
 			childIDs, childErr := addSourceAuto(c, notebookID, part, names[i]+" [auto]")
@@ -181,19 +182,19 @@ func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAd
 			fmt.Println(id)
 		}
 		if opts.ReplaceSourceID != "" {
-			replaceUploadedSource(c, notebookID, opts.ReplaceSourceID, ids)
+			replaceUploadedSource(context.Background(), c, notebookID, opts.ReplaceSourceID, ids)
 		}
 	}
 	return nil
 }
 
 type sourceReplaceClient interface {
-	DeleteSources(projectID string, sourceIDs []string) error
+	DeleteSources(ctx context.Context, projectID string, sourceIDs []string) error
 	labelReader
 	labelAttacher
 }
 
-func replaceUploadedSource(c sourceReplaceClient, notebookID, oldSourceID string, newSourceIDs []string) {
+func replaceUploadedSource(ctx context.Context, c sourceReplaceClient, notebookID, oldSourceID string, newSourceIDs []string) {
 	if len(newSourceIDs) == 0 {
 		fmt.Fprintf(os.Stderr, "warning: no replacement source uploaded for %s\n", oldSourceID)
 		return
@@ -202,17 +203,17 @@ func replaceUploadedSource(c sourceReplaceClient, notebookID, oldSourceID string
 
 	// Snapshot label assignments before delete; the new source IDs have no
 	// labels yet and the old ID becomes invalid after delete.
-	labelIDs, lerr := labelsForSource(c, notebookID, oldSourceID)
+	labelIDs, lerr := labelsForSource(ctx, c, notebookID, oldSourceID)
 	if lerr != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not read labels for %s: %v\n", oldSourceID, lerr)
 	}
-	if delErr := c.DeleteSources(notebookID, []string{oldSourceID}); delErr != nil {
+	if delErr := c.DeleteSources(ctx, notebookID, []string{oldSourceID}); delErr != nil {
 		fmt.Fprintf(os.Stderr, "warning: uploaded new source but failed to delete old: %v\n", delErr)
 	}
 	if len(labelIDs) == 0 {
 		return
 	}
-	if aerr := attachLabelsToSources(c, notebookID, newSourceIDs, labelIDs); aerr != nil {
+	if aerr := attachLabelsToSources(ctx, c, notebookID, newSourceIDs, labelIDs); aerr != nil {
 		fmt.Fprintf(os.Stderr, "warning: %v\n", aerr)
 		return
 	}
@@ -293,7 +294,7 @@ func addSourceAuto(c *api.Client, notebookID string, content []byte, baseName st
 			fmt.Fprintf(os.Stderr, "  %s (%d bytes at offset %d) rejected; re-splitting smaller: %v\n", p.PartName, p.SizeBytes, p.ByteOffset, p.Err)
 		}
 	}
-	ids, err := c.AddSourceFromTextAuto(notebookID, content, baseName, progress)
+	ids, err := c.AddSourceFromTextAuto(context.Background(), notebookID, content, baseName, progress)
 	if err != nil {
 		return ids, err
 	}
@@ -344,7 +345,7 @@ func isMarkupName(name []byte) bool {
 // the cost of holding the whole file in memory once. URLs never reach here.
 func addSourceBinaryFallback(c *api.Client, notebookID, input string, content []byte, name string, opts sourceAddOptions) ([]string, error) {
 	if _, err := os.Stat(input); err == nil {
-		id, err := addLocalFileSource(c, notebookID, input, bytes.NewReader(content), opts)
+		id, err := addLocalFileSource(context.Background(), c, notebookID, input, bytes.NewReader(content), opts)
 		if err != nil {
 			return nil, fmt.Errorf("upload %s: %w", input, err)
 		}
@@ -354,7 +355,7 @@ func addSourceBinaryFallback(c *api.Client, notebookID, input string, content []
 	if mt == "" {
 		mt = http.DetectContentType(content)
 	}
-	id, err := c.AddSourceFromReader(notebookID, bytes.NewReader(content), name, mt)
+	id, err := c.AddSourceFromReader(context.Background(), notebookID, bytes.NewReader(content), name, mt)
 	if err != nil {
 		return nil, fmt.Errorf("upload %s: %w", input, err)
 	}
@@ -419,7 +420,7 @@ func collectChunkedInput(input string, opts sourceAddOptions) ([]byte, string, e
 }
 
 func sourceIDSet(c *api.Client, notebookID string) (map[string]struct{}, error) {
-	project, err := c.GetProject(notebookID)
+	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +439,7 @@ func cleanupFailedAdd(c *api.Client, notebookID string, knownSourceIDs map[strin
 	if knownSourceIDs == nil {
 		return nil
 	}
-	project, err := c.GetProject(notebookID)
+	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("could not inspect sources after failed add: %w", err)
 	}
@@ -446,7 +447,7 @@ func cleanupFailedAdd(c *api.Client, notebookID string, knownSourceIDs map[strin
 	if len(stale) == 0 {
 		return nil
 	}
-	if err := c.DeleteSources(notebookID, stale); err != nil {
+	if err := c.DeleteSources(context.Background(), notebookID, stale); err != nil {
 		return fmt.Errorf("failed add left stale error source IDs %s; remove them with `nlm rm-source %s %s`: %w",
 			strings.Join(stale, ","),
 			notebookID,

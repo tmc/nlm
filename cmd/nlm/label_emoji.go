@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -22,7 +23,7 @@ func validateLabelEmojiArgs(cmdName string, args []string) error {
 }
 
 func runLabelEmoji(c *api.Client, args []string) error {
-	if err := c.SetLabelEmoji(args[0], args[1], args[2]); err != nil {
+	if err := c.SetLabelEmoji(context.Background(), args[0], args[1], args[2]); err != nil {
 		return err
 	}
 	fmt.Fprintf(os.Stderr, "Set emoji on %s\n", args[1])

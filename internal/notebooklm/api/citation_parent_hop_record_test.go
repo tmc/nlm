@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"testing"
@@ -53,7 +54,7 @@ func TestCaptureCitationParentHop(t *testing.T) {
 	// generate-chat (live stream) conversation is NOT in this history; only a
 	// server-saved conversation is, and only its ID resolves through khqZz. So we
 	// discover the ID here rather than hard-coding a local generate-chat ID.
-	convs, err := client.GetConversations(projectID)
+	convs, err := client.GetConversations(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("GetConversations: %v", err)
 	}
@@ -64,7 +65,7 @@ func TestCaptureCitationParentHop(t *testing.T) {
 	t.Logf("server conversation: %s", conversationID)
 
 	// Frame 2: khqZz — the conversation history carrying the citation slots.
-	msgs, err := client.GetConversationHistory(projectID, conversationID)
+	msgs, err := client.GetConversationHistory(context.Background(), projectID, conversationID)
 	if err != nil {
 		t.Fatalf("GetConversationHistory: %v", err)
 	}
@@ -78,7 +79,7 @@ func TestCaptureCitationParentHop(t *testing.T) {
 	}
 
 	// Frame 3: GetProject — the source list to match [5]-outer parents against.
-	nb, err := client.GetProject(projectID)
+	nb, err := client.GetProject(context.Background(), projectID)
 	if err != nil {
 		t.Fatalf("GetProject: %v", err)
 	}

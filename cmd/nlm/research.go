@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -61,7 +62,7 @@ func runResearch(c *api.Client, notebookID, query string, opts researchOptions) 
 func runFastResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
 	fmt.Fprintf(os.Stderr, "Fast research: %s\n", query)
 
-	result, err := c.FastResearch(notebookID, query)
+	result, err := c.FastResearch(context.Background(), notebookID, query)
 	if err != nil {
 		return fmt.Errorf("fast research: %w", err)
 	}
@@ -115,7 +116,7 @@ func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResea
 		return nil
 	}
 	fmt.Fprintf(os.Stderr, "Importing %d sources into notebook %s...\n", len(imports), notebookID)
-	imported, err := c.BulkImportFromResearch(notebookID, result.ConversationID, imports)
+	imported, err := c.BulkImportFromResearch(context.Background(), notebookID, result.ConversationID, imports)
 	if err != nil {
 		return fmt.Errorf("%s research import: %w", mode, err)
 	}
@@ -126,7 +127,7 @@ func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResea
 }
 
 func runDeepResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
-	project, err := c.GetProject(notebookID)
+	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("look up notebook: %w", err)
 	}
@@ -136,7 +137,7 @@ func runDeepResearch(c *api.Client, notebookID, query string, opts researchOptio
 
 	fmt.Fprintf(os.Stderr, "Deep research: %s\n", query)
 
-	start, err := c.StartDeepResearch(notebookID, query)
+	start, err := c.StartDeepResearch(context.Background(), notebookID, query)
 	if err != nil {
 		return fmt.Errorf("start deep research: %w", err)
 	}
@@ -151,7 +152,7 @@ func runDeepResearch(c *api.Client, notebookID, query string, opts researchOptio
 	for i := 0; i < maxPolls; i++ {
 		time.Sleep(pollInterval)
 
-		result, err := c.PollDeepResearch(notebookID, start.ResearchID)
+		result, err := c.PollDeepResearch(context.Background(), notebookID, start.ResearchID)
 		if err != nil {
 			// Still polling — emit a progress event and keep going. The
 			// classifier will map the wrapped ErrResearchPolling to exit 7

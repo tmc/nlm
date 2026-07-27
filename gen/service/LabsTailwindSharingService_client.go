@@ -56,7 +56,7 @@ func (c *LabsTailwindSharingServiceClient) ShareAudio(ctx context.Context, req *
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ShareAudio: %w", err)
 	}
@@ -80,7 +80,7 @@ func (c *LabsTailwindSharingServiceClient) GetProjectDetails(ctx context.Context
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("GetProjectDetails: %w", err)
 	}
@@ -104,7 +104,7 @@ func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("ShareProject: %w", err)
 	}
@@ -128,7 +128,7 @@ func (c *LabsTailwindSharingServiceClient) CreateAccessRequest(ctx context.Conte
 	}
 
 	// Execute the RPC
-	resp, err := c.rpcClient.Do(call)
+	resp, err := c.rpcClient.Do(ctx, call)
 	if err != nil {
 		return nil, fmt.Errorf("CreateAccessRequest: %w", err)
 	}
