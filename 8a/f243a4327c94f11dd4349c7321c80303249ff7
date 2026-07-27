@@ -1,0 +1,3 @@
+commit: 8af243a4 2026-07-26 (PR #38 Copilot fixes)
+agent: claude-code (Opus 4.8) session=FD626FA5 pid=36402 iterm=w2t1p6:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+task: repeatedDottedPrefix precedence parens (behavior-preserving), MathJax config-before-async-loader
