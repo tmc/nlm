@@ -1,20 +1,99 @@
 # nlm
 
-Command-line interface and MCP server for [Google NotebookLM](https://notebooklm.google.com).
+A terminal- and CI-first [Google NotebookLM](https://notebooklm.google.com)
+client: scriptable CLI, interactive streaming chat, and MCP server in one Go
+binary.
+
+`nlm` combines compiled-protobuf wire modeling and lossless capture verification
+with source selection by name, label, or regular expression, directory-tree
+sync, rich-note rendering, and citations that resolve back to local file and
+line numbers. See the verified [competitive parity matrix](docs/dev/parity-matrix.md)
+for the evidence behind that positioning.
+
+| Capability | What is included |
+|---|---|
+| Browser authentication | `nlm auth login` drives Chrome, Brave, or Edge and extracts credentials from an already signed-in profile; no DevTools copy-paste |
+| Interactive chat | Streaming `nlm chat` REPL with persistent sessions, history, and slash commands such as `/history`, `/new`, `/fork`, and `/file` |
+| Precise source selection | Select by UUID, source title regex, or server-side label with `--source-match`, `--source-exclude`, `--label-match`, and `--label-exclude` |
+| Research export | Fast or deep research, with clean Markdown output from `nlm research --md` |
+| Artifact management | Create, list, inspect, rename, delete, share, and download supported rendered artifacts |
+| Local-tree sync | Idempotent SHA-256-backed directory sync with `.nlmignore`, exclude patterns, and automatic chunking |
+| Rich output | RichDocument note rendering to Markdown or HTML, plus citation excerpts and txtar `file:line` resolution |
+| Agent access | Built-in stdio MCP server with notebook, source, note, chat, artifact, generation, and deep-research tools |
 
 ## Quickstart
 
 ```bash
 go install github.com/tmc/nlm/cmd/nlm@latest
-nlm auth
+nlm auth login
 nlm notebook list
 nlm chat <notebook-id> "summarize the key findings"
 ```
 
+## Does it do X?
+
+**Interactive chat?** Yes. `nlm chat <notebook-id>` opens a streaming REPL.
+Sessions and history are stored on disk, and `/history`, `/new`, `/fork`,
+`/file`, and other slash commands are available inside the session. Supplying a
+prompt runs the same chat path once for scripts.
+
+**Browser login without copying tokens?** Yes. `nlm auth login` launches a
+headless browser by default, finds an already signed-in Chrome, Brave, or Edge
+profile, and saves the extracted token and cookies.
+
+**Source selection without UUIDs?** Yes. Chat and generation commands accept
+title/UUID regular expressions and label selectors:
+
+```bash
+nlm chat --source-match '^design/' --source-exclude 'draft' <notebook-id>
+nlm generate-chat --label-match '^Approved$' <notebook-id> "summarize"
+```
+
+**Deep research as Markdown?** Yes:
+
+```bash
+nlm research --md <notebook-id> "compare the proposed designs" > report.md
+```
+
+**Local context injection for agents?** Yes. Run `nlm mcp`; the
+`add_source_text` and `create_note` tools accept arbitrary text, while
+`start_deep_research` and `poll_deep_research` handle long research jobs.
+
+**Flashcard or mind-map export?** Not yet. Those artifact payloads require
+capture-backed wire modeling; they are tracked as real gaps rather than inferred
+from undocumented code.
+
 ## Authentication
 
-`nlm auth` finds a logged-in browser profile (Chrome, Brave, Edge) and caches
-credentials under `~/.nlm`. For CI and scripting, export credentials directly:
+`nlm auth login` uses chromedp to launch Chrome, Brave, or Edge headlessly,
+opens NotebookLM, extracts the `SNlM0e` token and browser cookies, and stores
+them in `~/.nlm/env`. It requires a browser profile that is already signed into
+Google. It does **not** perform unattended SSO on a fresh machine with no
+signed-in browser session.
+
+```bash
+nlm auth login
+nlm auth login -profile Work
+nlm auth login -all -notebooks
+nlm auth login -authuser 2
+```
+
+Use `-keep-open N -debug` when the selected profile needs attention: the
+browser stays open for `N` seconds after credential extraction. Connect to an
+already running browser instead with `-cdp-url`:
+
+```bash
+nlm auth login -keep-open 30 -debug
+nlm auth login -cdp-url ws://localhost:9222
+```
+
+`-profile` selects a named browser profile. `-all` probes all available
+profiles, and `-authuser N` selects the Google account index within a
+multi-account session. Commands also accept `--authuser N`, or you can export
+`NLM_AUTHUSER=N`.
+
+For CI and scripting, harvest credentials on a signed-in machine and export
+them explicitly:
 
 ```bash
 nlm auth --print-env
@@ -22,8 +101,10 @@ nlm --cookies 'SID=...; HSID=...; SSID=...' notebook list
 nlm --auth <auth-token> notebook list
 ```
 
-For multi-account setups, use `nlm auth --authuser N`, then pass
-`--authuser N` on commands or export `NLM_AUTHUSER=N`.
+The CLI retries authentication-shaped failures by re-harvesting the cached
+profile. Set `NLM_AUTO_REFRESH=false` to disable that retry. This is reactive
+recovery, not unattended SSO, and it cannot repair a browser profile whose
+Google session has expired.
 
 ## Usage
 
@@ -205,7 +286,7 @@ markdown output.
 ### Other
 
 ```bash
-nlm auth
+nlm auth login
 nlm refresh
 nlm mcp
 ```
@@ -232,11 +313,9 @@ Configure it in your MCP client:
 }
 ```
 
-Available MCP tools include `list_notebooks`, `list_sources`, `list_notes`,
-`list_artifacts`, `create_notebook`, `create_note`, `create_audio_overview`,
-`create_video_overview`, `create_slide_deck`, `generate_chat`, `read_note`,
-`set_instructions`, `get_instructions`, `start_deep_research`, and
-`poll_deep_research`.
+The server includes notebook, source, note, artifact, chat, generation, and
+deep-research tools. See [docs/mcp.md](docs/mcp.md) for the complete tool
+surface and input/output behavior.
 
 ## Composing with the shell
 
