@@ -567,13 +567,6 @@ func isDigit(c rune) bool {
 	return c >= '0' && c <= '9'
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // Option configures a Client
 type Option func(*Client)
 
@@ -974,28 +967,6 @@ func (g *ReqIDGenerator) Reset() {
 	g.mu.Lock()
 	g.sequence = 0
 	g.mu.Unlock()
-}
-
-// readUntil reads from the reader until the delimiter is found
-func readUntil(r io.Reader, delim byte) (string, error) {
-	var result strings.Builder
-	buf := make([]byte, 1)
-	for {
-		n, err := r.Read(buf)
-		if err != nil {
-			if err == io.EOF && result.Len() > 0 {
-				return result.String(), nil
-			}
-			return "", err
-		}
-		if n == 0 {
-			continue
-		}
-		if buf[0] == delim {
-			return result.String(), nil
-		}
-		result.WriteByte(buf[0])
-	}
 }
 
 // isRetryableError checks if an error is retryable
