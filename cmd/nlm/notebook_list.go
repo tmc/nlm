@@ -31,10 +31,6 @@ func printNotebookListUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  nlm ls --limit 25")
 }
 
-func validateNotebookListArgs(cmdName string, args []string) error {
-	return validateNotebookListArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateNotebookListArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, err := parseNotebookListArgsWithOptions(args, globals)
 	if err == nil {
@@ -43,10 +39,6 @@ func validateNotebookListArgsWithOptions(cmdName string, args []string, globals 
 	fmt.Fprintf(os.Stderr, "nlm: %v\n\n", err)
 	printNotebookListUsage(cmdName)
 	return errBadArgs
-}
-
-func parseNotebookListArgs(args []string) (notebookListOptions, error) {
-	return parseNotebookListArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseNotebookListArgsWithOptions(args []string, globals globalOptions) (notebookListOptions, error) {
@@ -77,10 +69,6 @@ func parseNotebookListArgsWithOptions(args []string, globals globalOptions) (not
 		return opts, fmt.Errorf("--all and --limit cannot be used together")
 	}
 	return opts, nil
-}
-
-func runNotebookList(c *api.Client, args []string) error {
-	return runNotebookListWithOptions(c, args, packageGlobalOptions())
 }
 
 func runNotebookListWithOptions(c *api.Client, args []string, globals globalOptions) error {

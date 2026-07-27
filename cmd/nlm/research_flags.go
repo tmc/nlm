@@ -39,10 +39,6 @@ func printResearchUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s --mode fast <notebook-id> \"Which docs should I read first?\"\n", cmdName)
 }
 
-func validateResearchArgs(cmdName string, args []string) error {
-	return validateResearchArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateResearchArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, positional, err := parseResearchArgsWithOptions(args, globals)
 	if err == nil && len(positional) >= 2 {
@@ -83,10 +79,6 @@ func parseResearchArgsWithOptions(args []string, globals globalOptions) (researc
 		return opts, nil, fmt.Errorf("--poll-ms must be >= 0")
 	}
 	return opts, positional, nil
-}
-
-func runResearchCommand(c *api.Client, args []string) error {
-	return runResearchCommandWithOptions(c, args, packageGlobalOptions())
 }
 
 func runResearchCommandWithOptions(c *api.Client, args []string, globals globalOptions) error {

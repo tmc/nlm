@@ -28,10 +28,6 @@ func printDeckDownloadUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --output, -o <file>       Output filename (default deck.<format>)")
 }
 
-func validateDeckDownloadArgs(cmdName string, args []string) error {
-	return validateDeckDownloadArgsWithOptions(cmdName, args, globalOptions{})
-}
-
 func validateDeckDownloadArgsWithOptions(cmdName string, args []string, _ globalOptions) error {
 	if _, _, err := parseDeckDownloadArgs(args); err != nil {
 		fmt.Fprintf(os.Stderr, "nlm: %s: %v\n\n", cmdName, err)

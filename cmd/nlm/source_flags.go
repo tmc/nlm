@@ -170,10 +170,6 @@ func printSourcePackUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s --exclude '*.pb.go' ./src\n", cmdName)
 }
 
-func validateSourceAddArgs(cmdName string, args []string) error {
-	return validateSourceAddArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateSourceAddArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, _, _, err := parseSourceAddArgsWithOptions(args, globals)
 	if err == nil {
@@ -183,10 +179,6 @@ func validateSourceAddArgsWithOptions(cmdName string, args []string, globals glo
 	return errBadArgs
 }
 
-func validateSourceSyncArgs(cmdName string, args []string) error {
-	return validateSourceSyncArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateSourceSyncArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, _, err := parseSourceSyncArgsWithOptions(args, globals)
 	if err == nil {
@@ -194,10 +186,6 @@ func validateSourceSyncArgsWithOptions(cmdName string, args []string, globals gl
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [paths...]\n", cmdName)
 	return errBadArgs
-}
-
-func validateSourcePackArgs(cmdName string, args []string) error {
-	return validateSourcePackArgsWithOptions(cmdName, args, packageGlobalOptions())
 }
 
 func validateSourcePackArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
@@ -331,10 +319,6 @@ func parseSourcePackArgsWithOptions(args []string, globals globalOptions) (syncP
 	return opts, positional, nil
 }
 
-func runSourceAdd(c *api.Client, args []string) error {
-	return runSourceAddWithOptions(c, args, packageGlobalOptions())
-}
-
 func runSourceAddWithOptions(c *api.Client, args []string, globals globalOptions) error {
 	opts, notebookID, rawInputs, err := parseSourceAddArgsWithOptions(args, globals)
 	if err != nil {
@@ -345,10 +329,6 @@ func runSourceAddWithOptions(c *api.Client, args []string, globals globalOptions
 		return err
 	}
 	return addSources(c, notebookID, inputs, opts)
-}
-
-func runSourceSync(c *api.Client, args []string) error {
-	return runSourceSyncWithOptions(c, args, packageGlobalOptions())
 }
 
 func runSourceSyncWithOptions(c *api.Client, args []string, globals globalOptions) error {
@@ -380,10 +360,6 @@ func runSourceSyncWithOptions(c *api.Client, args []string, globals globalOption
 	}
 	adapter := &syncClientAdapter{client: c}
 	return nlmsync.Run(context.Background(), adapter, notebookID, paths, syncOpts, os.Stdout)
-}
-
-func runSourcePack(args []string) error {
-	return runSourcePackWithOptions(args, packageGlobalOptions())
 }
 
 func runSourcePackWithOptions(args []string, globals globalOptions) error {

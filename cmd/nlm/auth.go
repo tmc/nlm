@@ -44,10 +44,6 @@ type AuthOptions struct {
 	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
 }
 
-func parseAuthFlags(args []string) (*AuthOptions, []string, error) {
-	return parseAuthFlagsWithOptions(args, packageGlobalOptions())
-}
-
 func parseAuthFlagsWithOptions(args []string, globals globalOptions) (*AuthOptions, []string, error) {
 	// Create a new FlagSet
 	authFlags := flag.NewFlagSet("auth", flag.ContinueOnError)
@@ -155,7 +151,7 @@ func parseAuthFlagsWithOptions(args []string, globals globalOptions) (*AuthOptio
 }
 
 func printAuthUsage(_ string) {
-	_, _, _ = parseAuthFlags([]string{"--help"})
+	_, _, _ = parseAuthFlagsWithOptions([]string{"--help"}, globalOptions{})
 }
 
 func handleAuth(args []string, debug bool) (string, string, error) {

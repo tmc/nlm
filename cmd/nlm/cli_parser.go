@@ -429,26 +429,6 @@ func commandHelpRequested(args []string) bool {
 	return false
 }
 
-func packageGlobalOptions() globalOptions {
-	return globalOptions{
-		showVersion:       showVersion,
-		experimental:      experimental,
-		authToken:         authToken,
-		cookies:           cookies,
-		authUser:          authUser,
-		debug:             debug,
-		debugDumpPayload:  debugDumpPayload,
-		debugParsing:      debugParsing,
-		debugFieldMapping: debugFieldMapping,
-		chromeProfile:     chromeProfile,
-		chunkedResponse:   chunkedResponse,
-		useDirectRPC:      useDirectRPC,
-		skipSources:       skipSources,
-		yes:               yes,
-		jsonOutput:        jsonOutput,
-	}
-}
-
 func applyGlobalOptions(opts globalOptions) {
 	showVersion = opts.showVersion
 	experimental = opts.experimental

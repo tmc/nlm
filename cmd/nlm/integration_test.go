@@ -47,8 +47,8 @@ func TestAuthCommand(t *testing.T) {
 func TestCommandTable(t *testing.T) {
 	for _, cmd := range commandTableEntries() {
 		t.Run(cmd.name, func(t *testing.T) {
-			if cmd.run == nil {
-				t.Errorf("command %q has nil run func", cmd.name)
+			if cmd.run == nil && cmd.runWithOptions == nil {
+				t.Errorf("command %q has no run func", cmd.name)
 			}
 			if cmd.usage == "" {
 				t.Errorf("command %q has empty usage", cmd.name)

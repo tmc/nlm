@@ -56,10 +56,6 @@ type createReportOptions struct {
 	Selectors selectorOptions
 }
 
-func currentChatRenderOptions() chatRenderOptions {
-	return chatRenderOptionsFromGlobals(packageGlobalOptions())
-}
-
 func chatRenderOptionsFromGlobals(globals globalOptions) chatRenderOptions {
 	return chatRenderOptions{
 		ShowThinking:     globals.showThinking,
@@ -123,10 +119,6 @@ func printGenerateChatUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s --conversation <id> <notebook-id> \"Follow up on section 2\"\n", cmdName)
 }
 
-func validateGenerateChatArgs(cmdName string, args []string) error {
-	return validateGenerateChatArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateGenerateChatArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	opts, positional, err := parseGenerateChatArgsWithOptions(args, globals)
 	if err == nil && len(positional) >= 1 && (opts.PromptFile != "" || len(positional) >= 2) {
@@ -134,10 +126,6 @@ func validateGenerateChatArgsWithOptions(cmdName string, args []string, globals 
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [prompt]\n", cmdName)
 	return errBadArgs
-}
-
-func parseGenerateChatArgs(args []string) (generateChatOptions, []string, error) {
-	return parseGenerateChatArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseGenerateChatArgsWithOptions(args []string, globals globalOptions) (generateChatOptions, []string, error) {
@@ -209,10 +197,6 @@ func parseGenerateChatArgsWithOptions(args []string, globals globalOptions) (gen
 	return opts, positional, nil
 }
 
-func runGenerateChat(c *api.Client, args []string) error {
-	return runGenerateChatWithOptions(c, args, packageGlobalOptions())
-}
-
 func runGenerateChatWithOptions(c *api.Client, args []string, globals globalOptions) error {
 	opts, positional, err := parseGenerateChatArgsWithOptions(args, globals)
 	if err != nil {
@@ -253,10 +237,6 @@ func printChatUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s --prompt-file prompt.txt <notebook-id>\n", cmdName)
 }
 
-func validateChatArgs(cmdName string, args []string) error {
-	return validateChatArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateChatArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, positional, err := parseChatArgsWithOptions(args, globals)
 	if err == nil && len(positional) >= 1 {
@@ -264,10 +244,6 @@ func validateChatArgsWithOptions(cmdName string, args []string, globals globalOp
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [conversation-id | prompt]\n", cmdName)
 	return errBadArgs
-}
-
-func parseChatArgs(args []string) (chatOptions, []string, error) {
-	return parseChatArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseChatArgsWithOptions(args []string, globals globalOptions) (chatOptions, []string, error) {
@@ -331,10 +307,6 @@ func parseChatArgsWithOptions(args []string, globals globalOptions) (chatOptions
 	return opts, positional, nil
 }
 
-func runChat(c *api.Client, args []string) error {
-	return runChatWithOptions(c, args, packageGlobalOptions())
-}
-
 func runChatWithOptions(c *api.Client, args []string, globals globalOptions) error {
 	opts, positional, err := parseChatArgsWithOptions(args, globals)
 	if err != nil {
@@ -379,10 +351,6 @@ func printChatShowUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "With no conversation ID, renders an HTML notebook switcher.")
 }
 
-func validateChatShowArgs(cmdName string, args []string) error {
-	return validateChatShowArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateChatShowArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, positional, err := parseChatShowArgsWithOptions(args, globals)
 	if err == nil && (len(positional) == 1 || len(positional) == 2) {
@@ -390,10 +358,6 @@ func validateChatShowArgsWithOptions(cmdName string, args []string, globals glob
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [conversation-id]\n", cmdName)
 	return errBadArgs
-}
-
-func parseChatShowArgs(args []string) (chatRenderOptions, []string, error) {
-	return parseChatShowArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseChatShowArgsWithOptions(args []string, globals globalOptions) (chatRenderOptions, []string, error) {
@@ -497,10 +461,6 @@ func validateChatFormat(opts *chatRenderOptions) error {
 	return nil
 }
 
-func runChatShow(args []string) error {
-	return runChatShowWithOptions(args, packageGlobalOptions())
-}
-
 func runChatShowWithOptions(args []string, globals globalOptions) error {
 	opts, positional, err := parseChatShowArgsWithOptions(args, globals)
 	if err != nil {
@@ -512,10 +472,6 @@ func runChatShowWithOptions(args []string, globals globalOptions) error {
 	return chatShow(positional[0], positional[1], opts)
 }
 
-func validateCreateReportArgs(cmdName string, args []string) error {
-	return validateCreateReportArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateCreateReportArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, positional, err := parseCreateReportArgsWithOptions(args, globals)
 	if err == nil && len(positional) >= 2 {
@@ -523,10 +479,6 @@ func validateCreateReportArgsWithOptions(cmdName string, args []string, globals 
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <report-type> [description] [instructions]\n", cmdName)
 	return errBadArgs
-}
-
-func parseCreateReportArgs(args []string) (createReportOptions, []string, error) {
-	return parseCreateReportArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseCreateReportArgsWithOptions(args []string, globals globalOptions) (createReportOptions, []string, error) {
@@ -546,10 +498,6 @@ func parseCreateReportArgsWithOptions(args []string, globals globalOptions) (cre
 		return opts, nil, fmt.Errorf("want notebook id and report type")
 	}
 	return opts, positional, nil
-}
-
-func runCreateReport(c *api.Client, args []string) error {
-	return runCreateReportWithOptions(c, args, packageGlobalOptions())
 }
 
 func runCreateReportWithOptions(c *api.Client, args []string, globals globalOptions) error {
@@ -586,10 +534,6 @@ func printGenerateReportUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s --prompt '# {topic}\\n\\nExplain the design.' <notebook-id>\n", cmdName)
 }
 
-func validateGenerateReportArgs(cmdName string, args []string) error {
-	return validateGenerateReportArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateGenerateReportArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, positional, err := parseGenerateReportArgsWithOptions(args, globals)
 	if err == nil && len(positional) == 1 {
@@ -597,10 +541,6 @@ func validateGenerateReportArgsWithOptions(cmdName string, args []string, global
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id>\n", cmdName)
 	return errBadArgs
-}
-
-func parseGenerateReportArgs(args []string) (reportOptions, []string, error) {
-	return parseGenerateReportArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseGenerateReportArgsWithOptions(args []string, globals globalOptions) (reportOptions, []string, error) {
@@ -665,10 +605,6 @@ func parseGenerateReportArgsWithOptions(args []string, globals globalOptions) (r
 		return opts, nil, fmt.Errorf("--sections must be >= 0")
 	}
 	return opts, positional, nil
-}
-
-func runGenerateReport(c *api.Client, args []string) error {
-	return runGenerateReportWithOptions(c, args, packageGlobalOptions())
 }
 
 func runGenerateReportWithOptions(c *api.Client, args []string, globals globalOptions) error {

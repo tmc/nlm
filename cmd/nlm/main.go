@@ -1232,10 +1232,6 @@ func saveCachedSourceGuide(sourceID string, g *api.SourceGuide) error {
 	return os.WriteFile(filepath.Join(dir, sourceID+".json"), data, 0o644)
 }
 
-func generateSourceGuides(c *api.Client, sourceIDs []string) error {
-	return generateSourceGuidesWithOptions(c, sourceIDs, packageGlobalOptions())
-}
-
 func generateSourceGuidesWithOptions(c *api.Client, sourceIDs []string, globals globalOptions) error {
 	enc := json.NewEncoder(os.Stdout)
 	for i, sourceID := range sourceIDs {
@@ -1330,10 +1326,6 @@ func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []s
 		fmt.Print(content)
 	}
 	return nil
-}
-
-func createAudioOverview(c *api.Client, projectID string, instructions string) error {
-	return createAudioOverviewWithOptions(c, projectID, instructions, audioCreateOptions{Length: "default", Language: "en"})
 }
 
 func createAudioOverviewWithOptions(c *api.Client, projectID string, instructions string, opts audioCreateOptions) error {
@@ -1572,7 +1564,7 @@ func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
 	return nil
 }
 
-func discoverSources(c *api.Client, projectID, query string) error {
+func discoverSources(c *api.Client, projectID, query string, globals globalOptions) error {
 	resp, err := c.DiscoverSources(projectID, query)
 	if err != nil {
 		// Earlier rounds routed this through deep-research as a
@@ -1585,7 +1577,7 @@ func discoverSources(c *api.Client, projectID, query string) error {
 		res, fbErr := streamChatResponse(c, api.ChatRequest{
 			ProjectID: projectID,
 			Prompt:    fmt.Sprintf("Suggest sources to add for this query: %s. Respond with a short bullet list of specific documents, sites, or search directions.", query),
-		}, currentChatRenderOptions())
+		}, chatRenderOptionsFromGlobals(globals))
 		if fbErr != nil {
 			return fmt.Errorf("discover sources fallback: %w", fbErr)
 		}
@@ -4843,10 +4835,6 @@ func startAutoRefreshIfEnabled() {
 	if debug {
 		fmt.Fprintf(os.Stderr, "nlm: auto-refresh enabled (token expires in %v)\n", time.Until(expiryTime).Round(time.Minute))
 	}
-}
-
-func createVideoOverview(c *api.Client, projectID string, instructions string) error {
-	return createVideoOverviewWithOptions(c, projectID, instructions, videoCreateOptions{Language: "en"})
 }
 
 func createVideoOverviewWithOptions(c *api.Client, projectID string, instructions string, opts videoCreateOptions) error {

@@ -30,10 +30,6 @@ func printSourceSelectionUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s --label-match '^Testing$' <notebook-id>\n", cmdName)
 }
 
-func validateSourceSelectionArgs(cmdName string, args []string) error {
-	return validateSourceSelectionArgsWithOptions(cmdName, args, packageGlobalOptions())
-}
-
 func validateSourceSelectionArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
 	_, _, err := parseSourceSelectionArgsWithOptions(args, globals)
 	if err == nil {
@@ -79,10 +75,6 @@ func parseSourceSelectionArgsWithOptions(args []string, globals globalOptions) (
 	return opts, positional, nil
 }
 
-func runSourceSelectionAction(c *api.Client, args []string, action string) error {
-	return runSourceSelectionActionWithOptions(c, args, action, packageGlobalOptions())
-}
-
 func runSourceSelectionActionWithOptions(c *api.Client, args []string, action string, globals globalOptions) error {
 	opts, positional, err := parseSourceSelectionArgsWithOptions(args, globals)
 	if err != nil {
@@ -97,10 +89,6 @@ func runSourceSelectionActionWithOptions(c *api.Client, args []string, action st
 		}
 	}
 	return actOnSources(c, notebookID, action, sourceIDs)
-}
-
-func runSourceGuide(c *api.Client, args []string) error {
-	return runSourceGuideWithOptions(c, args, packageGlobalOptions())
 }
 
 func runSourceGuideWithOptions(c *api.Client, args []string, globals globalOptions) error {
