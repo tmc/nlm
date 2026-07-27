@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func renderNoteMarkdown(out io.Writer, doc noteDocument) error {
+func renderNoteMarkdown(out io.Writer, doc NoteDocument) error {
 	bw := &markdownWriter{w: out}
 	bw.line("# " + doc.Title)
 	bw.blank()
@@ -19,12 +19,12 @@ func renderNoteMarkdown(out io.Writer, doc noteDocument) error {
 	}
 	if len(doc.Citations) > 0 {
 		bw.blank()
-		renderMarkdownScan(bw, doc.Citations, chatRenderContext{})
+		renderMarkdownScan(bw, doc.Citations, RenderContext{})
 	}
 	return bw.err
 }
 
-func renderNoteText(out io.Writer, doc noteDocument) error {
+func renderNoteText(out io.Writer, doc NoteDocument) error {
 	if _, err := fmt.Fprintf(out, "# %s\n\n", doc.Title); err != nil {
 		return err
 	}

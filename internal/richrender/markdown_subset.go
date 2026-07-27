@@ -28,9 +28,9 @@ type markdownSubsetBlock struct {
 	nestings     []int
 }
 
-func withoutChatFollowUps(doc chatDocument) chatDocument {
+func withoutChatFollowUps(doc ChatDocument) ChatDocument {
 	out := doc
-	out.Messages = append([]chatDocMessage(nil), doc.Messages...)
+	out.Messages = append([]ChatMessage(nil), doc.Messages...)
 	for i := range out.Messages {
 		m := &out.Messages[i]
 		if m.Role == "assistant" && m.Rich == nil {

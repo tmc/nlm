@@ -23,7 +23,7 @@ import (
 //
 // Both renderers (text reflow, HTML block structure) gate on this so the
 // decision lives in one place.
-func shouldReflowFromTree(rich *richDocument, content string) bool {
+func shouldReflowFromTree(rich *RichDocument, content string) bool {
 	if rich == nil {
 		return false
 	}
@@ -52,22 +52,22 @@ func looksLikeJSON(content string) bool {
 	return json.Valid([]byte(s))
 }
 
-// chatDocument is the format-neutral model of a rendered conversation. chatShow
+// ChatDocument is the format-neutral model of a rendered conversation. chatShow
 // assembles one after it has swapped in excerpt-bearing history citations and
 // resolved titles/locations; each output format (text, markdown, html) is a
 // pure projection of it. This is the "one model, N renderers" seam: renderers
-// read chatDocument and never re-fetch or reach back into chatShow's loop.
-type chatDocument struct {
+// read ChatDocument and never re-fetch or reach back into chatShow's loop.
+type ChatDocument struct {
 	NotebookID     string
 	ConversationID string
 	Title          string // human title of the conversation, "" if unknown
-	Messages       []chatDocMessage
+	Messages       []ChatMessage
 }
 
-// chatDocMessage is one turn. Role is "user" or "assistant" (lower-case, as
+// ChatMessage is one turn. Role is "user" or "assistant" (lower-case, as
 // persisted). Citations are populated only for assistant turns and are already
 // the best available copy (history excerpts swapped in when they were found).
-type chatDocMessage struct {
+type ChatMessage struct {
 	Role      string
 	Content   string
 	Thinking  string // reasoning trace; only shown when the caller opted in
@@ -79,15 +79,15 @@ type chatDocMessage struct {
 	// wire), so renderers that see Rich != nil can reconstruct paragraphs, lists
 	// and headings. It is strictly additive: every renderer keeps flat Content as
 	// the floor and only consults Rich as a progressive enhancement.
-	Rich *richDocument
+	Rich *RichDocument
 }
 
-// chatRenderContext carries the per-render options and the optional resolution
+// RenderContext carries the per-render options and the optional resolution
 // hooks a format renderer needs. resolveTitle maps a source ID to its notebook
 // title; loadSource fetches a source body for txtar file:line resolution. Both
 // may be nil (offline / unauthed), in which case renderers degrade to the data
 // already on the citation.
-type chatRenderContext struct {
+type RenderContext struct {
 	ShowThinking     bool
 	ExcerptBudget    int  // >0 enables per-source excerpts, clipped to this many runes
 	HideConfidence   bool // drop the p= column
@@ -111,7 +111,7 @@ type chatRenderContext struct {
 // three format renderers share this so titling never diverges between surfaces.
 // It resolves off the parent source (ParentSourceID), since the chunk-level
 // SourceID is not in the project source list; see citationSourceID.
-func (ctx chatRenderContext) citationSourceTitle(c api.Citation) string {
+func (ctx RenderContext) citationSourceTitle(c api.Citation) string {
 	if ctx.ResolveTitle != nil {
 		if t := ctx.ResolveTitle(citationSourceID(c)); t != "" {
 			return t
@@ -138,7 +138,7 @@ func citationSourceID(c api.Citation) string {
 // captured at save time), so the title-unavailable hint would be misleading; a
 // titled citation is never flagged. Presence is checked against the parent
 // source id, matching where the title resolves.
-func (ctx chatRenderContext) citationSourceRemoved(c api.Citation) bool {
+func (ctx RenderContext) citationSourceRemoved(c api.Citation) bool {
 	if ctx.SourceRemoved == nil {
 		return false
 	}
@@ -150,10 +150,10 @@ func (ctx chatRenderContext) citationSourceRemoved(c api.Citation) bool {
 
 // citationLocations resolves the "file:line:col" locators for a set of
 // citations via loadSource (the --resolve-citations txtar path), returning a
-// map keyed by citationKey. Returns nil when no loader is configured; callers
+// map keyed by CitationKey. Returns nil when no loader is configured; callers
 // that want the raw offset fall back to SourceStart/SourceEnd themselves. The
 // resolve is batched so repeated citations into one source cost a single fetch.
-func (ctx chatRenderContext) citationLocations(cites []api.Citation) map[citationKey]string {
+func (ctx RenderContext) citationLocations(cites []api.Citation) map[CitationKey]string {
 	if ctx.LoadSource == nil {
 		return nil
 	}
@@ -161,7 +161,7 @@ func (ctx chatRenderContext) citationLocations(cites []api.Citation) map[citatio
 	if len(resolved) == 0 {
 		return nil
 	}
-	out := make(map[citationKey]string, len(resolved))
+	out := make(map[CitationKey]string, len(resolved))
 	for k, rc := range resolved {
 		out[k] = rc.Location
 	}

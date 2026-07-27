@@ -74,7 +74,7 @@ func TestRenderChatHTMLLiftsMathCitations(t *testing.T) {
 	content := "$$x_i = y^2 \\quad [7]$$\n" +
 		"$$\\gamma_i = z^2 \\quad [7]$$\n" +
 		"$a_i^2 \\quad [7]$"
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: content,
 		Citations: []api.Citation{{
@@ -82,7 +82,7 @@ func TestRenderChatHTMLLiftsMathCitations(t *testing.T) {
 			SourceID:    "source-7",
 		}},
 	}}}
-	got := renderToString(t, doc, chatRenderContext{})
+	got := renderToString(t, doc, RenderContext{})
 
 	for _, want := range []string{
 		`<span class="math-display-row"><span class="math-display-equation">$$x_i = y^2$$</span><span class="math-display-cite"><sup class="citegroup">`,
@@ -186,10 +186,10 @@ func TestDisplayMathCitationPreservesGrounding(t *testing.T) {
 }
 
 func TestRenderNoteHTMLLiftsMathCitations(t *testing.T) {
-	doc := noteDocument{
+	doc := NoteDocument{
 		Title: "Fabricated math",
 		Flat:  `$$\phi_i = z^2 \quad [5, 6]$$`,
-		Rich: &richDocument{Blocks: []richSpan{{
+		Rich: &RichDocument{Blocks: []richSpan{{
 			Group: &richGroup{Children: []richSpan{{
 				Leaf: &richLeaf{Text: `$$\phi_i = z^2 \quad [5, 6]$$`},
 			}}},

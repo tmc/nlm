@@ -31,7 +31,7 @@ func decodeHTMLPayload(t *testing.T, html string) htmlPayload {
 	return p
 }
 
-func renderToString(t *testing.T, doc chatDocument, ctx chatRenderContext) string {
+func renderToString(t *testing.T, doc ChatDocument, ctx RenderContext) string {
 	t.Helper()
 	var buf bytes.Buffer
 	if err := renderChatHTML(&buf, doc, ctx); err != nil {
@@ -58,9 +58,9 @@ func answerBody(t *testing.T, html string, msgIdx int) string {
 }
 
 func TestRenderChatHTMLSelfContained(t *testing.T) {
-	doc := chatDocument{
+	doc := ChatDocument{
 		Title: "Design review",
-		Messages: []chatDocMessage{
+		Messages: []ChatMessage{
 			{Role: "user", Content: "How does auth work?"},
 			{
 				Role:    "assistant",
@@ -79,7 +79,7 @@ func TestRenderChatHTMLSelfContained(t *testing.T) {
 			},
 		},
 	}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 
 	// No external requests: no http(s) src/href, no CDN.
 	for _, bad := range []string{"http://", "https://", "src=\"//", "cdn."} {
@@ -109,8 +109,8 @@ func TestRenderChatHTMLSelfContained(t *testing.T) {
 }
 
 func TestRenderChatHTMLMobileInteraction(t *testing.T) {
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "A wide equation $$x_1 + x_2 + x_3 = y$$ [1]",
 			Citations: []api.Citation{{
@@ -123,7 +123,7 @@ func TestRenderChatHTMLMobileInteraction(t *testing.T) {
 			}},
 		}},
 	}
-	page := renderToString(t, doc, chatRenderContext{})
+	page := renderToString(t, doc, RenderContext{})
 	tests := []struct {
 		name string
 		want string
@@ -160,8 +160,8 @@ func TestRenderChatHTMLMobileInteraction(t *testing.T) {
 // inline highlight spans from character offsets (which double-printed the marker
 // and misaligned). The payload still carries the source data for each marker.
 func TestRenderChatHTMLMarkerLinking(t *testing.T) {
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Alpha grounds this [1] and that [2].",
 			Citations: []api.Citation{
@@ -170,7 +170,7 @@ func TestRenderChatHTMLMarkerLinking(t *testing.T) {
 			},
 		}},
 	}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 
 	// Both markers' sources are in the payload.
 	p := decodeHTMLPayload(t, html)
@@ -203,9 +203,9 @@ func TestRenderChatHTMLMarkerLinking(t *testing.T) {
 }
 
 func TestRenderChatHTMLEscaping(t *testing.T) {
-	doc := chatDocument{
+	doc := ChatDocument{
 		Title: `Review <b>& "friends"</b>`,
-		Messages: []chatDocMessage{{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: `See <script>alert(1)</script> & more.`,
 			Citations: []api.Citation{{
@@ -219,7 +219,7 @@ func TestRenderChatHTMLEscaping(t *testing.T) {
 			}},
 		}},
 	}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 
 	// A raw executable <script>alert must never appear: the server content and
 	// excerpt carry the literal text but only inside the JSON string, escaped.
@@ -262,8 +262,8 @@ func TestRenderChatHTMLMultibyteNoCorruption(t *testing.T) {
 	// The answer is rendered verbatim (no offset slicing), so the risk is only in
 	// the JSON blob encoding — assert content and excerpt survive byte-for-byte.
 	content := "héllo 世界 🌍 end [1]"
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: content,
 			Citations: []api.Citation{{
@@ -272,7 +272,7 @@ func TestRenderChatHTMLMultibyteNoCorruption(t *testing.T) {
 			}},
 		}},
 	}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 	if strings.ContainsRune(html, '�') {
 		t.Errorf("output contains U+FFFD replacement char; multibyte content corrupted")
 	}
@@ -289,8 +289,8 @@ func TestRenderChatHTMLMultibyteNoCorruption(t *testing.T) {
 // every source's own excerpt (not just the first), so the card, rail, and bottom
 // entry can each show one excerpt per source.
 func TestRenderChatHTMLPerSourceExcerpts(t *testing.T) {
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Grounded in several sources [1].",
 			Citations: []api.Citation{
@@ -299,7 +299,7 @@ func TestRenderChatHTMLPerSourceExcerpts(t *testing.T) {
 			},
 		}},
 	}
-	p := decodeHTMLPayload(t, renderToString(t, doc, chatRenderContext{}))
+	p := decodeHTMLPayload(t, renderToString(t, doc, RenderContext{}))
 	srcs := p.Messages[0].Markers[0].Sources
 	if len(srcs) != 2 {
 		t.Fatalf("want 2 sources under the marker, got %d", len(srcs))
@@ -310,8 +310,8 @@ func TestRenderChatHTMLPerSourceExcerpts(t *testing.T) {
 }
 
 func TestRenderChatHTMLHideConfidenceAndSpans(t *testing.T) {
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "answer body here",
 			Citations: []api.Citation{{
@@ -321,7 +321,7 @@ func TestRenderChatHTMLHideConfidenceAndSpans(t *testing.T) {
 			}},
 		}},
 	}
-	html := renderToString(t, doc, chatRenderContext{HideConfidence: true, HideSpans: true})
+	html := renderToString(t, doc, RenderContext{HideConfidence: true, HideSpans: true})
 	p := decodeHTMLPayload(t, html)
 	src := p.Messages[0].Markers[0].Sources[0]
 	if src.HasConf {
@@ -333,8 +333,8 @@ func TestRenderChatHTMLHideConfidenceAndSpans(t *testing.T) {
 }
 
 func TestRenderChatHTMLWeakConfidence(t *testing.T) {
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "weak and strong",
 			Citations: []api.Citation{
@@ -343,7 +343,7 @@ func TestRenderChatHTMLWeakConfidence(t *testing.T) {
 			},
 		}},
 	}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 	p := decodeHTMLPayload(t, html)
 	byTitle := map[string]htmlCitation{}
 	for _, mk := range p.Messages[0].Markers {
@@ -364,8 +364,8 @@ func TestRenderChatHTMLResolvedLocationAndTitle(t *testing.T) {
 	// over the raw source span. Here we supply a resolveTitle only and confirm
 	// it is used; location resolution requires a loader, so absent one we fall
 	// back to the source span.
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "resolved answer",
 			Citations: []api.Citation{{
@@ -374,7 +374,7 @@ func TestRenderChatHTMLResolvedLocationAndTitle(t *testing.T) {
 			}},
 		}},
 	}
-	ctx := chatRenderContext{
+	ctx := RenderContext{
 		ResolveTitle: func(id string) string {
 			if id == "res0res0res0res0" {
 				return "notebook-title"
@@ -399,12 +399,12 @@ func TestRenderChatHTMLResolvedLocationAndTitle(t *testing.T) {
 // via textContent, so pre-wrap displays the structure).
 func TestRenderChatHTMLPreservesExcerptNewlines(t *testing.T) {
 	excerpt := "line one\n  indented two\n\nline four"
-	doc := chatDocument{Messages: []chatDocMessage{
+	doc := ChatDocument{Messages: []ChatMessage{
 		{Role: "assistant", Content: "See the config [1].", Citations: []api.Citation{
 			{SourceIndex: 1, SourceID: "cfgabcd-1", Title: "config", Excerpt: excerpt, StartChar: 4, EndChar: 10, Confidence: 0.9},
 		}},
 	}}
-	payload := decodeHTMLPayload(t, renderToString(t, doc, chatRenderContext{ExcerptBudget: 200}))
+	payload := decodeHTMLPayload(t, renderToString(t, doc, RenderContext{ExcerptBudget: 200}))
 	var got string
 	for _, m := range payload.Messages {
 		for _, mk := range m.Markers {
@@ -443,7 +443,7 @@ func TestBuildCitationStructuredExcerpt(t *testing.T) {
 		Excerpt:     flat.String(),
 		ExcerptRuns: runs,
 	}
-	got := buildCitation(citation, chatRenderContext{}, nil, 600)
+	got := buildCitation(citation, RenderContext{}, nil, 600)
 	if got.Excerpt != flat.String() {
 		t.Fatalf("flat excerpt = %q, want %q", got.Excerpt, flat.String())
 	}
@@ -464,9 +464,9 @@ func TestBuildCitationStructuredExcerpt(t *testing.T) {
 		t.Errorf("unknown mark acquired a style: %#v", got.ExcerptRuns[6])
 	}
 
-	page := renderToString(t, chatDocument{Messages: []chatDocMessage{{
+	page := renderToString(t, ChatDocument{Messages: []ChatMessage{{
 		Role: "assistant", Content: "claim [1]", Citations: []api.Citation{citation},
-	}}}, chatRenderContext{})
+	}}}, RenderContext{})
 	for _, want := range []string{
 		`document.createTextNode(run.text)`,
 		`document.createElement("a")`,
@@ -519,8 +519,8 @@ func TestSafeExcerptLink(t *testing.T) {
 // answer) and the bottom Citations section (the full read), and the inline [N]
 // markers become underlined links. All three surfaces must be present.
 func TestRenderChatHTMLRailAndBottom(t *testing.T) {
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Backed by a source [1].",
 			Citations: []api.Citation{
@@ -528,7 +528,7 @@ func TestRenderChatHTMLRailAndBottom(t *testing.T) {
 			},
 		}},
 	}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 	for _, want := range []string{
 		`"assistant-grid"`, // two-column answer + rail
 		`"rail"`,           // the right Sources bar
@@ -545,7 +545,7 @@ func TestRenderChatHTMLRailAndBottom(t *testing.T) {
 }
 
 func TestRenderChatHTMLRailNavigation(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [1]",
 		Citations: []api.Citation{{
@@ -555,7 +555,7 @@ func TestRenderChatHTMLRailNavigation(t *testing.T) {
 			EndChar:     15,
 		}},
 	}}}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 	for _, want := range []string{
 		`var detail = el("a", "ref-action", "Details");`,
 		`var passage = el("button", "ref-action", "Passage");`,
@@ -580,7 +580,7 @@ func TestRenderChatHTMLRailNavigation(t *testing.T) {
 const groundedAnswer = "Alpha beta gamma. [1] Delta."
 
 func TestGroundedSpanValidatesAndCarries(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: groundedAnswer,
 		Citations: []api.Citation{
@@ -588,7 +588,7 @@ func TestGroundedSpanValidatesAndCarries(t *testing.T) {
 			{SourceIndex: 1, SourceID: "s1", StartChar: 0, EndChar: 17, Confidence: 0.9},
 		},
 	}}}
-	p := decodeHTMLPayload(t, renderToString(t, doc, chatRenderContext{}))
+	p := decodeHTMLPayload(t, renderToString(t, doc, RenderContext{}))
 	m := p.Messages[0].Markers
 	if len(m) != 1 || m[0].Span == nil {
 		t.Fatalf("expected one marker with a span, got %+v", m)
@@ -610,12 +610,12 @@ func TestGroundedSpanSkipsBadRanges(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			doc := chatDocument{Messages: []chatDocMessage{{
+			doc := ChatDocument{Messages: []ChatMessage{{
 				Role:      "assistant",
 				Content:   groundedAnswer,
 				Citations: []api.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: tc.start, EndChar: tc.end}},
 			}}}
-			p := decodeHTMLPayload(t, renderToString(t, doc, chatRenderContext{}))
+			p := decodeHTMLPayload(t, renderToString(t, doc, RenderContext{}))
 			if sp := p.Messages[0].Markers[0].Span; sp != nil {
 				t.Errorf("%s: span should be nil (falls back to [N] underline), got %+v", tc.name, sp)
 			}
@@ -634,12 +634,12 @@ func TestGroundedSpanMultibyte(t *testing.T) {
 	// In UTF-16 units: 🔬=2, space=1, so "Alpha beta gamma." begins at unit 3 and
 	// is 17 units long → the wire sends [3,20). (In rune space that same text is
 	// [2,19); the render must recover exactly that.)
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:      "assistant",
 		Content:   content,
 		Citations: []api.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: 3, EndChar: 20}},
 	}}}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 	p := decodeHTMLPayload(t, html)
 	sp := p.Messages[0].Markers[0].Span
 	// The span is kept in wire (UTF-16) space on the marker.
@@ -672,9 +672,9 @@ func TestMarkerTokenRangesUTF16(t *testing.T) {
 // the structured form, the content is one run; the block offsets slice it back
 // into the right pieces. Offsets (runes): "Heading"=[0,7), "Body text."=[7,17),
 // "first"=[17,22), "second"=[22,28), "End."=[28,32).
-func structuredAnswerDoc() chatDocument {
+func structuredAnswerDoc() ChatDocument {
 	content := "HeadingBody text.firstsecondEnd."
-	rich := &richDocument{Blocks: []richSpan{
+	rich := &RichDocument{Blocks: []richSpan{
 		{Start: "0", End: "7", Group: &richGroup{Children: []richSpan{
 			{Start: "0", End: "7", Leaf: &richLeaf{Text: "Heading", Marks: &richMarks{Flag1: true}}},
 		}}},
@@ -694,14 +694,14 @@ func structuredAnswerDoc() chatDocument {
 			{Start: "28", End: "32", Leaf: &richLeaf{Text: "End."}},
 		}}},
 	}}
-	return chatDocument{Messages: []chatDocMessage{{Role: "assistant", Content: content, Rich: rich}}}
+	return ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content, Rich: rich}}}
 }
 
 // TestRenderChatHTMLRichStructure pins the server-side tree render: a newline-free
 // answer with a decoded rich tree becomes real <h4>/<p>/<ul><li>/<hr> structure,
 // carrying the right text sliced from content by each block's offsets.
 func TestRenderChatHTMLRichStructure(t *testing.T) {
-	html := renderToString(t, structuredAnswerDoc(), chatRenderContext{})
+	html := renderToString(t, structuredAnswerDoc(), RenderContext{})
 	body := answerBody(t, html, 0)
 
 	// A heading paragraph (flag1) becomes <h4>, not <p>; ordinary paragraphs stay
@@ -728,7 +728,7 @@ func TestRenderChatHTMLFlatFallback(t *testing.T) {
 	doc.Messages[0].Citations = []api.Citation{{
 		SourceIndex: 1, SourceID: "aaaa0000aaaa0000", Title: "t", Excerpt: "e", Confidence: 0.9,
 	}}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 	body := answerBody(t, html, 0)
 
 	// One flat block, no structural tags.
@@ -758,7 +758,7 @@ func TestRenderChatHTMLFlatFallback(t *testing.T) {
 // sibling blocks (each a group carrying its own ListItem), interleaved with an
 // intro paragraph — NOT children of one list group. Offsets (runes):
 // "Intro:"=[0,6), "first"=[6,11), "second"=[11,17), "nested"=[17,23).
-func siblingListDoc() chatDocument {
+func siblingListDoc() ChatDocument {
 	content := "Intro:firstsecondnested"
 	item := func(start, end, text string, nesting int) richSpan {
 		return richSpan{Start: start, End: end, Group: &richGroup{
@@ -766,7 +766,7 @@ func siblingListDoc() chatDocument {
 			Children: []richSpan{{Start: start, End: end, Leaf: &richLeaf{Text: text}}},
 		}}
 	}
-	rich := &richDocument{Blocks: []richSpan{
+	rich := &RichDocument{Blocks: []richSpan{
 		{Start: "0", End: "6", Group: &richGroup{Children: []richSpan{
 			{Start: "0", End: "6", Leaf: &richLeaf{Text: "Intro:"}},
 		}}},
@@ -774,7 +774,7 @@ func siblingListDoc() chatDocument {
 		item("11", "17", "second", 0),
 		item("17", "23", "nested", 1),
 	}}
-	return chatDocument{Messages: []chatDocMessage{{Role: "assistant", Content: content, Rich: rich}}}
+	return ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content, Rich: rich}}}
 }
 
 // TestRenderChatHTMLSiblingListCoalesce pins the coalesce pass: three list-item
@@ -782,7 +782,7 @@ func siblingListDoc() chatDocument {
 // group) merge into ONE <ul> with three <li>, the nested item carrying nest-1.
 // Without the pass each bullet would be its own <ul>.
 func TestRenderChatHTMLSiblingListCoalesce(t *testing.T) {
-	body := answerBody(t, renderToString(t, siblingListDoc(), chatRenderContext{}), 0)
+	body := answerBody(t, renderToString(t, siblingListDoc(), RenderContext{}), 0)
 
 	want := `<p>Intro:</p><ul><li>first</li><li>second</li><li class="nest-1">nested</li></ul>`
 	if body != want {
@@ -805,8 +805,8 @@ func TestRenderChatHTMLSiblingListCoalesce(t *testing.T) {
 // tags absent).
 func TestRenderChatHTMLXSSInAnswer(t *testing.T) {
 	payload := `</script><img src=x onerror=alert(1)> ]]></script> [1]`
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: payload,
 			Citations: []api.Citation{{
@@ -814,7 +814,7 @@ func TestRenderChatHTMLXSSInAnswer(t *testing.T) {
 			}},
 		}},
 	}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 
 	// No live injected markup anywhere on the page.
 	for _, live := range []string{
@@ -851,8 +851,8 @@ func TestRenderChatHTMLXSSInAnswer(t *testing.T) {
 // one citelink per bound present, keeping the dash as literal text, while an
 // index with no citation stays plain text.
 func TestRenderChatHTMLMarkerRangeExpands(t *testing.T) {
-	doc := chatDocument{
-		Messages: []chatDocMessage{{
+	doc := ChatDocument{
+		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Grounded across [1-4] and also [2, 3] but not [9].",
 			Citations: []api.Citation{
@@ -863,7 +863,7 @@ func TestRenderChatHTMLMarkerRangeExpands(t *testing.T) {
 			},
 		}},
 	}
-	body := answerBody(t, renderToString(t, doc, chatRenderContext{}), 0)
+	body := answerBody(t, renderToString(t, doc, RenderContext{}), 0)
 
 	// The range [1-4] drops its brackets, uses an en dash, and links both bounds.
 	if !strings.Contains(body, `<sup class="citegroup"><a class="citelink" href="#cite-0-1" data-msg="0" data-cite="1">1</a>–<a class="citelink" href="#cite-0-4" data-msg="0" data-cite="4">4</a></sup>`) {
@@ -886,14 +886,14 @@ func TestRenderChatHTMLMarkerRangeExpands(t *testing.T) {
 // span becomes an underlined <span class="grounded"> in the server-rendered
 // answer body, carrying the passage text and the data-* join keys.
 func TestRenderChatHTMLGroundedSpanInBody(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: groundedAnswer, // "Alpha beta gamma. [1] Delta."
 		Citations: []api.Citation{
 			{SourceIndex: 1, SourceID: "s1", StartChar: 0, EndChar: 17, Confidence: 0.9},
 		},
 	}}}
-	body := answerBody(t, renderToString(t, doc, chatRenderContext{}), 0)
+	body := answerBody(t, renderToString(t, doc, RenderContext{}), 0)
 	if !strings.Contains(body, `<span class="grounded" data-msg="0" data-cite="1">Alpha beta gamma.</span>`) {
 		t.Errorf("grounded span missing or wrong text: %q", body)
 	}
@@ -933,7 +933,7 @@ func TestAlignHTMLCitationsToVisibleMarkers(t *testing.T) {
 		}
 	}
 
-	markers := buildMarkers(chatDocMessage{Content: content, Citations: citations}, chatRenderContext{}, 0)
+	markers := buildMarkers(ChatMessage{Content: content, Citations: citations}, RenderContext{}, 0)
 	for _, marker := range markers {
 		if marker.Index == 7 && len(marker.Spans) != 2 {
 			t.Errorf("source 7 spans = %v, want two occurrences", marker.Spans)
@@ -956,11 +956,11 @@ func TestRenderChatHTMLLoadsMathJaxOnlyForMath(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			doc := chatDocument{Messages: []chatDocMessage{{
+			doc := ChatDocument{Messages: []ChatMessage{{
 				Role:    "assistant",
 				Content: test.content,
 			}}}
-			got := renderToString(t, doc, chatRenderContext{})
+			got := renderToString(t, doc, RenderContext{})
 			hasLoader := strings.Contains(got, `id="MathJax-script"`)
 			hasConfig := strings.Contains(got, "window.MathJax")
 			if hasLoader != test.want || hasConfig != test.want {
@@ -998,12 +998,12 @@ func TestRenderChatHTMLMultibyteOffsets(t *testing.T) {
 	// "🔬 Alpha beta gamma. [1]" — 🔬 is one rune but TWO UTF-16 units. In UTF-16
 	// units "Alpha beta gamma." is [3,20) and the [1] token is at [22,25).
 	content := "🔬 Alpha beta gamma. [1]"
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:      "assistant",
 		Content:   content,
 		Citations: []api.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: 3, EndChar: 20, Confidence: 0.9}},
 	}}}
-	body := answerBody(t, renderToString(t, doc, chatRenderContext{}), 0)
+	body := answerBody(t, renderToString(t, doc, RenderContext{}), 0)
 	if !strings.Contains(body, `<span class="grounded" data-msg="0" data-cite="1">Alpha beta gamma.</span>`) {
 		t.Errorf("multibyte grounded slice wrong (offset shifted?): %q", body)
 	}
@@ -1029,8 +1029,8 @@ func thinkingBody(html string, msgIdx int) string {
 	return body
 }
 
-func thinkingDoc() chatDocument {
-	return chatDocument{Messages: []chatDocMessage{{
+func thinkingDoc() ChatDocument {
+	return ChatDocument{Messages: []ChatMessage{{
 		Role:     "assistant",
 		Content:  "The answer. [1]",
 		Thinking: "First I consider X.\n\nThen I weigh Y.",
@@ -1046,7 +1046,7 @@ func thinkingDoc() chatDocument {
 // with its newlines intact.
 func TestRenderChatHTMLThinkingOptIn(t *testing.T) {
 	// Off by default: no thinking template, and the trace is not in the page.
-	off := renderToString(t, thinkingDoc(), chatRenderContext{})
+	off := renderToString(t, thinkingDoc(), RenderContext{})
 	if b := thinkingBody(off, 0); b != "" {
 		t.Errorf("thinking rendered without ShowThinking: %q", b)
 	}
@@ -1055,7 +1055,7 @@ func TestRenderChatHTMLThinkingOptIn(t *testing.T) {
 	}
 
 	// On: the reasoning block is present with its label and text (newlines kept).
-	on := renderToString(t, thinkingDoc(), chatRenderContext{ShowThinking: true})
+	on := renderToString(t, thinkingDoc(), RenderContext{ShowThinking: true})
 	body := thinkingBody(on, 0)
 	if body == "" {
 		t.Fatal("no thinking-body template with ShowThinking set")
@@ -1074,7 +1074,7 @@ func TestRenderChatHTMLThinkingOptIn(t *testing.T) {
 func TestRenderChatHTMLThinkingXSS(t *testing.T) {
 	doc := thinkingDoc()
 	doc.Messages[0].Thinking = `</template><script>alert(1)</script><img src=x onerror=alert(2)>`
-	html := renderToString(t, doc, chatRenderContext{ShowThinking: true})
+	html := renderToString(t, doc, RenderContext{ShowThinking: true})
 
 	// The data island plus the app script are the only two <script> elements; the
 	// injected <script>alert and the <img onerror> must render as escaped text,
@@ -1100,7 +1100,7 @@ func TestRenderChatHTMLThinkingXSS(t *testing.T) {
 // are underlined (dotted, distinct from the grounded passage's solid underline),
 // so every reference on the page is underlined.
 func TestRenderChatHTMLReferencesUnderlined(t *testing.T) {
-	html := renderToString(t, thinkingDoc(), chatRenderContext{})
+	html := renderToString(t, thinkingDoc(), RenderContext{})
 	// The citelink rule must declare an underline; a dotted style keeps it
 	// distinct from .grounded.
 	css, _, _ := strings.Cut(html, "</style>")

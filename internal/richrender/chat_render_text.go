@@ -9,7 +9,7 @@ import (
 // renderChatText is the terminal/plain projection. It renders one turn at a
 // time through the shared live renderer so citation output is identical to the
 // streaming path.
-func renderChatText(out, status io.Writer, doc chatDocument, mode citationRenderMode, ctx chatRenderContext) error {
+func renderChatText(out, status io.Writer, doc ChatDocument, mode CitationMode, ctx RenderContext) error {
 	for i, message := range doc.Messages {
 		if i > 0 {
 			fmt.Fprintln(out)

@@ -10,7 +10,7 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-// resolvedCitation holds what a per-citation source lookup produced. Today
+// ResolvedCitation holds what a per-citation source lookup produced. Today
 // that is only a vim/quickfix-clickable "file:line:col" location, and only
 // when the source is a txtar archive whose member the resolver could pin.
 //
@@ -19,7 +19,7 @@ import (
 // often empty even for sources that were uploaded as txtar archives. The cited
 // source text is not recovered here: the server ships it inline on the wire
 // (api.Citation.Excerpt), so there is nothing to slice out of the body.
-type resolvedCitation struct {
+type ResolvedCitation struct {
 	Location string // "file:line:col" for a resolved txtar member; "" otherwise
 }
 
@@ -27,12 +27,12 @@ type resolvedCitation struct {
 // "file:line:col" coordinate when possible. Returns nil if there are no
 // citations or no loader. On per-source load failures the affected entries are
 // simply missing from the result map (callers degrade to the unresolved label).
-func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cites []api.Citation) map[citationKey]resolvedCitation {
+func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cites []api.Citation) map[CitationKey]ResolvedCitation {
 	if load == nil || len(cites) == 0 {
 		return nil
 	}
 	bodies := make(map[string]api.LoadSourceText)
-	out := make(map[citationKey]resolvedCitation)
+	out := make(map[CitationKey]ResolvedCitation)
 	for _, c := range cites {
 		if c.SourceID == "" {
 			continue
@@ -62,9 +62,9 @@ func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cit
 // no location could be produced. This is the single source of truth shared by
 // the batch (resolveCitationLocations) and streaming-JSONL paths so the two
 // never diverge.
-func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitation, bool) {
+func resolveOneCitation(body api.LoadSourceText, c api.Citation) (ResolvedCitation, bool) {
 	if len(body.Fragments) == 0 {
-		return resolvedCitation{}, false
+		return ResolvedCitation{}, false
 	}
 	r := designreview.Resolve(body, designreview.NativeCitation{
 		SourceID:   c.SourceID,
@@ -76,9 +76,9 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 	// A location is only meaningful when txtar resolution actually picked a
 	// member file (not the raw source title) and produced a usable line number.
 	if r.Status == designreview.StatusOK && r.File != "" && r.Line > 0 && r.File != body.Title {
-		return resolvedCitation{Location: formatLocation(r)}, true
+		return ResolvedCitation{Location: formatLocation(r)}, true
 	}
-	return resolvedCitation{}, false
+	return ResolvedCitation{}, false
 }
 
 // formatLocation renders a resolved citation as a vim/quickfix-clickable
@@ -126,16 +126,16 @@ func shortenPath(p string) string {
 	return rel
 }
 
-// citationKey identifies a Citation uniquely enough to look up its
+// CitationKey identifies a Citation uniquely enough to look up its
 // resolved location on a per-citation basis (multiple citations can
 // share a SourceID but have distinct char ranges).
-type citationKey struct {
+type CitationKey struct {
 	SourceIndex int
 	SourceID    string
 	StartChar   int
 	EndChar     int
 }
 
-func keyFor(c api.Citation) citationKey {
-	return citationKey{SourceIndex: c.SourceIndex, SourceID: c.SourceID, StartChar: c.StartChar, EndChar: c.EndChar}
+func keyFor(c api.Citation) CitationKey {
+	return CitationKey{SourceIndex: c.SourceIndex, SourceID: c.SourceID, StartChar: c.StartChar, EndChar: c.EndChar}
 }

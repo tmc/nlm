@@ -26,7 +26,7 @@ var (
 	noteCodeRegionPattern = regexp.MustCompile(`(?s)<pre.*?</pre>|<code.*?</code>`)
 )
 
-func renderNoteHTML(out io.Writer, doc noteDocument) error {
+func renderNoteHTML(out io.Writer, doc NoteDocument) error {
 	markers := noteCitationMarkers(doc)
 	blob, err := json.Marshal(markers)
 	if err != nil {
@@ -76,7 +76,7 @@ func noteHasMath(text string) bool {
 	return false
 }
 
-func noteCitationMarkers(doc noteDocument) []htmlMarker {
+func noteCitationMarkers(doc NoteDocument) []htmlMarker {
 	citations := append([]api.Citation(nil), doc.Citations...)
 	for i := range citations {
 		citations[i].SourceID = citationSourceID(citations[i])
@@ -92,7 +92,7 @@ func noteCitationMarkers(doc noteDocument) []htmlMarker {
 		}
 		ranges = nil
 	}
-	markers := buildCitationMarkers(citations, chatRenderContext{}, htmlExcerptBudget, length, ranges)
+	markers := buildCitationMarkers(citations, RenderContext{}, htmlExcerptBudget, length, ranges)
 	byIndex := markersByIndex(markers)
 	for _, index := range markerIndicesFromText(doc.Flat) {
 		if _, ok := byIndex[index]; !ok {
@@ -103,7 +103,7 @@ func noteCitationMarkers(doc noteDocument) []htmlMarker {
 	return markers
 }
 
-func richNoteNodes(doc noteDocument, markers []htmlMarker) []answerNode {
+func richNoteNodes(doc NoteDocument, markers []htmlMarker) []answerNode {
 	byIndex := markersByIndex(markers)
 	if doc.Rich == nil {
 		nodes := markdownSubsetNodes(doc.Flat, byIndex)

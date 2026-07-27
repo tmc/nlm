@@ -103,7 +103,7 @@ type answerTemplate struct {
 // the citation data travels as a JSON blob the inline script reads (never
 // concatenated into markup or script), and each assistant answer body is
 // server-rendered HTML built through html/template's contextual escaping.
-func renderChatHTML(w io.Writer, doc chatDocument, ctx chatRenderContext) error {
+func renderChatHTML(w io.Writer, doc ChatDocument, ctx RenderContext) error {
 	if !ctx.IncludeFollowUps {
 		doc = withoutChatFollowUps(doc)
 	}
@@ -141,7 +141,7 @@ func renderChatHTML(w io.Writer, doc chatDocument, ctx chatRenderContext) error 
 
 var chatMarkdownCodePattern = regexp.MustCompile("(?s)```.*?```|`[^`\\n]*`")
 
-func chatDocumentHasMath(doc chatDocument) bool {
+func chatDocumentHasMath(doc ChatDocument) bool {
 	var body strings.Builder
 	for _, message := range doc.Messages {
 		if message.Role != "assistant" {
@@ -157,7 +157,7 @@ func chatDocumentHasMath(doc chatDocument) bool {
 // pairing it with the message index. The per-marker model comes from the payload
 // already built for the cards/rail, so the grounded spans and [N] links are
 // validated once and shared. User turns contribute no answer body.
-func buildAnswerTemplates(doc chatDocument, ctx chatRenderContext, payload htmlPayload) ([]answerTemplate, error) {
+func buildAnswerTemplates(doc ChatDocument, ctx RenderContext, payload htmlPayload) ([]answerTemplate, error) {
 	var out []answerTemplate
 	for i, m := range doc.Messages {
 		if m.Role != "assistant" {
@@ -194,7 +194,7 @@ func renderThinkingBody(text string) template.HTML {
 
 // displayTitle is the page/document title, falling back through the
 // conversation title to a generic label so the tab is never blank.
-func displayTitle(doc chatDocument) string {
+func displayTitle(doc ChatDocument) string {
 	if doc.Title != "" {
 		return doc.Title
 	}
@@ -205,7 +205,7 @@ func displayTitle(doc chatDocument) string {
 // titles/locations, groups citations by marker, and validates each marker's
 // answer span against the message's rune length. Offset safety and the
 // per-source card data are decided here, once, in Go — the script only renders.
-func buildHTMLPayload(doc chatDocument, ctx chatRenderContext) htmlPayload {
+func buildHTMLPayload(doc ChatDocument, ctx RenderContext) htmlPayload {
 	budget := ctx.ExcerptBudget
 	if budget <= 0 {
 		budget = htmlExcerptBudget
@@ -231,7 +231,7 @@ func buildHTMLPayload(doc chatDocument, ctx chatRenderContext) htmlPayload {
 // Span (the reply-span range in the answer the client underlines) when the
 // group's citations agree on a real, in-range, marker-free range; otherwise Span
 // is nil and the client underlines just the [N] token.
-func buildMarkers(m chatDocMessage, ctx chatRenderContext, budget int) []htmlMarker {
+func buildMarkers(m ChatMessage, ctx RenderContext, budget int) []htmlMarker {
 	if len(m.Citations) == 0 {
 		return nil
 	}
@@ -248,7 +248,7 @@ func buildMarkers(m chatDocMessage, ctx chatRenderContext, budget int) []htmlMar
 // buildCitationMarkers is the format-neutral citation-to-marker projection
 // shared by chat turns and notes. Callers supply the coordinate-space length
 // and the marker-token ranges appropriate to their own document model.
-func buildCitationMarkers(citations []api.Citation, ctx chatRenderContext, budget, u16Len int, markerRanges [][2]int) []htmlMarker {
+func buildCitationMarkers(citations []api.Citation, ctx RenderContext, budget, u16Len int, markerRanges [][2]int) []htmlMarker {
 	if len(citations) == 0 {
 		return nil
 	}
@@ -541,7 +541,7 @@ var htmlMarkerRe = regexp.MustCompile(`\[(\d+(?:\s*[-,]\s*\d+)*)\]`)
 // buildCitation shapes one source under a marker: its handle, resolved title
 // and location, clipped excerpt, and per-source confidence flags (honoring
 // HideConfidence and HideSpans).
-func buildCitation(c api.Citation, ctx chatRenderContext, locations map[citationKey]string, budget int) htmlCitation {
+func buildCitation(c api.Citation, ctx RenderContext, locations map[CitationKey]string, budget int) htmlCitation {
 	excerpt := clipExcerpt(c.Excerpt, budget)
 	hc := htmlCitation{
 		SourceID:    c.SourceID,

@@ -8,7 +8,7 @@ import (
 )
 
 func TestChatMarkdownSubset(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role: "assistant",
 		Content: "### Heading\n\n**Bold** and *italic* with `code` [1,2].\n\n" +
 			"- first\n  - nested\n\n1. one\n2. two\n\n---\n\n$k$",
@@ -17,7 +17,7 @@ func TestChatMarkdownSubset(t *testing.T) {
 			{SourceIndex: 2, SourceID: "source-2"},
 		},
 	}}}
-	html := renderToString(t, doc, chatRenderContext{})
+	html := renderToString(t, doc, RenderContext{})
 	for _, want := range []string{
 		"<h3>Heading</h3>",
 		"<strong>Bold</strong>",
@@ -44,8 +44,8 @@ func TestChatMarkdownSubset(t *testing.T) {
 
 func TestChatMarkdownSubsetConservative(t *testing.T) {
 	const content = `{"heading":"### literal","items":["* literal"]}`
-	doc := chatDocument{Messages: []chatDocMessage{{Role: "assistant", Content: content}}}
-	html := renderToString(t, doc, chatRenderContext{})
+	doc := ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content}}}
+	html := renderToString(t, doc, RenderContext{})
 	body := answerBodies(html)
 	if !strings.Contains(body, `class="answer-block"`) || strings.Contains(body, "<h3>") {
 		t.Fatalf("JSON answer was structured: %s", answerBodies(html))
@@ -73,15 +73,15 @@ func TestChatFollowUps(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			content := "Useful answer.\n\n---\n\n" + test.prompt
-			doc := chatDocument{Messages: []chatDocMessage{{
+			doc := ChatDocument{Messages: []ChatMessage{{
 				Role:    "assistant",
 				Content: content,
 			}}}
-			html := renderToString(t, doc, chatRenderContext{})
+			html := renderToString(t, doc, RenderContext{})
 			if strings.Contains(answerBodies(html), "Would you like") {
 				t.Fatal("default HTML includes follow-up prompt")
 			}
-			html = renderToString(t, doc, chatRenderContext{IncludeFollowUps: true})
+			html = renderToString(t, doc, RenderContext{IncludeFollowUps: true})
 			if !strings.Contains(answerBodies(html), "Would you like") {
 				t.Fatal("--include-follow-ups HTML omits follow-up prompt")
 			}
@@ -99,11 +99,11 @@ func TestChatFollowUpsConservative(t *testing.T) {
 		"Useful answer.\n\nNext Step: Run the simulation.",
 	}
 	for _, content := range tests {
-		doc := chatDocument{Messages: []chatDocMessage{{
+		doc := ChatDocument{Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: content,
 		}}}
-		html := renderToString(t, doc, chatRenderContext{})
+		html := renderToString(t, doc, RenderContext{})
 		if !strings.Contains(answerBodies(html), content) {
 			t.Errorf("default HTML suppressed ordinary prose %q", content)
 		}

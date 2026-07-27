@@ -11,11 +11,11 @@ import (
 	"unicode"
 )
 
-// notebookChatDocument is one saved conversation and the metadata shown in the
+// NotebookDocument is one saved conversation and the metadata shown in the
 // notebook switcher. FileName is retained only as the deterministic final sort
 // key for sessions whose timestamps are equal or absent.
-type notebookChatDocument struct {
-	Document chatDocument
+type NotebookDocument struct {
+	Document ChatDocument
 	Updated  time.Time
 	Created  time.Time
 	FileName string
@@ -46,7 +46,7 @@ type notebookHTMLPayload struct {
 // each document. The buffered copy gets conversation-scoped citation targets;
 // renderChatHTML itself is unchanged, preserving the single-conversation page
 // byte for byte.
-func renderNotebookHTML(w io.Writer, docs []notebookChatDocument, ctx chatRenderContext) error {
+func renderNotebookHTML(w io.Writer, docs []NotebookDocument, ctx RenderContext) error {
 	payload := notebookHTMLPayload{
 		Conversations: make([]notebookHTMLConversation, 0, len(docs)),
 	}
@@ -110,7 +110,7 @@ func namespaceChatHTML(page, namespace string) (string, error) {
 	return strings.Replace(page, old, replacement, 1), nil
 }
 
-func notebookConversationTitle(doc chatDocument) string {
+func notebookConversationTitle(doc ChatDocument) string {
 	for _, message := range doc.Messages {
 		if message.Role != "user" {
 			continue
@@ -133,7 +133,7 @@ func notebookConversationTitle(doc chatDocument) string {
 	return "Conversation"
 }
 
-func notebookConversationTimestamp(item notebookChatDocument) string {
+func notebookConversationTimestamp(item NotebookDocument) string {
 	timestamp := item.Updated
 	if timestamp.IsZero() {
 		timestamp = item.Created

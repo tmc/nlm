@@ -55,7 +55,7 @@ type answerNode struct {
 // supplies each marker's grounded Span and the join key that turns a literal [N]
 // into a link. msgIdx keys the data-msg attribute so the script can scope its
 // element lookups per turn.
-func renderAnswerBody(msgIdx int, m chatDocMessage, markers []htmlMarker) (template.HTML, error) {
+func renderAnswerBody(msgIdx int, m ChatMessage, markers []htmlMarker) (template.HTML, error) {
 	nodes := answerNodes(msgIdx, m, markers)
 	nodes = liftSplitMathCitations(nodes, msgIdx, markersByIndex(markers))
 	var sb strings.Builder
@@ -132,7 +132,7 @@ type elemData struct {
 // The two spaces agree only for all-BMP text, so every wire offset is mapped to
 // its rune index here, at the single seam, before the rune-based rendering runs.
 // markers is copied (with translated Spans) so the caller's slice is untouched.
-func answerNodes(msgIdx int, m chatDocMessage, markers []htmlMarker) []answerNode {
+func answerNodes(msgIdx int, m ChatMessage, markers []htmlMarker) []answerNode {
 	u16 := newUTF16RuneMap(m.Content)
 	markers = translateMarkerSpans(markers, u16)
 	byIndex := markersByIndex(markers)
@@ -310,7 +310,7 @@ func translateMarkerSpans(markers []htmlMarker, u16 utf16RuneMap) []htmlMarker {
 //
 // The projected block/run offsets are wire (UTF-16) offsets; u16 maps them to
 // the rune space the slicing below uses.
-func treeAnswerNodes(msgIdx int, m chatDocMessage, markers []htmlMarker, byIndex map[int]htmlMarker, u16 utf16RuneMap) []answerNode {
+func treeAnswerNodes(msgIdx int, m ChatMessage, markers []htmlMarker, byIndex map[int]htmlMarker, u16 utf16RuneMap) []answerNode {
 	blocks := projectRichDocument(m.Rich)
 	if len(blocks) == 0 {
 		return nil

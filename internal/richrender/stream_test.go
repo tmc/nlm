@@ -302,7 +302,7 @@ func TestChatStreamRendererCitationMixedSpan(t *testing.T) {
 }
 
 func TestChatStreamRendererCitationColumnToggles(t *testing.T) {
-	newRenderer := func() (*bytes.Buffer, *chatStreamRenderer) {
+	newRenderer := func() (*bytes.Buffer, *StreamRenderer) {
 		var status bytes.Buffer
 		r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
 		r.excerptBudget = 40 // expanded view so the src-offset locator is exercised too
@@ -393,7 +393,7 @@ func TestChatStreamRendererCitationModeOff(t *testing.T) {
 func TestResolveCitationMode(t *testing.T) {
 	cases := []struct {
 		flag    string
-		want    citationRenderMode
+		want    CitationMode
 		wantStr string
 	}{
 		{"", citationModeList, "empty default = list"},

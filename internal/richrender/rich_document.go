@@ -1,6 +1,6 @@
 package richrender
 
-// Rich-document scaffolding for the answer body.
+// Rich-document projection for the answer body.
 //
 // The NotebookLM server ships answer text with every newline stripped: on the
 // wire a turn's whole answer is one run of newline-free strings, and ALL
@@ -10,22 +10,17 @@ package richrender
 // run-together artifact ("harnessImplemented", "notes2026-07-09"). Rendering
 // from the tree is the fix.
 //
-// This file is the branch-local model + projection ONLY. It is deliberately
-// scaffolding ahead of the parse layer: the real RichDocument proto and its
-// decode into api.ChatMessage land separately (steps a/b, proto/betool turf).
-// Nothing here touches the live render path — a message carries a *richDocument
-// only when that parse layer populates it, and every renderer keeps flat
-// Content as the floor (renderRich* is only reached when Rich != nil).
+// RichDocumentFromProto converts the generated RichDocument proto into the
+// renderer's private span model. Chat and note renderers keep flat content as
+// the fallback and consult the tree only when it is present and useful.
 //
-// The model mirrors the WIRE-DECODED shape, not a cleaned-up one, on purpose:
-//   - offsets arrive as STRINGS ("0","115"), a beprotojson int64-as-string
-//     artifact — richSpan.Start/End are strings, parsed on projection;
+// The projection model preserves three wire-observed properties:
+//   - richSpan.Start and End retain decimal offsets until projection;
 //   - blocks are NOT in document order — they must be sorted by start;
 //   - a block's real content lives in NESTED child spans, so flattening must
 //     recurse — a top-level-blocks-only walk undercounts and desyncs.
-// projectRichDocument handles all three; the tests exercise a stub built to
-// trip each one (see rich_document_test.go). Modeling the stub already-clean
-// would hide the gotchas until real data merged.
+//
+// projectRichDocument handles all three.
 
 import (
 	"sort"
@@ -33,13 +28,13 @@ import (
 	"strings"
 )
 
-// richDocument is the wire-decoded answer body: the block tree (paragraphs,
+// RichDocument is the wire-decoded answer body: the block tree (paragraphs,
 // list items, separators, and gated table/code blocks) over the newline-free
 // reply text. It is the parsed form of the RichDocument proto's body layer;
 // annotations (the marker→source offset index) stay with the citation model and
-// are not duplicated here. A nil *richDocument means "no tree" — render flat
+// are not duplicated here. A nil *RichDocument means "no tree" — render flat
 // Content.
-type richDocument struct {
+type RichDocument struct {
 	Blocks []richSpan
 }
 
@@ -170,7 +165,7 @@ type richRun struct {
 // A nil document or no blocks yields nil, so the caller falls back to flat
 // Content. An unmodeled block becomes a blockUnknown carrying its flattened
 // text, never a dropped or failed block.
-func projectRichDocument(doc *richDocument) []richBlockOut {
+func projectRichDocument(doc *RichDocument) []richBlockOut {
 	if doc == nil || len(doc.Blocks) == 0 {
 		return nil
 	}
@@ -357,7 +352,7 @@ func leafRuns(s richSpan, start, end int) []richRun {
 // coordinate space citation offsets index into: a citation reply_span [s,e]
 // must be covered by a contiguous run of these leaves. Used for the
 // offset-alignment check, not for rendering.
-func leafSpans(doc *richDocument) []richRun {
+func leafSpans(doc *RichDocument) []richRun {
 	if doc == nil {
 		return nil
 	}

@@ -8,7 +8,7 @@ import (
 
 // richDocumentFromProto converts a generated RichDocument into the renderer's
 // shared rich-document model.
-func richDocumentFromProto(doc *pb.RichDocument) *richDocument {
+func richDocumentFromProto(doc *pb.RichDocument) *RichDocument {
 	if doc == nil || len(doc.GetBody().GetBlocks()) == 0 {
 		return nil
 	}
@@ -16,7 +16,7 @@ func richDocumentFromProto(doc *pb.RichDocument) *richDocument {
 	for _, block := range doc.GetBody().GetBlocks() {
 		blocks = append(blocks, richSpanFromProto(block))
 	}
-	return &richDocument{Blocks: blocks}
+	return &RichDocument{Blocks: blocks}
 }
 
 func richSpanFromProto(span *pb.Span) richSpan {

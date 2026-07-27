@@ -21,8 +21,8 @@ const (
 // except presentSourceID as absent from the source list, mirroring a citation
 // whose source could not be resolved. resolveTitle knows only the present
 // source, so the unresolved one has no title from any source.
-func removedCtx(budget int) chatRenderContext {
-	return chatRenderContext{
+func removedCtx(budget int) RenderContext {
+	return RenderContext{
 		ExcerptBudget: budget,
 		ResolveTitle: func(id string) string {
 			if id == presentSourceID {
@@ -52,13 +52,13 @@ func TestCitationSourceRemovedGating(t *testing.T) {
 		t.Errorf("present source must not be flagged removed")
 	}
 	// No hook → never removed (offline replay must not claim removal).
-	if (chatRenderContext{}).citationSourceRemoved(api.Citation{SourceID: removedSourceID}) {
+	if (RenderContext{}).citationSourceRemoved(api.Citation{SourceID: removedSourceID}) {
 		t.Errorf("without a sourceRemoved hook nothing is removed")
 	}
 }
 
 func TestCitationSourceRemovedHTML(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [2]",
 		Citations: []api.Citation{
@@ -96,7 +96,7 @@ func TestCitationSourceRemovedHTML(t *testing.T) {
 }
 
 func TestCitationSourceRemovedText(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [2]",
 		Citations: []api.Citation{
@@ -119,7 +119,7 @@ func TestCitationSourceRemovedText(t *testing.T) {
 }
 
 func TestCitationSourceRemovedMarkdownScan(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim.",
 		Citations: []api.Citation{
@@ -142,7 +142,7 @@ func TestCitationSourceRemovedMarkdownScan(t *testing.T) {
 }
 
 func TestCitationSourceRemovedMarkdownAudit(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim.",
 		Citations: []api.Citation{
@@ -165,11 +165,11 @@ func TestCitationSourceRemovedMarkdownAudit(t *testing.T) {
 // the list did not resolve. sourceRemoved returns false for present IDs, so a
 // bare handle is the correct rendering here — not a hint.
 func TestCitationPresentUntitledNotRemoved(t *testing.T) {
-	ctx := chatRenderContext{
+	ctx := RenderContext{
 		ResolveTitle:  func(string) string { return "" }, // present but untitled
 		SourceRemoved: func(string) bool { return false },
 	}
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:      "assistant",
 		Content:   "Claim.",
 		Citations: []api.Citation{{SourceIndex: 1, SourceID: presentSourceID, Confidence: 0.9}},
@@ -190,11 +190,11 @@ func TestCitationPresentUntitledNotRemoved(t *testing.T) {
 // list is unavailable; this pins that the RENDER layer stays silent too, so a
 // good source is never mislabeled on incomplete information.
 func TestCitationNoRemovedHookNoHint(t *testing.T) {
-	ctx := chatRenderContext{
+	ctx := RenderContext{
 		ResolveTitle: func(string) string { return "" }, // no title resolvable
 		// sourceRemoved deliberately nil: list unavailable / offline replay.
 	}
-	doc := chatDocument{Messages: []chatDocMessage{{
+	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [1]",
 		Citations: []api.Citation{
@@ -264,7 +264,7 @@ func TestCitationResolvableParentNotUnresolved(t *testing.T) {
 		chunk  = "cccccccc-1111-2222-3333-444444444444"
 		parent = "11111111-2222-3333-4444-555555555555"
 	)
-	ctx := chatRenderContext{
+	ctx := RenderContext{
 		ResolveTitle: func(id string) string {
 			if id == parent {
 				return "product-docs.md"

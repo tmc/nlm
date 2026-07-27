@@ -8,24 +8,24 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-// noteDocument is the format-neutral model of one rendered note. Rich is the
+// NoteDocument is the format-neutral model of one rendered note. Rich is the
 // document arm; Flat is the plain-arm Markdown fallback.
-type noteDocument struct {
+type NoteDocument struct {
 	Title     string
 	Flat      string
-	Rich      *richDocument
+	Rich      *RichDocument
 	Citations []api.Citation
 }
 
-func noteDocumentFromAPI(note *api.Note) noteDocument {
+func noteDocumentFromAPI(note *api.Note) NoteDocument {
 	if note == nil {
-		return noteDocument{}
+		return NoteDocument{}
 	}
 	flat := note.GetRichText()
 	if flat == "" {
 		flat = note.GetContentText()
 	}
-	doc := noteDocument{
+	doc := NoteDocument{
 		Title: note.GetTitle(),
 		Flat:  flat,
 		Rich:  richDocumentFromProto(note.Rich),

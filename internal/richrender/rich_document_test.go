@@ -24,8 +24,8 @@ import (
 // [17,40). Offsets are contiguous so the containment test can assert full
 // coverage. List membership is structural — the item groups carry a ListItem —
 // not a "list"/"listItem" Kind string, which does not exist on the wire.
-func dirtyTree() *richDocument {
-	return &richDocument{
+func dirtyTree() *RichDocument {
+	return &RichDocument{
 		Blocks: []richSpan{
 			// Out of order on purpose: the list (start 17) appears before the
 			// paragraph (start 0) and heading run (start 12).
@@ -139,7 +139,7 @@ func TestProjectRichDocumentSiblingListCoalesce(t *testing.T) {
 		}}
 	}
 	// para, item, item (one list), para (splits), item (a second, separate list).
-	doc := &richDocument{Blocks: []richSpan{
+	doc := &RichDocument{Blocks: []richSpan{
 		para("0", "6", "Intro:"),
 		item("6", "11", "aaaaa", 0),
 		item("11", "16", "bbbbb", 1),
@@ -246,7 +246,7 @@ func TestRichDocumentEmptyFallback(t *testing.T) {
 	if got := projectRichDocument(nil); got != nil {
 		t.Errorf("projectRichDocument(nil) = %v, want nil", got)
 	}
-	if got := projectRichDocument(&richDocument{}); got != nil {
+	if got := projectRichDocument(&RichDocument{}); got != nil {
 		t.Errorf("projectRichDocument(empty) = %v, want nil", got)
 	}
 	if got := leafSpans(nil); got != nil {
@@ -263,7 +263,7 @@ func TestRichDocumentEmptyFallback(t *testing.T) {
 // safe, never a broken render). It keeps its offsets so it still occupies its
 // place in the document order.
 func TestUnknownBlockDegrades(t *testing.T) {
-	doc := &richDocument{Blocks: []richSpan{
+	doc := &RichDocument{Blocks: []richSpan{
 		{Start: "10", End: "20"}, // no Leaf/Group/Hidden/Table/CodeBlock/Separator
 		{Start: "0", End: "10", Group: &richGroup{Children: []richSpan{
 			{Start: "0", End: "10", Leaf: &richLeaf{Text: "real text"}},
@@ -290,7 +290,7 @@ func TestUnknownBlockDegrades(t *testing.T) {
 // blockCodeBlock carrying their flattened runs) until a real frame verifies the
 // structured shape — never rendered as <table>/<pre> from an unverified model.
 func TestGatedTableCodeBlockDegrade(t *testing.T) {
-	doc := &richDocument{Blocks: []richSpan{
+	doc := &RichDocument{Blocks: []richSpan{
 		{Start: "0", End: "10", Table: &richGroup{Children: []richSpan{
 			{Start: "0", End: "10", Leaf: &richLeaf{Text: "a | b | c"}},
 		}}},
@@ -313,7 +313,7 @@ func TestGatedTableCodeBlockDegrade(t *testing.T) {
 // Hidden content (thinking/reasoning blocks) projects to blockHidden with its
 // text flattened; the renderers show it only when the caller opts in.
 func TestHiddenBlockProjects(t *testing.T) {
-	doc := &richDocument{Blocks: []richSpan{
+	doc := &RichDocument{Blocks: []richSpan{
 		{Start: "0", End: "20", Hidden: &richGroup{Children: []richSpan{
 			{Start: "0", End: "20", Leaf: &richLeaf{Text: "reasoning trace"}},
 		}}},
@@ -348,7 +348,7 @@ func TestHiddenBlockProjects(t *testing.T) {
 // whichever behavior the real offsets prove.
 func TestHiddenBlockOffsetGap(t *testing.T) {
 	// Visible "intro" [0,10), hidden reasoning [10,50), visible "after" [50,60).
-	doc := &richDocument{Blocks: []richSpan{
+	doc := &RichDocument{Blocks: []richSpan{
 		{Start: "0", End: "10", Group: &richGroup{Children: []richSpan{
 			{Start: "0", End: "10", Leaf: &richLeaf{Text: "intro text"}},
 		}}},

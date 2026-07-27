@@ -14,7 +14,7 @@ import (
 // with citations get a "Citations" section: a scan-view table when
 // ctx.ExcerptBudget == 0, or source-first audit blockquotes when it is > 0.
 // See docs/dev/citation-rendering.md §5 for the target shapes.
-func renderChatMarkdown(out io.Writer, doc chatDocument, ctx chatRenderContext) error {
+func renderChatMarkdown(out io.Writer, doc ChatDocument, ctx RenderContext) error {
 	bw := &markdownWriter{w: out}
 	for i, m := range doc.Messages {
 		if i > 0 {
@@ -43,7 +43,7 @@ func renderChatMarkdown(out io.Writer, doc chatDocument, ctx chatRenderContext) 
 // the # and answer cells are blank on a marker's 2nd+ source rows so a
 // multi-source marker reads as one group. Confidence and the answer span honor
 // HideConfidence/HideSpans.
-func renderMarkdownScan(bw *markdownWriter, cites []api.Citation, ctx chatRenderContext) {
+func renderMarkdownScan(bw *markdownWriter, cites []api.Citation, ctx RenderContext) {
 	bw.line("#### Citations")
 	bw.blank()
 
@@ -95,7 +95,7 @@ func renderMarkdownScan(bw *markdownWriter, cites []api.Citation, ctx chatRender
 // several markers appears once, listing every marker it grounds, with its
 // excerpt as the quote. Confidence and the answer span honor
 // HideConfidence/HideSpans; the source locator honors HideSpans.
-func renderMarkdownAudit(bw *markdownWriter, cites []api.Citation, ctx chatRenderContext) {
+func renderMarkdownAudit(bw *markdownWriter, cites []api.Citation, ctx RenderContext) {
 	bw.line("#### Citations")
 
 	locations := ctx.citationLocations(cites)
@@ -145,7 +145,7 @@ func writeBlockquote(bw *markdownWriter, s string) {
 
 // auditGrounds renders the "[1] (p=0.87, answer 115–241) [3] (…)" tail: one
 // clause per marker the source grounds, honoring HideConfidence/HideSpans.
-func auditGrounds(group []api.Citation, ctx chatRenderContext) string {
+func auditGrounds(group []api.Citation, ctx RenderContext) string {
 	var b strings.Builder
 	for i, c := range group {
 		if i > 0 {
@@ -173,7 +173,7 @@ func auditGrounds(group []api.Citation, ctx chatRenderContext) string {
 // auditLocator returns the source-document locator for the audit header: the
 // resolved "file:line:col" from ctx.citationLocations when available, else the
 // raw "src N–M" from SourceStart/SourceEnd, else "".
-func auditLocator(c api.Citation, locations map[citationKey]string) string {
+func auditLocator(c api.Citation, locations map[CitationKey]string) string {
 	if loc, ok := locations[keyFor(c)]; ok && loc != "" {
 		return loc
 	}
@@ -204,7 +204,7 @@ func groupCitationsBySource(cites []api.Citation) ([]string, map[string][]api.Ci
 // so a blank cell reads as an unresolved title rather than missing data — not
 // "removed", since a citation handle is a granular chunk ID that misses the
 // source list even when the source is present.
-func scanSource(c api.Citation, ctx chatRenderContext) string {
+func scanSource(c api.Citation, ctx RenderContext) string {
 	handle := shortSourceID(c.SourceID)
 	title := collapseWhitespace(ctx.citationSourceTitle(c))
 	if title == "" && ctx.citationSourceRemoved(c) {

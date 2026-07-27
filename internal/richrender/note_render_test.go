@@ -101,8 +101,8 @@ func TestRenderNoteHTMLRichAndEscaped(t *testing.T) {
 	}
 
 	out.Reset()
-	unsafeLink := noteDocument{
-		Rich: &richDocument{Blocks: []richSpan{{
+	unsafeLink := NoteDocument{
+		Rich: &RichDocument{Blocks: []richSpan{{
 			Group: &richGroup{Children: []richSpan{{
 				Leaf: &richLeaf{
 					Text:  "unsafe link",
@@ -205,7 +205,7 @@ func TestRenderNoteHTMLStructuredExcerpt(t *testing.T) {
 	for _, run := range runs {
 		flat.WriteString(run.Text)
 	}
-	doc := noteDocument{
+	doc := NoteDocument{
 		Title: "Structured excerpt",
 		Flat:  "claim [1]",
 		Citations: []api.Citation{{
@@ -327,7 +327,7 @@ func TestRenderNoteHTMLLoadsMathJaxOnlyForMath(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var out bytes.Buffer
-			if err := renderNoteHTML(&out, noteDocument{Title: "Test", Flat: test.flat}); err != nil {
+			if err := renderNoteHTML(&out, NoteDocument{Title: "Test", Flat: test.flat}); err != nil {
 				t.Fatal(err)
 			}
 			got := out.String()
@@ -341,7 +341,7 @@ func TestRenderNoteHTMLLoadsMathJaxOnlyForMath(t *testing.T) {
 }
 
 func TestRenderNoteHTMLMathEscaping(t *testing.T) {
-	doc := noteDocument{
+	doc := NoteDocument{
 		Title: "Math",
 		Flat:  "$$E = mc^2$$\n\n$<script>alert(1)</script>$",
 	}
@@ -373,7 +373,7 @@ func TestRenderNoteHTMLMathEscaping(t *testing.T) {
 }
 
 func TestRenderNoteHTMLPlainMarkdownSubset(t *testing.T) {
-	doc := noteDocument{
+	doc := NoteDocument{
 		Title: "Plain",
 		Flat:  "## Head\n\n- **bold**\n- `code`\n\nMath $x$ <img src=x>",
 	}
@@ -395,7 +395,7 @@ func TestRenderNoteHTMLPlainMarkdownSubset(t *testing.T) {
 }
 
 func TestRenderNoteHTMLSuperscriptCitations(t *testing.T) {
-	doc := noteDocument{
+	doc := NoteDocument{
 		Title: "Citations",
 		Flat:  "Range [1-4] and list [1, 2].",
 		Citations: []api.Citation{
@@ -420,7 +420,7 @@ func TestRenderNoteHTMLSuperscriptCitations(t *testing.T) {
 }
 
 func TestRenderNoteHTMLGroundedSpans(t *testing.T) {
-	doc := noteDocument{
+	doc := NoteDocument{
 		Title: "Grounding",
 		Flat:  "Alpha claim [1]. Beta claim [1].",
 		Citations: []api.Citation{

@@ -20,17 +20,17 @@ func TestRenderChatMarkdown(t *testing.T) {
 
 	tests := []struct {
 		name string
-		doc  chatDocument
-		ctx  chatRenderContext
+		doc  ChatDocument
+		ctx  RenderContext
 		want []string // substrings that must appear, in order
 		deny []string // substrings that must NOT appear
 	}{
 		{
 			name: "scan view table",
-			doc: chatDocument{Messages: []chatDocMessage{
+			doc: ChatDocument{Messages: []ChatMessage{
 				{Role: "assistant", Content: "The answer.", Citations: multiSource},
 			}},
-			ctx: chatRenderContext{},
+			ctx: RenderContext{},
 			want: []string{
 				"#### ASSISTANT",
 				"The answer.",
@@ -46,10 +46,10 @@ func TestRenderChatMarkdown(t *testing.T) {
 		},
 		{
 			name: "scan view hides confidence",
-			doc: chatDocument{Messages: []chatDocMessage{
+			doc: ChatDocument{Messages: []ChatMessage{
 				{Role: "assistant", Content: "A.", Citations: multiSource},
 			}},
-			ctx: chatRenderContext{HideConfidence: true},
+			ctx: RenderContext{HideConfidence: true},
 			want: []string{
 				"| # | answer | source |",
 				"| 1 | 115–241 | b149abcd codex: B149 |",
@@ -58,10 +58,10 @@ func TestRenderChatMarkdown(t *testing.T) {
 		},
 		{
 			name: "scan view hides spans",
-			doc: chatDocument{Messages: []chatDocMessage{
+			doc: ChatDocument{Messages: []ChatMessage{
 				{Role: "assistant", Content: "A.", Citations: multiSource},
 			}},
-			ctx: chatRenderContext{HideSpans: true},
+			ctx: RenderContext{HideSpans: true},
 			want: []string{
 				"| # | p | source |",
 				"| 1 | 0.91 | b149abcd codex: B149 |",
@@ -70,10 +70,10 @@ func TestRenderChatMarkdown(t *testing.T) {
 		},
 		{
 			name: "audit view blockquotes source-first",
-			doc: chatDocument{Messages: []chatDocMessage{
+			doc: ChatDocument{Messages: []ChatMessage{
 				{Role: "assistant", Content: "A.", Citations: multiSource},
 			}},
-			ctx: chatRenderContext{ExcerptBudget: 200},
+			ctx: RenderContext{ExcerptBudget: 200},
 			want: []string{
 				"#### Citations",
 				// b149abcd grounds both [1] and [3] and appears once.
@@ -94,10 +94,10 @@ func TestRenderChatMarkdown(t *testing.T) {
 		},
 		{
 			name: "audit view hides confidence and spans",
-			doc: chatDocument{Messages: []chatDocMessage{
+			doc: ChatDocument{Messages: []ChatMessage{
 				{Role: "assistant", Content: "A.", Citations: multiSource},
 			}},
-			ctx: chatRenderContext{ExcerptBudget: 200, HideConfidence: true, HideSpans: true},
+			ctx: RenderContext{ExcerptBudget: 200, HideConfidence: true, HideSpans: true},
 			want: []string{
 				"**b149abcd** — codex: B149",
 				"grounds [1] [3]",
@@ -106,11 +106,11 @@ func TestRenderChatMarkdown(t *testing.T) {
 		},
 		{
 			name: "user and assistant two-turn",
-			doc: chatDocument{Messages: []chatDocMessage{
+			doc: ChatDocument{Messages: []ChatMessage{
 				{Role: "user", Content: "What did codex say?"},
 				{Role: "assistant", Content: "It said things.", Citations: multiSource[:1]},
 			}},
-			ctx: chatRenderContext{},
+			ctx: RenderContext{},
 			want: []string{
 				"#### USER",
 				"What did codex say?",
@@ -122,10 +122,10 @@ func TestRenderChatMarkdown(t *testing.T) {
 		},
 		{
 			name: "assistant without citations omits section",
-			doc: chatDocument{Messages: []chatDocMessage{
+			doc: ChatDocument{Messages: []ChatMessage{
 				{Role: "assistant", Content: "No sources here."},
 			}},
-			ctx:  chatRenderContext{},
+			ctx:  RenderContext{},
 			want: []string{"#### ASSISTANT", "No sources here."},
 			deny: []string{"#### Citations", "|"},
 		},
@@ -157,13 +157,13 @@ func TestRenderChatMarkdown(t *testing.T) {
 }
 
 func TestRenderChatMarkdownEscapesTitles(t *testing.T) {
-	doc := chatDocument{Messages: []chatDocMessage{
+	doc := ChatDocument{Messages: []ChatMessage{
 		{Role: "assistant", Content: "A.", Citations: []api.Citation{
 			{SourceIndex: 1, SourceID: "aaaaaaaa-0000", Title: "a | b `c`", Confidence: 0.5},
 		}},
 	}}
 	var buf bytes.Buffer
-	if err := renderChatMarkdown(&buf, doc, chatRenderContext{}); err != nil {
+	if err := renderChatMarkdown(&buf, doc, RenderContext{}); err != nil {
 		t.Fatalf("renderChatMarkdown: %v", err)
 	}
 	got := buf.String()
@@ -179,13 +179,13 @@ func TestRenderChatMarkdownEscapesTitles(t *testing.T) {
 // interior line becomes a bare ">".
 func TestRenderChatMarkdownPreservesExcerptNewlines(t *testing.T) {
 	excerpt := "func main() {\n\tfmt.Println(\"hi\")\n\n\treturn\n}"
-	doc := chatDocument{Messages: []chatDocMessage{
+	doc := ChatDocument{Messages: []ChatMessage{
 		{Role: "assistant", Content: "See the entrypoint [1].", Citations: []api.Citation{
 			{SourceIndex: 1, SourceID: "codeabcd-1", Title: "main.go", Excerpt: excerpt, StartChar: 4, EndChar: 18, Confidence: 0.9},
 		}},
 	}}
 	var buf bytes.Buffer
-	if err := renderChatMarkdown(&buf, doc, chatRenderContext{ExcerptBudget: 200}); err != nil {
+	if err := renderChatMarkdown(&buf, doc, RenderContext{ExcerptBudget: 200}); err != nil {
 		t.Fatal(err)
 	}
 	got := buf.String()

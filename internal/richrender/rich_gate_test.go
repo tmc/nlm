@@ -3,15 +3,15 @@ package richrender
 import "testing"
 
 // a minimal non-nil tree so the gate's other conditions are what's under test.
-func gateTree() *richDocument {
-	return &richDocument{Blocks: []richSpan{{Start: "0", End: "1", Leaf: &richLeaf{Text: "x"}}}}
+func gateTree() *RichDocument {
+	return &RichDocument{Blocks: []richSpan{{Start: "0", End: "1", Leaf: &richLeaf{Text: "x"}}}}
 }
 
 func TestShouldReflowFromTree(t *testing.T) {
 	tree := gateTree()
 	cases := []struct {
 		name    string
-		rich    *richDocument
+		rich    *RichDocument
 		content string
 		want    bool
 	}{

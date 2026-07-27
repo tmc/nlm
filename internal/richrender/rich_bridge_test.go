@@ -109,7 +109,7 @@ func TestRichReflowIntegrity(t *testing.T) {
 // flattenLeafText concatenates every leaf's text in document order with no
 // separators — the flat baseline the reflow must preserve character-for-character
 // (modulo whitespace).
-func flattenLeafText(doc *richDocument) string {
+func flattenLeafText(doc *RichDocument) string {
 	var b strings.Builder
 	var walk func(s richSpan)
 	walk = func(s richSpan) {

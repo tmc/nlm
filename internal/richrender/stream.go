@@ -21,13 +21,13 @@ const (
 	ansiReset = "\033[0m"
 )
 
-// citationRenderMode controls how Citation data is surfaced in the CLI.
-type citationRenderMode int
+// CitationMode controls how Citation data is surfaced in the CLI.
+type CitationMode int
 
 const (
-	citationModeOff  citationRenderMode = iota // Suppress the trailing citation list entirely.
-	citationModeList                           // Stream the answer live, then print the enriched citation list. The default.
-	citationModeJSON                           // Emit answer deltas and citations as JSON-lines events on stdout.
+	citationModeOff  CitationMode = iota // Suppress the trailing citation list entirely.
+	citationModeList                     // Stream the answer live, then print the enriched citation list. The default.
+	citationModeJSON                     // Emit answer deltas and citations as JSON-lines events on stdout.
 )
 
 // resolveCitationMode maps the user-facing --citations flag to a mode.
@@ -42,7 +42,7 @@ const (
 // which spliced inline superscripts into the answer body — are removed: the
 // splice used byte offsets against rune-based server spans and corrupted any
 // answer containing multibyte characters.
-func resolveCitationMode(flag string) citationRenderMode {
+func resolveCitationMode(flag string) CitationMode {
 	switch strings.ToLower(flag) {
 	case "off", "none":
 		return citationModeOff
@@ -80,21 +80,23 @@ func warnDeprecatedCitationMode(w io.Writer, flag string) {
 	}
 }
 
-type chatStreamRenderer struct {
+// StreamRenderer accumulates phase-aware chat chunks and writes their selected
+// text, citation, and follow-up representations.
+type StreamRenderer struct {
 	out                  io.Writer
 	status               io.Writer
 	showThinking         bool
 	verbose              bool
 	jsonl                bool // when true, emit typed JSON-lines events on r.out instead of human output
 	jsonlIncludeThinking bool // when true, thinking chunks are emitted as JSON-lines events (otherwise skipped)
-	citationMode         citationRenderMode
+	citationMode         CitationMode
 	resolveTitle         func(sourceID string) string                      // optional; returns "" if unknown
 	sourceRemoved        func(sourceID string) bool                        // optional; reports a source ID no longer in the notebook
 	loadSource           func(sourceID string) (api.LoadSourceText, error) // optional; populated when --resolve-citations or --citation-excerpt is set
 	excerptBudget        int                                               // >0 enables per-citation excerpts, clipped to this many runes
 	showConfidence       bool                                              // list mode: show the (p=…) column (default on)
 	showSpans            bool                                              // list mode: show the "chars X-Y" column (default on)
-	resolvedLocations    map[citationKey]resolvedCitation                  // computed once at Finish; keyed by citationKey
+	resolvedLocations    map[CitationKey]ResolvedCitation                  // computed once at Finish; keyed by CitationKey
 	lastThinkingLen      int
 	answerBuf            strings.Builder
 	thinking             string
@@ -115,8 +117,8 @@ type chatStreamRenderer struct {
 	jsonlSourceBodies  map[string]api.LoadSourceText // per-source cache for lazy JSONL resolution ("" body = negative)
 }
 
-func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mode citationRenderMode) *chatStreamRenderer {
-	return &chatStreamRenderer{
+func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mode CitationMode) *StreamRenderer {
+	return &StreamRenderer{
 		out:            out,
 		status:         status,
 		showThinking:   showThinking,
@@ -127,7 +129,8 @@ func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mo
 	}
 }
 
-func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
+// WriteChunk incorporates and renders one phase-aware chat chunk.
+func (r *StreamRenderer) WriteChunk(chunk api.ChatChunk) {
 	if r.jsonl {
 		r.writeChunkJSONL(chunk)
 		return
@@ -175,7 +178,7 @@ func (r *chatStreamRenderer) WriteChunk(chunk api.ChatChunk) {
 // Answer text is emitted as deltas so shell consumers can pipeline without
 // waiting for the full response. Thinking chunks arrive as cumulative
 // snapshots; only emit when the snapshot differs from what we last emitted.
-func (r *chatStreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
+func (r *StreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
 	switch chunk.Phase {
 	case api.ChatChunkThinking:
 		r.thinking = chunk.Text
@@ -259,7 +262,7 @@ func (r *chatStreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
 	}
 }
 
-func (r *chatStreamRenderer) emitJSONLEvent(event map[string]any) {
+func (r *StreamRenderer) emitJSONLEvent(event map[string]any) {
 	buf, err := json.Marshal(event)
 	if err != nil {
 		fmt.Fprintf(r.status, "nlm: thinking-jsonl marshal failed: %v\n", err)
@@ -268,7 +271,8 @@ func (r *chatStreamRenderer) emitJSONLEvent(event map[string]any) {
 	fmt.Fprintln(r.out, string(buf))
 }
 
-func (r *chatStreamRenderer) Finish() {
+// Finish emits any trailing citations, follow-ups, and completion event.
+func (r *StreamRenderer) Finish() {
 	if r.jsonl {
 		for _, f := range r.followUps {
 			r.emitJSONLEvent(map[string]any{
@@ -296,8 +300,8 @@ func (r *chatStreamRenderer) Finish() {
 // modes (a compact one-line-per-source view, a grouped-by-source view) can be
 // registered without reworking Finish. citationModeOff has no entry (nothing
 // to render); citationModeJSON is handled earlier in Finish.
-var citationRenderers = map[citationRenderMode]func(*chatStreamRenderer){
-	citationModeList: (*chatStreamRenderer).renderCitationList,
+var citationRenderers = map[CitationMode]func(*StreamRenderer){
+	citationModeList: (*StreamRenderer).renderCitationList,
 }
 
 // renderCitationList prints the enriched, post-answer citation list under a
@@ -316,7 +320,7 @@ var citationRenderers = map[citationRenderMode]func(*chatStreamRenderer){
 // showConfidence / showSpans toggle the per-row p= column and the answer-span
 // header. The expanded view (--citation-excerpts) additionally prints each
 // source's file:line / src-offset locator and its verbatim excerpt.
-func (r *chatStreamRenderer) renderCitationList() {
+func (r *StreamRenderer) renderCitationList() {
 	if len(r.citations) == 0 {
 		return
 	}
@@ -336,7 +340,7 @@ func (r *chatStreamRenderer) renderCitationList() {
 // confidence (amber below weakConfidence) — never hoisted to the header,
 // because a marker's sources have independent, usually differing scores. In the
 // expanded view each source's locator and excerpt follow on indented lines.
-func (r *chatStreamRenderer) renderCitationGroup(idx int, group []api.Citation, expanded bool) {
+func (r *StreamRenderer) renderCitationGroup(idx int, group []api.Citation, expanded bool) {
 	fmt.Fprintf(r.status, "  %s\n", r.citationMarkerHeader(idx, group))
 	for _, c := range group {
 		if row := r.citationSourceRow(c, expanded); row != "" {
@@ -353,7 +357,7 @@ func (r *chatStreamRenderer) renderCitationGroup(idx int, group []api.Citation, 
 // claim in the answer text); it is labeled "answer" so it is never confused
 // with a source offset. All sources under a marker share it. When showSpans is
 // off, or the sources somehow disagree on the span, only "[n]" prints.
-func (r *chatStreamRenderer) citationMarkerHeader(idx int, group []api.Citation) string {
+func (r *StreamRenderer) citationMarkerHeader(idx int, group []api.Citation) string {
 	header := fmt.Sprintf("[%d]", idx)
 	if r.showSpans {
 		if start, end, ok := uniformSpan(group); ok {
@@ -370,7 +374,7 @@ func (r *chatStreamRenderer) citationMarkerHeader(idx int, group []api.Citation)
 // after. In the expanded view the row also carries the source-offset locator
 // ("src N-M", or a resolved file:line) so the excerpt beneath it can be placed
 // in the source document. Returns "" when there is nothing to show.
-func (r *chatStreamRenderer) citationSourceRow(c api.Citation, expanded bool) string {
+func (r *StreamRenderer) citationSourceRow(c api.Citation, expanded bool) string {
 	label := r.citationLabel(c)
 	var row string
 	if r.showConfidence {
@@ -398,7 +402,7 @@ func (r *chatStreamRenderer) citationSourceRow(c api.Citation, expanded bool) st
 // formatSourceConfidence renders one source's grounding score as "p=0.87",
 // colored amber when it is below weakConfidence so a weakly-grounded source
 // reads at a glance. Returns "" for a zero/absent score.
-func (r *chatStreamRenderer) formatSourceConfidence(conf float64) string {
+func (r *StreamRenderer) formatSourceConfidence(conf float64) string {
 	if conf <= 0 {
 		return ""
 	}
@@ -414,7 +418,7 @@ func (r *chatStreamRenderer) formatSourceConfidence(conf float64) string {
 // otherwise the raw source-offset range as "src N-M" (from SourceStart/End).
 // Both are source-document coordinates, distinct from the answer span on the
 // marker header; returns "" when neither is available.
-func (r *chatStreamRenderer) citationSourceLocator(c api.Citation) string {
+func (r *StreamRenderer) citationSourceLocator(c api.Citation) string {
 	if loc := r.resolvedLocationFor(c); loc != "" {
 		return "→ " + loc
 	}
@@ -442,7 +446,7 @@ func uniformSpan(group []api.Citation) (int, int, bool) {
 // color so the cited text stays legible. The source-document locator now rides
 // on the source row itself; only the excerpt lands here. Nothing prints when
 // the server sent no excerpt.
-func (r *chatStreamRenderer) printCitationExcerpt(c api.Citation, indent string) {
+func (r *StreamRenderer) printCitationExcerpt(c api.Citation, indent string) {
 	if ex := r.excerptFor(c); ex != "" {
 		fmt.Fprintf(r.status, "%s“%s”\n", indent, ex)
 	}
@@ -455,7 +459,7 @@ func (r *chatStreamRenderer) printCitationExcerpt(c api.Citation, indent string)
 // prefers a resolved notebook title, then the server-supplied one. Degrades to
 // just the handle or just the quoted title when only one is available. The
 // resolved file:line and excerpt render separately on continuation lines.
-func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
+func (r *StreamRenderer) citationLabel(c api.Citation) string {
 	handle := shortSourceID(c.SourceID)
 	var title string
 	if r.resolveTitle != nil {
@@ -492,7 +496,7 @@ func (r *chatStreamRenderer) citationLabel(c api.Citation) string {
 // citation c when --resolve-citations resolved it against a txtar member, or
 // "" otherwise. Footer printers render this on a continuation line beneath the
 // citation label so the original source name stays visible.
-func (r *chatStreamRenderer) resolvedLocationFor(c api.Citation) string {
+func (r *StreamRenderer) resolvedLocationFor(c api.Citation) string {
 	if r.resolvedLocations == nil {
 		return ""
 	}
@@ -504,7 +508,7 @@ func (r *chatStreamRenderer) resolvedLocationFor(c api.Citation) string {
 // The text is the verbatim passage the server shipped inline with the citation
 // (api.Citation.Excerpt) — available for any source type (notes included) with
 // no source fetch or txtar resolution required.
-func (r *chatStreamRenderer) excerptFor(c api.Citation) string {
+func (r *StreamRenderer) excerptFor(c api.Citation) string {
 	if r.excerptBudget <= 0 {
 		return ""
 	}
@@ -518,9 +522,9 @@ func (r *chatStreamRenderer) excerptFor(c api.Citation) string {
 // be loaded, or the source is not a pinnable txtar member. The excerpt is no
 // longer resolved here — it ships inline on the citation. Resolution is shared
 // with the batch path via resolveOneCitation so the two never diverge.
-func (r *chatStreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitation, bool) {
+func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (ResolvedCitation, bool) {
 	if r.loadSource == nil || c.SourceID == "" {
-		return resolvedCitation{}, false
+		return ResolvedCitation{}, false
 	}
 	if r.jsonlSourceBodies == nil {
 		r.jsonlSourceBodies = make(map[string]api.LoadSourceText)
@@ -530,7 +534,7 @@ func (r *chatStreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitat
 		loaded, err := r.loadSource(c.SourceID)
 		if err != nil {
 			r.jsonlSourceBodies[c.SourceID] = api.LoadSourceText{} // negative cache
-			return resolvedCitation{}, false
+			return ResolvedCitation{}, false
 		}
 		body = loaded
 		r.jsonlSourceBodies[c.SourceID] = body
@@ -538,7 +542,7 @@ func (r *chatStreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitat
 	return resolveOneCitation(body, c)
 }
 
-func (r *chatStreamRenderer) printFollowUps() {
+func (r *StreamRenderer) printFollowUps() {
 	if len(r.followUps) == 0 {
 		return
 	}
@@ -548,21 +552,23 @@ func (r *chatStreamRenderer) printFollowUps() {
 	}
 }
 
-func (r *chatStreamRenderer) Answer() string {
+// Answer returns the accumulated answer text.
+func (r *StreamRenderer) Answer() string {
 	return r.answerBuf.String()
 }
 
-func (r *chatStreamRenderer) Thinking() string {
+// Thinking returns the latest cumulative thinking trace.
+func (r *StreamRenderer) Thinking() string {
 	return r.thinking
 }
 
 // Rich returns the answer-body span tree from the last answer chunk (the
 // cumulative tree over the whole answer), or nil when the stream carried none.
-func (r *chatStreamRenderer) Rich() *pb.RichDocument {
+func (r *StreamRenderer) Rich() *pb.RichDocument {
 	return r.rich
 }
 
-func (r *chatStreamRenderer) clearThinkingLine() {
+func (r *StreamRenderer) clearThinkingLine() {
 	if r.lastThinkingLen == 0 {
 		return
 	}
@@ -597,7 +603,7 @@ type persistedRenderConfig struct {
 	sourceRemoved  func(string) bool
 }
 
-func renderPersistedAssistant(out, status io.Writer, m StoredMessage, mode citationRenderMode, cfg persistedRenderConfig) {
+func renderPersistedAssistant(out, status io.Writer, m StoredMessage, mode CitationMode, cfg persistedRenderConfig) {
 	r := newChatStreamRenderer(out, status, false, false, mode)
 	r.excerptBudget = cfg.excerptBudget
 	r.showConfidence = !cfg.hideConfidence

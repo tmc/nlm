@@ -12,7 +12,7 @@ import (
 
 func TestRenderNotebookHTML(t *testing.T) {
 	now := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
-	docs := []notebookChatDocument{
+	docs := []NotebookDocument{
 		{
 			Document: notebookTestDocument("aaaaaaaa-1111", `Newest </script><script>alert(1)</script>`, "Alpha [1]"),
 			Updated:  now,
@@ -23,7 +23,7 @@ func TestRenderNotebookHTML(t *testing.T) {
 		},
 	}
 	var out strings.Builder
-	if err := renderNotebookHTML(&out, docs, chatRenderContext{}); err != nil {
+	if err := renderNotebookHTML(&out, docs, RenderContext{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -85,11 +85,11 @@ function citeId(msgIdx, idx) { return "cite-" + msgIdx + "-" + idx; }` {
 	}
 }
 
-func notebookTestDocument(id, question, answer string) chatDocument {
-	return chatDocument{
+func notebookTestDocument(id, question, answer string) ChatDocument {
+	return ChatDocument{
 		NotebookID:     "nb",
 		ConversationID: id,
-		Messages: []chatDocMessage{
+		Messages: []ChatMessage{
 			{Role: "user", Content: question},
 			{
 				Role:    "assistant",
