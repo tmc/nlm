@@ -86,7 +86,7 @@ directly (typically via `rpc.Call{ID: ..., Args: intmethod.Encode...}`).
 
 From the repo root:
 
-    (cd proto && buf generate)
+    go generate ./proto
     git status -- internal/
 
 `git status` must show zero changes under `internal/`. Any modification means
