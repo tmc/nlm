@@ -1,4 +1,4 @@
-package sync
+package nlmsync
 
 import (
 	"crypto/sha256"

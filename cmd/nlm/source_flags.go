@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/tmc/nlm/internal/nlmsync"
 	"github.com/tmc/nlm/internal/notebooklm/api"
-	nlmsync "github.com/tmc/nlm/internal/sync"
 )
 
 // stringSliceFlag collects repeated --flag values into a slice.

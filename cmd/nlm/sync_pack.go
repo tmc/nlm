@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	nlmsync "github.com/tmc/nlm/internal/sync"
+	"github.com/tmc/nlm/internal/nlmsync"
 )
 
 // runSyncPack writes the txtar bytes that `nlm sync` would upload, without
