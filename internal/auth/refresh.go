@@ -302,60 +302,6 @@ func ExtractGSessionID(cookies string) (string, error) {
 	return state.GSessionID, nil
 }
 
-// RefreshLoop runs a background refresh loop to keep credentials alive
-func (r *RefreshClient) RefreshLoop(gsessionID string, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		if err := r.RefreshCredentials(gsessionID); err != nil {
-			if r.debug {
-				fmt.Printf("Failed to refresh credentials: %v\n", err)
-			}
-		}
-	}
-}
-
-// AutoRefreshConfig holds configuration for auto-refresh
-type AutoRefreshConfig struct {
-	Enabled  bool          `json:"enabled"`
-	Interval time.Duration `json:"interval"`
-	Debug    bool          `json:"debug"`
-}
-
-// DefaultAutoRefreshConfig returns default auto-refresh settings
-func DefaultAutoRefreshConfig() AutoRefreshConfig {
-	return AutoRefreshConfig{
-		Enabled:  true,
-		Interval: 10 * time.Minute, // Refresh every 10 minutes
-		Debug:    false,
-	}
-}
-
-// StartAutoRefresh starts automatic credential refresh in the background
-func StartAutoRefresh(cookies string, gsessionID string, config AutoRefreshConfig) error {
-	if !config.Enabled {
-		return nil
-	}
-
-	client, err := NewRefreshClient(cookies)
-	if err != nil {
-		return fmt.Errorf("failed to create refresh client: %w", err)
-	}
-
-	client.debug = config.Debug
-
-	// Do an initial refresh to verify it works
-	if err := client.RefreshCredentials(gsessionID); err != nil {
-		return fmt.Errorf("initial refresh failed: %w", err)
-	}
-
-	// Start the refresh loop in a goroutine
-	go client.RefreshLoop(gsessionID, config.Interval)
-
-	return nil
-}
-
 // TokenManager handles automatic token refresh based on expiration
 type TokenManager struct {
 	mu           sync.RWMutex
