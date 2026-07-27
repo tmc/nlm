@@ -97,6 +97,7 @@ type NotebookCapError struct {
 	Err   error
 }
 
+// Error returns the notebook-cap classification and underlying error.
 func (e *NotebookCapError) Error() string {
 	if e.Err != nil {
 		return ErrNotebookCapReached.Error() + ": " + e.Err.Error()
@@ -104,9 +105,12 @@ func (e *NotebookCapError) Error() string {
 	return ErrNotebookCapReached.Error()
 }
 
+// Unwrap returns the underlying create-project error.
 func (e *NotebookCapError) Unwrap() error { return e.Err }
 
-// Is matches both the sentinel (so existing errors.Is checks pass) and
+// Is reports whether target is ErrNotebookCapReached.
+//
+// It matches both the sentinel (so existing errors.Is checks pass) and
 // other *NotebookCapError values (so callers can introspect the type
 // without losing the count/limit when re-wrapping).
 func (e *NotebookCapError) Is(target error) bool {
@@ -121,6 +125,7 @@ type NotebookAccessError struct {
 	Err        error
 }
 
+// Error returns the notebook-access classification and underlying error.
 func (e *NotebookAccessError) Error() string {
 	msg := ErrNotebookNotAccessible.Error()
 	if e.Err != nil {
@@ -129,8 +134,10 @@ func (e *NotebookAccessError) Error() string {
 	return msg
 }
 
+// Unwrap returns the underlying notebook-access error.
 func (e *NotebookAccessError) Unwrap() error { return e.Err }
 
+// Is reports whether target is ErrNotebookNotAccessible.
 func (e *NotebookAccessError) Is(target error) bool {
 	return target == ErrNotebookNotAccessible
 }

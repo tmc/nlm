@@ -20,6 +20,7 @@ import (
 
 // Video operations
 
+// VideoOverviewResult describes a generated video overview and its readiness.
 type VideoOverviewResult struct {
 	ProjectID string
 	VideoID   string
@@ -44,12 +45,14 @@ func videoOverviewResultFromArtifactData(projectID string, artifactData []interf
 	return result
 }
 
+// CreateVideoOverview starts a video overview with default generation options.
 func (c *Client) CreateVideoOverview(ctx context.Context, projectID string, instructions string) (*VideoOverviewResult, error) {
 	return c.CreateVideoOverviewWithOptions(ctx, projectID, CreateVideoOverviewOptions{
 		Instructions: instructions,
 	})
 }
 
+// CreateVideoOverviewWithOptions starts a video overview with explicit options.
 func (c *Client) CreateVideoOverviewWithOptions(ctx context.Context, projectID string, opts CreateVideoOverviewOptions) (*VideoOverviewResult, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
@@ -107,6 +110,7 @@ func videoOverviewResultFromProto(projectID string, artifact *pb.Artifact) *Vide
 	return result
 }
 
+// CreateAppArtifact starts generation of an interactive app artifact.
 func (c *Client) CreateAppArtifact(ctx context.Context, projectID string, kind AppArtifactKind, instructions string, sourceIDs []string) (string, error) {
 	if projectID == "" {
 		return "", fmt.Errorf("project ID required")

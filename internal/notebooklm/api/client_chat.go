@@ -46,8 +46,10 @@ type ChatRequest struct {
 type ChatChunkPhase int
 
 const (
-	ChatChunkThinking ChatChunkPhase = iota // Reasoning trace (replaced by next thinking chunk)
-	ChatChunkAnswer                         // Final answer text (cumulative delta)
+	// ChatChunkThinking carries a cumulative reasoning trace.
+	ChatChunkThinking ChatChunkPhase = iota
+	// ChatChunkAnswer carries cumulative final-answer text.
+	ChatChunkAnswer
 )
 
 // Citation represents a source citation from the chat response. SourceIndex
@@ -114,6 +116,7 @@ type chatStreamTimeoutError struct {
 	progress bool
 }
 
+// Error returns the chat stream timeout description.
 func (e *chatStreamTimeoutError) Error() string {
 	if e.progress {
 		return fmt.Sprintf("chat stream timed out after %s without response progress", e.timeout)
@@ -128,6 +131,7 @@ func IsChatStreamTimeout(err error) bool {
 	return errors.As(err, &timeoutErr)
 }
 
+// GenerateFreeFormStreamed generates a complete answer using the streaming endpoint.
 func (c *Client) GenerateFreeFormStreamed(ctx context.Context, projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
 	var resp strings.Builder
 	err := c.StreamChat(ctx, ChatRequest{
@@ -1136,18 +1140,24 @@ func contentSegmentText(segment *pb.ContentSegment) string {
 type ChatGoal int
 
 const (
-	ChatGoalDefault       ChatGoal = 3 // Default conversational style
-	ChatGoalLearningGuide ChatGoal = 1 // Learning Guide mode (not yet confirmed)
-	ChatGoalCustom        ChatGoal = 2 // Custom with user-provided prompt
+	// ChatGoalDefault selects the default conversational style.
+	ChatGoalDefault ChatGoal = 3
+	// ChatGoalLearningGuide selects the unconfirmed learning-guide mode.
+	ChatGoalLearningGuide ChatGoal = 1
+	// ChatGoalCustom selects a caller-provided prompt.
+	ChatGoalCustom ChatGoal = 2
 )
 
 // ResponseLength represents a response length setting.
 type ResponseLength int
 
 const (
-	ResponseLengthDefault ResponseLength = 0 // Default (empty array)
-	ResponseLengthLonger  ResponseLength = 4 // Longer responses
-	ResponseLengthShorter ResponseLength = 3 // Shorter responses (inferred)
+	// ResponseLengthDefault leaves the response length unspecified.
+	ResponseLengthDefault ResponseLength = 0
+	// ResponseLengthLonger requests longer responses.
+	ResponseLengthLonger ResponseLength = 4
+	// ResponseLengthShorter requests shorter responses.
+	ResponseLengthShorter ResponseLength = 3
 )
 
 // SetChatConfig updates the chat configuration for a notebook via MutateProject.
@@ -1189,6 +1199,7 @@ func (c *Client) SetChatConfig(ctx context.Context, projectID string, goal ChatG
 	return nil
 }
 
+// GenerateReportSuggestions generates report-section suggestions for a notebook.
 func (c *Client) GenerateReportSuggestions(ctx context.Context, projectID string) (*pb.GenerateReportSuggestionsResponse, error) {
 	sourceIDs := c.resolveSourceIDs(ctx, projectID, nil)
 

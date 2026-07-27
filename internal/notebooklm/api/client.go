@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// Notebook is a NotebookLM project.
 type Notebook = pb.Project
 
 // Note is a notebook note.
@@ -32,14 +33,19 @@ type Note struct {
 	Grounding []*pb.Grounding
 }
 
+// AppArtifactKind identifies the kind of generated app artifact.
 type AppArtifactKind int32
 
 const (
+	// AppArtifactKindPrototype identifies an interactive prototype artifact.
 	AppArtifactKindPrototype AppArtifactKind = 3
-	AppArtifactKindMindmap   AppArtifactKind = 4
-	AppArtifactKindCanvas    AppArtifactKind = 5
+	// AppArtifactKindMindmap identifies a mind-map artifact.
+	AppArtifactKindMindmap AppArtifactKind = 4
+	// AppArtifactKindCanvas identifies a canvas artifact.
+	AppArtifactKindCanvas AppArtifactKind = 5
 )
 
+// ParseAppArtifactKind parses an app artifact kind name.
 func ParseAppArtifactKind(s string) (AppArtifactKind, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "prototype", "notebook-app", "notebook_app":
@@ -53,6 +59,7 @@ func ParseAppArtifactKind(s string) (AppArtifactKind, error) {
 	}
 }
 
+// String returns the app artifact kind name.
 func (k AppArtifactKind) String() string {
 	switch k {
 	case AppArtifactKindPrototype:
@@ -75,6 +82,7 @@ func (k AppArtifactKind) valid() bool {
 	}
 }
 
+// CreateAudioOverviewOptions configures audio overview generation.
 type CreateAudioOverviewOptions struct {
 	Instructions string
 	AudioType    pb.AudioType
@@ -96,6 +104,7 @@ func (opts CreateAudioOverviewOptions) withDefaults() CreateAudioOverviewOptions
 	return opts
 }
 
+// CreateVideoOverviewOptions configures video overview generation.
 type CreateVideoOverviewOptions struct {
 	Instructions string
 	AudioType    pb.AudioType
@@ -143,6 +152,7 @@ func newIdleTimeoutReader(r io.ReadCloser, timeout time.Duration) *idleTimeoutRe
 	}
 }
 
+// Read reads from the underlying response body with an idle timeout.
 func (r *idleTimeoutReader) Read(p []byte) (int, error) {
 	// Reset the idle timer before each read.
 	r.timer.Reset(r.timeout)
@@ -165,6 +175,7 @@ func (r *idleTimeoutReader) Read(p []byte) (int, error) {
 	}
 }
 
+// Close closes the underlying response body.
 func (r *idleTimeoutReader) Close() error {
 	r.close.Do(func() {
 		close(r.done)
@@ -258,6 +269,7 @@ func setChromeClientHints(h http.Header) {
 
 // Project/Notebook operations
 
+// ListRecentlyViewedProjects lists the account's recently viewed notebooks.
 func (c *Client) ListRecentlyViewedProjects(ctx context.Context) ([]*Notebook, error) {
 	req := &pb.ListRecentlyViewedProjectsRequest{}
 
@@ -269,6 +281,7 @@ func (c *Client) ListRecentlyViewedProjects(ctx context.Context) ([]*Notebook, e
 	return response.Projects, nil
 }
 
+// CreateProject creates a notebook with the given title and emoji.
 func (c *Client) CreateProject(ctx context.Context, title string, emoji string) (*Notebook, error) {
 	req := &pb.CreateProjectRequest{
 		Title: title,
@@ -380,6 +393,7 @@ func classifyGetProjectError(projectID string, err error) error {
 	return err
 }
 
+// GetProject returns a notebook and its sources.
 func (c *Client) GetProject(ctx context.Context, projectID string) (*Notebook, error) {
 	req := &pb.GetProjectRequest{
 		ProjectId: projectID,
@@ -396,6 +410,7 @@ func (c *Client) GetProject(ctx context.Context, projectID string) (*Notebook, e
 	return project, nil
 }
 
+// DeleteProjects deletes the specified notebooks.
 func (c *Client) DeleteProjects(ctx context.Context, projectIDs []string) error {
 	req := &pb.DeleteProjectsRequest{
 		ProjectIds: projectIDs,
@@ -408,6 +423,7 @@ func (c *Client) DeleteProjects(ctx context.Context, projectIDs []string) error 
 	return nil
 }
 
+// MutateProject applies the populated fields in updates to a notebook.
 func (c *Client) MutateProject(ctx context.Context, projectID string, updates *pb.Project) (*Notebook, error) {
 	req := &pb.MutateProjectRequest{
 		ProjectId: projectID,

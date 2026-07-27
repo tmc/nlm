@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// GetProjectDetails returns the public details for a share ID.
 func (c *Client) GetProjectDetails(ctx context.Context, shareID string) (*pb.ProjectDetails, error) {
 	resp, err := c.sharingService.GetProjectDetails(ctx, &pb.GetProjectDetailsRequest{
 		ShareId: shareID,
@@ -51,8 +52,10 @@ func projectDetailsFromProto(details *pb.ProjectDetails) *pb.ProjectDetails {
 type ShareOption int
 
 const (
+	// SharePrivate restricts an audio overview to the current account.
 	SharePrivate ShareOption = 0
-	SharePublic  ShareOption = 1
+	// SharePublic makes an audio overview available through its share link.
+	SharePublic ShareOption = 1
 )
 
 // ShareAudioResult represents the response from sharing audio

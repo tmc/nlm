@@ -149,6 +149,7 @@ func (c *Client) SetProjectCover(ctx context.Context, projectID string, coverID 
 	return nil
 }
 
+// RemoveRecentlyViewedProject removes a notebook from the recent list.
 func (c *Client) RemoveRecentlyViewedProject(ctx context.Context, projectID string) error {
 	req := &pb.RemoveRecentlyViewedProjectRequest{
 		ProjectId: projectID,
@@ -182,6 +183,7 @@ func (c *Client) AddSources(ctx context.Context, projectID string, sources []*pb
 // against the tGMBJ DeleteSources RPC.
 const deleteSourcesBatchSize = 10
 
+// DeleteSources deletes the specified sources in bounded batches.
 func (c *Client) DeleteSources(ctx context.Context, projectID string, sourceIDs []string) error {
 	for start := 0; start < len(sourceIDs); start += deleteSourcesBatchSize {
 		end := start + deleteSourcesBatchSize
@@ -217,6 +219,7 @@ func (c *Client) deleteSourcesBatch(ctx context.Context, projectID string, sourc
 	return nil
 }
 
+// MutateSource applies the populated source updates.
 func (c *Client) MutateSource(ctx context.Context, sourceID string, updates *pb.Source) (*pb.Source, error) {
 	req := &pb.MutateSourceRequest{
 		SourceId: &pb.SourceIdList{SourceId: sourceID},
@@ -242,6 +245,7 @@ func (c *Client) MutateSource(ctx context.Context, sourceID string, updates *pb.
 	return &source, nil
 }
 
+// RefreshSource refreshes a source from its upstream content.
 func (c *Client) RefreshSource(ctx context.Context, projectID, sourceID string) (*pb.Source, error) {
 	req := &pb.RefreshSourceRequest{
 		Source:    &pb.SourceIdList{SourceId: sourceID},
@@ -277,6 +281,7 @@ func (c *Client) DiscoverSources(ctx context.Context, projectID, query string) (
 	return resp, nil
 }
 
+// LoadSource returns a source by ID.
 func (c *Client) LoadSource(ctx context.Context, sourceID string) (*pb.Source, error) {
 	req := &pb.LoadSourceRequest{
 		Source: &pb.SourceIdList{SourceId: sourceID},
@@ -319,6 +324,7 @@ func (c *Client) LoadSourceRaw(ctx context.Context, sourceID, notebookID string)
 	return resp, nil
 }
 
+// CheckSourceFreshness reports whether a source has changed upstream.
 func (c *Client) CheckSourceFreshness(ctx context.Context, sourceID string) (*pb.CheckSourceFreshnessResponse, error) {
 	req := &pb.CheckSourceFreshnessRequest{
 		Source:  &pb.SourceIdList{SourceId: sourceID},
@@ -437,6 +443,7 @@ func detectMIMEType(content []byte, filename string, providedType string) string
 	return detectedType
 }
 
+// AddSourceFromReader adds reader content as a text or uploaded source.
 func (c *Client) AddSourceFromReader(ctx context.Context, projectID string, r io.Reader, filename string, contentType ...string) (string, error) {
 	content, err := io.ReadAll(r)
 	if err != nil {
@@ -475,6 +482,7 @@ func (c *Client) AddSourceFromReader(ctx context.Context, projectID string, r io
 // automatically at 5MB boundaries.
 const MaxTextSourceBytes = 10 * 1024 * 1024
 
+// AddSourceFromText adds a plain-text source to a notebook.
 func (c *Client) AddSourceFromText(ctx context.Context, projectID string, content, title string) (string, error) {
 	if n := len(content); n > MaxTextSourceBytes {
 		return "", fmt.Errorf("add text source %q (%d bytes > %d limit): %w", title, n, MaxTextSourceBytes, ErrSourceTooLarge)
@@ -508,6 +516,7 @@ func (c *Client) AddSourceFromText(ctx context.Context, projectID string, conten
 	return sourceID, nil
 }
 
+// AddSourceFromBase64 adds a base64-encoded binary source.
 func (c *Client) AddSourceFromBase64(ctx context.Context, projectID string, content, filename, contentType string) (string, error) {
 	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCAddSources,
@@ -845,6 +854,7 @@ func generateSAPISIDHASH(sapisid, origin string) string {
 	return fmt.Sprintf("SAPISIDHASH %d_%x", timestamp, hash)
 }
 
+// AddSourceFromFile adds a local file as a notebook source.
 func (c *Client) AddSourceFromFile(ctx context.Context, projectID string, filepath string, contentType ...string) (string, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
@@ -859,6 +869,7 @@ func (c *Client) AddSourceFromFile(ctx context.Context, projectID string, filepa
 	return c.AddSourceFromReader(ctx, projectID, f, filepath, providedType)
 }
 
+// AddSourceFromURL adds a web or YouTube URL as a notebook source.
 func (c *Client) AddSourceFromURL(ctx context.Context, projectID string, url string) (string, error) {
 	// Check if it's a YouTube URL first
 	if isYouTubeURL(url) {
@@ -895,6 +906,7 @@ func (c *Client) AddSourceFromURL(ctx context.Context, projectID string, url str
 	return sourceID, nil
 }
 
+// AddYouTubeSource adds a YouTube video as a notebook source.
 func (c *Client) AddYouTubeSource(ctx context.Context, projectID, youtubeURL string) (string, error) {
 	sourceURL, err := normalizeYouTubeSourceURL(youtubeURL)
 	if err != nil {

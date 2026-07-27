@@ -39,6 +39,7 @@ func (c *Client) CreateNote(ctx context.Context, projectID string, title string,
 	return note, nil
 }
 
+// MutateNote replaces a note's title and content.
 func (c *Client) MutateNote(ctx context.Context, projectID string, noteID string, content string, title string) (*Note, error) {
 	req := &pb.MutateNoteRequest{
 		ProjectId: projectID,
@@ -58,6 +59,7 @@ func (c *Client) MutateNote(ctx context.Context, projectID string, noteID string
 	return &Note{Note: note}, nil
 }
 
+// DeleteNotes deletes notes from a notebook.
 func (c *Client) DeleteNotes(ctx context.Context, projectID string, noteIDs []string) error {
 	req := &pb.DeleteNotesRequest{
 		ProjectId: projectID,
@@ -71,6 +73,7 @@ func (c *Client) DeleteNotes(ctx context.Context, projectID string, noteIDs []st
 	return nil
 }
 
+// GetNotes returns all notes in a notebook.
 func (c *Client) GetNotes(ctx context.Context, projectID string) ([]*Note, error) {
 	req := &pb.GetNotesRequest{ProjectId: projectID}
 	response, rpcErr := c.orchestrationService.GetNotes(ctx, req)

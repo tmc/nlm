@@ -613,6 +613,7 @@ func artifactSourceID(value interface{}) (string, bool) {
 
 // Guidebook operations
 
+// ListGuidebooks lists recently viewed guidebooks.
 func (c *Client) ListGuidebooks(ctx context.Context) ([]*pb.Guidebook, error) {
 	req := &pb.ListRecentlyViewedGuidebooksRequest{}
 	resp, err := c.guidebooksService.ListRecentlyViewedGuidebooks(ctx, req)
@@ -622,6 +623,7 @@ func (c *Client) ListGuidebooks(ctx context.Context) ([]*pb.Guidebook, error) {
 	return resp.Guidebooks, nil
 }
 
+// GetGuidebook returns a guidebook by ID.
 func (c *Client) GetGuidebook(ctx context.Context, guidebookID string) (*pb.Guidebook, error) {
 	req := &pb.GetGuidebookRequest{GuidebookId: guidebookID}
 	resp, err := c.guidebooksService.GetGuidebook(ctx, req)
@@ -631,6 +633,7 @@ func (c *Client) GetGuidebook(ctx context.Context, guidebookID string) (*pb.Guid
 	return resp, nil
 }
 
+// DeleteGuidebook deletes a guidebook by ID.
 func (c *Client) DeleteGuidebook(ctx context.Context, guidebookID string) error {
 	req := &pb.DeleteGuidebookRequest{GuidebookId: guidebookID}
 	_, err := c.guidebooksService.DeleteGuidebook(ctx, req)
@@ -640,6 +643,7 @@ func (c *Client) DeleteGuidebook(ctx context.Context, guidebookID string) error 
 	return nil
 }
 
+// PublishGuidebook publishes a guidebook.
 func (c *Client) PublishGuidebook(ctx context.Context, guidebookID string) (*pb.PublishGuidebookResponse, error) {
 	req := &pb.PublishGuidebookRequest{GuidebookId: guidebookID}
 	resp, err := c.guidebooksService.PublishGuidebook(ctx, req)
@@ -649,6 +653,7 @@ func (c *Client) PublishGuidebook(ctx context.Context, guidebookID string) (*pb.
 	return resp, nil
 }
 
+// ShareGuidebook creates sharing details for a guidebook.
 func (c *Client) ShareGuidebook(ctx context.Context, guidebookID string) (*pb.ShareGuidebookResponse, error) {
 	req := &pb.ShareGuidebookRequest{GuidebookId: guidebookID}
 	resp, err := c.guidebooksService.ShareGuidebook(ctx, req)
@@ -658,6 +663,7 @@ func (c *Client) ShareGuidebook(ctx context.Context, guidebookID string) (*pb.Sh
 	return resp, nil
 }
 
+// GetGuidebookDetails returns sharing and metadata details for a guidebook.
 func (c *Client) GetGuidebookDetails(ctx context.Context, guidebookID string) (*pb.GuidebookDetails, error) {
 	req := &pb.GetGuidebookDetailsRequest{GuidebookId: guidebookID}
 	resp, err := c.guidebooksService.GetGuidebookDetails(ctx, req)
@@ -667,6 +673,7 @@ func (c *Client) GetGuidebookDetails(ctx context.Context, guidebookID string) (*
 	return resp, nil
 }
 
+// GuidebookAsk asks a question against a guidebook.
 func (c *Client) GuidebookAsk(ctx context.Context, guidebookID, question string) (*pb.GuidebookGenerateAnswerResponse, error) {
 	req := &pb.GuidebookGenerateAnswerRequest{
 		GuidebookId: guidebookID,
@@ -686,7 +693,9 @@ func (c *Client) GuidebookAsk(ctx context.Context, guidebookID, question string)
 type SlideDeckFormat = intmethod.SlideDeckFormat
 
 const (
-	SlideDeckFormatDetailed  = intmethod.SlideDeckFormatDetailed
+	// SlideDeckFormatDetailed generates a detailed slide deck.
+	SlideDeckFormatDetailed = intmethod.SlideDeckFormatDetailed
+	// SlideDeckFormatPresenter generates an experimental presenter deck.
 	SlideDeckFormatPresenter = intmethod.SlideDeckFormatPresenter
 )
 
@@ -938,6 +947,7 @@ func sourceGuideFromProto(resp *pb.GenerateDocumentGuidesResponse) *SourceGuide 
 	return g
 }
 
+// GenerateNotebookGuide generates the notebook-level guide.
 func (c *Client) GenerateNotebookGuide(ctx context.Context, projectID string) (*pb.GenerateNotebookGuideResponse, error) {
 	guide, err := c.orchestrationService.GenerateNotebookGuide(ctx, &pb.GenerateNotebookGuideRequest{
 		ProjectId: projectID,
@@ -948,6 +958,7 @@ func (c *Client) GenerateNotebookGuide(ctx context.Context, projectID string) (*
 	return guide, nil
 }
 
+// GenerateMagicView generates a magic-view artifact for a notebook.
 func (c *Client) GenerateMagicView(ctx context.Context, projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
 	_ = sourceIDs // The captured uK8f7c request carries only context and project ID.
 	req := &pb.GenerateMagicViewRequest{
@@ -965,6 +976,7 @@ func (c *Client) GenerateMagicView(ctx context.Context, projectID string, source
 	return magicView, nil
 }
 
+// GenerateOutline generates an outline for a notebook.
 func (c *Client) GenerateOutline(ctx context.Context, projectID string) (*pb.GenerateOutlineResponse, error) {
 	req := &pb.GenerateOutlineRequest{
 		ProjectId: projectID,
@@ -976,6 +988,7 @@ func (c *Client) GenerateOutline(ctx context.Context, projectID string) (*pb.Gen
 	return outline, nil
 }
 
+// GenerateSection generates the next notebook section.
 func (c *Client) GenerateSection(ctx context.Context, projectID string) (*pb.GenerateSectionResponse, error) {
 	req := &pb.GenerateSectionRequest{
 		ProjectId: projectID,
@@ -987,6 +1000,7 @@ func (c *Client) GenerateSection(ctx context.Context, projectID string) (*pb.Gen
 	return section, nil
 }
 
+// StartDraft starts a notebook draft.
 func (c *Client) StartDraft(ctx context.Context, projectID string) (*pb.StartDraftResponse, error) {
 	req := &pb.StartDraftRequest{
 		ProjectId: projectID,
@@ -998,6 +1012,7 @@ func (c *Client) StartDraft(ctx context.Context, projectID string) (*pb.StartDra
 	return draft, nil
 }
 
+// StartSection starts a notebook section.
 func (c *Client) StartSection(ctx context.Context, projectID string) (*pb.StartSectionResponse, error) {
 	req := &pb.StartSectionRequest{
 		ProjectId: projectID,

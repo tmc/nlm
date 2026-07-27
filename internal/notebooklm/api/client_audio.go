@@ -20,12 +20,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// CreateAudioOverview starts an audio overview with default generation options.
 func (c *Client) CreateAudioOverview(ctx context.Context, projectID string, instructions string) (*AudioOverviewResult, error) {
 	return c.CreateAudioOverviewWithOptions(ctx, projectID, CreateAudioOverviewOptions{
 		Instructions: instructions,
 	})
 }
 
+// CreateAudioOverviewWithOptions starts an audio overview with explicit options.
 func (c *Client) CreateAudioOverviewWithOptions(ctx context.Context, projectID string, opts CreateAudioOverviewOptions) (*AudioOverviewResult, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("project ID required")
@@ -159,6 +161,7 @@ func (c *Client) createAudioOverviewDirectRPC(ctx context.Context, projectID str
 	return result, nil
 }
 
+// GetAudioOverview returns the current audio overview for a notebook.
 func (c *Client) GetAudioOverview(ctx context.Context, projectID string) (*AudioOverviewResult, error) {
 	// Try direct RPC first if enabled, as it provides more complete data
 	if c.config.UseDirectRPC {
@@ -428,6 +431,7 @@ func (r *AudioOverviewResult) AudioBytes() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(r.AudioData)
 }
 
+// DeleteAudioOverview deletes a notebook's audio overview.
 func (c *Client) DeleteAudioOverview(ctx context.Context, projectID string) error {
 	req := &pb.DeleteAudioOverviewRequest{
 		ProjectId: projectID,
