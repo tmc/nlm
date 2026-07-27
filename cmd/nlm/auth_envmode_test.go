@@ -78,14 +78,14 @@ func TestPrintAuthEnvMissing(t *testing.T) {
 	}
 }
 
-// TestHasCachedProfile verifies the profile-presence helper that gates
+// TestHasCachedBrowserProfile verifies the profile-presence helper that gates
 // browser-auth retry on 401.
-func TestHasCachedProfile(t *testing.T) {
+func TestHasCachedBrowserProfile(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	if hasCachedProfile() {
-		t.Fatal("hasCachedProfile() = true on fresh HOME; want false")
+	if hasCachedBrowserProfile() {
+		t.Fatal("hasCachedBrowserProfile() = true on fresh HOME; want false")
 	}
 	if err := os.MkdirAll(filepath.Join(home, ".nlm"), 0700); err != nil {
 		t.Fatal(err)
@@ -93,8 +93,37 @@ func TestHasCachedProfile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(home, ".nlm", "env"), []byte(""), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if !hasCachedProfile() {
-		t.Fatal("hasCachedProfile() = false after writing ~/.nlm/env; want true")
+	if hasCachedBrowserProfile() {
+		t.Fatal("hasCachedBrowserProfile() = true for empty env file; want false")
+	}
+	if err := os.WriteFile(filepath.Join(home, ".nlm", "env"), []byte(
+		"NLM_BROWSER_PROFILE=\"Work\"\nNLM_AUTHUSER=\"2\"\n",
+	), 0600); err != nil {
+		t.Fatal(err)
+	}
+	profile, authUser, ok := cachedBrowserProfile()
+	if !ok || profile != "Work" || authUser != "2" {
+		t.Fatalf("cachedBrowserProfile() = %q, %q, %v; want Work, 2, true", profile, authUser, ok)
+	}
+}
+
+func TestAutoRefreshEnabled(t *testing.T) {
+	tests := []struct {
+		value string
+		want  bool
+	}{
+		{"", true},
+		{"true", true},
+		{"false", false},
+		{" FALSE ", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			t.Setenv("NLM_AUTO_REFRESH", tt.value)
+			if got := autoRefreshEnabled(); got != tt.want {
+				t.Fatalf("autoRefreshEnabled() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

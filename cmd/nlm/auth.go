@@ -624,16 +624,42 @@ func refreshNotebookLMSignalerAuthorization(debugFlag bool) (string, error) {
 	return authz, nil
 }
 
-// hasCachedProfile reports whether nlm has a cached browser-auth profile on
-// disk (i.e. the user previously ran `nlm auth`). When false, the only
-// available credentials are whatever the caller put in NLM_AUTH_TOKEN /
-// NLM_COOKIES for this process, and re-running browser auth cannot help on
-// a 401.
-func hasCachedProfile() bool {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false
+// autoRefreshEnabled reports whether authentication errors may trigger one
+// browser-profile re-harvest and command retry.
+func autoRefreshEnabled() bool {
+	return !strings.EqualFold(strings.TrimSpace(os.Getenv("NLM_AUTO_REFRESH")), "false")
+}
+
+// hasCachedBrowserProfile reports whether the stored credentials identify the
+// browser profile from which they were harvested. Environment-only credentials
+// intentionally do not qualify: there is no local profile to re-harvest.
+func hasCachedBrowserProfile() bool {
+	_, _, ok := cachedBrowserProfile()
+	return ok
+}
+
+func cachedBrowserProfile() (profile, authUser string, ok bool) {
+	stored := readStoredEnv()
+	profile = strings.TrimSpace(stored["NLM_BROWSER_PROFILE"])
+	if profile == "" {
+		return "", "", false
 	}
-	_, err = os.Stat(filepath.Join(home, ".nlm", "env"))
-	return err == nil
+	authUser = firstNonEmpty(os.Getenv("NLM_AUTHUSER"), stored["NLM_AUTHUSER"])
+	return profile, authUser, true
+}
+
+// reharvestCachedBrowserProfile obtains a fresh token and cookies from the
+// exact browser profile recorded by the last successful login. The explicit
+// login argument prevents handleAuthWithOptions from inspecting command stdin,
+// which may belong to the command being retried.
+func reharvestCachedBrowserProfile(debugFlag bool) (string, string, error) {
+	profile, authUser, ok := cachedBrowserProfile()
+	if !ok {
+		return "", "", fmt.Errorf("cached browser profile not found")
+	}
+	return handleAuthWithOptions([]string{"login"}, globalOptions{
+		chromeProfile: profile,
+		authUser:      authUser,
+		debug:         debugFlag,
+	})
 }

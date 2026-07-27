@@ -16,6 +16,9 @@ These are not gaps:
 
 - `nlm auth login` drives Chrome, Brave, or Edge headlessly and extracts the
   token and cookies from an already signed-in profile without copy-paste.
+- Authentication-shaped failures trigger one silent credential re-harvest from
+  the exact cached browser profile and then retry the command. Set
+  `NLM_AUTO_REFRESH=false` to disable this recovery.
 - `nlm chat` is a streaming interactive client with persistent on-disk
   sessions, history, and slash commands.
 - Chat and generation commands select sources by UUID, title regular
@@ -46,30 +49,14 @@ Status: high priority, capture-blocked for flashcard cards and mind-map
 structure. Rendered server outputs may support narrower exports without new
 wire modeling and should be assessed separately.
 
-### 2. Proactive credential refresh
-
-The CLI already has a reactive recovery path: after an authentication-shaped
-failure, commands with a cached browser profile silently re-run browser
-authentication and retry once. Environment-only CI credentials fail directly
-because no local browser profile can refresh them.
-
-The older proactive `TokenManager` path is not functional with real `SNlM0e`
-tokens: `ParseAuthToken` expects an artificial `token:timestamp` shape, and the
-signaler request does not capture and install a renewed NotebookLM token in the
-live client.
-
-Status: reactive browser-profile recovery works; proactive refresh remains
-open. Prefer the verified browser re-harvest path unless a capture proves that
-the signaler endpoint can mint the needed token.
-
-### 3. Deep-research inline citations
+### 2. Deep-research inline citations
 
 `nlm research --md` emits the report and a structured citation list, but does
 not weave those citations into the Markdown as links or footnotes.
 
 Status: open, no new wire modeling required.
 
-### 4. MCP watch and progress
+### 3. MCP watch and progress
 
 The stdio MCP server exposes 38 tools, including research start and poll, but
 has no blocking watch tool and emits no MCP progress notifications. It also
@@ -80,7 +67,7 @@ Status: watch/progress is the first MCP gap to close. Text injection already
 works through `add_source_text`; do not describe context injection itself as
 missing.
 
-### 5. Agent onboarding and competitive breadth
+### 4. Agent onboarding and competitive breadth
 
 The in-repo skill is concise and delegates to current `--help`, but there is no
 one-shot `nlm --ai` documentation dump or skill installer. The MCP surface also
@@ -183,13 +170,11 @@ Status: HAR-blocked for semantics only. The current fallback is safe.
    content or adding structured export.
 2. Add deep-research inline Markdown citations.
 3. Add MCP research watch/progress behavior.
-4. Remove or replace the nonfunctional proactive token-refresh scaffold; keep
-   reactive browser-profile recovery as the verified path.
-5. Decide whether AUrzMb should stay typed API-only or get generated proto
+4. Decide whether AUrzMb should stay typed API-only or get generated proto
    metric-series messages.
-6. Decide whether `video download` should keep the current manual-fallback
+5. Decide whether `video download` should keep the current manual-fallback
    UX or get a real CDN capture and a browser-assisted path.
-7. Re-capture `artifact get` against the live service and either verify
+6. Re-capture `artifact get` against the live service and either verify
    `v9rmvd` or keep the list-scan fallback as the canonical path.
-8. Verify `chat config` end-to-end (or hide it until there is a real caller).
-9. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.
+7. Verify `chat config` end-to-end (or hide it until there is a real caller).
+8. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.

@@ -51,6 +51,8 @@ var (
 	jsonOutput        bool // NDJSON output for sync
 )
 
+var reharvestBrowserCredentials = reharvestCachedBrowserProfile
+
 // chatSession represents a persistent chat conversation
 type chatSession struct {
 	NotebookID     string          `json:"notebook_id"`
@@ -177,9 +179,6 @@ func prepareRuntime(stderr io.Writer) {
 	if skipSources && debug {
 		fmt.Fprintf(stderr, "nlm: skipping source fetching for chat\n")
 	}
-
-	// Start auto-refresh manager if credentials exist
-	startAutoRefreshIfEnabled()
 }
 
 func newNotebookLMClient(credentials api.Credentials, directRPC bool, options ...api.Option) *api.Client {
@@ -342,7 +341,7 @@ func run(inv invocation) error {
 	// fixed for this process lifetime and re-running browser auth cannot
 	// help — surface the 401 immediately.
 	maxAttempts := 1
-	if hasCachedProfile() {
+	if autoRefreshEnabled() && hasCachedBrowserProfile() {
 		maxAttempts = 2
 	}
 
@@ -383,9 +382,9 @@ func run(inv invocation) error {
 		}
 
 		var authErr error
-		if authToken, cookies, authErr = handleAuth(nil, debug); authErr != nil {
+		if authToken, cookies, authErr = reharvestBrowserCredentials(debug); authErr != nil {
 			fmt.Fprintf(os.Stderr, "nlm: authentication refresh failed: %v\n", authErr)
-			fmt.Fprintln(os.Stderr, "nlm: session expired. Run `nlm auth` to refresh, or re-export NLM_AUTH_TOKEN / NLM_COOKIES.")
+			fmt.Fprintln(os.Stderr, "nlm: cached browser session is no longer usable. Run `nlm auth login` after signing into Google, or re-export NLM_AUTH_TOKEN / NLM_COOKIES.")
 			return authErr
 		}
 	}
@@ -3923,49 +3922,6 @@ func runInteractiveChat(c *api.Client, session *chatSession, sourceIDs []string,
 	}
 
 	return nil
-}
-
-// startAutoRefreshIfEnabled starts the auto-refresh manager if credentials exist
-func startAutoRefreshIfEnabled() {
-	// Check if NLM_AUTO_REFRESH is disabled
-	if os.Getenv("NLM_AUTO_REFRESH") == "false" {
-		return
-	}
-
-	// Check if we have stored credentials
-	token, err := auth.GetStoredToken()
-	if err != nil {
-		// No stored credentials, skip auto-refresh
-		return
-	}
-
-	// Parse token to check if it's valid
-	_, expiryTime, err := auth.ParseAuthToken(token)
-	if err != nil {
-		// Invalid token format, skip auto-refresh
-		return
-	}
-
-	// Check if token is already expired
-	if time.Until(expiryTime) < 0 {
-		if debug {
-			fmt.Fprintf(os.Stderr, "nlm: stored token expired, skipping auto-refresh\n")
-		}
-		return
-	}
-
-	// Create and start token manager
-	tokenManager := auth.NewTokenManager(debug)
-	if err := tokenManager.StartAutoRefreshManager(); err != nil {
-		if debug {
-			fmt.Fprintf(os.Stderr, "nlm: failed to start auto-refresh: %v\n", err)
-		}
-		return
-	}
-
-	if debug {
-		fmt.Fprintf(os.Stderr, "nlm: auto-refresh enabled (token expires in %v)\n", time.Until(expiryTime).Round(time.Minute))
-	}
 }
 
 func createVideoOverviewWithOptions(c *api.Client, projectID string, instructions string, opts videoCreateOptions) error {

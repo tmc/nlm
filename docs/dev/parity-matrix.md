@@ -33,7 +33,7 @@ Legend: ✅ present · ➖ partial/limited · ❌ absent (verified "not found in
 | **Compiled protobuf wire model** | ✅ **only one** | ❌ positional-JSON | ❌ | ❌ positional-JSON | ❌ positional-JSON | ❌ | ❌ |
 | **Lossless-verify tool (betool)** | ✅ **only one** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Headless profile auth** | ✅ | ✅ | ✅ | ✅ (Keychain) | ✅ | ✅ | ➖ |
-| **Silent token refresh** | ❌ | ✅ 3-layer | ✅ 3-layer | ❌ | ✅ single-flight | ✅ (browser ctx) | ❌ |
+| **Silent token recovery** | ➖ reactive profile re-harvest | ✅ 3-layer | ✅ 3-layer | ❌ | ✅ single-flight | ✅ (browser ctx) | ❌ |
 | **Multi-account** | ➖ authuser | ✅ profiles | ✅ profiles | ❌ | ❌ | ✅ --account | ❌ |
 | **Interactive chat REPL** | ✅ | ✅ | ✅ | ❌ | ❌ (MCP only) | ❌ | ❌ |
 | **On-disk session history** | ✅ | ❌ (server-side) | ❌ | ❌ | — | — | — |
@@ -123,9 +123,11 @@ Notes from this sweep:
      them) extracts raw flashcard front/back/deck content. So an Anki `.apkg` /
      structured-card emitter is still an open niche — but the *basic* study-export
      use case is closed for them and open for us.
-2. **Silent token refresh.** Both jacob-bd tools have a real 3-layer refresh
+2. **Proactive token refresh.** Both jacob-bd tools have a 3-layer refresh
    (`core/auth_refresh.py`, verified present); m4ykel has single-flight refresh.
-   Ours does not fire (spec item **B2**). Confirmed competitive gap.
+   Ours instead re-harvests the exact cached browser profile after an
+   authentication-shaped failure and retries once. That closes interactive
+   recovery, but environment-only CI credentials cannot self-renew.
 3. **Multi-account.** Competitors use named profiles / `--account`; we have only
    `--authuser N`. Partial parity at best.
 4. **AI auto-labeling.** jacob-bd's `services/labels.py:auto_label` clusters a

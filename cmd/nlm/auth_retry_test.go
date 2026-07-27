@@ -9,6 +9,7 @@ import (
 
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 func TestIsAuthenticationError(t *testing.T) {
@@ -218,5 +219,96 @@ func TestRefreshNotebookLMSignalerAuthorizationUsesStoredValue(t *testing.T) {
 	}
 	if got != "Bearer signaler-token" {
 		t.Fatalf("refreshNotebookLMSignalerAuthorization() = %q, want Bearer signaler-token", got)
+	}
+}
+
+func TestRunReharvestsCachedBrowserProfile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("NLM_AUTO_REFRESH", "")
+	if err := os.MkdirAll(filepath.Join(home, ".nlm"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".nlm", "env"), []byte(
+		"NLM_BROWSER_PROFILE=\"Work\"\n",
+	), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	oldToken, oldCookies := authToken, cookies
+	oldDebug := debug
+	oldReharvest := reharvestBrowserCredentials
+	defer func() {
+		authToken, cookies = oldToken, oldCookies
+		debug = oldDebug
+		reharvestBrowserCredentials = oldReharvest
+	}()
+	authToken, cookies = "old-token", "old-cookies"
+	debug = false
+
+	refreshes := 0
+	reharvestBrowserCredentials = func(bool) (string, string, error) {
+		refreshes++
+		return "new-token", "new-cookies", nil
+	}
+	attempts := 0
+	cmd := &command{
+		name:    "auth-retry-test",
+		minArgs: 0,
+		maxArgs: 0,
+		run: func(*api.Client, []string) error {
+			attempts++
+			if attempts == 1 {
+				return batchexecute.ErrUnauthorized
+			}
+			return nil
+		},
+	}
+	if err := run(invocation{name: cmd.name, cmd: cmd}); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+	if attempts != 2 || refreshes != 1 {
+		t.Fatalf("attempts, refreshes = %d, %d; want 2, 1", attempts, refreshes)
+	}
+	if authToken != "new-token" || cookies != "new-cookies" {
+		t.Fatalf("credentials = %q, %q; want refreshed values", authToken, cookies)
+	}
+}
+
+func TestRunDoesNotReharvestEnvironmentOnlyCredentials(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("NLM_AUTO_REFRESH", "")
+
+	oldToken, oldCookies := authToken, cookies
+	oldDebug := debug
+	oldReharvest := reharvestBrowserCredentials
+	defer func() {
+		authToken, cookies = oldToken, oldCookies
+		debug = oldDebug
+		reharvestBrowserCredentials = oldReharvest
+	}()
+	authToken, cookies = "env-token", "env-cookies"
+	debug = false
+
+	reharvestBrowserCredentials = func(bool) (string, string, error) {
+		t.Fatal("environment-only credentials triggered browser re-harvest")
+		return "", "", nil
+	}
+	attempts := 0
+	cmd := &command{
+		name:    "auth-no-retry-test",
+		minArgs: 0,
+		maxArgs: 0,
+		run: func(*api.Client, []string) error {
+			attempts++
+			return batchexecute.ErrUnauthorized
+		},
+	}
+	err := run(invocation{name: cmd.name, cmd: cmd})
+	if !errors.Is(err, batchexecute.ErrUnauthorized) {
+		t.Fatalf("run() error = %v, want ErrUnauthorized", err)
+	}
+	if attempts != 1 {
+		t.Fatalf("attempts = %d, want 1", attempts)
 	}
 }
