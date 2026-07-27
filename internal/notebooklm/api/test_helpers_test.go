@@ -5,14 +5,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 
-	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/httprr"
 )
@@ -161,59 +159,4 @@ func DebugDirectRequest(t *testing.T) {
 			t.Logf("Parsed response: %+v", parsed)
 		}
 	}
-}
-
-// CreateMockClient creates a client configured for testing with mock responses
-func CreateMockClient(t *testing.T) *Client {
-	t.Helper()
-
-	// Use httprr for deterministic testing
-	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-
-	// Use test credentials that will be scrubbed
-	return New(
-		"test-auth-token",
-		"test-cookies",
-		batchexecute.WithHTTPClient(httpClient),
-		batchexecute.WithDebug(false),
-	)
-}
-
-// AssertProjectValid validates a project has required fields
-func AssertProjectValid(t *testing.T, p *pb.Project) {
-	t.Helper()
-
-	if p.ProjectId == "" {
-		t.Error("Project has empty ProjectId")
-	}
-	if p.Title == "" {
-		t.Error("Project has empty Title")
-	}
-	if len(p.ProjectId) != 36 {
-		t.Errorf("Project has invalid ProjectId format: %s (expected UUID)", p.ProjectId)
-	}
-}
-
-// AssertSourceValid validates a source has required fields
-func AssertSourceValid(t *testing.T, s *pb.Source) {
-	t.Helper()
-
-	if s.SourceId == nil {
-		t.Error("Source has nil SourceId")
-	}
-	if s.Title == "" {
-		t.Error("Source has empty Title")
-	}
-	// Note: Type validation removed as pb.Source doesn't have Type field
-}
-
-// GenerateMockResponse creates a mock batchexecute response for testing
-func GenerateMockResponse(rpcID string, data interface{}) string {
-	jsonData, _ := json.Marshal(data)
-	return fmt.Sprintf(`)]}'\n\n[["wrb.fr","%s",%s,null,null,1]]`, rpcID, jsonData)
-}
-
-// TestDataPath returns the path to test data files
-func TestDataPath(filename string) string {
-	return fmt.Sprintf("testdata/%s", filename)
 }
