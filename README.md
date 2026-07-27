@@ -67,9 +67,9 @@ linked to the discovered source URLs.
 The watch tool blocks until completion and emits MCP progress notifications
 when the caller supplies a progress token.
 
-**Flashcard or mind-map export?** Not yet. Those artifact payloads require
-capture-backed wire modeling; they are tracked as real gaps rather than inferred
-from undocumented code.
+**Flashcard export?** Yes. Flashcard app artifacts export as Markdown, JSON,
+TSV, or self-contained HTML. **Mind-map export?** Not yet; its content payload
+still requires capture-backed wire modeling.
 
 ## Authentication
 
@@ -161,15 +161,17 @@ nlm source list <notebook-id>
 nlm source add <notebook-id> https://example.com/article
 nlm source add <notebook-id> ./document.pdf
 nlm source add <notebook-id> "Meeting notes from March 5"
-printf '%s\n' https://example.com/a ./notes.pdf | nlm source add <notebook-id> -
+cat notes.md | nlm source add --name "Meeting notes" <notebook-id> -
+printf '%s\n' https://example.com/a ./notes.pdf |
+    xargs -n 1 nlm source add <notebook-id>
 nlm source sync <notebook-id> .
 nlm source pack .
 nlm source read <source-id> [notebook-id]
 nlm source delete <notebook-id> <source-id>
 ```
 
-When you pass `-` to `source add`, stdin is treated as one source reference per
-line. For multi-line text, pass a file path or use notes instead.
+When you pass `-` to `source add`, all of stdin becomes one source. To add a
+list of URLs or paths, compose with `xargs` as shown above.
 
 ### Note
 
