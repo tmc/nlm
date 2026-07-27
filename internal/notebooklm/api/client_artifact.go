@@ -150,23 +150,15 @@ func (c *Client) GetArtifact(ctx context.Context, artifactID string) (*pb.Artifa
 // expected on some accounts; callers should fall back to the gArtLc
 // list-scan when this returns an error or nil artifact.
 func (c *Client) getArtifactDirect(ctx context.Context, artifactID string) (*pb.Artifact, error) {
-	resp, err := c.rpc.Do(ctx, rpc.Call{
-		ID:   rpc.RPCGetArtifact,
-		Args: []interface{}{artifactID},
+	artifact, err := c.orchestrationService.GetArtifact(ctx, &pb.GetArtifactRequest{
+		ArtifactId: artifactID,
+		Context:    universalArtifactRequestContext(),
 	})
 	if err != nil {
 		return nil, err
 	}
-	var responseData []interface{}
-	if err := json.Unmarshal(resp, &responseData); err != nil {
-		return nil, err
-	}
-	if len(responseData) == 0 {
+	if artifact.GetArtifactId() == "" {
 		return nil, fmt.Errorf("empty response")
-	}
-	artifact := c.parseArtifactFromResponse(responseData[0])
-	if artifact == nil {
-		return nil, fmt.Errorf("could not parse artifact from response")
 	}
 	return artifact, nil
 }

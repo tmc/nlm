@@ -129,6 +129,7 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "artifacts"), "artifact list"),
 		cloneCommand(mustCommand(byName, "get-artifact"), "artifact get"),
 		cloneCommand(mustCommand(byName, "read-artifact"), "artifact read"),
+		cloneCommand(mustCommand(byName, "export-flashcards"), "artifact export"),
 		cloneCommand(mustCommand(byName, "update-artifact"), "artifact update"),
 		cloneCommand(mustCommand(byName, "delete-artifact"), "artifact delete"),
 		cloneCommand(mustCommand(byName, "revise-artifact"), "artifact revise"),
@@ -683,6 +684,18 @@ var commands = []command{
 		minArgs: 1, maxArgs: 1,
 		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
 			return readArtifact(c, args[0], opts)
+		},
+	},
+	{
+		name:      "export-flashcards",
+		argsUsage: "<artifact-id> [--format md|json|tsv|html] [--output file]",
+		usage:     "Export a type-4 flashcard artifact", section: "Artifact",
+		minArgs: 1, maxArgs: -1,
+		hidden:              true,
+		validateWithOptions: validateFlashcardExportArgsWithOptions,
+		help:                printFlashcardExportUsage,
+		runWithOptions: func(c *api.Client, args []string, _ globalOptions) error {
+			return runFlashcardExport(c, args)
 		},
 	},
 	{

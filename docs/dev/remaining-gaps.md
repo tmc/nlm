@@ -40,17 +40,18 @@ on a fresh machine.
 
 ### 1. Broad artifact export
 
-Slide decks can be downloaded as PDF or PPTX, and audio/video have dedicated
-download paths. There is no general artifact-export command and no structured
-flashcard, quiz, report, data-table, or mind-map export.
+Slide decks can be downloaded as PDF or PPTX, audio/video have dedicated
+download paths, and `artifact export` emits Google-AI-mode type-4 flashcard
+apps as Markdown, JSON, TSV, or their self-contained HTML. It does not export
+native type-9 flashcards, quizzes, reports, data tables, or mind maps.
 
-Flashcard card content and mind-map structure are not sufficiently modeled to
-invent exporters. Any work on those formats starts with a real capture and a
-lossless corpus gate.
+Native type-9 flashcard content and mind-map structure are not sufficiently
+modeled to invent exporters. Any work on those formats starts with a real
+capture and a lossless corpus gate.
 
-Status: high priority, capture-blocked for flashcard cards and mind-map
-structure. Rendered server outputs may support narrower exports without new
-wire modeling and should be assessed separately.
+Status: high priority, capture-blocked for successful native type-9 card bodies
+and mind-map structure. The capture-proven type-4 app path is implemented
+separately and must not be generalized to type 9.
 
 ### 2. Agent onboarding and competitive breadth
 
@@ -152,8 +153,8 @@ Status: HAR-blocked for semantics only. The current fallback is safe.
 
 ## Next Work
 
-1. Capture and lossless-verify flashcard/quiz payloads before modeling card
-   content or adding structured export.
+1. Capture and lossless-verify a successful native type-9 flashcard or quiz
+   payload before modeling its card content.
 2. Decide whether AUrzMb should stay typed API-only or get generated proto
    metric-series messages.
 3. Decide whether `video download` should keep the current manual-fallback

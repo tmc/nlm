@@ -1,0 +1,138 @@
+package main
+
+import (
+	"bytes"
+	"strings"
+	"testing"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/beprotojson"
+)
+
+func TestFlashcardDeckFromCapturedArtifactPath(t *testing.T) {
+	t.Parallel()
+
+	// Reduced from the 2026-07-27 v9rmvd capture. The app JSON is Artifact
+	// field 10, inner field 4: zero-based wire path [0][9][3].
+	raw := []byte(`[
+		["artifact-1", "Photonics Flashcards", 4, [], 3, null, null, null, null,
+			["<!doctype html>", [1, null, null, "en", null, null, [2, 2], null, true], null,
+				"{\"flashcards\":[{\"f\":\"What is FDTDX?\",\"b\":\"An inverse-design FDTD package.\"},{\"f\":\"What framework does it use?\",\"b\":\"JAX.\"}],\"topics\":{\"covered\":[\"FDTD\"],\"followUp\":[\"Optimization\"]}}"
+			]
+		]
+	]`)
+	var artifact pb.Artifact
+	if err := (beprotojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(raw, &artifact); err != nil {
+		t.Fatalf("decode captured artifact: %v", err)
+	}
+
+	deck, err := flashcardDeckFromArtifact(&artifact)
+	if err != nil {
+		t.Fatalf("flashcardDeckFromArtifact() error = %v", err)
+	}
+	if deck.Title != "Photonics Flashcards" {
+		t.Fatalf("title = %q", deck.Title)
+	}
+	if len(deck.Data.Flashcards) != 2 {
+		t.Fatalf("cards = %d, want 2", len(deck.Data.Flashcards))
+	}
+	if got := deck.Data.Flashcards[0].Front; got != "What is FDTDX?" {
+		t.Fatalf("first front = %q", got)
+	}
+	if got := deck.HTML; got != "<!doctype html>" {
+		t.Fatalf("HTML = %q", got)
+	}
+}
+
+func TestFlashcardDeckRejectsWrongShape(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		artifact *pb.Artifact
+		want     string
+	}{
+		{"nil", nil, "empty"},
+		{"wrong type", &pb.Artifact{ArtifactId: "a", Type: pb.ArtifactType_ARTIFACT_TYPE_9}, "not a type-4"},
+		{"no data", &pb.Artifact{ArtifactId: "a", Type: pb.ArtifactType_ARTIFACT_TYPE_REPORT}, "no flashcard app data"},
+		{"invalid JSON", appArtifact(`{`), "decode flashcard app data"},
+		{"no cards", appArtifact(`{"flashcards":[]}`), "no flashcards"},
+		{"empty front", appArtifact(`{"flashcards":[{"f":"","b":"back"}]}`), "empty front"},
+		{"empty back", appArtifact(`{"flashcards":[{"f":"front","b":""}]}`), "empty back"},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := flashcardDeckFromArtifact(tt.artifact)
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want substring %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestWriteFlashcardDeck(t *testing.T) {
+	t.Parallel()
+
+	deck := &flashcardDeck{
+		ArtifactID: "artifact-1",
+		Title:      "Test Deck",
+		HTML:       "<!doctype html><title>Test Deck</title>",
+		Data: flashcardData{
+			Flashcards: []flashcard{
+				{Front: "Front 1", Back: "Back 1"},
+				{Front: "Front 2", Back: "Back 2"},
+			},
+			Topics: flashcardTopics{Covered: []string{"Testing"}},
+		},
+	}
+	tests := []struct {
+		format string
+		want   string
+	}{
+		{"md", "# Test Deck\n\n## 1. Front 1\n\nBack 1\n\n"},
+		{"json", `"flashcards"`},
+		{"tsv", "Front 1\tBack 1\n"},
+		{"html", "<!doctype html><title>Test Deck</title>"},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.format, func(t *testing.T) {
+			t.Parallel()
+			var out bytes.Buffer
+			if err := writeFlashcardDeck(&out, deck, tt.format); err != nil {
+				t.Fatalf("writeFlashcardDeck() error = %v", err)
+			}
+			if !strings.Contains(out.String(), tt.want) {
+				t.Fatalf("output = %q, want substring %q", out.String(), tt.want)
+			}
+		})
+	}
+}
+
+func TestParseFlashcardExportArgs(t *testing.T) {
+	t.Parallel()
+
+	opts, artifactID, err := parseFlashcardExportArgs([]string{
+		"--format", "json",
+		"artifact-1",
+		"--output", "cards.json",
+	})
+	if err != nil {
+		t.Fatalf("parseFlashcardExportArgs() error = %v", err)
+	}
+	if artifactID != "artifact-1" || opts.Format != "json" || opts.Output != "cards.json" {
+		t.Fatalf("artifact, options = %q, %#v", artifactID, opts)
+	}
+}
+
+func appArtifact(data string) *pb.Artifact {
+	return &pb.Artifact{
+		ArtifactId: "artifact-1",
+		Type:       pb.ArtifactType_ARTIFACT_TYPE_REPORT,
+		TailoredReport: &pb.ArtifactReportConfig{
+			MindMapDataJson: data,
+		},
+	}
+}

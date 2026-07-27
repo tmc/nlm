@@ -42,8 +42,8 @@ Legend: ✅ present · ➖ partial/limited · ❌ absent (verified "not found in
 | **Bundle many local files → 1 source** | ✅ (txtar sync) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Local file upload** | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ➖ |
 | **Deep research → clean Markdown** | ✅ + URL footnotes | ✅ | ✅ | ✅ | ✅ | ❌ | ➖ |
-| **Artifact export to local file** | ➖ decks/audio/video | ✅ **broad** | ❌ | ➖ generic | ❌ | ➖ audio only | ❌ |
-| **Flashcard/quiz export** | ❌ | ✅ json/md/html | ❌ | ➖ | ❌ | ❌ | ❌ |
+| **Artifact export to local file** | ➖ decks/audio/video + type-4 flashcards | ✅ **broad** | ❌ | ➖ generic | ❌ | ➖ audio only | ❌ |
+| **Flashcard/quiz export** | ➖ type-4 flashcards: json/md/tsv/html | ✅ json/md/html | ❌ | ➖ | ❌ | ❌ | ❌ |
 | **Mindmap export** | ❌ | ✅ JSON | ❌ | ❌ | ❌ (removed) | ❌ | ❌ |
 | **Ships MCP server** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **MCP context injection** | ✅ note+text | ✅ | — | — | ✅ | ➖ | ➖ text |
@@ -115,14 +115,14 @@ Notes from this sweep:
 1. **Broad artifact export (biggest gap).** jacob-bd's `notebooklm-mcp-cli` ships a
    broad download suite (`services/downloads.py`): quiz/flashcards → json/md/html,
    slides → pdf/pptx, mindmap → JSON, report → Markdown, data-table → CSV. We
-   download rendered slide decks as PDF/PPTX and have audio/video download paths,
-   but no general export command or flashcard/quiz/mind-map/report/data-table
-   emitters. This is spec item **B1**, now confirmed as a place multiple
-   competitors lead.
+   download rendered slide decks as PDF/PPTX, have audio/video download paths,
+   and export Google-AI-mode type-4 flashcard apps as JSON/Markdown/TSV/HTML.
+   Native type-9 flashcards, quizzes, mind maps, reports, and data tables still
+   lack exporters. This is spec item **B1**, now narrowed but not closed.
    - *Nuance:* their export pulls **server-rendered** outputs; nobody (including
-     them) extracts raw flashcard front/back/deck content. So an Anki `.apkg` /
-     structured-card emitter is still an open niche — but the *basic* study-export
-     use case is closed for them and open for us.
+     them) extracts raw native type-9 flashcard front/back content. Our type-4
+     path does expose structured front/back pairs and an Anki-ready TSV, but the
+     native type-9 representation remains unknown.
 2. **Proactive token refresh.** Both jacob-bd tools have a 3-layer refresh
    (`core/auth_refresh.py`, verified present); m4ykel has single-flight refresh.
    Ours instead re-harvests the exact cached browser profile after an

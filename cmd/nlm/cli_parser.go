@@ -373,6 +373,12 @@ var commandLocalFlags = map[string]map[string]bool{
 	},
 	"artifact update": {"name": true, "n": true},
 	"update-artifact": {"name": true, "n": true},
+	"artifact export": {
+		"format": true, "f": true, "output": true, "o": true,
+	},
+	"export-flashcards": {
+		"format": true, "f": true, "output": true, "o": true,
+	},
 }
 
 func chatCommandLocalFlags() map[string]bool {
