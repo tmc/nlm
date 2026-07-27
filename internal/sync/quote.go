@@ -21,14 +21,11 @@ func needsQuote(data []byte) bool {
 }
 
 // quote prefixes every line with '>' so that no marker line survives.
-// The original data can be recovered with unquote. Data must end in '\n'
-// and be valid UTF-8.
+// The original data can be recovered with unquote. The final-newline state is
+// preserved; data need only be valid UTF-8.
 func quote(data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, nil
-	}
-	if data[len(data)-1] != '\n' {
-		return nil, errors.New("data has no final newline")
 	}
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("data contains non-UTF-8 characters")
@@ -51,7 +48,7 @@ func unquote(data []byte) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
-	if data[0] != '>' || data[len(data)-1] != '\n' {
+	if data[0] != '>' {
 		return nil, errors.New("data does not appear to be quoted")
 	}
 	data = bytes.ReplaceAll(data, []byte("\n>"), []byte("\n"))

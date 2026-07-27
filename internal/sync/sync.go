@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -427,10 +428,11 @@ func readStdinPaths() ([]discovered, error) {
 // preProcess` and the command's stdout replaces the bundled content.
 // $NLM_FILE_NAME is set to the original file name. Non-zero exit aborts.
 func bundle(files []discovered, maxBytes int, preProcess string) ([][]byte, error) {
-	// txtarOverhead is the approximate bytes added per entry: the marker
-	// line "-- name --\n" plus a trailing newline. The slack covers the
-	// archive-level newline and any small format quirks.
-	const txtarOverhead = 20
+	// txtarOverhead is the approximate bytes added per entry: the marker,
+	// exact-size and unquote directives, and archive separators. It is
+	// deliberately conservative; precise encoded lengths still determine
+	// whether an unsplit entry fits.
+	const txtarOverhead = 96
 
 	var chunks [][]byte
 	var ar txtar.Archive
@@ -463,13 +465,13 @@ func bundle(files []discovered, maxBytes int, preProcess string) ([][]byte, erro
 			continue
 		}
 
-		// Quote files that contain embedded txtar markers so they
-		// don't break the outer archive boundaries.
+		// Quote files that contain embedded txtar markers so they don't break
+		// the outer archive boundaries. Keep rawData: oversize quoted files
+		// must be split before quoting so every part is independently
+		// reversible even when a hard split lands in the middle of a line.
+		rawData := data
 		quoted := false
 		if needsQuote(data) {
-			if len(data) > 0 && data[len(data)-1] != '\n' {
-				data = append(data, '\n')
-			}
 			q, qerr := quote(data)
 			if qerr != nil {
 				return nil, fmt.Errorf("quote %s: %w", f.Path, qerr)
@@ -484,13 +486,18 @@ func bundle(files []discovered, maxBytes int, preProcess string) ([][]byte, erro
 		// chunk per part with a "(part i/N)" suffix on the entry name.
 		if entrySize > maxBytes {
 			flush()
-			parts := splitFileData(data, maxBytes-len(f.Name)-len(" (part 99/99)")-txtarOverhead)
+			partBytes := maxBytes - len(f.Name) - len(" (part 99/99)") - txtarOverhead
+			if quoted && partBytes < 2 {
+				return nil, fmt.Errorf("maxBytes %d too small to split %s: quoted part data needs at least 2 bytes after archive overhead", maxBytes, f.Name)
+			}
+			parts, err := splitBundledFileData(rawData, partBytes, quoted)
+			if err != nil {
+				return nil, fmt.Errorf("split %s: %w", f.Path, err)
+			}
 			for i, part := range parts {
 				partName := fmt.Sprintf("%s (part %d/%d)", f.Name, i+1, len(parts))
 				var partAr txtar.Archive
-				if quoted {
-					partAr.Comment = []byte("unquote " + partName + "\n")
-				}
+				partAr.Comment = appendFileDirectives(nil, 0, partName, part, quoted)
 				partAr.Files = []txtar.File{{Name: partName, Data: part}}
 				chunks = append(chunks, txtar.Format(&partAr))
 			}
@@ -502,9 +509,7 @@ func bundle(files []discovered, maxBytes int, preProcess string) ([][]byte, erro
 			flush()
 		}
 
-		if quoted {
-			ar.Comment = append(ar.Comment, []byte("unquote "+f.Name+"\n")...)
-		}
+		ar.Comment = appendFileDirectives(ar.Comment, len(ar.Files), f.Name, data, quoted)
 		ar.Files = append(ar.Files, txtar.File{
 			Name: f.Name,
 			Data: data,
@@ -513,6 +518,78 @@ func bundle(files []discovered, maxBytes int, preProcess string) ([][]byte, erro
 	}
 	flush()
 	return chunks, nil
+}
+
+// appendFileDirectives records the reversible transforms applied to one txtar
+// member. txtar.Format appends a newline to non-empty File.Data that lacks one;
+// exact-size lets a reader remove only that formatter-owned byte before any
+// unquote step.
+func appendFileDirectives(comment []byte, fileIndex int, name string, data []byte, quoted bool) []byte {
+	if quoted {
+		comment = append(comment, "unquote "+name+"\n"...)
+	}
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		comment = append(comment, fmt.Sprintf("exact-size %d %d\n", fileIndex, len(data))...)
+	}
+	return comment
+}
+
+// restoreArchiveFile returns one parsed archive member with formatter-owned
+// newline padding removed and quoting reversed.
+func restoreArchiveFile(ar *txtar.Archive, fileIndex int) ([]byte, error) {
+	if fileIndex < 0 || fileIndex >= len(ar.Files) {
+		return nil, fmt.Errorf("file index %d out of range", fileIndex)
+	}
+	file := ar.Files[fileIndex]
+	data := append([]byte(nil), file.Data...)
+	if size, ok, err := archiveExactSize(ar.Comment, fileIndex); err != nil {
+		return nil, err
+	} else if ok {
+		switch {
+		case len(data) == size:
+		case len(data) == size+1 && data[size] == '\n':
+			data = data[:size]
+		case len(data) < size:
+			return nil, fmt.Errorf("file %q has %d bytes, exact-size says %d", file.Name, len(data), size)
+		default:
+			return nil, fmt.Errorf("file %q has unexpected padding after exact-size %d", file.Name, size)
+		}
+	}
+	if hasArchiveDirective(ar.Comment, "unquote "+file.Name) {
+		unquoted, err := unquote(data)
+		if err != nil {
+			return nil, fmt.Errorf("unquote %s: %w", file.Name, err)
+		}
+		data = unquoted
+	}
+	return data, nil
+}
+
+func archiveExactSize(comment []byte, fileIndex int) (size int, ok bool, err error) {
+	prefix := fmt.Sprintf("exact-size %d ", fileIndex)
+	for _, line := range strings.Split(string(comment), "\n") {
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		if ok {
+			return 0, false, fmt.Errorf("duplicate exact-size directive for file %d", fileIndex)
+		}
+		size, err = strconv.Atoi(strings.TrimPrefix(line, prefix))
+		if err != nil || size < 0 {
+			return 0, false, fmt.Errorf("invalid exact-size directive %q", line)
+		}
+		ok = true
+	}
+	return size, ok, nil
+}
+
+func hasArchiveDirective(comment []byte, directive string) bool {
+	for _, line := range strings.Split(string(comment), "\n") {
+		if line == directive {
+			return true
+		}
+	}
+	return false
 }
 
 // runPreProcess pipes data through `sh -c cmd` and returns stdout. The
@@ -546,13 +623,7 @@ func splitFileData(data []byte, maxPart int) [][]byte {
 	}
 	var parts [][]byte
 	for len(data) > maxPart {
-		cut := maxPart
-		// Walk back to the last newline within the window so the part
-		// ends on a line boundary. Keep the newline with the earlier
-		// part — the next part starts at the next byte.
-		if nl := lastNewline(data[:cut]); nl >= 0 {
-			cut = nl + 1
-		}
+		cut := splitFileCut(data, maxPart)
 		parts = append(parts, data[:cut])
 		data = data[cut:]
 	}
@@ -560,6 +631,55 @@ func splitFileData(data []byte, maxPart int) [][]byte {
 		parts = append(parts, data)
 	}
 	return parts
+}
+
+// splitBundledFileData splits raw file bytes and applies quoting to each part
+// independently. Quoted output can grow by one byte per line, so an oversized
+// candidate is shortened until its encoded form fits maxPart.
+func splitBundledFileData(data []byte, maxPart int, quoted bool) ([][]byte, error) {
+	if !quoted {
+		return splitFileData(data, maxPart), nil
+	}
+	if maxPart < 1 {
+		maxPart = 1
+	}
+	var parts [][]byte
+	for len(data) > 0 {
+		limit := min(len(data), maxPart)
+		for {
+			cut := splitFileCut(data, limit)
+			part, err := quote(data[:cut])
+			if err != nil {
+				return nil, err
+			}
+			if len(part) <= maxPart {
+				parts = append(parts, part)
+				data = data[cut:]
+				break
+			}
+			if cut == 1 {
+				return nil, fmt.Errorf("quoted byte needs %d bytes, part limit is %d", len(part), maxPart)
+			}
+			limit = cut - max(1, len(part)-maxPart)
+		}
+	}
+	return parts, nil
+}
+
+// splitFileCut returns the next raw-data cut, preferring the last newline in
+// the size window and otherwise making a hard cut.
+func splitFileCut(data []byte, maxPart int) int {
+	if maxPart < 1 {
+		maxPart = 1
+	}
+	if len(data) <= maxPart {
+		return len(data)
+	}
+	cut := maxPart
+	if nl := lastNewline(data[:cut]); nl >= 0 {
+		cut = nl + 1
+	}
+	return cut
 }
 
 func lastNewline(data []byte) int {

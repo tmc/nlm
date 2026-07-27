@@ -5,12 +5,13 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 func TestNoteListRecordsFixture(t *testing.T) {
-	notes := []*pb.Note{
-		{NoteId: "note-1", Title: "New Note", ContentText: "fallback\ncontent"},
-		{NoteId: "note-2", Title: "Rich Note", ContentText: "ignored", RichText: "**rich**\ncontent"},
+	notes := []*api.Note{
+		{Note: &pb.Note{NoteId: "note-1", Title: "New Note", ContentText: "fallback\ncontent"}},
+		{Note: &pb.Note{NoteId: "note-2", Title: "Rich Note", ContentText: "ignored", RichText: "**rich**\ncontent"}},
 		nil,
 	}
 	got := noteListRecords(notes)

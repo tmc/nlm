@@ -6,21 +6,29 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf16"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-// renderChatHTMLToDestination renders doc to a self-contained HTML page and
-// writes it to opts.OutFile (or os.Stdout when empty), optionally opening the
-// written file in a browser. The HTML build itself lives in renderChatHTML so
-// it can be tested against a bytes.Buffer with no filesystem or exec.
+// renderChatHTMLToDestination renders doc to a self-contained HTML page.
+// An explicit "-" writes to stdout. Otherwise the page is written to OutFile,
+// or to the render cache when OutFile is empty.
 func renderChatHTMLToDestination(doc chatDocument, ctx chatRenderContext, opts chatRenderOptions) error {
-	if opts.OutFile == "" {
+	path, err := chatHTMLDestination(doc.NotebookID, doc.ConversationID, opts.OutFile)
+	if err != nil {
+		return err
+	}
+	if path == "" {
 		return renderChatHTML(os.Stdout, doc, ctx)
 	}
 
@@ -28,19 +36,37 @@ func renderChatHTMLToDestination(doc chatDocument, ctx chatRenderContext, opts c
 	if err := renderChatHTML(&buf, doc, ctx); err != nil {
 		return err
 	}
-	if err := os.WriteFile(opts.OutFile, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write html: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "nlm: wrote %s\n", opts.OutFile)
+	fmt.Fprintf(os.Stderr, "nlm: wrote %s\n", path)
 
-	// --open with no file is rejected upstream; guard defensively so a stray
-	// call never tries to open stdout.
 	if opts.Open {
-		if err := openInBrowser(opts.OutFile); err != nil {
+		if err := openInBrowser(path); err != nil {
 			fmt.Fprintf(os.Stderr, "nlm: could not open browser: %v\n", err)
 		}
 	}
 	return nil
+}
+
+// chatHTMLDestination returns the output path for an HTML conversation render.
+// An empty path means stdout.
+func chatHTMLDestination(notebookID, conversationID, outFile string) (string, error) {
+	if outFile == "-" {
+		return "", nil
+	}
+	if outFile != "" {
+		return outFile, nil
+	}
+	dir, err := renderCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("create render cache: %w", err)
+	}
+	dir = filepath.Join(dir, notebookID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("create render directory: %w", err)
+	}
+	return filepath.Join(dir, conversationID+".html"), nil
 }
 
 // openInBrowser opens path with the platform's default handler. A failure is
@@ -72,22 +98,31 @@ const htmlExcerptBudget = 600
 // the inline script reads. It never carries raw markup: all strings are plain
 // text and get HTML-escaped by encoding/json into the <script> block.
 type htmlCitation struct {
-	SourceID   string  `json:"sourceId"`
-	Handle     string  `json:"handle"`   // 8-char id prefix
-	Title      string  `json:"title"`    // resolved display title
-	Location   string  `json:"location"` // "file:line" or "src N-M"
-	Excerpt    string  `json:"excerpt"`
-	Confidence float64 `json:"confidence"`
-	HasConf    bool    `json:"hasConf"` // confidence present and shown
-	Weak       bool    `json:"weak"`    // below weakConfidence
-	Removed    bool    `json:"removed"` // source ID absent from the notebook source list; title unavailable
+	SourceID    string           `json:"sourceId"`
+	Handle      string           `json:"handle"`   // 8-char id prefix
+	Title       string           `json:"title"`    // resolved display title
+	Location    string           `json:"location"` // "file:line" or "src N-M"
+	Excerpt     string           `json:"excerpt"`
+	ExcerptRuns []htmlExcerptRun `json:"excerptRuns,omitempty"`
+	Confidence  float64          `json:"confidence"`
+	HasConf     bool             `json:"hasConf"` // confidence present and shown
+	Weak        bool             `json:"weak"`    // below weakConfidence
+	Removed     bool             `json:"removed"` // source ID absent from the notebook source list; title unavailable
+}
+
+type htmlExcerptRun struct {
+	Text string `json:"text"`
+	Code bool   `json:"code,omitempty"`
+	Link string `json:"link,omitempty"`
 }
 
 // htmlMarker is one [N] citation marker and the sources cited under it. Index
 // is the join key that links the answer's literal [N] to this marker's entry.
 //
-// Span, when non-nil, is the [start,end) rune range of the answer text that this
-// marker grounds — the reply-span, which sits before the [N] token, not at it.
+// Span, when non-nil, is the first [start,end) range of the answer text that
+// this source grounds — the reply-span, which sits before the [N] token, not at
+// it. Spans carries every occurrence for server-side rendering; only Span is
+// retained in the JSON payload for compatibility with existing consumers.
 // The client underlines that range in the answer as the grounded passage. It is
 // carried ONLY when validated in Go (in range, non-empty, not overlapping any
 // [N] marker token); a zero-width point span or an out-of-range span leaves it
@@ -96,6 +131,7 @@ type htmlMarker struct {
 	Index   int            `json:"index"`
 	Sources []htmlCitation `json:"sources"`
 	Span    *htmlSpan      `json:"span,omitempty"`
+	Spans   []htmlSpan     `json:"-"`
 }
 
 // htmlSpan is a validated [Start,End) range into the answer text, in the wire's
@@ -133,13 +169,17 @@ type answerTemplate struct {
 	Thinking template.HTML // server-rendered reasoning block; "" when not shown
 }
 
-// renderChatHTML writes a self-contained interactive HTML page for doc to w.
-// The page inlines all CSS and JS and makes no external requests, so it works
-// from a file:// URL offline. Every string derived from server data is escaped:
+// renderChatHTML writes an interactive HTML page for doc to w. The page inlines
+// its own CSS and application JS. Pages containing TeX load MathJax from the
+// same CDN as note HTML; math-free pages make no external requests. Every
+// string derived from server data is escaped:
 // the citation data travels as a JSON blob the inline script reads (never
 // concatenated into markup or script), and each assistant answer body is
 // server-rendered HTML built through html/template's contextual escaping.
 func renderChatHTML(w io.Writer, doc chatDocument, ctx chatRenderContext) error {
+	if !ctx.IncludeFollowUps {
+		doc = withoutChatFollowUps(doc)
+	}
 	payload := buildHTMLPayload(doc, ctx)
 
 	// The payload is emitted into a <script type="application/json"> block.
@@ -159,15 +199,31 @@ func renderChatHTML(w io.Writer, doc chatDocument, ctx chatRenderContext) error 
 		Title   template.HTML    // pre-escaped by the template pipeline below
 		Blob    template.JS      // JSON we generated; safe to embed as script content
 		Answers []answerTemplate // server-rendered answer bodies, one per assistant turn
+		HasMath bool
 	}{
 		Title:   template.HTML(template.HTMLEscapeString(displayTitle(doc))),
 		Blob:    template.JS(blob),
 		Answers: answers,
+		HasMath: chatDocumentHasMath(doc),
 	}
 	if err := chatHTMLTemplate.Execute(w, data); err != nil {
 		return fmt.Errorf("render html: %w", err)
 	}
 	return nil
+}
+
+var chatMarkdownCodePattern = regexp.MustCompile("(?s)```.*?```|`[^`\\n]*`")
+
+func chatDocumentHasMath(doc chatDocument) bool {
+	var body strings.Builder
+	for _, message := range doc.Messages {
+		if message.Role != "assistant" {
+			continue
+		}
+		body.WriteString(chatMarkdownCodePattern.ReplaceAllString(message.Content, ""))
+		body.WriteByte('\n')
+	}
+	return noteHasMath(body.String())
 }
 
 // buildAnswerTemplates renders each assistant turn's answer body to HTML,
@@ -252,41 +308,259 @@ func buildMarkers(m chatDocMessage, ctx chatRenderContext, budget int) []htmlMar
 	if len(m.Citations) == 0 {
 		return nil
 	}
-	locations := ctx.citationLocations(m.Citations)
-	order, groups := groupCitationsByIndex(m.Citations)
+	citations := alignHTMLCitations(m.Content, m.Citations)
+	return buildCitationMarkers(
+		citations,
+		ctx,
+		budget,
+		utf16Len(m.Content),
+		markerTokenRangesUTF16(m.Content),
+	)
+}
 
-	// Citation StartChar/EndChar and marker-token bounds live in the wire's
-	// UTF-16 code-unit space; validate the grounded span in that same space
-	// (not rune space) so an answer with astral-plane characters neither
-	// over- nor under-rejects. The span is mapped to rune offsets later, at the
-	// single render seam (translateMarkerSpans).
-	u16Len := utf16Len(m.Content)
-	markerRanges := markerTokenRangesUTF16(m.Content)
+// buildCitationMarkers is the format-neutral citation-to-marker projection
+// shared by chat turns and notes. Callers supply the coordinate-space length
+// and the marker-token ranges appropriate to their own document model.
+func buildCitationMarkers(citations []api.Citation, ctx chatRenderContext, budget, u16Len int, markerRanges [][2]int) []htmlMarker {
+	if len(citations) == 0 {
+		return nil
+	}
+	locations := ctx.citationLocations(citations)
+	order, groups := groupCitationsByIndex(citations)
 
 	markers := make([]htmlMarker, 0, len(order))
 	for _, idx := range order {
 		hm := htmlMarker{Index: idx}
+		seenSources := make(map[string]bool)
 		for _, c := range groups[idx] {
+			key := c.SourceID + "\x00" + c.ParentSourceID
+			if seenSources[key] {
+				continue
+			}
+			seenSources[key] = true
 			hm.Sources = append(hm.Sources, buildCitation(c, ctx, locations, budget))
 		}
-		hm.Span = groundedSpan(groups[idx], u16Len, markerRanges)
+		hm.Spans = groundedSpans(groups[idx], u16Len, markerRanges)
+		if len(hm.Spans) > 0 {
+			hm.Span = &hm.Spans[0]
+		}
 		markers = append(markers, hm)
 	}
 	return markers
 }
 
-// groundedSpan returns the validated answer range for a marker's citations, or
-// nil when none qualifies. A citation's [StartChar,EndChar) qualifies when it is
+// alignHTMLCitations repairs the answer coordinates carried by streamed chat
+// citations. Source mappings are ordered like the visible [N] tokens, but their
+// ranges index the server's marker-free rich text. Persisted Markdown contains
+// the marker tokens and formatting delimiters, so applying those offsets
+// directly underlines unrelated characters farther and farther into the
+// answer. Pair each mapping with its visible token, preserve the server's span
+// width, and anchor the range immediately before that token.
+//
+// Sessions written before source mappings were decoded by citation-data index
+// also carry the mapping ordinal as SourceIndex. The same ordered pairing lets
+// us recover the actual indices from the token without rewriting the session.
+func alignHTMLCitations(content string, citations []api.Citation) []api.Citation {
+	tokens := htmlCitationTokens(content)
+	occurrences := citationOccurrences(citations)
+	if len(tokens) == 0 || len(tokens) != len(occurrences) {
+		return citations
+	}
+	u16 := newUTF16RuneMap(content)
+	runes := []rune(content)
+	needsAlignment := false
+	for i, occurrence := range occurrences {
+		if occurrence.startChar < 0 || occurrence.endChar < occurrence.startChar ||
+			occurrence.endChar > tokens[i].start || occurrence.endChar > utf16Len(content) {
+			return citations
+		}
+		gap := string(runes[u16.rune(occurrence.endChar):u16.rune(tokens[i].start)])
+		if strings.TrimSpace(gap) != "" {
+			needsAlignment = true
+		}
+	}
+	legacy := true
+	for i, occurrence := range occurrences {
+		for _, c := range citations[occurrence.start:occurrence.end] {
+			if c.SourceIndex != i+1 {
+				legacy = false
+				break
+			}
+		}
+	}
+	if !needsAlignment && !legacy {
+		return citations
+	}
+
+	out := append([]api.Citation(nil), citations...)
+	for i, occurrence := range occurrences {
+		group := out[occurrence.start:occurrence.end]
+		indices := tokens[i].indices
+		if legacy {
+			if len(group) != len(indices) {
+				return citations
+			}
+			for j := range group {
+				group[j].SourceIndex = indices[j]
+			}
+		} else if !sameCitationIndices(group, indices) {
+			return citations
+		}
+
+		if needsAlignment {
+			width := occurrence.endChar - occurrence.startChar
+			start, end := answerRangeBeforeToken(content, tokens[i].start, width)
+			if !answerRangeHasText(content, start, end) {
+				start = end
+			}
+			for j := range group {
+				group[j].StartChar = start
+				group[j].EndChar = end
+			}
+		}
+	}
+	return out
+}
+
+type htmlCitationToken struct {
+	start   int // UTF-16 offset of "["
+	indices []int
+}
+
+func htmlCitationTokens(content string) []htmlCitationToken {
+	byteToU16 := byteToUTF16(content)
+	var out []htmlCitationToken
+	for _, match := range htmlMarkerRe.FindAllStringSubmatchIndex(content, -1) {
+		indices, ok := citationIndices(content[match[2]:match[3]])
+		if !ok {
+			continue
+		}
+		out = append(out, htmlCitationToken{
+			start:   byteToU16[match[0]],
+			indices: indices,
+		})
+	}
+	return out
+}
+
+func citationIndices(body string) ([]int, bool) {
+	var out []int
+	for _, part := range strings.Split(body, ",") {
+		part = strings.TrimSpace(part)
+		if lo, _, hi, ok := splitRange(part); ok {
+			first, err1 := strconv.Atoi(lo)
+			last, err2 := strconv.Atoi(hi)
+			if err1 != nil || err2 != nil || last < first {
+				return nil, false
+			}
+			for i := first; i <= last; i++ {
+				out = append(out, i)
+			}
+			continue
+		}
+		index, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, false
+		}
+		out = append(out, index)
+	}
+	return out, len(out) > 0
+}
+
+type citationOccurrence struct {
+	start, end         int
+	startChar, endChar int
+}
+
+// citationOccurrences returns the contiguous source-mapping groups emitted by
+// the decoder. Every source cited by one visible marker shares one answer range.
+func citationOccurrences(citations []api.Citation) []citationOccurrence {
+	var out []citationOccurrence
+	for start := 0; start < len(citations); {
+		end := start + 1
+		for end < len(citations) &&
+			citations[end].StartChar == citations[start].StartChar &&
+			citations[end].EndChar == citations[start].EndChar {
+			end++
+		}
+		out = append(out, citationOccurrence{
+			start:     start,
+			end:       end,
+			startChar: citations[start].StartChar,
+			endChar:   citations[start].EndChar,
+		})
+		start = end
+	}
+	return out
+}
+
+func sameCitationIndices(group []api.Citation, indices []int) bool {
+	if len(group) != len(indices) {
+		return false
+	}
+	seen := make(map[int]int)
+	for _, c := range group {
+		seen[c.SourceIndex]++
+	}
+	for _, index := range indices {
+		if seen[index] == 0 {
+			return false
+		}
+		seen[index]--
+	}
+	return true
+}
+
+// answerRangeBeforeToken returns a UTF-16 range of width code units ending at
+// the last non-space character before tokenStart. The server range width is
+// stable even though its absolute offsets index marker-free rich text.
+func answerRangeBeforeToken(content string, tokenStart, width int) (int, int) {
+	runes := []rune(content)
+	u16 := newUTF16RuneMap(content)
+	endRune := u16.rune(tokenStart)
+	for endRune > 0 && unicode.IsSpace(runes[endRune-1]) {
+		endRune--
+	}
+	runeToU16 := make([]int, len(runes)+1)
+	at := 0
+	for i, r := range runes {
+		runeToU16[i] = at
+		at += utf16.RuneLen(r)
+	}
+	runeToU16[len(runes)] = at
+	end := runeToU16[endRune]
+	start := end - width
+	if start < 0 {
+		start = 0
+	}
+	return start, end
+}
+
+func answerRangeHasText(content string, start, end int) bool {
+	u16 := newUTF16RuneMap(content)
+	runes := []rune(content)
+	for _, r := range runes[u16.rune(start):u16.rune(end)] {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return true
+		}
+	}
+	return false
+}
+
+// groundedSpans returns the distinct validated answer ranges for a marker's
+// citations. A citation's [StartChar,EndChar) qualifies when it is
 // a real range (start < end), lies within [0,u16Len], and does not overlap any
 // [N] marker token (so underlining the grounded passage never swallows a marker
-// the client also turns into a link). All bounds are in the wire's UTF-16
+// the renderer also turns into a link). All bounds are in the wire's UTF-16
 // code-unit space — the space StartChar/EndChar and markerRanges use — so the
 // span is not mapped to runes until the render seam. When several citations
-// under one marker carry the same qualifying range (the common case), that range
-// is used; a zero-width point span or an out-of-range span is skipped.
+// under one marker carry the same qualifying range, it is emitted once; a
+// zero-width point span or an out-of-range span is skipped.
 // Underlining the grounded sentence — not the [N] — is the point: the reply-span
 // sits before the marker, so it never coincides with it.
-func groundedSpan(group []api.Citation, u16Len int, markerRanges [][2]int) *htmlSpan {
+func groundedSpans(group []api.Citation, u16Len int, markerRanges [][2]int) []htmlSpan {
+	var out []htmlSpan
+	seen := make(map[[2]int]bool)
 	for _, c := range group {
 		s, e := c.StartChar, c.EndChar
 		if s >= e || s < 0 || e > u16Len {
@@ -295,9 +569,14 @@ func groundedSpan(group []api.Citation, u16Len int, markerRanges [][2]int) *html
 		if rangeOverlapsAny(s, e, markerRanges) {
 			continue
 		}
-		return &htmlSpan{Start: s, End: e}
+		key := [2]int{s, e}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, htmlSpan{Start: s, End: e})
 	}
-	return nil
+	return out
 }
 
 // markerTokenRangesUTF16 returns the UTF-16 code-unit ranges of every [N]-style
@@ -336,12 +615,14 @@ var htmlMarkerRe = regexp.MustCompile(`\[(\d+(?:\s*[-,]\s*\d+)*)\]`)
 // and location, clipped excerpt, and per-source confidence flags (honoring
 // HideConfidence and HideSpans).
 func buildCitation(c api.Citation, ctx chatRenderContext, locations map[citationKey]string, budget int) htmlCitation {
+	excerpt := clipExcerpt(c.Excerpt, budget)
 	hc := htmlCitation{
-		SourceID: c.SourceID,
-		Handle:   shortSourceID(c.SourceID),
-		Title:    ctx.citationSourceTitle(c),
-		Excerpt:  clipExcerpt(c.Excerpt, budget),
-		Removed:  ctx.citationSourceRemoved(c),
+		SourceID:    c.SourceID,
+		Handle:      shortSourceID(c.SourceID),
+		Title:       ctx.citationSourceTitle(c),
+		Excerpt:     excerpt,
+		ExcerptRuns: buildExcerptRuns(c.ExcerptRuns, c.Excerpt, excerpt, budget),
+		Removed:     ctx.citationSourceRemoved(c),
 	}
 
 	if loc, ok := locations[keyFor(c)]; ok && loc != "" {
@@ -356,6 +637,70 @@ func buildCitation(c api.Citation, ctx chatRenderContext, locations map[citation
 		hc.Weak = c.Confidence < weakConfidence
 	}
 	return hc
+}
+
+func buildExcerptRuns(runs []api.ExcerptRun, flat, clipped string, budget int) []htmlExcerptRun {
+	if len(runs) == 0 || decodeNumberedExcerpt(flat) != flat || formatFlattenedExcerptTable(flat) != flat {
+		return nil
+	}
+	var joined strings.Builder
+	for _, run := range runs {
+		joined.WriteString(run.Text)
+	}
+	if joined.String() != flat {
+		return nil
+	}
+	trimmed := strings.TrimSpace(flat)
+	if clipRunes(trimmed, budget) != clipped {
+		return nil
+	}
+	start := len([]rune(flat[:strings.Index(flat, trimmed)]))
+	end := start + len([]rune(trimmed))
+	if budget < end-start {
+		end = start + budget
+	}
+
+	var out []htmlExcerptRun
+	offset := 0
+	for _, run := range runs {
+		text := []rune(run.Text)
+		runStart, runEnd := offset, offset+len(text)
+		offset = runEnd
+		from := max(start, runStart)
+		to := min(end, runEnd)
+		if from >= to {
+			continue
+		}
+		link, _ := safeExcerptLink(run.Link)
+		out = append(out, htmlExcerptRun{
+			Text: string(text[from-runStart : to-runStart]),
+			Code: run.Code,
+			Link: link,
+		})
+	}
+	if end < start+len([]rune(trimmed)) {
+		out = append(out, htmlExcerptRun{Text: "…"})
+	}
+	return out
+}
+
+func safeExcerptLink(link string) (string, bool) {
+	link = strings.TrimSpace(link)
+	if link == "" || strings.IndexFunc(link, func(r rune) bool {
+		return unicode.IsControl(r) || unicode.IsSpace(r)
+	}) >= 0 {
+		return "", false
+	}
+	parsed, err := url.Parse(link)
+	if err != nil {
+		return "", false
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "", "http", "https", "mailto":
+		return link, true
+	default:
+		return "", false
+	}
 }
 
 // chatHTMLTemplate is the whole self-contained page. Content and citation data
@@ -393,6 +738,7 @@ const chatHTMLSource = `<!doctype html>
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
+html, body { max-width: 100%; overflow-x: hidden; }
 body {
   margin: 0;
   background: var(--ground);
@@ -428,10 +774,10 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 }
 
 .assistant-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 32px; align-items: start; }
-@media (max-width: 860px) { .assistant-grid { grid-template-columns: 1fr; } }
 
 .answer {
   max-width: var(--measure);
+  min-width: 0;
   word-wrap: break-word;
   font-size: 16.5px;
 }
@@ -448,6 +794,23 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 .answer li.nest-3 { margin-left: 3.6em; }
 .answer hr { border: 0; border-top: 1px solid var(--line); margin: 1.2em 0; }
 .answer .answer-block { white-space: pre-wrap; }
+.answer pre, .answer table { display: block; max-width: 100%; overflow-x: auto; }
+.math-display-row {
+  display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  align-items: center; width: 100%; max-width: 100%; margin: .9em 0;
+}
+.math-display-row::before { content: ""; grid-column: 1; }
+.math-display-equation {
+  grid-column: 2; min-width: 0; max-width: 100%; overflow-x: auto;
+  text-align: center;
+}
+.math-display-cite { grid-column: 3; justify-self: end; padding-left: .6em; }
+@media (max-width: 520px) {
+  .math-display-row { grid-template-columns: minmax(0,1fr) auto; }
+  .math-display-row::before { display: none; }
+  .math-display-equation { grid-column: 1; }
+  .math-display-cite { grid-column: 2; padding-left: .35em; }
+}
 .thinking {
   max-width: var(--measure);
   margin-bottom: 16px; padding: 12px 16px;
@@ -465,20 +828,21 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   cursor: pointer;
   transition: background 120ms ease, text-decoration-color 120ms ease;
 }
-.grounded:hover, .grounded.active {
+.grounded:hover, .grounded.active, .grounded.flash {
   background: var(--accent-tint); text-decoration-color: var(--accent);
 }
 
-/* Inline [N] marker link: the server's own marker, the anchor down to the
-   citation entry. Underlined like every reference on the page; a dotted underline
-   keeps it distinct from the grounded passage's solid one (the reference points
-   AT a source; the grounded span IS the claim). */
-.citegroup { white-space: nowrap; }
+/* Inline citation marker: the server's own marker, linked down to the citation
+   entry. The superscript group is compact and stays together. */
+.citegroup {
+  white-space: nowrap; font-size: .72em; line-height: 0;
+  vertical-align: super; margin-left: .08em;
+}
 .citelink {
   color: var(--accent-strong); font-weight: 600;
   text-decoration: underline; text-decoration-style: dotted;
   text-decoration-color: var(--accent-strong);
-  text-underline-offset: 2px; text-decoration-thickness: 1.5px;
+  text-underline-offset: 1px; text-decoration-thickness: 1px;
   padding: 0 1px; border-radius: 3px; cursor: pointer;
   transition: background 120ms ease, color 120ms ease, text-decoration-color 120ms ease;
 }
@@ -499,6 +863,14 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   font-size: 14px;
 }
 .card.show { display: block; }
+.card-close {
+  appearance: none; position: sticky; top: 4px; float: right; z-index: 1;
+  width: 36px; height: 36px; margin: 2px 2px 0 8px;
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  background: var(--panel); color: var(--muted); cursor: pointer;
+  font: 600 20px/1 var(--sans);
+}
+.card-close:hover, .card-close:focus-visible { color: var(--ink); border-color: var(--accent); }
 .card .src { padding: 10px 12px; border-radius: 7px; }
 .card .src + .src { border-top: 1px solid var(--line); }
 .card .src-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
@@ -560,6 +932,16 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 }
 .ref:hover .ref-excerpt, .ref.active .ref-excerpt { border-left-color: var(--accent); }
 .ref-excerpt + .ref-excerpt { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.ref-actions { display: flex; gap: 7px; margin-top: 9px; }
+.ref-action {
+  appearance: none; border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--panel); color: var(--accent-strong); cursor: pointer;
+  font: 600 12px/1.2 var(--sans); padding: 6px 9px; text-decoration: none;
+}
+.ref-action:hover, .ref-action:focus-visible {
+  border-color: var(--accent); background: var(--accent-tint);
+}
+.ref-action:disabled { color: var(--faint); cursor: default; background: #f7f7f8; }
 
 /* Citations section at the bottom of an assistant turn. */
 .citations {
@@ -593,6 +975,38 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   max-height: 260px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word;
 }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 860px) {
+  .wrap { max-width: 100%; padding: 24px 18px 72px; }
+  .assistant-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .rail {
+    position: static; top: auto; max-height: none; overflow: visible;
+    padding-top: 18px; border-top: 1px solid var(--line);
+  }
+}
+@media (max-width: 520px) {
+  .wrap { padding: 18px 12px 56px; }
+  header.doc { margin-bottom: 22px; }
+  header.doc h1 { font-size: 20px; }
+  .turn { margin-bottom: 32px; }
+  .bubble.user { padding: 12px 14px; }
+  .answer { font-size: 16px; overflow-wrap: anywhere; }
+  .cite-entry { grid-template-columns: 34px minmax(0, 1fr); padding-inline: 2px; }
+  .cite-src-head .loc { width: 100%; }
+  .card {
+    position: fixed; left: 10px !important; right: 10px; top: auto !important;
+    bottom: max(10px, env(safe-area-inset-bottom)); width: auto;
+    max-height: min(72vh, 34rem); overflow-y: auto;
+  }
+  .card-close { width: 44px; height: 44px; }
+  .ref-action { min-height: 44px; display: inline-flex; align-items: center; }
+}
+@media (hover: none), (pointer: coarse) {
+  .citelink, .grounded { position: relative; }
+  .citelink::after, .grounded::after {
+    content: ""; position: absolute; z-index: 1;
+    left: -8px; right: -8px; top: 50%; height: 44px; transform: translateY(-50%);
+  }
+}
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -618,12 +1032,32 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   }
   var root = document.getElementById("root");
   var card = document.getElementById("card");
+  var touchQuery = window.matchMedia("(hover: none), (pointer: coarse)");
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.className = cls;
     if (text != null) n.textContent = text;
     return n;
+  }
+  function appendExcerpt(parent, citation) {
+    if (!citation.excerptRuns || !citation.excerptRuns.length) {
+      parent.textContent = citation.excerpt || "";
+      return;
+    }
+    citation.excerptRuns.forEach(function (run) {
+      var content = run.code ? el("code", "", run.text) : document.createTextNode(run.text);
+      if (!run.link) {
+        parent.appendChild(content);
+        return;
+      }
+      var anchor = document.createElement("a");
+      anchor.href = run.link;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.appendChild(content);
+      parent.appendChild(anchor);
+    });
   }
   function fmtConf(c) { return "p=" + c.confidence.toFixed(2); }
 
@@ -649,6 +1083,14 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   // Build the card body for a marker's sources.
   function fillCard(marker) {
     card.textContent = "";
+    var close = el("button", "card-close", "×");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close citation preview");
+    close.addEventListener("click", function (event) {
+      event.stopPropagation();
+      closeCard();
+    });
+    card.appendChild(close);
     marker.sources.forEach(function (c) {
       var src = el("div", "src");
       var head = el("div", "src-head");
@@ -660,7 +1102,11 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       if (pill) head.appendChild(pill);
       if (c.location) head.appendChild(el("span", "loc", c.location));
       src.appendChild(head);
-      if (c.excerpt) src.appendChild(el("div", "excerpt", c.excerpt));
+      if (c.excerpt) {
+        var excerpt = el("div", "excerpt");
+        appendExcerpt(excerpt, c);
+        src.appendChild(excerpt);
+      }
       card.appendChild(src);
     });
   }
@@ -686,7 +1132,8 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   // card needs no pinning or focus trapping — it appears on hover/focus of an
   // inline link and dismisses when the pointer leaves. A short close delay lets
   // the pointer cross the gap into the card to scroll a long excerpt.
-  var spanEls = {};   // markerKey -> [inline [N] link elements]
+  var spanEls = {};   // markerKey -> grounded passages and inline [N] links
+  var groundEls = {}; // markerKey -> grounded passages, in document order
   var railEls = {};   // markerKey -> rail entry element
   function keyOf(msgIdx, markerIdx) { return msgIdx + ":" + markerIdx; }
 
@@ -709,6 +1156,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   }
 
   var hideTimer = null;
+  var pinnedAnchor = null;
   function showCard(anchor, marker, key) {
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
     fillCard(marker);
@@ -716,6 +1164,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     if (key != null) setActive(key);
   }
   function hideCard() {
+    if (pinnedAnchor) return;
     if (hideTimer) clearTimeout(hideTimer);
     hideTimer = setTimeout(function () {
       hideTimer = null;
@@ -723,10 +1172,32 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       clearActive();
     }, 140);
   }
+  function closeCard() {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    pinnedAnchor = null;
+    card.classList.remove("show");
+    clearActive();
+  }
+  // touchPreview pins a preview on the first tap. A second tap closes it and
+  // falls through to the element's native action (for a citation link, its
+  // href; for a rail entry, its detail jump).
+  function touchPreview(event, anchor, marker, key) {
+    if (!touchQuery.matches) return false;
+    if (pinnedAnchor === anchor && card.classList.contains("show")) {
+      closeCard();
+      return false;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    pinnedAnchor = anchor;
+    showCard(anchor, marker, key);
+    return true;
+  }
   card.addEventListener("mouseenter", function () {
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
   });
   card.addEventListener("mouseleave", function () { hideCard(); });
+  card.addEventListener("click", function (event) { event.stopPropagation(); });
 
   // Adopt the server-rendered answer body for a turn and wire its interactivity.
   //
@@ -753,7 +1224,9 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       s.setAttribute("aria-label", "Grounded by citation " + marker.index);
       s.addEventListener("mouseenter", function () { showCard(s, marker, key); });
       s.addEventListener("mouseleave", function () { hideCard(); });
+      s.addEventListener("click", function (event) { touchPreview(event, s, marker, key); });
       (spanEls[key] || (spanEls[key] = [])).push(s);
+      (groundEls[key] || (groundEls[key] = [])).push(s);
     });
 
     // Inline [N] links: a plain anchor jump to the citation entry, plus a
@@ -785,7 +1258,10 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     a.addEventListener("mouseleave", function () { hideCard(); });
     a.addEventListener("focus", function () { showCard(a, marker, key); });
     a.addEventListener("blur", function () { hideCard(); });
-    a.addEventListener("click", function () { flashEntry(document.getElementById(citeId(msgIdx, marker.index))); });
+    a.addEventListener("click", function (event) {
+      if (touchPreview(event, a, marker, key)) return;
+      flashEntry(document.getElementById(citeId(msgIdx, marker.index)));
+    });
   }
 
   // Build one numbered citation entry for the bottom Citations section. It is the
@@ -812,7 +1288,11 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       if (pill) head.appendChild(pill);
       if (c.location) head.appendChild(el("span", "loc", c.location));
       src.appendChild(head);
-      if (c.excerpt) src.appendChild(el("div", "excerpt", c.excerpt));
+      if (c.excerpt) {
+        var excerpt = el("div", "excerpt");
+        appendExcerpt(excerpt, c);
+        src.appendChild(excerpt);
+      }
       body.appendChild(src);
     });
     entry.appendChild(body);
@@ -820,10 +1300,9 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   }
 
   // Build a compact rail entry for a marker: its [N], the sources' titles, and a
-  // per-source excerpt line. Hovering the entry (or its excerpt) previews the
-  // full card and lights the matching inline [N]; clicking jumps to the bottom
-  // entry. This is the at-a-glance index beside the answer; the bottom section is
-  // the full read.
+  // per-source excerpt line. The entry and its Details action jump to the full
+  // citation; Passage jumps to the first grounded answer span. Both explicit
+  // controls are native keyboard and touch targets.
   function railEntry(msgIdx, marker) {
     var key = keyOf(msgIdx, marker.index);
     var entry = el("div", "ref");
@@ -841,17 +1320,47 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       if (!c.excerpt) return;
       // The cited source text: underlined + hoverable, the passage that grounds
       // this marker. Hovering it raises the same preview card.
-      var ex = el("span", "ref-excerpt", c.excerpt);
+      var ex = el("span", "ref-excerpt");
+      appendExcerpt(ex, c);
       ex.title = (c.title || c.handle || "source") + (c.hasConf ? " · p=" + c.confidence.toFixed(2) : "");
       entry.appendChild(ex);
     });
 
+    var actions = el("div", "ref-actions");
+    var detail = el("a", "ref-action", "Details");
+    detail.href = "#" + citeId(msgIdx, marker.index);
+    detail.setAttribute("aria-label", "Jump to citation " + marker.index + " details");
+    detail.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      jumpTo(citeId(msgIdx, marker.index));
+    });
+    actions.appendChild(detail);
+
+    var passage = el("button", "ref-action", "Passage");
+    passage.type = "button";
+    passage.setAttribute("aria-label", "Jump to passage grounded by citation " + marker.index);
+    if (!(groundEls[key] || []).length) {
+      passage.disabled = true;
+      passage.title = "No grounded passage is available";
+    }
+    passage.addEventListener("click", function (ev) {
+      ev.stopPropagation();
+      jumpToPassage(key);
+    });
+    actions.appendChild(passage);
+    entry.appendChild(actions);
+
     entry.tabIndex = 0;
+    entry.setAttribute("aria-label", "Jump to citation " + marker.index + " details");
     entry.addEventListener("mouseenter", function () { showCard(entry, marker, key); });
     entry.addEventListener("mouseleave", function () { hideCard(); });
     entry.addEventListener("focus", function () { showCard(entry, marker, key); });
     entry.addEventListener("blur", function () { hideCard(); });
-    entry.addEventListener("click", function () { jumpTo(citeId(msgIdx, marker.index)); });
+    entry.addEventListener("click", function (event) {
+      if (touchPreview(event, entry, marker, key)) return;
+      jumpTo(citeId(msgIdx, marker.index));
+    });
     entry.addEventListener("keydown", function (ev) {
       if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); jumpTo(citeId(msgIdx, marker.index)); }
     });
@@ -867,6 +1376,19 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     if (!target) return;
     target.scrollIntoView({ block: "center", behavior: "smooth" });
     flashEntry(target);
+  }
+
+  // jumpToPassage uses the first grounded span when a marker has several. The
+  // complete set remains cross-lit on hover; choosing one deterministic target
+  // keeps repeated taps and keyboard activation predictable.
+  function jumpToPassage(key) {
+    var target = (groundEls[key] || [])[0];
+    if (!target) return;
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    target.classList.remove("flash");
+    void target.offsetWidth;
+    target.classList.add("flash");
+    setTimeout(function () { target.classList.remove("flash"); }, 1200);
   }
 
   function render() {
@@ -925,9 +1447,12 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     });
   }
 
-  // Esc dismisses the hover preview.
+  // Esc and tap-away dismiss a pinned touch preview.
   document.addEventListener("keydown", function (ev) {
-    if (ev.key === "Escape") card.classList.remove("show");
+    if (ev.key === "Escape") closeCard();
+  });
+  document.addEventListener("click", function (event) {
+    if (pinnedAnchor && !card.contains(event.target)) closeCard();
   });
 
   // flashEntry briefly highlights a citation entry so the eye lands on the right
@@ -948,6 +1473,19 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   render();
 })();
 </script>
+{{if .HasMath}}<!-- MathJax support -->
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        }
+    };
+</script>
+{{end}}
+<!-- MathJax is loaded from the CDN for local HTML. An offline or
+claude.ai Artifact variant would need to inline the runtime. -->
 </body>
 </html>
 `

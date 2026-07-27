@@ -8,6 +8,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/modelcontextprotocol/go-sdk v1.2.0
+	golang.org/x/net v0.50.0
 	golang.org/x/term v0.40.0
 	golang.org/x/tools v0.41.0
 	google.golang.org/protobuf v1.36.6

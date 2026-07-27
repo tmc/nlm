@@ -33,7 +33,16 @@ import (
 )
 
 type Notebook = pb.Project
-type Note = pb.Note
+
+// Note is a notebook note.
+//
+// Rich and Grounding preserve the structured document returned for rich notes.
+// RichText remains the flat text returned for plain notes.
+type Note struct {
+	*pb.Note
+	Rich      *pb.RichDocument
+	Grounding []*pb.Grounding
+}
 
 type AppArtifactKind int32
 
@@ -1553,7 +1562,7 @@ func (c *Client) MutateNote(projectID string, noteID string, content string, tit
 	if err != nil {
 		return nil, fmt.Errorf("mutate note: %w", err)
 	}
-	return note, nil
+	return &Note{Note: note}, nil
 }
 
 func (c *Client) DeleteNotes(projectID string, noteIDs []string) error {
@@ -1580,11 +1589,11 @@ func (c *Client) GetNotes(projectID string) ([]*Note, error) {
 
 // notesFromWireResponse adapts the generated response to the public Note
 // slice while preserving the legacy parser's ordering and nil-item behavior.
-func notesFromWireResponse(response *pb.GetNotesRichWireResponse) []*pb.Note {
+func notesFromWireResponse(response *pb.GetNotesRichWireResponse) []*Note {
 	if response == nil {
 		return nil
 	}
-	notes := make([]*pb.Note, 0, len(response.GetEntries()))
+	notes := make([]*Note, 0, len(response.GetEntries()))
 	for _, entry := range response.GetEntries() {
 		if entry == nil {
 			continue
@@ -1596,7 +1605,7 @@ func notesFromWireResponse(response *pb.GetNotesRichWireResponse) []*pb.Note {
 			if entry.GetNoteId() == "" {
 				continue
 			}
-			note = &pb.Note{NoteId: entry.GetNoteId()}
+			note = &Note{Note: &pb.Note{NoteId: entry.GetNoteId()}}
 		}
 		if note.NoteId == "" {
 			note.NoteId = entry.GetNoteId()
@@ -1606,18 +1615,22 @@ func notesFromWireResponse(response *pb.GetNotesRichWireResponse) []*pb.Note {
 	return notes
 }
 
-func noteFromRecord(note *pb.GetNotesRichRecord) *pb.Note {
+func noteFromRecord(note *pb.GetNotesRichRecord) *Note {
 	if note == nil {
 		return nil
 	}
 	// Keep the public GetNotes projection identical to the legacy parser. The
 	// wire record also carries metadata and note_type, but that parser never
 	// exposed those positions.
-	return &pb.Note{
-		NoteId:      note.GetNoteId(),
-		ContentText: note.GetContentText(),
-		Title:       note.GetTitle(),
-		RichText:    note.GetRichText().GetPlainText(),
+	return &Note{
+		Note: &pb.Note{
+			NoteId:      note.GetNoteId(),
+			ContentText: note.GetContentText(),
+			Title:       note.GetTitle(),
+			RichText:    note.GetRichText().GetPlainText(),
+		},
+		Rich:      note.GetRichText().GetDocument(),
+		Grounding: note.GetGroundingDetails().GetGrounding(),
 	}
 }
 
@@ -4025,11 +4038,9 @@ const (
 )
 
 // Citation represents a source citation from the chat response. SourceIndex
-// is the 1-based *citation slot* — it matches the [N] the model wrote into
-// the narrative, not a position in the project's source list. Two citations
-// with different SourceIndex values can share a SourceID (the model cited
-// the same source twice), and one slot can emit multiple Citations (the
-// model cited multiple sources together under a single [N]).
+// is the 1-based citationData index — it matches the [N] the model wrote into
+// the narrative, not a position in the project's source list. The same source
+// index can emit several Citations when it grounds several answer ranges.
 type Citation struct {
 	SourceIndex int    // 1-based citation slot; matches [N] in the response text.
 	SourceID    string // Granular chunk/passage identifier behind this citation (not a notebook source id).
@@ -4044,8 +4055,23 @@ type Citation struct {
 	EndChar        int     // End character offset in the response (answer) text.
 	Confidence     float64 // Server-reported citation confidence score (0.0–1.0); 0 if unknown
 	Excerpt        string  // Verbatim cited source text, as sent by the server.
-	SourceStart    int     // Start offset of the excerpt within the source document (0 if unknown).
-	SourceEnd      int     // End offset of the excerpt within the source document (0 if unknown).
+	ExcerptRuns    []ExcerptRun
+	SourceStart    int // Start offset of the excerpt within the source document (0 if unknown).
+	SourceEnd      int // End offset of the excerpt within the source document (0 if unknown).
+}
+
+// ExcerptRun is one source-excerpt text run and its wire formatting marks.
+// Code is observation-based: flags 8 and 9 have only been seen on code or
+// identifier runs. Link is the confirmed hyperlink field. RawMarks retains all
+// positional marks so unconfirmed flags are not lost, but renderers must leave
+// them plain until their semantics are established.
+type ExcerptRun struct {
+	Text     string
+	Code     bool
+	Link     string
+	Start    int
+	End      int
+	RawMarks []interface{}
 }
 
 // ChatChunk is a parsed chunk from the chat stream with phase metadata.
@@ -4957,14 +4983,92 @@ func groundingParentSourceID(detail *pb.Grounding) string {
 // record, concatenating its span leaves in document order. It is the typed
 // counterpart of extractExcerptText, which walks the same spans untyped.
 func groundingExcerpt(detail *pb.Grounding) string {
+	text, _ := ExcerptFromGrounding(detail)
+	return text
+}
+
+// ExcerptFromGrounding returns the flat and structured source excerpt carried
+// by a grounding. Runs are nil when no leaf has formatting marks.
+func ExcerptFromGrounding(detail *pb.Grounding) (string, []ExcerptRun) {
 	if detail == nil {
-		return ""
+		return "", nil
 	}
-	var b strings.Builder
+	var b excerptText
 	for _, span := range detail.GetSourceSpans().GetSpans() {
+		b.separate("\n")
 		appendSpanText(span, &b)
 	}
-	return b.String()
+	return b.result()
+}
+
+// excerptText joins source leaves without inventing whitespace inside a
+// contiguous run. A positive offset gap proves that source text was omitted
+// between two leaves, so retain a visible boundary.
+type excerptText struct {
+	b       strings.Builder
+	end     int64
+	haveEnd bool
+	pending string
+	runs    []ExcerptRun
+	marked  bool
+}
+
+func (b *excerptText) separate(s string) {
+	if b.b.Len() != 0 {
+		b.pending = s
+	}
+}
+
+func (b *excerptText) write(start, end int64, text string, marks excerptRunMarks) {
+	if text == "" {
+		return
+	}
+	separator := ""
+	if b.pending != "" {
+		separator = b.pending
+	} else if b.haveEnd && start > b.end {
+		separator = " "
+	}
+	if separator != "" {
+		b.b.WriteString(separator)
+		b.runs = append(b.runs, ExcerptRun{
+			Text:  separator,
+			Start: int(b.end),
+			End:   int(start),
+		})
+	}
+	b.pending = ""
+	b.b.WriteString(text)
+	b.runs = append(b.runs, ExcerptRun{
+		Text:     text,
+		Code:     marks.code,
+		Link:     marks.link,
+		Start:    int(start),
+		End:      int(end),
+		RawMarks: marks.raw,
+	})
+	if marks.code || marks.link != "" || len(marks.raw) > 0 {
+		b.marked = true
+	}
+	b.end = end
+	b.haveEnd = true
+}
+
+func (b *excerptText) string() string {
+	return b.b.String()
+}
+
+func (b *excerptText) result() (string, []ExcerptRun) {
+	if !b.marked {
+		return b.string(), nil
+	}
+	return b.string(), b.runs
+}
+
+type excerptRunMarks struct {
+	code bool
+	link string
+	raw  []interface{}
 }
 
 // appendSpanText appends a span's text, descending through every shape that
@@ -4972,29 +5076,42 @@ func groundingExcerpt(detail *pb.Grounding) string {
 // the usual leaf/group union, a table of cell spans, a code block, or a
 // hidden "thinking" block -- and the untyped walk this mirrors reaches all of
 // them, so missing one silently truncates an excerpt.
-func appendSpanText(span *pb.Span, b *strings.Builder) {
+func appendSpanText(span *pb.Span, b *excerptText) {
 	if span == nil {
 		return
 	}
-	appendSpanContentText(span.GetContent(), b)
-	for _, row := range span.GetTable().GetRows() {
-		for _, cell := range row.GetCells() {
+	if leaf := span.GetContent().GetLeaf(); leaf != nil {
+		b.write(span.GetStart(), span.GetEnd(), leaf.GetText(), excerptMarksFromProto(leaf.GetMarks()))
+	} else {
+		appendSpanContentText(span.GetContent(), span.GetStart(), span.GetEnd(), b)
+	}
+	for rowIndex, row := range span.GetTable().GetRows() {
+		if rowIndex > 0 {
+			b.separate("\n")
+		}
+		for cellIndex, cell := range row.GetCells() {
+			if cellIndex > 0 {
+				b.separate("\t")
+			}
 			appendSpanText(cell, b)
 		}
 	}
 	if code := span.GetCodeBlock(); code != nil {
-		b.WriteString(code.GetCode())
+		b.write(span.GetStart(), span.GetEnd(), code.GetCode(), excerptRunMarks{})
 	}
-	appendSpanContentText(span.GetHiddenContent(), b)
+	appendSpanContentText(span.GetHiddenContent(), span.GetStart(), span.GetEnd(), b)
+	if span.GetSeparator() != nil {
+		b.separate("\n")
+	}
 }
 
 // appendSpanContentText appends a content union's text, descending groups.
-func appendSpanContentText(content *pb.SpanContent, b *strings.Builder) {
+func appendSpanContentText(content *pb.SpanContent, start, end int64, b *excerptText) {
 	if content == nil {
 		return
 	}
 	if leaf := content.GetLeaf(); leaf != nil {
-		b.WriteString(leaf.GetText())
+		b.write(start, end, leaf.GetText(), excerptMarksFromProto(leaf.GetMarks()))
 		return
 	}
 	// Group children are a scalar-or-span union; bare scalar leaves carry no
@@ -5004,11 +5121,65 @@ func appendSpanContentText(content *pb.SpanContent, b *strings.Builder) {
 	}
 }
 
+func excerptMarksFromProto(marks *pb.TextMarks) excerptRunMarks {
+	if marks == nil {
+		return excerptRunMarks{}
+	}
+	raw := make([]interface{}, 11)
+	raw[1] = boolMark(marks.Flag1)
+	raw[2] = boolMark(marks.Flag2)
+	raw[3] = boolMark(marks.Flag3)
+	if marks.GetLink() != "" {
+		raw[4] = marks.GetLink()
+	}
+	if mark := marks.GetFlagOrFont(); mark != nil {
+		switch value := mark.GetValue().(type) {
+		case *pb.TextMarkFontOrFlag_Flag:
+			raw[5] = value.Flag
+		case *pb.TextMarkFontOrFlag_Font:
+			raw[5] = map[string]interface{}{
+				"family": value.Font.GetFamily(),
+				"weight": value.Font.GetWeight(),
+				"size":   value.Font.GetSize(),
+			}
+		}
+	}
+	if mark := marks.GetFlagOrColor(); mark != nil {
+		switch value := mark.GetValue().(type) {
+		case *pb.TextMarkColorOrFlag_Flag:
+			raw[6] = value.Flag
+		case *pb.TextMarkColorOrFlag_Color:
+			raw[6] = []int32{value.Color.GetRed(), value.Color.GetGreen(), value.Color.GetBlue()}
+		}
+	}
+	raw[7] = boolMark(marks.Flag7)
+	raw[8] = boolMark(marks.Flag8)
+	raw[9] = boolMark(marks.Flag9)
+	if marks.StyleCode != nil {
+		raw[10] = marks.GetStyleCode()
+	}
+	for len(raw) > 0 && raw[len(raw)-1] == nil {
+		raw = raw[:len(raw)-1]
+	}
+	return excerptRunMarks{
+		code: marks.GetFlag8() || marks.GetFlag9(),
+		link: marks.GetLink(),
+		raw:  raw,
+	}
+}
+
+func boolMark(value *bool) interface{} {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
 func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse, sourceIDs []string) []Citation {
 	mappings := response.GetSourceMappings()
 	groundings := response.GetCitations()
 	citations := make([]Citation, 0)
-	for i, mapping := range mappings {
+	for _, mapping := range mappings {
 		if mapping == nil {
 			continue
 		}
@@ -5036,20 +5207,24 @@ func citationsFromProtoStream(response *pb.GenerateFreeFormStreamedWireResponse,
 			if sourceID == "" {
 				continue
 			}
-			// The first reply span is the excerpt's range within the source
-			// body, as opposed to start/end, which index the answer text.
+			// Source spans carry the excerpt tree and its source-body offsets.
+			// Reply spans have matched this envelope in every observed frame,
+			// but source spans are the authoritative coordinate space.
 			var sourceStart, sourceEnd int
-			if spans := detail.GetReplySpans(); len(spans) > 0 {
-				sourceStart, sourceEnd = int(spans[0].GetStart()), int(spans[0].GetEnd())
+			if spans := detail.GetSourceSpans().GetSpans(); len(spans) > 0 {
+				sourceStart = int(spans[0].GetStart())
+				sourceEnd = int(spans[len(spans)-1].GetEnd())
 			}
+			excerpt, excerptRuns := ExcerptFromGrounding(detail)
 			citations = append(citations, Citation{
-				SourceIndex:    i + 1,
+				SourceIndex:    int(sourceIndex) + 1,
 				SourceID:       sourceID,
 				ParentSourceID: groundingParentSourceID(detail),
 				StartChar:      start,
 				EndChar:        end,
 				Confidence:     detail.GetScore(),
-				Excerpt:        groundingExcerpt(detail),
+				Excerpt:        excerpt,
+				ExcerptRuns:    excerptRuns,
 				SourceStart:    sourceStart,
 				SourceEnd:      sourceEnd,
 			})
@@ -5104,6 +5279,14 @@ func extractChatPayloadLegacy(innerJSON string, sourceIDs []string) chatPayload 
 	return p
 }
 
+func numberValue(arr []interface{}, index int) (float64, bool) {
+	if index >= len(arr) {
+		return 0, false
+	}
+	n, ok := arr[index].(float64)
+	return n, ok
+}
+
 // extractChatText is a convenience wrapper for callers that only need text.
 func extractChatText(innerJSON string) string {
 	return extractChatPayload(innerJSON, nil).Text
@@ -5156,24 +5339,22 @@ func debugDumpChatWirePositions(innerJSON string) {
 //	        (Present in history frames; absent in some live frames, hence the
 //	        sourceIDs fallback below.)
 //
-//	mappingData = per-marker array. mappingData[i] is one `[N]` marker in the
-//	narrative (N == i+1) and holds [charRange, srcIndices]:
+//	mappingData = grounded answer ranges. Each row holds [charRange, srcIndices]:
 //	  [0] = char range [null, start, end] into the ANSWER text
-//	  [1] = srcIndices: zero-based indices into citationData. One marker can
-//	        cite several sources, each with its own confidence and excerpt.
+//	  [1] = srcIndices: zero-based indices into citationData. These indices are
+//	        also the narrative's 1-based [N] labels.
 //
-// A Citation is emitted per (marker, source) pair: SourceIndex is the 1-based
-// marker number (matches the narrative's [N]); StartChar/EndChar are the
-// answer-text span of that marker; SourceID/Confidence/Excerpt come from the
-// referenced citationData[srcIdx]. sourceIDs is the source-id list sent in the
-// original ChatRequest, used to resolve srcIndices when the frame does not
-// embed source UUIDs at citationData[srcIdx][6].
+// A Citation is emitted per (range, source) pair: SourceIndex is srcIdx+1 and
+// matches the narrative's [N]; StartChar/EndChar are the grounded answer range;
+// SourceID/Confidence/Excerpt come from citationData[srcIdx]. sourceIDs is the
+// source-id list sent in the original ChatRequest, used to resolve srcIndices
+// when the frame does not embed source UUIDs at citationData[srcIdx][6].
 func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string) []Citation {
 	mapArr, _ := mappingData.([]interface{})
 	citArr, _ := citationData.([]interface{})
 
 	citations := make([]Citation, 0, len(mapArr))
-	for i, entry := range mapArr {
+	for _, entry := range mapArr {
 		entryArr, ok := entry.([]interface{})
 		if !ok || len(entryArr) < 2 {
 			continue
@@ -5191,8 +5372,7 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 		}
 
 		// [1] = srcIndices into citationData. Emit one Citation per
-		// (marker, source) pair so callers can render the full
-		// "[3] cites src_a, src_b" case; all share SourceIndex=i+1.
+		// (grounded range, source) pair.
 		idxArr, ok := entryArr[1].([]interface{})
 		if !ok || len(idxArr) == 0 {
 			continue
@@ -5212,6 +5392,7 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 			// (slot [5]), and (in history frames) the chunk UUID (slot [6]).
 			var confidence float64
 			var excerpt, embeddedID, parentID string
+			var excerptRuns []ExcerptRun
 			var srcStart, srcEnd int
 			if srcIdx < len(citArr) {
 				if slotArr, ok := citArr[srcIdx].([]interface{}); ok {
@@ -5224,7 +5405,7 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 						srcStart, srcEnd = sourceBodyRange(slotArr[3])
 					}
 					if len(slotArr) > 4 {
-						excerpt = extractExcerptText(slotArr[4])
+						excerpt, excerptRuns = extractExcerpt(slotArr[4])
 					}
 					if len(slotArr) > 5 {
 						parentID = parentSourceID(slotArr[5])
@@ -5255,13 +5436,14 @@ func parseCitationsV2(citationData, mappingData interface{}, sourceIDs []string)
 			}
 
 			citations = append(citations, Citation{
-				SourceIndex:    i + 1, // 1-based marker — matches narrative's [N]
+				SourceIndex:    srcIdx + 1, // citationData index is the narrative's 1-based [N]
 				SourceID:       sourceID,
 				ParentSourceID: parentID,
 				StartChar:      startChar,
 				EndChar:        endChar,
 				Confidence:     confidence,
 				Excerpt:        excerpt,
+				ExcerptRuns:    excerptRuns,
 				SourceStart:    srcStart,
 				SourceEnd:      srcEnd,
 			})
@@ -5379,18 +5561,25 @@ func sourceBodyRange(node interface{}) (start, end int) {
 // in order and appending each leaf's text reconstructs the full passage,
 // including the interior single-space leaves the server emits between words.
 func extractExcerptText(data interface{}) string {
-	var b strings.Builder
+	text, _ := extractExcerpt(data)
+	return text
+}
+
+func extractExcerpt(data interface{}) (string, []ExcerptRun) {
+	var b excerptText
 	collectExcerptLeaves(data, &b)
-	return b.String()
+	return b.result()
 }
 
 // collectExcerptLeaves appends, in document order, the text of every
 // [start, end, ["text"]] leaf reachable from node into b.
-func collectExcerptLeaves(node interface{}, b *strings.Builder) {
+func collectExcerptLeaves(node interface{}, b *excerptText) {
 	arr, ok := node.([]interface{})
 	if !ok {
 		return
 	}
+	start, spanStart := numberValue(arr, 0)
+	end, spanEnd := numberValue(arr, 1)
 	// Leaf: [start, end, ["text", marks?]] — two numbers then a list whose
 	// first element is the text. A formatted run carries its positional marks
 	// alongside the text (["text", [null, true]]), so the content list is not
@@ -5402,9 +5591,42 @@ func collectExcerptLeaves(node interface{}, b *strings.Builder) {
 		if s0 && s1 {
 			if inner, ok := arr[2].([]interface{}); ok && len(inner) > 0 {
 				if text, ok := inner[0].(string); ok {
-					b.WriteString(text)
+					var marks excerptRunMarks
+					if len(inner) > 1 {
+						marks = excerptMarksFromLegacy(inner[1])
+					}
+					b.write(int64(arr[0].(float64)), int64(arr[1].(float64)), text, marks)
 					return
 				}
+			}
+		}
+	}
+	// Table block: [start, end, null, null, [type, columns, rows], ...].
+	// Cells are distinct source regions even when their ranges abut, so retain
+	// tabs between cells and newlines between rows.
+	if spanStart && spanEnd && len(arr) > 4 {
+		if table, ok := arr[4].([]interface{}); ok && len(table) > 2 {
+			if rows, ok := table[2].([]interface{}); ok {
+				for rowIndex, rowNode := range rows {
+					row, ok := rowNode.([]interface{})
+					if !ok || len(row) < 3 {
+						continue
+					}
+					cells, ok := row[2].([]interface{})
+					if !ok {
+						continue
+					}
+					if rowIndex > 0 {
+						b.separate("\n")
+					}
+					for cellIndex, cell := range cells {
+						if cellIndex > 0 {
+							b.separate("\t")
+						}
+						collectExcerptLeaves(cell, b)
+					}
+				}
+				return
 			}
 		}
 	}
@@ -5412,17 +5634,54 @@ func collectExcerptLeaves(node interface{}, b *strings.Builder) {
 	// The text sits at index 6 rather than in a [start, end, [...]] leaf, so
 	// the descent below never reaches it and an excerpt running into a fenced
 	// block would stop at the fence.
-	if len(arr) > 6 {
+	if spanStart && spanEnd && len(arr) > 6 {
 		if code, ok := arr[6].([]interface{}); ok && len(code) > 0 {
 			if text, ok := code[0].(string); ok {
-				b.WriteString(text)
+				b.write(int64(start), int64(end), text, excerptRunMarks{})
 				return
 			}
+		}
+	}
+	if spanStart && spanEnd && len(arr) > 11 {
+		if separator, ok := arr[11].([]interface{}); ok && len(separator) == 0 {
+			b.separate("\n")
+			return
 		}
 	}
 	for _, child := range arr {
 		collectExcerptLeaves(child, b)
 	}
+}
+
+func excerptMarksFromLegacy(node interface{}) excerptRunMarks {
+	marks, ok := node.([]interface{})
+	if !ok {
+		return excerptRunMarks{}
+	}
+	raw := append([]interface{}(nil), marks...)
+	for len(raw) > 0 && raw[len(raw)-1] == nil {
+		raw = raw[:len(raw)-1]
+	}
+	if len(raw) == 0 {
+		return excerptRunMarks{}
+	}
+	var link string
+	if len(marks) > 4 {
+		link, _ = marks[4].(string)
+	}
+	return excerptRunMarks{
+		code: legacyBoolMark(marks, 8) || legacyBoolMark(marks, 9),
+		link: link,
+		raw:  raw,
+	}
+}
+
+func legacyBoolMark(marks []interface{}, index int) bool {
+	if index >= len(marks) {
+		return false
+	}
+	value, _ := marks[index].(bool)
+	return value
 }
 
 // parseFollowUps extracts follow-up suggestions from wire position [4].

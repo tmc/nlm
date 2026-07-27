@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
@@ -34,6 +35,20 @@ func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 	}
 	if got := r.Thinking(); got != "**Thinking**\nPlanning response" {
 		t.Fatalf("thinking trace = %q", got)
+	}
+}
+
+func TestInitialChatResponseWaiter(t *testing.T) {
+	var status bytes.Buffer
+	received, stop := startInitialChatResponseWaiter(&status, time.Millisecond)
+	t.Cleanup(stop)
+
+	time.Sleep(10 * time.Millisecond)
+	received()
+	stop()
+
+	if got := status.String(); !strings.Contains(got, "waiting for initial NotebookLM response") {
+		t.Fatalf("status = %q, want waiting notice", got)
 	}
 }
 

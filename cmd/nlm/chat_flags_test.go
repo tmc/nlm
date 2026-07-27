@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 func TestParseSourceSelectionArgs(t *testing.T) {
@@ -200,6 +202,105 @@ func TestParseChatShowArgsResolveCitationsCompatibility(t *testing.T) {
 	}
 }
 
+func TestParseChatShowIncludeFollowUps(t *testing.T) {
+	opts, positional, err := parseChatShowArgsWithOptions([]string{
+		"--format=html", "--include-follow-ups", "notebook", "conversation",
+	}, globalOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !opts.IncludeFollowUps {
+		t.Fatal("IncludeFollowUps = false, want true")
+	}
+	if got, want := strings.Join(positional, " "), "notebook conversation"; got != want {
+		t.Fatalf("positional = %q, want %q", got, want)
+	}
+}
+
+func TestParseChatShowHTMLOutput(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantOut string
+		wantErr bool
+	}{
+		{
+			name: "default cache",
+			args: []string{"--format=html", "notebook", "conversation"},
+		},
+		{
+			name:    "explicit file",
+			args:    []string{"--format=html", "--out=conversation.html", "notebook", "conversation"},
+			wantOut: "conversation.html",
+		},
+		{
+			name:    "stdout",
+			args:    []string{"--format=html", "--out=-", "notebook", "conversation"},
+			wantOut: "-",
+		},
+		{
+			name:    "cannot open stdout",
+			args:    []string{"--format=html", "--out=-", "--open", "notebook", "conversation"},
+			wantOut: "-",
+			wantErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			opts, _, err := parseChatShowArgsWithOptions(test.args, globalOptions{})
+			if (err != nil) != test.wantErr {
+				t.Fatalf("error = %v, want error %v", err, test.wantErr)
+			}
+			if opts.OutFile != test.wantOut {
+				t.Fatalf("OutFile = %q, want %q", opts.OutFile, test.wantOut)
+			}
+		})
+	}
+}
+
+func TestParseChatShowNotebook(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantFormat string
+		wantErr    bool
+	}{
+		{name: "defaults to html", args: []string{"notebook"}, wantFormat: "html"},
+		{name: "explicit html", args: []string{"--format=html", "notebook"}, wantFormat: "html"},
+		{name: "text rejected", args: []string{"--format=text", "notebook"}, wantFormat: "text", wantErr: true},
+		{name: "backfill needs conversation", args: []string{"--backfill", "notebook"}, wantFormat: "html", wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			opts, positional, err := parseChatShowArgsWithOptions(test.args, globalOptions{})
+			if (err != nil) != test.wantErr {
+				t.Fatalf("error = %v, want error %v", err, test.wantErr)
+			}
+			if opts.Format != test.wantFormat {
+				t.Fatalf("format = %q, want %q", opts.Format, test.wantFormat)
+			}
+			if !test.wantErr && (len(positional) != 1 || positional[0] != "notebook") {
+				t.Fatalf("positional = %q, want [notebook]", positional)
+			}
+		})
+	}
+}
+
+func TestParseChatShowBackfill(t *testing.T) {
+	opts, positional, err := parseChatShowArgsWithOptions([]string{
+		"--backfill", "notebook", "conversation",
+	}, globalOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !opts.Backfill {
+		t.Fatal("Backfill = false, want true")
+	}
+	if got, want := strings.Join(positional, " "), "notebook conversation"; got != want {
+		t.Fatalf("positional = %q, want %q", got, want)
+	}
+}
+
 func TestSaveChatSessionWritesConversationFile(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	session := &ChatSession{
@@ -215,6 +316,138 @@ func TestSaveChatSessionWritesConversationFile(t *testing.T) {
 	}
 	if _, err := os.Stat(getChatSessionPathForConv("nb", session.ConversationID)); err != nil {
 		t.Fatalf("conversation session file missing: %v", err)
+	}
+}
+
+func TestChatSessionRichRoundTrip(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	rich := &api.RichContent{Blocks: []api.RichSpan{{
+		Start: 0,
+		End:   5,
+		Children: []api.RichSpan{{
+			Start: 0,
+			End:   5,
+			Text:  "hello",
+		}},
+	}}}
+	session := &ChatSession{
+		NotebookID:     "nb",
+		ConversationID: "12345678-1234-1234-1234-123456789abc",
+		Messages: []ChatMessage{{
+			Role: "assistant", Content: "hello", Rich: rich,
+		}},
+	}
+	if err := saveChatSession(session); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadChatSessionByConversation("nb", session.ConversationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Messages) != 1 || got.Messages[0].Rich == nil ||
+		len(got.Messages[0].Rich.Blocks) != 1 {
+		t.Fatalf("loaded messages = %+v", got.Messages)
+	}
+	doc := chatDocument{Messages: []chatDocMessage{{
+		Role: "assistant", Content: got.Messages[0].Content,
+		Rich: richDocumentFromAPI(got.Messages[0].Rich),
+	}}}
+	if html := renderToString(t, doc, chatRenderContext{}); !strings.Contains(html, "<p>hello</p>") {
+		t.Fatalf("rich round-trip did not take tree renderer:\n%s", html)
+	}
+}
+
+func TestSaveChatSessionForConversationDoesNotReplaceDefault(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	active := &ChatSession{
+		NotebookID:     "nb",
+		ConversationID: "aaaaaaaa-1234-1234-1234-123456789abc",
+		Messages:       []ChatMessage{{Role: "assistant", Content: "active"}},
+	}
+	if err := saveChatSession(active); err != nil {
+		t.Fatal(err)
+	}
+	backfilled := &ChatSession{
+		NotebookID:     "nb",
+		ConversationID: "bbbbbbbb-1234-1234-1234-123456789abc",
+		Messages:       []ChatMessage{{Role: "assistant", Content: "older"}},
+	}
+	if err := saveChatSessionForConversation(backfilled); err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadChatSession("nb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ConversationID != active.ConversationID || got.Messages[0].Content != "active" {
+		t.Fatalf("default session replaced: %+v", got)
+	}
+	older, err := loadChatSessionForConv("nb", backfilled.ConversationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if older.Messages[0].Content != "older" {
+		t.Fatalf("conversation session = %+v", older)
+	}
+}
+
+func TestMergeChatHistory(t *testing.T) {
+	key := citationContentKey("answer")
+	serverRich := &api.RichContent{Blocks: []api.RichSpan{{Start: 0, End: 6, Text: "answer"}}}
+	localRich := &api.RichContent{Blocks: []api.RichSpan{{Start: 0, End: 5, Text: "local"}}}
+	serverCitations := []api.Citation{{SourceIndex: 1, SourceID: "server"}}
+	localCitations := []api.Citation{{SourceIndex: 2, SourceID: "local"}}
+	tests := []struct {
+		name              string
+		message           ChatMessage
+		rich              map[string]*api.RichContent
+		citations         map[string][]api.Citation
+		wantChanged       bool
+		wantRich, wantCit int
+	}{
+		{
+			name: "fills gaps",
+			message: ChatMessage{
+				Role: "assistant", Content: "answer", Thinking: "keep me",
+			},
+			rich:        map[string]*api.RichContent{key: serverRich},
+			citations:   map[string][]api.Citation{key: serverCitations},
+			wantChanged: true, wantRich: 1, wantCit: 1,
+		},
+		{
+			name: "preserves local data",
+			message: ChatMessage{
+				Role: "assistant", Content: "answer", Thinking: "keep me",
+				Rich: localRich, Citations: localCitations,
+			},
+			rich:      map[string]*api.RichContent{key: serverRich},
+			citations: map[string][]api.Citation{key: serverCitations},
+		},
+		{
+			name: "server flat leaves local flat",
+			message: ChatMessage{
+				Role: "assistant", Content: "answer", Thinking: "keep me",
+			},
+			rich:      map[string]*api.RichContent{},
+			citations: map[string][]api.Citation{},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			session := &ChatSession{Messages: []ChatMessage{test.message}}
+			changed, richCount, citationCount := mergeChatHistory(session, test.rich, test.citations)
+			if changed != test.wantChanged || richCount != test.wantRich || citationCount != test.wantCit {
+				t.Fatalf("merge = %v,%d,%d, want %v,%d,%d", changed, richCount, citationCount, test.wantChanged, test.wantRich, test.wantCit)
+			}
+			got := session.Messages[0]
+			if got.Thinking != "keep me" {
+				t.Fatalf("Thinking = %q, want preserved", got.Thinking)
+			}
+			if test.name == "preserves local data" &&
+				(got.Rich != localRich || got.Citations[0].SourceID != "local") {
+				t.Fatalf("local data overwritten: %+v", got)
+			}
+		})
 	}
 }
 

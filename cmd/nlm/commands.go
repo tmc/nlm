@@ -393,10 +393,15 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return listNotes(c, args[0]) },
 	},
 	{
-		name: "read-note", argsUsage: "<notebook-id> <note-id>",
+		name: "read-note", argsUsage: "[--format text|markdown|html] [--out file] [--open] <notebook-id> <note-id>",
 		usage: "Read full note content", section: "Note",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return readNote(c, args[0], args[1]) },
+		minArgs: 0, maxArgs: -1,
+		validate: validateNoteReadArgs,
+		help:     printNoteReadUsage,
+		run:      func(c *api.Client, args []string) error { return runNoteRead(c, args) },
+		runWithOptions: func(c *api.Client, args []string, _ globalOptions) error {
+			return runNoteRead(c, args)
+		},
 	},
 
 	{
@@ -1040,9 +1045,9 @@ var commands = []command{
 		},
 	},
 	{
-		name: "chat-show", argsUsage: "<notebook-id> <conversation-id>",
+		name: "chat-show", argsUsage: "<notebook-id> [conversation-id]",
 		usage: "Render a local chat transcript (see --citations)", section: "Chat",
-		minArgs: 2, maxArgs: 2,
+		minArgs: 1, maxArgs: 2,
 		noAuth: true, noClient: true,
 		validate:            validateChatShowArgs,
 		validateWithOptions: validateChatShowArgsWithOptions,

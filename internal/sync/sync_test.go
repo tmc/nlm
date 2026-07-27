@@ -537,6 +537,192 @@ func TestBundleSplitsOversizeSingleFile(t *testing.T) {
 	}
 }
 
+func TestBundleByteExactRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{name: "empty", data: nil},
+		{name: "no trailing newline", data: []byte("first line\nlast line")},
+		{name: "no newline", data: []byte("one-unbroken-line")},
+		{name: "ends in newline", data: []byte("first line\nlast line\n")},
+		{name: "quoted no trailing newline", data: []byte("before\n-- nested.txt --\nafter")},
+		{name: "quoted ends in newline", data: []byte("before\n-- nested.txt --\nafter\n")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "input.txt")
+			if err := os.WriteFile(path, test.data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			chunks, err := bundle([]discovered{{Path: path, Name: "input.txt"}}, 1<<20, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := restoreBundledFile(t, chunks, "input.txt")
+			if !bytes.Equal(got, test.data) {
+				t.Fatalf("round trip = %q, want %q", got, test.data)
+			}
+		})
+	}
+}
+
+func TestBundleMultipleFilesByteExactRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	files := []struct {
+		name string
+		data []byte
+	}{
+		{name: "first.txt", data: []byte("first without newline")},
+		{name: "second.txt", data: []byte("second\nwith newline\n")},
+		{name: "nested.txt", data: []byte("before\n-- marker.txt --\nafter")},
+		{name: "empty.txt", data: nil},
+	}
+	discoveredFiles := make([]discovered, 0, len(files))
+	for _, file := range files {
+		path := filepath.Join(dir, file.name)
+		if err := os.WriteFile(path, file.data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		discoveredFiles = append(discoveredFiles, discovered{Path: path, Name: file.name})
+	}
+	chunks, err := bundle(discoveredFiles, 1<<20, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 1 {
+		t.Fatalf("chunks = %d, want one multi-file archive", len(chunks))
+	}
+	for _, file := range files {
+		got := restoreBundledFile(t, chunks, file.name)
+		if !bytes.Equal(got, file.data) {
+			t.Errorf("%s round trip = %q, want %q", file.name, got, file.data)
+		}
+	}
+}
+
+func TestBundleSplitByteExactRoundTrip(t *testing.T) {
+	const (
+		fileName = "big.txt"
+		maxPart  = 8
+	)
+	maxBytes := maxPart + len(fileName) + len(" (part 99/99)") + 96
+	tests := []struct {
+		name string
+		data []byte
+	}{
+		{name: "newline exactly at cut", data: []byte(strings.Repeat("1234567\n", 4) + "tail")},
+		{name: "newline before cut", data: []byte(strings.Repeat("123456\n", 5) + "tail")},
+		{name: "newline after cut", data: []byte(strings.Repeat("12345678\n", 4) + "tail")},
+		{name: "hard mid-content cuts", data: []byte(strings.Repeat("abcdefgh", 4) + "tail")},
+		{name: "final newline", data: []byte(strings.Repeat("abcdefg\n", 4))},
+		{name: "quoted hard cuts", data: []byte("-- nested.txt --\n" + strings.Repeat("abcdefgh", 4) + "tail")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, fileName)
+			if err := os.WriteFile(path, test.data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			chunks, err := bundle([]discovered{{Path: path, Name: fileName}}, maxBytes, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(chunks) < 2 {
+				t.Fatalf("chunks = %d, want a split", len(chunks))
+			}
+			for i, chunk := range chunks {
+				if len(chunk) > maxBytes {
+					t.Errorf("chunk %d has %d bytes, limit is %d", i, len(chunk), maxBytes)
+				}
+			}
+			got := restoreBundledFile(t, chunks, fileName)
+			if !bytes.Equal(got, test.data) {
+				t.Fatalf("round trip = %q, want %q", got, test.data)
+			}
+		})
+	}
+}
+
+func TestBundleRejectsTooSmallQuotedPart(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "input.txt")
+	data := []byte("-- nested.txt --\n" + strings.Repeat("content", 32))
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		maxBytes int
+	}{
+		{name: "no part data budget", maxBytes: 64},
+		{name: "one byte part data budget", maxBytes: len("input.txt") + len(" (part 99/99)") + 96 + 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := bundle([]discovered{{Path: path, Name: "input.txt"}}, test.maxBytes, "")
+			want := fmt.Sprintf("maxBytes %d too small to split input.txt: quoted part data needs at least 2 bytes after archive overhead", test.maxBytes)
+			if err == nil || err.Error() != want {
+				t.Fatalf("bundle error = %v, want %q", err, want)
+			}
+		})
+	}
+}
+
+func TestRunOversizeNoFinalNewlineRoundTrip(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	const fileName = "oversize.txt"
+	want := []byte(strings.Repeat("0123456789abcdef", 80) + "tail")
+	path := filepath.Join(dir, fileName)
+	if err := os.WriteFile(path, want, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	client := &fakeClient{}
+	var output bytes.Buffer
+	err := Run(context.Background(), client, "nb-exact", []string{path}, Options{
+		Name:     "exact",
+		MaxBytes: 256,
+		Parallel: -1,
+	}, &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(client.uploaded) < 2 {
+		t.Fatalf("uploads = %d, want an oversize split", len(client.uploaded))
+	}
+	chunks := make([][]byte, len(client.uploaded))
+	for i := range client.uploaded {
+		chunks[i] = []byte(client.uploaded[i].content)
+	}
+	got := restoreBundledFile(t, chunks, fileName)
+	if !bytes.Equal(got, want) {
+		t.Fatalf("uploaded round trip differs: got %d bytes, want %d", len(got), len(want))
+	}
+}
+
+func restoreBundledFile(t *testing.T, chunks [][]byte, name string) []byte {
+	t.Helper()
+	var restored bytes.Buffer
+	for chunkIndex, chunk := range chunks {
+		ar := txtar.Parse(chunk)
+		for fileIndex, file := range ar.Files {
+			if file.Name != name && !strings.HasPrefix(file.Name, name+" (part ") {
+				continue
+			}
+			data, err := restoreArchiveFile(ar, fileIndex)
+			if err != nil {
+				t.Fatalf("chunk %d file %q: %v", chunkIndex, file.Name, err)
+			}
+			restored.Write(data)
+		}
+	}
+	return restored.Bytes()
+}
+
 func TestBundleQuotesNestedTxtar(t *testing.T) {
 	dir := t.TempDir()
 	// File whose contents contain a txtar marker line — without quoting
@@ -633,7 +819,9 @@ func TestQuoteRoundTrip(t *testing.T) {
 		in   string
 	}{
 		{"marker only", "-- foo --\n"},
+		{"marker only no final newline", "-- foo --"},
 		{"marker mid", "hello\n-- foo --\nworld\n"},
+		{"marker mid no final newline", "hello\n-- foo --\nworld"},
 		{"leading newline", "\n-- foo --\n"},
 		{"no marker", "just text\nmore text\n"},
 	}

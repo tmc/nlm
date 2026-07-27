@@ -226,3 +226,70 @@ func TestTruncateVsClipExcerpt(t *testing.T) {
 		t.Errorf("clipExcerpt budget: got %q", got)
 	}
 }
+
+func TestDecodeNumberedExcerpt(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "numbered export",
+			in:   `tail\n440\t\n441\t    Parameters\n442\t    ----------`,
+			want: "tail\n440\t\n441\t    Parameters\n442\t    ----------",
+		},
+		{
+			name: "real whitespace",
+			in:   "line one\n\tline two",
+			want: "line one\n\tline two",
+		},
+		{
+			name: "code escapes",
+			in:   `fmt.Print("\\n"); strings.Contains(s, "\\t")`,
+			want: `fmt.Print("\\n"); strings.Contains(s, "\\t")`,
+		},
+		{
+			name: "single numbered example",
+			in:   `syntax: \n12\t means a numbered line`,
+			want: `syntax: \n12\t means a numbered line`,
+		},
+		{
+			name: "hostile markup",
+			in:   `</script>\n1\tbad\n2\tonload=alert(1)`,
+			want: "</script>\n1\tbad\n2\tonload=alert(1)",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := decodeNumberedExcerpt(tt.in); got != tt.want {
+				t.Errorf("decodeNumberedExcerpt = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatFlattenedExcerptTable(t *testing.T) {
+	in := "What's insideModuleWhat it does" +
+		"siphon.materialsSellmeier models" +
+		"siphon.waveguideExact solver" +
+		"siphon.fdmodeSemi-vectorial solver"
+	want := "What's inside Module What it does\n" +
+		"siphon.materials\tSellmeier models\n" +
+		"siphon.waveguide\tExact solver\n" +
+		"siphon.fdmode\tSemi-vectorial solver"
+	if got := formatFlattenedExcerptTable(in); got != want {
+		t.Errorf("formatFlattenedExcerptTable = %q, want %q", got, want)
+	}
+
+	for _, in := range []string{
+		"ordinary prose",
+		"one package.Name identifier",
+		`fmt.Print("\\n") and strings.Contains(s, "\\t")`,
+		"three sentences. Still prose. No shared prefix.",
+		"Use siphon.one, then siphon.two, and finally siphon.three.",
+	} {
+		if got := formatFlattenedExcerptTable(in); got != in {
+			t.Errorf("formatFlattenedExcerptTable changed %q to %q", in, got)
+		}
+	}
+}
