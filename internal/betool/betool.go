@@ -50,10 +50,10 @@ func beprotoUnmarshalOptions(opts betoolOptions) beprotojson.UnmarshalOptions {
 	}
 }
 
-// betool is a hidden developer command that translates raw batchexecute
-// network payloads into a readable summary (or JSON) and back. It performs no network I/O
-// and needs no authentication: it is a pure codec over the wire protocol,
-// useful for inspecting HARs, hand-crafting requests, and round-trip testing.
+// Run translates raw batchexecute network payloads into a readable summary
+// (or JSON) and back. It performs no network I/O and needs no authentication:
+// it is a pure codec over the wire protocol, useful for inspecting HARs,
+// hand-crafting requests, and round-trip testing.
 //
 // Modes:
 //
@@ -465,6 +465,7 @@ func writeJSON(v any) error {
 	return err
 }
 
+// PrintUsage writes betool command usage to standard error.
 func PrintUsage() {
 	fmt.Fprint(os.Stderr, strings.TrimLeft(`
 usage: nlm betool <mode> [flags] [file]
