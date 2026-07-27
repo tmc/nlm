@@ -13,10 +13,10 @@ plugins:
     path: ["go", "run", "google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0"]
     out: ../gen
     opt: paths=source_relative
-  - plugin: go-grpc
-    path: ["go", "run", "google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0"]
-    out: ../gen
-    opt: paths=source_relative
+  # No go-grpc plugin: NotebookLM is not a gRPC server. It speaks batchexecute
+  # and gRPC-Web over plain net/http, so the generated *_grpc.pb.go stubs were
+  # never referenced and only pulled google.golang.org/grpc into the module.
+  # Re-add the plugin here if a real gRPC endpoint ever appears.
   # protoc-gen-anything is a local dev tool; keep it on $PATH.
   - plugin: anything
     out: ../gen
