@@ -515,17 +515,3 @@ func ParseAPIError(rawResponse string, httpStatus int) *APIError {
 		Message:     "Unknown API error",
 	}
 }
-
-// AddErrorCode allows adding custom error codes to the dictionary at runtime
-func AddErrorCode(code int, errorCode ErrorCode) {
-	errorCodeDictionary[code] = errorCode
-}
-
-// ListErrorCodes returns all registered error codes
-func ListErrorCodes() map[int]ErrorCode {
-	result := make(map[int]ErrorCode)
-	for k, v := range errorCodeDictionary {
-		result[k] = v
-	}
-	return result
-}

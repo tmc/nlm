@@ -67,30 +67,6 @@ func ExampleGetErrorCode() {
 	// Error code 999999 not found
 }
 
-// ExampleAddErrorCode demonstrates how to extend the error dictionary
-func ExampleAddErrorCode() {
-	// Add a custom error code
-	customError := ErrorCode{
-		Code:        123456,
-		Type:        ErrorTypeServerError,
-		Message:     "Custom server error",
-		Description: "A custom error for our application",
-		Retryable:   true,
-	}
-
-	AddErrorCode(123456, customError)
-
-	// Now we can look it up
-	if errorCode, exists := GetErrorCode(123456); exists {
-		fmt.Printf("Custom error: %s\n", errorCode.Message)
-		fmt.Printf("Type: %s\n", errorCode.Type)
-	}
-
-	// Output:
-	// Custom error: Custom server error
-	// Type: ServerError
-}
-
 // ExampleIsErrorResponse demonstrates automatic error detection
 func ExampleIsErrorResponse() {
 	// This would typically be called automatically during response processing
