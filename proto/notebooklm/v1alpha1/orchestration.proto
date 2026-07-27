@@ -134,6 +134,8 @@ enum ArtifactType {
     ARTIFACT_TYPE_7 = 7;   // mind map / infographic (see ArtifactMindMapPreview)
     ARTIFACT_TYPE_8 = 8;   // slide deck (see ArtifactSlideDeckPreview)
     ARTIFACT_TYPE_9 = 9;   // flashcards (see ArtifactFlashcardConfig)
+    // Observed with a downloadable Markdown document; semantic name unconfirmed.
+    ARTIFACT_TYPE_10 = 10;
 }
 
 enum ArtifactState {

@@ -1626,7 +1626,7 @@ func getArtifact(c *api.Client, artifactID string) error {
 
 	fmt.Printf("Artifact: %s\n", artifact.ArtifactId)
 	fmt.Printf("Title:    %s\n", artifact.Title)
-	fmt.Printf("Type:     %s\n", artifact.Type.String())
+	fmt.Printf("Type:     %s\n", artifactTypeName(artifact.GetType()))
 	// Print the raw state code alongside the enum name. The state position in
 	// the gArtLc wire response is observed but not HAR-pinned, so exposing the
 	// integer lets callers distinguish a genuine FAILED (3) from an unparsed
@@ -1740,7 +1740,7 @@ func displayArtifacts(artifacts []*pb.Artifact) error {
 		for _, artifact := range artifacts {
 			rec := artifactListRecord{
 				ArtifactID:  artifact.ArtifactId,
-				Type:        artifact.Type.String(),
+				Type:        artifactTypeName(artifact.GetType()),
 				State:       artifact.State.String(),
 				StateCode:   int32(artifact.State.Number()),
 				SourceCount: len(artifact.Sources),
@@ -1765,7 +1765,7 @@ func displayArtifacts(artifacts []*pb.Artifact) error {
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			artifact.ArtifactId,
-			artifact.Type.String(),
+			artifactTypeName(artifact.GetType()),
 			artifact.State.String(),
 			sourceCount)
 	}

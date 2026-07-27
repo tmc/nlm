@@ -132,8 +132,8 @@ func flashcardDeckFromArtifact(artifact *pb.Artifact) (*flashcardDeck, error) {
 		return nil, fmt.Errorf("flashcard artifact is empty")
 	}
 	if artifact.GetType() != pb.ArtifactType_ARTIFACT_TYPE_REPORT {
-		return nil, fmt.Errorf("artifact %s is type %d, not a type-4 flashcard app",
-			artifact.GetArtifactId(), artifact.GetType())
+		return nil, fmt.Errorf("artifact %s is type %s, not a type-4 flashcard app",
+			artifact.GetArtifactId(), artifactTypeName(artifact.GetType()))
 	}
 	app := artifact.GetTailoredReport()
 	if app == nil || app.GetMindMapDataJson() == "" {
