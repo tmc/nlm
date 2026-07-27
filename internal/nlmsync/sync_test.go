@@ -851,11 +851,53 @@ func TestNeedsQuote(t *testing.T) {
 		{"hello\n-- foo --\n", true},
 		{"-- foo --\n", true},
 		{"not-- foo --\n", false},
+		// "-- --" has an empty name: its prefix and suffix overlap, so it is
+		// not a marker and must not be quoted (and must not panic). It appears
+		// in every GPT-2 BPE merges table.
+		{"-- --\n", false},
+		{"hello\n-- --\nworld\n", false},
+		// "-- -- --" is a legitimate marker whose name is "--".
+		{"-- -- --\n", true},
 	}
 	for _, tt := range tests {
 		if got := needsQuote([]byte(tt.in)); got != tt.want {
 			t.Errorf("needsQuote(%q) = %v, want %v", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestIsMarker(t *testing.T) {
+	tests := []struct {
+		in       string
+		wantName string
+	}{
+		{"-- foo --\n", "foo"},
+		{"-- foo --", "foo"},
+		// Overlapping prefix and suffix leave no name; not a marker.
+		{"-- --\n", ""},
+		{"-- --", ""},
+		// A name of "--" is legitimate.
+		{"-- -- --\n", "--"},
+		// A prefix or suffix alone is not a marker.
+		{"-- \n", ""},
+		{" --\n", ""},
+	}
+	for _, tt := range tests {
+		if name, _ := isMarker([]byte(tt.in)); name != tt.wantName {
+			t.Errorf("isMarker(%q) name = %q, want %q", tt.in, name, tt.wantName)
+		}
+	}
+}
+
+// TestFindFileMarkerFirstLine exercises the i == 0 path in findFileMarker,
+// where the first line is "-- --" and the newlineMarker scan is never entered.
+func TestFindFileMarkerFirstLine(t *testing.T) {
+	before, name, _ := findFileMarker([]byte("-- --\nworld\n"))
+	if name != "" {
+		t.Errorf("findFileMarker treated %q as a marker (name %q)", "-- --", name)
+	}
+	if string(before) != "-- --\nworld\n" {
+		t.Errorf("findFileMarker before = %q, want whole input", before)
 	}
 }
 

@@ -86,7 +86,7 @@ func isMarker(data []byte) (name string, after []byte) {
 			data = data[:len(data)-1]
 		}
 	}
-	if !bytes.HasSuffix(data, markerSuffix) {
+	if !bytes.HasSuffix(data, markerSuffix) || len(data) < len(markerPrefix)+len(markerSuffix) {
 		return "", nil
 	}
 	return strings.TrimSpace(string(data[len(markerPrefix) : len(data)-len(markerSuffix)])), after
