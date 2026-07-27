@@ -18,10 +18,6 @@ type selectorOptions struct {
 	LabelExclude  string
 }
 
-func currentSelectorOptions() selectorOptions {
-	return selectorOptionsFromGlobals(packageGlobalOptions())
-}
-
 func selectorOptionsFromGlobals(globals globalOptions) selectorOptions {
 	return selectorOptions{
 		SourceIDs:     globals.sourceIDsFlag,
@@ -40,17 +36,6 @@ func (opts selectorOptions) empty() bool {
 		opts.LabelIDs == "" &&
 		opts.LabelMatch == "" &&
 		opts.LabelExclude == ""
-}
-
-// resolveSourceSelectors returns the union of source IDs from --source-ids,
-// --source-match, and label-include selectors, minus the source-exclude
-// regex and label-exclude matches. Returns nil when no selectors are set —
-// callers decide whether that's "no scoping" (use all) or an error.
-//
-// Fails hard when a regex selector is set but resolves to nothing,
-// listing the available sources/labels on stderr.
-func resolveSourceSelectors(c *api.Client, notebookID string) ([]string, error) {
-	return resolveSourceSelectorsWithOptions(c, notebookID, currentSelectorOptions())
 }
 
 func resolveSourceSelectorsWithOptions(c *api.Client, notebookID string, opts selectorOptions) ([]string, error) {

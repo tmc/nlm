@@ -17,10 +17,6 @@ type researchOptions struct {
 	Import bool
 }
 
-func currentResearchOptions() researchOptions {
-	return researchOptionsFromGlobals(packageGlobalOptions())
-}
-
 func researchOptionsFromGlobals(globals globalOptions) researchOptions {
 	return researchOptions{
 		Mode:   globals.researchMode,
@@ -54,10 +50,6 @@ func validateResearchArgsWithOptions(cmdName string, args []string, globals glob
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <query>\n", cmdName)
 	return errBadArgs
-}
-
-func parseResearchArgs(args []string) (researchOptions, []string, error) {
-	return parseResearchArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseResearchArgsWithOptions(args []string, globals globalOptions) (researchOptions, []string, error) {

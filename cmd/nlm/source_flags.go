@@ -209,10 +209,6 @@ func validateSourcePackArgsWithOptions(cmdName string, args []string, globals gl
 	return errBadArgs
 }
 
-func parseSourceAddArgs(args []string) (sourceAddOptions, string, []string, error) {
-	return parseSourceAddArgsWithOptions(args, packageGlobalOptions())
-}
-
 func parseSourceAddArgsWithOptions(args []string, globals globalOptions) (sourceAddOptions, string, []string, error) {
 	opts := sourceAddOptions{
 		Name:            globals.sourceName,
@@ -253,10 +249,6 @@ func parseSourceAddArgsWithOptions(args []string, globals globalOptions) (source
 		return opts, "", nil, fmt.Errorf("--replace requires exactly one source")
 	}
 	return opts, positional[0], inputs, nil
-}
-
-func parseSourceSyncArgs(args []string) (syncOptions, []string, error) {
-	return parseSourceSyncArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseSourceSyncArgsWithOptions(args []string, globals globalOptions) (syncOptions, []string, error) {
@@ -301,10 +293,6 @@ func parseSourceSyncArgsWithOptions(args []string, globals globalOptions) (syncO
 		return opts, nil, fmt.Errorf("--max-bytes must be >= 0")
 	}
 	return opts, positional, nil
-}
-
-func parseSourcePackArgs(args []string) (syncPackOptions, []string, error) {
-	return parseSourcePackArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseSourcePackArgsWithOptions(args []string, globals globalOptions) (syncPackOptions, []string, error) {

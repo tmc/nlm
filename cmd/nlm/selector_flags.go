@@ -43,10 +43,6 @@ func validateSourceSelectionArgsWithOptions(cmdName string, args []string, globa
 	return errBadArgs
 }
 
-func parseSourceSelectionArgs(args []string) (sourceSelectionOptions, []string, error) {
-	return parseSourceSelectionArgsWithOptions(args, packageGlobalOptions())
-}
-
 func parseSourceSelectionArgsWithOptions(args []string, globals globalOptions) (sourceSelectionOptions, []string, error) {
 	opts := sourceSelectionOptions{
 		Selectors: selectorOptionsFromGlobals(globals),

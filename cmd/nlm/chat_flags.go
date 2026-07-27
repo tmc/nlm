@@ -114,10 +114,6 @@ func validateGenerateChatArgsWithOptions(cmdName string, args []string, globals 
 	return errBadArgs
 }
 
-func parseGenerateChatArgs(args []string) (generateChatOptions, []string, error) {
-	return parseGenerateChatArgsWithOptions(args, packageGlobalOptions())
-}
-
 func parseGenerateChatArgsWithOptions(args []string, globals globalOptions) (generateChatOptions, []string, error) {
 	opts := generateChatOptions{
 		ConversationID: globals.conversationID,
@@ -233,10 +229,6 @@ func validateChatArgsWithOptions(cmdName string, args []string, globals globalOp
 	return errBadArgs
 }
 
-func parseChatArgs(args []string) (chatOptions, []string, error) {
-	return parseChatArgsWithOptions(args, packageGlobalOptions())
-}
-
 func parseChatArgsWithOptions(args []string, globals globalOptions) (chatOptions, []string, error) {
 	opts := chatOptions{
 		PromptFile:  globals.promptFile,
@@ -340,10 +332,6 @@ func validateChatShowArgsWithOptions(cmdName string, args []string, globals glob
 	return errBadArgs
 }
 
-func parseChatShowArgs(args []string) (chatRenderOptions, []string, error) {
-	return parseChatShowArgsWithOptions(args, packageGlobalOptions())
-}
-
 func parseChatShowArgsWithOptions(args []string, globals globalOptions) (chatRenderOptions, []string, error) {
 	opts := chatRenderOptionsFromGlobals(globals)
 	flags := flag.NewFlagSet("chat-show", flag.ContinueOnError)
@@ -398,10 +386,6 @@ func validateCreateReportArgsWithOptions(cmdName string, args []string, globals 
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <report-type> [description] [instructions]\n", cmdName)
 	return errBadArgs
-}
-
-func parseCreateReportArgs(args []string) (createReportOptions, []string, error) {
-	return parseCreateReportArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseCreateReportArgsWithOptions(args []string, globals globalOptions) (createReportOptions, []string, error) {
@@ -469,10 +453,6 @@ func validateGenerateReportArgsWithOptions(cmdName string, args []string, global
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id>\n", cmdName)
 	return errBadArgs
-}
-
-func parseGenerateReportArgs(args []string) (reportOptions, []string, error) {
-	return parseGenerateReportArgsWithOptions(args, packageGlobalOptions())
 }
 
 func parseGenerateReportArgsWithOptions(args []string, globals globalOptions) (reportOptions, []string, error) {
