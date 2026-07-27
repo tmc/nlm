@@ -1,0 +1,3 @@
+commit: 8969588c 2026-07-26 (PR #37 Copilot fixes)
+agent: claude-code (Opus 4.8) session=FD626FA5 pid=36402 iterm=w2t1p6:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+task: rich_content rune->UTF-16 offset doc, citation-excerpts help wording, httprr scrubNLMResponseTimestamps value-only (+regression test, mutation-checked JSON-preserving+len-preserving)
