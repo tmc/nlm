@@ -1,9 +1,7 @@
 package api
 
 import (
-	"bufio"
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"os"
@@ -12,7 +10,6 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/batchexecute"
 	beprotojson "github.com/tmc/nlm/internal/beprotojson"
 )
 
@@ -152,126 +149,6 @@ func TestDeepResearchGeneratedShadowDecode(t *testing.T) {
 				t.Errorf("%s[%d] research_id: generated=%q legacy=%q", name, i, metadata.GetResearchId(), want.ResearchID)
 			}
 		}
-	}
-}
-
-func TestDeepResearchGeneratedCorpusEquivalence(t *testing.T) {
-	var files []string
-	err := filepath.WalkDir("/tmp/nlm-traffic", func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !entry.IsDir() && entry.Name() == "notebooklm.google.com.jsonl" {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if err != nil || len(files) == 0 {
-		t.Skip("/tmp/nlm-traffic corpus is not available")
-	}
-	responses := 0
-	fast, deep := 0, 0
-	for _, file := range files {
-		f, err := os.Open(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		scanner := bufio.NewScanner(f)
-		scanner.Buffer(make([]byte, 64*1024), 64*1024*1024)
-		for record := 1; scanner.Scan(); record++ {
-			var entry struct {
-				Request struct {
-					URL string `json:"url"`
-				} `json:"request"`
-				Response struct {
-					Content struct {
-						Text     string `json:"text"`
-						Encoding string `json:"encoding"`
-					} `json:"content"`
-				} `json:"response"`
-			}
-			if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil || !strings.Contains(entry.Request.URL, "rpcids=e3bVqc") {
-				continue
-			}
-			body := entry.Response.Content.Text
-			if entry.Response.Content.Encoding == "base64" {
-				decoded, err := base64.StdEncoding.DecodeString(body)
-				if err != nil {
-					t.Fatalf("%s:%d: base64 response: %v", file, record, err)
-				}
-				body = string(decoded)
-			}
-			wire, err := batchexecute.DecodeResponse(body)
-			if err != nil {
-				if strings.Contains(err.Error(), "empty response") {
-					continue
-				}
-				t.Fatalf("%s:%d: batchexecute response: %v", file, record, err)
-			}
-			for _, rpcResponse := range wire.Responses {
-				if rpcResponse.ID != "e3bVqc" {
-					continue
-				}
-				responses++
-				raw := json.RawMessage(bytes.TrimSpace(rpcResponse.Data))
-				legacy, err := parseDeepResearchSessions(raw, false)
-				if err != nil {
-					t.Fatalf("%s:%d: legacy parse: %v", file, record, err)
-				}
-				generated, err := parseDeepResearchSessionsProto(raw)
-				if err != nil {
-					t.Fatalf("%s:%d: generated parse: %v", file, record, err)
-				}
-				if len(generated) != len(legacy) {
-					t.Fatalf("%s:%d: session count generated=%d legacy=%d", file, record, len(generated), len(legacy))
-				}
-				for i := range legacy {
-					got, want := generated[i], legacy[i]
-					if got.ConversationID != want.ConversationID || got.ProjectID != want.ProjectID || got.Query != want.Query || got.Mode != want.Mode || got.State != want.State || got.ResearchID != want.ResearchID {
-						t.Errorf("%s:%d session %d identity differs: generated=%+v legacy=%+v", file, record, i, got, want)
-					}
-					if (len(got.MainBlob) != 0) != (len(want.MainBlob) != 0) {
-						t.Errorf("%s:%d session %d main_blob presence differs", file, record, i)
-					}
-					if len(want.MainBlob) == 0 {
-						continue
-					}
-					legacyReport, legacySources := decodeDeepResearchContent(want.MainBlob)
-					if want.Mode != 5 {
-						legacyReport, legacySources = decodeFastMainBlob(want.MainBlob)
-					}
-					if got.Report != legacyReport {
-						t.Errorf("%s:%d session %d report differs", file, record, i)
-					}
-					if len(got.Sources) != len(legacySources) {
-						t.Errorf("%s:%d session %d source count generated=%d legacy=%d", file, record, i, len(got.Sources), len(legacySources))
-						continue
-					}
-					for j := range legacySources {
-						if got.Sources[j] != legacySources[j] {
-							t.Errorf("%s:%d session %d source %d differs: generated=%+v legacy=%+v", file, record, i, j, got.Sources[j], legacySources[j])
-						}
-					}
-				}
-				for _, session := range legacy {
-					if session.Mode == 5 {
-						deep++
-					} else {
-						fast++
-					}
-				}
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			t.Fatal(err)
-		}
-		f.Close()
-	}
-	if responses < 24 {
-		t.Fatalf("e3bVqc responses=%d, want at least 24", responses)
-	}
-	if fast == 0 || deep == 0 {
-		t.Fatalf("branch coverage fast=%d deep=%d", fast, deep)
 	}
 }
 

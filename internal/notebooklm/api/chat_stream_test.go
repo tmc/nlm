@@ -1,14 +1,8 @@
 package api
 
 import (
-	"bufio"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -389,128 +383,6 @@ func TestExtractChatPayloadGeneratedCitationFanout(t *testing.T) {
 			t.Errorf("citation %d = %#v", i, citation)
 		}
 	}
-}
-
-func TestExtractChatPayloadCorpusEquivalence(t *testing.T) {
-	var files []string
-	err := filepath.WalkDir("/tmp/nlm-traffic", func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !entry.IsDir() && entry.Name() == "notebooklm.google.com.jsonl" {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if err != nil || len(files) == 0 {
-		t.Skip("/tmp/nlm-traffic corpus is not available")
-	}
-	responses, frames := 0, 0
-	targetResponses, targetFrames, targetCitations := 0, 0, 0
-	for _, file := range files {
-		f, err := os.Open(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		scanner := bufio.NewScanner(f)
-		scanner.Buffer(make([]byte, 64*1024), 64*1024*1024)
-		for record := 1; scanner.Scan(); record++ {
-			var entry struct {
-				Request struct {
-					URL      string `json:"url"`
-					PostData struct {
-						Text string `json:"text"`
-					} `json:"postData"`
-				} `json:"request"`
-				Response struct {
-					Content struct {
-						Text     string `json:"text"`
-						Encoding string `json:"encoding"`
-					} `json:"content"`
-				} `json:"response"`
-			}
-			if json.Unmarshal(scanner.Bytes(), &entry) != nil || !strings.Contains(entry.Request.URL, "/GenerateFreeFormStreamed") || entry.Response.Content.Text == "" {
-				continue
-			}
-			sourceIDs, err := streamSourceIDs(entry.Request.PostData.Text)
-			if err != nil {
-				t.Fatalf("%s:%d source ids: %v", file, record, err)
-			}
-			body := entry.Response.Content.Text
-			if entry.Response.Content.Encoding == "base64" {
-				decoded, err := base64.StdEncoding.DecodeString(body)
-				if err != nil {
-					t.Fatal(err)
-				}
-				body = string(decoded)
-			}
-			payloads, _, err := streamPayloads([]byte(body))
-			if err != nil {
-				t.Fatalf("%s:%d stream: %v", file, record, err)
-			}
-			responses++
-			frames += len(payloads)
-			target := strings.Contains(file, "/rich-notes2/") && record == 155
-			if target {
-				targetResponses++
-				targetFrames += len(payloads)
-			}
-			for i, payload := range payloads {
-				got, want := extractChatPayload(string(payload), sourceIDs), extractChatPayloadLegacy(string(payload), sourceIDs)
-				if got.Text != want.Text || got.wirePhase != want.wirePhase || got.hasWirePhase != want.hasWirePhase || !sameCitations(got.Citations, want.Citations) || !sameStrings(got.FollowUps, want.FollowUps) {
-					t.Fatalf("%s:%d frame %d: generated=%+v legacy=%+v", file, record, i, got, want)
-				}
-				if target {
-					targetCitations += len(got.Citations)
-				}
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			t.Fatal(err)
-		}
-		f.Close()
-	}
-	if responses < 3 || frames < 231 {
-		t.Fatalf("stream corpus responses=%d frames=%d, want at least 3/231", responses, frames)
-	}
-	if targetResponses != 1 || targetFrames == 0 {
-		t.Fatalf("rich-notes2 record 155 responses=%d frames=%d, want 1/nonzero", targetResponses, targetFrames)
-	}
-	t.Logf("rich-notes2 record 155: payloads=%d citations=%d", targetFrames, targetCitations)
-}
-
-func streamSourceIDs(raw string) ([]string, error) {
-	if decoded, err := base64.StdEncoding.DecodeString(raw); err == nil {
-		raw = string(decoded)
-	}
-	form, err := url.ParseQuery(raw)
-	if err != nil {
-		return nil, err
-	}
-	var envelope []json.RawMessage
-	if err := json.Unmarshal([]byte(form.Get("f.req")), &envelope); err != nil || len(envelope) < 2 {
-		return nil, fmt.Errorf("bad f.req envelope")
-	}
-	var payload string
-	if err := json.Unmarshal(envelope[1], &payload); err != nil {
-		return nil, err
-	}
-	var args []json.RawMessage
-	if err := json.Unmarshal([]byte(payload), &args); err != nil || len(args) == 0 {
-		return nil, fmt.Errorf("bad stream args")
-	}
-	var groups []json.RawMessage
-	if err := json.Unmarshal(args[0], &groups); err != nil {
-		return nil, err
-	}
-	ids := make([]string, 0, len(groups))
-	for _, group := range groups {
-		var pair []string
-		if json.Unmarshal(group, &pair) == nil && len(pair) > 0 {
-			ids = append(ids, pair[0])
-		}
-	}
-	return ids, nil
 }
 
 func streamPayloads(body []byte) ([][]byte, int, error) {

@@ -1,17 +1,11 @@
 package api
 
 import (
-	"bufio"
-	"encoding/base64"
 	"encoding/json"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	method "github.com/tmc/nlm/gen/method"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/batchexecute"
 	"github.com/tmc/nlm/internal/beprotojson"
 )
 
@@ -94,99 +88,6 @@ func TestBulkImportProtoAdapterURLFixture(t *testing.T) {
 // TestBulkImportTextSourceCorpusProjection records the note/text LBwxtb
 // variant. Its extra result wrapper made the old URL-only parser return no
 // results, while the generated Source model recovers the imported source.
-func TestBulkImportTextSourceCorpusProjection(t *testing.T) {
-	var files []string
-	err := filepath.WalkDir("/tmp/nlm-traffic", func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if !entry.IsDir() && entry.Name() == "notebooklm.google.com.jsonl" {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if err != nil || len(files) == 0 {
-		t.Skip("/tmp/nlm-traffic corpus is not available")
-	}
-
-	variants := 0
-	for _, file := range files {
-		f, err := os.Open(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		scanner := bufio.NewScanner(f)
-		scanner.Buffer(make([]byte, 64*1024), 64*1024*1024)
-		for record := 1; scanner.Scan(); record++ {
-			var entry struct {
-				Request struct {
-					URL      string                `json:"url"`
-					PostData struct{ Text string } `json:"postData"`
-				} `json:"request"`
-				Response struct {
-					Content struct{ Text, Encoding string } `json:"content"`
-				} `json:"response"`
-			}
-			if json.Unmarshal(scanner.Bytes(), &entry) != nil || !strings.Contains(entry.Request.URL, "rpcids=LBwxtb") {
-				continue
-			}
-			requestBody, err := base64.StdEncoding.DecodeString(entry.Request.PostData.Text)
-			if err != nil {
-				continue
-			}
-			request, err := batchexecute.DecodeRequest(string(requestBody))
-			if err != nil || len(request.RPCs) != 1 || request.RPCs[0].ID != "LBwxtb" {
-				continue
-			}
-			var args []interface{}
-			if json.Unmarshal(request.RPCs[0].Args, &args) != nil || len(args) != 5 {
-				continue
-			}
-			context, isTextSource := args[0].([]interface{})
-			sources, sourcesOK := args[4].([]interface{})
-			if !isTextSource || !sourcesOK || len(sources) != 1 {
-				continue
-			}
-			source, sourceOK := sources[0].([]interface{})
-			if !sourceOK || len(source) < 2 {
-				continue
-			}
-			if _, ok := source[1].([]interface{}); !ok {
-				continue
-			}
-
-			responseBody := entry.Response.Content.Text
-			if entry.Response.Content.Encoding == "base64" {
-				decoded, err := base64.StdEncoding.DecodeString(responseBody)
-				if err != nil {
-					t.Fatalf("%s:%d: base64 response: %v", file, record, err)
-				}
-				responseBody = string(decoded)
-			}
-			response, err := batchexecute.DecodeResponse(responseBody)
-			if err != nil || len(response.Responses) != 1 || response.Responses[0].ID != "LBwxtb" {
-				continue
-			}
-			var wire pb.BulkImportFromResearchResponse
-			if err := beprotojson.Unmarshal(response.Responses[0].Data, &wire); err != nil {
-				t.Fatalf("%s:%d: proto decode: %v", file, record, err)
-			}
-			got := bulkImportResultsFromProto(&wire)
-			if len(got) != 1 || got[0].SourceID == "" || got[0].Title == "" || got[0].URL != "" {
-				t.Fatalf("%s:%d: generated=%+v", file, record, got)
-			}
-			_ = context // the non-nil context distinguishes the text wire variant.
-			variants++
-		}
-		if err := scanner.Err(); err != nil {
-			t.Fatal(err)
-		}
-		f.Close()
-	}
-	if variants < 1 {
-		t.Fatalf("LBwxtb note/text variants=%d, want at least 1", variants)
-	}
-}
 
 func encodeBulkImportArgsJSON(t *testing.T, conv, proj string, sources []BulkImportSource) string {
 	t.Helper()

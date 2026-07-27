@@ -1564,8 +1564,8 @@ service LabsTailwindOrchestrationService {
         option (arg_format) = "[%context%, %marker%, %conversation_id%, %project_id%, %sources%]";
     }
 
-    // GetAudioFormats (rpc.go:89). HAR-verified across the captured
-    // /tmp/nlm-traffic corpus. Request payload observed verbatim:
+    // GetAudioFormats (rpc.go:89). HAR-verified against captured
+    // traffic. Request payload observed verbatim:
     //   [[2, null, null, [1, null × 9, [1]], [[1,4,8,10,2,3,6,9]]], null, 1]
     // Returns the audio-overview style menu (Deep Dive, Brief,
     // Critique, Debate). The opaque inner [1, null × 9, [1]] and

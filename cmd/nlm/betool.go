@@ -503,6 +503,6 @@ Examples:
     | nlm betool encode-request
 
   # Audit every RPC request and response in captured JSONL traffic:
-  nlm --json betool audit-corpus /tmp/nlm-traffic/*/notebooklm.google.com/*.jsonl
+  nlm --json betool audit-corpus "$NLM_CORPUS_DIR"/*/notebooklm.google.com/*.jsonl
 `, "\n"))
 }
