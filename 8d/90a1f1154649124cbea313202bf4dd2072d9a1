@@ -1,0 +1,3 @@
+commit: 8d90a1f1 2026-07-26 (PR #36 Copilot fixes)
+agent: claude-code (Opus 4.8) session=FD626FA5 pid=36402 iterm=w2t1p6:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+task: load_source Full leading-image gap (+regression test, mutation-checked), readArtifact error-wrap, chat progress-timer race (mutex+generation, -race clean)
