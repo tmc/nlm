@@ -31,22 +31,6 @@ func labelsForSource(c labelReader, notebookID, sourceID string) ([]string, erro
 	return ids, nil
 }
 
-// attachLabels attaches newSourceID to each label in labelIDs. Failures are
-// collected and returned together so callers can surface a partial-success
-// warning without aborting the surrounding flow.
-func attachLabels(c labelAttacher, notebookID, newSourceID string, labelIDs []string) error {
-	var failed []string
-	for _, lid := range labelIDs {
-		if err := c.AttachLabelSource(notebookID, lid, newSourceID); err != nil {
-			failed = append(failed, fmt.Sprintf("%s: %v", lid, err))
-		}
-	}
-	if len(failed) > 0 {
-		return fmt.Errorf("attach %d/%d labels: %v", len(failed), len(labelIDs), failed)
-	}
-	return nil
-}
-
 func attachLabelsToSources(c labelAttacher, notebookID string, sourceIDs, labelIDs []string) error {
 	var failed []string
 	for _, sid := range sourceIDs {

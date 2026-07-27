@@ -1131,10 +1131,6 @@ func saveCachedSourceGuide(sourceID string, g *api.SourceGuide) error {
 	return os.WriteFile(filepath.Join(dir, sourceID+".json"), data, 0o644)
 }
 
-func generateSourceGuides(c *api.Client, sourceIDs []string) error {
-	return generateSourceGuidesWithOptions(c, sourceIDs, packageGlobalOptions())
-}
-
 func generateSourceGuidesWithOptions(c *api.Client, sourceIDs []string, globals globalOptions) error {
 	enc := json.NewEncoder(os.Stdout)
 	for i, sourceID := range sourceIDs {
