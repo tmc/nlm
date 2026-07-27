@@ -16,8 +16,9 @@ that per RPC family and is the source of truth for what is switched vs. still le
 
 - Single Go module `github.com/tmc/nlm`, `go 1.25.0`. Verified with go1.26.3 darwin/arm64.
 - ~471 tracked files, 336 `.go` files, ~108k lines (about half is generated protobuf code).
-- Real runtime deps: chromedp (browser cookie extraction), protobuf/grpc,
+- Real runtime deps: chromedp (browser cookie extraction), protobuf,
   `modelcontextprotocol/go-sdk`, `rsc.io/script` (CLI tests), `golang.org/x/*`.
+  Not gRPC — NotebookLM speaks batchexecute and gRPC-Web over plain `net/http`.
 - **No CI, no GitHub workflows, no Makefile/Taskfile, no lint config, no committed git hooks.**
   The de facto gate is `go build ./... && go test ./...`.
 
@@ -38,6 +39,11 @@ Optional extra confidence (verified green):
 go test -race ./internal/...                 # ~16s
 go test ./cmd/nlm -run TestCLICommands -v    # the txtar script-test suite alone
 ```
+
+**Some tests are behind `//go:build integration`** (`internal/notebooklm/api/{client,comprehensive}_record_test.go`).
+They are excluded from a default `go test ./...`, so anything they alone use looks unused to
+`go vet`, `staticcheck`, and `deadcode`. Before deleting any "unused" symbol, confirm with
+`go test -tags integration -run XXXNONE ./...`, which compiles those files without running them.
 
 Always run `go build ./...` before `go test ./...`: `cmd/nlm`'s `TestMain` shells out to
 `go build -o nlm_test .` inside `cmd/nlm/`, so that directory must be writable and `go` must be
@@ -67,8 +73,9 @@ one-line fix is `%+v`, `&req` — make it only if your change already touches th
 
 Older notes saying codegen requires a Buf Schema Registry token are **obsolete**. Every tool
 runs through `go run` at a pinned version and none of them is a module dependency: `buf`
-v1.55.1 from the `go:generate` line in `proto/gen.go`, and `protoc-gen-go` v1.31.0 /
-`protoc-gen-go-grpc` v1.3.0 from `proto/buf.gen.yaml`. No BSR credentials are needed.
+v1.55.1 from the `go:generate` line in `proto/gen.go`, and `protoc-gen-go` v1.31.0 from
+`proto/buf.gen.yaml`. No BSR credentials are needed. There is deliberately no `go-grpc`
+plugin — see the comment in `buf.gen.yaml`.
 
 ```bash
 go install github.com/tmc/misc/protoc-gen-anything@latest   # the one external prerequisite
