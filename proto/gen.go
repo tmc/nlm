@@ -1,4 +1,4 @@
-// Package proto holds the NotebookLM service definitions. The generated Go code
+// Package protobuild holds the NotebookLM service definitions. The generated Go code
 // lives in ../gen and is produced by the go:generate directive below.
 //
 // Regenerate with:
@@ -10,6 +10,6 @@
 // credentials, and none of it appears in this module's dependency graph.
 // The first run builds buf from source and takes a few minutes; later runs
 // hit the build cache.
-package proto
+package protobuild
 
 //go:generate go run github.com/bufbuild/buf/cmd/buf@v1.55.1 generate
