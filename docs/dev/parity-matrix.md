@@ -41,7 +41,7 @@ Legend: ✅ present · ➖ partial/limited · ❌ absent (verified "not found in
 | **One-shot scriptable chat** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Bundle many local files → 1 source** | ✅ (txtar sync) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **Local file upload** | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ➖ |
-| **Deep research → clean Markdown** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ➖ |
+| **Deep research → clean Markdown** | ✅ + URL footnotes | ✅ | ✅ | ✅ | ✅ | ❌ | ➖ |
 | **Artifact export to local file** | ➖ decks/audio/video | ✅ **broad** | ❌ | ➖ generic | ❌ | ➖ audio only | ❌ |
 | **Flashcard/quiz export** | ❌ | ✅ json/md/html | ❌ | ➖ | ❌ | ❌ | ❌ |
 | **Mindmap export** | ❌ | ✅ JSON | ❌ | ❌ | ❌ (removed) | ❌ | ❌ |

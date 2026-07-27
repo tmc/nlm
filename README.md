@@ -18,7 +18,7 @@ trying to reproduce the Python `notebooklm-mcp-cli` kitchen-sink surface.
 | Browser authentication | `nlm auth login` drives Chrome, Brave, or Edge and extracts credentials from an already signed-in profile; no DevTools copy-paste |
 | Interactive chat | Streaming `nlm chat` REPL with persistent sessions, history, and slash commands such as `/history`, `/new`, `/fork`, and `/file` |
 | Precise source selection | Select by UUID, source title regex, or server-side label with `--source-match`, `--source-exclude`, `--label-match`, and `--label-exclude` |
-| Research export | Fast or deep research, with clean Markdown output from `nlm research --md` |
+| Research export | Fast or deep research, with self-contained Markdown and source footnotes from `nlm research --md` |
 | Artifact management | Create, list, inspect, rename, delete, share, and download supported rendered artifacts |
 | Local-tree sync | Idempotent SHA-256-backed directory sync with `.nlmignore`, exclude patterns, and automatic chunking |
 | Rich output | RichDocument note rendering to Markdown or HTML, plus citation excerpts and txtar `file:line` resolution |
@@ -57,6 +57,9 @@ nlm generate-chat --label-match '^Approved$' <notebook-id> "summarize"
 ```bash
 nlm research --md <notebook-id> "compare the proposed designs" > report.md
 ```
+
+NotebookLM citation markers such as `[cite: 1, 2]` become Markdown footnotes
+linked to the discovered source URLs.
 
 **Local context injection for agents?** Yes. Run `nlm mcp`; the
 `add_source_text` and `create_note` tools accept arbitrary text, while
@@ -372,7 +375,7 @@ Run `nlm <command> -h` for per-command usage. Common flags:
 --thinking           Show reasoning traces while streaming chat output
 --prompt-file path   Read a one-shot chat prompt from a file
 --mode string        Research mode: fast or deep
---md                 Emit raw markdown instead of JSON-lines (research)
+--md                 Emit Markdown with source footnotes (research)
 -y, --yes            Skip confirmation prompts
 ```
 

@@ -30,7 +30,7 @@ func printResearchUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "Usage: nlm %s [flags] <notebook-id> <query>\n\n", cmdName)
 	fmt.Fprintln(os.Stderr, "Flags:")
 	fmt.Fprintln(os.Stderr, "  --mode <fast|deep>  Research mode (default: deep)")
-	fmt.Fprintln(os.Stderr, "  --md                Emit raw markdown instead of JSON-lines events")
+	fmt.Fprintln(os.Stderr, "  --md                Emit Markdown with source footnotes instead of JSON-lines")
 	fmt.Fprintln(os.Stderr, "  --poll-ms <n>       Override deep-research polling interval in milliseconds")
 	fmt.Fprintln(os.Stderr, "  --import            Import discovered sources into the notebook after completion")
 	fmt.Fprintln(os.Stderr)

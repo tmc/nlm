@@ -36,8 +36,8 @@ type researchEvent struct {
 	ConversationID string `json:"conversation_id,omitempty"`
 }
 
-// runResearch is the nlm research <topic> command entry point. Emits
-// JSON-lines on stdout by default; --md switches to raw markdown.
+// runResearch is the nlm research <topic> command entry point. It emits
+// JSON-lines on stdout by default; --md emits Markdown with source footnotes.
 //
 // Current implementation is scaffolding: both fast and deep modes call the
 // same api.Client methods, but their encoders remain argbuilder stubs until
@@ -72,8 +72,9 @@ func runFastResearch(c *api.Client, notebookID, query string, opts researchOptio
 	}
 
 	if opts.MD {
-		fmt.Print(result.Report)
-		if !strings.HasSuffix(result.Report, "\n") {
+		report := researchMarkdown(result.Report, result.Sources)
+		fmt.Print(report)
+		if !strings.HasSuffix(report, "\n") {
 			fmt.Println()
 		}
 		return nil
@@ -173,8 +174,9 @@ func runDeepResearch(c *api.Client, notebookID, query string, opts researchOptio
 				return err
 			}
 			if opts.MD {
-				fmt.Print(result.Report)
-				if !strings.HasSuffix(result.Report, "\n") {
+				report := researchMarkdown(result.Report, result.Sources)
+				fmt.Print(report)
+				if !strings.HasSuffix(report, "\n") {
 					fmt.Println()
 				}
 				return nil
