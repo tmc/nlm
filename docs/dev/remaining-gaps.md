@@ -25,8 +25,10 @@ These are not gaps:
   expression, and server-side label.
 - `nlm research --md` emits the deep-research Markdown report and rewrites its
   citation markers as URL-backed Markdown footnotes.
-- `create_note` and `add_source_text` provide MCP context injection;
-  `start_deep_research` and `poll_deep_research` provide asynchronous research.
+- `create_note` and `add_source_text` provide MCP context injection.
+  `start_deep_research`, `poll_deep_research`, and `watch_deep_research`
+  provide asynchronous and blocking research control; the watch tool emits MCP
+  progress notifications when the caller supplies a progress token.
 - Directory-tree sync, RichDocument note rendering, and txtar citation
   `file:line` resolution are implemented.
 
@@ -50,23 +52,13 @@ Status: high priority, capture-blocked for flashcard cards and mind-map
 structure. Rendered server outputs may support narrower exports without new
 wire modeling and should be assessed separately.
 
-### 2. MCP watch and progress
-
-The stdio MCP server exposes 38 tools, including research start and poll, but
-has no blocking watch tool and emits no MCP progress notifications. It also
-lacks HTTP/SSE transport, in-MCP authentication recovery, and a local
-file-path injection tool.
-
-Status: watch/progress is the first MCP gap to close. Text injection already
-works through `add_source_text`; do not describe context injection itself as
-missing.
-
-### 3. Agent onboarding and competitive breadth
+### 2. Agent onboarding and competitive breadth
 
 The in-repo skill is concise and delegates to current `--help`, but there is no
 one-shot `nlm --ai` documentation dump or skill installer. The MCP surface also
-omits some sharing, batch, and cross-notebook operations exposed by broader
-competitors. AI-assisted auto-labeling is not implemented.
+omits HTTP/SSE transport, in-MCP authentication recovery, local file-path
+injection, and some sharing, batch, and cross-notebook operations exposed by
+broader competitors. AI-assisted auto-labeling is not implemented.
 
 Status: open. Preserve the lean skill design; improve discovery and
 distribution rather than copying a kitchen-sink command surface.
@@ -162,12 +154,11 @@ Status: HAR-blocked for semantics only. The current fallback is safe.
 
 1. Capture and lossless-verify flashcard/quiz payloads before modeling card
    content or adding structured export.
-2. Add MCP research watch/progress behavior.
-3. Decide whether AUrzMb should stay typed API-only or get generated proto
+2. Decide whether AUrzMb should stay typed API-only or get generated proto
    metric-series messages.
-4. Decide whether `video download` should keep the current manual-fallback
+3. Decide whether `video download` should keep the current manual-fallback
    UX or get a real CDN capture and a browser-assisted path.
-5. Re-capture `artifact get` against the live service and either verify
+4. Re-capture `artifact get` against the live service and either verify
    `v9rmvd` or keep the list-scan fallback as the canonical path.
-6. Verify `chat config` end-to-end (or hide it until there is a real caller).
-7. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.
+5. Verify `chat config` end-to-end (or hide it until there is a real caller).
+6. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.

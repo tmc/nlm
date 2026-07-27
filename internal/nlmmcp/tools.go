@@ -153,6 +153,13 @@ type pollDeepResearchInput struct {
 	ResearchID string `json:"research_id"`
 }
 
+type watchDeepResearchInput struct {
+	NotebookID     string `json:"notebook_id"`
+	ResearchID     string `json:"research_id"`
+	PollIntervalMS int    `json:"poll_interval_ms,omitempty" jsonschema:"Milliseconds between polls (default 2000)"`
+	MaxWaitSeconds int    `json:"max_wait_seconds,omitempty" jsonschema:"Maximum blocking time in seconds (default 600)"`
+}
+
 type notebookSummary struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
@@ -512,6 +519,29 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		result, err := client.PollDeepResearch(context.Background(), input.NotebookID, input.ResearchID)
 		if err != nil {
 			return errorResult(fmt.Sprintf("failed to poll deep research: %v", err)), nil, nil
+		}
+		return jsonResult(result), nil, nil
+	})
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "watch_deep_research",
+		Description: "Block until deep research completes, sending MCP progress notifications while it runs.",
+		Annotations: readOnlyAnnotations,
+	}, func(ctx context.Context, req *mcp.CallToolRequest, input watchDeepResearchInput) (*mcp.CallToolResult, any, error) {
+		token := req.Params.GetProgressToken()
+		notify := func(progress researchWatchProgress) error {
+			if token == nil {
+				return nil
+			}
+			return req.Session.NotifyProgress(ctx, &mcp.ProgressNotificationParams{
+				ProgressToken: token,
+				Progress:      progress.Value,
+				Message:       progress.Message,
+			})
+		}
+		result, err := watchDeepResearch(ctx, client, input, notify)
+		if err != nil {
+			return errorResult(fmt.Sprintf("failed to watch deep research: %v", err)), nil, nil
 		}
 		return jsonResult(result), nil, nil
 	})

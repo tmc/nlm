@@ -9,8 +9,8 @@ nlm includes a [Model Context Protocol](https://modelcontextprotocol.io) server 
 nlm mcp
 ```
 
-The server communicates over stdin/stdout using JSON-RPC. It exposes 38 tools:
-24 direct notebook operations and 14 content-generation tools.
+The server communicates over stdin/stdout using JSON-RPC. It exposes 39 tools:
+25 direct notebook operations and 14 content-generation tools.
 
 ## Client configuration
 
@@ -144,11 +144,14 @@ contents as `content`, with a source `title`.
 |------|-------------|----------|
 | `start_deep_research` | Start deep research and return a research ID | Yes |
 | `poll_deep_research` | Poll a research ID; returns `done=true` with the completed content | No |
+| `watch_deep_research` | Block until research completes, with timeout and progress notification support | No |
 
 Deep research is asynchronous. Call `start_deep_research` once, retain the
-returned research ID, then call `poll_deep_research` until `done` is true. The
-current stdio server does not emit progress notifications or provide a blocking
-watch tool.
+returned research ID, then call `watch_deep_research` to wait for completion or
+`poll_deep_research` when the client should control polling. The watch tool
+emits `notifications/progress` when the MCP call includes a progress token. Its
+default poll interval is 2 seconds and its default maximum wait is 10 minutes;
+both are configurable in the tool input.
 
 ### Content generation
 
@@ -188,8 +191,8 @@ rather than a grounded source.
 
 1. Call `start_deep_research` with `notebook_id` and `query`.
 2. Read `research_id` from the result.
-3. Call `poll_deep_research` with the notebook and research IDs until the
-   result reports completion.
+3. Call `watch_deep_research` with the notebook and research IDs. Use
+   `poll_deep_research` instead when the client needs nonblocking control.
 
 ### Generate from selected sources
 

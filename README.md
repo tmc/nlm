@@ -63,7 +63,9 @@ linked to the discovered source URLs.
 
 **Local context injection for agents?** Yes. Run `nlm mcp`; the
 `add_source_text` and `create_note` tools accept arbitrary text, while
-`start_deep_research` and `poll_deep_research` handle long research jobs.
+`start_deep_research` and `watch_deep_research` handle long research jobs.
+The watch tool blocks until completion and emits MCP progress notifications
+when the caller supplies a progress token.
 
 **Flashcard or mind-map export?** Not yet. Those artifact payloads require
 capture-backed wire modeling; they are tracked as real gaps rather than inferred

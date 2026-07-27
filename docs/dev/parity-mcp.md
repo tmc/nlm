@@ -16,7 +16,7 @@ Two of the seven tools ship **no MCP server** and are excluded here:
 
 | Server | Lang | Tools | Transport | Verified |
 |---|---|---|---|---|
-| **tmc-nlm-go** (`internal/nlmmcp`) | Go | **38** | stdio only | 24 direct + 14 generated tools, `mcp.StdioTransport{}` |
+| **tmc-nlm-go** (`internal/nlmmcp`) | Go | **39** | stdio only | 25 direct + 14 generated tools, `mcp.StdioTransport{}` |
 | notebooklm-mcp-cli-py (jacob-bd) | Python | **43** | stdio / http / sse | `@logged_tool`×43 |
 | notebooklm-mcp-m4ykel | TypeScript | ~27 | stdio only | (down from 32; 5 removed in 0.3.1 for INVALID_ARGUMENT) |
 | notebooklm-mcp-pleaseprompto | TypeScript | ~12 | stdio / streamable-http | DOM-driven; **only one with Resources** |
@@ -32,7 +32,7 @@ Legend: ✅ · ➖ partial · ❌ absent.
 | Structured/typed output | ✅ proto→JSON | ✅ pydantic | ✅ zod | ✅ envelopes | ➖ dict |
 | Error surfaced with `IsError` | ✅ | ✅ + `hint` | ✅ | ✅ typed classes | ➖ default |
 | Non-stdio transport (http/sse) | ❌ | ✅ | ❌ | ✅ | ❌ |
-| Long-op progress / async polling | ❌ poll-only | ➖ async query status | ❌ | ✅ progress cb | ❌ |
+| Long-op progress / async polling | ✅ watch + progress | ➖ async query status | ❌ | ✅ progress cb | ❌ |
 | **Resource / prompt primitives** | ❌ | ❌ | ❌ | ✅ **only one** | ❌ |
 | Auth tools in-MCP (refresh/save) | ❌ (CLI `nlm auth`) | ✅ refresh/save | ✅ refresh/save | ✅ setup/re-auth/health | ❌ |
 | Context injection (text/note) | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -41,7 +41,7 @@ Legend: ✅ · ➖ partial · ❌ absent.
 | Sharing tools | ❌ | ✅ (4) | ❌ | ❌ | ❌ |
 | Batch / pipeline / cross-notebook | ❌ | ✅ | ❌ | ❌ | ❌ |
 
-## Our 38 tools (verified in `internal/nlmmcp/tools.go`)
+## Our 39 tools (verified in `internal/nlmmcp/tools.go`)
 
 notebook: `list_notebooks` `create_notebook` `delete_notebook` · source:
 `list_sources` `add_source_text` `add_source_url` `delete_source` · note:
@@ -49,7 +49,8 @@ notebook: `list_notebooks` `create_notebook` `delete_notebook` · source:
 artifact: `list_artifacts` `create_audio_overview` `create_video_overview`
 `get_audio_overview` `rename_artifact` `share_audio` `create_slide_deck`
 `create_app_artifact` · instructions: `set_instructions` `get_instructions` ·
-research: `start_deep_research` `poll_deep_research` · generation:
+research: `start_deep_research` `poll_deep_research`
+`watch_deep_research` · generation:
 `generate_summarize` `generate_briefing_doc` `generate_faq`
 `generate_study_guide` `generate_rephrase` `generate_expand`
 `generate_critique` `generate_brainstorm` `generate_verify`
@@ -64,26 +65,24 @@ research: `start_deep_research` `poll_deep_research` · generation:
 - **Context injection works** — `add_source_text` + `create_note` cover the
   "inject a git diff / scratch note" agent use case the external reviewer rated
   important. This is **not** a gap (reviewer was wrong).
-- **Deep research is wired** — `start_deep_research` + `poll_deep_research` let an
-  agent kick off and track a long research job.
+- **Deep research is wired** — `start_deep_research` +
+  `watch_deep_research` let an agent kick off and await a long research job,
+  with MCP progress notifications when the caller supplies a progress token.
+  `poll_deep_research` remains available for nonblocking control.
 
 ## Where we're behind (verified — real MCP gaps)
 
-1. **Breadth: 38 vs 43 tools.** jacob-bd's server exposes notebook sharing, batch,
+1. **Breadth: 39 vs 43 tools.** jacob-bd's server exposes notebook sharing, batch,
    pipeline, cross-notebook query, and async query-status that we don't. Not all
-   are worth copying, but **sharing** and **async/long-op status** are the two
-   most defensible adds.
+   are worth copying, but **sharing** is the most defensible add.
 2. **stdio-only transport.** jacob-bd and pleaseprompto both offer HTTP/SSE;
    we're stdio-only (`server.go:51`). Fine for local agents, limiting for
    remote/hosted agent setups.
-3. **No progress notifications.** The Go MCP SDK supports them; we wire none.
-   Deep research is start+poll, not push. pleaseprompto has real progress
-   callbacks. (This is spec **B5**.)
-4. **No in-MCP auth tools.** Every other RPC server exposes `refresh_auth` /
+3. **No in-MCP auth tools.** Every other RPC server exposes `refresh_auth` /
    `save_auth_tokens` so the agent can recover from an expired session without
-   dropping to a shell; ours requires the human to run `nlm auth`. Ties directly
-   to the auth-refresh gap (spec **B2**) — worth an `refresh_auth` MCP tool.
-5. **No local file-path injection.** Our MCP exposes `add_source_text` /
+   dropping to a shell. The CLI now silently re-harvests a cached signed-in
+   browser profile after a 401, but MCP has no explicit refresh tool.
+4. **No local file-path injection.** Our MCP exposes `add_source_text` /
    `add_source_url` but not a file-path upload tool (the CLI has `source add`);
    jacob-bd and m4ykel both allow path reads (behind directory allowlists). A
    path-scoped `add_source_file` MCP tool would close this — with the same
@@ -102,7 +101,6 @@ differentiated, protocol-native move that fits our "deepest modeling" identity.
 | Pri | Add | Rationale |
 |---|---|---|
 | P1 | `refresh_auth` MCP tool | agents recover from 401 without a shell; pairs with spec B2 |
-| P1 | progress notifications on deep research | spec B5; SDK supports it; pleaseprompto proves the pattern |
 | P2 | `add_source_file` (path, allowlisted) | close the file-injection gap safely |
 | P2 | sharing tools | jacob-bd has 4; common agent ask |
 | P3 | HTTP/SSE transport option | unlocks remote/hosted agents |
@@ -156,7 +154,8 @@ jacob-bd's 921-line monolith. The gaps are **distribution** (installer) and a
 
 ## Provenance
 
-Notebook `<notebook-id>`; raw transcripts at
-a local working directory. Tool counts (38 / 43 / 15) and
-transport claims verified by grep against the cloned trees, not taken from the
-grounded answer on faith.
+Notebook `<notebook-id>`; raw transcripts were retained in a local working
+directory. Competitor tool counts (43 / 15) and transport claims were verified
+by grep against the cloned trees, not taken from the grounded answer on faith.
+The current local server count (39) is enforced by an in-memory MCP `tools/list`
+test.

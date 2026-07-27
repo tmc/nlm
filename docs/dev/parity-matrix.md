@@ -47,7 +47,7 @@ Legend: ✅ present · ➖ partial/limited · ❌ absent (verified "not found in
 | **Mindmap export** | ❌ | ✅ JSON | ❌ | ❌ | ❌ (removed) | ❌ | ❌ |
 | **Ships MCP server** | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
 | **MCP context injection** | ✅ note+text | ✅ | — | — | ✅ | ➖ | ➖ text |
-| **MCP watch/progress notify** | ❌ (poll) | ➖ async status | — | — | ❌ | ❌ | ❌ |
+| **MCP watch/progress notify** | ✅ watch + notify | ➖ async status | — | — | ❌ | ❌ | ❌ |
 | **Single static binary** | ✅ | ❌ Python | ❌ Python | ✅ | ❌ Node | ❌ Node | ❌ Python |
 
 ## Broader feature coverage (second sweep, verified)
@@ -133,12 +133,10 @@ Notes from this sweep:
 4. **AI auto-labeling.** jacob-bd's `services/labels.py:auto_label` clusters a
    notebook's sources into labels via AI (verified). We have the full label RPC
    suite but no auto-labeler.
-5. **MCP breadth + agent onboarding.** Their MCP server has 43 tools (vs our 38),
+5. **MCP breadth + agent onboarding.** Their MCP server has 43 tools (vs our 39),
    HTTP/SSE transport, in-MCP `refresh_auth`, an `nlm --ai` docs flag, and a
    skill installer. See [parity-mcp.md](parity-mcp.md) for the full MCP + skills
    comparison and a prioritized roadmap.
-6. **MCP watch/progress.** jacob-bd exposes async status tools; we poll. Minor
-   (spec B5).
 
 ## At parity (no action needed)
 
