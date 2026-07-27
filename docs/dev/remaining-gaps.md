@@ -40,10 +40,10 @@ on a fresh machine.
 
 ### 1. Broad artifact export
 
-Slide decks can be downloaded as PDF or PPTX, audio/video have dedicated
-download paths, and `artifact export` emits Google-AI-mode type-4 flashcard
-apps as Markdown, JSON, TSV, or their self-contained HTML. It does not export
-native type-9 flashcards, quizzes, reports, data tables, or mind maps.
+`artifact export` fetches any READY artifact that exposes a server-rendered
+download and emits Google-AI-mode type-4 flashcard apps as Markdown, JSON, TSV,
+or their self-contained HTML. It does not synthesize semantic exports for
+native type-9 flashcards, quizzes, data tables, or mind maps.
 
 Native type-9 flashcard content and mind-map structure are not sufficiently
 modeled to invent exporters. Any work on those formats starts with a real

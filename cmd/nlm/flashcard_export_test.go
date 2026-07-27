@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -111,20 +113,86 @@ func TestWriteFlashcardDeck(t *testing.T) {
 	}
 }
 
-func TestParseFlashcardExportArgs(t *testing.T) {
+func TestParseArtifactExportArgs(t *testing.T) {
 	t.Parallel()
 
-	opts, artifactID, err := parseFlashcardExportArgs([]string{
+	opts, artifactID, err := parseArtifactExportArgs([]string{
 		"--format", "json",
 		"artifact-1",
 		"--output", "cards.json",
 	})
 	if err != nil {
-		t.Fatalf("parseFlashcardExportArgs() error = %v", err)
+		t.Fatalf("parseArtifactExportArgs() error = %v", err)
 	}
 	if artifactID != "artifact-1" || opts.Format != "json" || opts.Output != "cards.json" {
 		t.Fatalf("artifact, options = %q, %#v", artifactID, opts)
 	}
+}
+
+func TestArtifactExportWriterDownloadsReadyArtifact(t *testing.T) {
+	t.Parallel()
+
+	reader := &fakeArtifactFileReader{content: "rendered document"}
+	artifact := &pb.Artifact{
+		ArtifactId: "artifact-1",
+		Type:       pb.ArtifactType_ARTIFACT_TYPE_10,
+		State:      pb.ArtifactState_ARTIFACT_STATE_READY,
+	}
+	write, err := artifactExportWriter(reader, artifact, "md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := write(&out); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != reader.content {
+		t.Fatalf("output = %q, want %q", out.String(), reader.content)
+	}
+	if reader.artifactID != "artifact-1" || reader.format != "md" {
+		t.Fatalf("download = %q/%q, want artifact-1/md", reader.artifactID, reader.format)
+	}
+}
+
+func TestArtifactExportWriterRejectsUnavailableArtifact(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		artifact *pb.Artifact
+		want     string
+	}{
+		{"failed", &pb.Artifact{ArtifactId: "failed", Type: pb.ArtifactType_ARTIFACT_TYPE_10, State: pb.ArtifactState_ARTIFACT_STATE_FAILED}, "not READY"},
+		{"creating", &pb.Artifact{ArtifactId: "creating", Type: pb.ArtifactType_ARTIFACT_TYPE_10, State: pb.ArtifactState_ARTIFACT_STATE_CREATING}, "not READY"},
+		{"native type 9", &pb.Artifact{ArtifactId: "cards", Type: pb.ArtifactType_ARTIFACT_TYPE_9, State: pb.ArtifactState_ARTIFACT_STATE_READY}, "not supported"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			reader := new(fakeArtifactFileReader)
+			_, err := artifactExportWriter(reader, test.artifact, "md")
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want substring %q", err, test.want)
+			}
+			if reader.called {
+				t.Fatal("download called for unavailable artifact")
+			}
+		})
+	}
+}
+
+type fakeArtifactFileReader struct {
+	content    string
+	artifactID string
+	format     string
+	called     bool
+}
+
+func (f *fakeArtifactFileReader) ReadArtifactFile(_ context.Context, artifactID, format string, w io.Writer) error {
+	f.called = true
+	f.artifactID = artifactID
+	f.format = format
+	_, err := io.WriteString(w, f.content)
+	return err
 }
 
 func appArtifact(data string) *pb.Artifact {

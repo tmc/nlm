@@ -688,14 +688,14 @@ var commands = []command{
 	},
 	{
 		name:      "export-flashcards",
-		argsUsage: "<artifact-id> [--format md|json|tsv|html] [--output file]",
-		usage:     "Export a type-4 flashcard artifact", section: "Artifact",
+		argsUsage: "<artifact-id> [--format format] [--output file]",
+		usage:     "Export an artifact", section: "Artifact",
 		minArgs: 1, maxArgs: -1,
 		hidden:              true,
-		validateWithOptions: validateFlashcardExportArgsWithOptions,
-		help:                printFlashcardExportUsage,
+		validateWithOptions: validateArtifactExportArgsWithOptions,
+		help:                printArtifactExportUsage,
 		runWithOptions: func(c *api.Client, args []string, _ globalOptions) error {
-			return runFlashcardExport(c, args)
+			return runArtifactExport(c, args)
 		},
 	},
 	{

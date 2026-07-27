@@ -163,16 +163,18 @@ source in the notebook is used. Instructions are optional.
 | `nlm artifact list NOTEBOOK_ID` | List artifacts in a notebook |
 | `nlm artifact get ARTIFACT_ID` | Show artifact details |
 | `nlm artifact read ARTIFACT_ID` | Print a text artifact |
-| `nlm artifact export ARTIFACT_ID --format md --output flashcards.md` | Export a type-4 flashcard app as Markdown, JSON, TSV, or HTML |
+| `nlm artifact export ARTIFACT_ID --format md --output artifact.md` | Export a READY artifact |
 | `nlm read-artifact ARTIFACT_ID` | Print a text artifact |
 | `nlm artifact update ARTIFACT_ID [NEW_TITLE]` | Rename an artifact |
 | `nlm artifact delete ARTIFACT_ID` | Delete an artifact |
 | `nlm artifact revise ARTIFACT_ID "Instructions"` | Re-run an artifact generator with revision instructions |
 
 `artifact update` also accepts `--name` instead of a positional title.
-`artifact export` accepts `--format md|json|tsv|html` and writes to stdout
-unless `--output` is provided. It rejects native type-9 artifacts because no
-successful type-9 card-body payload has been captured.
+`artifact export` selects server-rendered downloads by filename extension and
+writes to stdout unless `--output` is provided. Type-4 flashcard apps also
+accept `--format md|json|tsv|html`. It rejects non-READY artifacts and native
+type-9 artifacts because no successful type-9 card-body payload has been
+captured.
 
 ## Guidebook
 

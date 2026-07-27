@@ -214,7 +214,7 @@ nlm create-report <notebook-id> <report-type> "focused brief"
 
 nlm artifact list <notebook-id>
 nlm artifact get <artifact-id>
-nlm artifact export <artifact-id> --format md --output flashcards.md
+nlm artifact export <artifact-id> --format md --output artifact.md
 nlm artifact update <artifact-id> "New Title"
 nlm artifact delete <artifact-id>
 
@@ -234,10 +234,11 @@ If generated audio, video, or slide deck output cannot be fetched directly from 
 the download command prints the NotebookLM browser URL so you can download it
 from the web UI.
 
-`artifact export` supports Google-AI-mode type-4 flashcard artifacts in
-Markdown, JSON, tab-separated, and self-contained HTML formats. Native type-9
-flashcard artifacts remain unsupported until a successful deck payload is
-captured.
+`artifact export` downloads READY artifacts that expose a server-rendered file,
+selected by its filename extension. Google-AI-mode type-4 flashcard artifacts
+also support generated Markdown, JSON, tab-separated, and self-contained HTML.
+Native type-9 flashcard artifacts remain unsupported until a successful deck
+payload is captured.
 
 ### Chat
 

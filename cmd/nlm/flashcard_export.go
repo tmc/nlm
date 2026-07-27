@@ -36,32 +36,33 @@ type flashcardDeck struct {
 	Data       flashcardData
 }
 
-type flashcardExportOptions struct {
+type artifactExportOptions struct {
 	Format string
 	Output string
 }
 
-func printFlashcardExportUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s <artifact-id> [--format md|json|tsv|html] [--output file]\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Exports a Google-AI-mode type-4 flashcard artifact.")
-	fmt.Fprintln(os.Stderr, "Markdown is written to stdout by default.")
+func printArtifactExportUsage(cmdName string) {
+	fmt.Fprintf(os.Stderr, "Usage: nlm %s <artifact-id> [--format format] [--output file]\n\n", cmdName)
+	fmt.Fprintln(os.Stderr, "Exports a READY artifact using its server-rendered download.")
+	fmt.Fprintln(os.Stderr, "Type-4 flashcard apps additionally support md, json, tsv, and html.")
+	fmt.Fprintln(os.Stderr, "Output is written to stdout by default.")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Flags:")
-	fmt.Fprintln(os.Stderr, "  --format, -f <format>  Output format: md (default), json, tsv, or html")
+	fmt.Fprintln(os.Stderr, "  --format, -f <format>  Server file extension or flashcard format (default md)")
 	fmt.Fprintln(os.Stderr, "  --output, -o <file>    Write to a file instead of stdout")
 }
 
-func validateFlashcardExportArgsWithOptions(cmdName string, args []string, _ globalOptions) error {
-	if _, _, err := parseFlashcardExportArgs(args); err != nil {
+func validateArtifactExportArgsWithOptions(cmdName string, args []string, _ globalOptions) error {
+	if _, _, err := parseArtifactExportArgs(args); err != nil {
 		fmt.Fprintf(os.Stderr, "nlm: %s: %v\n\n", cmdName, err)
-		printFlashcardExportUsage(cmdName)
+		printArtifactExportUsage(cmdName)
 		return errBadArgs
 	}
 	return nil
 }
 
-func parseFlashcardExportArgs(args []string) (flashcardExportOptions, string, error) {
-	opts := flashcardExportOptions{Format: "md"}
+func parseArtifactExportArgs(args []string) (artifactExportOptions, string, error) {
+	opts := artifactExportOptions{Format: "md"}
 	flags := flag.NewFlagSet("artifact-export", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	flags.StringVar(&opts.Format, "format", opts.Format, "")
@@ -84,24 +85,30 @@ func parseFlashcardExportArgs(args []string) (flashcardExportOptions, string, er
 	if len(positional) != 1 {
 		return opts, "", fmt.Errorf("requires exactly one artifact id")
 	}
-	switch opts.Format {
-	case "md", "json", "tsv", "html":
-	default:
-		return opts, "", fmt.Errorf("unsupported format %q (want md, json, tsv, or html)", opts.Format)
+	opts.Format = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(opts.Format), "."))
+	if opts.Format == "" {
+		return opts, "", fmt.Errorf("format is empty")
+	}
+	for _, r := range opts.Format {
+		if r < 'a' || r > 'z' {
+			if r < '0' || r > '9' {
+				return opts, "", fmt.Errorf("invalid format %q", opts.Format)
+			}
+		}
 	}
 	return opts, positional[0], nil
 }
 
-func runFlashcardExport(c *api.Client, args []string) error {
-	opts, artifactID, err := parseFlashcardExportArgs(args)
+func runArtifactExport(c *api.Client, args []string) error {
+	opts, artifactID, err := parseArtifactExportArgs(args)
 	if err != nil {
 		return err
 	}
 	artifact, err := c.GetArtifact(context.Background(), artifactID)
 	if err != nil {
-		return fmt.Errorf("get flashcard artifact: %w", err)
+		return fmt.Errorf("get artifact: %w", err)
 	}
-	deck, err := flashcardDeckFromArtifact(artifact)
+	write, err := artifactExportWriter(c, artifact, opts.Format)
 	if err != nil {
 		return err
 	}
@@ -115,16 +122,46 @@ func runFlashcardExport(c *api.Client, args []string) error {
 		}
 		w = output
 	}
-	writeErr := writeFlashcardDeck(w, deck, opts.Format)
+	writeErr := write(w)
 	if output != nil {
 		if err := output.Close(); writeErr == nil {
 			writeErr = err
 		}
 	}
 	if writeErr != nil {
-		return fmt.Errorf("write flashcards: %w", writeErr)
+		return fmt.Errorf("write artifact: %w", writeErr)
 	}
 	return nil
+}
+
+type artifactFileReader interface {
+	ReadArtifactFile(context.Context, string, string, io.Writer) error
+}
+
+func artifactExportWriter(c artifactFileReader, artifact *pb.Artifact, format string) (func(io.Writer) error, error) {
+	if artifact == nil {
+		return nil, fmt.Errorf("artifact is empty")
+	}
+	if artifact.GetType() == pb.ArtifactType_ARTIFACT_TYPE_REPORT &&
+		artifact.GetTailoredReport().GetMindMapDataJson() != "" {
+		deck, err := flashcardDeckFromArtifact(artifact)
+		if err != nil {
+			return nil, err
+		}
+		return func(w io.Writer) error {
+			return writeFlashcardDeck(w, deck, format)
+		}, nil
+	}
+	if artifact.GetType() == pb.ArtifactType_ARTIFACT_TYPE_9 {
+		return nil, fmt.Errorf("native type-9 artifact export is not supported")
+	}
+	if artifact.GetState() != pb.ArtifactState_ARTIFACT_STATE_READY {
+		return nil, fmt.Errorf("artifact %s is not READY (state %s)",
+			artifact.GetArtifactId(), artifact.GetState())
+	}
+	return func(w io.Writer) error {
+		return c.ReadArtifactFile(context.Background(), artifact.GetArtifactId(), format, w)
+	}, nil
 }
 
 func flashcardDeckFromArtifact(artifact *pb.Artifact) (*flashcardDeck, error) {
