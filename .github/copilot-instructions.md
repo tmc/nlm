@@ -19,8 +19,8 @@ that per RPC family and is the source of truth for what is switched vs. still le
 - Real runtime deps: chromedp (browser cookie extraction), protobuf,
   `modelcontextprotocol/go-sdk`, `rsc.io/script` (CLI tests), `golang.org/x/*`.
   Not gRPC — NotebookLM speaks batchexecute and gRPC-Web over plain `net/http`.
-- **No CI, no GitHub workflows, no Makefile/Taskfile, no lint config, no committed git hooks.**
-  The de facto gate is `go build ./... && go test ./...`.
+- CI checks command reachability with `deadcode` after compiling integration-tagged tests.
+  The full local gate remains `go build ./... && go vet ./... && go test ./...`.
 
 ## Build and test — the exact sequence
 

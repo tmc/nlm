@@ -1,0 +1,34 @@
+name: deadcode
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  cmd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install deadcode
+        run: go install golang.org/x/tools/cmd/deadcode@v0.44.0
+      - name: Compile integration-tagged tests
+        run: go test -tags integration -run XXXNONE ./...
+      - name: Check command reachability
+        shell: bash
+        run: |
+          output="$(
+            deadcode -test -tags integration \
+              -filter='^github.com/tmc/nlm/cmd/nlm$' \
+              ./cmd/nlm
+          )"
+          if [[ -n "$output" ]]; then
+            printf '%s\n' "$output"
+            exit 1
+          fi
