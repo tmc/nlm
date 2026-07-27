@@ -1,0 +1,4 @@
+commit: bd98b798 2026-07-26 (cherry-pick of bbe3e3ef from work/nlm-beproto-integration)
+agent: claude-code (Opus 4.8) session=FD626FA5 tty=not a tty
+none pid=36056 iterm=w2t1p6:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+task: land corpus-test cleanup on cleanup-deps (not beproto integration). 13 corpus funcs + 7 helpers removed; betool help path -> $NLM_CORPUS_DIR (in cmd/nlm/betool.go here, vs _legacy_test.go on source branch); grpc.pb.go+betool_legacy_test.go conflicts resolved as keep-deleted (already removed by stub-cleanup on this branch). gates: build/vet clean, go test ./internal/notebooklm/api ./cmd/nlm green; dep-cleanup WIP (go.mod/go.sum/buf.gen.yaml) left untouched
