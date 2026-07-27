@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -4159,65 +4160,6 @@ func (c *Client) buildChatWireRequest(req ChatRequest) *chatWireRequest {
 	}
 }
 
-func buildChatWireArgs(req *chatWireRequest) []interface{} {
-	var sourceIDArrays []interface{}
-	for _, id := range req.SourceIDs {
-		sourceIDArrays = append(sourceIDArrays, []interface{}{[]interface{}{id}})
-	}
-
-	var history interface{}
-	if len(req.History) > 0 {
-		var historyEntries []interface{}
-		for _, msg := range req.History {
-			historyEntries = append(historyEntries, []interface{}{msg.Content, nil, msg.Role})
-		}
-		history = historyEntries
-	}
-
-	options := []interface{}{2, nil, []interface{}{1}, []interface{}{1}}
-	options = []interface{}{
-		req.Options.Mode,
-		nil,
-		int32SliceToInterfaces(req.Options.CitationModes),
-		int32SliceToInterfaces(req.Options.FollowUpModes),
-	}
-
-	notebookID := req.NotebookID
-	if notebookID == "" {
-		notebookID = req.ProjectID
-	}
-
-	return []interface{}{
-		sourceIDArrays,
-		req.Prompt,
-		history,
-		options,
-		req.ConversationID,
-		nilIfEmpty(req.DraftResponseID),
-		nilIfEmpty(req.ParentResponseID),
-		notebookID,
-		req.SequenceNumber,
-	}
-}
-
-func int32SliceToInterfaces(values []int32) []interface{} {
-	if len(values) == 0 {
-		return []interface{}{}
-	}
-	out := make([]interface{}, 0, len(values))
-	for _, value := range values {
-		out = append(out, value)
-	}
-	return out
-}
-
-func nilIfEmpty(s string) interface{} {
-	if s == "" {
-		return nil
-	}
-	return s
-}
-
 // buildChatArgs builds the inner JSON args for a chat request.
 // Wire format: [[[[source_ids]]],prompt,history,[2,null,[1],[1]],conv_id,null,null,notebook_id,seq_num]
 func (c *Client) buildChatArgs(req ChatRequest) (string, error) {
@@ -5464,6 +5406,13 @@ func findStringMatching(v interface{}, match func(string) bool) string {
 		}
 	}
 	return ""
+}
+
+var uuidLike = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
+
+// isUUIDLike reports whether s looks like a UUID.
+func isUUIDLike(s string) bool {
+	return uuidLike.MatchString(s)
 }
 
 // Helper functions to identify and extract YouTube video IDs
