@@ -1,3 +1,4 @@
+// Command exporthttprr converts an httprr recording to a txtar archive.
 package main
 
 import (
