@@ -112,12 +112,10 @@ func artifactHasDownloadURL(value interface{}, artifactID string) bool {
 
 // GetArtifact returns a single artifact by ID.
 //
-// First tries the JS-bundle-canonical v9rmvd RPC (one-shot direct
-// read; arg_format = "[%artifact_id%]"). If that fails for any reason
-// — the web UI never fires v9rmvd in captured HARs, so server-side
-// support is unverified — falls back to scanning
-// ListRecentlyViewedProjects + ListArtifacts (gArtLc), which is what
-// the UI actually does today.
+// First tries the capture-verified v9rmvd RPC (one-shot direct read;
+// arg_format = "[%artifact_id%, %context%]"). If that fails for any
+// reason, it falls back to scanning ListRecentlyViewedProjects and
+// ListArtifacts (gArtLc).
 //
 // The fallback path is unconditional on parse failure, so the worst
 // case is the same scan-and-filter that callers got before this
@@ -145,10 +143,8 @@ func (c *Client) GetArtifact(ctx context.Context, artifactID string) (*pb.Artifa
 	return nil, fmt.Errorf("artifact %q: %w", artifactID, ErrArtifactNotFound)
 }
 
-// getArtifactDirect tries the v9rmvd RPC. The wire is JS-bundle-verified
-// but never observed on the wire in our HAR corpus, so failure is
-// expected on some accounts; callers should fall back to the gArtLc
-// list-scan when this returns an error or nil artifact.
+// getArtifactDirect tries the capture-verified v9rmvd RPC. Callers should
+// fall back to the gArtLc list scan when this returns an error or nil artifact.
 func (c *Client) getArtifactDirect(ctx context.Context, artifactID string) (*pb.Artifact, error) {
 	artifact, err := c.orchestrationService.GetArtifact(ctx, &pb.GetArtifactRequest{
 		ArtifactId: artifactID,

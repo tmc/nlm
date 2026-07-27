@@ -110,19 +110,7 @@ weakly verified:
 
 Status: low priority cleanup / verification work.
 
-### 4. `artifact get` direct path remains unverified
-
-`nlm artifact get <artifact-id>` now tries the JS-bundle-canonical
-`v9rmvd` direct RPC first, then falls back to scanning
-`ListRecentlyViewedProjects` plus `ListArtifacts` when the direct path
-fails or returns an unparsable response. That keeps the user-visible command
-on the same list-scan behavior the CLI used before the direct probe.
-
-Status: open for direct-path verification only. A fresh HAR would confirm
-whether `v9rmvd` is callable on the live service or should remain a
-best-effort fast path behind the list-scan fallback.
-
-### 5. `chat config` server semantics unverified
+### 4. `chat config` server semantics unverified
 
 `nlm chat config <id> <setting> [value]` rides on `MutateProject`
 (`s0tc2d`) to apply chat goal/length settings. The CLI accepts
@@ -159,7 +147,5 @@ Status: HAR-blocked for semantics only. The current fallback is safe.
    metric-series messages.
 3. Decide whether `video download` should keep the current manual-fallback
    UX or get a real CDN capture and a browser-assisted path.
-4. Re-capture `artifact get` against the live service and either verify
-   `v9rmvd` or keep the list-scan fallback as the canonical path.
-5. Verify `chat config` end-to-end (or hide it until there is a real caller).
-6. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.
+4. Verify `chat config` end-to-end (or hide it until there is a real caller).
+5. Capture `izAoDd` only if a real bulk-add CLI caller is introduced.

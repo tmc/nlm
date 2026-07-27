@@ -195,13 +195,11 @@ const (
 
 	// LabsTailwindOrchestrationService - Artifact operations
 	//
-	// GetArtifact (v9rmvd) does exist per the JS bundle binding to
-	// /LabsTailwindOrchestrationService.GetArtifact. The web UI does not
-	// invoke it (the rendering path scans gArtLc and filters
-	// client-side, which api.Client.GetArtifact mirrors). The earlier
-	// BnLyuf/WxBZtb inferences returned 400 — different, unreachable
-	// ids. DeleteArtifact (V5N4be) is HAR-verified 2026-04-07; see
-	// a NotebookLM web UI batchexecute capture.
+	// GetArtifact (v9rmvd) is live-capture-verified 2026-07-27 with
+	// [artifact_id, context]. The earlier BnLyuf/WxBZtb inferences
+	// returned 400 — different, unreachable ids. DeleteArtifact
+	// (V5N4be) is HAR-verified 2026-04-07; see a NotebookLM web UI
+	// batchexecute capture.
 	//
 	// CreateArtifact / UpdateArtifact: the JS bundle's canonical
 	// bindings are R7cb6c → CreateArtifact and rc3d8d → UpdateArtifact.
@@ -209,7 +207,7 @@ const (
 	// compatibility but never appeared on the wire in our HAR corpus;
 	// new callers should use RPCCreateUniversalArtifact and
 	// RPCRenameArtifact respectively.
-	RPCGetArtifact    = "v9rmvd" // GetArtifact — JS-bundle-verified; never observed on the wire (UI uses gArtLc scan instead)
+	RPCGetArtifact    = "v9rmvd" // GetArtifact — HAR-verified 2026-07-27
 	RPCCreateArtifact = "xpWGLf" // DEPRECATED: stale; bundle says R7cb6c. Use RPCCreateUniversalArtifact.
 	RPCUpdateArtifact = "DJezBc" // DEPRECATED: stale; bundle says rc3d8d. Use RPCRenameArtifact.
 	RPCRenameArtifact = "rc3d8d" // RenameArtifact / UpdateArtifact (JS-bundle name) - for title and field updates

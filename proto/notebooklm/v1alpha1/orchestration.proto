@@ -1164,15 +1164,12 @@ service LabsTailwindOrchestrationService {
         option (rpc_id) = "xpWGLf";
         option (arg_format) = "[%context%, %project_id%, %artifact%]";
     }
-    // GetArtifact (v9rmvd). The JS bundle binds v9rmvd to
-    // /LabsTailwindOrchestrationService.GetArtifact, so the RPC does
-    // exist on the wire — it just isn't invoked by the live web UI,
-    // which prefers gArtLc (ListArtifacts) + client-side filter for
-    // its rendering path. The earlier BnLyuf id was a different,
-    // unreachable inference that returned 400.
+    // GetArtifact (v9rmvd) was captured from the live rendering path
+    // 2026-07-27. The earlier BnLyuf id was a different, unreachable
+    // inference that returned 400.
     //
-    // Direct captures use [artifact_id, context]. The live API retains its
-    // positional parser as the projection oracle.
+    // The request uses [artifact_id, context]. The Artifact response carries
+    // type-specific fields, including type-4 app data.
     rpc GetArtifact(GetArtifactRequest) returns (Artifact) {
         option (rpc_id) = "v9rmvd";
         option (arg_format) = "[%artifact_id%, %context%]";
