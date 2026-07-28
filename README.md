@@ -1,9 +1,13 @@
 # nlm
 
-> **nlm** is a single-static-binary NotebookLM client for people who live in the
-> terminal and in CI. No Python venv, no runtime — one Go binary that is at once a
-> scriptable/pipeable CLI, an interactive streaming chat client, and an MCP server for
-> AI agents. Reverse-engineered wire protocol, lossless-verified.
+[![Go Reference](https://pkg.go.dev/badge/github.com/tmc/nlm.svg)](https://pkg.go.dev/github.com/tmc/nlm)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+> **nlm** is a single-static-binary [NotebookLM](https://notebooklm.google.com)
+> client for people who live in the terminal and in CI. No Python venv, no
+> runtime — one Go binary that is at once a scriptable/pipeable CLI, an
+> interactive streaming chat client, and an MCP server for AI agents.
+> Reverse-engineered wire protocol, lossless-verified.
 
 `nlm` combines compiled-protobuf wire modeling and lossless capture verification
 with source selection by name, label, or regular expression, directory-tree
@@ -12,16 +16,26 @@ line numbers. A static binary by itself is not unique in this field; this
 combination is. The project deliberately keeps a focused, composable surface
 rather than chasing every possible feature.
 
-| Capability | What is included |
-|---|---|
-| Browser authentication | `nlm auth login` drives Chrome, Brave, or Edge and extracts credentials from an already signed-in profile; no DevTools copy-paste |
-| Interactive chat | Streaming `nlm chat` REPL with persistent sessions, history, and slash commands such as `/history`, `/new`, `/fork`, and `/file` |
-| Precise source selection | Select by UUID, source title regex, or server-side label with `--source-match`, `--source-exclude`, `--label-match`, and `--label-exclude` |
-| Research export | Fast or deep research, with self-contained Markdown and source footnotes from `nlm research --md` |
-| Artifact management | Create, list, inspect, rename, delete, share, and download supported rendered artifacts |
-| Local-tree sync | Idempotent SHA-256-backed directory sync with `.nlmignore`, exclude patterns, and automatic chunking |
-| Rich output | RichDocument note rendering to Markdown or HTML, plus citation excerpts and txtar `file:line` resolution |
-| Agent access | Built-in stdio MCP server with notebook, source, note, chat, artifact, generation, and deep-research tools |
+## Feature support
+
+| Feature | Status | Notes |
+|---|:---:|---|
+| Browser authentication | ✅ | `nlm auth login` extracts credentials from an already signed-in Chrome, Brave, or Edge profile — no DevTools copy-paste |
+| Interactive & scriptable chat | ✅ | Streaming `nlm chat` REPL with persistent sessions and slash commands (`/history`, `/new`, `/fork`, `/file`); pass a prompt for one-shot/script use |
+| Source selection by name, label, or regex | ✅ | `--source-match`, `--source-exclude`, `--label-match`, `--label-exclude` |
+| Sources: files, URLs, text, stdin | ✅ | `nlm source add`; PDFs upload via Google's resumable protocol |
+| Local-tree sync | ✅ | Idempotent SHA-256 directory sync with `.nlmignore`, exclude patterns, and chunking |
+| Rich note rendering | ✅ | RichDocument notes to Markdown or HTML, with citation excerpts |
+| Labels & autolabel | ✅ | Hand-curated labels plus generated autolabels |
+| Audio, video & slide generation | ✅ | `audio create`, `video create`, `deck create`, plus report generation |
+| Deep research | ✅ | Event stream or self-contained Markdown (`nlm research --md`) |
+| Artifacts | ✅ | List, get, rename, delete, share, and export/download rendered artifacts |
+| Flashcard export | ✅ | Type-4 flashcard artifacts → Markdown, JSON, TSV, or HTML |
+| Sharing | ✅ | Public and private share links |
+| MCP server | ✅ | Built-in stdio server: notebook, source, note, chat, artifact, generation, and research tools |
+| Citation → `file:line` | ✅ | Resolves citations back into txtar-bundled local sources |
+| Mind-map export | ⬜ | Content payload still needs capture-backed wire modeling |
+| Native type-9 flashcard export | ⬜ | Pending a successful deck-payload capture |
 
 ## Quickstart
 
@@ -31,6 +45,10 @@ nlm auth login
 nlm notebook list
 nlm chat <notebook-id> "summarize the key findings"
 ```
+
+`go install` needs the Go toolchain (1.25+). Prebuilt release binaries and a
+Homebrew formula (`brew install tmc/tap/nlm`) are planned so the single binary
+can be fetched without Go.
 
 ## Does it do X?
 
@@ -206,9 +224,9 @@ and friends are the manual surface for hand-curated labels.
 ### Create, Artifact, Audio, and Video
 
 ```bash
-nlm create-audio <notebook-id> "deep dive on topic X"
-nlm create-video <notebook-id> "whiteboard walkthrough"
-nlm create-slides <notebook-id> "presentation summary"
+# Generate studio content (noun-first; create-audio/-video/-slides aliases also work)
+nlm audio create <notebook-id> "deep dive on topic X"
+nlm video create <notebook-id> "whiteboard walkthrough"
 nlm deck create <notebook-id> "presentation summary"
 nlm report-suggestions <notebook-id>
 nlm create-report <notebook-id> <report-type> "focused brief"
@@ -224,10 +242,11 @@ nlm audio get <notebook-id>
 nlm audio share <notebook-id>
 nlm audio delete <notebook-id>
 nlm --direct-rpc audio download <notebook-id> overview.mp3
-nlm video create <notebook-id> "whiteboard walkthrough"
+
 nlm video list <notebook-id>
 nlm video get <notebook-id>
 nlm video download <notebook-id> overview.mp4
+
 nlm deck download <notebook-id> --id <artifact-id> --format pptx --output deck.pptx
 ```
 
@@ -357,7 +376,7 @@ prints `nlm: exit-class=<name> (exit N)` to stderr:
 | 0 | success | Ran to completion | continue |
 | 1 | generic | Unclassified error | inspect stderr |
 | 2 | bad-args | Bad invocation (missing arg, unknown flag) | fix the command |
-| 3 | auth | Auth required / auth expired | `nlm auth` and retry |
+| 3 | auth | Auth required / auth expired | `nlm auth login` and retry |
 | 4 | not-found | Notebook / source / artifact does not exist | stop; target is wrong |
 | 5 | precondition | Permanent precondition (source-cap, quota, deleted) | stop; retry will not help |
 | 6 | transient | Rate-limit, 5xx, network | retry with backoff |
@@ -381,7 +400,7 @@ Run `nlm <command> -h` for per-command usage. Common flags:
 --replace string     Replace an existing source when adding
 --source-ids string  Restrict chat/report/transform commands to source IDs
 --source-match regex Restrict chat/report/transform commands by source title or ID
---citations mode     Citation rendering: off|block|stream|tail|overlay|json
+--citations mode     Citation rendering: off|list|json (default list)
 --thinking           Show reasoning traces while streaming chat output
 --prompt-file path   Read a one-shot chat prompt from a file
 --mode string        Research mode: fast or deep
@@ -389,23 +408,6 @@ Run `nlm <command> -h` for per-command usage. Common flags:
 -y, --yes            Skip confirmation prompts
 ```
 
-## Package Structure
-
-```text
-cmd/nlm/                    CLI entry point
-internal/
-  notebooklm/api/           High-level API client
-  notebooklm/rpc/           Low-level RPC client
-  batchexecute/             Google batchexecute protocol
-  beprotojson/              Proto <-> batchexecute JSON marshaling
-  nlmmcp/                   MCP server implementation
-  auth/                     Browser cookie extraction
-gen/
-  method/                   RPC argument encoders
-  service/                  Generated service clients
-  notebooklm/v1alpha1/      Protocol buffer definitions
-```
-
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
