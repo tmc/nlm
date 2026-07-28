@@ -96,8 +96,10 @@ brews:
     skip_upload: auto
     homepage: https://github.com/tmc/nlm
     description: Command-line interface and MCP server for Google NotebookLM
+    # bin/"nlm", not "#{bin}/nlm": brew audit --strict rejects the interpolated
+    # form, and the tap's CI runs the strict audit.
     test: |
-      system "#{bin}/nlm", "--version"
+      system bin/"nlm", "--version"
     repository:
       owner: tmc
       name: homebrew-tap
