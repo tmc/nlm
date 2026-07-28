@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
@@ -385,12 +387,69 @@ func scanTxtarMembers(text []rune) []txtarMember {
 		if len(out) > 0 && out[0].HeaderStart > 0 {
 			prefix := strings.TrimSpace(string(text[:out[0].HeaderStart]))
 			if prefix != "" {
-				return nil
+				first, ok := collapsedFirstTxtarMember(text, len(out))
+				if !ok {
+					return nil
+				}
+				out = append([]txtarMember{first}, out...)
 			}
 		}
 	}
 	finishTxtarMembers(out, len(text))
 	return out
+}
+
+// collapsedFirstTxtarMember recognizes the narrowly observed form
+// "-- path --body" at offset zero. The ordinary scanner deliberately rejects
+// that terminator because it lacks a boundary. Here it is accepted only for a
+// strong path and when at least two later headers independently corroborate
+// that the source is a newline-stripped txtar archive.
+func collapsedFirstTxtarMember(text []rune, laterHeaders int) (txtarMember, bool) {
+	const minimumLaterHeaders = 2
+	if laterHeaders < minimumLaterHeaders || len(text) < 7 ||
+		text[0] != '-' || text[1] != '-' || text[2] != ' ' {
+		return txtarMember{}, false
+	}
+	for end := 3; end+2 < len(text); end++ {
+		if text[end] != ' ' || text[end+1] != '-' || text[end+2] != '-' {
+			continue
+		}
+		name := strings.TrimSpace(string(text[3:end]))
+		if !plausibleTxtarPath(name) {
+			return txtarMember{}, false
+		}
+		headerEnd := end + 3
+		return txtarMember{
+			Name:        name,
+			HeaderStart: 0,
+			HeaderEnd:   headerEnd,
+			BodyStart:   headerEnd,
+		}, true
+	}
+	return txtarMember{}, false
+}
+
+func plausibleTxtarPath(name string) bool {
+	if name == "" || len(name) > 256 || path.IsAbs(name) || path.Clean(name) != name ||
+		name == "." || name == ".." || strings.HasPrefix(name, "../") ||
+		strings.HasSuffix(name, "/") {
+		return false
+	}
+	hasPathShape := strings.Contains(name, "/") || strings.Contains(path.Base(name), ".")
+	if !hasPathShape {
+		return false
+	}
+	for _, r := range name {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			continue
+		}
+		switch r {
+		case '/', '.', '_', '-', '+', '@':
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func scanLooseTxtarMembers(text []rune) []txtarMember {

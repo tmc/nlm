@@ -269,6 +269,37 @@ func TestResolveTxtarHeaderTrailingContent(t *testing.T) {
 	}
 }
 
+func TestScanTxtarMembersCollapsedFirstHeader(t *testing.T) {
+	// hizoJc returned the valid header and its body as adjacent fragments:
+	// "-- ...bug_report.md --" then "name: Bug report...". This is a
+	// read-side recovery test, not an accepted txtar authoring form.
+	const text = "" +
+		"-- .github/ISSUE_TEMPLATE/bug_report.md --name: Bug report " +
+		"-- cmd/one.go -- package one " +
+		"-- internal/two.go -- package two"
+	got := scanTxtarMembers([]rune(text))
+	if len(got) != 3 {
+		t.Fatalf("members = %+v, want 3", got)
+	}
+	if got[0].Name != ".github/ISSUE_TEMPLATE/bug_report.md" ||
+		got[0].HeaderStart != 0 ||
+		got[0].BodyStart != len("-- .github/ISSUE_TEMPLATE/bug_report.md --") {
+		t.Fatalf("first member = %+v", got[0])
+	}
+}
+
+func TestScanTxtarMembersCollapsedFirstHeaderRequiresCorroboration(t *testing.T) {
+	tests := []string{
+		"-- first.md --body -- second.md -- body",
+		"-- not a path --body -- second.md -- body -- third.md -- body",
+	}
+	for _, text := range tests {
+		if got := scanTxtarMembers([]rune(text)); len(got) != 0 {
+			t.Errorf("scanTxtarMembers(%q) = %+v, want no members", text, got)
+		}
+	}
+}
+
 func TestResolveAllCachesSourceLoads(t *testing.T) {
 	body := api.LoadSourceText{
 		SourceID: "src-1",
