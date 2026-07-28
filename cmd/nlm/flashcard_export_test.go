@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -172,6 +173,9 @@ func TestArtifactExportWriterRejectsUnavailableArtifact(t *testing.T) {
 			_, err := artifactExportWriter(reader, test.artifact, "md")
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want substring %q", err, test.want)
+			}
+			if !errors.Is(err, errPrecondition) {
+				t.Fatalf("error = %v, want errPrecondition", err)
 			}
 			if reader.called {
 				t.Fatal("download called for unavailable artifact")

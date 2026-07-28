@@ -153,11 +153,11 @@ func artifactExportWriter(c artifactFileReader, artifact *pb.Artifact, format st
 		}, nil
 	}
 	if artifact.GetType() == pb.ArtifactType_ARTIFACT_TYPE_9 {
-		return nil, fmt.Errorf("native type-9 artifact export is not supported")
+		return nil, fmt.Errorf("%w: native type-9 artifact export is not supported", errPrecondition)
 	}
 	if artifact.GetState() != pb.ArtifactState_ARTIFACT_STATE_READY {
-		return nil, fmt.Errorf("artifact %s is not READY (state %s)",
-			artifact.GetArtifactId(), artifact.GetState())
+		return nil, fmt.Errorf("%w: artifact %s is not READY (state %s)",
+			errPrecondition, artifact.GetArtifactId(), artifact.GetState())
 	}
 	return func(w io.Writer) error {
 		return c.ReadArtifactFile(context.Background(), artifact.GetArtifactId(), format, w)
