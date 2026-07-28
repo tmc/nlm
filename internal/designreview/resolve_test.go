@@ -320,6 +320,31 @@ func TestScanTxtarMembersCollapsedFirstHeader(t *testing.T) {
 	}
 }
 
+func TestResolveCollapsedTxtarUsesMemberOffset(t *testing.T) {
+	const text = "" +
+		"-- first.md --" + // adjacent hizoJc fragments: header, then body
+		"body one " +
+		"-- cmd/one.go -- package one " +
+		"-- internal/two.go -- package two"
+	body := api.LoadSourceText{
+		SourceID:  "src",
+		Title:     "project.txtar",
+		Fragments: []api.TextFragment{{Start: 0, End: len(text), Text: text}},
+	}
+	start := strings.Index(text, "package one")
+	got := Resolve(body, NativeCitation{
+		SourceID:  body.SourceID,
+		StartChar: start,
+		EndChar:   start + len("package"),
+	})
+	if got.Status != StatusOK || got.File != "cmd/one.go" {
+		t.Fatalf("resolved = %+v", got)
+	}
+	if got.LineExact || !got.OffsetKnown || got.MemberOffset != 0 {
+		t.Fatalf("coordinates = %+v, want zero-based loose member offset", got)
+	}
+}
+
 func TestScanTxtarMembersCollapsedFirstHeaderRequiresCorroboration(t *testing.T) {
 	tests := []string{
 		"-- first.md --body -- second.md -- body",

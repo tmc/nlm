@@ -259,6 +259,67 @@ func TestSourceReadMarkdownPreservesTableRows(t *testing.T) {
 	}
 }
 
+func TestSourceReadRendersCodeBlocks(t *testing.T) {
+	body := api.LoadSourceText{Fragments: []api.TextFragment{{
+		Start:    0,
+		End:      13,
+		Text:     "package main\n",
+		Code:     true,
+		Language: "go",
+	}}}
+	if got := sourceReadText(body); got != "package main\n" {
+		t.Fatalf("text = %q", got)
+	}
+	markdown, err := sourceReadMarkdown(body, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if markdown != "```go\npackage main\n```\n\n" {
+		t.Fatalf("markdown = %q", markdown)
+	}
+	document, err := sourceReadHTML(body, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(document, `<pre><code class="language-go">package main`+"\n"+`</code></pre>`) {
+		t.Fatalf("HTML code block missing:\n%s", document)
+	}
+}
+
+func TestSourceReadSeparatesTxtarMembers(t *testing.T) {
+	body := api.LoadSourceText{Fragments: []api.TextFragment{
+		{Start: 0, End: 10, Text: "-- a.go --"},
+		{Start: 10, End: 19, Text: "package a"},
+		{Start: 19, End: 29, Text: "-- b.go --"},
+		{Start: 29, End: 38, Text: "package b"},
+	}}
+	const want = "-- a.go --\n\npackage a\n\n-- b.go --\n\npackage b"
+	if got := sourceReadText(body); got != want {
+		t.Fatalf("text = %q, want %q", got, want)
+	}
+	markdown, err := sourceReadMarkdown(body, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if markdown != want {
+		t.Fatalf("markdown = %q, want %q", markdown, want)
+	}
+	document, err := sourceReadHTML(body, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		`<h2 class="txtar-member"><code>a.go</code></h2>`,
+		`<p>package a</p>`,
+		`<h2 class="txtar-member"><code>b.go</code></h2>`,
+		`<p>package b</p>`,
+	} {
+		if !strings.Contains(document, fragment) {
+			t.Errorf("HTML does not contain %q:\n%s", fragment, document)
+		}
+	}
+}
+
 func TestWriteSourceRead_JSONIncludesOrderedImages(t *testing.T) {
 	body := imageSourceBody()
 	var out bytes.Buffer

@@ -29,21 +29,24 @@ type NativeCitation struct {
 
 // Resolved maps one native citation back to source-relative coordinates.
 type Resolved struct {
-	SourceID    string   `json:"source_id"`
-	SourceTitle string   `json:"title,omitempty"`
-	StartChar   int      `json:"start_char"`
-	EndChar     int      `json:"end_char"`
-	File        string   `json:"file"`
-	Line        int      `json:"line,omitempty"`
-	Column      int      `json:"column,omitempty"`
-	EndLine     int      `json:"end_line,omitempty"`
-	EndColumn   int      `json:"end_column,omitempty"`
-	Status      Status   `json:"status"`
-	Reason      string   `json:"reason,omitempty"`
-	Confidence  float64  `json:"confidence,omitempty"`
-	Snippet     string   `json:"snippet,omitempty"`
-	Projection  string   `json:"projection,omitempty"`
-	Members     []string `json:"members,omitempty"`
+	SourceID     string   `json:"source_id"`
+	SourceTitle  string   `json:"title,omitempty"`
+	StartChar    int      `json:"start_char"`
+	EndChar      int      `json:"end_char"`
+	File         string   `json:"file"`
+	Line         int      `json:"line,omitempty"`
+	Column       int      `json:"column,omitempty"`
+	EndLine      int      `json:"end_line,omitempty"`
+	EndColumn    int      `json:"end_column,omitempty"`
+	Status       Status   `json:"status"`
+	Reason       string   `json:"reason,omitempty"`
+	Confidence   float64  `json:"confidence,omitempty"`
+	Snippet      string   `json:"snippet,omitempty"`
+	Projection   string   `json:"projection,omitempty"`
+	Members      []string `json:"members,omitempty"`
+	MemberOffset int      `json:"member_offset,omitempty"`
+	OffsetKnown  bool     `json:"offset_known,omitempty"`
+	LineExact    bool     `json:"line_exact,omitempty"`
 }
 
 type sourceResolver struct {
@@ -51,6 +54,7 @@ type sourceResolver struct {
 	text        []rune
 	defaultFile string
 	members     []txtarMember
+	lineExact   bool
 }
 
 type txtarMember struct {
@@ -211,11 +215,13 @@ func newSourceResolverText(body api.LoadSourceText, text string) *sourceResolver
 	if file == "" {
 		file = body.SourceID
 	}
+	members, lineExact := scanTxtarMembersWithLineInfo([]rune(text))
 	return &sourceResolver{
 		body:        body,
 		text:        []rune(text),
 		defaultFile: file,
-		members:     scanTxtarMembers([]rune(text)),
+		members:     members,
+		lineExact:   lineExact,
 	}
 }
 
@@ -317,6 +323,9 @@ func (r *sourceResolver) Resolve(c NativeCitation) Resolved {
 	}
 
 	out.File = member.Name
+	out.MemberOffset = c.StartChar - member.BodyStart
+	out.OffsetKnown = true
+	out.LineExact = r.lineExact
 	out.Line, out.Column = lineColAtOffset(r.text[member.BodyStart:member.BodyEnd], c.StartChar-member.BodyStart)
 	if c.EndChar > c.StartChar {
 		out.EndLine, out.EndColumn = lineColAtOffset(r.text[member.BodyStart:member.BodyEnd], c.EndChar-member.BodyStart-1)
@@ -378,6 +387,11 @@ func (r *sourceResolver) nearestMemberName(off int) string {
 }
 
 func scanTxtarMembers(text []rune) []txtarMember {
+	members, _ := scanTxtarMembersWithLineInfo(text)
+	return members
+}
+
+func scanTxtarMembersWithLineInfo(text []rune) ([]txtarMember, bool) {
 	var out []txtarMember
 	lineStart := 0
 	for i, r := range text {
@@ -414,14 +428,16 @@ func scanTxtarMembers(text []rune) []txtarMember {
 			if prefix != "" {
 				first, ok := collapsedFirstTxtarMember(text, len(out))
 				if !ok {
-					return nil
+					return nil, false
 				}
 				out = append([]txtarMember{first}, out...)
 			}
 		}
 	}
 	finishTxtarMembers(out, len(text))
-	return out
+	return out, len(out) > 0 && out[0].HeaderEnd > 0 &&
+		out[0].HeaderEnd <= len(text) &&
+		text[out[0].HeaderEnd-1] == '\n'
 }
 
 // collapsedFirstTxtarMember recognizes the narrowly observed form

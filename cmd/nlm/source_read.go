@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 	"unicode"
@@ -63,15 +64,18 @@ type sourceReadJSON struct {
 }
 
 type sourceReadJSONFragment struct {
-	Start      int    `json:"start"`
-	End        int    `json:"end"`
-	Text       string `json:"text,omitempty"`
-	ImageURL   string `json:"image_url,omitempty"`
-	ImageID    string `json:"image_id,omitempty"`
-	ListMarker string `json:"list_marker,omitempty"`
-	Bold       bool   `json:"bold,omitempty"`
-	Italic     bool   `json:"italic,omitempty"`
-	BlockStart bool   `json:"block_start,omitempty"`
+	Start         int    `json:"start"`
+	End           int    `json:"end"`
+	Text          string `json:"text,omitempty"`
+	ImageURL      string `json:"image_url,omitempty"`
+	ImageID       string `json:"image_id,omitempty"`
+	ListMarker    string `json:"list_marker,omitempty"`
+	Bold          bool   `json:"bold,omitempty"`
+	Italic        bool   `json:"italic,omitempty"`
+	Code          bool   `json:"code,omitempty"`
+	Language      string `json:"language,omitempty"`
+	RangeMismatch bool   `json:"range_mismatch,omitempty"`
+	BlockStart    bool   `json:"block_start,omitempty"`
 }
 
 type sourceImageFetcher func(imageURL string) ([]byte, string, error)
@@ -81,15 +85,18 @@ func writeSourceRead(w io.Writer, body api.LoadSourceText, opts globalOptions, f
 		fragments := make([]sourceReadJSONFragment, len(body.Fragments))
 		for i, f := range body.Fragments {
 			fragments[i] = sourceReadJSONFragment{
-				Start:      f.Start,
-				End:        f.End,
-				Text:       f.Text,
-				ImageURL:   f.ImageURL,
-				ImageID:    f.ImageID,
-				ListMarker: f.ListMarker,
-				Bold:       f.Bold,
-				Italic:     f.Italic,
-				BlockStart: f.BlockStart,
+				Start:         f.Start,
+				End:           f.End,
+				Text:          f.Text,
+				ImageURL:      f.ImageURL,
+				ImageID:       f.ImageID,
+				ListMarker:    f.ListMarker,
+				Bold:          f.Bold,
+				Italic:        f.Italic,
+				Code:          f.Code,
+				Language:      f.Language,
+				RangeMismatch: f.RangeMismatch,
+				BlockStart:    f.BlockStart,
 			}
 		}
 		return json.NewEncoder(w).Encode(sourceReadJSON{
@@ -134,6 +141,13 @@ func sourceReadText(body api.LoadSourceText) string {
 		if f.IsImage() {
 			continue
 		}
+		if _, ok := sourceReadTxtarHeader(f.Text); ok {
+			writePresentationBreak(&b)
+			b.WriteString(f.Text)
+			writePresentationBreak(&b)
+			cursor = f.End
+			continue
+		}
 		writePresentationGap(&b, cursor, f.Start)
 		b.WriteString(f.Text)
 		cursor = f.End
@@ -149,6 +163,32 @@ func sourceReadMarkdown(body api.LoadSourceText, fetchImage sourceImageFetcher) 
 	cursor := body.Fragments[0].Start
 	inList := false
 	for i, f := range body.Fragments {
+		if !f.IsImage() {
+			if _, ok := sourceReadTxtarHeader(f.Text); ok {
+				inList = false
+				writePresentationBreak(&b)
+				b.WriteString(f.Text)
+				writePresentationBreak(&b)
+				cursor = f.End
+				continue
+			}
+			if f.Code {
+				inList = false
+				writePresentationBreak(&b)
+				fence := markdownCodeFence(f.Text)
+				b.WriteString(fence)
+				b.WriteString(markdownCodeLanguage(f.Language))
+				b.WriteByte('\n')
+				b.WriteString(f.Text)
+				if !strings.HasSuffix(f.Text, "\n") {
+					b.WriteByte('\n')
+				}
+				b.WriteString(fence)
+				writePresentationBreak(&b)
+				cursor = f.End
+				continue
+			}
+		}
 		if f.BlockStart && f.ListMarker == "" && b.Len() > 0 && !strings.HasSuffix(b.String(), "\n\n") {
 			b.WriteString("\n\n")
 			cursor = f.Start
@@ -278,6 +318,68 @@ func writePresentationGap(b *strings.Builder, start, end int) {
 	}
 }
 
+func writePresentationBreak(b *strings.Builder) {
+	if b.Len() == 0 || strings.HasSuffix(b.String(), "\n\n") {
+		return
+	}
+	if strings.HasSuffix(b.String(), "\n") {
+		b.WriteByte('\n')
+		return
+	}
+	b.WriteString("\n\n")
+}
+
+func markdownCodeFence(code string) string {
+	if strings.Contains(code, "```") {
+		return "````"
+	}
+	return "```"
+}
+
+func markdownCodeLanguage(language string) string {
+	language = strings.TrimSpace(language)
+	if language == "" {
+		return ""
+	}
+	for _, r := range language {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			continue
+		}
+		switch r {
+		case '+', '-', '_', '.', '#':
+			continue
+		}
+		return ""
+	}
+	return language
+}
+
+func sourceReadTxtarHeader(text string) (string, bool) {
+	if strings.ContainsAny(text, "\r\n") ||
+		!strings.HasPrefix(text, "-- ") ||
+		!strings.HasSuffix(text, " --") {
+		return "", false
+	}
+	name := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(text, "-- "), " --"))
+	if name == "" || path.IsAbs(name) || path.Clean(name) != name ||
+		name == "." || name == ".." || strings.HasPrefix(name, "../") ||
+		strings.HasSuffix(name, "/") ||
+		(!strings.Contains(name, "/") && !strings.Contains(path.Base(name), ".")) {
+		return "", false
+	}
+	for _, r := range name {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			continue
+		}
+		switch r {
+		case '/', '.', '_', '-', '+', '@':
+			continue
+		}
+		return "", false
+	}
+	return name, true
+}
+
 func sourceReadImageDataURI(f api.TextFragment, fetchImage sourceImageFetcher) (string, error) {
 	if fetchImage == nil {
 		return "", fmt.Errorf("fetch source image %s: no image fetcher", f.ImageID)
@@ -299,7 +401,7 @@ func sourceReadHTML(body api.LoadSourceText, fetchImage sourceImageFetcher) (str
 	var out strings.Builder
 	out.WriteString("<!doctype html>\n<html><head><meta charset=utf-8><meta name=viewport content=\"width=device-width, initial-scale=1\"><title>")
 	out.WriteString(html.EscapeString(body.Title))
-	out.WriteString("</title><script>window.MathJax={tex:{inlineMath:[[\"$\",\"$\"],[\"\\\\(\",\"\\\\)\"]],displayMath:[[\"$$\",\"$$\"],[\"\\\\[\",\"\\\\]\"]]}};</script><script defer src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script><style>body{margin:0;background:#f6f7f8;color:#1f2328;font:18px/1.55 system-ui,sans-serif}main{max-width:52rem;margin:auto;padding:2rem;background:#fff;min-height:100vh}h1{line-height:1.2}p{margin:1em 0}img{display:block;max-width:100%;height:auto;margin:1.5em auto}table{border-collapse:collapse;display:block;max-width:100%;overflow:auto;margin:1.5em 0}th,td{border:1px solid #d0d7de;padding:.35em .6em;text-align:left}th{background:#f6f8fa}code{white-space:pre-wrap}</style></head><body><main>")
+	out.WriteString("</title><script>window.MathJax={tex:{inlineMath:[[\"$\",\"$\"],[\"\\\\(\",\"\\\\)\"]],displayMath:[[\"$$\",\"$$\"],[\"\\\\[\",\"\\\\]\"]]}};</script><script defer src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script><style>body{margin:0;background:#f6f7f8;color:#1f2328;font:18px/1.55 system-ui,sans-serif}main{max-width:52rem;margin:auto;padding:2rem;background:#fff;min-height:100vh}h1{line-height:1.2}p{margin:1em 0}img{display:block;max-width:100%;height:auto;margin:1.5em auto}table{border-collapse:collapse;display:block;max-width:100%;overflow:auto;margin:1.5em 0}th,td{border:1px solid #d0d7de;padding:.35em .6em;text-align:left}th{background:#f6f8fa}code{white-space:pre-wrap}pre{overflow:auto;padding:1rem;background:#f6f8fa;border-radius:.4rem}pre code{white-space:pre}.txtar-member{font-size:1rem}</style></head><body><main>")
 	if body.Title != "" {
 		out.WriteString("<h1>")
 		out.WriteString(html.EscapeString(body.Title))
@@ -359,6 +461,32 @@ func sourceReadHTML(body api.LoadSourceText, fetchImage sourceImageFetcher) (str
 			out.WriteString("\" src=\"")
 			out.WriteString(html.EscapeString(image))
 			out.WriteString("\">")
+			cursor = f.End
+			continue
+		}
+		if name, ok := sourceReadTxtarHeader(f.Text); ok {
+			flushProse()
+			flushTable()
+			flushList()
+			out.WriteString("<hr><h2 class=\"txtar-member\"><code>")
+			out.WriteString(html.EscapeString(name))
+			out.WriteString("</code></h2>")
+			cursor = f.End
+			continue
+		}
+		if f.Code {
+			flushProse()
+			flushTable()
+			flushList()
+			out.WriteString("<pre><code")
+			if language := markdownCodeLanguage(f.Language); language != "" {
+				out.WriteString(" class=\"language-")
+				out.WriteString(html.EscapeString(language))
+				out.WriteString("\"")
+			}
+			out.WriteString(">")
+			out.WriteString(html.EscapeString(f.Text))
+			out.WriteString("</code></pre>")
 			cursor = f.End
 			continue
 		}

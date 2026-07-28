@@ -153,6 +153,9 @@ func formatLocation(r designreview.Resolved) string {
 		return fmt.Sprintf("%s … %s (%d files)", first, last, len(r.Members))
 	}
 	file := shortenPath(r.File)
+	if r.OffsetKnown && !r.LineExact {
+		return fmt.Sprintf("%s (+%d chars)", file, r.MemberOffset)
+	}
 	if r.Line <= 0 {
 		return file
 	}
