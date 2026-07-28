@@ -141,18 +141,24 @@ func ResolveCitation(body api.LoadSourceText, c NativeCitation, excerpt string) 
 	}
 
 	var matched []sourceProjection
+	inRange := false
 	for _, projection := range citationProjections(body) {
 		text := []rune(projection.Text)
 		if c.StartChar < 0 || c.EndChar < c.StartChar || c.EndChar > len(text) {
 			continue
 		}
+		inRange = true
 		if ExcerptMatches(string(text[c.StartChar:c.EndChar]), excerpt) {
 			matched = append(matched, projection)
 		}
 	}
 	if len(matched) == 0 {
 		out.Status = StatusOffsetMiss
-		out.Reason = "citation excerpt does not match source coordinates"
+		if inRange {
+			out.Reason = "citation excerpt does not match source coordinates"
+		} else {
+			out.Reason = "citation coordinates outside source projections"
+		}
 		return out
 	}
 	if len(matched) != 1 {

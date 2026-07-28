@@ -2,6 +2,7 @@ package richrender
 
 import (
 	"encoding/json"
+	"io"
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -104,6 +105,7 @@ type RenderContext struct {
 	// "removed". It returns false when the list can't be determined (offline /
 	// unauthed), so a renderer only shows the hint on solid evidence. May be nil.
 	SourceRemoved func(sourceID string) bool
+	Debug         io.Writer // optional destination for citation-resolution diagnostics
 }
 
 // citationSourceTitle returns the best display title for a citation: a resolved
@@ -157,7 +159,7 @@ func (ctx RenderContext) citationLocations(cites []api.Citation) map[citationKey
 	if ctx.LoadSource == nil {
 		return nil
 	}
-	resolved := resolveCitationLocations(ctx.LoadSource, cites)
+	resolved := resolveCitationLocations(ctx.LoadSource, cites, ctx.Debug)
 	if len(resolved) == 0 {
 		return nil
 	}

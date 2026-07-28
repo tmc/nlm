@@ -160,18 +160,21 @@ func TestResolveCitationFailsClosed(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
+		start   int
+		end     int
 		excerpt string
 		reason  string
 	}{
-		{"missing excerpt", "", "citation has no excerpt"},
-		{"mismatch", "other text", "citation excerpt does not match source coordinates"},
+		{"missing excerpt", len("-- alpha.txt --\n"), len("-- alpha.txt --\nfirst"), "", "citation has no excerpt"},
+		{"mismatch", len("-- alpha.txt --\n"), len("-- alpha.txt --\nfirst"), "other text", "citation excerpt does not match source coordinates"},
+		{"offset miss", 100, 110, "other text", "citation coordinates outside source projections"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			got := ResolveCitation(body, NativeCitation{
 				SourceID:  body.SourceID,
-				StartChar: len("-- alpha.txt --\n"),
-				EndChar:   len("-- alpha.txt --\nfirst"),
+				StartChar: test.start,
+				EndChar:   test.end,
 			}, test.excerpt)
 			if got.Status != StatusOffsetMiss || got.Reason != test.reason {
 				t.Fatalf("resolved = %+v, want offset miss %q", got, test.reason)

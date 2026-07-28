@@ -219,6 +219,7 @@ func notebookChatRenderContext(notebookID string, opts chatRenderOptions) chatRe
 		HideConfidence:   opts.HideConfidence,
 		HideSpans:        opts.HideSpans,
 		IncludeFollowUps: opts.IncludeFollowUps,
+		Debug:            citationDebugWriter(),
 	}
 	if authToken == "" || cookies == "" {
 		if opts.ResolveCitations || opts.ExcerptBudget > 0 {

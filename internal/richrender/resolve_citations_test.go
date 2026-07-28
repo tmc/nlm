@@ -1,6 +1,7 @@
 package richrender
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -59,7 +60,7 @@ func TestResolveCitationLocations(t *testing.T) {
 		return api.LoadSourceText{}, errors.New("unexpected id " + id)
 	}
 
-	got := resolveCitationLocations(load, cites)
+	got := resolveCitationLocations(load, cites, nil)
 	if len(got) != 2 {
 		t.Fatalf("got %d locations, want 2: %+v", len(got), got)
 	}
@@ -90,7 +91,7 @@ func TestResolveOneCitationRejectsExcerptMismatch(t *testing.T) {
 		SourceEnd:   start + len("package"),
 		Excerpt:     "different text",
 	}
-	if got, ok := resolveOneCitation(body, cite); ok {
+	if got, ok, _ := resolveOneCitation(body, cite); ok {
 		t.Fatalf("resolveOneCitation = %+v, true; want excerpt mismatch", got)
 	}
 }
@@ -115,7 +116,7 @@ func TestResolveOneCitationUsesCompactProjection(t *testing.T) {
 		SourceEnd:   start + len("package"),
 		Excerpt:     "package",
 	}
-	got, ok := resolveOneCitation(body, cite)
+	got, ok, _ := resolveOneCitation(body, cite)
 	if !ok {
 		t.Fatal("resolveOneCitation did not use compact projection")
 	}
@@ -165,7 +166,7 @@ func TestResolveOneCitationMultiMemberSpan(t *testing.T) {
 		SourceEnd:   end,
 		Excerpt:     txtar[start:end],
 	}
-	got, ok := resolveOneCitation(body, cite)
+	got, ok, _ := resolveOneCitation(body, cite)
 	if !ok {
 		t.Fatal("resolveOneCitation did not retain multi-member span")
 	}
@@ -191,7 +192,7 @@ func TestFormatLocationShortenAbsolutePath(t *testing.T) {
 }
 
 func TestResolveCitationLocationsNoLoader(t *testing.T) {
-	if got := resolveCitationLocations(nil, []api.Citation{{SourceID: "x"}}); got != nil {
+	if got := resolveCitationLocations(nil, []api.Citation{{SourceID: "x"}}, nil); got != nil {
 		t.Fatalf("nil loader should return nil, got %v", got)
 	}
 }
@@ -209,9 +210,81 @@ func TestResolveCitationLocationsNonTxtarSource(t *testing.T) {
 	load := func(string) (api.LoadSourceText, error) { return body, nil }
 
 	cite := api.Citation{SourceIndex: 1, SourceID: "src_plain", StartChar: 0, EndChar: 4}
-	got := resolveCitationLocations(load, []api.Citation{cite})
+	got := resolveCitationLocations(load, []api.Citation{cite}, nil)
 	if len(got) != 0 {
 		t.Fatalf("non-txtar source has no location to resolve, got %v", got)
+	}
+}
+
+func TestResolveCitationLocationsDebugReasons(t *testing.T) {
+	const txtar = "-- main.go --\npackage main\n"
+	body := api.LoadSourceText{
+		SourceID:  "src",
+		Title:     "project.txtar",
+		Fragments: []api.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
+	}
+	plain := api.LoadSourceText{
+		SourceID:  "plain",
+		Title:     "notes.txt",
+		Fragments: []api.TextFragment{{Start: 0, End: 5, Text: "notes"}},
+	}
+	load := func(id string) (api.LoadSourceText, error) {
+		switch id {
+		case "missing":
+			return api.LoadSourceText{}, errors.New("missing")
+		case "src":
+			return body, nil
+		case "plain":
+			return plain, nil
+		default:
+			return api.LoadSourceText{}, errors.New("unexpected")
+		}
+	}
+	start := indexOf(txtar, "package")
+	cites := []api.Citation{
+		{SourceIndex: 1, SourceID: "missing"},
+		{SourceIndex: 1, SourceID: "missing"}, // duplicate
+		{
+			SourceIndex: 2,
+			SourceID:    "src",
+			SourceStart: start,
+			SourceEnd:   start + len("package"),
+			Excerpt:     "different",
+		},
+		{
+			SourceIndex: 3,
+			SourceID:    "plain",
+			SourceStart: 0,
+			SourceEnd:   5,
+			Excerpt:     "notes",
+		},
+		{
+			SourceIndex: 4,
+			SourceID:    "src",
+			SourceStart: 100,
+			SourceEnd:   101,
+			Excerpt:     "x",
+		},
+		{
+			SourceIndex: 5,
+			SourceID:    "src",
+			SourceStart: 0,
+			SourceEnd:   len("-- main"),
+			Excerpt:     "-- main",
+		},
+		{SourceIndex: 6},
+	}
+	var debug bytes.Buffer
+	resolveCitationLocations(load, cites, &debug)
+	const want = "" +
+		"nlm: citation 1: load error\n" +
+		"nlm: citation 2: excerpt mismatch\n" +
+		"nlm: citation 3: no members\n" +
+		"nlm: citation 4: offset miss\n" +
+		"nlm: citation 5: header span\n" +
+		"nlm: citation 6: title-only\n"
+	if got := debug.String(); got != want {
+		t.Fatalf("debug output = %q, want %q", got, want)
 	}
 }
 

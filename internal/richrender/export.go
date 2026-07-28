@@ -37,6 +37,7 @@ type StreamOptions struct {
 	ExcerptBudget        int
 	ShowConfidence       bool
 	ShowSpans            bool
+	Debug                io.Writer
 }
 
 // NewStreamRenderer returns a renderer that writes answer output and status separately.
@@ -50,6 +51,7 @@ func NewStreamRenderer(out, status io.Writer, opts StreamOptions) *StreamRendere
 	renderer.excerptBudget = opts.ExcerptBudget
 	renderer.showConfidence = opts.ShowConfidence
 	renderer.showSpans = opts.ShowSpans
+	renderer.debug = opts.Debug
 	return renderer
 }
 

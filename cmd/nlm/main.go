@@ -1786,6 +1786,7 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 		ExcerptBudget:        opts.ExcerptBudget,
 		ShowConfidence:       !opts.HideConfidence,
 		ShowSpans:            !opts.HideSpans,
+		Debug:                citationDebugWriter(),
 	})
 	responseReceived, stopWaiting := startInitialChatResponseWaiter(os.Stderr, 30*time.Second)
 	defer stopWaiting()
@@ -3057,6 +3058,7 @@ func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptio
 		ResolveTitle:     resolveTitle,
 		LoadSource:       loadSource,
 		SourceRemoved:    sourceRemoved,
+		Debug:            citationDebugWriter(),
 	}
 
 	switch opts.Format {

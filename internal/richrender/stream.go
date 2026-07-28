@@ -97,6 +97,8 @@ type StreamRenderer struct {
 	showConfidence       bool                                              // list mode: show the (p=…) column (default on)
 	showSpans            bool                                              // list mode: show the "chars X-Y" column (default on)
 	resolvedLocations    map[citationKey]resolvedCitation                  // computed once at Finish; keyed by citationKey
+	debug                io.Writer
+	debuggedCitations    map[citationKey]bool
 	lastThinkingLen      int
 	answerBuf            strings.Builder
 	thinking             string
@@ -115,6 +117,7 @@ type StreamRenderer struct {
 	jsonlThinkingSeen  string
 	jsonlCitationsSeen int
 	jsonlSourceBodies  map[string]api.LoadSourceText // per-source cache for lazy JSONL resolution ("" body = negative)
+	jsonlLoadFailed    map[string]bool
 }
 
 func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mode CitationMode) *StreamRenderer {
@@ -287,7 +290,7 @@ func (r *StreamRenderer) Finish() {
 	}
 	r.clearThinkingLine()
 	if r.loadSource != nil && len(r.citations) > 0 {
-		r.resolvedLocations = resolveCitationLocations(r.loadSource, r.citations)
+		r.resolvedLocations = resolveCitationLocations(r.loadSource, r.citations, r.debug)
 	}
 	if render := citationRenderers[r.citationMode]; render != nil {
 		render(r)
@@ -535,12 +538,38 @@ func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitation,
 		loaded, err := r.loadSource(sourceID)
 		if err != nil {
 			r.jsonlSourceBodies[sourceID] = api.LoadSourceText{} // negative cache
+			if r.jsonlLoadFailed == nil {
+				r.jsonlLoadFailed = make(map[string]bool)
+			}
+			r.jsonlLoadFailed[sourceID] = true
+			r.writeCitationDiagnosticOnce(c, "load error")
 			return resolvedCitation{}, false
 		}
 		body = loaded
 		r.jsonlSourceBodies[sourceID] = body
 	}
-	return resolveOneCitation(body, c)
+	if r.jsonlLoadFailed[sourceID] {
+		r.writeCitationDiagnosticOnce(c, "load error")
+		return resolvedCitation{}, false
+	}
+	entry, resolved, reason := resolveOneCitation(body, c)
+	r.writeCitationDiagnosticOnce(c, reason)
+	return entry, resolved
+}
+
+func (r *StreamRenderer) writeCitationDiagnosticOnce(c api.Citation, reason string) {
+	if r.debug == nil || reason == "" {
+		return
+	}
+	if r.debuggedCitations == nil {
+		r.debuggedCitations = make(map[citationKey]bool)
+	}
+	key := keyFor(c)
+	if r.debuggedCitations[key] {
+		return
+	}
+	r.debuggedCitations[key] = true
+	writeCitationDiagnostic(r.debug, c, reason)
 }
 
 func (r *StreamRenderer) printFollowUps() {
@@ -609,6 +638,7 @@ type persistedRenderConfig struct {
 	loadSource     func(string) (api.LoadSourceText, error)
 	resolveTitle   func(string) string
 	sourceRemoved  func(string) bool
+	debug          io.Writer
 }
 
 func renderPersistedAssistant(out, status io.Writer, m storedMessage, mode CitationMode, cfg persistedRenderConfig) {
@@ -619,6 +649,7 @@ func renderPersistedAssistant(out, status io.Writer, m storedMessage, mode Citat
 	r.loadSource = cfg.loadSource
 	r.resolveTitle = cfg.resolveTitle
 	r.sourceRemoved = cfg.sourceRemoved
+	r.debug = cfg.debug
 	r.WriteChunk(api.ChatChunk{
 		Phase:     api.ChatChunkAnswer,
 		Text:      m.Content,

@@ -43,6 +43,7 @@ func renderChatText(out, status io.Writer, doc ChatDocument, mode CitationMode, 
 			loadSource:     ctx.LoadSource,
 			resolveTitle:   ctx.ResolveTitle,
 			sourceRemoved:  ctx.SourceRemoved,
+			debug:          ctx.Debug,
 		})
 	}
 	return nil

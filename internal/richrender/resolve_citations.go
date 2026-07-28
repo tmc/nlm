@@ -2,6 +2,7 @@ package richrender
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,15 +28,23 @@ type resolvedCitation struct {
 // "file:line:col" coordinate when possible. Returns nil if there are no
 // citations or no loader. On per-source load failures the affected entries are
 // simply missing from the result map (callers degrade to the unresolved label).
-func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cites []api.Citation) map[citationKey]resolvedCitation {
+func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cites []api.Citation, debug io.Writer) map[citationKey]resolvedCitation {
 	if load == nil || len(cites) == 0 {
 		return nil
 	}
 	bodies := make(map[string]api.LoadSourceText)
+	loadFailed := make(map[string]bool)
 	out := make(map[citationKey]resolvedCitation)
+	seen := make(map[citationKey]bool)
 	for _, c := range cites {
+		key := keyFor(c)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 		sourceID := citationSourceID(c)
 		if sourceID == "" {
+			writeCitationDiagnostic(debug, c, "title-only")
 			continue
 		}
 		body, ok := bodies[sourceID]
@@ -43,16 +52,23 @@ func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cit
 			loaded, err := load(sourceID)
 			if err != nil {
 				bodies[sourceID] = api.LoadSourceText{} // negative cache
+				loadFailed[sourceID] = true
+				writeCitationDiagnostic(debug, c, "load error")
 				continue
 			}
 			body = loaded
 			bodies[sourceID] = body
 		}
-		entry, ok := resolveOneCitation(body, c)
-		if !ok {
+		if loadFailed[sourceID] {
+			writeCitationDiagnostic(debug, c, "load error")
 			continue
 		}
-		out[keyFor(c)] = entry
+		entry, ok, reason := resolveOneCitation(body, c)
+		if !ok {
+			writeCitationDiagnostic(debug, c, reason)
+			continue
+		}
+		out[key] = entry
 	}
 	return out
 }
@@ -63,9 +79,9 @@ func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cit
 // no location could be produced. This is the single source of truth shared by
 // the batch (resolveCitationLocations) and streaming-JSONL paths so the two
 // never diverge.
-func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitation, bool) {
+func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitation, bool, string) {
 	if len(body.Fragments) == 0 {
-		return resolvedCitation{}, false
+		return resolvedCitation{}, false, "no members"
 	}
 	start, end := citationSourceRange(c)
 	r := designreview.ResolveCitation(body, designreview.NativeCitation{
@@ -81,16 +97,36 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 	if r.Status == designreview.StatusHeaderSpan &&
 		len(r.Members) > 1 &&
 		designreview.ExcerptMatches(r.Snippet, c.Excerpt) {
-		return resolvedCitation{Location: formatLocation(r)}, true
+		return resolvedCitation{Location: formatLocation(r)}, true, ""
 	}
 	if r.Status == designreview.StatusOK &&
 		r.File != "" &&
 		r.Line > 0 &&
 		r.File != body.Title &&
 		designreview.ExcerptMatches(r.Snippet, c.Excerpt) {
-		return resolvedCitation{Location: formatLocation(r)}, true
+		return resolvedCitation{Location: formatLocation(r)}, true, ""
 	}
-	return resolvedCitation{}, false
+	switch {
+	case r.Status == designreview.StatusOffsetMiss && strings.Contains(r.Reason, "excerpt"):
+		return resolvedCitation{}, false, "excerpt mismatch"
+	case r.Status == designreview.StatusOffsetMiss:
+		return resolvedCitation{}, false, "offset miss"
+	case !designreview.ExcerptMatches(r.Snippet, c.Excerpt):
+		return resolvedCitation{}, false, "excerpt mismatch"
+	case r.Status == designreview.StatusHeaderSpan:
+		return resolvedCitation{}, false, "header span"
+	case r.File == body.Title:
+		return resolvedCitation{}, false, "no members"
+	default:
+		return resolvedCitation{}, false, "title-only"
+	}
+}
+
+func writeCitationDiagnostic(w io.Writer, c api.Citation, reason string) {
+	if w == nil || reason == "" {
+		return
+	}
+	fmt.Fprintf(w, "nlm: citation %d: %s\n", c.SourceIndex, reason)
 }
 
 // citationSourceRange returns the citation's span in the source document.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"os"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -30,6 +31,13 @@ const (
 
 func newChatStreamRenderer(out, status io.Writer, opts chatStreamOptions) *chatStreamRenderer {
 	return richrender.NewStreamRenderer(out, status, opts)
+}
+
+func citationDebugWriter() io.Writer {
+	if debug {
+		return os.Stderr
+	}
+	return nil
 }
 
 func resolveCitationMode(flag string) citationRenderMode {
