@@ -5,9 +5,10 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write      # create the GitHub release
-  id-token: write      # OIDC identity for the attestation
-  attestations: write  # write the attestation back to the repo
+  contents: write            # create the GitHub release
+  id-token: write            # OIDC identity for attestations
+  attestations: write        # write attestations back to the repo
+  artifact-metadata: write   # storage records for attested artifacts
 
 jobs:
   release:
@@ -35,6 +36,56 @@ jobs:
           # Homebrew tap needs its own token.
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
 
-      - uses: actions/attest@v4
+      # Symbol-level reachability against the artifact that actually ships.
+      # This is the Go-native check and is strictly more informative than
+      # matching SBOM package versions against CVE lists, which cannot tell
+      # whether vulnerable code is reachable.
+      - name: govulncheck (binary mode)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          for bin in dist/*/nlm dist/*/nlm.exe; do
+            [ -f "$bin" ] || continue
+            echo "::group::govulncheck $bin"
+            govulncheck -mode=binary "$bin"
+            echo "::endgroup::"
+          done
+
+      # Build provenance over every archive. checksums.txt deliberately covers
+      # archives only, so it is byte-reproducible; SBOMs are attested below.
+      - name: attest build provenance
+        uses: actions/attest@v4
         with:
           subject-checksums: ./dist/checksums.txt
+
+      # One SBOM attestation per archive. actions/attest binds a single SBOM to
+      # a single subject, and the gh CLI cannot create attestations, so these
+      # are enumerated rather than looped.
+      - name: attest SBOM (darwin/amd64)
+        uses: actions/attest@v4
+        with:
+          subject-path: ./dist/nlm_Darwin_x86_64.tar.gz
+          sbom-path: ./dist/nlm_Darwin_x86_64.tar.gz.sbom.spdx.json
+
+      - name: attest SBOM (darwin/arm64)
+        uses: actions/attest@v4
+        with:
+          subject-path: ./dist/nlm_Darwin_arm64.tar.gz
+          sbom-path: ./dist/nlm_Darwin_arm64.tar.gz.sbom.spdx.json
+
+      - name: attest SBOM (linux/amd64)
+        uses: actions/attest@v4
+        with:
+          subject-path: ./dist/nlm_Linux_x86_64.tar.gz
+          sbom-path: ./dist/nlm_Linux_x86_64.tar.gz.sbom.spdx.json
+
+      - name: attest SBOM (linux/arm64)
+        uses: actions/attest@v4
+        with:
+          subject-path: ./dist/nlm_Linux_arm64.tar.gz
+          sbom-path: ./dist/nlm_Linux_arm64.tar.gz.sbom.spdx.json
+
+      - name: attest SBOM (windows/amd64)
+        uses: actions/attest@v4
+        with:
+          subject-path: ./dist/nlm_Windows_x86_64.zip
+          sbom-path: ./dist/nlm_Windows_x86_64.zip.sbom.spdx.json

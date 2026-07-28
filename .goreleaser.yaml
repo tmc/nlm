@@ -33,9 +33,14 @@ gomod:
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
+  # Archives only. SBOMs carry a fresh SPDX timestamp and document UUID per
+  # run, so including them would make checksums.txt non-reproducible.
+  ids:
+    - archives
 
 archives:
-  - formats:
+  - id: archives
+    formats:
       - tar.gz
     name_template: >-
       {{ .ProjectName }}_
