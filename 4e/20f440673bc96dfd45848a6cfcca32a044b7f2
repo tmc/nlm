@@ -1,0 +1,7 @@
+tool: claude-code 2.1.220 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 58264
+iterm-session: w2t1p2:9C78051F-0011-468E-931E-3A10528BDF12
+date: 2026-07-28T08:26:24Z
+change: tap hardening -- strict+online audit, 4-platform install gate, LICENSE, App-minted tap token
