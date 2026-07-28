@@ -409,10 +409,13 @@ func TestResolvedAsCitation(t *testing.T) {
 }
 
 func TestResolveFixture(t *testing.T) {
-	path := "/tmp/hizojc-txtar.json"
+	path := os.Getenv("NLM_HIZOJC_FIXTURE")
+	if path == "" {
+		t.Skip("NLM_HIZOJC_FIXTURE is not set")
+	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		t.Skipf("%s not present; skip live fixture", path)
+		t.Fatal(err)
 	}
 	body, err := api.DecodeLoadSourceText(raw)
 	if err != nil {
@@ -422,10 +425,18 @@ func TestResolveFixture(t *testing.T) {
 	if len(resolver.members) == 0 {
 		t.Fatalf("fixture decoded without txtar headers")
 	}
-	member := resolver.members[0]
-	relStart, line := firstNonEmptyLine(resolver.text[member.BodyStart:member.BodyEnd])
+	var member txtarMember
+	relStart := -1
+	var line string
+	for _, candidate := range resolver.members {
+		relStart, line = firstNonEmptyLine(resolver.text[candidate.BodyStart:candidate.BodyEnd])
+		if relStart >= 0 {
+			member = candidate
+			break
+		}
+	}
 	if relStart < 0 {
-		t.Fatalf("fixture member %q has no non-empty line", member.Name)
+		t.Fatal("fixture has no non-empty txtar member")
 	}
 	start := member.BodyStart + relStart
 	end := start + len([]rune(line))
