@@ -4,8 +4,21 @@ Command-line interface and MCP server for [Google NotebookLM](https://notebooklm
 
 ## Quickstart
 
+Install the prebuilt binary with Homebrew:
+
+```bash
+brew install tmc/tap/nlm
+```
+
+Alternatively, install from source with Go:
+
 ```bash
 go install github.com/tmc/nlm/cmd/nlm@latest
+```
+
+Then authenticate and start using `nlm`:
+
+```bash
 nlm auth
 nlm notebook list
 nlm chat <notebook-id> "summarize the key findings"

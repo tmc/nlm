@@ -1,4 +1,5 @@
 .env
+/dist/
 
 **/.claude/settings.local.json
 .mcp.json
