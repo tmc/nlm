@@ -1,0 +1,7 @@
+tool: claude-code 2.1.220 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 89127
+iterm-session: w2t1p2:9C78051F-0011-468E-931E-3A10528BDF12
+date: 2026-07-28T08:13:51Z
+change: supply-chain hardening -- cyclonedx-gomod for SBOMs, SHA-pinned actions, dependabot, go mod verify
