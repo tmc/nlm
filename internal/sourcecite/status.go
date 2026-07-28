@@ -1,4 +1,4 @@
-package designreview
+package sourcecite
 
 // Status is the outcome of resolving a native citation against a source's
 // server-indexed text.

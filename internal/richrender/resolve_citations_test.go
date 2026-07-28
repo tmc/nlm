@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tmc/nlm/internal/designreview"
 	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/internal/sourcecite"
 )
 
 // TestResolveCitationLocations pins excerpt-validated txtar file:line
@@ -129,22 +129,22 @@ func TestResolveOneCitationUsesCompactProjection(t *testing.T) {
 func TestFormatLocation(t *testing.T) {
 	cases := []struct {
 		name string
-		r    designreview.Resolved
+		r    sourcecite.Resolved
 		want string
 	}{
-		{"line only (column missing)", designreview.Resolved{File: "main.go", Line: 5, LineExact: true}, "main.go:5"},
-		{"line and col", designreview.Resolved{File: "main.go", Line: 5, Column: 7, LineExact: true}, "main.go:5:7"},
-		{"end col is dropped", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndColumn: 12, LineExact: true}, "main.go:5:7"},
-		{"end line is dropped", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndLine: 9, EndColumn: 4, LineExact: true}, "main.go:5:7"},
-		{"line zero degrades to file", designreview.Resolved{File: "main.go"}, "main.go"},
+		{"line only (column missing)", sourcecite.Resolved{File: "main.go", Line: 5, LineExact: true}, "main.go:5"},
+		{"line and col", sourcecite.Resolved{File: "main.go", Line: 5, Column: 7, LineExact: true}, "main.go:5:7"},
+		{"end col is dropped", sourcecite.Resolved{File: "main.go", Line: 5, Column: 7, EndColumn: 12, LineExact: true}, "main.go:5:7"},
+		{"end line is dropped", sourcecite.Resolved{File: "main.go", Line: 5, Column: 7, EndLine: 9, EndColumn: 4, LineExact: true}, "main.go:5:7"},
+		{"line zero degrades to file", sourcecite.Resolved{File: "main.go"}, "main.go"},
 		{
 			"loose member offset",
-			designreview.Resolved{File: "main.go", MemberOffset: 41, OffsetKnown: true},
+			sourcecite.Resolved{File: "main.go", MemberOffset: 41, OffsetKnown: true},
 			"main.go (+41 chars)",
 		},
 		{
 			"multi-member span",
-			designreview.Resolved{Members: []string{"a.py", "b.py", "f.py"}},
+			sourcecite.Resolved{Members: []string{"a.py", "b.py", "f.py"}},
 			"a.py … f.py (3 files)",
 		},
 	}
@@ -189,7 +189,7 @@ func TestFormatLocationShortenAbsolutePath(t *testing.T) {
 		t.Fatalf("getwd: %v", err)
 	}
 	abs := filepath.Join(cwd, "subdir", "file.go")
-	got := formatLocation(designreview.Resolved{File: abs, Line: 5, Column: 7, LineExact: true})
+	got := formatLocation(sourcecite.Resolved{File: abs, Line: 5, Column: 7, LineExact: true})
 	want := "subdir/file.go:5:7"
 	if got != want {
 		t.Errorf("formatLocation(abs in cwd) = %q, want %q", got, want)

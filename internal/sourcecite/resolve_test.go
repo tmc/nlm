@@ -1,4 +1,4 @@
-package designreview
+package sourcecite
 
 import (
 	"os"

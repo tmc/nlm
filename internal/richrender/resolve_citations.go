@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tmc/nlm/internal/designreview"
 	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/internal/sourcecite"
 )
 
 // resolvedCitation holds what a per-citation source lookup produced. Today
@@ -84,7 +84,7 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 		return resolvedCitation{}, false, "no members"
 	}
 	start, end := citationSourceRange(c)
-	r := designreview.ResolveCitation(body, designreview.NativeCitation{
+	r := sourcecite.ResolveCitation(body, sourcecite.NativeCitation{
 		SourceID:   citationSourceID(c),
 		StartChar:  start,
 		EndChar:    end,
@@ -94,26 +94,26 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 	// A location is only meaningful when txtar resolution actually picked a
 	// member file (not the raw source title), produced a usable line number,
 	// and reproduced the server-provided excerpt.
-	if r.Status == designreview.StatusHeaderSpan &&
+	if r.Status == sourcecite.StatusHeaderSpan &&
 		len(r.Members) > 1 &&
-		designreview.ExcerptMatches(r.Snippet, c.Excerpt) {
+		sourcecite.ExcerptMatches(r.Snippet, c.Excerpt) {
 		return resolvedCitation{Location: formatLocation(r)}, true, ""
 	}
-	if r.Status == designreview.StatusOK &&
+	if r.Status == sourcecite.StatusOK &&
 		r.File != "" &&
 		r.Line > 0 &&
 		r.File != body.Title &&
-		designreview.ExcerptMatches(r.Snippet, c.Excerpt) {
+		sourcecite.ExcerptMatches(r.Snippet, c.Excerpt) {
 		return resolvedCitation{Location: formatLocation(r)}, true, ""
 	}
 	switch {
-	case r.Status == designreview.StatusOffsetMiss && strings.Contains(r.Reason, "excerpt"):
+	case r.Status == sourcecite.StatusOffsetMiss && strings.Contains(r.Reason, "excerpt"):
 		return resolvedCitation{}, false, "excerpt mismatch"
-	case r.Status == designreview.StatusOffsetMiss:
+	case r.Status == sourcecite.StatusOffsetMiss:
 		return resolvedCitation{}, false, "offset miss"
-	case !designreview.ExcerptMatches(r.Snippet, c.Excerpt):
+	case !sourcecite.ExcerptMatches(r.Snippet, c.Excerpt):
 		return resolvedCitation{}, false, "excerpt mismatch"
-	case r.Status == designreview.StatusHeaderSpan:
+	case r.Status == sourcecite.StatusHeaderSpan:
 		return resolvedCitation{}, false, "header span"
 	case r.File == body.Title:
 		return resolvedCitation{}, false, "no members"
@@ -146,7 +146,7 @@ func citationSourceRange(c api.Citation) (start, end int) {
 //
 // Absolute paths get shortened to a path relative to the current working
 // directory when possible, so the output pastes cleanly under a repo root.
-func formatLocation(r designreview.Resolved) string {
+func formatLocation(r sourcecite.Resolved) string {
 	if len(r.Members) > 1 {
 		first := shortenPath(r.Members[0])
 		last := shortenPath(r.Members[len(r.Members)-1])
