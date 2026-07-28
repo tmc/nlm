@@ -57,6 +57,17 @@ func TestNotesFromWireResponseNilAndEmpty(t *testing.T) {
 	}
 }
 
+func TestNotesFromWireResponseOmitsTombstones(t *testing.T) {
+	response := &pb.GetNotesRichWireResponse{Entries: []*pb.GetNotesRichEntry{
+		{NoteId: "deleted"},
+		{NoteId: "present", Note: &pb.GetNotesRichRecord{NoteId: "present", Title: "Present"}},
+	}}
+	got := notesFromWireResponse(response)
+	if len(got) != 1 || got[0].GetNoteId() != "present" {
+		t.Fatalf("notes = %#v, want only present note", got)
+	}
+}
+
 func TestNotesFromArtifacts(t *testing.T) {
 	artifacts := []*pb.Artifact{
 		{

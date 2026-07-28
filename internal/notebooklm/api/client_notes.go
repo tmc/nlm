@@ -134,12 +134,9 @@ func notesFromWireResponse(response *pb.GetNotesRichWireResponse) []*Note {
 		}
 		note := noteFromRecord(entry.GetNote())
 		if note == nil {
-			// A keyed tombstone has an ID and a null record. Preserve the
-			// legacy parser's public ID-only projection.
-			if entry.GetNoteId() == "" {
-				continue
-			}
-			note = &Note{Note: &pb.Note{NoteId: entry.GetNoteId()}}
+			// Deleted notes remain in the response as keyed tombstones.
+			// They are not notes and should not appear in list or read results.
+			continue
 		}
 		if note.NoteId == "" {
 			note.NoteId = entry.GetNoteId()
