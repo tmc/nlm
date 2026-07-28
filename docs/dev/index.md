@@ -43,7 +43,6 @@ nlm uses session cookies extracted from the browser via Chrome DevTools Protocol
 
 ## Internal docs
 
-- [Remaining Gaps](remaining-gaps.md) — Live status of every command surface; the source of truth for what's open
 - [Codegen Split](codegen.md) — Why HAR-verified encoders live under `internal/method/`, not `gen/method/`
 - [Test Conventions](test-conventions.md) — `testdata/` vs `docs/captures/`, fixture-skip pattern, encoder guard comments
 - [HTTP Capture](http-capture.md) — Testing framework for recording and replaying HTTP

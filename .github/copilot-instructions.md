@@ -157,7 +157,7 @@ gen/notebooklm/v1alpha1/   *.pb.go (orchestration.pb.go alone is 34188 L)
 gen/method/ (117)  gen/service/   generated encoders and clients
 proto/              *.proto, buf.yaml, buf.gen.yaml, gen.go (go:generate), templates/
 docs/               commands.md (gate), EXAMPLES.md, nlm-proto-migration-ledger.md,
-                    dev/{index,codegen,test-conventions,http-capture,remaining-gaps}.md
+                    dev/{index,codegen,test-conventions,http-capture}.md
 scripts/            operator shell scripts; not part of build or test
 ```
 

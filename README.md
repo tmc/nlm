@@ -8,10 +8,9 @@
 `nlm` combines compiled-protobuf wire modeling and lossless capture verification
 with source selection by name, label, or regular expression, directory-tree
 sync, rich-note rendering, and citations that resolve back to local file and
-line numbers. See the verified [competitive parity matrix](docs/dev/parity-matrix.md)
-for the evidence behind that positioning. A static binary by itself is not
-unique in this field; this combination is. The project is deliberately not
-trying to reproduce the Python `notebooklm-mcp-cli` kitchen-sink surface.
+line numbers. A static binary by itself is not unique in this field; this
+combination is. The project deliberately keeps a focused, composable surface
+rather than chasing every possible feature.
 
 | Capability | What is included |
 |---|---|

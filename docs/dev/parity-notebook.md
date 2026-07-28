@@ -14,9 +14,8 @@ trees and blog posts* of every comparable tool, then chat against it to produce
 a grounded, citation-backed feature matrix.
 
 This is dogfooding with a payoff: it stress-tests `nlm sync` on real
-multi-repo input, and it yields the competitive-analysis input for the
-positioning work in [remaining-gaps.md](remaining-gaps.md) and the local launch
-blog draft.
+multi-repo input, and it yields grounded competitive-analysis input for the
+project's positioning and launch material.
 
 ## Why this is the right tool for the job
 
@@ -38,7 +37,7 @@ URL that 404s):
 | Tool | Language | Notes |
 |---|---|---|
 | `tmc/nlm` (this repo) | Go | the subject; sync it too so the panel can cite *our* code |
-| `notebooklm-mcp-cli` (the other `nlm`) | Python | the name-collision tool; the reviewer's recommended alternative |
+| the name-collision Python tool | Python | shares the `nlm` command name; a commonly recommended alternative |
 | other NotebookLM MCP servers | mixed | enumerate at build time — the ecosystem moves; search first |
 | official NotebookLM docs / API notes | — | if a public surface exists, sync it for the "what does the product actually do" baseline |
 
@@ -98,7 +97,7 @@ Notes:
   or the sync bloats and dilutes retrieval.
 - **txtar caveat (task #14):** `nlm sync` quotes embedded txtar markers on upload
   but nothing unquotes on retrieval, and archive directives can leak into cited
-  text (see [txtar-handling.md](txtar-handling.md)). For *this* use case that's
+  text. For *this* use case that's
   cosmetic — we're reading prose answers, not round-tripping the archive — but be
   aware citations may show `unquote NAME` noise. Do not build the parity notebook
   as a correctness test of sync; it's an analysis corpus.
@@ -137,13 +136,11 @@ before recording it.
 ## Output
 
 Two artifacts:
-1. **`docs/dev/parity-matrix.md`** — the verified dimension × tool matrix, each
-   cell citing the source that grounds it. This is the evidence base for the
-   README capabilities table (spec A1) and the blog post's positioning (A3).
-2. **A short synthesis** — where `nlm` is at parity, where it's genuinely behind
-   (the real tail: broad artifact export, refresh, and MCP progress), and
-   where it's ahead (single static binary, deepest wire modeling, MCP + CLI +
-   interactive in one artifact). Feeds the blog post directly.
+1. **A verified dimension × tool matrix** — each cell citing the source that
+   grounds it; the evidence base for the README capabilities positioning.
+2. **A short synthesis** — where `nlm` is at parity, where it's genuinely behind,
+   and where it's ahead (single static binary, deepest wire modeling, MCP + CLI +
+   interactive in one artifact).
 
 ## Honesty guardrails
 

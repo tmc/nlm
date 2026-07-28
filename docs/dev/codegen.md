@@ -49,8 +49,7 @@ HAR-verified files MUST carry the guard comment:
 Where `<path>` cites the HAR capture (or dated context) that justifies the
 shape, so future readers can trace the provenance without re-capturing.
 
-Exceptions must be explicit in the file comment and tracked in
-`docs/dev/remaining-gaps.md`. Use one of these forms:
+Exceptions must be explicit in the file comment. Use one of these forms:
 
     // Wire format verified by live end-to-end success — do not regenerate.
     // Wire format: unverified — no HAR capture available.
