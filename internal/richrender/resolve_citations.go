@@ -68,16 +68,21 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 		return resolvedCitation{}, false
 	}
 	start, end := citationSourceRange(c)
-	r := designreview.Resolve(body, designreview.NativeCitation{
+	r := designreview.ResolveCitation(body, designreview.NativeCitation{
 		SourceID:   citationSourceID(c),
 		StartChar:  start,
 		EndChar:    end,
 		Confidence: c.Confidence,
-	})
+	}, c.Excerpt)
 
 	// A location is only meaningful when txtar resolution actually picked a
-	// member file (not the raw source title) and produced a usable line number.
-	if r.Status == designreview.StatusOK && r.File != "" && r.Line > 0 && r.File != body.Title {
+	// member file (not the raw source title), produced a usable line number,
+	// and reproduced the server-provided excerpt.
+	if r.Status == designreview.StatusOK &&
+		r.File != "" &&
+		r.Line > 0 &&
+		r.File != body.Title &&
+		designreview.ExcerptMatches(r.Snippet, c.Excerpt) {
 		return resolvedCitation{Location: formatLocation(r)}, true
 	}
 	return resolvedCitation{}, false

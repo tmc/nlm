@@ -120,6 +120,65 @@ func TestResolveTxtar(t *testing.T) {
 	}
 }
 
+func TestResolveCitationProjection(t *testing.T) {
+	const (
+		header   = "-- alpha.txt --\n"
+		bodyText = "first line\nsecond line\n"
+	)
+	body := api.LoadSourceText{
+		SourceID: "src-1",
+		Title:    "project.txtar",
+		Fragments: []api.TextFragment{
+			{Start: 100, End: 100 + len(header), Text: header},
+			{Start: 500, End: 500 + len(bodyText), Text: bodyText},
+		},
+	}
+	start := len(header) + strings.Index(bodyText, "second line")
+	got := ResolveCitation(body, NativeCitation{
+		SourceID:  body.SourceID,
+		StartChar: start,
+		EndChar:   start + len("second line"),
+	}, "second \n\t line")
+	if got.Status != StatusOK {
+		t.Fatalf("status = %s (%s), want ok", got.Status, got.Reason)
+	}
+	if got.Projection != "compact" {
+		t.Fatalf("projection = %q, want compact", got.Projection)
+	}
+	if got.File != "alpha.txt" || got.Line != 2 || got.Column != 1 {
+		t.Fatalf("resolved = %+v, want alpha.txt:2:1", got)
+	}
+}
+
+func TestResolveCitationFailsClosed(t *testing.T) {
+	const text = "-- alpha.txt --\nfirst line\n"
+	body := api.LoadSourceText{
+		SourceID:  "src-1",
+		Title:     "project.txtar",
+		Fragments: []api.TextFragment{{Start: 0, End: len(text), Text: text}},
+	}
+	tests := []struct {
+		name    string
+		excerpt string
+		reason  string
+	}{
+		{"missing excerpt", "", "citation has no excerpt"},
+		{"mismatch", "other text", "citation excerpt does not match source coordinates"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := ResolveCitation(body, NativeCitation{
+				SourceID:  body.SourceID,
+				StartChar: len("-- alpha.txt --\n"),
+				EndChar:   len("-- alpha.txt --\nfirst"),
+			}, test.excerpt)
+			if got.Status != StatusOffsetMiss || got.Reason != test.reason {
+				t.Fatalf("resolved = %+v, want offset miss %q", got, test.reason)
+			}
+		})
+	}
+}
+
 func TestResolveHeaderSpan(t *testing.T) {
 	const full = "" +
 		"-- alpha.txt --\n" +

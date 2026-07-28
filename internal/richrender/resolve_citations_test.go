@@ -10,9 +10,8 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-// TestResolveCitationLocations pins the txtar file:line resolution. Excerpts no
-// longer come from here — the server ships them inline on the citation — so
-// this only checks locations.
+// TestResolveCitationLocations pins excerpt-validated txtar file:line
+// resolution.
 func TestResolveCitationLocations(t *testing.T) {
 	const txtar = "" +
 		"-- main.go --\n" +
@@ -40,10 +39,12 @@ func TestResolveCitationLocations(t *testing.T) {
 		{
 			SourceIndex: 1, SourceID: "chunk_hello", ParentSourceID: "src_txtar",
 			StartChar: 4, EndChar: 12, SourceStart: helloOff, SourceEnd: helloOff + len("Hello()"),
+			Excerpt: "Hello()",
 		},
 		{
 			SourceIndex: 2, SourceID: "chunk_readme", ParentSourceID: "src_txtar",
 			StartChar: 20, EndChar: 29, SourceStart: readmeOff, SourceEnd: readmeOff + len("two lines"),
+			Excerpt: "two lines",
 		},
 		{SourceIndex: 3, SourceID: "src_other"}, // no body — skipped
 	}
@@ -72,6 +73,54 @@ func TestResolveCitationLocations(t *testing.T) {
 	wantReadme := "README.md:2:8"
 	if loc := got[keyFor(cites[1])].Location; loc != wantReadme {
 		t.Errorf("readme location = %q, want %q", loc, wantReadme)
+	}
+}
+
+func TestResolveOneCitationRejectsExcerptMismatch(t *testing.T) {
+	const txtar = "-- main.go --\npackage main\n"
+	body := api.LoadSourceText{
+		SourceID:  "src",
+		Title:     "project.txtar",
+		Fragments: []api.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
+	}
+	start := indexOf(txtar, "package")
+	cite := api.Citation{
+		SourceID:    "src",
+		SourceStart: start,
+		SourceEnd:   start + len("package"),
+		Excerpt:     "different text",
+	}
+	if got, ok := resolveOneCitation(body, cite); ok {
+		t.Fatalf("resolveOneCitation = %+v, true; want excerpt mismatch", got)
+	}
+}
+
+func TestResolveOneCitationUsesCompactProjection(t *testing.T) {
+	const (
+		first  = "-- main.go --\n"
+		second = "package main\n"
+	)
+	body := api.LoadSourceText{
+		SourceID: "src",
+		Title:    "project.txtar",
+		Fragments: []api.TextFragment{
+			{Start: 100, End: 100 + len(first), Text: first},
+			{Start: 500, End: 500 + len(second), Text: second},
+		},
+	}
+	start := len(first)
+	cite := api.Citation{
+		SourceID:    "src",
+		SourceStart: start,
+		SourceEnd:   start + len("package"),
+		Excerpt:     "package",
+	}
+	got, ok := resolveOneCitation(body, cite)
+	if !ok {
+		t.Fatal("resolveOneCitation did not use compact projection")
+	}
+	if got.Location != "main.go:1:1" {
+		t.Fatalf("location = %q, want main.go:1:1", got.Location)
 	}
 }
 

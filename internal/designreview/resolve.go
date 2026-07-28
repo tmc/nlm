@@ -40,6 +40,7 @@ type Resolved struct {
 	Reason      string  `json:"reason,omitempty"`
 	Confidence  float64 `json:"confidence,omitempty"`
 	Snippet     string  `json:"snippet,omitempty"`
+	Projection  string  `json:"projection,omitempty"`
 }
 
 type sourceResolver struct {
@@ -122,6 +123,54 @@ func Resolve(body api.LoadSourceText, c NativeCitation) Resolved {
 	return newSourceResolver(body).Resolve(c)
 }
 
+// ResolveCitation maps c using the unique deterministic source-text
+// projection whose cited range reproduces excerpt. NotebookLM flattens source
+// whitespace in excerpts, so comparison trims leading and trailing whitespace
+// and replaces each non-empty run of Unicode whitespace with one ASCII space.
+// If no projection, or more than one distinct projection, matches, resolution
+// fails closed.
+func ResolveCitation(body api.LoadSourceText, c NativeCitation, excerpt string) Resolved {
+	out := unresolvedCitation(body, c)
+	if strings.TrimSpace(excerpt) == "" {
+		out.Status = StatusOffsetMiss
+		out.Reason = "citation has no excerpt"
+		return out
+	}
+
+	var matched []sourceProjection
+	for _, projection := range citationProjections(body) {
+		text := []rune(projection.Text)
+		if c.StartChar < 0 || c.EndChar < c.StartChar || c.EndChar > len(text) {
+			continue
+		}
+		if ExcerptMatches(string(text[c.StartChar:c.EndChar]), excerpt) {
+			matched = append(matched, projection)
+		}
+	}
+	if len(matched) == 0 {
+		out.Status = StatusOffsetMiss
+		out.Reason = "citation excerpt does not match source coordinates"
+		return out
+	}
+	if len(matched) != 1 {
+		out.Status = StatusOffsetMiss
+		out.Reason = "citation excerpt matches multiple source projections"
+		return out
+	}
+
+	resolver := newSourceResolverText(body, matched[0].Text)
+	out = resolver.Resolve(c)
+	out.Projection = matched[0].Name
+	return out
+}
+
+// ExcerptMatches reports whether source reproduces excerpt under NotebookLM's
+// whitespace flattening: leading and trailing whitespace is ignored, and each
+// non-empty run of Unicode whitespace is replaced by one ASCII space.
+func ExcerptMatches(source, excerpt string) bool {
+	return strings.Join(strings.Fields(source), " ") == strings.Join(strings.Fields(excerpt), " ")
+}
+
 // ResolveAll resolves cites, fetching each distinct source at most once.
 func ResolveAll(load func(sourceID string) (api.LoadSourceText, error), cites []NativeCitation) ([]Resolved, error) {
 	cache := make(map[string]*sourceResolver)
@@ -145,16 +194,71 @@ func ResolveAll(load func(sourceID string) (api.LoadSourceText, error), cites []
 }
 
 func newSourceResolver(body api.LoadSourceText) *sourceResolver {
+	return newSourceResolverText(body, body.Full())
+}
+
+func newSourceResolverText(body api.LoadSourceText, text string) *sourceResolver {
 	file := body.Title
 	if file == "" {
 		file = body.SourceID
 	}
-	text := []rune(body.Full())
 	return &sourceResolver{
 		body:        body,
-		text:        text,
+		text:        []rune(text),
 		defaultFile: file,
-		members:     scanTxtarMembers(text),
+		members:     scanTxtarMembers([]rune(text)),
+	}
+}
+
+type sourceProjection struct {
+	Name string
+	Text string
+}
+
+func citationProjections(body api.LoadSourceText) []sourceProjection {
+	var compact strings.Builder
+	for _, fragment := range body.Fragments {
+		if fragment.IsImage() {
+			continue
+		}
+		compact.WriteString(fragment.Text)
+	}
+	candidates := []sourceProjection{
+		{Name: "compact", Text: compact.String()},
+		{Name: "full", Text: body.Full()},
+	}
+	var projections []sourceProjection
+	for _, candidate := range candidates {
+		duplicate := false
+		for _, projection := range projections {
+			if candidate.Text == projection.Text {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			projections = append(projections, candidate)
+		}
+	}
+	return projections
+}
+
+func unresolvedCitation(body api.LoadSourceText, c NativeCitation) Resolved {
+	title := c.SourceTitle
+	if title == "" {
+		title = body.Title
+	}
+	file := body.Title
+	if file == "" {
+		file = body.SourceID
+	}
+	return Resolved{
+		SourceID:    c.SourceID,
+		SourceTitle: title,
+		StartChar:   c.StartChar,
+		EndChar:     c.EndChar,
+		File:        file,
+		Confidence:  c.Confidence,
 	}
 }
 
