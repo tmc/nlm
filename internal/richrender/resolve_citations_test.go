@@ -136,12 +136,41 @@ func TestFormatLocation(t *testing.T) {
 		{"end col is dropped", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndColumn: 12}, "main.go:5:7"},
 		{"end line is dropped", designreview.Resolved{File: "main.go", Line: 5, Column: 7, EndLine: 9, EndColumn: 4}, "main.go:5:7"},
 		{"line zero degrades to file", designreview.Resolved{File: "main.go"}, "main.go"},
+		{
+			"multi-member span",
+			designreview.Resolved{Members: []string{"a.py", "b.py", "f.py"}},
+			"a.py … f.py (3 files)",
+		},
 	}
 	for _, tc := range cases {
 		got := formatLocation(tc.r)
 		if got != tc.want {
 			t.Errorf("%s: formatLocation = %q, want %q", tc.name, got, tc.want)
 		}
+	}
+}
+
+func TestResolveOneCitationMultiMemberSpan(t *testing.T) {
+	const txtar = "-- a.py --\none\n-- b.py --\ntwo\n"
+	body := api.LoadSourceText{
+		SourceID:  "src",
+		Title:     "project.txtar",
+		Fragments: []api.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
+	}
+	start := indexOf(txtar, "one")
+	end := indexOf(txtar, "two") + len("two")
+	cite := api.Citation{
+		SourceID:    "src",
+		SourceStart: start,
+		SourceEnd:   end,
+		Excerpt:     txtar[start:end],
+	}
+	got, ok := resolveOneCitation(body, cite)
+	if !ok {
+		t.Fatal("resolveOneCitation did not retain multi-member span")
+	}
+	if got.Location != "a.py … b.py (2 files)" {
+		t.Fatalf("location = %q", got.Location)
 	}
 }
 

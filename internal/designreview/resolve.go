@@ -29,20 +29,21 @@ type NativeCitation struct {
 
 // Resolved maps one native citation back to source-relative coordinates.
 type Resolved struct {
-	SourceID    string  `json:"source_id"`
-	SourceTitle string  `json:"title,omitempty"`
-	StartChar   int     `json:"start_char"`
-	EndChar     int     `json:"end_char"`
-	File        string  `json:"file"`
-	Line        int     `json:"line,omitempty"`
-	Column      int     `json:"column,omitempty"`
-	EndLine     int     `json:"end_line,omitempty"`
-	EndColumn   int     `json:"end_column,omitempty"`
-	Status      Status  `json:"status"`
-	Reason      string  `json:"reason,omitempty"`
-	Confidence  float64 `json:"confidence,omitempty"`
-	Snippet     string  `json:"snippet,omitempty"`
-	Projection  string  `json:"projection,omitempty"`
+	SourceID    string   `json:"source_id"`
+	SourceTitle string   `json:"title,omitempty"`
+	StartChar   int      `json:"start_char"`
+	EndChar     int      `json:"end_char"`
+	File        string   `json:"file"`
+	Line        int      `json:"line,omitempty"`
+	Column      int      `json:"column,omitempty"`
+	EndLine     int      `json:"end_line,omitempty"`
+	EndColumn   int      `json:"end_column,omitempty"`
+	Status      Status   `json:"status"`
+	Reason      string   `json:"reason,omitempty"`
+	Confidence  float64  `json:"confidence,omitempty"`
+	Snippet     string   `json:"snippet,omitempty"`
+	Projection  string   `json:"projection,omitempty"`
+	Members     []string `json:"members,omitempty"`
 }
 
 type sourceResolver struct {
@@ -303,6 +304,7 @@ func (r *sourceResolver) Resolve(c NativeCitation) Resolved {
 	member := r.memberForRange(c.StartChar, c.EndChar)
 	if member == nil {
 		out.File = r.nearestMemberName(c.StartChar)
+		out.Members = r.membersForRange(c.StartChar, c.EndChar)
 		out.Status = StatusHeaderSpan
 		out.Reason = fmt.Sprintf("citation [%d,%d) crosses a txtar header boundary", c.StartChar, c.EndChar)
 		return out
@@ -328,6 +330,23 @@ func (r *sourceResolver) memberForRange(start, end int) *txtarMember {
 		return nil
 	}
 	return nil
+}
+
+func (r *sourceResolver) membersForRange(start, end int) []string {
+	if end < start {
+		return nil
+	}
+	if end == start {
+		end++
+	}
+	var names []string
+	for _, member := range r.members {
+		if start >= member.BodyEnd || end <= member.HeaderStart {
+			continue
+		}
+		names = append(names, member.Name)
+	}
+	return names
 }
 
 func (r *sourceResolver) nearestMemberName(off int) string {

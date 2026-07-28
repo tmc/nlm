@@ -78,6 +78,11 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 	// A location is only meaningful when txtar resolution actually picked a
 	// member file (not the raw source title), produced a usable line number,
 	// and reproduced the server-provided excerpt.
+	if r.Status == designreview.StatusHeaderSpan &&
+		len(r.Members) > 1 &&
+		designreview.ExcerptMatches(r.Snippet, c.Excerpt) {
+		return resolvedCitation{Location: formatLocation(r)}, true
+	}
 	if r.Status == designreview.StatusOK &&
 		r.File != "" &&
 		r.Line > 0 &&
@@ -106,6 +111,11 @@ func citationSourceRange(c api.Citation) (start, end int) {
 // Absolute paths get shortened to a path relative to the current working
 // directory when possible, so the output pastes cleanly under a repo root.
 func formatLocation(r designreview.Resolved) string {
+	if len(r.Members) > 1 {
+		first := shortenPath(r.Members[0])
+		last := shortenPath(r.Members[len(r.Members)-1])
+		return fmt.Sprintf("%s … %s (%d files)", first, last, len(r.Members))
+	}
 	file := shortenPath(r.File)
 	if r.Line <= 0 {
 		return file

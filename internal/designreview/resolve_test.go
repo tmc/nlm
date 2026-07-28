@@ -2,6 +2,7 @@ package designreview
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -207,6 +208,34 @@ func TestResolveHeaderSpan(t *testing.T) {
 	}
 	if got.Line != 0 || got.Column != 0 {
 		t.Fatalf("unexpected coordinates = %d:%d", got.Line, got.Column)
+	}
+}
+
+func TestResolveMultiMemberSpan(t *testing.T) {
+	const full = "" +
+		"-- alpha.txt --\n" +
+		"first line\n" +
+		"-- dir/beta.go --\n" +
+		"package beta\n" +
+		"-- gamma.md --\n" +
+		"last line\n"
+	body := api.LoadSourceText{
+		SourceID:  "src-1",
+		Fragments: []api.TextFragment{{Start: 0, End: len(full), Text: full}},
+	}
+	start := strings.Index(full, "first line")
+	end := strings.Index(full, "last line") + len("last")
+	got := Resolve(body, NativeCitation{
+		SourceID:  body.SourceID,
+		StartChar: start,
+		EndChar:   end,
+	})
+	if got.Status != StatusHeaderSpan {
+		t.Fatalf("status = %s, want %s", got.Status, StatusHeaderSpan)
+	}
+	want := []string{"alpha.txt", "dir/beta.go", "gamma.md"}
+	if !slices.Equal(got.Members, want) {
+		t.Fatalf("members = %q, want %q", got.Members, want)
 	}
 }
 
