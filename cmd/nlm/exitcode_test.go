@@ -113,6 +113,10 @@ func TestExitCodeFor(t *testing.T) {
 		// Cmd-layer bad-args sentinel from validateCommandArgs.
 		{"errBadArgs", errBadArgs, exitBadArgs},
 		{"errBadArgs wrapped", fmt.Errorf("validate: %w", errBadArgs), exitBadArgs},
+		{"errPrecondition", errPrecondition, exitPrecondition},
+		{"errPrecondition wrapped", fmt.Errorf("validate: %w", errPrecondition), exitPrecondition},
+		{"errNotFound", errNotFound, exitNotFound},
+		{"errNotFound wrapped", fmt.Errorf("lookup: %w", errNotFound), exitNotFound},
 	}
 
 	for _, tt := range tests {

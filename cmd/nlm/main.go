@@ -1086,7 +1086,7 @@ func readNoteWithOptions(c *api.Client, notebookID, noteID string, opts noteRead
 			return renderNoteText(os.Stdout, doc)
 		}
 	}
-	return fmt.Errorf("note %s not found", noteID)
+	return fmt.Errorf("%w: note %s", errNotFound, noteID)
 }
 
 func formatNoteText(title, content string) string {
@@ -1565,7 +1565,7 @@ func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
 			pb.SourceType_SOURCE_TYPE_GOOGLE_SHEETS:
 			return nil
 		}
-		return fmt.Errorf("%w: refresh/freshness is Google-Drive-only; source %s is %s", errBadArgs, sourceID, st)
+		return fmt.Errorf("%w: refresh/freshness is Google-Drive-only; source %s is %s", errPrecondition, sourceID, st)
 	}
 	fmt.Fprintf(os.Stderr, "note: source %s not found in notebook %s; dispatching anyway\n", sourceID, notebookID)
 	return nil

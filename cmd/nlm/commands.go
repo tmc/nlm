@@ -1606,6 +1606,14 @@ func warnCompatibilityCommand(name string, cmd *command) {
 // generic — the per-command usage hint is printed separately to stderr.
 var errBadArgs = errors.New("invalid arguments")
 
+// errPrecondition marks a locally detected state that makes an otherwise
+// valid command inapplicable. It maps to exit 5.
+var errPrecondition = errors.New("precondition failed")
+
+// errNotFound marks a missing resource detected by the command layer. It maps
+// to exit 4.
+var errNotFound = errors.New("not found")
+
 func validateCommandArgs(cmd *command, cmdName string, args []string, opts globalOptions) error {
 	if cmd.validateWithOptions != nil {
 		return cmd.validateWithOptions(cmdName, args, opts)

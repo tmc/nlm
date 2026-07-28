@@ -68,6 +68,12 @@ func exitCodeFor(err error) int {
 	if errors.Is(err, errBadArgs) {
 		return exitBadArgs
 	}
+	if errors.Is(err, errPrecondition) {
+		return exitPrecondition
+	}
+	if errors.Is(err, errNotFound) {
+		return exitNotFound
+	}
 
 	// Typed api-layer sentinels for states batchexecute cannot disambiguate.
 	switch {
