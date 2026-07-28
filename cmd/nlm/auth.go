@@ -157,14 +157,6 @@ func printAuthUsage(_ string) {
 	_, _, _ = parseAuthFlagsWithOptions([]string{"--help"}, globalOptions{})
 }
 
-func handleAuth(args []string, debug bool) (string, string, error) {
-	return handleAuthWithOptions(args, globalOptions{
-		chromeProfile: chromeProfile,
-		authUser:      authUser,
-		debug:         debug,
-	})
-}
-
 func handleAuthWithOptions(args []string, globals globalOptions) (string, string, error) {
 	// Check if help flag is present directly
 	for _, arg := range args {
