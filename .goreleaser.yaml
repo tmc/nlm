@@ -1,7 +1,7 @@
 version: 2
 
 snapshot:
-  version_template: "0.0.0-SNAPSHOT-{{ .ShortCommit }}"
+  version_template: '0.0.0-{{ replace (replace (replace (replace .CommitDate "-" "") ":" "") "T" "") "Z" "" }}-{{ .ShortCommit }}'
 
 before:
   hooks:
@@ -21,11 +21,17 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    flags:
+      - -trimpath
     ldflags:
       - -s -w -X main.version={{.Version}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+gomod:
+  proxy: true
 
 checksum:
-  name_template: "{{ .ProjectName }}_checksums.txt"
+  name_template: "checksums.txt"
   algorithm: sha256
 
 archives:
@@ -43,8 +49,19 @@ archives:
         formats:
           - zip
 
+sboms:
+  - artifacts: archive
+    documents:
+      - "{{ .ArtifactName }}.sbom.spdx.json"
+    args:
+      - $artifact
+      - --output
+      - spdx-json@2.3=$document
+
 brews:
   - name: nlm
+    directory: Formula
+    license: MIT
     skip_upload: auto
     homepage: https://github.com/tmc/nlm
     description: Command-line interface and MCP server for Google NotebookLM
