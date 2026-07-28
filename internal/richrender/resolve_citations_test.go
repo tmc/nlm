@@ -37,8 +37,14 @@ func TestResolveCitationLocations(t *testing.T) {
 	readmeOff := indexOf(txtar, "two")  // member README.md
 
 	cites := []api.Citation{
-		{SourceIndex: 1, SourceID: "src_txtar", StartChar: helloOff, EndChar: helloOff + len("Hello()")},
-		{SourceIndex: 2, SourceID: "src_txtar", StartChar: readmeOff, EndChar: readmeOff + len("two lines")},
+		{
+			SourceIndex: 1, SourceID: "chunk_hello", ParentSourceID: "src_txtar",
+			StartChar: 4, EndChar: 12, SourceStart: helloOff, SourceEnd: helloOff + len("Hello()"),
+		},
+		{
+			SourceIndex: 2, SourceID: "chunk_readme", ParentSourceID: "src_txtar",
+			StartChar: 20, EndChar: 29, SourceStart: readmeOff, SourceEnd: readmeOff + len("two lines"),
+		},
 		{SourceIndex: 3, SourceID: "src_other"}, // no body — skipped
 	}
 

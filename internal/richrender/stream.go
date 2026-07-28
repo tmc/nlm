@@ -523,21 +523,22 @@ func (r *StreamRenderer) excerptFor(c api.Citation) string {
 // longer resolved here — it ships inline on the citation. Resolution is shared
 // with the batch path via resolveOneCitation so the two never diverge.
 func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitation, bool) {
-	if r.loadSource == nil || c.SourceID == "" {
+	sourceID := citationSourceID(c)
+	if r.loadSource == nil || sourceID == "" {
 		return resolvedCitation{}, false
 	}
 	if r.jsonlSourceBodies == nil {
 		r.jsonlSourceBodies = make(map[string]api.LoadSourceText)
 	}
-	body, ok := r.jsonlSourceBodies[c.SourceID]
+	body, ok := r.jsonlSourceBodies[sourceID]
 	if !ok {
-		loaded, err := r.loadSource(c.SourceID)
+		loaded, err := r.loadSource(sourceID)
 		if err != nil {
-			r.jsonlSourceBodies[c.SourceID] = api.LoadSourceText{} // negative cache
+			r.jsonlSourceBodies[sourceID] = api.LoadSourceText{} // negative cache
 			return resolvedCitation{}, false
 		}
 		body = loaded
-		r.jsonlSourceBodies[c.SourceID] = body
+		r.jsonlSourceBodies[sourceID] = body
 	}
 	return resolveOneCitation(body, c)
 }

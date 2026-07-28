@@ -34,18 +34,19 @@ func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cit
 	bodies := make(map[string]api.LoadSourceText)
 	out := make(map[citationKey]resolvedCitation)
 	for _, c := range cites {
-		if c.SourceID == "" {
+		sourceID := citationSourceID(c)
+		if sourceID == "" {
 			continue
 		}
-		body, ok := bodies[c.SourceID]
+		body, ok := bodies[sourceID]
 		if !ok {
-			loaded, err := load(c.SourceID)
+			loaded, err := load(sourceID)
 			if err != nil {
-				bodies[c.SourceID] = api.LoadSourceText{} // negative cache
+				bodies[sourceID] = api.LoadSourceText{} // negative cache
 				continue
 			}
 			body = loaded
-			bodies[c.SourceID] = body
+			bodies[sourceID] = body
 		}
 		entry, ok := resolveOneCitation(body, c)
 		if !ok {
@@ -66,10 +67,11 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 	if len(body.Fragments) == 0 {
 		return resolvedCitation{}, false
 	}
+	start, end := citationSourceRange(c)
 	r := designreview.Resolve(body, designreview.NativeCitation{
-		SourceID:   c.SourceID,
-		StartChar:  c.StartChar,
-		EndChar:    c.EndChar,
+		SourceID:   citationSourceID(c),
+		StartChar:  start,
+		EndChar:    end,
 		Confidence: c.Confidence,
 	})
 
@@ -79,6 +81,16 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 		return resolvedCitation{Location: formatLocation(r)}, true
 	}
 	return resolvedCitation{}, false
+}
+
+// citationSourceRange returns the citation's span in the source document.
+// Older captures did not carry source offsets, so fall back to the answer
+// offsets for compatibility with those saved sessions.
+func citationSourceRange(c api.Citation) (start, end int) {
+	if c.SourceStart < c.SourceEnd {
+		return c.SourceStart, c.SourceEnd
+	}
+	return c.StartChar, c.EndChar
 }
 
 // formatLocation renders a resolved citation as a vim/quickfix-clickable
