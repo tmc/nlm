@@ -10,25 +10,38 @@ permissions:
   attestations: write        # write attestations back to the repo
   artifact-metadata: write   # storage records for attested artifacts
 
+# Every action is pinned to a commit SHA rather than a tag: a tag is mutable, so
+# `@v4` means "whatever that ref points at on release day", and this job holds
+# the credential that can write to the Homebrew tap. .github/dependabot.yml
+# keeps the pins current -- without it, pinning trades silent updates for
+# silently stale ones.
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0  # tags, for the version and changelog
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
-      # syft is not bundled with GoReleaser; without it the sboms stage
-      # silently produces nothing.
-      - uses: anchore/sbom-action/download-syft@v0
+      # The SBOM generator. Installed through the module proxy so it is
+      # hash-verified against sum.golang.org and compiled from source here --
+      # a stronger pin than a git tag, and one fewer vendor binary downloaded
+      # into a job that can write to the tap. Replaced syft, which shipped as an
+      # opaque release asset and produced non-deterministic documents.
+      - name: install cyclonedx-gomod
+        run: |
+          go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
-          version: "~> v2.17"
+          # Exact, not a constraint: pinning the action while letting it fetch
+          # any 2.17.x leaves the binary that writes our formula unpinned.
+          version: "v2.17.1"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,7 +52,8 @@ jobs:
       # Symbol-level reachability against the artifact that actually ships.
       # This is the Go-native check and is strictly more informative than
       # matching SBOM package versions against CVE lists, which cannot tell
-      # whether vulnerable code is reachable.
+      # whether vulnerable code is reachable. Blocking: nlm is clean today, so
+      # keep it that way rather than letting findings accumulate.
       - name: govulncheck (binary mode)
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
@@ -50,42 +64,44 @@ jobs:
             echo "::endgroup::"
           done
 
-      # Build provenance over every archive. checksums.txt deliberately covers
-      # archives only, so it is byte-reproducible; SBOMs are attested below.
+      # Build provenance over every archive and SBOM. checksums.txt covers both
+      # now that the SBOMs are byte-reproducible.
       - name: attest build provenance
-        uses: actions/attest@v4
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
           subject-checksums: ./dist/checksums.txt
 
       # One SBOM attestation per archive. actions/attest binds a single SBOM to
       # a single subject, and the gh CLI cannot create attestations, so these
-      # are enumerated rather than looped.
+      # are enumerated rather than looped. The document describes the binary
+      # inside the archive; the subject is the archive, because that is what
+      # users download and can verify.
       - name: attest SBOM (darwin/amd64)
-        uses: actions/attest@v4
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
           subject-path: ./dist/nlm_Darwin_x86_64.tar.gz
-          sbom-path: ./dist/nlm_Darwin_x86_64.tar.gz.sbom.spdx.json
+          sbom-path: ./dist/nlm_Darwin_x86_64.cdx.json
 
       - name: attest SBOM (darwin/arm64)
-        uses: actions/attest@v4
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
           subject-path: ./dist/nlm_Darwin_arm64.tar.gz
-          sbom-path: ./dist/nlm_Darwin_arm64.tar.gz.sbom.spdx.json
+          sbom-path: ./dist/nlm_Darwin_arm64.cdx.json
 
       - name: attest SBOM (linux/amd64)
-        uses: actions/attest@v4
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
           subject-path: ./dist/nlm_Linux_x86_64.tar.gz
-          sbom-path: ./dist/nlm_Linux_x86_64.tar.gz.sbom.spdx.json
+          sbom-path: ./dist/nlm_Linux_x86_64.cdx.json
 
       - name: attest SBOM (linux/arm64)
-        uses: actions/attest@v4
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
           subject-path: ./dist/nlm_Linux_arm64.tar.gz
-          sbom-path: ./dist/nlm_Linux_arm64.tar.gz.sbom.spdx.json
+          sbom-path: ./dist/nlm_Linux_arm64.cdx.json
 
       - name: attest SBOM (windows/amd64)
-        uses: actions/attest@v4
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
         with:
           subject-path: ./dist/nlm_Windows_x86_64.zip
-          sbom-path: ./dist/nlm_Windows_x86_64.zip.sbom.spdx.json
+          sbom-path: ./dist/nlm_Windows_x86_64.cdx.json

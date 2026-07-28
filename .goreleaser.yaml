@@ -5,7 +5,10 @@ snapshot:
 
 before:
   hooks:
-    - go mod tidy
+    # verify, not tidy: tidy may rewrite go.mod and go.sum mid-release, which
+    # would mean the released binary is pinned by something other than what was
+    # committed and reviewed. verify checks the module cache against go.sum.
+    - go mod verify
 
 builds:
   - main: ./cmd/nlm
@@ -33,10 +36,13 @@ gomod:
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
-  # Archives only. SBOMs carry a fresh SPDX timestamp and document UUID per
-  # run, so including them would make checksums.txt non-reproducible.
+  # Archives and SBOMs. This previously covered archives only, because syft
+  # stamped every SPDX document with a fresh timestamp and UUID and so made
+  # checksums.txt differ between identical builds. cyclonedx-gomod is
+  # deterministic, so the documents can be covered too.
   ids:
     - archives
+    - sbom
 
 archives:
   - id: archives
@@ -55,13 +61,33 @@ archives:
           - zip
 
 sboms:
-  - artifacts: archive
-    documents:
-      - "{{ .ArtifactName }}.sbom.spdx.json"
+  # cyclonedx-gomod rather than syft. Both read the same source -- the module
+  # list the Go toolchain embeds in every binary -- but this one arrives through
+  # the module proxy, hash-verified by sum.golang.org and compiled from source
+  # by our own toolchain, instead of as an opaque vendor binary downloaded into
+  # the job that holds the tap credential. It also emits per-component SHA-256
+  # hashes, and -noserial -notimestamp make the document byte-reproducible;
+  # syft ignores SOURCE_DATE_EPOCH and cannot be made deterministic.
+  - id: sbom
+    # Binaries, not archives: cyclonedx-gomod reads a binary's build info and
+    # cannot look inside a tarball. The attestation still binds each document to
+    # its archive, which is what users actually download.
+    artifacts: binary
+    cmd: cyclonedx-gomod
     args:
+      - bin
+      - -json
+      - -noserial
+      - -notimestamp
+      - -version
+      - "v{{ .Version }}"
+      - -output
+      - $document
       - $artifact
-      - --output
-      - spdx-json@2.3=$document
+    documents:
+      # Mirrors the archive name template above so each document pairs
+      # unambiguously with the archive it describes.
+      - '{{ .ProjectName }}_{{ title .Os }}_{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "386" }}i386{{ else }}{{ .Arch }}{{ end }}.cdx.json'
 
 brews:
   - name: nlm

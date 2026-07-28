@@ -1,0 +1,17 @@
+# Workflows pin actions to commit SHAs, which stops a moved tag from changing
+# what runs in a job that can write to the Homebrew tap. The tradeoff is that a
+# pin never updates on its own, so a pinned action can sit on a known-vulnerable
+# commit indefinitely. Dependabot rewrites both the SHA and its trailing version
+# comment, turning those updates into reviewable pull requests.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    # One pull request for all action bumps rather than one per action.
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
