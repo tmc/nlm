@@ -77,7 +77,8 @@ type storedMessage struct {
 	MessageID string `json:"message_id,omitempty"` // Server-assigned response ID
 	SeqNum    int    `json:"seq_num,omitempty"`    // Sequence number within conversation
 
-	// Transient stream data — only available locally, not from server history.
+	// Stream data persisted for replay. Thinking is local-only; server history
+	// can supply citations and rich text but may omit live-stream metadata.
 	Thinking  string           `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
 	Citations []api.Citation   `json:"citations,omitempty"` // Source references from the response
 	Rich      *pb.RichDocument `json:"rich,omitempty"`      // Answer-body span tree (paragraphs, lists, inline marks); nil for turns generated before this was captured
@@ -2747,9 +2748,14 @@ func printChatHistory(c *api.Client, notebookID, conversationID string) error {
 	return nil
 }
 
+type conversationHistoryClient interface {
+	GetConversations(context.Context, string) ([]string, error)
+	GetConversationHistory(context.Context, string, string) ([]api.ChatMessage, error)
+}
+
 // resolveConversationID expands a partial conversation ID prefix (as shown by
 // chat-list) to the full UUID by checking server-side conversations.
-func resolveConversationID(c *api.Client, notebookID, partial string) string {
+func resolveConversationID(c conversationHistoryClient, notebookID, partial string) string {
 	if len(partial) >= 36 {
 		return partial // already full UUID
 	}
@@ -2785,6 +2791,33 @@ func loadChatSessionByConversation(notebookID, conversationID string) (*chatSess
 		return legacy, nil
 	}
 	return nil, os.ErrNotExist
+}
+
+func chatSessionFromServerHistory(notebookID, conversationID string, messages []api.ChatMessage) *chatSession {
+	now := time.Now()
+	session := &chatSession{
+		NotebookID:     notebookID,
+		ConversationID: conversationID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	for _, message := range messages {
+		role := "unknown"
+		switch message.Role {
+		case 1:
+			role = "user"
+		case 2:
+			role = "assistant"
+		}
+		session.Messages = append(session.Messages, storedMessage{
+			Role:      role,
+			Content:   message.Content,
+			MessageID: message.MessageID,
+			Citations: append([]api.Citation(nil), message.Citations...),
+			Rich:      message.Rich,
+		})
+	}
+	return session
 }
 
 // citationContentKey derives a stable signature from an assistant answer so
@@ -2825,14 +2858,35 @@ func mergeChatHistory(session *chatSession, rich map[string]*pb.RichDocument, ci
 	return changed, richCount, citationCount
 }
 
-// chatShow renders a locally-stored conversation with full citation modes.
-// Unlike chat-history (which prefers server-side), chat-show reads only the
-// local session so it can surface persisted citation metadata (char ranges,
-// source IDs) that the server doesn't return in conversation history.
+// chatShow renders a conversation with full citation modes. It prefers the
+// local session, whose persisted citation metadata includes char ranges and
+// source IDs that the server history may omit.
 func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
+	var c *api.Client
+	if authToken != "" && cookies != "" {
+		c = newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, false)
+	}
+	return chatShowWithClients(notebookID, conversationID, opts, c, c)
+}
+
+func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptions, historyClient conversationHistoryClient, c *api.Client) error {
 	session, err := loadChatSessionByConversation(notebookID, conversationID)
 	if err != nil {
-		return fmt.Errorf("load local session: %w", err)
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("load local session: %w", err)
+		}
+		if historyClient == nil {
+			return fmt.Errorf("no local session and no server history for %s (authenticated? conversation id?): run 'nlm auth'", conversationID)
+		}
+		conversationID = resolveConversationID(historyClient, notebookID, conversationID)
+		messages, historyErr := historyClient.GetConversationHistory(context.Background(), notebookID, conversationID)
+		if historyErr != nil {
+			return fmt.Errorf("no local session and no server history for %s (authenticated? conversation id?): %w", conversationID, historyErr)
+		}
+		if len(messages) == 0 {
+			return fmt.Errorf("no local session and no server history for %s (authenticated? conversation id?)", conversationID)
+		}
+		session = chatSessionFromServerHistory(notebookID, conversationID, messages)
 	}
 	if len(session.Messages) == 0 {
 		fmt.Fprintln(os.Stderr, "No messages in local session.")
@@ -2879,8 +2933,7 @@ func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
 	// The expensive hydration (conversation-history excerpts, source-body
 	// text for file:line) stays gated behind its flags below. Offline replay
 	// (no auth) still degrades to name-only rather than erroring.
-	if authToken != "" && cookies != "" {
-		c := newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, false)
+	if c != nil {
 		// One source-list fetch backs both title resolution and the
 		// removed-source hint, so a stranded citation (its source re-synced
 		// to a new UUID) reads as "removed" rather than a bare handle.
