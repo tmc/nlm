@@ -128,4 +128,6 @@ If you capture a raw HAR, extract the request/response you need, scrub it, and s
 ## Followups
 
 - Add a CI check that greps `internal/method/` hand-written encoders for a guard comment; warn on absence.
-- When the `otmP3b` / revise-artifact captures land, they'll go under `testdata/` as scrubbed goldens, following the same pattern as R7cb6c and rc3d8d.
+- Do not expose artifact revision until a successful capture establishes its
+  request and response shapes. Add any future scrubbed goldens under
+  `testdata/`, following the same pattern as R7cb6c and rc3d8d.

@@ -10,8 +10,8 @@ An unofficial command-line interface and MCP server for [Google NotebookLM](http
 ## Highlights
 
 - **Full notebook lifecycle** — create, list, delete notebooks; add URLs, PDFs, or plain text as sources
-- **AI content generation** — summarize, critique, brainstorm, create study guides, FAQs, timelines, and more
-- **Audio & video overviews** — generate and download podcast-style audio or video summaries
+- **AI content generation** — create reports, slide decks, apps, mind maps, and source-grounded chat answers
+- **Audio & video overviews** — generate customized audio or video summaries
 - **Interactive chat** — conversational sessions with full history, thinking traces, and citation tracking
 - **MCP server** — expose NotebookLM to AI agents via `nlm mcp`
 - **Scriptable** — pipe-friendly output, stdin support, batch workflows

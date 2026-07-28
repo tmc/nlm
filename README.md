@@ -205,14 +205,10 @@ nlm audio share <notebook-id>
 nlm audio delete <notebook-id>
 nlm --direct-rpc audio download <notebook-id> overview.mp3
 
-nlm video list <notebook-id>
-nlm video get <notebook-id>
-nlm video download <notebook-id> overview.mp4
-
 nlm deck download <notebook-id> --id <artifact-id> --format pptx --output deck.pptx
 ```
 
-If generated audio, video, or slide deck output cannot be fetched directly from the CLI,
+If generated audio or slide deck output cannot be fetched directly from the CLI,
 the download command prints the NotebookLM browser URL so you can download it
 from the web UI.
 
@@ -246,21 +242,6 @@ Add `--thinking` to include reasoning traces:
 `{"phase":"thinking","text":...}`, `{"phase":"answer","text":...}`,
 `{"phase":"citation","index":...,"source_id":...,"confidence":...}`,
 `{"phase":"followup","text":...}`, `{"phase":"done"}`.
-
-### Content Transformation
-
-```bash
-nlm summarize <notebook-id>     nlm critique <notebook-id>
-nlm rephrase <notebook-id>      nlm brainstorm <notebook-id>
-nlm expand <notebook-id>        nlm verify <notebook-id>
-nlm explain <notebook-id>       nlm outline <notebook-id>
-nlm study-guide <notebook-id>   nlm faq <notebook-id>
-nlm timeline <notebook-id>      nlm toc <notebook-id>
-nlm briefing-doc <notebook-id>  nlm mindmap <notebook-id> <source-id>
-```
-
-Pass source IDs positionally, or use `--source-ids` / `--source-match` to
-scope the command without listing them on the command line.
 
 ### Research and Sharing
 

@@ -137,9 +137,6 @@ labels yourself.
 | `nlm audio download NOTEBOOK_ID [FILE]` | Download the audio file, or print the browser URL when direct download is unavailable |
 | `nlm audio delete NOTEBOOK_ID` | Delete an audio overview |
 | `nlm audio share NOTEBOOK_ID` | Share an audio overview |
-| `nlm video list NOTEBOOK_ID` | List video overviews |
-| `nlm video get NOTEBOOK_ID` | Get video overview details |
-| `nlm video download NOTEBOOK_ID [FILE]` | Download the video file, or print the browser URL when direct download is unavailable |
 
 ## Deck
 
@@ -167,7 +164,6 @@ source in the notebook is used. Instructions are optional.
 | `nlm read-artifact ARTIFACT_ID` | Print a text artifact |
 | `nlm artifact update ARTIFACT_ID [NEW_TITLE]` | Rename an artifact |
 | `nlm artifact delete ARTIFACT_ID` | Delete an artifact |
-| `nlm artifact revise ARTIFACT_ID "Instructions"` | Re-run an artifact generator with revision instructions |
 
 `artifact update` also accepts `--name` instead of a positional title.
 `artifact export` selects server-rendered downloads by filename extension and
@@ -193,7 +189,6 @@ captured.
 | Command | Description |
 |---------|-------------|
 | `nlm generate-guide NOTEBOOK_ID` | Generate a notebook guide |
-| `nlm magic NOTEBOOK_ID [SOURCE_ID...]` | Generate the notebook Magic View |
 | `nlm source-guide NOTEBOOK_ID SOURCE_ID...` | Show source summaries and keyword chips |
 | `nlm generate-chat NOTEBOOK_ID "Prompt"` | Stream a one-shot chat answer |
 | `nlm audio-suggestions NOTEBOOK_ID` | Suggest audio-overview prompts |
@@ -217,33 +212,6 @@ captured.
 
 For structured chat output, use `--citations=json`; add `--thinking` if you
 also want reasoning events in the JSON-lines stream.
-
-## Content Transformation
-
-These commands all use:
-
-```bash
-nlm <command> NOTEBOOK_ID [SOURCE_ID...]
-```
-
-If you omit source IDs, pass `--source-ids` or `--source-match`.
-
-| Command | Description |
-|---------|-------------|
-| `nlm summarize NOTEBOOK_ID [SOURCE_ID...]` | Summarize content from sources |
-| `nlm rephrase NOTEBOOK_ID [SOURCE_ID...]` | Rephrase content from sources |
-| `nlm expand NOTEBOOK_ID [SOURCE_ID...]` | Expand on content from sources |
-| `nlm critique NOTEBOOK_ID [SOURCE_ID...]` | Critique source content |
-| `nlm brainstorm NOTEBOOK_ID [SOURCE_ID...]` | Brainstorm from source material |
-| `nlm verify NOTEBOOK_ID [SOURCE_ID...]` | Verify facts in sources |
-| `nlm explain NOTEBOOK_ID [SOURCE_ID...]` | Explain concepts from sources |
-| `nlm outline NOTEBOOK_ID [SOURCE_ID...]` | Create an outline from sources |
-| `nlm study-guide NOTEBOOK_ID [SOURCE_ID...]` | Generate a study guide |
-| `nlm faq NOTEBOOK_ID [SOURCE_ID...]` | Generate a FAQ |
-| `nlm briefing-doc NOTEBOOK_ID [SOURCE_ID...]` | Create a briefing document |
-| `nlm mindmap NOTEBOOK_ID SOURCE_ID [SOURCE_ID...]` | Generate an interactive mindmap |
-| `nlm timeline NOTEBOOK_ID [SOURCE_ID...]` | Create a timeline |
-| `nlm toc NOTEBOOK_ID [SOURCE_ID...]` | Generate a table of contents |
 
 ## Research
 

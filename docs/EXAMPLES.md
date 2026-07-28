@@ -71,13 +71,11 @@ nlm note read NOTEBOOK_ID NOTE_ID
 nlm note create NOTEBOOK_ID "Draft outline" < outline.md
 ```
 
-## Batch source processing
+## Ask about selected sources
 
 ```bash
-nlm source list NOTEBOOK_ID | while read -r id rest; do
-    echo "=== Summarizing: $rest ==="
-    nlm summarize NOTEBOOK_ID "$id"
-done
+nlm chat NOTEBOOK_ID --source-match '^design/' \
+    "Summarize the main decisions and cite the relevant sources"
 ```
 
 ## Content generation pipeline
@@ -87,15 +85,13 @@ Generate several outputs from one notebook:
 ```bash
 NB=abc123
 
-# Structured outputs
+# Grounded text output
 nlm generate-guide "$NB" > guide.md
-nlm study-guide "$NB" SOURCE_ID > study-guide.md
-nlm faq "$NB" SOURCE_ID > faq.md
-nlm timeline "$NB" SOURCE_ID > timeline.md
-nlm briefing-doc "$NB" SOURCE_ID > briefing.md
+nlm generate-chat "$NB" "Write a concise study guide with citations" > study-guide.md
 
 # Artifact-backed outputs
 nlm create-slides "$NB" "Presentation summary"
+nlm mindmap create "$NB" "Map the main concepts and their relationships"
 nlm report-suggestions "$NB"
 nlm create-report "$NB" REPORT_TYPE "Executive brief"
 nlm artifact list "$NB"
@@ -181,13 +177,10 @@ nlm source add "$NB" paper1.pdf
 nlm source add "$NB" paper2.pdf
 nlm source add "$NB" "https://arxiv.org/abs/2005.14165"
 
-# Get source IDs
-SOURCES=$(nlm source list "$NB" | awk '{print $1}' | tr '\n' ' ')
-
-# Generate analysis
-nlm summarize "$NB" $SOURCES
-nlm critique "$NB" $SOURCES
-nlm mindmap "$NB" $SOURCES
+# Generate grounded analysis
+nlm generate-chat "$NB" \
+    "Compare the methods, limitations, and open questions"
+nlm mindmap create "$NB" "Map the methods and their relationships"
 
 # Deep research
 nlm research "$NB" "What are the methodological gaps across these papers?"

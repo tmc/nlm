@@ -153,28 +153,6 @@ emits `notifications/progress` when the MCP call includes a progress token. Its
 default poll interval is 2 seconds and its default maximum wait is 10 minutes;
 both are configurable in the tool input.
 
-### Content generation
-
-All 14 generation tools accept `notebook_id` and optional `source_ids`
-parameters:
-
-| Tool | Description |
-|------|-------------|
-| `generate_summarize` | Summarize source content |
-| `generate_faq` | Generate FAQ |
-| `generate_study_guide` | Generate a study guide |
-| `generate_briefing_doc` | Create a briefing document |
-| `generate_timeline` | Create a timeline |
-| `generate_toc` | Generate table of contents |
-| `generate_mindmap` | Generate an interactive mind map |
-| `generate_outline` | Create a structured outline |
-| `generate_rephrase` | Rephrase content |
-| `generate_expand` | Expand on content |
-| `generate_critique` | Critical analysis |
-| `generate_brainstorm` | Brainstorm ideas |
-| `generate_verify` | Verify facts |
-| `generate_explain` | Explain concepts |
-
 ## Common agent workflows
 
 ### Inject local text and ask about it

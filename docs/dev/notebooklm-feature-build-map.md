@@ -15,7 +15,7 @@ The rule for this file is conservative: build from repo-backed or current
 bundle-backed evidence, and require a HAR capture where the wire shape is
 not already verified.
 
-## Build Now
+## Implemented
 
 ### 1. Generic AppArtifact generation
 
@@ -32,46 +32,17 @@ Evidence:
   shared prompt-like artifact option field `Tp`.
 - The generic AppArtifact decode/encode path carries `appType` and `Tp`.
 
-Current gap:
+Current state:
 
-- `nlm mindmap` uses the older `ActOnSources(..., "interactive_mindmap", ...)`
-  note/action path.
-- There is no CLI or MCP surface for `prototype`, `mindmap_app`, or `canvas`
-  as AppArtifacts.
-- Existing artifact management can list/get/rename/delete artifacts, but it
-  does not create these AppArtifact variants.
+- `nlm app create --type prototype|mindmap|canvas` creates AppArtifacts.
+- `nlm mindmap create` and `nlm mindmap-create` use the same AppArtifact path.
+- MCP exposes `create_app_artifact`.
+- The older `ActOnSources(..., "interactive_mindmap", ...)` path was removed
+  after live requests were rejected and no capture established its request
+  shape.
 
-Likely implementation:
-
-- Add a typed API method such as:
-  `CreateAppArtifact(projectID string, appType AppArtifactType, instructions string, sourceIDs []string)`.
-- Add CLI surface:
-  `nlm app create --type prototype|mindmap|canvas --instructions ...`.
-- Consider aliases:
-  `nlm mindmap create --instructions ...` should use the AppArtifact path,
-  while the old `ActOnSources` behavior can remain as a compatibility path if
-  still useful.
-- Add MCP tools for the same capability.
-
-Likely files:
-
-- `cmd/nlm/main.go`
-- `cmd/nlm/commands.go`
-- `internal/notebooklm/api/client.go`
-- `internal/nlmmcp/tools.go`
-- `internal/method/labs_tailwind_overview_custom.go`
-- `proto/notebooklm/v1alpha1/orchestration.proto`
-
-Validation:
-
-- Encoder unit test for the AppArtifact payload.
-- CLI parser tests for `app create`.
-- API test using httprr or a fixture-backed batchexecute response.
-- Live smoke test against a disposable notebook once the command exists.
-
-HAR required: probably no for the broad R7cb6c path if the current bundle
-shape is enough to write and test the encoder, but a targeted HAR is still
-preferred before deleting the older mindmap path.
+Validation includes encoder and CLI parser tests. Changes to the R7cb6c
+payload still require capture-backed corpus verification.
 
 Confidence: high.
 
@@ -82,44 +53,23 @@ audio and video generation.
 
 Evidence:
 
-- The proto and hand-written encoders already model richer fields than the
-  current CLI exposes.
+- The proto and hand-written encoders model the supported option fields.
 - Audio supports instructions plus length and language.
-- Video supports instructions plus style/language/focus-style fields.
+- Video supports instructions plus style and language fields.
 
-Current gap:
+Current state:
 
-- `CreateAudioOverview` accepts only instructions at the CLI/API boundary and
-  hardcodes default length and English.
-- `CreateVideoOverview` is similarly narrow at the CLI boundary.
-- MCP tools mirror the narrow API shape.
-
-Likely implementation:
-
-- Extend API option structs rather than adding positional arguments.
-- Add CLI flags:
-  `nlm audio create --instructions ... --length default|short|long --language en`
-  and equivalent video flags for style/language/focus.
-- Add MCP input fields with sane defaults.
-
-Likely files:
-
-- `cmd/nlm/main.go`
-- `cmd/nlm/commands.go`
-- `internal/notebooklm/api/client.go`
-- `internal/nlmmcp/tools.go`
-- `internal/method/labs_tailwind_overview_custom.go`
-
-Validation:
-
-- Parser tests for new flags.
-- Encoder tests proving defaults preserve existing wire output.
-- Fixture-backed API tests for non-default options.
+- `nlm audio create` accepts `--length`, `--language`, and `--audio-type`.
+- `nlm video create` accepts `--style`, `--language`, and `--audio-type`.
+- API option structs and MCP inputs carry the same fields with defaults.
+- Parser and encoder tests cover defaults and non-default values.
 
 HAR required: no for fields already present in verified encoders; yes for any
 new enum value not already documented in tests.
 
 Confidence: high.
+
+## Build Now
 
 ### 3. Artifact-scoped feedback
 
@@ -420,8 +370,8 @@ Confidence: medium.
 
 ## Non-Goals
 
-- Do not delete the old `ActOnSources` mindmap path until the AppArtifact
-  mindmap path has a live capture or smoke test.
+- Do not restore the old `ActOnSources` content-transform path without a
+  successful capture that establishes its request and response shapes.
 - Do not expose speculative RPCs just because a constant exists.
 - Do not add generated-proto churn unless a command needs the typed shape.
 - Do not broaden `nlm feedback` into many target types without at least one
