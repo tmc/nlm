@@ -1,0 +1,9 @@
+commit: 53c10e8fb065dbc4bf17030910e2dfceec24abc5
+date: 2026-07-28T02:14:31-07:00
+agent: claude-code
+model: claude-opus-4-8
+tty: not a tty
+n/a
+pid: 32791
+iterm_session: w2t1p0:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4
+context: peer-reported content-fidelity bug; NotebookLM index drops offset regions, Full pads them as space-runs, default source read text now collapses to reading breaks (writePresentationGap) like md/html; Full/resolver offsets unchanged; gates+targeted tests green
