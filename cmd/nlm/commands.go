@@ -345,14 +345,13 @@ var commands = []command{
 		},
 	},
 	{
-		name: "read-source", argsUsage: "<source-id> [notebook-id]",
-		usage: "Print a server-indexed source body (--html/--markdown/--json support presentation views)", section: "Source",
-		minArgs: 1, maxArgs: 2,
-		run: func(c *api.Client, args []string) error {
-			return readSource(c, args, globalOptions{})
-		},
+		name: "read-source", argsUsage: "[--format text|markdown|html|json|raw] <source-id> [notebook-id]",
+		usage: "Read a source body", section: "Source",
+		minArgs: 0, maxArgs: -1,
+		validateWithOptions: validateSourceReadArgsWithOptions,
+		help:                printSourceReadUsage,
 		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return readSource(c, args, opts)
+			return runSourceRead(c, args, opts)
 		},
 	},
 

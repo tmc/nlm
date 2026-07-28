@@ -63,7 +63,7 @@ is piped, it emits the full list unless you pass `--limit`.
 | `nlm source rename SOURCE_ID "New Name"` | Rename a source |
 | `nlm source refresh NOTEBOOK_ID SOURCE_ID` | Refresh source content |
 | `nlm source check SOURCE_ID [NOTEBOOK_ID]` | Check source freshness |
-| `nlm source read SOURCE_ID [NOTEBOOK_ID]` | Print the indexed text body |
+| `nlm source read [--format FORMAT] SOURCE_ID [NOTEBOOK_ID]` | Read indexed source content as text, Markdown, HTML, stable JSON, or raw proto JSON |
 | `nlm discover-sources NOTEBOOK_ID "Query"` | Discover relevant source suggestions |
 
 `source add` accepts URLs, file paths, literal text, or a sole `-`. A sole `-`
@@ -74,6 +74,15 @@ uploads.
 
 `source sync` expands directories with tracked files by default. Add
 `--include-untracked` to also include untracked, non-ignored files.
+
+`source read --format=json` emits nlm's stable source projection:
+`source_id`, `title`, and ordered `fragments`. Fragment fields are `start`,
+`end`, `text`, `image_url`, `image_id`, `list_marker`, `bold`, `italic`,
+`code`, `language`, `range_mismatch`, and `block_start`; zero-value optional
+fields are omitted. `--format=raw` emits the decoded LoadSource protobuf with
+protobuf field names. Its shape follows the wire model and is not a stable
+scripting interface. The default format is `text`; `markdown` and `html`
+produce presentation views.
 
 ## Note
 

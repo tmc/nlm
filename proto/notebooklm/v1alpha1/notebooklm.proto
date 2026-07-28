@@ -143,6 +143,8 @@ message Source {
   string viewer_url = 7;
   // Blob reference describing the stored source content.
   SourceBlob blob = 8;
+  // LoadSource carries blob and download data together at position 13.
+  SourceMediaData media_data = 13;
 }
 
 message SourceBlob {
@@ -680,6 +682,12 @@ message MagicViewItem {
 
 message GenerateMagicViewResponse {
     int32 status = 1; // captured opaque status code; meaning unconfirmed
+}
+
+message SourceMediaData {
+  SourceBlob blob = 1;
+  string viewer_url = 2;
+  string download_url = 3;
 }
 
 // Sharing and Guidebooks services are defined in sharing.proto

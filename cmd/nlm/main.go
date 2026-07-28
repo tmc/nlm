@@ -690,16 +690,16 @@ func listSources(c *api.Client, notebookID string) error {
 		if hasAnyLabels {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 				id,
-				strings.TrimSpace(src.Title),
+				collapseWhitespace(src.Title),
 				sourceType,
 				status,
 				lastUpdated,
-				strings.Join(labelsBySource[id], ", "),
+				collapseWhitespace(strings.Join(labelsBySource[id], ", ")),
 			)
 		} else {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 				id,
-				strings.TrimSpace(src.Title),
+				collapseWhitespace(src.Title),
 				sourceType,
 				status,
 				lastUpdated,

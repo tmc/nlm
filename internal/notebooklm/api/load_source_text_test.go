@@ -201,6 +201,33 @@ func TestLoadSourceTextFromProtoCodeBlock(t *testing.T) {
 	}
 }
 
+func TestLoadSourceProtoMediaData(t *testing.T) {
+	raw := []byte(`[
+	  [["source-1"], "source.md", null, null, null, null, null, null, null, null, null, null,
+	    [["/contrib_service/blobrefs/notebooklm/source-1", null, "text/markdown", [["token"]]],
+	     "https://drive.google.com/viewer/upload",
+	     "https://contribution.usercontent.google.com/download"]],
+	  null, null, null
+	]`)
+	var got pb.LoadSourceResponse
+	if err := (&Client{}).unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	media := got.GetSource().GetMediaData()
+	if media.GetBlob().GetBlobRef() != "/contrib_service/blobrefs/notebooklm/source-1" {
+		t.Errorf("blob ref = %q", media.GetBlob().GetBlobRef())
+	}
+	if media.GetBlob().GetMimeType() != "text/markdown" {
+		t.Errorf("mime type = %q", media.GetBlob().GetMimeType())
+	}
+	if media.GetViewerUrl() != "https://drive.google.com/viewer/upload" {
+		t.Errorf("viewer URL = %q", media.GetViewerUrl())
+	}
+	if media.GetDownloadUrl() != "https://contribution.usercontent.google.com/download" {
+		t.Errorf("download URL = %q", media.GetDownloadUrl())
+	}
+}
+
 func TestExtractChunksCodeBlock(t *testing.T) {
 	got, err := extractChunks(json.RawMessage(
 		`[10,23,null,null,null,null,["line 1\nline 2","go"]]`,

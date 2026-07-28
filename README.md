@@ -146,11 +146,18 @@ printf '%s\n' https://example.com/a ./notes.pdf |
 nlm source sync <notebook-id> .
 nlm source pack .
 nlm source read <source-id> [notebook-id]
+nlm source read --format=markdown <source-id> [notebook-id]
 nlm source delete <notebook-id> <source-id>
 ```
 
 When you pass `-` to `source add`, all of stdin becomes one source. To add a
 list of URLs or paths, compose with `xargs` as shown above.
+
+`source read` supports `--format=text|markdown|html|json|raw`. The `json`
+format is a stable object with `source_id`, `title`, and ordered `fragments`;
+each fragment records its offsets and decoded text, image, list, style, and
+code fields. The `raw` format is the unstable decoded LoadSource protobuf,
+emitted with protobuf field names for debugging.
 
 ### Note
 

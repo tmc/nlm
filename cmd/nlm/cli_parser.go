@@ -36,6 +36,7 @@ type globalOptions struct {
 	dryRun               bool
 	maxBytes             int
 	jsonOutput           bool
+	sourceReadFormat     string
 	sourceReadMarkdown   bool
 	sourceReadHTML       bool
 	packChunk            int
@@ -124,9 +125,9 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.StringVar(&opts.sourceName, "name", "", "custom name for added source")
 	flags.StringVar(&opts.sourceName, "n", "", "custom name for added source (shorthand)")
 	flags.StringVar(&opts.replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
-	flags.BoolVar(&opts.jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (notebook list/source list/note list/notebook featured/artifact list/audio list/guidebooks/chat list/label list); also enables NDJSON progress for sync")
-	flags.BoolVar(&opts.sourceReadMarkdown, "markdown", false, "render source read with inline image references (source read)")
-	flags.BoolVar(&opts.sourceReadHTML, "html", false, "render source read as a self-contained HTML document (source read)")
+	flags.BoolVar(&opts.jsonOutput, "json", false, "emit NDJSON for list and sync commands; deprecated alias for source read --format=json")
+	flags.BoolVar(&opts.sourceReadMarkdown, "markdown", false, "deprecated alias for source read --format=markdown")
+	flags.BoolVar(&opts.sourceReadHTML, "html", false, "deprecated alias for source read --format=html")
 	flags.BoolVar(&opts.force, "force", false, "force re-upload even if unchanged (sync)")
 	flags.BoolVar(&opts.dryRun, "dry-run", false, "show what would change without uploading (sync)")
 	flags.IntVar(&opts.maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
@@ -348,6 +349,8 @@ var commandLocalFlags = map[string]map[string]bool{
 		"name": true, "n": true, "max-bytes": true, "chunk": true,
 		"exclude": true, "x": true, "pre-process": true,
 	},
+	"source read":     {"format": true},
+	"read-source":     {"format": true},
 	"generate-chat":   chatCommandLocalFlags(),
 	"chat":            chatCommandLocalFlags(),
 	"chat show":       chatShowCommandLocalFlags(),

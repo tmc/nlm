@@ -167,6 +167,20 @@ func (c *Client) LoadSourceText(ctx context.Context, sourceID, notebookID string
 	return decodeLoadSourceText(raw)
 }
 
+// LoadSourceProto returns the decoded hizoJc response. Unlike LoadSourceText,
+// it preserves source metadata and the original row structure.
+func (c *Client) LoadSourceProto(ctx context.Context, sourceID, notebookID string) (*pb.LoadSourceResponse, error) {
+	raw, err := c.LoadSourceRaw(ctx, sourceID, notebookID)
+	if err != nil {
+		return nil, err
+	}
+	var response pb.LoadSourceResponse
+	if err := c.unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("decode load source proto: %w", err)
+	}
+	return &response, nil
+}
+
 // DecodeLoadSourceText decodes a raw hizoJc response into LoadSourceText.
 func DecodeLoadSourceText(raw json.RawMessage) (LoadSourceText, error) {
 	return decodeLoadSourceText(raw)

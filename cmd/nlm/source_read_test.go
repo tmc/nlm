@@ -7,7 +7,10 @@ import (
 	"strings"
 	"testing"
 
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/internal/richrender"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func imageSourceBody() api.LoadSourceText {
@@ -320,24 +323,141 @@ func TestSourceReadSeparatesTxtarMembers(t *testing.T) {
 	}
 }
 
-func TestWriteSourceRead_JSONIncludesOrderedImages(t *testing.T) {
+func TestWriteSourceReadJSONUsesStableModel(t *testing.T) {
 	body := imageSourceBody()
 	var out bytes.Buffer
-	if err := writeSourceRead(&out, body, globalOptions{jsonOutput: true}, nil); err != nil {
+	if err := writeSourceReadJSON(&out, body); err != nil {
 		t.Fatal(err)
 	}
 	var got sourceReadJSON
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Fragments) != 3 {
-		t.Fatalf("fragments = %d, want 3", len(got.Fragments))
+	if got.SourceID != body.SourceID || got.Title != body.Title {
+		t.Fatalf("document = %+v", got)
 	}
-	if got.Fragments[1].ImageURL != "https://example.test/image" || got.Fragments[1].ImageID != "image-1" {
-		t.Errorf("image fragment = %+v", got.Fragments[1])
+	if len(got.Fragments) != len(body.Fragments) {
+		t.Fatalf("fragments = %d, want %d", len(got.Fragments), len(body.Fragments))
 	}
-	if got.Fragments[0].Text != "A" || got.Fragments[2].Text != "B" {
-		t.Errorf("fragment order = %+v", got.Fragments)
+	if got.Fragments[1].ImageURL != body.Fragments[1].ImageURL ||
+		got.Fragments[1].ImageID != body.Fragments[1].ImageID {
+		t.Fatalf("image fragment = %+v", got.Fragments[1])
+	}
+}
+
+func TestWriteSourceReadProtoJSONPreservesRowsAndBlob(t *testing.T) {
+	start, end := int64(10), int64(22)
+	language := "go"
+	response := &pb.LoadSourceResponse{
+		Source: &pb.Source{
+			SourceId: &pb.SourceId{SourceId: "source-1"},
+			Title:    "source.md",
+			MediaData: &pb.SourceMediaData{
+				Blob: &pb.SourceBlob{
+					BlobRef:  "/contrib_service/blobrefs/notebooklm/source-1",
+					MimeType: "text/markdown",
+				},
+			},
+		},
+		Content: &pb.LoadedSourceContent{
+			Rows: &pb.LoadedSourceRows{
+				Rows: []*pb.LoadedSourceRow{
+					{
+						Start: &start,
+						End:   &end,
+						CodeBlock: &pb.SpanCodeBlock{
+							Code:     "package main\n",
+							Language: &language,
+						},
+					},
+					{
+						Start: &start,
+						End:   &end,
+						Image: &pb.LoadedSourceImage{
+							Url:     "https://example.test/image",
+							ImageId: "image-1",
+						},
+					},
+				},
+			},
+		},
+	}
+	var out bytes.Buffer
+	if err := writeSourceReadProtoJSON(&out, response); err != nil {
+		t.Fatal(err)
+	}
+	var got pb.LoadSourceResponse
+	if err := protojson.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.GetSource().GetMediaData().GetBlob().GetBlobRef() != response.GetSource().GetMediaData().GetBlob().GetBlobRef() {
+		t.Fatalf("media data = %+v", got.GetSource().GetMediaData())
+	}
+	rows := got.GetContent().GetRows().GetRows()
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(rows))
+	}
+	if rows[0].GetStart() != start || rows[0].GetEnd() != end || rows[0].GetCodeBlock().GetCode() != "package main\n" {
+		t.Errorf("code row = %+v", rows[0])
+	}
+	if rows[1].GetImage().GetImageId() != "image-1" {
+		t.Errorf("image row = %+v", rows[1])
+	}
+	var names map[string]any
+	if err := json.Unmarshal(out.Bytes(), &names); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := names["source"]; !ok {
+		t.Fatalf("source field missing:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), `"code_block"`) || !strings.Contains(out.String(), `"blob_ref"`) {
+		t.Fatalf("proto field names missing:\n%s", out.String())
+	}
+}
+
+type recordingSourceReadEmitter struct {
+	items []richrender.ContentFragment
+}
+
+func (e *recordingSourceReadEmitter) EmitContent(item richrender.ContentFragment) error {
+	e.items = append(e.items, item)
+	return nil
+}
+
+func (*recordingSourceReadEmitter) FinishContent() error {
+	return nil
+}
+
+func TestRenderSourceReadClassifiesFragmentsOnce(t *testing.T) {
+	body := api.LoadSourceText{Fragments: []api.TextFragment{
+		{Start: 0, End: 10, Text: "-- a.go --", Code: true},
+		{Start: 10, End: 23, Text: "package main\n", Code: true},
+		{Start: 23, End: 24, ImageURL: "https://example.test/image", ImageID: "image-1"},
+		{Start: 24, End: 41, Text: "Figure 1: result"},
+	}}
+	var got recordingSourceReadEmitter
+	if err := renderSourceRead(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := []richrender.ContentFragmentKind{
+		richrender.ContentMember,
+		richrender.ContentCode,
+		richrender.ContentImage,
+		richrender.ContentOrdinary,
+	}
+	if len(got.items) != len(want) {
+		t.Fatalf("items = %d, want %d", len(got.items), len(want))
+	}
+	for i := range want {
+		if got.items[i].Kind != want[i] {
+			t.Errorf("item %d kind = %d, want %d", i, got.items[i].Kind, want[i])
+		}
+	}
+	if got.items[0].MemberName != "a.go" {
+		t.Errorf("member name = %q", got.items[0].MemberName)
+	}
+	if got.items[2].ImageAlt != "Figure 1: result" {
+		t.Errorf("image alt = %q", got.items[2].ImageAlt)
 	}
 }
 
@@ -360,5 +480,74 @@ func TestSourceReadHTMLFlagAfterCommand(t *testing.T) {
 	}
 	if inv.name != "source read" || !inv.globals.sourceReadHTML || len(inv.args) != 1 || inv.args[0] != "source-1" {
 		t.Fatalf("invocation = %+v", inv)
+	}
+}
+
+func TestParseSourceReadArgsFormats(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		globals globalOptions
+		format  string
+	}{
+		{name: "default", args: []string{"source-1"}, format: "text"},
+		{name: "markdown", args: []string{"--format=markdown", "source-1"}, format: "markdown"},
+		{name: "md", args: []string{"source-1", "--format", "md"}, format: "markdown"},
+		{name: "html", args: []string{"--format", "html", "source-1"}, format: "html"},
+		{name: "stable json", args: []string{"--format=json", "source-1"}, format: "json"},
+		{name: "raw proto", args: []string{"--format=raw", "source-1"}, format: "raw"},
+		{name: "raw json synonym", args: []string{"--format=raw-json", "source-1"}, format: "raw"},
+		{name: "json alias", args: []string{"source-1"}, globals: globalOptions{jsonOutput: true}, format: "json"},
+		{name: "markdown alias", args: []string{"source-1"}, globals: globalOptions{sourceReadMarkdown: true}, format: "markdown"},
+		{name: "html alias", args: []string{"source-1"}, globals: globalOptions{sourceReadHTML: true}, format: "html"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, positional, err := parseSourceReadArgs(test.args, test.globals)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.sourceReadFormat != test.format {
+				t.Errorf("format = %q, want %q", got.sourceReadFormat, test.format)
+			}
+			if len(positional) != 1 || positional[0] != "source-1" {
+				t.Errorf("positional = %q", positional)
+			}
+		})
+	}
+}
+
+func TestParseSourceReadArgsKeepsNotebookPositional(t *testing.T) {
+	opts, positional, err := parseSourceReadArgs([]string{
+		"--format=raw",
+		"source-1",
+		"notebook-1",
+	}, globalOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.sourceReadFormat != "raw" {
+		t.Errorf("format = %q", opts.sourceReadFormat)
+	}
+	if got, want := strings.Join(positional, " "), "source-1 notebook-1"; got != want {
+		t.Errorf("positional = %q, want %q", got, want)
+	}
+}
+
+func TestSourceReadRejectsMultipleFormats(t *testing.T) {
+	err := readSource(nil, []string{"source-1"}, globalOptions{
+		jsonOutput:         true,
+		sourceReadMarkdown: true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "use only one") {
+		t.Fatalf("readSource error = %v", err)
+	}
+}
+
+func TestWarnDeprecatedSourceReadFormat(t *testing.T) {
+	var out bytes.Buffer
+	warnDeprecatedSourceReadFormat(&out, globalOptions{jsonOutput: true})
+	if got, want := out.String(), "nlm: source read: --json is deprecated; use --format=json\n"; got != want {
+		t.Errorf("warning = %q, want %q", got, want)
 	}
 }
