@@ -24,15 +24,18 @@ type LoadSourceText struct {
 
 // TextFragment is one contiguous piece of the indexed text.
 type TextFragment struct {
-	Start      int // inclusive start character offset.
-	End        int // exclusive end character offset. Text length == End - Start.
-	Text       string
-	ImageURL   string // transient source image URL, if this is an image fragment.
-	ImageID    string // opaque source image ID, if this is an image fragment.
-	ListMarker string // list marker decoded from wrapper metadata, if present.
-	Bold       bool   // text was marked bold in the chunk attributes.
-	Italic     bool   // text was marked italic in the chunk attributes.
-	BlockStart bool   // fragment starts an outer hizoJc content block.
+	Start         int // inclusive start character offset.
+	End           int // exclusive end character offset. Text length == End - Start.
+	Text          string
+	ImageURL      string // transient source image URL, if this is an image fragment.
+	ImageID       string // opaque source image ID, if this is an image fragment.
+	ListMarker    string // list marker decoded from wrapper metadata, if present.
+	Bold          bool   // text was marked bold in the chunk attributes.
+	Italic        bool   // text was marked italic in the chunk attributes.
+	Code          bool   // fragment is a code-block row.
+	Language      string // code-block language, if present.
+	RangeMismatch bool   // code rune count differs from End - Start.
+	BlockStart    bool   // fragment starts an outer hizoJc content block.
 }
 
 // IsImage reports whether f names an image payload rather than text.
@@ -185,7 +188,20 @@ func loadSourceTextFromProto(response *pb.LoadSourceResponse) LoadSourceText {
 		return out
 	}
 	for i, row := range content.GetRows().GetRows() {
-		if row == nil || row.GetText() == nil {
+		if row == nil {
+			continue
+		}
+		if code := row.GetCodeBlock(); row.GetText() == nil && code != nil {
+			out.Fragments = append(out.Fragments, codeTextFragment(
+				int(row.GetStart()),
+				int(row.GetEnd()),
+				code.GetCode(),
+				code.GetLanguage(),
+				i != 0,
+			))
+			continue
+		}
+		if row.GetText() == nil {
 			continue
 		}
 		// Every row but the first opens an outer content block, and only that
@@ -357,6 +373,28 @@ func extractChunks(raw json.RawMessage, blockStart bool) ([]TextFragment, error)
 	if len(top) < 3 {
 		return nil, nil
 	}
+	if isJSONNull(top[2]) && len(top) >= 7 && !isJSONNull(top[6]) {
+		var start, end int
+		if err := json.Unmarshal(top[0], &start); err != nil {
+			return nil, nil
+		}
+		if err := json.Unmarshal(top[1], &end); err != nil {
+			return nil, nil
+		}
+		var values []json.RawMessage
+		if err := json.Unmarshal(top[6], &values); err != nil || len(values) == 0 {
+			return nil, nil
+		}
+		var code string
+		if err := json.Unmarshal(values[0], &code); err != nil {
+			return nil, nil
+		}
+		var language string
+		if len(values) > 1 {
+			_ = json.Unmarshal(values[1], &language)
+		}
+		return []TextFragment{codeTextFragment(start, end, code, language, blockStart)}, nil
+	}
 	// top[2] is [[chunks...], maybe_extra].
 	var wrap []json.RawMessage
 	if err := json.Unmarshal(top[2], &wrap); err != nil {
@@ -420,6 +458,18 @@ func extractChunks(raw json.RawMessage, blockStart bool) ([]TextFragment, error)
 		first = false
 	}
 	return out, nil
+}
+
+func codeTextFragment(start, end int, code, language string, blockStart bool) TextFragment {
+	return TextFragment{
+		Start:         start,
+		End:           end,
+		Text:          code,
+		Code:          true,
+		Language:      language,
+		RangeMismatch: len([]rune(code)) != end-start,
+		BlockStart:    blockStart,
+	}
 }
 
 // decodeTextStyle decodes the compact style forms observed in hizoJc text

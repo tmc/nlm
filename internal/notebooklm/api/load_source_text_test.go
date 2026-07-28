@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 )
 
 // A minimal hand-built hizoJc response that mirrors the HAR-verified shape:
@@ -167,6 +169,54 @@ func TestDecodeLoadSourceText_TextStyle(t *testing.T) {
 	}
 	if got.Fragments[1].Bold || !got.Fragments[1].Italic {
 		t.Errorf("italic fragment = %+v", got.Fragments[1])
+	}
+}
+
+func TestLoadSourceTextFromProtoCodeBlock(t *testing.T) {
+	start, end := int64(10), int64(22)
+	language := "go"
+	got := loadSourceTextFromProto(&pb.LoadSourceResponse{
+		Content: &pb.LoadedSourceContent{
+			Rows: &pb.LoadedSourceRows{
+				Rows: []*pb.LoadedSourceRow{{
+					Start: &start,
+					End:   &end,
+					CodeBlock: &pb.SpanCodeBlock{
+						Code:     "line 1\nline 2",
+						Language: &language,
+					},
+				}},
+			},
+		},
+	})
+	if len(got.Fragments) != 1 {
+		t.Fatalf("fragments = %d, want 1: %+v", len(got.Fragments), got.Fragments)
+	}
+	fragment := got.Fragments[0]
+	if fragment.Start != 10 || fragment.End != 22 || fragment.Text != "line 1\nline 2" {
+		t.Fatalf("fragment = %+v", fragment)
+	}
+	if !fragment.Code || fragment.Language != "go" || !fragment.RangeMismatch {
+		t.Fatalf("code metadata = %+v", fragment)
+	}
+}
+
+func TestExtractChunksCodeBlock(t *testing.T) {
+	got, err := extractChunks(json.RawMessage(
+		`[10,23,null,null,null,null,["line 1\nline 2","go"]]`,
+	), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("fragments = %d, want 1: %+v", len(got), got)
+	}
+	fragment := got[0]
+	if fragment.Start != 10 || fragment.End != 23 || fragment.Text != "line 1\nline 2" {
+		t.Fatalf("fragment = %+v", fragment)
+	}
+	if !fragment.Code || fragment.Language != "go" || fragment.RangeMismatch || !fragment.BlockStart {
+		t.Fatalf("code metadata = %+v", fragment)
 	}
 }
 
