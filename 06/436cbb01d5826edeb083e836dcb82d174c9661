@@ -1,1 +1,4 @@
 commit aa513e15; date 2026-07-28; claude-code 2.1.220; model gpt-5; tty not-a-tty; pid 73988; ITERM_SESSION_ID w2t1p1:CE73D7C5-A3A7-4761-9071-5F5BB460C87F
+
+reconcile: cherry-picked from cleanup/remove-unproven aa513e15 onto docs/rich-types-proto-alignment-public by claude-code (model claude-opus-4-8, tty not a tty
+n/a, pid 52890, iterm w2t1p0:FD626FA5-C67E-46DC-9E90-BD58DF2F5FD4); re-signed; gates+full test PASS on reconciled tip
