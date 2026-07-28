@@ -18,24 +18,24 @@ rather than chasing every possible feature.
 
 ## Feature support
 
-| Feature | Status | Notes |
-|---|:---:|---|
-| Browser authentication | ✅ | `nlm auth login` extracts credentials from an already signed-in Chrome, Brave, or Edge profile — no DevTools copy-paste |
-| Interactive & scriptable chat | ✅ | Streaming `nlm chat` REPL with persistent sessions and slash commands (`/history`, `/new`, `/fork`, `/file`); pass a prompt for one-shot/script use |
-| Source selection by name, label, or regex | ✅ | `--source-match`, `--source-exclude`, `--label-match`, `--label-exclude` |
-| Sources: files, URLs, text, stdin | ✅ | `nlm source add`; PDFs upload via Google's resumable protocol |
-| Local-tree sync | ✅ | Idempotent SHA-256 directory sync with `.nlmignore`, exclude patterns, and chunking |
-| Rich note rendering | ✅ | RichDocument notes to Markdown or HTML, with citation excerpts |
-| Labels & autolabel | ✅ | Hand-curated labels plus generated autolabels |
-| Audio, video & slide generation | ✅ | `audio create`, `video create`, `deck create`, plus report generation |
-| Deep research | ✅ | Event stream or self-contained Markdown (`nlm research --md`) |
-| Artifacts | ✅ | List, get, rename, delete, share, and export/download rendered artifacts |
-| Flashcard export | ✅ | Type-4 flashcard artifacts → Markdown, JSON, TSV, or HTML |
-| Sharing | ✅ | Public and private share links |
-| MCP server | ✅ | Built-in stdio server: notebook, source, note, chat, artifact, generation, and research tools |
-| Citation → `file:line` | ✅ | Resolves citations back into txtar-bundled local sources |
-| Mind-map export | ⬜ | Content payload still needs capture-backed wire modeling |
-| Native type-9 flashcard export | ⬜ | Pending a successful deck-payload capture |
+| Feature | Notes |
+|---|---|
+| Browser authentication | `nlm auth login` extracts credentials from an already signed-in Chrome, Brave, or Edge profile — no DevTools copy-paste |
+| Interactive & scriptable chat | Streaming `nlm chat` REPL with persistent sessions and slash commands (`/history`, `/new`, `/fork`, `/file`); pass a prompt for one-shot/script use |
+| Source selection by name, label, or regex | `--source-match`, `--source-exclude`, `--label-match`, `--label-exclude` |
+| Sources: files, URLs, text, stdin | `nlm source add`; PDFs upload via Google's resumable protocol |
+| Local-tree sync | Idempotent SHA-256 directory sync with `.nlmignore`, exclude patterns, and chunking |
+| Rich note rendering | RichDocument notes to Markdown or HTML, with citation excerpts |
+| Labels & autolabel | Hand-curated labels plus generated autolabels |
+| Audio, video & slide generation | `audio create`, `video create`, `deck create`, plus report generation |
+| Deep research | Event stream or self-contained Markdown (`nlm research --md`) |
+| Artifacts | List, get, rename, delete, share, and export/download rendered artifacts |
+| Flashcard export | Type-4 flashcard artifacts → Markdown, JSON, TSV, or HTML |
+| Sharing | Public and private share links |
+| MCP server | Built-in stdio server: notebook, source, note, chat, artifact, generation, and research tools |
+| Citation → `file:line` | Resolves citations back into txtar-bundled local sources |
+
+**Not yet:** mind-map export and native type-9 flashcard export — both still need capture-backed wire modeling.
 
 ## Quickstart
 
@@ -49,44 +49,6 @@ nlm chat <notebook-id> "summarize the key findings"
 `go install` needs the Go toolchain (1.25+). Prebuilt release binaries and a
 Homebrew formula (`brew install tmc/tap/nlm`) are planned so the single binary
 can be fetched without Go.
-
-## Does it do X?
-
-**Interactive chat?** Yes. `nlm chat <notebook-id>` opens a streaming REPL.
-Sessions and history are stored on disk, and `/history`, `/new`, `/fork`,
-`/file`, and other slash commands are available inside the session. Supplying a
-prompt runs the same chat path once for scripts.
-
-**Browser login without copying tokens?** Yes. `nlm auth login` launches a
-headless browser by default, finds an already signed-in Chrome, Brave, or Edge
-profile, and saves the extracted token and cookies.
-
-**Source selection without UUIDs?** Yes. Chat and generation commands accept
-title/UUID regular expressions and label selectors:
-
-```bash
-nlm chat --source-match '^design/' --source-exclude 'draft' <notebook-id>
-nlm generate-chat --label-match '^Approved$' <notebook-id> "summarize"
-```
-
-**Deep research as Markdown?** Yes:
-
-```bash
-nlm research --md <notebook-id> "compare the proposed designs" > report.md
-```
-
-NotebookLM citation markers such as `[cite: 1, 2]` become Markdown footnotes
-linked to the discovered source URLs.
-
-**Local context injection for agents?** Yes. Run `nlm mcp`; the
-`add_source_text` and `create_note` tools accept arbitrary text, while
-`start_deep_research` and `watch_deep_research` handle long research jobs.
-The watch tool blocks until completion and emits MCP progress notifications
-when the caller supplies a progress token.
-
-**Flashcard export?** Yes. Flashcard app artifacts export as Markdown, JSON,
-TSV, or self-contained HTML. **Mind-map export?** Not yet; its content payload
-still requires capture-backed wire modeling.
 
 ## Authentication
 
@@ -267,6 +229,7 @@ nlm chat <notebook-id>
 nlm chat <notebook-id> "What is this about?"
 nlm chat <notebook-id> --source-ids s1,s2 "..."
 nlm chat <notebook-id> --source-ids - "..." < ids.txt
+nlm chat <notebook-id> --source-match '^design/' --source-exclude 'draft' "..."
 nlm chat list
 nlm chat list <notebook-id>
 nlm chat history <notebook-id> <conversation-id>
@@ -315,8 +278,9 @@ nlm share-details <share-id>
 ```
 
 The default research event stream uses `type` values such as `progress`,
-`source_discovered`, `report_chunk`, and `complete`. `--md` switches to raw
-markdown output.
+`source_discovered`, `report_chunk`, and `complete`. `--md` switches to a
+self-contained Markdown report, rewriting NotebookLM citation markers such as
+`[cite: 1, 2]` into footnotes linked to the discovered source URLs.
 
 ### Other
 
