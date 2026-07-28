@@ -37,6 +37,22 @@ jobs:
           go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.10.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
+      # Mint a short-lived installation token for the tap. The App is installed
+      # on tmc/homebrew-tap alone, so this token cannot reach any other
+      # repository; it expires within the hour and the action revokes it when
+      # the job ends. The permission-* inputs narrow it below what the
+      # installation grants, so widening the App later cannot silently widen
+      # this job.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: tap-token
+        with:
+          client-id: ${{ vars.TAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
+          owner: tmc
+          repositories: homebrew-tap
+          permission-contents: write
+          permission-pull-requests: write
+
       - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           # Exact, not a constraint: pinning the action while letting it fetch
@@ -45,9 +61,10 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # The default GITHUB_TOKEN cannot push to another repository, so the
-          # Homebrew tap needs its own token.
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          # The default GITHUB_TOKEN cannot push to another repository, and a
+          # pull request it opened would not trigger the tap's CI. An App
+          # installation token does both.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ steps.tap-token.outputs.token }}
 
       # Symbol-level reachability against the artifact that actually ships.
       # This is the Go-native check and is strictly more informative than
