@@ -90,3 +90,20 @@ func TestPrintStreamFallbackJSONL(t *testing.T) {
 		t.Fatalf("text = %v, want full fallback text", event["text"])
 	}
 }
+
+func TestChatRenderOptionsJSONL(t *testing.T) {
+	tests := []struct {
+		name string
+		opts chatRenderOptions
+		want bool
+	}{
+		{"default", chatRenderOptions{}, false},
+		{"citation mode", chatRenderOptions{CitationMode: "json"}, true},
+		{"legacy thinking mode", chatRenderOptions{ThinkingJSONL: true}, true},
+	}
+	for _, test := range tests {
+		if got := test.opts.jsonl(); got != test.want {
+			t.Errorf("%s: jsonl() = %v, want %v", test.name, got, test.want)
+		}
+	}
+}

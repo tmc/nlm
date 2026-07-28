@@ -2137,7 +2137,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 		if chatErr != nil {
 			return fmt.Errorf("generate chat: stream: %w; fallback: %v", streamErr, chatErr)
 		}
-		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.ThinkingJSONL)
+		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.jsonl())
 		res.Answer = response
 		// Surface the streaming error even when fallback succeeded, so users
 		// can diagnose flaky streams rather than silently degrading.
@@ -2146,7 +2146,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 	if res.Answer != "" {
 		fmt.Println()
 	} else if strings.TrimSpace(res.Thinking) != "" {
-		promoteThinkingToAnswer(&res, debug, opts.Render.ThinkingJSONL)
+		promoteThinkingToAnswer(&res, debug, opts.Render.jsonl())
 	} else {
 		// Empty answer with no streaming error usually means the conversation
 		// was rejected server-side, every source is in an error/indexing state,
@@ -2605,11 +2605,11 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 		if chatErr != nil {
 			return fmt.Errorf("chat: %w", err)
 		}
-		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.ThinkingJSONL)
+		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.jsonl())
 		res.Answer = response
 	}
 	if res.Answer == "" {
-		promoteThinkingToAnswer(&res, debug, opts.Render.ThinkingJSONL)
+		promoteThinkingToAnswer(&res, debug, opts.Render.jsonl())
 	}
 	fmt.Println()
 
@@ -2691,11 +2691,11 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 		if chatErr != nil {
 			return fmt.Errorf("chat: %w", err)
 		}
-		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.ThinkingJSONL)
+		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.jsonl())
 		res.Answer = response
 	}
 	if res.Answer == "" {
-		promoteThinkingToAnswer(&res, debug, opts.Render.ThinkingJSONL)
+		promoteThinkingToAnswer(&res, debug, opts.Render.jsonl())
 	}
 	fmt.Println()
 	response := strings.TrimSpace(res.Answer)

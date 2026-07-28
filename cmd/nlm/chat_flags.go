@@ -29,6 +29,10 @@ type chatRenderOptions struct {
 	Open    bool   // --open: open the written html file in the browser
 }
 
+func (o chatRenderOptions) jsonl() bool {
+	return o.ThinkingJSONL || resolveCitationMode(o.CitationMode) == citationModeJSON
+}
+
 type generateChatOptions struct {
 	ConversationID string
 	UseWebChat     bool
