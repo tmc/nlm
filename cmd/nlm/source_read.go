@@ -114,8 +114,31 @@ func writeSourceRead(w io.Writer, body api.LoadSourceText, opts globalOptions, f
 		_, err = io.WriteString(w, document)
 		return err
 	}
-	_, err := io.WriteString(w, body.Full())
+	_, err := io.WriteString(w, sourceReadText(body))
 	return err
+}
+
+// sourceReadText reconstructs the default plain-text reading view from the
+// server's ordered fragments. Full pads the server's untyped offset gaps with
+// one space per missing offset to stay faithful to the citation coordinate
+// space; that fidelity turns a region the NotebookLM index dropped into a long
+// run of blanks, so a missing paragraph reads as whitespace and a dropped
+// function body reads as indentation. The default view is for humans, not
+// offset lookups, so it collapses each gap into reading flow the same way the
+// Markdown and HTML views do via writePresentationGap. Contiguous sources are
+// unaffected: with no gaps this equals Full.
+func sourceReadText(body api.LoadSourceText) string {
+	var b strings.Builder
+	cursor := firstFragmentOffset(body.Fragments)
+	for _, f := range body.Fragments {
+		if f.IsImage() {
+			continue
+		}
+		writePresentationGap(&b, cursor, f.Start)
+		b.WriteString(f.Text)
+		cursor = f.End
+	}
+	return b.String()
 }
 
 func sourceReadMarkdown(body api.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {

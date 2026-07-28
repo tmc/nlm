@@ -40,6 +40,34 @@ func TestWriteSourceRead_DefaultPreservesText(t *testing.T) {
 	}
 }
 
+// A source whose index dropped a region leaves a wide offset gap between
+// fragments. Full pads it with one space per missing offset to keep citation
+// coordinates aligned; the default reading view must instead collapse the gap
+// into a reading break so the dropped region does not surface as a run of
+// blanks. Contiguous fragments are unchanged.
+func TestWriteSourceRead_DefaultCollapsesDroppedGap(t *testing.T) {
+	body := api.LoadSourceText{
+		SourceID: "source-1",
+		Title:    "code.go",
+		Fragments: []api.TextFragment{
+			{Start: 0, End: 24, Text: "func Add(a, b int) int {"},
+			{Start: 71, End: 72, Text: "}"},
+		},
+	}
+	var out bytes.Buffer
+	if err := writeSourceRead(&out, body, globalOptions{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := out.String(), "func Add(a, b int) int {\n\n}"; got != want {
+		t.Errorf("default read = %q, want %q", got, want)
+	}
+	// Full stays offset-faithful for the citation resolver: the 47-offset gap
+	// remains 47 padding spaces, so len(Full) still equals the last End.
+	if got := len(body.Full()); got != 72 {
+		t.Errorf("Full length = %d, want 72 (offset-faithful)", got)
+	}
+}
+
 func TestWriteSourceRead_MarkdownIncludesImage(t *testing.T) {
 	body := imageSourceBody()
 	var out bytes.Buffer
