@@ -158,6 +158,9 @@ func (c *Client) getArtifactDirect(ctx context.Context, artifactID string) (*pb.
 	if artifact.GetArtifactId() == "" {
 		return nil, fmt.Errorf("empty response")
 	}
+	if len(artifactDownloadURLsFromArtifact(artifact)) > 0 {
+		artifact.State = pb.ArtifactState_ARTIFACT_STATE_READY
+	}
 	return artifact, nil
 }
 
@@ -167,6 +170,15 @@ func (c *Client) getArtifactDirect(ctx context.Context, artifactID string) (*pb.
 // this account. It uses the v9rmvd direct fetch, whose payload carries the
 // links; the gArtLc list scan does not include them.
 func (c *Client) GetArtifactDownloadURLs(ctx context.Context, artifactID string) ([]string, error) {
+	artifact, directErr := c.getArtifactDirect(ctx, artifactID)
+	if directErr == nil {
+		if urls := artifactDownloadURLsFromArtifact(artifact); len(urls) > 0 {
+			return urls, nil
+		}
+	}
+
+	// Retain the raw fallback for rendered artifact types whose download
+	// fields are not yet represented in the generated message.
 	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:   rpc.RPCGetArtifact,
 		Args: []interface{}{artifactID},
@@ -182,6 +194,23 @@ func (c *Client) GetArtifactDownloadURLs(ctx context.Context, artifactID string)
 		return nil, nil
 	}
 	return extractArtifactDownloadURLs(responseData[0]), nil
+}
+
+func artifactDownloadURLsFromArtifact(artifact *pb.Artifact) []string {
+	if artifact == nil {
+		return nil
+	}
+	deck := artifact.GetSlideDeckPreview()
+	if deck == nil {
+		return nil
+	}
+	var urls []string
+	for _, u := range []string{deck.GetDownloadUrl(), deck.GetDownloadUrl_2()} {
+		if strings.HasPrefix(u, artifactDownloadURLPrefix) {
+			urls = append(urls, u)
+		}
+	}
+	return urls
 }
 
 // ArtifactDownloadURLForFormat returns the artifact's signed download URL whose

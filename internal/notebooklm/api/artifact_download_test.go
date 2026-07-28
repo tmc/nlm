@@ -1,6 +1,10 @@
 package api
 
-import "testing"
+import (
+	"testing"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+)
 
 // TestArtifactDownloadExtension verifies format detection from a download URL's
 // filename query parameter — the key to letting deck download pick the pdf vs
@@ -36,5 +40,16 @@ func TestArtifactDownloadExtension(t *testing.T) {
 		if got := artifactDownloadExtension(tt.url); got != tt.want {
 			t.Errorf("%s: artifactDownloadExtension(%q) = %q, want %q", tt.name, tt.url, got, tt.want)
 		}
+	}
+}
+
+func TestArtifactDownloadURLsFromArtifact(t *testing.T) {
+	artifact := &pb.Artifact{SlideDeckPreview: &pb.ArtifactSlideDeckPreview{
+		DownloadUrl:   artifactDownloadURLPrefix + "?filename=deck.pdf",
+		DownloadUrl_2: artifactDownloadURLPrefix + "?filename=deck.pptx",
+	}}
+	got := artifactDownloadURLsFromArtifact(artifact)
+	if len(got) != 2 {
+		t.Fatalf("download URLs = %v, want PDF and PPTX", got)
 	}
 }
