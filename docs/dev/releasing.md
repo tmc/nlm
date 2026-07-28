@@ -46,6 +46,9 @@ goreleaser release --snapshot --clean
 
 Inspect the snapshot archives, checksums, formula, and the output of
 `dist/nlm_darwin_arm64*/nlm --version`. A snapshot must not publish anything.
+Copy `dist/homebrew/nlm.rb` into the `Formula` directory of a throwaway local
+tap and run `brew info` for it. Generation and `brew style` alone do not prove
+that Homebrew can load the formula.
 
 ## Publish
 
