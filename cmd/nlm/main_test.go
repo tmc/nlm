@@ -300,15 +300,6 @@ func TestCommandLocalHelp(t *testing.T) {
 			},
 		},
 		{
-			name: "content transform help",
-			args: []string{"summarize", "--help"},
-			contains: []string{
-				"Usage: nlm summarize [flags]",
-				"--source-ids <ids>",
-				"--source-match <regex>",
-			},
-		},
-		{
 			name: "auth short help",
 			args: []string{"auth", "-h"},
 			contains: []string{

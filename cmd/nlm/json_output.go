@@ -65,12 +65,6 @@ type audioOverviewRecord struct {
 	Status  string `json:"status"`
 }
 
-type videoOverviewRecord struct {
-	VideoID string `json:"video_id"`
-	Title   string `json:"title"`
-	Status  string `json:"status"`
-}
-
 type guidebookListRecord struct {
 	GuidebookID string `json:"guidebook_id"`
 	Title       string `json:"title"`

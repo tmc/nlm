@@ -16,7 +16,6 @@ import (
 	"github.com/tmc/nlm/internal/beprotojson"
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/notebooklm/rpc"
-	"google.golang.org/protobuf/proto"
 )
 
 // ListArtifacts returns artifacts for a project using direct RPC
@@ -293,9 +292,7 @@ func artifactDownloadExtension(rawURL string) string {
 
 // downloadAuthed GETs fileURL with the client's session cookies and writes the
 // body to w. It is used for contribution.usercontent.google.com artifact
-// downloads, which are gated on the NotebookLM session cookie. The header set
-// and optional authuser query parameter mirror DownloadVideoWithAuth, which
-// downloads from the same usercontent host.
+// downloads, which are gated on the NotebookLM session cookie.
 func (c *Client) downloadAuthed(ctx context.Context, fileURL string, w io.Writer) error {
 	if c.config.AuthUser != "" && !strings.Contains(fileURL, "authuser=") {
 		sep := "?"
@@ -411,65 +408,6 @@ func (c *Client) parseRenameArtifactResponse(resp []byte, artifactID string) (*p
 
 	// Rename succeeds even when the RPC only returns a status marker.
 	return &pb.Artifact{ArtifactId: artifactID}, nil
-}
-
-// ReviseArtifact re-runs an artifact generator with a free-form
-// revision instruction. It dispatches the KmcKPe RPC (JS bundle:
-// "DeriveArtifact"). The response carries the revised artifact;
-// non-trivial responses are decoded via parseArtifactFromResponse.
-//
-// TODO(har): The wire body for KmcKPe is unverified. The encoding
-// here mirrors the in-file "[%context%, %artifact_id%, %instructions%]"
-// convention used by sibling RPCs (CreateArtifact, GenerateReportSuggestions).
-// Capture HAR by clicking "Revise" on a generated artifact and
-// confirm before promoting this off best-effort.
-func (c *Client) ReviseArtifact(ctx context.Context, artifactID, instructions string) (*pb.Artifact, error) {
-	projectContext := []interface{}{
-		2, nil, nil,
-		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
-		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
-	}
-	resp, err := c.rpc.Do(ctx, rpc.Call{
-		ID:   rpc.RPCReviseArtifact,
-		Args: []interface{}{projectContext, artifactID, instructions},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("revise artifact: %w", err)
-	}
-	var responseData []interface{}
-	if jsonErr := json.Unmarshal(resp, &responseData); jsonErr == nil && len(responseData) > 0 {
-		if artifact := c.parseArtifactFromResponse(responseData[0]); artifact != nil {
-			return artifact, nil
-		}
-	}
-	// Fall back: report success with the existing artifact_id so callers
-	// that just want a "did it run" signal can use this method until the
-	// response shape is locked down.
-	return &pb.Artifact{ArtifactId: artifactID}, nil
-}
-
-// ReportContent submits an abuse/safety report against an artifact.
-// Dispatches the OmVMXc RPC (JS-bundle-canonical).
-//
-// TODO(har): wire shape unverified. Encoding mirrors the in-file
-// "[%context%, %artifact_id%, %reason%, %detail%]" convention used by
-// sibling artifact RPCs. Capture HAR by opening an artifact's kebab
-// menu and submitting a "Report" before promoting this off
-// best-effort. The response is not parsed beyond success/failure.
-func (c *Client) ReportContent(ctx context.Context, artifactID, reason, detail string) error {
-	projectContext := []interface{}{
-		2, nil, nil,
-		[]interface{}{1, nil, nil, nil, nil, nil, nil, nil, nil, nil, []interface{}{1}},
-		[]interface{}{[]interface{}{1, 4, 2, 3, 6, 5}},
-	}
-	_, err := c.rpc.Do(ctx, rpc.Call{
-		ID:   rpc.RPCReportContent,
-		Args: []interface{}{projectContext, artifactID, reason, detail},
-	})
-	if err != nil {
-		return fmt.Errorf("report content: %w", err)
-	}
-	return nil
 }
 
 func (c *Client) parseArtifactsResponse(resp []byte) ([]*pb.Artifact, error) {
@@ -975,70 +913,4 @@ func (c *Client) GenerateNotebookGuide(ctx context.Context, projectID string) (*
 		return nil, fmt.Errorf("generate notebook guide: %w", err)
 	}
 	return guide, nil
-}
-
-// GenerateMagicView generates a magic-view artifact for a notebook.
-func (c *Client) GenerateMagicView(ctx context.Context, projectID string, sourceIDs []string) (*pb.GenerateMagicViewResponse, error) {
-	_ = sourceIDs // The captured uK8f7c request carries only context and project ID.
-	req := &pb.GenerateMagicViewRequest{
-		Context: &pb.MagicViewRequestContext{
-			Version: proto.Int32(2),
-			Surface: &pb.MagicViewRequestSurface{Value: proto.Int32(1)},
-			Caps:    &pb.MagicViewRequestCaps{Version: proto.Int32(1), CapabilityCodes: []int32{1, 3}},
-		},
-		ProjectId: projectID,
-	}
-	magicView, err := c.orchestrationService.GenerateMagicView(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("generate magic view: %w", err)
-	}
-	return magicView, nil
-}
-
-// GenerateOutline generates an outline for a notebook.
-func (c *Client) GenerateOutline(ctx context.Context, projectID string) (*pb.GenerateOutlineResponse, error) {
-	req := &pb.GenerateOutlineRequest{
-		ProjectId: projectID,
-	}
-	outline, err := c.orchestrationService.GenerateOutline(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("generate outline: %w", err)
-	}
-	return outline, nil
-}
-
-// GenerateSection generates the next notebook section.
-func (c *Client) GenerateSection(ctx context.Context, projectID string) (*pb.GenerateSectionResponse, error) {
-	req := &pb.GenerateSectionRequest{
-		ProjectId: projectID,
-	}
-	section, err := c.orchestrationService.GenerateSection(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("generate section: %w", err)
-	}
-	return section, nil
-}
-
-// StartDraft starts a notebook draft.
-func (c *Client) StartDraft(ctx context.Context, projectID string) (*pb.StartDraftResponse, error) {
-	req := &pb.StartDraftRequest{
-		ProjectId: projectID,
-	}
-	draft, err := c.orchestrationService.StartDraft(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("start draft: %w", err)
-	}
-	return draft, nil
-}
-
-// StartSection starts a notebook section.
-func (c *Client) StartSection(ctx context.Context, projectID string) (*pb.StartSectionResponse, error) {
-	req := &pb.StartSectionRequest{
-		ProjectId: projectID,
-	}
-	section, err := c.orchestrationService.StartSection(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("start section: %w", err)
-	}
-	return section, nil
 }

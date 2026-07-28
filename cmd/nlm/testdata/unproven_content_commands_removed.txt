@@ -1,0 +1,53 @@
+# Unproven content-transform commands should not be registered.
+
+! exec ./nlm_test rephrase
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test expand
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test summarize
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test critique
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test brainstorm
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test verify
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test explain
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test outline
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test study-guide
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test faq
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test briefing-doc
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test mindmap
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test timeline
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test toc
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test generate-mindmap
+stderr 'Usage: nlm <command>'
+
+# The capture-backed app-artifact mindmap commands remain available.
+! exec ./nlm_test mindmap-create notebook123 'Map architecture'
+stderr 'Authentication required'
+
+! exec ./nlm_test mindmap create notebook123 'Map architecture'
+stderr 'Authentication required'

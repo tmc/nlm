@@ -477,46 +477,6 @@ func TestGenerationCommands_GenerateNotebookGuide(t *testing.T) {
 	t.Logf("Generated guide with %d characters", len(guide.GetGuide().GetSummary().GetText()))
 }
 
-// TestGenerationCommands_GenerateOutline records the generate outline command
-func TestGenerationCommands_GenerateOutline(t *testing.T) {
-	httprr.SkipIfNoNLMCredentialsOrRecording(t)
-	httpClient := httprr.CreateNLMTestClient(t, http.DefaultTransport)
-
-	// Use test credentials that get scrubbed by httprr
-	authToken := "test-auth-token"
-	cookies := "test-cookies"
-	if os.Getenv("NLM_AUTH_TOKEN") != "" {
-		authToken = os.Getenv("NLM_AUTH_TOKEN")
-	}
-	if os.Getenv("NLM_COOKIES") != "" {
-		cookies = os.Getenv("NLM_COOKIES")
-	}
-
-	client := New(
-		Credentials{AuthToken: authToken, Cookies: cookies},
-		WithHTTPClient(httpClient),
-		WithDebug(false),
-	)
-
-	// Get a project to test with
-	projects, err := client.ListRecentlyViewedProjects(context.Background())
-	if err != nil {
-		t.Fatalf("Failed to list projects: %v", err)
-	}
-	if len(projects) == 0 {
-		t.Skip("No projects found to test with")
-	}
-
-	projectID := projects[0].ProjectId
-
-	outline, err := client.GenerateOutline(context.Background(), projectID)
-	if err != nil {
-		t.Fatalf("Failed to generate outline: %v", err)
-	}
-
-	t.Logf("Generated outline with %d characters", len(outline.Content))
-}
-
 // TestMiscCommands_Heartbeat records the heartbeat command
 func TestMiscCommands_Heartbeat(t *testing.T) {
 	httprr.SkipIfNoNLMCredentialsOrRecording(t)
@@ -595,7 +555,4 @@ func TestVideoCommands_CreateVideoOverview(t *testing.T) {
 	t.Logf("  Title: %s", result.Title)
 	t.Logf("  Is Ready: %v", result.IsReady)
 
-	if result.VideoData != "" {
-		t.Logf("  Video Data: %s", result.VideoData[:min(100, len(result.VideoData))]+"...")
-	}
 }

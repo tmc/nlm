@@ -1167,16 +1167,6 @@ func generateNotebookGuide(c *api.Client, notebookID string) error {
 	return nil
 }
 
-func runMagicView(c *api.Client, notebookID string, sourceIDs []string) error {
-	fmt.Fprintf(os.Stderr, "Generating magic view...\n")
-	resp, err := c.GenerateMagicView(context.Background(), notebookID, sourceIDs)
-	if err != nil {
-		return fmt.Errorf("generate magic view: %w", err)
-	}
-	fmt.Printf("Magic View status: %d\n", resp.GetStatus())
-	return nil
-}
-
 // sourceGuideCacheDir returns the on-disk cache directory for per-source
 // guides, creating it on first use. Guides are cached because tr032e is a
 // generate call (see --force to re-populate).
@@ -1285,52 +1275,6 @@ func generateSourceGuidesWithOptions(c *api.Client, sourceIDs []string, globals 
 			fmt.Println()
 			fmt.Println(strings.Join(guide.KeyTopics, ", "))
 		}
-	}
-	return nil
-}
-
-func actOnSourcesMindmap(c *api.Client, notebookID string, sourceIDs []string) error {
-	fmt.Fprintf(os.Stderr, "Generating interactive mindmap...\n")
-	content, err := c.ActOnSources(context.Background(), notebookID, "interactive_mindmap", sourceIDs)
-	if err != nil {
-		return fmt.Errorf("generate mindmap: %w", err)
-	}
-	if content != "" {
-		fmt.Print(content)
-	}
-	fmt.Fprintf(os.Stderr, "Mindmap also saved as note — use 'nlm notes' to retrieve.\n")
-	return nil
-}
-
-func actOnSources(c *api.Client, notebookID string, action string, sourceIDs []string) error {
-	actionName := map[string]string{
-		"rephrase":            "Rephrasing",
-		"expand":              "Expanding",
-		"summarize":           "Summarizing",
-		"critique":            "Critiquing",
-		"brainstorm":          "Brainstorming",
-		"verify":              "Verifying",
-		"explain":             "Explaining",
-		"outline":             "Creating outline",
-		"study_guide":         "Generating study guide",
-		"faq":                 "Generating FAQ",
-		"briefing_doc":        "Creating briefing document",
-		"interactive_mindmap": "Generating interactive mindmap",
-		"timeline":            "Creating timeline",
-		"table_of_contents":   "Generating table of contents",
-	}[action]
-
-	if actionName == "" {
-		actionName = "Processing"
-	}
-
-	fmt.Fprintf(os.Stderr, "%s content from sources...\n", actionName)
-	content, err := c.ActOnSources(context.Background(), notebookID, action, sourceIDs)
-	if err != nil {
-		return fmt.Errorf("%s: %w", strings.ToLower(actionName), err)
-	}
-	if content != "" {
-		fmt.Print(content)
 	}
 	return nil
 }
@@ -3598,7 +3542,7 @@ func getFallbackResponse(input, notebookID string) string {
 
 	// Questions about sources
 	if strings.Contains(lowerInput, "source") || strings.Contains(lowerInput, "document") {
-		return "To see the sources in your notebook, try 'nlm sources " + notebookID + "'. If you want to analyze specific sources, you can use commands like 'nlm summarize'."
+		return "To see the sources in your notebook, try 'nlm source list " + notebookID + "'. To analyze them, use 'nlm chat " + notebookID + " \"your question\"'."
 	}
 
 	// Help requests
@@ -3927,13 +3871,6 @@ func runInteractiveChat(c *api.Client, session *chatSession, sourceIDs []string,
 }
 
 func createVideoOverviewWithOptions(c *api.Client, projectID string, instructions string, opts videoCreateOptions) error {
-	// NLM may limit to one video per notebook. Check for existing.
-	existingVideos, _ := c.ListVideoOverviews(context.Background(), projectID)
-	if len(existingVideos) > 0 && !yes {
-		fmt.Fprintf(os.Stderr, "Notebook already has a video overview. Use -y to replace it.\n")
-		return fmt.Errorf("existing video overview")
-	}
-
 	fmt.Fprintf(os.Stderr, "Creating video overview for notebook %s...\n", projectID)
 	fmt.Printf("Instructions: %s\n", instructions)
 
@@ -3965,10 +3902,6 @@ func createVideoOverviewWithOptions(c *api.Client, projectID string, instruction
 	fmt.Fprintf(os.Stderr, "Video overview created:\n")
 	fmt.Printf("  Title: %s\n", result.Title)
 	fmt.Printf("  Video ID: %s\n", result.VideoID)
-
-	if result.VideoData != "" {
-		fmt.Printf("  Video URL: %s\n", result.VideoData)
-	}
 
 	return nil
 }
@@ -4031,60 +3964,6 @@ func listAudioOverviews(c *api.Client, notebookID string) error {
 	return flush()
 }
 
-func listVideoOverviews(c *api.Client, notebookID string) error {
-	if !jsonOutput {
-		fmt.Fprintf(os.Stderr, "Listing video overviews for notebook %s...\n", notebookID)
-	}
-
-	videoOverviews, err := c.ListVideoOverviews(context.Background(), notebookID)
-	if err != nil {
-		return fmt.Errorf("list video overviews: %w", err)
-	}
-
-	if jsonOutput {
-		enc := json.NewEncoder(os.Stdout)
-		for _, video := range videoOverviews {
-			status := "pending"
-			if video.IsReady {
-				status = "ready"
-			}
-			rec := videoOverviewRecord{
-				VideoID: video.VideoID,
-				Title:   video.Title,
-				Status:  status,
-			}
-			if err := enc.Encode(rec); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	if len(videoOverviews) == 0 {
-		fmt.Fprintln(os.Stderr, "No video overviews found.")
-		return nil
-	}
-
-	w, flush := newListWriter(os.Stdout)
-	fmt.Fprintln(w, "VIDEO_ID\tTITLE\tSTATUS")
-	for _, video := range videoOverviews {
-		status := "pending"
-		if video.IsReady {
-			status = "ready"
-		}
-		title := video.Title
-		if title == "" {
-			title = "(untitled)"
-		}
-		fmt.Fprintf(w, "%s\t%s\t%s\n",
-			video.VideoID,
-			title,
-			status,
-		)
-	}
-	return flush()
-}
-
 func downloadAudioOverview(c *api.Client, notebookID string, filename string) error {
 	fmt.Fprintf(os.Stderr, "Downloading audio overview for notebook %s...\n", notebookID)
 
@@ -4129,50 +4008,4 @@ func printDownloadBrowserFallback(kind, notebookID string) string {
 	fmt.Println(u)
 	fmt.Fprintf(os.Stderr, "Open %s in a browser to download the %s from NotebookLM.\n", u, kind)
 	return u
-}
-
-func downloadVideoOverview(c *api.Client, notebookID string, filename string) error {
-	fmt.Fprintf(os.Stderr, "Downloading video overview for notebook %s...\n", notebookID)
-
-	// Generate default filename if not provided
-	if filename == "" {
-		filename = fmt.Sprintf("video_overview_%s.mp4", notebookID)
-	}
-
-	// Download the video
-	videoResult, err := c.DownloadVideoOverview(context.Background(), notebookID)
-	if err != nil {
-		if strings.Contains(err.Error(), "browser authentication") || strings.Contains(err.Error(), "manual") || strings.Contains(err.Error(), "not available") {
-			u := printDownloadBrowserFallback("video overview", notebookID)
-			return fmt.Errorf("download video overview: direct download unavailable; open %s in a browser", u)
-		}
-		return fmt.Errorf("download video overview: %w", err)
-	}
-
-	// Check if we got a video URL
-	if videoResult.VideoData != "" && (strings.HasPrefix(videoResult.VideoData, "http://") || strings.HasPrefix(videoResult.VideoData, "https://")) {
-		// Use authenticated download for URLs
-		if err := c.DownloadVideoWithAuth(context.Background(), videoResult.VideoData, filename); err != nil {
-			if strings.Contains(err.Error(), "text/html") {
-				u := printDownloadBrowserFallback("video overview", notebookID)
-				return fmt.Errorf("download video: browser-authenticated download required; open %s in a browser", u)
-			}
-			return fmt.Errorf("download video with auth: %w", err)
-		}
-	} else {
-		// Try to save base64 data or handle other formats
-		if err := videoResult.SaveVideoToFile(context.Background(), filename); err != nil {
-			return fmt.Errorf("save video file: %w", err)
-		}
-	}
-
-	fmt.Println(filename)
-
-	// Show file info on stderr so scripts can capture the filename from stdout.
-	fmt.Fprintf(os.Stderr, "Video saved to: %s\n", filename)
-	if stat, err := os.Stat(filename); err == nil {
-		fmt.Fprintf(os.Stderr, "  File size: %.2f MB\n", float64(stat.Size())/(1024*1024))
-	}
-
-	return nil
 }

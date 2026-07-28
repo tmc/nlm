@@ -43,24 +43,6 @@ type command struct {
 	runWithOptions      func(c *api.Client, args []string, opts globalOptions) error
 }
 
-// actOnSourcesCmd builds a command entry for the 14 content transform commands.
-// Source IDs come from positional args OR --source-ids/--source-match;
-// at least one of those must be provided.
-func actOnSourcesCmd(name, action, usage string) command {
-	return command{
-		name:      name,
-		usage:     usage,
-		argsUsage: "<notebook-id> [source-id...]",
-		section:   "Content Transformation",
-		minArgs:   1, maxArgs: -1,
-		validateWithOptions: validateSourceSelectionArgsWithOptions,
-		help:                printSourceSelectionUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runSourceSelectionActionWithOptions(c, args, action, opts)
-		},
-	}
-}
-
 func mustCommand(byName map[string]command, name string) command {
 	cmd, ok := byName[name]
 	if !ok {
@@ -132,7 +114,6 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "export-flashcards"), "artifact export"),
 		cloneCommand(mustCommand(byName, "update-artifact"), "artifact update"),
 		cloneCommand(mustCommand(byName, "delete-artifact"), "artifact delete"),
-		cloneCommand(mustCommand(byName, "revise-artifact"), "artifact revise"),
 
 		cloneCommand(mustCommand(byName, "chat-list"), "chat list"),
 		cloneCommand(mustCommand(byName, "chat-history"), "chat history"),
@@ -150,9 +131,6 @@ func groupedCommandsFromExisting(existing []command) []command {
 		cloneCommand(mustCommand(byName, "audio-share"), "audio share"),
 
 		cloneCommandInSection(mustCommand(byName, "create-video"), "video create", "Video"),
-		cloneCommand(mustCommand(byName, "video-list"), "video list"),
-		cloneCommand(mustCommand(byName, "video-get"), "video get"),
-		cloneCommand(mustCommand(byName, "video-download"), "video download"),
 
 		cloneCommandInSection(mustCommand(byName, "create-slides"), "deck create", "Deck"),
 		cloneCommand(mustCommand(byName, "deck-download"), "deck download"),
@@ -634,43 +612,6 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return shareAudioOverview(c, args[0]) },
 	},
 
-	// Video operations
-	{
-		name: "video-list", argsUsage: "<notebook-id>",
-		usage: "List video overviews for a notebook", section: "Video",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return listVideoOverviews(c, args[0]) },
-	},
-	{
-		name: "video-get", argsUsage: "<notebook-id>",
-		usage: "Get video overview details", section: "Video",
-		minArgs: 1, maxArgs: 1, directRPC: true,
-		run: func(c *api.Client, args []string) error {
-			result, err := c.GetVideoOverview(context.Background(), args[0])
-			if err != nil {
-				return err
-			}
-			data, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return fmt.Errorf("marshal video overview: %w", err)
-			}
-			fmt.Println(string(data))
-			return nil
-		},
-	},
-	{
-		name: "video-download", argsUsage: "<notebook-id> [filename]",
-		usage: "Download video file", section: "Video",
-		minArgs: 1, maxArgs: 2, directRPC: true,
-		run: func(c *api.Client, args []string) error {
-			filename := ""
-			if len(args) > 1 {
-				filename = args[1]
-			}
-			return downloadVideoOverview(c, args[0], filename)
-		},
-	},
-
 	// Artifact operations
 	{
 		name: "get-artifact", argsUsage: "<artifact-id>",
@@ -726,39 +667,6 @@ var commands = []command{
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error { return deleteArtifact(c, args[0]) },
 	},
-	{
-		name: "revise-artifact", argsUsage: "<artifact-id> <instructions>",
-		usage: "Re-run an artifact generator with revision instructions (KmcKPe; HAR-unverified)", section: "Artifact",
-		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			instructions := strings.Join(args[1:], " ")
-			art, err := c.ReviseArtifact(context.Background(), args[0], instructions)
-			if err != nil {
-				return err
-			}
-			fmt.Println(art.GetArtifactId())
-			fmt.Fprintf(os.Stderr, "Revision submitted. Use 'nlm artifact get %s' to check status.\n", art.GetArtifactId())
-			return nil
-		},
-	},
-	{
-		name: "report-content", argsUsage: "<artifact-id> <reason> [detail]",
-		usage: "Submit an abuse/safety report against an artifact (OmVMXc; HAR-unverified)", section: "Artifact",
-		minArgs: 2, maxArgs: 3,
-		hidden: true, // wire shape unverified; mostly relevant to operators of nlm-driven services
-		run: func(c *api.Client, args []string) error {
-			detail := ""
-			if len(args) > 2 {
-				detail = args[2]
-			}
-			if err := c.ReportContent(context.Background(), args[0], args[1], detail); err != nil {
-				return err
-			}
-			fmt.Fprintln(os.Stderr, "Report submitted.")
-			return nil
-		},
-	},
-
 	// Guidebook operations
 	{
 		name:  "guidebooks",
@@ -897,12 +805,6 @@ var commands = []command{
 		run: func(c *api.Client, args []string) error { return generateNotebookGuide(c, args[0]) },
 	},
 	{
-		name: "magic", argsUsage: "<notebook-id> [source-id...]",
-		usage: "Generate the notebook 'Magic View' (uK8f7c)", section: "Generation",
-		minArgs: 1, maxArgs: -1,
-		run: func(c *api.Client, args []string) error { return runMagicView(c, args[0], args[1:]) },
-	},
-	{
 		name: "source-guide", argsUsage: "<notebook-id> [source-id...]",
 		usage: "Show the per-source auto-summary and keyword chips (cached on disk)", section: "Generation",
 		minArgs: 1, maxArgs: -1,
@@ -910,14 +812,6 @@ var commands = []command{
 		help:                printSourceSelectionUsage,
 		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
 			return runSourceGuideWithOptions(c, args, opts)
-		},
-	},
-	{
-		name: "generate-mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
-		usage: "Generate interactive mindmap (alias for mindmap)", section: "Generation",
-		hidden: true, minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			return actOnSourcesMindmap(c, args[0], args[1:])
 		},
 	},
 	{
@@ -1050,30 +944,6 @@ var commands = []command{
 		minArgs: 1, maxArgs: 1,
 		run: func(c *api.Client, args []string) error { return getInstructions(c, args[0]) },
 	},
-
-	// Content transformation commands
-	actOnSourcesCmd("rephrase", "rephrase", "Rephrase content from sources"),
-	actOnSourcesCmd("expand", "expand", "Expand on content from sources"),
-	actOnSourcesCmd("summarize", "summarize", "Summarize content from sources"),
-	actOnSourcesCmd("critique", "critique", "Provide critique of content"),
-	actOnSourcesCmd("brainstorm", "brainstorm", "Brainstorm ideas from sources"),
-	actOnSourcesCmd("verify", "verify", "Verify facts in sources"),
-	actOnSourcesCmd("explain", "explain", "Explain concepts from sources"),
-	actOnSourcesCmd("outline", "outline", "Create outline from sources"),
-	actOnSourcesCmd("study-guide", "study_guide", "Generate study guide"),
-	actOnSourcesCmd("faq", "faq", "Generate FAQ from sources"),
-	actOnSourcesCmd("briefing-doc", "briefing_doc", "Create briefing document"),
-	{
-		name: "mindmap", argsUsage: "<notebook-id> <source-id> [source-id...]",
-		usage:   "Generate interactive mindmap (opens in browser)",
-		section: "Content Transformation",
-		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			return actOnSourcesMindmap(c, args[0], args[1:])
-		},
-	},
-	actOnSourcesCmd("timeline", "timeline", "Create timeline from sources"),
-	actOnSourcesCmd("toc", "table_of_contents", "Generate table of contents"),
 
 	// Research operations
 	{
@@ -1210,7 +1080,6 @@ var compatibilityCommands = map[string]bool{
 	"update-artifact":      true,
 	"delete-artifact":      true,
 	"rename-artifact":      true,
-	"revise-artifact":      true,
 	"chat-list":            true,
 	"chat-history":         true,
 	"chat-show":            true,
@@ -1223,9 +1092,6 @@ var compatibilityCommands = map[string]bool{
 	"audio-download":       true,
 	"audio-rm":             true,
 	"audio-share":          true,
-	"video-list":           true,
-	"video-get":            true,
-	"video-download":       true,
 	"download slide-deck":  true,
 }
 
@@ -1274,7 +1140,6 @@ var compatibilityReplacements = map[string]string{
 	"update-artifact":      "artifact update",
 	"delete-artifact":      "artifact delete",
 	"rename-artifact":      "artifact update",
-	"revise-artifact":      "artifact revise",
 	"chat-list":            "chat list",
 	"chat-history":         "chat history",
 	"chat-show":            "chat show",
@@ -1287,9 +1152,6 @@ var compatibilityReplacements = map[string]string{
 	"audio-download":       "audio download",
 	"audio-rm":             "audio delete",
 	"audio-share":          "audio share",
-	"video-list":           "video list",
-	"video-get":            "video get",
-	"video-download":       "video download",
 	"download slide-deck":  "deck download",
 }
 
@@ -1360,7 +1222,7 @@ func experimentalEnabled() bool {
 var helpSections = []string{
 	"Notebook", "Source", "Note", "Label", "Create", "Audio", "Video",
 	"Deck", "Artifact", "Guidebook", "Generation", "Chat",
-	"Content Transformation", "Research", "Sharing", "Other",
+	"Research", "Sharing", "Other",
 }
 
 // printUsage prints the full help text derived from the command table,
@@ -1430,7 +1292,7 @@ func printExitCodes() {
 
 // sectionForNoun resolves a user-supplied noun to a section name from
 // helpSections. Matching is case-insensitive on the section's first word
-// (e.g. "content" matches "Content Transformation"). Returns "" if no
+// (e.g. "notebook" matches "Notebook"). Returns "" if no
 // section matches.
 func sectionForNoun(noun string) string {
 	noun = strings.ToLower(strings.TrimSpace(noun))

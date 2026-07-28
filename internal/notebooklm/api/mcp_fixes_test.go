@@ -168,23 +168,3 @@ func mustReadAPIFixture(t *testing.T, path string) []byte {
 	}
 	return b
 }
-
-func TestVideoOverviewResultFromArtifactData(t *testing.T) {
-	result := videoOverviewResultFromArtifactData("project-123", []interface{}{
-		"video-1",
-		"Video Overview",
-		float64(3),
-		[]interface{}{[]interface{}{[]interface{}{"src-1"}}},
-		float64(2),
-	})
-
-	if result.VideoID != "video-1" {
-		t.Fatalf("VideoID = %q, want %q", result.VideoID, "video-1")
-	}
-	if result.Title != "Video Overview" {
-		t.Fatalf("Title = %q, want %q", result.Title, "Video Overview")
-	}
-	if !result.IsReady {
-		t.Fatal("IsReady = false, want true")
-	}
-}

@@ -157,13 +157,35 @@ func TestServerListsWatchDeepResearch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(result.Tools) != 39 {
-		t.Fatalf("tool count = %d, want 39", len(result.Tools))
+	if len(result.Tools) != 25 {
+		t.Fatalf("tool count = %d, want 25", len(result.Tools))
 	}
+	removed := map[string]bool{
+		"generate_summarize":    true,
+		"generate_briefing_doc": true,
+		"generate_faq":          true,
+		"generate_study_guide":  true,
+		"generate_rephrase":     true,
+		"generate_expand":       true,
+		"generate_critique":     true,
+		"generate_brainstorm":   true,
+		"generate_verify":       true,
+		"generate_explain":      true,
+		"generate_outline":      true,
+		"generate_mindmap":      true,
+		"generate_timeline":     true,
+		"generate_toc":          true,
+	}
+	foundWatch := false
 	for _, tool := range result.Tools {
+		if removed[tool.Name] {
+			t.Fatalf("unproven tool %q is still listed", tool.Name)
+		}
 		if tool.Name == "watch_deep_research" {
-			return
+			foundWatch = true
 		}
 	}
-	t.Fatal("watch_deep_research not listed")
+	if !foundWatch {
+		t.Fatal("watch_deep_research not listed")
+	}
 }

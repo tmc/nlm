@@ -30,15 +30,13 @@ type ServiceConfig struct {
 // pairs from www.gstatic.com.jsonl in any HAR capture (the bundle
 // embeds these mappings as JSPB descriptors). 71 orchestration+sharing
 // bindings observed in the 2026-04-23 bundle (Guidebook IDs come from
-// a separate bundle slice). Every bundle binding has Go-side wiring
-// (constant + proto rpc method).
+// a separate bundle slice).
 // The recurring divergences are:
 //
 //   Ljjv0c -> DiscoverSourcesManifold   (we call it StartFastResearch)
 //   QA9ei  -> DiscoverSourcesAsync      (we call it StartDeepResearch)
 //   e3bVqc -> ListDiscoverSourcesJob    (we call it DeleteChatHistory / GetDeepResearchSessions)
 //   LBwxtb -> FinishDiscoverSourcesRun  (we call it DeleteDeepResearch / BulkImportFromResearch)
-//   KmcKPe -> DeriveArtifact            (we call it ReviseArtifact)
 //   eyWvXc -> SendSdpOffer              (we call it SDPExchange)
 //   Of0kDd -> GetIceConfig              (we call it FetchInteractivityToken)
 //   o4cbdc -> AddTentativeSources       (we call it AddFileSource)
@@ -68,7 +66,6 @@ const (
 	RPCRefreshSource        = "FLmJqe" // RefreshSource
 	RPCLoadSource           = "hizoJc" // LoadSource
 	RPCCheckSourceFreshness = "yR9Yof" // CheckSourceFreshness
-	RPCActOnSources         = "yyryJe" // ActOnSources
 	// RPCDiscoverSources: the JS bundle binds Es3dTe to
 	// /LabsTailwindOrchestrationService.DiscoverSources. The previous
 	// "qXyaNe" value was a speculative inference that is not present
@@ -131,22 +128,10 @@ const (
 
 	// NotebookLM service - Generation operations
 	//
-	// Notes on the four "draft/section" RPCs (lCjAd, BeTrYd, exXvGf,
-	// pGC7gf): none appear in the boq_labs-tailwind-frontend JS bundle
-	// or in any HAR capture under docs/captures/. They were inferred
-	// from earlier proto drafts and likely belonged to a now-removed
-	// authoring surface; the live report-authoring workflow is
-	// ciyUvf → R7cb6c. Constants are kept so any latent caller still
-	// compiles, but they should be considered dead.
 	RPCGenerateDocumentGuides    = "tr032e" // GenerateDocumentGuides
 	RPCGenerateNotebookGuide     = "VfAZjd" // GenerateNotebookGuide
-	RPCGenerateOutline           = "lCjAd"  // DEPRECATED: dead; not in JS bundle. Use ciyUvf → R7cb6c.
-	RPCGenerateSection           = "BeTrYd" // DEPRECATED: dead; not in JS bundle. Use ciyUvf → R7cb6c.
-	RPCStartDraft                = "exXvGf" // DEPRECATED: dead; not in JS bundle.
-	RPCStartSection              = "pGC7gf" // DEPRECATED: dead; not in JS bundle.
 	RPCGenerateReportSuggestions = "ciyUvf" // GenerateReportSuggestions (HAR-verified; was GHsKob)
 	RPCGetAudioFormats           = "sqTeoe" // GetAudioFormats - returns available audio overview types
-	RPCGenerateMagicView         = "uK8f7c" // GenerateMagicView - JS-bundle-verified; companion to RPCGetMagicView (rtY7md)
 
 	// NotebookLM service - Account operations
 	RPCGetOrCreateAccount = "ZwVcOc" // GetOrCreateAccount
@@ -215,16 +200,7 @@ const (
 	RPCListArtifacts  = "gArtLc" // ListArtifacts - get artifacts list
 
 	// LabsTailwindOrchestrationService - Additional operations
-	RPCListFeaturedProjects = "ub2Bae" // ListFeaturedProjects
-	// ReportContent: the JS bundle binds the live ReportContent RPC to
-	// OmVMXc. The historical rJKx8e id never appeared in any HAR
-	// capture or in the JS bundle's binding table; it was an early
-	// inference that survived as a stale constant. Use
-	// RPCReportContent (OmVMXc) for new call sites; the deprecated
-	// alias is kept so any existing reference continues to compile.
-	RPCReportContent         = "OmVMXc" // ReportContent (JS-bundle canonical)
-	RPCReportContentLegacy   = "rJKx8e" // DEPRECATED: stale id, never observed on the wire; use RPCReportContent.
-	RPCReviseArtifact        = "KmcKPe" // ReviseArtifact / DeriveArtifact (JS bundle name)
+	RPCListFeaturedProjects  = "ub2Bae" // ListFeaturedProjects
 	RPCListCollections       = "ub2Bae" // ListCollections - list notebook collections/folders
 	RPCAudioTopicSuggestions = "otmP3b" // AudioTopicSuggestions / GeneratePromptSuggestions (JS bundle name)
 
@@ -279,7 +255,6 @@ const (
 	RPCExecuteWritingFunction        = "likKIe"        // ExecuteWritingFunction (in-document writing assistant — rewrite/expand/summarize). TODO(har).
 	RPCListExpertIntelligenceContent = "mVtEUb"        // ListExpertIntelligenceContent (curated featured-content surface). TODO(har).
 	RPCGenerateAccessToken           = "preRPe"        // GenerateAccessToken (per-session token mint, possibly for embed widgets). TODO(har).
-	RPCGetMagicView                  = "rtY7md"        // GetMagicView (companion to uK8f7c GenerateMagicView). TODO(har).
 	RPCCopyProject                   = "te3DCe"        // CopyProject (duplicate a notebook). HAR-verified: reply is a single status int.
 	RPCStreamGenerateFreeForm        = "laWbsf"        // GenerateFreeFormStreamed (chat path; the live UI uses gRPC-Web — not batchexecute — but the JS bundle still maps the rpc_id).
 	RPCCreateAccessRequest           = "n3dkHd"        // CreateAccessRequest (LabsTailwindSharingService — request access to a shared notebook). TODO(har).

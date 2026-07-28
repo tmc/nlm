@@ -75,22 +75,6 @@ func parseSourceSelectionArgsWithOptions(args []string, globals globalOptions) (
 	return opts, positional, nil
 }
 
-func runSourceSelectionActionWithOptions(c *api.Client, args []string, action string, globals globalOptions) error {
-	opts, positional, err := parseSourceSelectionArgsWithOptions(args, globals)
-	if err != nil {
-		return err
-	}
-	notebookID := positional[0]
-	sourceIDs := positional[1:]
-	if len(sourceIDs) == 0 {
-		sourceIDs, err = resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
-		if err != nil {
-			return err
-		}
-	}
-	return actOnSources(c, notebookID, action, sourceIDs)
-}
-
 func runSourceGuideWithOptions(c *api.Client, args []string, globals globalOptions) error {
 	opts, positional, err := parseSourceSelectionArgsWithOptions(args, globals)
 	if err != nil {

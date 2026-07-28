@@ -175,24 +175,6 @@ func (c *Client) RemoveRecentlyViewedProject(ctx context.Context, projectID stri
 
 // Source operations
 
-// AddSources dispatches the izAoDd AddSources RPC with a bulk []SourceInput
-// envelope. NOT exercised by any CLI caller today — `nlm add` iterates
-// per-type RPCs (AddSourceFromText/FromBase64/uploadFileSource) so a failure
-// on one item doesn't mask the rest. The izAoDd bulk wire envelope is
-// unverified: do not dispatch bulk through this method without HAR
-// evidence that the current argument layout matches what the web UI emits.
-func (c *Client) AddSources(ctx context.Context, projectID string, sources []*pb.SourceInput) (*pb.AddSourcesResponse, error) {
-	req := &pb.AddSourceRequest{
-		Sources:   sources,
-		ProjectId: projectID,
-	}
-	resp, err := c.orchestrationService.AddSources(ctx, req)
-	if err != nil {
-		return nil, wrapSourceAddError("add sources", err)
-	}
-	return resp, nil
-}
-
 // deleteSourcesBatchSize is the largest batch size known to work reliably
 // against the tGMBJ DeleteSources RPC.
 const deleteSourcesBatchSize = 10
@@ -361,55 +343,6 @@ func (c *Client) GetOrCreateAccount(ctx context.Context) (*pb.Account, error) {
 		return nil, fmt.Errorf("get or create account: %w", err)
 	}
 	return resp, nil
-}
-
-// ActOnSources preserves the unverified legacy action-verb request shape.
-//
-// The generated yyryJe model describes a distinct observed chat-query shape.
-// No captured request establishes how these action verbs map to that shape.
-func (c *Client) ActOnSources(ctx context.Context, projectID string, action string, sourceIDs []string) (string, error) {
-	call := rpc.Call{
-		ID:         "yyryJe",
-		NotebookID: projectID,
-		Args:       legacyActOnSourcesArgs(projectID, action, sourceIDs),
-	}
-	resp, err := c.rpc.Do(ctx, call)
-	if err != nil {
-		return "", fmt.Errorf("act on sources: %w", err)
-	}
-	return extractTextContent(resp), nil
-}
-
-func legacyActOnSourcesArgs(projectID, action string, sourceIDs []string) []interface{} {
-	return []interface{}{projectID, action, sourceIDs}
-}
-
-// extractTextContent walks a raw JSON response looking for the first non-empty string.
-// ActOnSources responses typically nest the content at varying depths.
-func extractTextContent(raw json.RawMessage) string {
-	var data interface{}
-	if err := json.Unmarshal(raw, &data); err != nil {
-		return string(raw)
-	}
-	if s := findFirstString(data); s != "" {
-		return s
-	}
-	return ""
-}
-
-// findFirstString does a depth-first search for the first non-empty string in a JSON value.
-func findFirstString(v interface{}) string {
-	switch val := v.(type) {
-	case string:
-		return val
-	case []interface{}:
-		for _, item := range val {
-			if s := findFirstString(item); s != "" {
-				return s
-			}
-		}
-	}
-	return ""
 }
 
 // Source upload utility methods

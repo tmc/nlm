@@ -124,7 +124,7 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.StringVar(&opts.sourceName, "name", "", "custom name for added source")
 	flags.StringVar(&opts.sourceName, "n", "", "custom name for added source (shorthand)")
 	flags.StringVar(&opts.replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
-	flags.BoolVar(&opts.jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (notebook list/source list/note list/notebook featured/artifact list/audio list/video list/guidebooks/chat list/label list); also enables NDJSON progress for sync")
+	flags.BoolVar(&opts.jsonOutput, "json", false, "emit NDJSON instead of tab-separated tables (notebook list/source list/note list/notebook featured/artifact list/audio list/guidebooks/chat list/label list); also enables NDJSON progress for sync")
 	flags.BoolVar(&opts.sourceReadMarkdown, "markdown", false, "render source read with inline image references (source read)")
 	flags.BoolVar(&opts.sourceReadHTML, "html", false, "render source read as a self-contained HTML document (source read)")
 	flags.BoolVar(&opts.force, "force", false, "force re-upload even if unchanged (sync)")

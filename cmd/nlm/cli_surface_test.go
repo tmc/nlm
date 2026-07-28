@@ -37,19 +37,6 @@ func TestCLISurface(t *testing.T) {
 		}
 	})
 
-	t.Run("video commands configure direct RPC", func(t *testing.T) {
-		for _, name := range []string{"video-get", "video get", "video-download", "video download"} {
-			cmd := commandIndex[name]
-			if cmd == nil {
-				t.Errorf("command %q not found", name)
-				continue
-			}
-			if !cmd.directRPC {
-				t.Errorf("command %q directRPC = false, want true", name)
-			}
-		}
-	})
-
 	t.Run("root help aliases", func(t *testing.T) {
 		for _, args := range [][]string{{"help"}, {"-h"}, {"--help"}} {
 			inv, _, err := parse(t, args...)

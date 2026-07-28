@@ -1,0 +1,22 @@
+# Test generate-chat argument validation and authentication.
+
+! exec ./nlm_test generate-chat
+stderr 'usage: nlm generate-chat'
+! stderr 'panic'
+
+! exec ./nlm_test generate-chat notebook123
+stderr 'usage: nlm generate-chat'
+! stderr 'panic'
+
+! exec ./nlm_test generate-chat notebook123 hello
+stderr 'Authentication required'
+! stderr 'panic'
+
+! exec ./nlm_test generate-chat notebook123 hello world extra
+stderr 'Authentication required'
+! stderr 'panic'
+
+exec ./nlm_test help
+stderr 'generate-chat.*Stream a one-shot chat answer'
+! stderr 'Content Transformation Commands'
+! stderr 'panic'

@@ -156,9 +156,8 @@ func validateSourceInputs(inputs []string) error {
 // are fail-fast: the first failure aborts remaining inputs.
 //
 // NOTE: the underlying wire path is per-type RPCs (text/base64/upload-url),
-// not the izAoDd AddSources bulk envelope — see api.Client.AddSources for
-// why. When HAR evidence lands for the bulk wire, this function becomes the
-// single switch point.
+// not an unverified izAoDd bulk envelope. When capture evidence establishes
+// that wire shape, this function is the single switch point.
 func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAddOptions) error {
 	if err := validateSourceInputs(inputs); err != nil {
 		return err

@@ -103,11 +103,6 @@ type generateChatInput struct {
 	Prompt     string `json:"prompt"`
 }
 
-type generateContentInput struct {
-	NotebookID string   `json:"notebook_id"`
-	SourceIDs  []string `json:"source_ids"`
-}
-
 type createVideoOverviewInput struct {
 	NotebookID   string   `json:"notebook_id"`
 	Instructions string   `json:"instructions"`
@@ -607,46 +602,6 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		return textResult(response.Chunk), nil, nil
 	})
 
-	registerGenerationTools(server, client)
-}
-
-func registerGenerationTools(server *mcp.Server, client *api.Client) {
-	actions := map[string]string{
-		"summarize":    "summarize",
-		"briefing_doc": "briefing_doc",
-		"faq":          "faq",
-		"study_guide":  "study_guide",
-		"rephrase":     "rephrase",
-		"expand":       "expand",
-		"critique":     "critique",
-		"brainstorm":   "brainstorm",
-		"verify":       "verify",
-		"explain":      "explain",
-		"outline":      "outline",
-		"mindmap":      "interactive_mindmap",
-		"timeline":     "timeline",
-		"toc":          "table_of_contents",
-	}
-
-	for toolName, action := range actions {
-		toolName := toolName
-		action := action
-
-		mcp.AddTool(server, &mcp.Tool{
-			Name:        "generate_" + toolName,
-			Description: fmt.Sprintf("Generate a %s from sources.", toolName),
-			Annotations: mutatingAnnotations,
-		}, func(ctx context.Context, req *mcp.CallToolRequest, input generateContentInput) (*mcp.CallToolResult, any, error) {
-			content, err := client.ActOnSources(context.Background(), input.NotebookID, action, input.SourceIDs)
-			if err != nil {
-				return errorResult(fmt.Sprintf("failed to generate %s: %v", toolName, err)), nil, nil
-			}
-			if content != "" {
-				return textResult(content), nil, nil
-			}
-			return textResult(fmt.Sprintf("triggered %s generation", toolName)), nil, nil
-		})
-	}
 }
 
 func textResult(text string) *mcp.CallToolResult {

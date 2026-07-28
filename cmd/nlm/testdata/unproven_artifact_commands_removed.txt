@@ -1,0 +1,27 @@
+# Commands with no verified request shape should not be registered.
+
+! exec ./nlm_test magic
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test revise-artifact artifact123 'Make it shorter'
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test artifact revise artifact123 'Make it shorter'
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test report-content artifact123 unsafe
+stderr 'Usage: nlm <command>'
+
+# Video retrieval had no observed endpoint and returned fabricated empty data.
+! exec ./nlm_test video-list notebook123
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test video-get notebook123
+stderr 'Usage: nlm <command>'
+
+! exec ./nlm_test video-download notebook123 output.mp4
+stderr 'Usage: nlm <command>'
+
+# Capture-backed video creation remains available.
+! exec ./nlm_test video create notebook123 'Summarize the sources'
+stderr 'Authentication required'
