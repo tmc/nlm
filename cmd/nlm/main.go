@@ -32,6 +32,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// version is set by GoReleaser.
+var version string
+
 // Global flags
 var (
 	showVersion       bool
@@ -381,22 +384,25 @@ func isAuthenticationError(err error) bool {
 	return false
 }
 
-// versionString returns a human-readable version line derived from
-// runtime/debug.ReadBuildInfo. It prefers the module version (set by
-// `go install module@tag`) and falls back to VCS metadata (commit sha +
-// commit date) for source builds. The resulting format is:
+// versionString returns a human-readable version line. It prefers the release
+// version set by GoReleaser, then the module version set by
+// `go install module@tag`, and finally VCS metadata (commit sha + commit date)
+// for source builds. The resulting format is:
 //
 //	nlm <version-or-sha> (<commit-date>)
 //
 // For builds without any VCS or module info it emits "nlm devel".
 func versionString() string {
+	if version != "" {
+		return "nlm " + version
+	}
 	info, ok := runtimedebug.ReadBuildInfo()
 	if !ok {
 		return "nlm devel"
 	}
-	version := info.Main.Version
-	if version == "(devel)" {
-		version = ""
+	buildVersion := info.Main.Version
+	if buildVersion == "(devel)" {
+		buildVersion = ""
 	}
 	var commit, commitDate string
 	var dirty bool
@@ -410,35 +416,38 @@ func versionString() string {
 			dirty = s.Value == "true"
 		}
 	}
-	if version == "" {
+	if buildVersion == "" {
 		if commit != "" {
 			short := commit
 			if len(short) > 12 {
 				short = short[:12]
 			}
-			version = short
+			buildVersion = short
 		} else {
-			version = "devel"
+			buildVersion = "devel"
 		}
 	}
 	if dirty {
-		version += "-dirty"
+		buildVersion += "-dirty"
 	}
 	if commitDate != "" {
-		return fmt.Sprintf("nlm %s (%s)", version, commitDate)
+		return fmt.Sprintf("nlm %s (%s)", buildVersion, commitDate)
 	}
-	return fmt.Sprintf("nlm %s", version)
+	return fmt.Sprintf("nlm %s", buildVersion)
 }
 
 func runMCP(client *api.Client) error {
 	info, ok := runtimedebug.ReadBuildInfo()
-	version := "devel"
-	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
-		version = info.Main.Version
+	buildVersion := version
+	if buildVersion == "" {
+		buildVersion = "devel"
+		if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+			buildVersion = info.Main.Version
+		}
 	}
 	impl := &mcp.Implementation{
 		Name:    "nlm",
-		Version: version,
+		Version: buildVersion,
 	}
 	return nlmmcp.Run(context.Background(), client, impl)
 }
