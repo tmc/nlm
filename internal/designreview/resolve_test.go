@@ -9,45 +9,6 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-func TestReadNativeCitations(t *testing.T) {
-	in := strings.NewReader(strings.Join([]string{
-		`{"phase":"answer","text":"hello"}`,
-		`{"phase":"citation","source_id":"src-1","title":"a.txt","start_char":3,"end_char":8,"confidence":0.9}`,
-		`{"source_id":"src-2","start_char":10,"end_char":14}`,
-		`{"phase":"done"}`,
-	}, "\n"))
-	got, err := ReadNativeCitations(in)
-	if err != nil {
-		t.Fatalf("ReadNativeCitations: %v", err)
-	}
-	if len(got) != 2 {
-		t.Fatalf("len = %d, want 2", len(got))
-	}
-	if got[0].SourceID != "src-1" || got[0].StartChar != 3 || got[0].EndChar != 8 {
-		t.Fatalf("first citation = %+v", got[0])
-	}
-	if got[1].SourceID != "src-2" {
-		t.Fatalf("second citation = %+v", got[1])
-	}
-}
-
-func TestRenderChatAnswer(t *testing.T) {
-	in := strings.NewReader(strings.Join([]string{
-		`{"phase":"thinking","text":"hidden"}`,
-		`{"phase":"answer","text":"hello "}`,
-		`{"phase":"citation","source_id":"src-1","start_char":0,"end_char":5}`,
-		`{"phase":"answer","text":"world"}`,
-		`{"phase":"done"}`,
-	}, "\n"))
-	var b strings.Builder
-	if err := RenderChatAnswer(&b, in); err != nil {
-		t.Fatalf("RenderChatAnswer: %v", err)
-	}
-	if got := b.String(); got != "hello world" {
-		t.Fatalf("answer = %q, want %q", got, "hello world")
-	}
-}
-
 func TestResolvePlainText(t *testing.T) {
 	body := api.LoadSourceText{
 		SourceID: "src-1",
@@ -354,57 +315,6 @@ func TestScanTxtarMembersCollapsedFirstHeaderRequiresCorroboration(t *testing.T)
 		if got := scanTxtarMembers([]rune(text)); len(got) != 0 {
 			t.Errorf("scanTxtarMembers(%q) = %+v, want no members", text, got)
 		}
-	}
-}
-
-func TestResolveAllCachesSourceLoads(t *testing.T) {
-	body := api.LoadSourceText{
-		SourceID: "src-1",
-		Fragments: []api.TextFragment{{
-			Start: 0,
-			End:   len([]rune("hello world")),
-			Text:  "hello world",
-		}},
-	}
-	loads := 0
-	got, err := ResolveAll(func(sourceID string) (api.LoadSourceText, error) {
-		loads++
-		return body, nil
-	}, []NativeCitation{
-		{SourceID: "src-1", StartChar: 0, EndChar: 5},
-		{SourceID: "src-1", StartChar: 6, EndChar: 11},
-	})
-	if err != nil {
-		t.Fatalf("ResolveAll: %v", err)
-	}
-	if loads != 1 {
-		t.Fatalf("loads = %d, want 1", loads)
-	}
-	if len(got) != 2 {
-		t.Fatalf("len = %d, want 2", len(got))
-	}
-}
-
-func TestResolvedAsCitation(t *testing.T) {
-	got := ResolvedAsCitation(Resolved{
-		SourceID:   "src-1",
-		File:       "dir/file.go",
-		Line:       12,
-		Column:     7,
-		EndLine:    12,
-		EndColumn:  11,
-		Status:     StatusOK,
-		Confidence: 0.87,
-		Snippet:    "hello world",
-	}, "/repo")
-	if got.Raw != "dir/file.go:12:7" {
-		t.Fatalf("raw = %q", got.Raw)
-	}
-	if got.Match != "/repo/dir/file.go" {
-		t.Fatalf("match = %q", got.Match)
-	}
-	if got.Snippet != "hello world" || got.Context != "hello world" {
-		t.Fatalf("snippet/context = %+v", got)
 	}
 }
 

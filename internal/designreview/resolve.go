@@ -1,12 +1,8 @@
 package designreview
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
-	"io"
 	"path"
-	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -63,66 +59,6 @@ type txtarMember struct {
 	HeaderEnd   int
 	BodyStart   int
 	BodyEnd     int
-}
-
-// ReadNativeCitations extracts citation events from a chat JSONL stream.
-// Non-citation events are ignored.
-func ReadNativeCitations(r io.Reader) ([]NativeCitation, error) {
-	var out []NativeCitation
-	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
-	for lineNum := 1; sc.Scan(); lineNum++ {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
-		var c NativeCitation
-		if err := json.Unmarshal([]byte(line), &c); err != nil {
-			return nil, fmt.Errorf("decode line %d: %w", lineNum, err)
-		}
-		if c.Phase != "" && c.Phase != "citation" {
-			continue
-		}
-		if c.SourceID == "" {
-			continue
-		}
-		out = append(out, c)
-	}
-	if err := sc.Err(); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// RenderChatAnswer extracts the concatenated answer text from a chat JSONL
-// stream and writes it to w.
-func RenderChatAnswer(w io.Writer, r io.Reader) error {
-	bw := bufio.NewWriter(w)
-	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
-	for lineNum := 1; sc.Scan(); lineNum++ {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
-			continue
-		}
-		var ev struct {
-			Phase string `json:"phase"`
-			Text  string `json:"text,omitempty"`
-		}
-		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			return fmt.Errorf("decode line %d: %w", lineNum, err)
-		}
-		if ev.Phase != "answer" {
-			continue
-		}
-		if _, err := io.WriteString(bw, ev.Text); err != nil {
-			return err
-		}
-	}
-	if err := sc.Err(); err != nil {
-		return err
-	}
-	return bw.Flush()
 }
 
 // Resolve maps one citation against a source's server-indexed text.
@@ -182,28 +118,6 @@ func ResolveCitation(body api.LoadSourceText, c NativeCitation, excerpt string) 
 // non-empty run of Unicode whitespace is replaced by one ASCII space.
 func ExcerptMatches(source, excerpt string) bool {
 	return strings.Join(strings.Fields(source), " ") == strings.Join(strings.Fields(excerpt), " ")
-}
-
-// ResolveAll resolves cites, fetching each distinct source at most once.
-func ResolveAll(load func(sourceID string) (api.LoadSourceText, error), cites []NativeCitation) ([]Resolved, error) {
-	cache := make(map[string]*sourceResolver)
-	out := make([]Resolved, 0, len(cites))
-	for _, c := range cites {
-		if c.SourceID == "" {
-			return nil, fmt.Errorf("citation missing source_id")
-		}
-		resolver := cache[c.SourceID]
-		if resolver == nil {
-			body, err := load(c.SourceID)
-			if err != nil {
-				return nil, fmt.Errorf("load source %s: %w", c.SourceID, err)
-			}
-			resolver = newSourceResolver(body)
-			cache[c.SourceID] = resolver
-		}
-		out = append(out, resolver.Resolve(c))
-	}
-	return out, nil
 }
 
 func newSourceResolver(body api.LoadSourceText) *sourceResolver {
@@ -632,46 +546,4 @@ func displaySnippet(s string) string {
 		return string(r[:200]) + "..."
 	}
 	return s
-}
-
-// ResolvedAsCitation converts a resolved native citation into the shared
-// formatter shape used by Write.
-func ResolvedAsCitation(r Resolved, reviewedRepo string) Citation {
-	file := r.File
-	match := file
-	if reviewedRepo != "" && file != "" && !filepath.IsAbs(file) {
-		match = filepath.Join(reviewedRepo, file)
-	}
-	line := r.Line
-	if line <= 0 {
-		line = 1
-	}
-	col := r.Column
-	if col <= 0 {
-		col = 1
-	}
-	raw := file
-	if raw == "" {
-		raw = r.SourceID
-	}
-	if raw != "" {
-		raw = fmt.Sprintf("%s:%d:%d", raw, line, col)
-	}
-	return Citation{
-		Raw:        raw,
-		File:       file,
-		Line:       line,
-		Column:     col,
-		EndLine:    r.EndLine,
-		EndColumn:  r.EndColumn,
-		Match:      match,
-		Status:     r.Status,
-		Reason:     r.Reason,
-		Context:    displaySnippet(r.Snippet),
-		Snippet:    r.Snippet,
-		SourceID:   r.SourceID,
-		StartChar:  r.StartChar,
-		EndChar:    r.EndChar,
-		Confidence: r.Confidence,
-	}
 }
