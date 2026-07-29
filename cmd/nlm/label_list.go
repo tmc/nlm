@@ -9,7 +9,7 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-func renderLabelList(out, status io.Writer, labels []api.Label, tty bool) error {
+func renderLabelList(out, status io.Writer, labels []api.Label, tty, jsonOutput bool) error {
 	if jsonOutput {
 		enc := json.NewEncoder(out)
 		for _, l := range labels {

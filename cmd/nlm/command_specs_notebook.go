@@ -16,6 +16,7 @@ type notebookCreateArgs struct {
 
 type notebookDeleteArgs struct {
 	NotebookID string
+	Yes        bool
 }
 
 type notebookRenameArgs struct {
@@ -48,7 +49,9 @@ type notebookIDArgs struct {
 	NotebookID string
 }
 
-type notebookFeaturedArgs struct{}
+type notebookFeaturedArgs struct {
+	JSON bool
+}
 
 func configureNotebookCommandSpecs(specs map[commandID]*commandSpec) {
 	listSpec := specs["list"]
@@ -170,9 +173,13 @@ func decodeNotebookDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := notebookDeleteArgs{NotebookID: notebookID}
+	yes, err := parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return nil, err
+	}
+	args := notebookDeleteArgs{NotebookID: notebookID, Yes: yes}
 	return func(_ context.Context, client *api.Client) error {
-		return remove(client, args.NotebookID)
+		return remove(client, args.NotebookID, args.Yes)
 	}, nil
 }
 
@@ -285,16 +292,23 @@ func decodeNotebookAnalytics(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
 	args := notebookIDArgs{NotebookID: notebookID}
 	return func(_ context.Context, client *api.Client) error {
-		return getAnalytics(client, args.NotebookID)
+		return getAnalytics(client, args.NotebookID, jsonOutput)
 	}, nil
 }
 
-func decodeNotebookFeatured(parsedCommand) (commandCall, error) {
-	args := notebookFeaturedArgs{}
+func decodeNotebookFeatured(parsed parsedCommand) (commandCall, error) {
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
+	args := notebookFeaturedArgs{JSON: jsonOutput}
 	return func(_ context.Context, client *api.Client) error {
-		_ = args
-		return listFeaturedProjects(client)
+		return listFeaturedProjects(client, args.JSON)
 	}, nil
 }

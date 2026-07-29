@@ -11,7 +11,8 @@ type sourceGuideArgs struct {
 	NotebookID string
 	SourceIDs  []string
 	Selectors  selectorOptions
-	Globals    globalOptions
+	Force      bool
+	JSON       bool
 }
 
 func selectorFlagSpecs() []flagSpec {
@@ -72,7 +73,7 @@ func decodeSourceGuide(parsed parsedCommand) (commandCall, error) {
 				return err
 			}
 		}
-		return generateSourceGuidesWithOptions(client, sourceIDs, args.Globals)
+		return generateSourceGuidesWithOptions(client, sourceIDs, args.Force, args.JSON)
 	}, nil
 }
 
@@ -86,10 +87,19 @@ func decodeSourceGuideArgs(parsed parsedCommand) (sourceGuideArgs, error) {
 	if len(sourceIDs) == 0 && selectors.empty() {
 		return sourceGuideArgs{}, fmt.Errorf("missing source ids or selectors")
 	}
+	force, err := parsedBoolFlag(parsed, "force", parsed.globals.force)
+	if err != nil {
+		return sourceGuideArgs{}, err
+	}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return sourceGuideArgs{}, err
+	}
 	return sourceGuideArgs{
 		NotebookID: positionals[0],
 		SourceIDs:  sourceIDs,
 		Selectors:  selectors,
-		Globals:    parsed.globals,
+		Force:      force,
+		JSON:       jsonOutput,
 	}, nil
 }

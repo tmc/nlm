@@ -11,6 +11,7 @@ import (
 
 type noteListArgs struct {
 	NotebookID string
+	JSON       bool
 }
 
 type noteReadArgs struct {
@@ -38,6 +39,7 @@ type noteUpdateArgs struct {
 type noteDeleteArgs struct {
 	NotebookID string
 	NoteID     string
+	Yes        bool
 }
 
 type noteContentInput struct {
@@ -236,9 +238,13 @@ func decodeNoteList(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := noteListArgs{NotebookID: notebookID}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
+	args := noteListArgs{NotebookID: notebookID, JSON: jsonOutput}
 	return func(_ context.Context, client *api.Client) error {
-		return listNotes(client, args.NotebookID)
+		return listNotes(client, args.NotebookID, args.JSON)
 	}, nil
 }
 
@@ -504,8 +510,12 @@ func decodeNoteDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := noteDeleteArgs{NotebookID: notebookID, NoteID: noteID}
+	yes, err := parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return nil, err
+	}
+	args := noteDeleteArgs{NotebookID: notebookID, NoteID: noteID, Yes: yes}
 	return func(_ context.Context, client *api.Client) error {
-		return removeNote(client, args.NotebookID, args.NoteID)
+		return removeNote(client, args.NotebookID, args.NoteID, args.Yes)
 	}, nil
 }

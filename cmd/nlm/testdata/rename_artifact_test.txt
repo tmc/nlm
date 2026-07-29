@@ -238,9 +238,9 @@ stderr 'usage: nlm get-artifact <artifact-id>'
 ! stderr 'panic'
 
 ! exec ./nlm_test delete-artifact
-stderr 'usage: nlm delete-artifact <artifact-id>'
+stderr 'usage: nlm delete-artifact \[flags\] <artifact-id>'
 ! stderr 'panic'
 
 ! exec ./nlm_test list-artifacts
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'panic'

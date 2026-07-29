@@ -137,7 +137,7 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
-		if phase4CommandPaths[want.Path] || phase5CommandPaths[want.Path] || prototextCommandPaths[want.Path] {
+		if phase4CommandPaths[want.Path] || phase5CommandPaths[want.Path] || prototextCommandPaths[want.Path] || phase6OwnershipCommandPaths[want.Path] {
 			got.ArgsUsage, got.Help = want.ArgsUsage, want.Help
 			if len(got.Cases) != len(want.Cases) {
 				t.Errorf("%s argument case count changed", want.Path)
@@ -203,7 +203,7 @@ func compareCommandParityPhase2(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
-		if !phase4CommandPaths[want.Path] && !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] {
+		if !phase4CommandPaths[want.Path] && !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 4 and Phase 5", want.Path)
 			}
@@ -248,7 +248,7 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
-		if !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] {
+		if !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 5 and prototext", want.Path)
 			}
@@ -270,7 +270,8 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 
 func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGolden) {
 	t.Helper()
-	if filterHelpLines(current.RootHelp, prototextCommandPaths) != filterHelpLines(baseline.RootHelp, prototextCommandPaths) {
+	if filterHelpLines(filterHelpLines(current.RootHelp, prototextCommandPaths), phase6OwnershipCommandPaths) !=
+		filterHelpLines(filterHelpLines(baseline.RootHelp, prototextCommandPaths), phase6OwnershipCommandPaths) {
 		t.Error("root help differs outside the prototext paths")
 	}
 	if len(current.SectionHelp) != len(baseline.SectionHelp) {
@@ -281,7 +282,8 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 		if got.Name != want.Name {
 			t.Fatalf("section %d name changed: got %q, want %q", i, got.Name, want.Name)
 		}
-		if filterHelpLines(got.Help, prototextCommandPaths) != filterHelpLines(want.Help, prototextCommandPaths) {
+		if filterHelpLines(filterHelpLines(got.Help, prototextCommandPaths), phase6OwnershipCommandPaths) !=
+			filterHelpLines(filterHelpLines(want.Help, prototextCommandPaths), phase6OwnershipCommandPaths) {
 			t.Errorf("%s section help differs outside the prototext paths", want.Name)
 		}
 	}
@@ -293,7 +295,7 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
-		if !prototextCommandPaths[want.Path] {
+		if !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside the prototext paths", want.Path)
 			}
@@ -319,7 +321,8 @@ func filterPhase1HelpLines(help string) string {
 		if !helpLineForPaths(line, inventoryCommandPaths) &&
 			!helpLineForPaths(line, phase4CommandPaths) &&
 			!helpLineForPaths(line, phase5CommandPaths) &&
-			!helpLineForPaths(line, prototextCommandPaths) {
+			!helpLineForPaths(line, prototextCommandPaths) &&
+			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
 			kept = append(kept, line)
 		}
 	}
@@ -331,7 +334,8 @@ func filterLaterPhaseHelpLines(help string) string {
 	for _, line := range strings.Split(help, "\n") {
 		if !helpLineForPaths(line, phase4CommandPaths) &&
 			!helpLineForPaths(line, phase5CommandPaths) &&
-			!helpLineForPaths(line, prototextCommandPaths) {
+			!helpLineForPaths(line, prototextCommandPaths) &&
+			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
 			kept = append(kept, line)
 		}
 	}
@@ -341,7 +345,9 @@ func filterLaterPhaseHelpLines(help string) string {
 func filterLaterThanPhase4HelpLines(help string) string {
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
-		if !helpLineForPaths(line, phase5CommandPaths) && !helpLineForPaths(line, prototextCommandPaths) {
+		if !helpLineForPaths(line, phase5CommandPaths) &&
+			!helpLineForPaths(line, prototextCommandPaths) &&
+			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
 			kept = append(kept, line)
 		}
 	}
@@ -391,6 +397,60 @@ var phase5CommandPaths = map[string]bool{
 var prototextCommandPaths = map[string]bool{
 	"source read": true,
 	"read-source": true,
+}
+
+// phase6OwnershipCommandPaths is the exact commit-1 inventory of surfaces
+// whose help changes when stable --json or --yes flags become command-owned.
+var phase6OwnershipCommandPaths = map[string]bool{
+	"account":           true,
+	"analytics":         true,
+	"artifact delete":   true,
+	"artifact list":     true,
+	"artifacts":         true,
+	"audio create":      true,
+	"audio delete":      true,
+	"audio list":        true,
+	"audio-list":        true,
+	"audio-rm":          true,
+	"audio-suggestions": true,
+	"autolabel":         true,
+	"betool":            true,
+	"chat":              true,
+	"chat delete":       true,
+	"chat list":         true,
+	"chat-list":         true,
+	"create-audio":      true,
+	"delete-artifact":   true,
+	"delete-chat":       true,
+	"discover-sources":  true,
+	"guidebooks":        true,
+	"label create":      true,
+	"label generate":    true,
+	"label list":        true,
+	"label relabel-all": true,
+	"label unlabeled":   true,
+	"label-create":      true,
+	"label-generate":    true,
+	"label-list":        true,
+	"label-relabel-all": true,
+	"label-unlabeled":   true,
+	"labels":            true,
+	"list-artifacts":    true,
+	"list-featured":     true,
+	"note delete":       true,
+	"note list":         true,
+	"note-rm":           true,
+	"notebook delete":   true,
+	"notebook featured": true,
+	"notes":             true,
+	"rm":                true,
+	"rm-note":           true,
+	"rm-source":         true,
+	"source delete":     true,
+	"source list":       true,
+	"source-guide":      true,
+	"source-rm":         true,
+	"sources":           true,
 }
 
 // inventoryCommandPaths expands the 24 Phase 2 inventory rows across every

@@ -11,7 +11,7 @@ stderr 'Usage: nlm'
 
 # Test 3: Argument validation
 ! exec ./nlm_test notes
-stderr 'usage: nlm notes <notebook-id>'
+stderr 'usage: nlm notes \[flags\] <notebook-id>'
 
 # Test 4: Create without args
 ! exec ./nlm_test create

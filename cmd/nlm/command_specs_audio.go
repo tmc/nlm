@@ -8,6 +8,8 @@ import (
 
 type audioNotebookArgs struct {
 	NotebookID string
+	JSON       bool
+	Yes        bool
 }
 
 type audioDownloadArgs struct {
@@ -36,7 +38,7 @@ func decodeAudioList(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	return func(_ context.Context, client *api.Client) error {
-		return listAudioOverviews(client, args.NotebookID)
+		return listAudioOverviews(client, args.NotebookID, args.JSON)
 	}, nil
 }
 
@@ -71,7 +73,7 @@ func decodeAudioDelete(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	return func(_ context.Context, client *api.Client) error {
-		return deleteAudioOverview(client, args.NotebookID)
+		return deleteAudioOverview(client, args.NotebookID, args.Yes)
 	}, nil
 }
 
@@ -90,5 +92,13 @@ func decodeAudioNotebook(parsed parsedCommand) (audioNotebookArgs, error) {
 	if err != nil {
 		return audioNotebookArgs{}, err
 	}
-	return audioNotebookArgs{NotebookID: notebookID}, nil
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return audioNotebookArgs{}, err
+	}
+	yes, err := parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return audioNotebookArgs{}, err
+	}
+	return audioNotebookArgs{NotebookID: notebookID, JSON: jsonOutput, Yes: yes}, nil
 }

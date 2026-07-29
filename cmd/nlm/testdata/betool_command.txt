@@ -30,7 +30,7 @@ stderr 'encode-response'
 # guards the regression where the example showed a plain decode-response piped
 # into encode-response (which fails on the text output).
 exec ./nlm_test betool help
-stderr 'nlm --json betool decode-response'
+stderr 'nlm betool decode-response --json'
 
 # Default decode output is human-readable text, not JSON: it names the RPC and
 # previews the data, and is NOT the structured "responses" JSON that
@@ -41,9 +41,9 @@ stdout 'response'
 stdout 'CCqFvf'
 ! stdout '"responses"'
 
-# The same body with the global --json flag emits the structured JSON that
+# The same body with the command-owned --json flag emits the structured JSON that
 # encode-response can round-trip.
-exec ./nlm_test --json betool decode-response testdata/betool/response.txt
+exec ./nlm_test betool decode-response --json testdata/betool/response.txt
 stdout '"responses"'
 stdout '"CCqFvf"'
 

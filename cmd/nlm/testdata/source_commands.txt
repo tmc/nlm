@@ -4,12 +4,12 @@
 # === SOURCES COMMAND ===
 # Test sources without arguments (should fail with usage)
 ! exec ./nlm_test sources
-stderr 'usage: nlm sources <notebook-id>'
+stderr 'usage: nlm sources \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test sources with too many arguments
 ! exec ./nlm_test sources notebook123 extra
-stderr 'usage: nlm sources <notebook-id>'
+stderr 'usage: nlm sources \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test sources without authentication
@@ -36,12 +36,12 @@ stderr 'Authentication required'
 # === RM-SOURCE COMMAND ===
 # Test rm-source without arguments
 ! exec ./nlm_test rm-source
-stderr 'usage: nlm rm-source <notebook-id> <source-id\|-\|a,b,c>'
+stderr 'usage: nlm rm-source \[flags\] <notebook-id> <source-id\|-\|a,b,c>'
 ! stderr 'panic'
 
 # Test rm-source with only one argument
 ! exec ./nlm_test rm-source notebook123
-stderr 'usage: nlm rm-source <notebook-id> <source-id\|-\|a,b,c>'
+stderr 'usage: nlm rm-source \[flags\] <notebook-id> <source-id\|-\|a,b,c>'
 ! stderr 'panic'
 
 # Test rm-source without authentication
@@ -90,12 +90,12 @@ stderr 'Authentication required'
 # === DISCOVER-SOURCES COMMAND ===
 # Test discover-sources without arguments
 ! exec ./nlm_test discover-sources
-stderr 'usage: nlm discover-sources <notebook-id> <query>'
+stderr 'usage: nlm discover-sources \[flags\] <notebook-id> <query>'
 ! stderr 'panic'
 
 # Test discover-sources with only notebook ID
 ! exec ./nlm_test discover-sources notebook123
-stderr 'usage: nlm discover-sources <notebook-id> <query>'
+stderr 'usage: nlm discover-sources \[flags\] <notebook-id> <query>'
 ! stderr 'panic'
 
 # Test discover-sources without authentication

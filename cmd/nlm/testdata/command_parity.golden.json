@@ -1,21 +1,21 @@
 {
-  "root_help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nNotebook Commands:\n  notebook list [flags]                      List all notebooks\n  notebook create \u003ctitle\u003e                    Create a new notebook\n  notebook delete \u003cnotebook-id\u003e              Delete a notebook\n  notebook rename \u003cnotebook-id\u003e \u003cnew-title\u003e  Rename a notebook\n  notebook emoji \u003cnotebook-id\u003e \u003cemoji\u003e       Change notebook emoji\n  notebook description \u003cnotebook-id\u003e [text]  Set notebook description / creator notes (text via arg or stdin; empty clears)\n  notebook cover \u003cnotebook-id\u003e \u003cpreset-id\u003e   Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)\n  notebook cover-image \u003cnotebook-id\u003e \u003cimage-path\u003e Upload a custom cover image and associate it with the notebook\n  notebook unrecent \u003cnotebook-id\u003e            Remove a notebook from the recently-viewed list (does not delete it)\n  notebook featured                          List featured notebooks\n  analytics \u003cnotebook-id\u003e                    Show notebook analytics time series\n\nSource Commands:\n  source list \u003cnotebook-id\u003e                  List sources in notebook\n  source add [flags] \u003cnotebook-id\u003e \u003csource...\u003e Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)\n  source sync [flags] \u003cnotebook-id\u003e [path...] Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)\n  source pack [flags] [path...]              Preview the txtar bytes that sync would upload (offline)\n  source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n  source rename \u003csource-id\u003e \u003cnew-name\u003e       Rename a source\n  source refresh \u003cnotebook-id\u003e \u003csource-id\u003e   Refresh source content\n  source check \u003cnotebook-id\u003e \u003csource-id\u003e     Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)\n  source read [--format text|markdown|html|json|raw|prototext] \u003cnotebook-id\u003e \u003csource-id\u003e Read a source body\n  discover-sources \u003cnotebook-id\u003e \u003cquery\u003e     Discover relevant sources via Es3dTe (chat fallback if the server rejects)\n\nNote Commands:\n  note list \u003cnotebook-id\u003e                    List notes in notebook\n  note read [--format text|markdown|html] [--out file] [--open] \u003cnotebook-id\u003e \u003cnote-id\u003e Read full note content\n  note create \u003cnotebook-id\u003e \u003ctitle\u003e [--content TEXT | --content-file FILE] Create new note (content via arg or stdin)\n  note update \u003cnotebook-id\u003e \u003cnote-id\u003e [--title TITLE] [--content TEXT | --content-file FILE] Edit note content and title\n  note delete \u003cnotebook-id\u003e \u003cnote-id\u003e        Remove a note from a notebook\n\nLabel Commands:\n  label list \u003cnotebook-id\u003e                   List labels (autolabel clusters) in a notebook\n  label generate \u003cnotebook-id\u003e               Recompute autolabel clusters for a notebook\n  label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]  Create a new manual label on a notebook\n  label rename \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e Rename an existing label\n  label emoji \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e Set or clear the emoji on a label\n  label delete \u003cnotebook-id\u003e \u003clabel-id\u003e [\u003clabel-id\u003e...] Delete one or more labels by ID\n  label unlabeled \u003cnotebook-id\u003e              Apply existing labels to currently-unlabeled sources\n  label relabel-all \u003cnotebook-id\u003e            Re-cluster everything (UI's \"Relabel all\")\n  label attach \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e Attach a source to a label (single source per call)\n\nCreate Commands:\n  app create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated app artifact\n  mindmap create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated mind map artifact\n  create-audio [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create audio overview\n  create-video [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create video overview\n  app-create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated app artifact\n  mindmap-create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated mind map artifact\n  create-slides [flags] \u003cnotebook-id\u003e [instructions...] Create slide deck\n  create-report [flags] \u003cnotebook-id\u003e \u003creport-type\u003e [description...] Create a report artifact (run report-suggestions for valid types)\n\nAudio Commands:\n  audio list \u003cnotebook-id\u003e                   List audio overviews for a notebook\n  audio create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create audio overview\n  audio get \u003cnotebook-id\u003e                    Get audio overview details\n  audio download \u003cnotebook-id\u003e [filename]    Download audio file\n  audio delete \u003cnotebook-id\u003e                 Delete audio overview\n  audio share \u003cnotebook-id\u003e                  Share audio overview\n\nVideo Commands:\n  video create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create video overview\n\nDeck Commands:\n  deck create [flags] \u003cnotebook-id\u003e [instructions...] Create slide deck\n  deck download [flags] \u003cnotebook-id\u003e        Download a slide deck (PDF/PPTX)\n\nArtifact Commands:\n  artifact list \u003cnotebook-id\u003e                List artifacts in notebook\n  artifact get \u003cartifact-id\u003e                 Get artifact details\n  artifact read \u003cartifact-id\u003e                Print a text artifact\n  artifact export [flags] \u003cartifact-id\u003e      Export an artifact\n  artifact update [--name \u003cname\u003e] \u003cartifact-id\u003e [title] Rename artifact (new title from positional arg or --name)\n  artifact delete \u003cartifact-id\u003e              Delete artifact\n  read-artifact \u003cartifact-id\u003e                Print a text artifact\n\nGuidebook Commands:\n  guidebooks                                 List all guidebooks\n  guidebook \u003cguidebook-id\u003e                   Get guidebook details\n  guidebook-details \u003cguidebook-id\u003e           Get detailed guidebook info with sections and analytics\n  guidebook-publish \u003cguidebook-id\u003e           Publish a guidebook\n  guidebook-share \u003cguidebook-id\u003e             Share a guidebook\n  guidebook-ask \u003cguidebook-id\u003e \u003cquestion\u003e    Ask a guidebook question\n  guidebook-rm \u003cguidebook-id\u003e                Delete a guidebook\n\nGeneration Commands:\n  generate-guide \u003cnotebook-id\u003e               Generate notebook guide\n  source-guide [flags] \u003cnotebook-id\u003e [source-id...] Show the per-source auto-summary and keyword chips (cached on disk)\n  generate-chat [flags] \u003cnotebook-id\u003e [prompt...] Stream a one-shot chat answer (use --conversation to follow up)\n  report-suggestions \u003cnotebook-id\u003e           Suggest report topics for notebook\n  audio-suggestions \u003cnotebook-id\u003e            Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)\n  generate-report [flags] \u003cnotebook-id\u003e      Generate multi-section report via chat (see --prompt, --sections)\n\nChat Commands:\n  chat list [notebook-id]                    List chat sessions (server-side when a notebook is given)\n  chat history \u003cnotebook-id\u003e \u003cconversation-id\u003e View conversation history\n  chat show [flags] \u003cnotebook-id\u003e [conversation-id] Render a local chat transcript (see --citations)\n  chat delete \u003cnotebook-id\u003e                  Delete server-side chat history\n  chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e Configure chat settings\n  chat instructions set \u003cnotebook-id\u003e \"prompt\" Set system instructions\n  chat instructions get \u003cnotebook-id\u003e        Show current system instructions\n  chat [flags] \u003cnotebook-id\u003e [conversation-id | prompt...] Open interactive chat (one-shot if a prompt is given; -f \u003cfile\u003e reads a long prompt from file)\n\nResearch Commands:\n  research [flags] \u003cnotebook-id\u003e \u003cquery...\u003e  Run fast or deep research (JSON-lines by default; --md for markdown; --mode=fast|deep)\n\nSharing Commands:\n  share \u003cnotebook-id\u003e                        Share notebook publicly\n  share-private \u003cnotebook-id\u003e                Share notebook privately\n  share-details \u003cshare-id\u003e                   Get details of shared project\n\nOther Commands:\n  mcp                                        Run the MCP server on stdin/stdout\n  auth [login] [options] [profile-name]      Set up authentication from a browser profile\n  refresh                                    Refresh stored authentication credentials\n  account [set \u003ckey\u003e \u003cvalue\u003e]                Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)\n\nExit Codes:\n  0  success\n  2  bad arguments\n  3  authentication required or invalid\n  4  not found (notebook, source, artifact)\n  5  precondition failed (quota, source cap, wrong source type)\n  6  transient error (rate limit, 5xx, connection)\n  7  resource busy (still generating)\n",
+  "root_help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nNotebook Commands:\n  notebook list [flags]                      List all notebooks\n  notebook create \u003ctitle\u003e                    Create a new notebook\n  notebook delete [flags] \u003cnotebook-id\u003e      Delete a notebook\n  notebook rename \u003cnotebook-id\u003e \u003cnew-title\u003e  Rename a notebook\n  notebook emoji \u003cnotebook-id\u003e \u003cemoji\u003e       Change notebook emoji\n  notebook description \u003cnotebook-id\u003e [text]  Set notebook description / creator notes (text via arg or stdin; empty clears)\n  notebook cover \u003cnotebook-id\u003e \u003cpreset-id\u003e   Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)\n  notebook cover-image \u003cnotebook-id\u003e \u003cimage-path\u003e Upload a custom cover image and associate it with the notebook\n  notebook unrecent \u003cnotebook-id\u003e            Remove a notebook from the recently-viewed list (does not delete it)\n  notebook featured [flags]                  List featured notebooks\n  analytics [flags] \u003cnotebook-id\u003e            Show notebook analytics time series\n\nSource Commands:\n  source list [flags] \u003cnotebook-id\u003e          List sources in notebook\n  source add [flags] \u003cnotebook-id\u003e \u003csource...\u003e Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)\n  source sync [flags] \u003cnotebook-id\u003e [path...] Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)\n  source pack [flags] [path...]              Preview the txtar bytes that sync would upload (offline)\n  source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n  source rename \u003csource-id\u003e \u003cnew-name\u003e       Rename a source\n  source refresh \u003cnotebook-id\u003e \u003csource-id\u003e   Refresh source content\n  source check \u003cnotebook-id\u003e \u003csource-id\u003e     Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)\n  source read [--format text|markdown|html|json|raw|prototext] \u003cnotebook-id\u003e \u003csource-id\u003e Read a source body\n  discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e Discover relevant sources via Es3dTe (chat fallback if the server rejects)\n\nNote Commands:\n  note list [flags] \u003cnotebook-id\u003e            List notes in notebook\n  note read [--format text|markdown|html] [--out file] [--open] \u003cnotebook-id\u003e \u003cnote-id\u003e Read full note content\n  note create \u003cnotebook-id\u003e \u003ctitle\u003e [--content TEXT | --content-file FILE] Create new note (content via arg or stdin)\n  note update \u003cnotebook-id\u003e \u003cnote-id\u003e [--title TITLE] [--content TEXT | --content-file FILE] Edit note content and title\n  note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e Remove a note from a notebook\n\nLabel Commands:\n  label list [flags] \u003cnotebook-id\u003e           List labels (autolabel clusters) in a notebook\n  label generate [flags] \u003cnotebook-id\u003e       Recompute autolabel clusters for a notebook\n  label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji] Create a new manual label on a notebook\n  label rename \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e Rename an existing label\n  label emoji \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e Set or clear the emoji on a label\n  label delete \u003cnotebook-id\u003e \u003clabel-id\u003e [\u003clabel-id\u003e...] Delete one or more labels by ID\n  label unlabeled [flags] \u003cnotebook-id\u003e      Apply existing labels to currently-unlabeled sources\n  label relabel-all [flags] \u003cnotebook-id\u003e    Re-cluster everything (UI's \"Relabel all\")\n  label attach \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e Attach a source to a label (single source per call)\n\nCreate Commands:\n  app create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated app artifact\n  mindmap create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated mind map artifact\n  create-audio [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create audio overview\n  create-video [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create video overview\n  app-create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated app artifact\n  mindmap-create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create a generated mind map artifact\n  create-slides [flags] \u003cnotebook-id\u003e [instructions...] Create slide deck\n  create-report [flags] \u003cnotebook-id\u003e \u003creport-type\u003e [description...] Create a report artifact (run report-suggestions for valid types)\n\nAudio Commands:\n  audio list [flags] \u003cnotebook-id\u003e           List audio overviews for a notebook\n  audio create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create audio overview\n  audio get \u003cnotebook-id\u003e                    Get audio overview details\n  audio download \u003cnotebook-id\u003e [filename]    Download audio file\n  audio delete [flags] \u003cnotebook-id\u003e         Delete audio overview\n  audio share \u003cnotebook-id\u003e                  Share audio overview\n\nVideo Commands:\n  video create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create video overview\n\nDeck Commands:\n  deck create [flags] \u003cnotebook-id\u003e [instructions...] Create slide deck\n  deck download [flags] \u003cnotebook-id\u003e        Download a slide deck (PDF/PPTX)\n\nArtifact Commands:\n  artifact list [flags] \u003cnotebook-id\u003e        List artifacts in notebook\n  artifact get \u003cartifact-id\u003e                 Get artifact details\n  artifact read \u003cartifact-id\u003e                Print a text artifact\n  artifact export [flags] \u003cartifact-id\u003e      Export an artifact\n  artifact update [--name \u003cname\u003e] \u003cartifact-id\u003e [title] Rename artifact (new title from positional arg or --name)\n  artifact delete [flags] \u003cartifact-id\u003e      Delete artifact\n  read-artifact \u003cartifact-id\u003e                Print a text artifact\n\nGuidebook Commands:\n  guidebooks [flags]                         List all guidebooks\n  guidebook \u003cguidebook-id\u003e                   Get guidebook details\n  guidebook-details \u003cguidebook-id\u003e           Get detailed guidebook info with sections and analytics\n  guidebook-publish \u003cguidebook-id\u003e           Publish a guidebook\n  guidebook-share \u003cguidebook-id\u003e             Share a guidebook\n  guidebook-ask \u003cguidebook-id\u003e \u003cquestion\u003e    Ask a guidebook question\n  guidebook-rm \u003cguidebook-id\u003e                Delete a guidebook\n\nGeneration Commands:\n  generate-guide \u003cnotebook-id\u003e               Generate notebook guide\n  source-guide [flags] \u003cnotebook-id\u003e [source-id...] Show the per-source auto-summary and keyword chips (cached on disk)\n  generate-chat [flags] \u003cnotebook-id\u003e [prompt...] Stream a one-shot chat answer (use --conversation to follow up)\n  report-suggestions \u003cnotebook-id\u003e           Suggest report topics for notebook\n  audio-suggestions [flags] \u003cnotebook-id\u003e    Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)\n  generate-report [flags] \u003cnotebook-id\u003e      Generate multi-section report via chat (see --prompt, --sections)\n\nChat Commands:\n  chat list [flags] [notebook-id]            List chat sessions (server-side when a notebook is given)\n  chat history \u003cnotebook-id\u003e \u003cconversation-id\u003e View conversation history\n  chat show [flags] \u003cnotebook-id\u003e [conversation-id] Render a local chat transcript (see --citations)\n  chat delete [flags] \u003cnotebook-id\u003e          Delete server-side chat history\n  chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e Configure chat settings\n  chat instructions set \u003cnotebook-id\u003e \"prompt\" Set system instructions\n  chat instructions get \u003cnotebook-id\u003e        Show current system instructions\n  chat [flags] \u003cnotebook-id\u003e [conversation-id | prompt...] Open interactive chat (one-shot if a prompt is given; -f \u003cfile\u003e reads a long prompt from file)\n\nResearch Commands:\n  research [flags] \u003cnotebook-id\u003e \u003cquery...\u003e  Run fast or deep research (JSON-lines by default; --md for markdown; --mode=fast|deep)\n\nSharing Commands:\n  share \u003cnotebook-id\u003e                        Share notebook publicly\n  share-private \u003cnotebook-id\u003e                Share notebook privately\n  share-details \u003cshare-id\u003e                   Get details of shared project\n\nOther Commands:\n  mcp                                        Run the MCP server on stdin/stdout\n  auth [login] [options] [profile-name]      Set up authentication from a browser profile\n  refresh                                    Refresh stored authentication credentials\n  account [flags] [set \u003ckey\u003e \u003cvalue\u003e]        Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)\n\nExit Codes:\n  0  success\n  2  bad arguments\n  3  authentication required or invalid\n  4  not found (notebook, source, artifact)\n  5  precondition failed (quota, source cap, wrong source type)\n  6  transient error (rate limit, 5xx, connection)\n  7  resource busy (still generating)\n",
   "section_help": [
     {
       "name": "Notebook",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nNotebook Commands:\n  notebook list [flags]                      List all notebooks\n  notebook create \u003ctitle\u003e                    Create a new notebook\n  notebook delete \u003cnotebook-id\u003e              Delete a notebook\n  notebook rename \u003cnotebook-id\u003e \u003cnew-title\u003e  Rename a notebook\n  notebook emoji \u003cnotebook-id\u003e \u003cemoji\u003e       Change notebook emoji\n  notebook description \u003cnotebook-id\u003e [text]  Set notebook description / creator notes (text via arg or stdin; empty clears)\n  notebook cover \u003cnotebook-id\u003e \u003cpreset-id\u003e   Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)\n  notebook cover-image \u003cnotebook-id\u003e \u003cimage-path\u003e Upload a custom cover image and associate it with the notebook\n  notebook unrecent \u003cnotebook-id\u003e            Remove a notebook from the recently-viewed list (does not delete it)\n  notebook featured                          List featured notebooks\n  analytics \u003cnotebook-id\u003e                    Show notebook analytics time series\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nNotebook Commands:\n  notebook list [flags]                      List all notebooks\n  notebook create \u003ctitle\u003e                    Create a new notebook\n  notebook delete [flags] \u003cnotebook-id\u003e      Delete a notebook\n  notebook rename \u003cnotebook-id\u003e \u003cnew-title\u003e  Rename a notebook\n  notebook emoji \u003cnotebook-id\u003e \u003cemoji\u003e       Change notebook emoji\n  notebook description \u003cnotebook-id\u003e [text]  Set notebook description / creator notes (text via arg or stdin; empty clears)\n  notebook cover \u003cnotebook-id\u003e \u003cpreset-id\u003e   Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)\n  notebook cover-image \u003cnotebook-id\u003e \u003cimage-path\u003e Upload a custom cover image and associate it with the notebook\n  notebook unrecent \u003cnotebook-id\u003e            Remove a notebook from the recently-viewed list (does not delete it)\n  notebook featured [flags]                  List featured notebooks\n  analytics [flags] \u003cnotebook-id\u003e            Show notebook analytics time series\n\n"
     },
     {
       "name": "Source",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nSource Commands:\n  source list \u003cnotebook-id\u003e                  List sources in notebook\n  source add [flags] \u003cnotebook-id\u003e \u003csource...\u003e Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)\n  source sync [flags] \u003cnotebook-id\u003e [path...] Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)\n  source pack [flags] [path...]              Preview the txtar bytes that sync would upload (offline)\n  source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n  source rename \u003csource-id\u003e \u003cnew-name\u003e       Rename a source\n  source refresh \u003cnotebook-id\u003e \u003csource-id\u003e   Refresh source content\n  source check \u003cnotebook-id\u003e \u003csource-id\u003e     Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)\n  source read [--format text|markdown|html|json|raw|prototext] \u003cnotebook-id\u003e \u003csource-id\u003e Read a source body\n  discover-sources \u003cnotebook-id\u003e \u003cquery\u003e     Discover relevant sources via Es3dTe (chat fallback if the server rejects)\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nSource Commands:\n  source list [flags] \u003cnotebook-id\u003e          List sources in notebook\n  source add [flags] \u003cnotebook-id\u003e \u003csource...\u003e Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)\n  source sync [flags] \u003cnotebook-id\u003e [path...] Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)\n  source pack [flags] [path...]              Preview the txtar bytes that sync would upload (offline)\n  source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n  source rename \u003csource-id\u003e \u003cnew-name\u003e       Rename a source\n  source refresh \u003cnotebook-id\u003e \u003csource-id\u003e   Refresh source content\n  source check \u003cnotebook-id\u003e \u003csource-id\u003e     Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)\n  source read [--format text|markdown|html|json|raw|prototext] \u003cnotebook-id\u003e \u003csource-id\u003e Read a source body\n  discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e Discover relevant sources via Es3dTe (chat fallback if the server rejects)\n\n"
     },
     {
       "name": "Note",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nNote Commands:\n  note list \u003cnotebook-id\u003e                    List notes in notebook\n  note read [--format text|markdown|html] [--out file] [--open] \u003cnotebook-id\u003e \u003cnote-id\u003e Read full note content\n  note create \u003cnotebook-id\u003e \u003ctitle\u003e [--content TEXT | --content-file FILE] Create new note (content via arg or stdin)\n  note update \u003cnotebook-id\u003e \u003cnote-id\u003e [--title TITLE] [--content TEXT | --content-file FILE] Edit note content and title\n  note delete \u003cnotebook-id\u003e \u003cnote-id\u003e        Remove a note from a notebook\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nNote Commands:\n  note list [flags] \u003cnotebook-id\u003e            List notes in notebook\n  note read [--format text|markdown|html] [--out file] [--open] \u003cnotebook-id\u003e \u003cnote-id\u003e Read full note content\n  note create \u003cnotebook-id\u003e \u003ctitle\u003e [--content TEXT | --content-file FILE] Create new note (content via arg or stdin)\n  note update \u003cnotebook-id\u003e \u003cnote-id\u003e [--title TITLE] [--content TEXT | --content-file FILE] Edit note content and title\n  note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e Remove a note from a notebook\n\n"
     },
     {
       "name": "Label",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nLabel Commands:\n  label list \u003cnotebook-id\u003e                   List labels (autolabel clusters) in a notebook\n  label generate \u003cnotebook-id\u003e               Recompute autolabel clusters for a notebook\n  label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]  Create a new manual label on a notebook\n  label rename \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e Rename an existing label\n  label emoji \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e Set or clear the emoji on a label\n  label delete \u003cnotebook-id\u003e \u003clabel-id\u003e [\u003clabel-id\u003e...] Delete one or more labels by ID\n  label unlabeled \u003cnotebook-id\u003e              Apply existing labels to currently-unlabeled sources\n  label relabel-all \u003cnotebook-id\u003e            Re-cluster everything (UI's \"Relabel all\")\n  label attach \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e Attach a source to a label (single source per call)\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nLabel Commands:\n  label list [flags] \u003cnotebook-id\u003e           List labels (autolabel clusters) in a notebook\n  label generate [flags] \u003cnotebook-id\u003e       Recompute autolabel clusters for a notebook\n  label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji] Create a new manual label on a notebook\n  label rename \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e Rename an existing label\n  label emoji \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e Set or clear the emoji on a label\n  label delete \u003cnotebook-id\u003e \u003clabel-id\u003e [\u003clabel-id\u003e...] Delete one or more labels by ID\n  label unlabeled [flags] \u003cnotebook-id\u003e      Apply existing labels to currently-unlabeled sources\n  label relabel-all [flags] \u003cnotebook-id\u003e    Re-cluster everything (UI's \"Relabel all\")\n  label attach \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e Attach a source to a label (single source per call)\n\n"
     },
     {
       "name": "Create",
@@ -23,7 +23,7 @@
     },
     {
       "name": "Audio",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nAudio Commands:\n  audio list \u003cnotebook-id\u003e                   List audio overviews for a notebook\n  audio create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create audio overview\n  audio get \u003cnotebook-id\u003e                    Get audio overview details\n  audio download \u003cnotebook-id\u003e [filename]    Download audio file\n  audio delete \u003cnotebook-id\u003e                 Delete audio overview\n  audio share \u003cnotebook-id\u003e                  Share audio overview\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nAudio Commands:\n  audio list [flags] \u003cnotebook-id\u003e           List audio overviews for a notebook\n  audio create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e Create audio overview\n  audio get \u003cnotebook-id\u003e                    Get audio overview details\n  audio download \u003cnotebook-id\u003e [filename]    Download audio file\n  audio delete [flags] \u003cnotebook-id\u003e         Delete audio overview\n  audio share \u003cnotebook-id\u003e                  Share audio overview\n\n"
     },
     {
       "name": "Video",
@@ -35,19 +35,19 @@
     },
     {
       "name": "Artifact",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nArtifact Commands:\n  artifact list \u003cnotebook-id\u003e                List artifacts in notebook\n  artifact get \u003cartifact-id\u003e                 Get artifact details\n  artifact read \u003cartifact-id\u003e                Print a text artifact\n  artifact export [flags] \u003cartifact-id\u003e      Export an artifact\n  artifact update [--name \u003cname\u003e] \u003cartifact-id\u003e [title] Rename artifact (new title from positional arg or --name)\n  artifact delete \u003cartifact-id\u003e              Delete artifact\n  read-artifact \u003cartifact-id\u003e                Print a text artifact\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nArtifact Commands:\n  artifact list [flags] \u003cnotebook-id\u003e        List artifacts in notebook\n  artifact get \u003cartifact-id\u003e                 Get artifact details\n  artifact read \u003cartifact-id\u003e                Print a text artifact\n  artifact export [flags] \u003cartifact-id\u003e      Export an artifact\n  artifact update [--name \u003cname\u003e] \u003cartifact-id\u003e [title] Rename artifact (new title from positional arg or --name)\n  artifact delete [flags] \u003cartifact-id\u003e      Delete artifact\n  read-artifact \u003cartifact-id\u003e                Print a text artifact\n\n"
     },
     {
       "name": "Guidebook",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nGuidebook Commands:\n  guidebooks                                 List all guidebooks\n  guidebook \u003cguidebook-id\u003e                   Get guidebook details\n  guidebook-details \u003cguidebook-id\u003e           Get detailed guidebook info with sections and analytics\n  guidebook-publish \u003cguidebook-id\u003e           Publish a guidebook\n  guidebook-share \u003cguidebook-id\u003e             Share a guidebook\n  guidebook-ask \u003cguidebook-id\u003e \u003cquestion\u003e    Ask a guidebook question\n  guidebook-rm \u003cguidebook-id\u003e                Delete a guidebook\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nGuidebook Commands:\n  guidebooks [flags]                         List all guidebooks\n  guidebook \u003cguidebook-id\u003e                   Get guidebook details\n  guidebook-details \u003cguidebook-id\u003e           Get detailed guidebook info with sections and analytics\n  guidebook-publish \u003cguidebook-id\u003e           Publish a guidebook\n  guidebook-share \u003cguidebook-id\u003e             Share a guidebook\n  guidebook-ask \u003cguidebook-id\u003e \u003cquestion\u003e    Ask a guidebook question\n  guidebook-rm \u003cguidebook-id\u003e                Delete a guidebook\n\n"
     },
     {
       "name": "Generation",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nGeneration Commands:\n  generate-guide \u003cnotebook-id\u003e               Generate notebook guide\n  source-guide [flags] \u003cnotebook-id\u003e [source-id...] Show the per-source auto-summary and keyword chips (cached on disk)\n  generate-chat [flags] \u003cnotebook-id\u003e [prompt...] Stream a one-shot chat answer (use --conversation to follow up)\n  report-suggestions \u003cnotebook-id\u003e           Suggest report topics for notebook\n  audio-suggestions \u003cnotebook-id\u003e            Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)\n  generate-report [flags] \u003cnotebook-id\u003e      Generate multi-section report via chat (see --prompt, --sections)\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nGeneration Commands:\n  generate-guide \u003cnotebook-id\u003e               Generate notebook guide\n  source-guide [flags] \u003cnotebook-id\u003e [source-id...] Show the per-source auto-summary and keyword chips (cached on disk)\n  generate-chat [flags] \u003cnotebook-id\u003e [prompt...] Stream a one-shot chat answer (use --conversation to follow up)\n  report-suggestions \u003cnotebook-id\u003e           Suggest report topics for notebook\n  audio-suggestions [flags] \u003cnotebook-id\u003e    Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)\n  generate-report [flags] \u003cnotebook-id\u003e      Generate multi-section report via chat (see --prompt, --sections)\n\n"
     },
     {
       "name": "Chat",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nChat Commands:\n  chat list [notebook-id]                    List chat sessions (server-side when a notebook is given)\n  chat history \u003cnotebook-id\u003e \u003cconversation-id\u003e View conversation history\n  chat show [flags] \u003cnotebook-id\u003e [conversation-id] Render a local chat transcript (see --citations)\n  chat delete \u003cnotebook-id\u003e                  Delete server-side chat history\n  chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e Configure chat settings\n  chat instructions set \u003cnotebook-id\u003e \"prompt\" Set system instructions\n  chat instructions get \u003cnotebook-id\u003e        Show current system instructions\n  chat [flags] \u003cnotebook-id\u003e [conversation-id | prompt...] Open interactive chat (one-shot if a prompt is given; -f \u003cfile\u003e reads a long prompt from file)\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nChat Commands:\n  chat list [flags] [notebook-id]            List chat sessions (server-side when a notebook is given)\n  chat history \u003cnotebook-id\u003e \u003cconversation-id\u003e View conversation history\n  chat show [flags] \u003cnotebook-id\u003e [conversation-id] Render a local chat transcript (see --citations)\n  chat delete [flags] \u003cnotebook-id\u003e          Delete server-side chat history\n  chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e Configure chat settings\n  chat instructions set \u003cnotebook-id\u003e \"prompt\" Set system instructions\n  chat instructions get \u003cnotebook-id\u003e        Show current system instructions\n  chat [flags] \u003cnotebook-id\u003e [conversation-id | prompt...] Open interactive chat (one-shot if a prompt is given; -f \u003cfile\u003e reads a long prompt from file)\n\n"
     },
     {
       "name": "Research",
@@ -59,7 +59,7 @@
     },
     {
       "name": "Other",
-      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nOther Commands:\n  mcp                                        Run the MCP server on stdin/stdout\n  auth [login] [options] [profile-name]      Set up authentication from a browser profile\n  refresh                                    Refresh stored authentication credentials\n  account [set \u003ckey\u003e \u003cvalue\u003e]                Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)\n\n"
+      "help": "nlm — Command-line interface to Google's NotebookLM.\nManage notebooks, sources, chat, and generated content from the terminal.\n\nFirst run: `nlm auth` to set up authentication, or set NLM_AUTH_TOKEN and NLM_COOKIES.\n\nUsage: nlm \u003ccommand\u003e [arguments]\n\nOther Commands:\n  mcp                                        Run the MCP server on stdin/stdout\n  auth [login] [options] [profile-name]      Set up authentication from a browser profile\n  refresh                                    Refresh stored authentication credentials\n  account [flags] [set \u003ckey\u003e \u003cvalue\u003e]        Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)\n\n"
     }
   ],
   "commands": [
@@ -181,16 +181,16 @@
       "surface": 0,
       "section": "Notebook",
       "summary": "Delete a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm notebook delete \u003cnotebook-id\u003e\n  Delete a notebook\n",
+      "help": "usage: nlm notebook delete [flags] \u003cnotebook-id\u003e\n  Delete a notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notebook delete \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm notebook delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -206,7 +206,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notebook delete \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm notebook delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -640,9 +640,9 @@
       "surface": 0,
       "section": "Notebook",
       "summary": "List featured notebooks",
-      "args_usage": "",
+      "args_usage": "[flags]",
       "hidden": false,
-      "help": "usage: nlm notebook featured \n  List featured notebooks\n",
+      "help": "usage: nlm notebook featured [flags]\n  List featured notebooks\n",
       "cases": [
         {
           "args": [],
@@ -655,7 +655,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notebook featured \n"
+          "stderr": "usage: nlm notebook featured [flags]\n"
         },
         {
           "args": [
@@ -664,7 +664,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notebook featured \n"
+          "stderr": "usage: nlm notebook featured [flags]\n"
         },
         {
           "args": [
@@ -673,7 +673,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notebook featured \n"
+          "stderr": "usage: nlm notebook featured [flags]\n"
         },
         {
           "args": [
@@ -682,7 +682,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notebook featured \n"
+          "stderr": "usage: nlm notebook featured [flags]\n"
         }
       ]
     },
@@ -692,16 +692,16 @@
       "surface": 0,
       "section": "Source",
       "summary": "List sources in notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm source list \u003cnotebook-id\u003e\n  List sources in notebook\n",
+      "help": "usage: nlm source list [flags] \u003cnotebook-id\u003e\n  List sources in notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm source list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -717,7 +717,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm source list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -938,16 +938,16 @@
       "surface": 0,
       "section": "Source",
       "summary": "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)",
-      "args_usage": "\u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e",
       "hidden": false,
-      "help": "usage: nlm source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n  Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n",
+      "help": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n  Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -956,7 +956,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -974,7 +974,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -983,7 +983,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -992,7 +992,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -1001,7 +1001,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source delete \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         }
       ]
     },
@@ -1277,16 +1277,16 @@
       "surface": 0,
       "section": "Note",
       "summary": "List notes in notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm note list \u003cnotebook-id\u003e\n  List notes in notebook\n",
+      "help": "usage: nlm note list [flags] \u003cnotebook-id\u003e\n  List notes in notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm note list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -1302,7 +1302,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm note list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -1579,16 +1579,16 @@
       "surface": 0,
       "section": "Note",
       "summary": "Remove a note from a notebook",
-      "args_usage": "\u003cnotebook-id\u003e \u003cnote-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003cnote-id\u003e",
       "hidden": false,
-      "help": "usage: nlm note delete \u003cnotebook-id\u003e \u003cnote-id\u003e\n  Remove a note from a notebook\n",
+      "help": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n  Remove a note from a notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note delete \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -1597,7 +1597,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note delete \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -1615,7 +1615,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note delete \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -1624,7 +1624,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note delete \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -1633,7 +1633,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note delete \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -1642,7 +1642,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note delete \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         }
       ]
     },
@@ -1652,16 +1652,16 @@
       "surface": 0,
       "section": "Label",
       "summary": "List labels (autolabel clusters) in a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "Usage: nlm label list \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label list NOTEBOOK_ID\n  nlm --json label list NOTEBOOK_ID\n",
+      "help": "Usage: nlm label list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label list NOTEBOOK_ID\n  nlm --json label list NOTEBOOK_ID\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label list \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label list NOTEBOOK_ID\n  nlm --json label list NOTEBOOK_ID\n"
+          "stderr": "nlm: label list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label list NOTEBOOK_ID\n  nlm --json label list NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -1677,7 +1677,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label list \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label list NOTEBOOK_ID\n  nlm --json label list NOTEBOOK_ID\n"
+          "stderr": "nlm: label list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label list NOTEBOOK_ID\n  nlm --json label list NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -1705,16 +1705,16 @@
       "surface": 0,
       "section": "Label",
       "summary": "Recompute autolabel clusters for a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "Usage: nlm label generate \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label generate NOTEBOOK_ID\n  nlm --json label generate NOTEBOOK_ID\n",
+      "help": "Usage: nlm label generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label generate NOTEBOOK_ID\n  nlm --json label generate NOTEBOOK_ID\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label generate \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label generate NOTEBOOK_ID\n  nlm --json label generate NOTEBOOK_ID\n"
+          "stderr": "nlm: label generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label generate NOTEBOOK_ID\n  nlm --json label generate NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -1730,7 +1730,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label generate \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label generate NOTEBOOK_ID\n  nlm --json label generate NOTEBOOK_ID\n"
+          "stderr": "nlm: label generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label generate NOTEBOOK_ID\n  nlm --json label generate NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -1758,16 +1758,16 @@
       "surface": 0,
       "section": "Label",
       "summary": "Create a new manual label on a notebook",
-      "args_usage": "\u003cnotebook-id\u003e \u003cname\u003e [emoji]",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]",
       "hidden": false,
-      "help": "Usage: nlm label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n",
+      "help": "Usage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -1776,7 +1776,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -1803,7 +1803,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -1812,7 +1812,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -1821,7 +1821,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -1830,7 +1830,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         }
       ]
     },
@@ -2089,16 +2089,16 @@
       "surface": 0,
       "section": "Label",
       "summary": "Apply existing labels to currently-unlabeled sources",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "Usage: nlm label unlabeled \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n",
+      "help": "Usage: nlm label unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label unlabeled \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n"
+          "stderr": "nlm: label unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -2114,7 +2114,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label unlabeled \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n"
+          "stderr": "nlm: label unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -2142,16 +2142,16 @@
       "surface": 0,
       "section": "Label",
       "summary": "Re-cluster everything (UI's \"Relabel all\")",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "Usage: nlm label relabel-all \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n",
+      "help": "Usage: nlm label relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label relabel-all \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n"
+          "stderr": "nlm: label relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -2167,7 +2167,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label relabel-all \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n"
+          "stderr": "nlm: label relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -2280,16 +2280,16 @@
       "surface": 0,
       "section": "Artifact",
       "summary": "List artifacts in notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm artifact list \u003cnotebook-id\u003e\n  List artifacts in notebook\n",
+      "help": "usage: nlm artifact list [flags] \u003cnotebook-id\u003e\n  List artifacts in notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm artifact list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm artifact list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -2305,7 +2305,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm artifact list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm artifact list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -2581,16 +2581,16 @@
       "surface": 0,
       "section": "Artifact",
       "summary": "Delete artifact",
-      "args_usage": "\u003cartifact-id\u003e",
+      "args_usage": "[flags] \u003cartifact-id\u003e",
       "hidden": false,
-      "help": "usage: nlm artifact delete \u003cartifact-id\u003e\n  Delete artifact\n",
+      "help": "usage: nlm artifact delete [flags] \u003cartifact-id\u003e\n  Delete artifact\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm artifact delete \u003cartifact-id\u003e\n"
+          "stderr": "usage: nlm artifact delete [flags] \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -2606,7 +2606,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm artifact delete \u003cartifact-id\u003e\n"
+          "stderr": "usage: nlm artifact delete [flags] \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -2634,9 +2634,9 @@
       "surface": 0,
       "section": "Chat",
       "summary": "List chat sessions (server-side when a notebook is given)",
-      "args_usage": "[notebook-id]",
+      "args_usage": "[flags] [notebook-id]",
       "hidden": false,
-      "help": "usage: nlm chat list [notebook-id]\n  List chat sessions (server-side when a notebook is given)\n",
+      "help": "usage: nlm chat list [flags] [notebook-id]\n  List chat sessions (server-side when a notebook is given)\n",
       "cases": [
         {
           "args": [],
@@ -2656,7 +2656,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm chat list [notebook-id]\n"
+          "stderr": "usage: nlm chat list [flags] [notebook-id]\n"
         },
         {
           "args": [
@@ -2821,16 +2821,16 @@
       "surface": 0,
       "section": "Chat",
       "summary": "Delete server-side chat history",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm chat delete \u003cnotebook-id\u003e\n  Delete server-side chat history\n",
+      "help": "usage: nlm chat delete [flags] \u003cnotebook-id\u003e\n  Delete server-side chat history\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm chat delete \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm chat delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -2846,7 +2846,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm chat delete \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm chat delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3085,16 +3085,16 @@
       "surface": 0,
       "section": "Audio",
       "summary": "List audio overviews for a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm audio list \u003cnotebook-id\u003e\n  List audio overviews for a notebook\n",
+      "help": "usage: nlm audio list [flags] \u003cnotebook-id\u003e\n  List audio overviews for a notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3110,7 +3110,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3140,7 +3140,7 @@
       "summary": "Create audio overview",
       "args_usage": "[flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e",
       "hidden": false,
-      "help": "Usage: nlm audio create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n\nFlags:\n  --length \u003cvalue\u003e         Audio length: default, short, or long\n  --language \u003ccode\u003e        Language code (default en)\n  --audio-type \u003cvalue\u003e     Audio style: deep-dive, brief, critique, or debate\n",
+      "help": "Usage: nlm audio create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n\nFlags:\n  --length \u003cvalue\u003e         Audio length: default, short, or long\n  --language \u003ccode\u003e        Language code (default en)\n  --audio-type \u003cvalue\u003e     Audio style: deep-dive, brief, critique, or debate\n  --yes, -y                Replace an existing audio overview without prompting\n",
       "cases": [
         {
           "args": [],
@@ -3331,16 +3331,16 @@
       "surface": 0,
       "section": "Audio",
       "summary": "Delete audio overview",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm audio delete \u003cnotebook-id\u003e\n  Delete audio overview\n",
+      "help": "usage: nlm audio delete [flags] \u003cnotebook-id\u003e\n  Delete audio overview\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio delete \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3356,7 +3356,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio delete \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3998,16 +3998,16 @@
       "surface": 3,
       "section": "Notebook",
       "summary": "Delete a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'rm' is deprecated; use 'notebook delete'\nusage: nlm rm \u003cnotebook-id\u003e\n  Delete a notebook\n",
+      "help": "nlm: 'rm' is deprecated; use 'notebook delete'\nusage: nlm rm [flags] \u003cnotebook-id\u003e\n  Delete a notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm rm [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4023,7 +4023,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm rm [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4518,16 +4518,16 @@
       "surface": 0,
       "section": "Notebook",
       "summary": "Show notebook analytics time series",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm analytics \u003cnotebook-id\u003e\n  Show notebook analytics time series\n",
+      "help": "usage: nlm analytics [flags] \u003cnotebook-id\u003e\n  Show notebook analytics time series\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm analytics \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm analytics [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4543,7 +4543,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm analytics \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm analytics [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4571,9 +4571,9 @@
       "surface": 3,
       "section": "Notebook",
       "summary": "List featured notebooks",
-      "args_usage": "",
+      "args_usage": "[flags]",
       "hidden": false,
-      "help": "nlm: 'list-featured' is deprecated; use 'notebook featured'\nusage: nlm list-featured \n  List featured notebooks\n",
+      "help": "nlm: 'list-featured' is deprecated; use 'notebook featured'\nusage: nlm list-featured [flags]\n  List featured notebooks\n",
       "cases": [
         {
           "args": [],
@@ -4586,7 +4586,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm list-featured \n"
+          "stderr": "usage: nlm list-featured [flags]\n"
         },
         {
           "args": [
@@ -4595,7 +4595,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm list-featured \n"
+          "stderr": "usage: nlm list-featured [flags]\n"
         },
         {
           "args": [
@@ -4604,7 +4604,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm list-featured \n"
+          "stderr": "usage: nlm list-featured [flags]\n"
         },
         {
           "args": [
@@ -4613,7 +4613,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm list-featured \n"
+          "stderr": "usage: nlm list-featured [flags]\n"
         }
       ]
     },
@@ -4623,16 +4623,16 @@
       "surface": 3,
       "section": "Source",
       "summary": "List sources in notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'sources' is deprecated; use 'source list'\nusage: nlm sources \u003cnotebook-id\u003e\n  List sources in notebook\n",
+      "help": "nlm: 'sources' is deprecated; use 'source list'\nusage: nlm sources [flags] \u003cnotebook-id\u003e\n  List sources in notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm sources \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm sources [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4648,7 +4648,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm sources \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm sources [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4869,16 +4869,16 @@
       "surface": 3,
       "section": "Source",
       "summary": "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)",
-      "args_usage": "\u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e",
       "hidden": false,
-      "help": "nlm: 'rm-source' is deprecated; use 'source delete'\nusage: nlm rm-source \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n  Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n",
+      "help": "nlm: 'rm-source' is deprecated; use 'source delete'\nusage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n  Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-source \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4887,7 +4887,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-source \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4905,7 +4905,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-source \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4914,7 +4914,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-source \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4923,7 +4923,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-source \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4932,7 +4932,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-source \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         }
       ]
     },
@@ -4942,16 +4942,16 @@
       "surface": 3,
       "section": "Source",
       "summary": "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)",
-      "args_usage": "\u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e",
       "hidden": false,
-      "help": "nlm: 'source-rm' is deprecated; use 'source delete'\nusage: nlm source-rm \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n  Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n",
+      "help": "nlm: 'source-rm' is deprecated; use 'source delete'\nusage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n  Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source-rm \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4960,7 +4960,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source-rm \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4978,7 +4978,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source-rm \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4987,7 +4987,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source-rm \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -4996,7 +4996,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source-rm \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
         {
           "args": [
@@ -5005,7 +5005,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm source-rm \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
+          "stderr": "usage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         }
       ]
     },
@@ -5222,16 +5222,16 @@
       "surface": 0,
       "section": "Source",
       "summary": "Discover relevant sources via Es3dTe (chat fallback if the server rejects)",
-      "args_usage": "\u003cnotebook-id\u003e \u003cquery\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003cquery\u003e",
       "hidden": false,
-      "help": "usage: nlm discover-sources \u003cnotebook-id\u003e \u003cquery\u003e\n  Discover relevant sources via Es3dTe (chat fallback if the server rejects)\n",
+      "help": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n  Discover relevant sources via Es3dTe (chat fallback if the server rejects)\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm discover-sources \u003cnotebook-id\u003e \u003cquery\u003e\n"
+          "stderr": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n"
         },
         {
           "args": [
@@ -5240,7 +5240,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm discover-sources \u003cnotebook-id\u003e \u003cquery\u003e\n"
+          "stderr": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n"
         },
         {
           "args": [
@@ -5258,7 +5258,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm discover-sources \u003cnotebook-id\u003e \u003cquery\u003e\n"
+          "stderr": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n"
         },
         {
           "args": [
@@ -5267,7 +5267,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm discover-sources \u003cnotebook-id\u003e \u003cquery\u003e\n"
+          "stderr": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n"
         },
         {
           "args": [
@@ -5276,7 +5276,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm discover-sources \u003cnotebook-id\u003e \u003cquery\u003e\n"
+          "stderr": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n"
         },
         {
           "args": [
@@ -5285,7 +5285,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm discover-sources \u003cnotebook-id\u003e \u003cquery\u003e\n"
+          "stderr": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n"
         }
       ]
     },
@@ -5415,16 +5415,16 @@
       "surface": 3,
       "section": "Note",
       "summary": "List notes in notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'notes' is deprecated; use 'note list'\nusage: nlm notes \u003cnotebook-id\u003e\n  List notes in notebook\n",
+      "help": "nlm: 'notes' is deprecated; use 'note list'\nusage: nlm notes [flags] \u003cnotebook-id\u003e\n  List notes in notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notes \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm notes [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -5440,7 +5440,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm notes \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm notes [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -5717,16 +5717,16 @@
       "surface": 3,
       "section": "Note",
       "summary": "Remove a note from a notebook",
-      "args_usage": "\u003cnotebook-id\u003e \u003cnote-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003cnote-id\u003e",
       "hidden": false,
-      "help": "nlm: 'rm-note' is deprecated; use 'note delete'\nusage: nlm rm-note \u003cnotebook-id\u003e \u003cnote-id\u003e\n  Remove a note from a notebook\n",
+      "help": "nlm: 'rm-note' is deprecated; use 'note delete'\nusage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n  Remove a note from a notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-note \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5735,7 +5735,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-note \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5753,7 +5753,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-note \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5762,7 +5762,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-note \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5771,7 +5771,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-note \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5780,7 +5780,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm rm-note \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         }
       ]
     },
@@ -5790,16 +5790,16 @@
       "surface": 3,
       "section": "Note",
       "summary": "Remove a note from a notebook",
-      "args_usage": "\u003cnotebook-id\u003e \u003cnote-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003cnote-id\u003e",
       "hidden": false,
-      "help": "nlm: 'note-rm' is deprecated; use 'note delete'\nusage: nlm note-rm \u003cnotebook-id\u003e \u003cnote-id\u003e\n  Remove a note from a notebook\n",
+      "help": "nlm: 'note-rm' is deprecated; use 'note delete'\nusage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n  Remove a note from a notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note-rm \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5808,7 +5808,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note-rm \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5826,7 +5826,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note-rm \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5835,7 +5835,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note-rm \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5844,7 +5844,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note-rm \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
         {
           "args": [
@@ -5853,7 +5853,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm note-rm \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
+          "stderr": "usage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         }
       ]
     },
@@ -5863,16 +5863,16 @@
       "surface": 3,
       "section": "Label",
       "summary": "List labels (autolabel clusters) in a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'label-list' is deprecated; use 'label list'\nUsage: nlm label-list \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label-list NOTEBOOK_ID\n  nlm --json label-list NOTEBOOK_ID\n",
+      "help": "nlm: 'label-list' is deprecated; use 'label list'\nUsage: nlm label-list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label-list NOTEBOOK_ID\n  nlm --json label-list NOTEBOOK_ID\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-list \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label-list NOTEBOOK_ID\n  nlm --json label-list NOTEBOOK_ID\n"
+          "stderr": "nlm: label-list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label-list NOTEBOOK_ID\n  nlm --json label-list NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -5888,7 +5888,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-list \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label-list NOTEBOOK_ID\n  nlm --json label-list NOTEBOOK_ID\n"
+          "stderr": "nlm: label-list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label-list NOTEBOOK_ID\n  nlm --json label-list NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -5916,16 +5916,16 @@
       "surface": 3,
       "section": "Label",
       "summary": "List labels (autolabel clusters) in a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'labels' is deprecated; use 'label list'\nUsage: nlm labels \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm labels NOTEBOOK_ID\n  nlm --json labels NOTEBOOK_ID\n",
+      "help": "nlm: 'labels' is deprecated; use 'label list'\nUsage: nlm labels [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm labels NOTEBOOK_ID\n  nlm --json labels NOTEBOOK_ID\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: labels requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm labels \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm labels NOTEBOOK_ID\n  nlm --json labels NOTEBOOK_ID\n"
+          "stderr": "nlm: labels requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm labels [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm labels NOTEBOOK_ID\n  nlm --json labels NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -5941,7 +5941,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: labels requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm labels \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm labels NOTEBOOK_ID\n  nlm --json labels NOTEBOOK_ID\n"
+          "stderr": "nlm: labels requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm labels [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm labels NOTEBOOK_ID\n  nlm --json labels NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -5969,16 +5969,16 @@
       "surface": 3,
       "section": "Label",
       "summary": "Recompute autolabel clusters for a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'label-generate' is deprecated; use 'label generate'\nUsage: nlm label-generate \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label-generate NOTEBOOK_ID\n  nlm --json label-generate NOTEBOOK_ID\n",
+      "help": "nlm: 'label-generate' is deprecated; use 'label generate'\nUsage: nlm label-generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label-generate NOTEBOOK_ID\n  nlm --json label-generate NOTEBOOK_ID\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-generate \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label-generate NOTEBOOK_ID\n  nlm --json label-generate NOTEBOOK_ID\n"
+          "stderr": "nlm: label-generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label-generate NOTEBOOK_ID\n  nlm --json label-generate NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -5994,7 +5994,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-generate \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label-generate NOTEBOOK_ID\n  nlm --json label-generate NOTEBOOK_ID\n"
+          "stderr": "nlm: label-generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label-generate NOTEBOOK_ID\n  nlm --json label-generate NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -6022,16 +6022,16 @@
       "surface": 3,
       "section": "Label",
       "summary": "Recompute autolabel clusters for a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'autolabel' is deprecated; use 'label generate'\nUsage: nlm autolabel \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm autolabel NOTEBOOK_ID\n  nlm --json autolabel NOTEBOOK_ID\n",
+      "help": "nlm: 'autolabel' is deprecated; use 'label generate'\nUsage: nlm autolabel [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm autolabel NOTEBOOK_ID\n  nlm --json autolabel NOTEBOOK_ID\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: autolabel requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm autolabel \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm autolabel NOTEBOOK_ID\n  nlm --json autolabel NOTEBOOK_ID\n"
+          "stderr": "nlm: autolabel requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm autolabel [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm autolabel NOTEBOOK_ID\n  nlm --json autolabel NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -6047,7 +6047,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: autolabel requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm autolabel \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm autolabel NOTEBOOK_ID\n  nlm --json autolabel NOTEBOOK_ID\n"
+          "stderr": "nlm: autolabel requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm autolabel [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm autolabel NOTEBOOK_ID\n  nlm --json autolabel NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -6075,16 +6075,16 @@
       "surface": 3,
       "section": "Label",
       "summary": "Create a new manual label on a notebook",
-      "args_usage": "\u003cnotebook-id\u003e \u003cname\u003e [emoji]",
+      "args_usage": "[flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]",
       "hidden": false,
-      "help": "nlm: 'label-create' is deprecated; use 'label create'\nUsage: nlm label-create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n",
+      "help": "nlm: 'label-create' is deprecated; use 'label create'\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -6093,7 +6093,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -6120,7 +6120,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -6129,7 +6129,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -6138,7 +6138,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
         {
           "args": [
@@ -6147,7 +6147,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
+          "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         }
       ]
     },
@@ -6406,16 +6406,16 @@
       "surface": 3,
       "section": "Label",
       "summary": "Apply existing labels to currently-unlabeled sources",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'label-unlabeled' is deprecated; use 'label unlabeled'\nUsage: nlm label-unlabeled \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n",
+      "help": "nlm: 'label-unlabeled' is deprecated; use 'label unlabeled'\nUsage: nlm label-unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-unlabeled \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n"
+          "stderr": "nlm: label-unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -6431,7 +6431,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-unlabeled \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n"
+          "stderr": "nlm: label-unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -6459,16 +6459,16 @@
       "surface": 3,
       "section": "Label",
       "summary": "Re-cluster everything (UI's \"Relabel all\")",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'label-relabel-all' is deprecated; use 'label relabel-all'\nUsage: nlm label-relabel-all \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n",
+      "help": "nlm: 'label-relabel-all' is deprecated; use 'label relabel-all'\nUsage: nlm label-relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-relabel-all \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n"
+          "stderr": "nlm: label-relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -6484,7 +6484,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "nlm: label-relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-relabel-all \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n"
+          "stderr": "nlm: label-relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -6599,7 +6599,7 @@
       "summary": "Create audio overview",
       "args_usage": "[flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e",
       "hidden": false,
-      "help": "Usage: nlm create-audio [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n\nFlags:\n  --length \u003cvalue\u003e         Audio length: default, short, or long\n  --language \u003ccode\u003e        Language code (default en)\n  --audio-type \u003cvalue\u003e     Audio style: deep-dive, brief, critique, or debate\n",
+      "help": "Usage: nlm create-audio [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n\nFlags:\n  --length \u003cvalue\u003e         Audio length: default, short, or long\n  --language \u003ccode\u003e        Language code (default en)\n  --audio-type \u003cvalue\u003e     Audio style: deep-dive, brief, critique, or debate\n  --yes, -y                Replace an existing audio overview without prompting\n",
       "cases": [
         {
           "args": [],
@@ -7150,16 +7150,16 @@
       "surface": 3,
       "section": "Audio",
       "summary": "List audio overviews for a notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'audio-list' is deprecated; use 'audio list'\nusage: nlm audio-list \u003cnotebook-id\u003e\n  List audio overviews for a notebook\n",
+      "help": "nlm: 'audio-list' is deprecated; use 'audio list'\nusage: nlm audio-list [flags] \u003cnotebook-id\u003e\n  List audio overviews for a notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio-list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio-list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7175,7 +7175,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio-list \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio-list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7317,16 +7317,16 @@
       "surface": 3,
       "section": "Audio",
       "summary": "Delete audio overview",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'audio-rm' is deprecated; use 'audio delete'\nusage: nlm audio-rm \u003cnotebook-id\u003e\n  Delete audio overview\n",
+      "help": "nlm: 'audio-rm' is deprecated; use 'audio delete'\nusage: nlm audio-rm [flags] \u003cnotebook-id\u003e\n  Delete audio overview\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio-rm \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio-rm [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7342,7 +7342,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio-rm \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio-rm [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7604,16 +7604,16 @@
       "surface": 3,
       "section": "Artifact",
       "summary": "List artifacts in notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'artifacts' is deprecated; use 'artifact list'\nusage: nlm artifacts \u003cnotebook-id\u003e\n  List artifacts in notebook\n",
+      "help": "nlm: 'artifacts' is deprecated; use 'artifact list'\nusage: nlm artifacts [flags] \u003cnotebook-id\u003e\n  List artifacts in notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm artifacts \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm artifacts [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7629,7 +7629,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm artifacts \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm artifacts [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7657,16 +7657,16 @@
       "surface": 3,
       "section": "Artifact",
       "summary": "List artifacts in notebook",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'list-artifacts' is deprecated; use 'artifact list'\nusage: nlm list-artifacts \u003cnotebook-id\u003e\n  List artifacts in notebook\n",
+      "help": "nlm: 'list-artifacts' is deprecated; use 'artifact list'\nusage: nlm list-artifacts [flags] \u003cnotebook-id\u003e\n  List artifacts in notebook\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm list-artifacts \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm list-artifacts [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7682,7 +7682,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm list-artifacts \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm list-artifacts [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7850,16 +7850,16 @@
       "surface": 3,
       "section": "Artifact",
       "summary": "Delete artifact",
-      "args_usage": "\u003cartifact-id\u003e",
+      "args_usage": "[flags] \u003cartifact-id\u003e",
       "hidden": false,
-      "help": "nlm: 'delete-artifact' is deprecated; use 'artifact delete'\nusage: nlm delete-artifact \u003cartifact-id\u003e\n  Delete artifact\n",
+      "help": "nlm: 'delete-artifact' is deprecated; use 'artifact delete'\nusage: nlm delete-artifact [flags] \u003cartifact-id\u003e\n  Delete artifact\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm delete-artifact \u003cartifact-id\u003e\n"
+          "stderr": "usage: nlm delete-artifact [flags] \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -7875,7 +7875,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm delete-artifact \u003cartifact-id\u003e\n"
+          "stderr": "usage: nlm delete-artifact [flags] \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -7903,9 +7903,9 @@
       "surface": 0,
       "section": "Guidebook",
       "summary": "List all guidebooks",
-      "args_usage": "",
+      "args_usage": "[flags]",
       "hidden": false,
-      "help": "usage: nlm guidebooks \n  List all guidebooks\n",
+      "help": "usage: nlm guidebooks [flags]\n  List all guidebooks\n",
       "cases": [
         {
           "args": [],
@@ -7918,7 +7918,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm guidebooks \n"
+          "stderr": "usage: nlm guidebooks [flags]\n"
         },
         {
           "args": [
@@ -7927,7 +7927,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm guidebooks \n"
+          "stderr": "usage: nlm guidebooks [flags]\n"
         },
         {
           "args": [
@@ -7936,7 +7936,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm guidebooks \n"
+          "stderr": "usage: nlm guidebooks [flags]\n"
         },
         {
           "args": [
@@ -7945,7 +7945,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm guidebooks \n"
+          "stderr": "usage: nlm guidebooks [flags]\n"
         }
       ]
     },
@@ -8354,7 +8354,7 @@
       "summary": "Show the per-source auto-summary and keyword chips (cached on disk)",
       "args_usage": "[flags] \u003cnotebook-id\u003e [source-id...]",
       "hidden": false,
-      "help": "Usage: nlm source-guide [flags] \u003cnotebook-id\u003e [source-id...]\n\nFlags:\n  --source-ids \u003cids\u003e       Focus on these source IDs ('a,b,c' or '-' for stdin)\n  --source-match \u003cregex\u003e   Focus on sources whose title or UUID matches the regex\n  --source-exclude \u003cregex\u003e Exclude sources whose title or UUID matches the regex\n  --label-ids \u003cids\u003e        Include sources tagged with any of these label IDs\n  --label-match \u003cregex\u003e    Include sources tagged with any label whose name matches the regex\n  --label-exclude \u003cregex\u003e  Exclude sources tagged with any label whose name matches the regex\n\nExamples:\n  nlm source-guide \u003cnotebook-id\u003e \u003csource-id\u003e\n  nlm source-guide --source-match '^spec/' \u003cnotebook-id\u003e\n  nlm source-guide --source-match '^spec/' --source-exclude 'draft' \u003cnotebook-id\u003e\n  nlm source-guide --label-match '^Testing$' \u003cnotebook-id\u003e\n",
+      "help": "Usage: nlm source-guide [flags] \u003cnotebook-id\u003e [source-id...]\n\nFlags:\n  --source-ids \u003cids\u003e       Focus on these source IDs ('a,b,c' or '-' for stdin)\n  --source-match \u003cregex\u003e   Focus on sources whose title or UUID matches the regex\n  --source-exclude \u003cregex\u003e Exclude sources whose title or UUID matches the regex\n  --label-ids \u003cids\u003e        Include sources tagged with any of these label IDs\n  --label-match \u003cregex\u003e    Include sources tagged with any label whose name matches the regex\n  --label-exclude \u003cregex\u003e  Exclude sources tagged with any label whose name matches the regex\n  --force                  Refresh cached source guides\n  --json                   Emit JSON\n\nExamples:\n  nlm source-guide \u003cnotebook-id\u003e \u003csource-id\u003e\n  nlm source-guide --source-match '^spec/' \u003cnotebook-id\u003e\n  nlm source-guide --source-match '^spec/' --source-exclude 'draft' \u003cnotebook-id\u003e\n  nlm source-guide --label-match '^Testing$' \u003cnotebook-id\u003e\n",
       "cases": [
         {
           "args": [],
@@ -8554,16 +8554,16 @@
       "surface": 0,
       "section": "Generation",
       "summary": "Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "usage: nlm audio-suggestions \u003cnotebook-id\u003e\n  Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)\n",
+      "help": "usage: nlm audio-suggestions [flags] \u003cnotebook-id\u003e\n  Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio-suggestions \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio-suggestions [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -8579,7 +8579,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm audio-suggestions \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm audio-suggestions [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -8744,7 +8744,7 @@
       "summary": "Open interactive chat (one-shot if a prompt is given; -f \u003cfile\u003e reads a long prompt from file)",
       "args_usage": "[flags] \u003cnotebook-id\u003e [conversation-id | prompt...]",
       "hidden": false,
-      "help": "Usage: nlm chat [flags] \u003cnotebook-id\u003e [conversation-id | prompt...]\n\nFlags:\n  --prompt-file, -f \u003cpath\u003e Read the prompt from a file ('-' reads stdin)\n  --history                Show previous chat conversation on start\n  --thinking, --reasoning  Show thinking headers while streaming\n  --verbose, -v            Show full thinking traces while streaming\n  --citations \u003cmode\u003e       Citation rendering: off|list|json (default list; block/stream/tail are deprecated aliases of list)\n  --citation-confidence=off  Hide the (p=…) confidence column in the citation list\n  --citation-spans=off       Hide the trailing [chars N-M] span column in the citation list\n  --resolve-citations      Resolve citations to file:line for txtar-archive sources\n  --citation-excerpts[=N]  Show the cited source text under each citation (N chars, default 160)\n  --source-ids \u003cids\u003e       Focus on these source IDs ('a,b,c' or '-' for stdin)\n  --source-match \u003cregex\u003e   Focus on sources whose title or UUID matches the regex\n  --source-exclude \u003cregex\u003e Exclude sources whose title or UUID matches the regex\n  --label-ids \u003cids\u003e        Include sources tagged with any of these label IDs\n  --label-match \u003cregex\u003e    Include sources tagged with any label whose name matches the regex\n  --label-exclude \u003cregex\u003e  Exclude sources tagged with any label whose name matches the regex\n\nExamples:\n  nlm chat \u003cnotebook-id\u003e\n  nlm chat \u003cnotebook-id\u003e \"What changed this week?\"\n  nlm chat --prompt-file prompt.txt \u003cnotebook-id\u003e\n",
+      "help": "Usage: nlm chat [flags] \u003cnotebook-id\u003e [conversation-id | prompt...]\n\nFlags:\n  --prompt-file, -f \u003cpath\u003e Read the prompt from a file ('-' reads stdin)\n  --history                Show previous chat conversation on start\n  --yes, -y                Pre-authorize in-session history clears\n  --thinking, --reasoning  Show thinking headers while streaming\n  --verbose, -v            Show full thinking traces while streaming\n  --citations \u003cmode\u003e       Citation rendering: off|list|json (default list; block/stream/tail are deprecated aliases of list)\n  --citation-confidence=off  Hide the (p=…) confidence column in the citation list\n  --citation-spans=off       Hide the trailing [chars N-M] span column in the citation list\n  --resolve-citations      Resolve citations to file:line for txtar-archive sources\n  --citation-excerpts[=N]  Show the cited source text under each citation (N chars, default 160)\n  --source-ids \u003cids\u003e       Focus on these source IDs ('a,b,c' or '-' for stdin)\n  --source-match \u003cregex\u003e   Focus on sources whose title or UUID matches the regex\n  --source-exclude \u003cregex\u003e Exclude sources whose title or UUID matches the regex\n  --label-ids \u003cids\u003e        Include sources tagged with any of these label IDs\n  --label-match \u003cregex\u003e    Include sources tagged with any label whose name matches the regex\n  --label-exclude \u003cregex\u003e  Exclude sources tagged with any label whose name matches the regex\n\nExamples:\n  nlm chat \u003cnotebook-id\u003e\n  nlm chat \u003cnotebook-id\u003e \"What changed this week?\"\n  nlm chat --prompt-file prompt.txt \u003cnotebook-id\u003e\n",
       "cases": [
         {
           "args": [],
@@ -8803,9 +8803,9 @@
       "surface": 3,
       "section": "Chat",
       "summary": "List chat sessions (server-side when a notebook is given)",
-      "args_usage": "[notebook-id]",
+      "args_usage": "[flags] [notebook-id]",
       "hidden": false,
-      "help": "nlm: 'chat-list' is deprecated; use 'chat list'\nusage: nlm chat-list [notebook-id]\n  List chat sessions (server-side when a notebook is given)\n",
+      "help": "nlm: 'chat-list' is deprecated; use 'chat list'\nusage: nlm chat-list [flags] [notebook-id]\n  List chat sessions (server-side when a notebook is given)\n",
       "cases": [
         {
           "args": [],
@@ -8825,7 +8825,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm chat-list [notebook-id]\n"
+          "stderr": "usage: nlm chat-list [flags] [notebook-id]\n"
         },
         {
           "args": [
@@ -8990,16 +8990,16 @@
       "surface": 3,
       "section": "Chat",
       "summary": "Delete server-side chat history",
-      "args_usage": "\u003cnotebook-id\u003e",
+      "args_usage": "[flags] \u003cnotebook-id\u003e",
       "hidden": false,
-      "help": "nlm: 'delete-chat' is deprecated; use 'chat delete'\nusage: nlm delete-chat \u003cnotebook-id\u003e\n  Delete server-side chat history\n",
+      "help": "nlm: 'delete-chat' is deprecated; use 'chat delete'\nusage: nlm delete-chat [flags] \u003cnotebook-id\u003e\n  Delete server-side chat history\n",
       "cases": [
         {
           "args": [],
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm delete-chat \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm delete-chat [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -9015,7 +9015,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm delete-chat \u003cnotebook-id\u003e\n"
+          "stderr": "usage: nlm delete-chat [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -9551,9 +9551,9 @@
       "surface": 0,
       "section": "Other",
       "summary": "Translate raw batchexecute payloads to JSON and back (offline codec)",
-      "args_usage": "\u003cmode\u003e [flags] [file...]",
+      "args_usage": "[flags] \u003cmode\u003e [flags] [file...]",
       "hidden": true,
-      "help": "usage: nlm betool \u003cmode\u003e [flags] [file...]\n\nTranslate raw batchexecute network payloads to a readable summary or JSON, and\nback. Reads from [file], or from stdin when [file] is \"-\" or omitted. Performs\nno network I/O.\n\nModes:\n  decode-request    raw \"f.req=...\u0026at=...\u0026\" body      -\u003e text (--json for JSON)\n  encode-request    JSON request spec                 -\u003e raw form body\n  decode-response   raw \")]}'\"-prefixed response body -\u003e text (--json for JSON)\n  encode-response   JSON response spec                -\u003e raw response body\n  infer-proto       raw response payloads             -\u003e descriptor textproto\n  audit-corpus      JSONL traffic files               -\u003e per-RPC verification\n  augment-corpus    descriptor set and JSONL traffic  -\u003e augmented descriptor set\n\ninfer-proto flags:\n  --rpc-id=\u003cid\u003e     select the response descriptor; required for inference\n  --samples=\u003cdir\u003e   infer from every regular file in a directory\n                    (multiple input files may also be listed; raw responses,\n                    HAR, JSONL traffic, and httprr recordings are accepted)\n  --descriptor=\u003cf\u003e  augment a binary FileDescriptorSet instead of the built-in schema\n  --message=\u003cname\u003e  fully-qualified root message in --descriptor; required with it\n  --output=\u003cf\u003e      write the augmented binary FileDescriptorSet to a file\n  --json            emit the descriptor as protojson instead of focused proto text\n\naugment-corpus flags:\n  --descriptor=\u003cf\u003e  binary FileDescriptorSet to augment\n  --rpc-option=\u003cn\u003e  string MethodOptions extension containing captured RPC IDs\n  --boolean-option=\u003cn\u003e\n                    bool FieldOptions extension marking JSON boolean encoding\n  --min-observations=\u003cn\u003e\n                    require n consistent observations before mutation (default 2)\n  --output=\u003cf\u003e      write the augmented binary FileDescriptorSet\n  --json            emit the evidence and mutation report as JSON\n\nDecode modes print a human-readable summary by default; pass the global --json\nflag (before the mode: \"nlm --json betool decode-response …\") for the full\nstructured output. The encode modes consume that JSON, so round-tripping a\npayload needs --json on the decode side.\n\nFlags (decode modes only):\n  --proto           decode into the proto message type bound to the rpc_id,\n                    showing proto JSON with named fields\n  --rpc-id=\u003cid\u003e     supply or override the rpc_id, or a method name to\n                    disambiguate a shared rpc_id (e.g. CreateVideoOverview)\n  --verify          (implies --proto) re-encode the proto back to wire and\n                    report whether the round-trip is lossless, plus the wire\n                    positions the proto type does not model, grouped by\n                    normalized path (with --json: \"roundtrip_lossless\",\n                    \"missing_field_count\", \"missing_field_groups\")\n  --verify-all      (implies --verify) also attach the full unabridged list of\n                    findings (\"missing_fields\")\n\t  --infer-missing   (alias: --infer; implies --verify) show inferred missing fields as a\n                    compact source-style proto fragment\n\nExamples:\n  # Inspect a request captured from a HAR:\n  pbpaste | nlm betool decode-request\n\n  # Decode a response into its typed proto message:\n  nlm betool decode-response --proto resp.txt\n\n  # A response body has no rpc_id, so supply it:\n  nlm betool decode-response --proto --rpc-id=CCqFvf resp.txt\n\n  # Round-trip a response body (encode consumes JSON, so decode with --json):\n  nlm --json betool decode-response resp.txt | nlm betool encode-response\n\n  # Hand-craft a request body from JSON:\n  echo '{\"rpcs\":[{\"id\":\"wXbhsf\",\"args\":[]}],\"at\":\"TOKEN\"}' \\\n    | nlm betool encode-request\n\n  # Audit every RPC request and response in captured JSONL traffic:\n  nlm --json betool audit-corpus \"$NLM_CORPUS_DIR\"/*/notebooklm.google.com/*.jsonl\n\n  # Add evidence-backed fields to an external descriptor set:\n  nlm --json betool augment-corpus --descriptor=input.pb \\\n    --rpc-option=example.rpc_id --output=augmented.pb traffic.jsonl\n",
+      "help": "usage: nlm betool [flags] \u003cmode\u003e [flags] [file...]\n\nTranslate raw batchexecute network payloads to a readable summary or JSON, and\nback. Reads from [file], or from stdin when [file] is \"-\" or omitted. Performs\nno network I/O.\n\nModes:\n  decode-request    raw \"f.req=...\u0026at=...\u0026\" body      -\u003e text (--json for JSON)\n  encode-request    JSON request spec                 -\u003e raw form body\n  decode-response   raw \")]}'\"-prefixed response body -\u003e text (--json for JSON)\n  encode-response   JSON response spec                -\u003e raw response body\n  infer-proto       raw response payloads             -\u003e descriptor textproto\n  audit-corpus      JSONL traffic files               -\u003e per-RPC verification\n  augment-corpus    descriptor set and JSONL traffic  -\u003e augmented descriptor set\n\ninfer-proto flags:\n  --rpc-id=\u003cid\u003e     select the response descriptor; required for inference\n  --samples=\u003cdir\u003e   infer from every regular file in a directory\n                    (multiple input files may also be listed; raw responses,\n                    HAR, JSONL traffic, and httprr recordings are accepted)\n  --descriptor=\u003cf\u003e  augment a binary FileDescriptorSet instead of the built-in schema\n  --message=\u003cname\u003e  fully-qualified root message in --descriptor; required with it\n  --output=\u003cf\u003e      write the augmented binary FileDescriptorSet to a file\n  --json            emit the descriptor as protojson instead of focused proto text\n\naugment-corpus flags:\n  --descriptor=\u003cf\u003e  binary FileDescriptorSet to augment\n  --rpc-option=\u003cn\u003e  string MethodOptions extension containing captured RPC IDs\n  --boolean-option=\u003cn\u003e\n                    bool FieldOptions extension marking JSON boolean encoding\n  --min-observations=\u003cn\u003e\n                    require n consistent observations before mutation (default 2)\n  --output=\u003cf\u003e      write the augmented binary FileDescriptorSet\n  --json            emit the evidence and mutation report as JSON\n\nDecode modes print a human-readable summary by default; pass --json after the\nmode (\"nlm betool decode-response --json …\") for the full structured output.\nThe encode modes consume that JSON, so round-tripping a payload needs --json\non the decode side.\n\nFlags (decode modes only):\n  --proto           decode into the proto message type bound to the rpc_id,\n                    showing proto JSON with named fields\n  --rpc-id=\u003cid\u003e     supply or override the rpc_id, or a method name to\n                    disambiguate a shared rpc_id (e.g. CreateVideoOverview)\n  --verify          (implies --proto) re-encode the proto back to wire and\n                    report whether the round-trip is lossless, plus the wire\n                    positions the proto type does not model, grouped by\n                    normalized path (with --json: \"roundtrip_lossless\",\n                    \"missing_field_count\", \"missing_field_groups\")\n  --verify-all      (implies --verify) also attach the full unabridged list of\n                    findings (\"missing_fields\")\n\t  --infer-missing   (alias: --infer; implies --verify) show inferred missing fields as a\n                    compact source-style proto fragment\n\nExamples:\n  # Inspect a request captured from a HAR:\n  pbpaste | nlm betool decode-request\n\n  # Decode a response into its typed proto message:\n  nlm betool decode-response --proto resp.txt\n\n  # A response body has no rpc_id, so supply it:\n  nlm betool decode-response --proto --rpc-id=CCqFvf resp.txt\n\n  # Round-trip a response body (encode consumes JSON, so decode with --json):\n  nlm betool decode-response --json resp.txt | nlm betool encode-response\n\n  # Hand-craft a request body from JSON:\n  echo '{\"rpcs\":[{\"id\":\"wXbhsf\",\"args\":[]}],\"at\":\"TOKEN\"}' \\\n    | nlm betool encode-request\n\n  # Audit every RPC request and response in captured JSONL traffic:\n  nlm betool audit-corpus --json \"$NLM_CORPUS_DIR\"/*/notebooklm.google.com/*.jsonl\n\n  # Add evidence-backed fields to an external descriptor set:\n  nlm betool augment-corpus --json --descriptor=input.pb \\\n    --rpc-option=example.rpc_id --output=augmented.pb traffic.jsonl\n",
       "cases": [
         {
           "args": [],
@@ -9692,9 +9692,9 @@
       "surface": 0,
       "section": "Other",
       "summary": "Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)",
-      "args_usage": "[set \u003ckey\u003e \u003cvalue\u003e]",
+      "args_usage": "[flags] [set \u003ckey\u003e \u003cvalue\u003e]",
       "hidden": false,
-      "help": "usage: nlm account [set \u003ckey\u003e \u003cvalue\u003e]\n  Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)\n",
+      "help": "usage: nlm account [flags] [set \u003ckey\u003e \u003cvalue\u003e]\n  Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)\n",
       "cases": [
         {
           "args": [],
@@ -9731,7 +9731,7 @@
           "accepted": false,
           "error": "invalid arguments",
           "usage_error": true,
-          "stderr": "usage: nlm account [set \u003ckey\u003e \u003cvalue\u003e]\n"
+          "stderr": "usage: nlm account [flags] [set \u003ckey\u003e \u003cvalue\u003e]\n"
         },
         {
           "args": [

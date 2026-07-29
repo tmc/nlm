@@ -9,6 +9,7 @@ import (
 
 type generationNotebookArgs struct {
 	NotebookID string
+	JSON       bool
 }
 
 func configureGenerationCommandSpecs(specs map[commandID]*commandSpec) {
@@ -60,7 +61,7 @@ func decodeAudioSuggestions(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	return func(_ context.Context, client *api.Client) error {
-		return audioSuggestions(client, args.NotebookID)
+		return audioSuggestions(client, args.NotebookID, args.JSON)
 	}, nil
 }
 
@@ -69,5 +70,9 @@ func decodeGenerationNotebook(parsed parsedCommand) (generationNotebookArgs, err
 	if err != nil {
 		return generationNotebookArgs{}, err
 	}
-	return generationNotebookArgs{NotebookID: notebookID}, nil
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return generationNotebookArgs{}, err
+	}
+	return generationNotebookArgs{NotebookID: notebookID, JSON: jsonOutput}, nil
 }

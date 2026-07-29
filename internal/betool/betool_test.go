@@ -75,8 +75,7 @@ func runBetoolCapture(t *testing.T, args []string, stdinData string) (string, er
 		done <- b.String()
 	}()
 
-	// A leading "--json" selects the JSON output path (the real CLI honors the
-	// global --json flag); strip it and pass it through as the flag.
+	// A leading "--json" selects the JSON output path for this test helper.
 	jsonOutput := false
 	if len(args) > 0 && args[0] == "--json" {
 		jsonOutput = true

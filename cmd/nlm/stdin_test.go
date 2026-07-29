@@ -80,10 +80,6 @@ func (f *fakeSourceDeleteClient) DeleteSources(_ context.Context, notebookID str
 }
 
 func TestRemoveSourceReadsStdinWithYes(t *testing.T) {
-	oldYes := yes
-	yes = true
-	t.Cleanup(func() { yes = oldYes })
-
 	oldOpen := openControllingTTY
 	openControllingTTY = func() (io.ReadWriteCloser, error) {
 		t.Fatal("opened controlling tty with -y set")
@@ -109,7 +105,7 @@ func TestRemoveSourceReadsStdinWithYes(t *testing.T) {
 	})
 
 	fc := new(fakeSourceDeleteClient)
-	if err := removeSource(context.Background(), fc, "nb-1", "-"); err != nil {
+	if err := removeSource(context.Background(), fc, "nb-1", "-", true); err != nil {
 		t.Fatalf("removeSource: %v", err)
 	}
 	if fc.notebookID != "nb-1" {
@@ -122,10 +118,6 @@ func TestRemoveSourceReadsStdinWithYes(t *testing.T) {
 }
 
 func TestRemoveSourcePipedStdinRequiresYesWithoutTTY(t *testing.T) {
-	oldYes := yes
-	yes = false
-	t.Cleanup(func() { yes = oldYes })
-
 	oldOpen := openControllingTTY
 	openControllingTTY = func() (io.ReadWriteCloser, error) {
 		return nil, errors.New("no tty")
@@ -162,7 +154,7 @@ func TestRemoveSourcePipedStdinRequiresYesWithoutTTY(t *testing.T) {
 	})
 
 	fc := new(fakeSourceDeleteClient)
-	err = removeSource(context.Background(), fc, "nb-1", "-")
+	err = removeSource(context.Background(), fc, "nb-1", "-", false)
 	if err == nil || !strings.Contains(err.Error(), "operation cancelled") {
 		t.Fatalf("removeSource error = %v, want operation cancelled", err)
 	}
@@ -193,10 +185,6 @@ func (f *fakeTTY) Write(p []byte) (int, error) { return f.w.Write(p) }
 func (f *fakeTTY) Close() error                { return nil }
 
 func TestConfirmActionUsesControllingTTY(t *testing.T) {
-	oldYes := yes
-	yes = false
-	t.Cleanup(func() { yes = oldYes })
-
 	oldOpen := openControllingTTY
 	tty := &fakeTTY{r: strings.NewReader("y\n")}
 	openControllingTTY = func() (io.ReadWriteCloser, error) { return tty, nil }
@@ -219,7 +207,7 @@ func TestConfirmActionUsesControllingTTY(t *testing.T) {
 		r.Close()
 	})
 
-	if !confirmAction("delete?") {
+	if !confirmAction("delete?", false) {
 		t.Fatal("confirmAction returned false; want true")
 	}
 	if got := tty.w.String(); !strings.Contains(got, "delete? [y/N]") {
@@ -235,10 +223,6 @@ func TestConfirmActionUsesControllingTTY(t *testing.T) {
 }
 
 func TestConfirmActionNoTTYLeavesStdin(t *testing.T) {
-	oldYes := yes
-	yes = false
-	t.Cleanup(func() { yes = oldYes })
-
 	oldOpen := openControllingTTY
 	openControllingTTY = func() (io.ReadWriteCloser, error) {
 		return nil, errors.New("no tty")
@@ -262,7 +246,7 @@ func TestConfirmActionNoTTYLeavesStdin(t *testing.T) {
 		r.Close()
 	})
 
-	if confirmAction("delete?") {
+	if confirmAction("delete?", false) {
 		t.Fatal("confirmAction returned true without a tty")
 	}
 	left, err := io.ReadAll(os.Stdin)

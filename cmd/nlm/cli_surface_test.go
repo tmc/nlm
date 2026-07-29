@@ -175,21 +175,21 @@ func TestCLISurface(t *testing.T) {
 		}
 	})
 
-	t.Run("post-command global compatibility flags still parse", func(t *testing.T) {
+	t.Run("post-command owned flags remain command args", func(t *testing.T) {
 		inv, _, err := parse(t, "guidebooks", "--json")
 		if err != nil {
 			t.Fatalf("parseInvocation: %v", err)
 		}
-		if inv.name != "guidebooks" || !inv.globals.jsonOutput {
-			t.Fatalf("name, json = %q, %v; want guidebooks json", inv.name, inv.globals.jsonOutput)
+		if inv.name != "guidebooks" || inv.globals.jsonOutput || !reflect.DeepEqual(inv.args, []string{"--json"}) {
+			t.Fatalf("name, global json, args = %q, %v, %v; want guidebooks false [--json]", inv.name, inv.globals.jsonOutput, inv.args)
 		}
 
 		inv, _, err = parse(t, "notebook", "delete", "-y", "nb")
 		if err != nil {
 			t.Fatalf("parseInvocation: %v", err)
 		}
-		if inv.name != "notebook delete" || !inv.globals.yes || !reflect.DeepEqual(inv.args, []string{"nb"}) {
-			t.Fatalf("name, yes, args = %q, %v, %v; want notebook delete yes [nb]", inv.name, inv.globals.yes, inv.args)
+		if inv.name != "notebook delete" || inv.globals.yes || !reflect.DeepEqual(inv.args, []string{"-y", "nb"}) {
+			t.Fatalf("name, global yes, args = %q, %v, %v; want notebook delete false [-y nb]", inv.name, inv.globals.yes, inv.args)
 		}
 	})
 

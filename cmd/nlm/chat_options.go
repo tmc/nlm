@@ -21,6 +21,8 @@ type chatRenderOptions struct {
 	Format  string
 	OutFile string // --out FILE: write html here; "-" writes to stdout
 	Open    bool   // --open: open the written html file in the browser
+
+	Client commandClientOptions
 }
 
 func (o chatRenderOptions) jsonl() bool {
@@ -38,6 +40,7 @@ type generateChatOptions struct {
 type chatOptions struct {
 	PromptFile  string
 	ShowHistory bool
+	Yes         bool
 	Selectors   selectorOptions
 	Render      chatRenderOptions
 }

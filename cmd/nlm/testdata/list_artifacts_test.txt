@@ -4,7 +4,7 @@
 # === BASIC COMMAND VALIDATION ===
 # Test list-artifacts without arguments
 ! exec ./nlm_test list-artifacts
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test list-artifacts with empty string as argument (passes validation, fails auth)
@@ -14,12 +14,12 @@ stderr 'Authentication required'
 
 # Test list-artifacts with too many arguments
 ! exec ./nlm_test list-artifacts notebook123 extra-arg
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test list-artifacts with three arguments
 ! exec ./nlm_test list-artifacts notebook123 extra1 extra2
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # === AUTHENTICATION REQUIREMENTS ===
@@ -37,23 +37,23 @@ stderr 'Authentication required'
 # Test that list-artifacts is recognized as a valid command
 # (vs showing general usage help for invalid commands)
 ! exec ./nlm_test list-artifacts
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'Usage: nlm <command>'
 
 # === FLAG INTERACTION ===
 # Test list-artifacts with debug flag (should still require notebook-id)
 ! exec ./nlm_test -debug list-artifacts
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test list-artifacts with various flags but missing notebook-id
 ! exec ./nlm_test -auth test-token list-artifacts
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test list-artifacts with cookies flag but missing notebook-id
 ! exec ./nlm_test -cookies test-cookies list-artifacts
-stderr 'usage: nlm list-artifacts <notebook-id>'
+stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # === INVALID COMMAND VARIATIONS ===

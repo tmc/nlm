@@ -42,12 +42,12 @@ stderr 'Authentication required'
 # === RM COMMAND ===
 # Test rm without arguments
 ! exec ./nlm_test rm
-stderr 'usage: nlm rm <notebook-id>'
+stderr 'usage: nlm rm \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test rm with too many arguments
 ! exec ./nlm_test rm notebook123 extra
-stderr 'usage: nlm rm <notebook-id>'
+stderr 'usage: nlm rm \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test rm without authentication
@@ -58,7 +58,7 @@ stderr 'Authentication required'
 # === ANALYTICS COMMAND ===
 # Test analytics without arguments
 ! exec ./nlm_test analytics
-stderr 'usage: nlm analytics <notebook-id>'
+stderr 'usage: nlm analytics \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test analytics without authentication

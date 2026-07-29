@@ -11,11 +11,13 @@ import (
 
 type sourceListArgs struct {
 	NotebookID string
+	JSON       bool
 }
 
 type sourceDeleteArgs struct {
 	NotebookID string
 	SourceIDs  string
+	Yes        bool
 }
 
 type sourceRenameArgs struct {
@@ -36,6 +38,7 @@ type sourceDiscoverArgs struct {
 	NotebookID string
 	Query      string
 	Globals    globalOptions
+	JSON       bool
 }
 
 type sourceDumpArgs struct {
@@ -413,13 +416,26 @@ func decodeSourceReadArgs(parsed parsedCommand) (sourceReadArgs, error) {
 	}
 	opts := parsed.globals
 	opts.sourceReadFormat = parsedStringFlag(parsed, "format", opts.sourceReadFormat)
+	opts.chromeProfile = parsedStringFlag(parsed, "profile", opts.chromeProfile)
+	opts.jsonOutput, err = parsedBoolFlag(parsed, "json", opts.jsonOutput)
+	if err != nil {
+		return sourceReadArgs{}, err
+	}
+	opts.sourceReadMarkdown, err = parsedBoolFlag(parsed, "markdown", opts.sourceReadMarkdown)
+	if err != nil {
+		return sourceReadArgs{}, err
+	}
+	opts.sourceReadHTML, err = parsedBoolFlag(parsed, "html", opts.sourceReadHTML)
+	if err != nil {
+		return sourceReadArgs{}, err
+	}
 	if err := normalizeSourceReadFormat(&opts); err != nil {
 		return sourceReadArgs{}, err
 	}
 	return sourceReadArgs{
 		Target:   target,
 		Options:  opts,
-		Warnings: parsed.globals,
+		Warnings: opts,
 	}, nil
 }
 
@@ -428,9 +444,13 @@ func decodeSourceList(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := sourceListArgs{NotebookID: notebookID}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
+	args := sourceListArgs{NotebookID: notebookID, JSON: jsonOutput}
 	return func(_ context.Context, client *api.Client) error {
-		return listSources(client, args.NotebookID)
+		return listSources(client, args.NotebookID, args.JSON)
 	}, nil
 }
 
@@ -443,9 +463,13 @@ func decodeSourceDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := sourceDeleteArgs{NotebookID: notebookID, SourceIDs: sourceIDs}
+	yes, err := parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return nil, err
+	}
+	args := sourceDeleteArgs{NotebookID: notebookID, SourceIDs: sourceIDs, Yes: yes}
 	return func(ctx context.Context, client *api.Client) error {
-		return removeSource(ctx, client, args.NotebookID, args.SourceIDs)
+		return removeSource(ctx, client, args.NotebookID, args.SourceIDs, args.Yes)
 	}, nil
 }
 
@@ -507,13 +531,18 @@ func decodeSourceDiscover(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
 	args := sourceDiscoverArgs{
 		NotebookID: notebookID,
 		Query:      query,
 		Globals:    parsed.globals,
+		JSON:       jsonOutput,
 	}
 	return func(_ context.Context, client *api.Client) error {
-		return discoverSources(client, args.NotebookID, args.Query, args.Globals)
+		return discoverSources(client, args.NotebookID, args.Query, args.Globals, args.JSON)
 	}, nil
 }
 

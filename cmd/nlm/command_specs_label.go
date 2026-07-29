@@ -10,12 +10,14 @@ import (
 
 type labelNotebookArgs struct {
 	NotebookID string
+	JSON       bool
 }
 
 type labelCreateArgs struct {
 	NotebookID string
 	Name       string
 	Emoji      string
+	JSON       bool
 }
 
 type labelRenameArgs struct {
@@ -145,7 +147,7 @@ func decodeLabelList(parsed parsedCommand) (commandCall, error) {
 		if err != nil {
 			return err
 		}
-		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout))
+		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout), args.JSON)
 	}, nil
 }
 
@@ -159,7 +161,7 @@ func decodeLabelGenerate(parsed parsedCommand) (commandCall, error) {
 		if err != nil {
 			return err
 		}
-		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout))
+		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout), args.JSON)
 	}, nil
 }
 
@@ -176,13 +178,17 @@ func decodeLabelCreate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := labelCreateArgs{NotebookID: notebookID, Name: name, Emoji: emoji}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
+	args := labelCreateArgs{NotebookID: notebookID, Name: name, Emoji: emoji, JSON: jsonOutput}
 	return func(ctx context.Context, client *api.Client) error {
 		labels, err := client.CreateLabel(ctx, args.NotebookID, args.Name, args.Emoji)
 		if err != nil {
 			return err
 		}
-		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout))
+		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout), args.JSON)
 	}, nil
 }
 
@@ -261,7 +267,7 @@ func decodeLabelUnlabeled(parsed parsedCommand) (commandCall, error) {
 		if err != nil {
 			return err
 		}
-		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout))
+		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout), args.JSON)
 	}, nil
 }
 
@@ -275,7 +281,7 @@ func decodeLabelRelabelAll(parsed parsedCommand) (commandCall, error) {
 		if err != nil {
 			return err
 		}
-		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout))
+		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout), args.JSON)
 	}, nil
 }
 
@@ -315,5 +321,9 @@ func decodeLabelNotebook(parsed parsedCommand) (labelNotebookArgs, error) {
 	if err != nil {
 		return labelNotebookArgs{}, err
 	}
-	return labelNotebookArgs{NotebookID: notebookID}, nil
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return labelNotebookArgs{}, err
+	}
+	return labelNotebookArgs{NotebookID: notebookID, JSON: jsonOutput}, nil
 }

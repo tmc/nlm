@@ -16,5 +16,5 @@ exec ./nlm_test chat-list
 
 # Test chat-list with too many arguments (should fail with usage)
 ! exec ./nlm_test chat-list notebook123 extra
-stderr 'usage: nlm chat-list \[notebook-id\]'
+stderr 'usage: nlm chat-list \[flags\] \[notebook-id\]'
 ! stderr 'panic'

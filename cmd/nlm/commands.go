@@ -1,13 +1,10 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 type commandSurface int
@@ -803,18 +800,6 @@ var errNotFound = errors.New("not found")
 func validateCommandArgs(cmd *command, cmdName string, args []string, opts globalOptions) error {
 	_, err := parseBoundCommand(cmd, cmdName, args, opts)
 	return err
-}
-
-func runCommand(cmd *command, c *api.Client, args []string, opts globalOptions) error {
-	parsed, err := parseBoundCommand(cmd, cmd.name, args, opts)
-	if err != nil {
-		return err
-	}
-	call, err := cmd.spec.Decode(parsed)
-	if err != nil {
-		return err
-	}
-	return call(context.Background(), c)
 }
 
 // commandTableEntries returns all command entries for testing.

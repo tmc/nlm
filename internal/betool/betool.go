@@ -23,7 +23,7 @@ type betoolOptions struct {
 	verify            bool     // --verify: re-encode the proto to wire and report lossiness
 	allMissing        bool     // --verify-all: report every unmodeled position, not just the first
 	infer             bool     // --infer: show a source-style schema for unmodeled fields
-	asJSON            bool     // global --json: emit full JSON instead of the human-readable summary
+	asJSON            bool     // --json: emit full JSON instead of the human-readable summary
 	debugParsing      bool     // trace positional parsing
 	debugFieldMapping bool     // trace descriptor field mapping
 	rpcID             string   // --rpc-id=<id>: override/disambiguate the rpc_id
@@ -561,10 +561,10 @@ augment-corpus flags:
   --output=<f>      write the augmented binary FileDescriptorSet
   --json            emit the evidence and mutation report as JSON
 
-Decode modes print a human-readable summary by default; pass the global --json
-flag (before the mode: "nlm --json betool decode-response …") for the full
-structured output. The encode modes consume that JSON, so round-tripping a
-payload needs --json on the decode side.
+Decode modes print a human-readable summary by default; pass --json after the
+mode ("nlm betool decode-response --json …") for the full structured output.
+The encode modes consume that JSON, so round-tripping a payload needs --json
+on the decode side.
 
 Flags (decode modes only):
   --proto           decode into the proto message type bound to the rpc_id,
@@ -592,17 +592,17 @@ Examples:
   nlm betool decode-response --proto --rpc-id=CCqFvf resp.txt
 
   # Round-trip a response body (encode consumes JSON, so decode with --json):
-  nlm --json betool decode-response resp.txt | nlm betool encode-response
+  nlm betool decode-response --json resp.txt | nlm betool encode-response
 
   # Hand-craft a request body from JSON:
   echo '{"rpcs":[{"id":"wXbhsf","args":[]}],"at":"TOKEN"}' \
     | nlm betool encode-request
 
   # Audit every RPC request and response in captured JSONL traffic:
-  nlm --json betool audit-corpus "$NLM_CORPUS_DIR"/*/notebooklm.google.com/*.jsonl
+  nlm betool audit-corpus --json "$NLM_CORPUS_DIR"/*/notebooklm.google.com/*.jsonl
 
   # Add evidence-backed fields to an external descriptor set:
-  nlm --json betool augment-corpus --descriptor=input.pb \
+  nlm betool augment-corpus --json --descriptor=input.pb \
     --rpc-option=example.rpc_id --output=augmented.pb traffic.jsonl
 `
 
@@ -610,7 +610,6 @@ Examples:
 // "betool" in example invocations.
 func HelpText(command string) string {
 	text := strings.TrimLeft(helpTemplate, "\n")
-	text = strings.ReplaceAll(text, "nlm --json betool", "nlm --json "+command)
 	return strings.ReplaceAll(text, "nlm betool", "nlm "+command)
 }
 

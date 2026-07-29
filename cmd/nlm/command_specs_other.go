@@ -25,6 +25,7 @@ type accountArgs struct {
 	KeySet    bool
 	Value     string
 	ValueSet  bool
+	JSON      bool
 }
 
 type heartbeatArgs struct{}
@@ -62,9 +63,13 @@ func decodeMCP(parsedCommand) (commandCall, error) {
 }
 
 func decodeBetool(parsed parsedCommand) (commandCall, error) {
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
 	args := betoolArgs{
 		Values: append([]string(nil), parsed.Args["values"]...),
-		JSON:   parsed.globals.jsonOutput,
+		JSON:   jsonOutput,
 	}
 	return func(context.Context, *api.Client) error {
 		return runBetool(args)
@@ -94,6 +99,10 @@ func decodeAccount(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
 	args := accountArgs{
 		Action:    action,
 		ActionSet: actionSet,
@@ -101,6 +110,7 @@ func decodeAccount(parsed parsedCommand) (commandCall, error) {
 		KeySet:    keySet,
 		Value:     value,
 		ValueSet:  valueSet,
+		JSON:      jsonOutput,
 	}
 	return func(_ context.Context, client *api.Client) error {
 		return runAccount(client, args)

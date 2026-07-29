@@ -79,10 +79,19 @@ func TestCommandSpecSynopses(t *testing.T) {
 		if inventory, ok := phase2InventorySynopses[cmd.spec.ID]; ok {
 			want = inventory
 		}
+		if phase6, ok := phase6OwnershipSynopses[cmd.name]; ok {
+			want = phase6
+		}
 		if got != want {
 			t.Errorf("%s synopsis = %q, want %q", cmd.name, got, want)
 		}
 	}
+}
+
+var phase6OwnershipSynopses = map[string]string{
+	"notebook delete": "[flags] <notebook-id>",
+	"rm":              "[flags] <notebook-id>",
+	"betool":          "[flags] <mode> [flags] [file...]",
 }
 
 var phase4SurfaceSynopses = map[string]string{

@@ -208,6 +208,10 @@ func decodeAudioCreateArgs(parsed parsedCommand) (audioCreateArgs, error) {
 	if len(positionals) < 2 {
 		return audioCreateArgs{}, fmt.Errorf("missing notebook id or instructions")
 	}
+	yes, err := parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return audioCreateArgs{}, err
+	}
 	return audioCreateArgs{
 		NotebookID:   positionals[0],
 		Instructions: strings.Join(positionals[1:], " "),
@@ -215,6 +219,7 @@ func decodeAudioCreateArgs(parsed parsedCommand) (audioCreateArgs, error) {
 			Length:    parsedStringFlag(parsed, "length", "default"),
 			Language:  parsedStringFlag(parsed, "language", "en"),
 			AudioType: parsedStringFlag(parsed, "audio-type", ""),
+			Yes:       yes,
 		},
 	}, nil
 }

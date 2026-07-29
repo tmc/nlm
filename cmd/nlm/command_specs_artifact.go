@@ -10,15 +10,17 @@ import (
 
 type artifactIDArgs struct {
 	ArtifactID string
+	Yes        bool
 }
 
 type artifactReadArgs struct {
 	ArtifactID string
-	Globals    globalOptions
+	CDPURL     string
 }
 
 type artifactListArgs struct {
 	NotebookID string
+	JSON       bool
 }
 
 type artifactRenameArgs struct {
@@ -172,10 +174,10 @@ func decodeArtifactRead(parsed parsedCommand) (commandCall, error) {
 	}
 	args := artifactReadArgs{
 		ArtifactID: artifactID,
-		Globals:    parsed.globals,
+		CDPURL:     parsedStringFlag(parsed, "cdp-url", parsed.globals.cdpURL),
 	}
 	return func(_ context.Context, client *api.Client) error {
-		return readArtifact(client, args.ArtifactID, args.Globals)
+		return readArtifact(client, args.ArtifactID, args.CDPURL)
 	}, nil
 }
 
@@ -184,9 +186,13 @@ func decodeArtifactList(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := artifactListArgs{NotebookID: notebookID}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
+	args := artifactListArgs{NotebookID: notebookID, JSON: jsonOutput}
 	return func(_ context.Context, client *api.Client) error {
-		return listArtifacts(client, args.NotebookID)
+		return listArtifacts(client, args.NotebookID, args.JSON)
 	}, nil
 }
 
@@ -210,8 +216,12 @@ func decodeArtifactDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
+	args.Yes, err = parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return nil, err
+	}
 	return func(_ context.Context, client *api.Client) error {
-		return deleteArtifact(client, args.ArtifactID)
+		return deleteArtifact(client, args.ArtifactID, args.Yes)
 	}, nil
 }
 

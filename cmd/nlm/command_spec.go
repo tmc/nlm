@@ -33,13 +33,15 @@ type commandSpec struct {
 	IgnoredArguments    []string
 	DeferFlagErrors     bool
 	DeferFlagValidation bool
+	// BareDoubleDashArg preserves a command's established literal "--" operand
+	// when the command gains its first declared flag.
+	BareDoubleDashArg bool
 
-	aliases   []string
-	noAuth    bool // command does not require authentication
-	noClient  bool // command does not need an API client
-	directRPC bool // command requires direct RPC mode
-	hidden    bool // base surface is omitted from help
-	parse     func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
+	aliases  []string
+	noAuth   bool // command does not require authentication
+	noClient bool // command does not need an API client
+	hidden   bool // base surface is omitted from help
+	parse    func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
 }
 
 // commandSurfaceSpec describes one user-visible route to a command behavior.
@@ -52,6 +54,8 @@ type commandSurfaceSpec struct {
 	Adapt       func(parsedCommand) (parsedCommand, error)
 	Replacement []string
 	Help        commandHelpSpec
+	// BareDoubleDashArg overrides the command-level setting for this surface.
+	BareDoubleDashArg bool
 
 	Aliases [][]string
 	Section string
@@ -416,7 +420,11 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 	var occurrences []parsedFlag
 	var flagError error
 	flagSpecs := commandFlagsForSurface(spec, surface)
-	if len(flagSpecs) > 0 {
+	bareDoubleDashArg := spec.BareDoubleDashArg
+	if surface.Flags != nil {
+		bareDoubleDashArg = surface.BareDoubleDashArg
+	}
+	if len(flagSpecs) > 0 && !(bareDoubleDashArg && len(parseArgs) == 1 && parseArgs[0] == "--") {
 		flags, operands, occurrences, flagError = parseCommandFlagsDetailed(
 			flagSpecs,
 			parseArgs,

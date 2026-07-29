@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -497,7 +498,7 @@ func TestSourceReadMarkdownFlagAfterCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inv.name != "source read" || !inv.globals.sourceReadMarkdown || len(inv.args) != 1 || inv.args[0] != "source-1" {
+	if inv.name != "source read" || inv.globals.sourceReadMarkdown || !reflect.DeepEqual(inv.args, []string{"--markdown", "source-1"}) {
 		t.Fatalf("invocation = %+v", inv)
 	}
 }
@@ -508,7 +509,7 @@ func TestSourceReadHTMLFlagAfterCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inv.name != "source read" || !inv.globals.sourceReadHTML || len(inv.args) != 1 || inv.args[0] != "source-1" {
+	if inv.name != "source read" || inv.globals.sourceReadHTML || !reflect.DeepEqual(inv.args, []string{"--html", "source-1"}) {
 		t.Fatalf("invocation = %+v", inv)
 	}
 }

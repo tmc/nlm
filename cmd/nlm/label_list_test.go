@@ -48,7 +48,7 @@ func TestRenderLabelList_TableOutput(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out, status bytes.Buffer
-			if err := renderLabelList(&out, &status, tt.labels, tt.tty); err != nil {
+			if err := renderLabelList(&out, &status, tt.labels, tt.tty, false); err != nil {
 				t.Fatalf("renderLabelList: %v", err)
 			}
 			outStr := out.String()
@@ -68,12 +68,8 @@ func TestRenderLabelList_TableOutput(t *testing.T) {
 }
 
 func TestRenderLabelList_JSON(t *testing.T) {
-	prev := jsonOutput
-	jsonOutput = true
-	defer func() { jsonOutput = prev }()
-
 	var out, status bytes.Buffer
-	if err := renderLabelList(&out, &status, labelListFixture, false); err != nil {
+	if err := renderLabelList(&out, &status, labelListFixture, false, true); err != nil {
 		t.Fatalf("renderLabelList: %v", err)
 	}
 	if status.Len() != 0 {

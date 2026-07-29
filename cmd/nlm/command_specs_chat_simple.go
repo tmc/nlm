@@ -10,6 +10,8 @@ import (
 type chatListArgs struct {
 	NotebookID    string
 	NotebookIDSet bool
+	JSON          bool
+	Client        commandClientOptions
 }
 
 type chatHistoryArgs struct {
@@ -19,6 +21,7 @@ type chatHistoryArgs struct {
 
 type chatNotebookArgs struct {
 	NotebookID string
+	Yes        bool
 }
 
 type chatConfigArgs struct {
@@ -133,12 +136,25 @@ func decodeChatList(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	args := chatListArgs{NotebookID: notebookID, NotebookIDSet: notebookIDSet}
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
+	clientOptions, err := decodeCommandClientOptions(parsed)
+	if err != nil {
+		return nil, err
+	}
+	args := chatListArgs{
+		NotebookID:    notebookID,
+		NotebookIDSet: notebookIDSet,
+		JSON:          jsonOutput,
+		Client:        clientOptions,
+	}
 	return func(context.Context, *api.Client) error {
 		if args.NotebookIDSet {
-			return listChatConversationsWithAuth(args.NotebookID)
+			return listChatConversationsWithAuth(args.NotebookID, args.JSON, args.Client)
 		}
-		return listChatSessions()
+		return listChatSessions(args.JSON)
 	}, nil
 }
 
@@ -163,7 +179,7 @@ func decodeChatDelete(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	return func(_ context.Context, client *api.Client) error {
-		return deleteChatHistory(client, args.NotebookID)
+		return deleteChatHistory(client, args.NotebookID, args.Yes)
 	}, nil
 }
 
@@ -225,5 +241,9 @@ func decodeChatNotebook(parsed parsedCommand) (chatNotebookArgs, error) {
 	if err != nil {
 		return chatNotebookArgs{}, err
 	}
-	return chatNotebookArgs{NotebookID: notebookID}, nil
+	yes, err := parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return chatNotebookArgs{}, err
+	}
+	return chatNotebookArgs{NotebookID: notebookID, Yes: yes}, nil
 }

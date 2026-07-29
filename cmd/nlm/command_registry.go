@@ -140,6 +140,7 @@ func buildCommandRegistry() {
 	configureCreateCommandSpecs(specs)
 	configureChatCommandSpecs(specs)
 	configureAuthCommandSpec(specs)
+	configureCommandFlagOwnership(specs)
 
 	for _, spec := range commandSpecs {
 		if spec.Decode == nil || len(spec.Forms) == 0 {

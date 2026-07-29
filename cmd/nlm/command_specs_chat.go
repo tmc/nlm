@@ -278,6 +278,10 @@ func decodeChatArgs(parsed parsedCommand) (chatArgs, error) {
 	if err != nil {
 		return chatArgs{}, err
 	}
+	yes, err := parsedBoolFlag(parsed, "yes", parsed.globals.yes)
+	if err != nil {
+		return chatArgs{}, err
+	}
 	render, err := decodeChatRenderOptions(parsed)
 	if err != nil {
 		return chatArgs{}, err
@@ -288,6 +292,7 @@ func decodeChatArgs(parsed parsedCommand) (chatArgs, error) {
 		Options: chatOptions{
 			PromptFile:  parsedStringFlag(parsed, "prompt-file", parsed.globals.promptFile),
 			ShowHistory: showHistory,
+			Yes:         yes,
 			Selectors:   decodeSelectorOptions(parsed),
 			Render:      render,
 		},
@@ -318,6 +323,10 @@ func decodeChatShowArgs(parsed parsedCommand) (chatShowArgs, error) {
 		return chatShowArgs{}, fmt.Errorf("want notebook id and optional conversation id")
 	}
 	options, err := decodeChatRenderOptions(parsed)
+	if err != nil {
+		return chatShowArgs{}, err
+	}
+	options.Client, err = decodeCommandClientOptions(parsed)
 	if err != nil {
 		return chatShowArgs{}, err
 	}

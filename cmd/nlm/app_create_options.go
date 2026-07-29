@@ -18,6 +18,7 @@ type audioCreateOptions struct {
 	Length    string
 	Language  string
 	AudioType string
+	Yes       bool
 }
 
 type videoCreateOptions struct {

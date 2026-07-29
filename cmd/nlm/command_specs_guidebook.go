@@ -40,7 +40,11 @@ func configureGuidebookCommandSpecs(specs map[commandID]*commandSpec) {
 	configureTypedCommandSpec(specs["guidebook-rm"], idForm, decodeGuidebookDelete)
 }
 
-func decodeGuidebookList(parsedCommand) (commandCall, error) {
+func decodeGuidebookList(parsed parsedCommand) (commandCall, error) {
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
+	if err != nil {
+		return nil, err
+	}
 	args := guidebookListArgs{JSON: jsonOutput}
 	return func(ctx context.Context, client *api.Client) error {
 		guidebooks, err := client.ListGuidebooks(ctx)

@@ -344,10 +344,4 @@ func applyGlobalOptions(opts globalOptions) {
 	debugDumpPayload = opts.debugDumpPayload
 	debugParsing = opts.debugParsing
 	debugFieldMapping = opts.debugFieldMapping
-	chromeProfile = opts.chromeProfile
-	chunkedResponse = opts.chunkedResponse
-	useDirectRPC = opts.useDirectRPC
-	skipSources = opts.skipSources
-	yes = opts.yes
-	jsonOutput = opts.jsonOutput
 }

@@ -41,12 +41,12 @@ stderr 'Authentication required'
 # === AUDIO-RM COMMAND ===
 # Test audio-rm without arguments (should fail with usage)
 ! exec ./nlm_test audio-rm
-stderr 'usage: nlm audio-rm <notebook-id>'
+stderr 'usage: nlm audio-rm \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test audio-rm with too many arguments (should fail with usage)
 ! exec ./nlm_test audio-rm notebook123 extra
-stderr 'usage: nlm audio-rm <notebook-id>'
+stderr 'usage: nlm audio-rm \[flags\] <notebook-id>'
 ! stderr 'panic'
 
 # Test audio-rm without authentication (should fail)

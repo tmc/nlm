@@ -15,8 +15,8 @@ env NLM_COOKIES=mock-cookies
 
 # Test that sources command validates arguments correctly
 ! exec ./nlm_test sources
-stderr 'usage: nlm sources <notebook-id>'
+stderr 'usage: nlm sources \[flags\] <notebook-id>'
 
 # Test with too many arguments
 ! exec ./nlm_test sources notebook-id extra-arg
-stderr 'usage: nlm sources <notebook-id>'
+stderr 'usage: nlm sources \[flags\] <notebook-id>'
