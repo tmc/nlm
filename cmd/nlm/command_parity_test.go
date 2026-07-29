@@ -6,7 +6,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -71,6 +73,138 @@ func TestCommandParityGolden(t *testing.T) {
 	if string(data) != string(want) {
 		t.Fatalf("command behavior differs from %s; regenerate only before a behavior-preserving migration\nwant %d bytes\ngot  %d bytes", name, len(want), len(data))
 	}
+}
+
+func TestCommandParityPhase1Baseline(t *testing.T) {
+	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase1.golden.json"))
+	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	compareCommandParityPhase1(t, baseline, current)
+}
+
+func readCommandParityGolden(t *testing.T, name string) commandParityGolden {
+	t.Helper()
+	data, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var golden commandParityGolden
+	if err := json.Unmarshal(data, &golden); err != nil {
+		t.Fatal(err)
+	}
+	return golden
+}
+
+func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGolden) {
+	t.Helper()
+	if filterInventoryHelpLines(current.RootHelp) != filterInventoryHelpLines(baseline.RootHelp) {
+		t.Error("root help differs outside the Phase 2 inventory")
+	}
+	if len(current.SectionHelp) != len(baseline.SectionHelp) {
+		t.Fatalf("section help count changed: got %d, want %d", len(current.SectionHelp), len(baseline.SectionHelp))
+	}
+	for i := range baseline.SectionHelp {
+		got, want := current.SectionHelp[i], baseline.SectionHelp[i]
+		if got.Name != want.Name {
+			t.Fatalf("section %d name changed: got %q, want %q", i, got.Name, want.Name)
+		}
+		if filterInventoryHelpLines(got.Help) != filterInventoryHelpLines(want.Help) {
+			t.Errorf("%s section help differs outside the Phase 2 inventory", want.Name)
+		}
+	}
+	if len(current.Commands) != len(baseline.Commands) {
+		t.Fatalf("command count changed: got %d, want %d", len(current.Commands), len(baseline.Commands))
+	}
+	for i := range baseline.Commands {
+		got, want := current.Commands[i], baseline.Commands[i]
+		if got.Path != want.Path {
+			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
+		}
+		if !inventoryCommandPaths[want.Path] {
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%s changed outside the Phase 2 inventory", want.Path)
+			}
+			continue
+		}
+		got.ArgsUsage, got.Help = want.ArgsUsage, want.Help
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s changed outside ArgsUsage or Help", want.Path)
+		}
+	}
+}
+
+func filterInventoryHelpLines(help string) string {
+	var kept []string
+	for _, line := range strings.Split(help, "\n") {
+		if !inventoryHelpLine(line) {
+			kept = append(kept, line)
+		}
+	}
+	return strings.Join(kept, "\n")
+}
+
+func inventoryHelpLine(line string) bool {
+	line = strings.TrimLeft(line, " \t")
+	for path := range inventoryCommandPaths {
+		if !strings.HasPrefix(line, path) {
+			continue
+		}
+		rest := line[len(path):]
+		if rest == "" || strings.HasPrefix(rest, "  ") {
+			return true
+		}
+		if rest[0] == ' ' {
+			rest = strings.TrimLeft(rest, " ")
+			if rest == "" || strings.ContainsRune("<[-", rune(rest[0])) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// inventoryCommandPaths expands the 24 Phase 2 inventory rows across every
+// stable and compatibility surface for the same command behavior.
+var inventoryCommandPaths = map[string]bool{
+	"notebook delete":     true,
+	"rm":                  true,
+	"source add":          true,
+	"add":                 true,
+	"source sync":         true,
+	"sync":                true,
+	"source pack":         true,
+	"sync-pack":           true,
+	"label attach":        true,
+	"label-attach":        true,
+	"app create":          true,
+	"app-create":          true,
+	"mindmap create":      true,
+	"mindmap-create":      true,
+	"audio create":        true,
+	"create-audio":        true,
+	"video create":        true,
+	"create-video":        true,
+	"deck create":         true,
+	"create-slides":       true,
+	"deck download":       true,
+	"deck-download":       true,
+	"download slide-deck": true,
+	"artifact export":     true,
+	"export-flashcards":   true,
+	"artifact update":     true,
+	"update-artifact":     true,
+	"source-guide":        true,
+	"generate-chat":       true,
+	"create-report":       true,
+	"generate-report":     true,
+	"chat":                true,
+	"chat show":           true,
+	"chat-show":           true,
+	"chat config":         true,
+	"chat-config":         true,
+	"research":            true,
+	"auth":                true,
+	"betool":              true,
+	"refresh":             true,
 }
 
 func collectCommandParity(t *testing.T, frozenCases map[string][][]string) commandParityGolden {
