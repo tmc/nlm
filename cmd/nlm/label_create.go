@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
-
-	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 func printLabelCreateUsage(cmdName string) {
@@ -16,25 +13,4 @@ func printLabelCreateUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s NOTEBOOK_ID \"Important\"\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm %s NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n", cmdName)
-}
-
-func validateLabelCreateArgs(cmdName string, args []string) error {
-	if len(args) < 2 || len(args) > 3 {
-		fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <name> [emoji]\n\n", cmdName)
-		printLabelCreateUsage(cmdName)
-		return errBadArgs
-	}
-	return nil
-}
-
-func runLabelCreate(c *api.Client, args []string) error {
-	emoji := ""
-	if len(args) == 3 {
-		emoji = args[2]
-	}
-	labels, err := c.CreateLabel(context.Background(), args[0], args[1], emoji)
-	if err != nil {
-		return err
-	}
-	return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout))
 }

@@ -18,35 +18,7 @@ func printLabelAttachUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "is HAR-verified — invoke once per source for now.")
 }
 
-func validateLabelAttachArgs(cmdName string, args []string) error {
-	if len(args) != 3 {
-		fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <label-id|name> <source-id|name>\n\n", cmdName)
-		printLabelAttachUsage(cmdName)
-		return errBadArgs
-	}
-	return nil
-}
-
 var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-
-func runLabelAttach(c *api.Client, args []string) error {
-	notebookID, labelArg, sourceArg := args[0], args[1], args[2]
-
-	labelID, err := resolveLabelArg(c, notebookID, labelArg)
-	if err != nil {
-		return err
-	}
-	sourceID, err := resolveSourceArg(c, notebookID, sourceArg)
-	if err != nil {
-		return err
-	}
-
-	if err := c.AttachLabelSource(context.Background(), notebookID, labelID, sourceID); err != nil {
-		return err
-	}
-	fmt.Fprintf(os.Stderr, "Attached source %s to label %s\n", sourceID, labelID)
-	return nil
-}
 
 func resolveLabelArg(c *api.Client, notebookID, arg string) (string, error) {
 	if uuidRE.MatchString(arg) {

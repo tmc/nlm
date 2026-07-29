@@ -138,6 +138,7 @@ func buildCommandRegistry() {
 	configureNotebookCommandSpecs(specs)
 	configureSourceCommandSpecs(specs)
 	configureNoteCommandSpecs(specs)
+	configureLabelCommandSpecs(specs)
 
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]

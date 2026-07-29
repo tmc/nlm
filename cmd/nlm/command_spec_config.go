@@ -10,12 +10,23 @@ func configureTypedCommandSpec(
 	forms []commandForm,
 	decode func(parsedCommand) (commandCall, error),
 ) {
+	configureTypedCommandSpecWithUsage(spec, forms, decode, func(path string) {
+		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", path, spec.definition.argsUsage)
+	})
+}
+
+func configureTypedCommandSpecWithUsage(
+	spec *commandSpec,
+	forms []commandForm,
+	decode func(parsedCommand) (commandCall, error),
+	printUsageError func(string),
+) {
 	spec.Forms = forms
 	spec.Flags = nil
 	spec.parse = func(surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
 		parsed, err := parseCommandSpec(spec, surface, args, globals)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", parsedCommandPath(surface), spec.definition.argsUsage)
+			printUsageError(parsedCommandPath(surface))
 			return parsedCommand{}, errBadArgs
 		}
 		return parsed, nil
@@ -56,6 +67,14 @@ func optionalOperand(name string) operandSpec {
 	}
 }
 
+func repeatedOperand(name string) operandSpec {
+	return operandSpec{
+		Name:        name,
+		Placeholder: name,
+		Cardinality: cardinalityOneOrMore,
+	}
+}
+
 func commandFormOf(parts ...operandSpec) []commandForm {
 	return []commandForm{{Parts: parts}}
 }
@@ -78,4 +97,12 @@ func parsedOptionalArgument(parsed parsedCommand, name string) (string, bool, er
 	default:
 		return "", false, fmt.Errorf("decode %s: got %d values", name, len(values))
 	}
+}
+
+func parsedArguments(parsed parsedCommand, name string) ([]string, error) {
+	values := parsed.Args[name]
+	if len(values) == 0 {
+		return nil, fmt.Errorf("decode %s: got no values", name)
+	}
+	return append([]string(nil), values...), nil
 }

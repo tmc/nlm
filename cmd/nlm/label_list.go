@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,23 +16,6 @@ func printLabelListUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "Examples:")
 	fmt.Fprintf(os.Stderr, "  nlm %s NOTEBOOK_ID\n", cmdName)
 	fmt.Fprintf(os.Stderr, "  nlm --json %s NOTEBOOK_ID\n", cmdName)
-}
-
-func validateLabelListArgs(cmdName string, args []string) error {
-	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "nlm: %s requires exactly one argument: <notebook-id>\n\n", cmdName)
-		printLabelListUsage(cmdName)
-		return errBadArgs
-	}
-	return nil
-}
-
-func runLabelList(c *api.Client, args []string) error {
-	labels, err := c.GetLabels(context.Background(), args[0])
-	if err != nil {
-		return err
-	}
-	return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout))
 }
 
 func renderLabelList(out, status io.Writer, labels []api.Label, tty bool) error {
