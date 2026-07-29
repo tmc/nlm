@@ -25,6 +25,10 @@ type commandSpec struct {
 	Surfaces []commandSurfaceSpec
 	Decode   func(parsedCommand) (commandCall, error)
 
+	IgnoredArguments    []string
+	DeferFlagErrors     bool
+	DeferFlagValidation bool
+
 	definition   *commandDefinition
 	parse        func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
 	legacyBridge bool
@@ -98,7 +102,17 @@ type parsedCommand struct {
 
 	path    string
 	globals globalOptions
-	legacy  legacyArgs
+	raw     []string
+
+	flagOccurrences []parsedFlag
+	flagError       error
+	legacy          legacyArgs
+}
+
+type parsedFlag struct {
+	Name      string
+	InputName string
+	Value     string
 }
 
 // legacyArgs is the temporary Phase 1 bridge for command behaviors not yet
@@ -178,10 +192,19 @@ func operandCountRange(cardinality cardinality, available int) (int, int) {
 // parseCommandFlags separates known command flags from operands. Unknown
 // flags remain operands, matching splitCommandFlags during Phase 1.
 func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []string, error) {
+	flags, operands, _, err := parseCommandFlagsDetailed(specs, args, false)
+	return flags, operands, err
+}
+
+func parseCommandFlagsDetailed(
+	specs []flagSpec,
+	args []string,
+	deferValidation bool,
+) (map[string][]string, []string, []parsedFlag, error) {
 	byName := make(map[string]flagSpec)
 	for _, spec := range specs {
 		if spec.Name == "" {
-			return nil, nil, fmt.Errorf("command flag has empty name")
+			return nil, nil, nil, fmt.Errorf("command flag has empty name")
 		}
 		byName[spec.Name] = spec
 		for _, alias := range spec.Aliases {
@@ -191,6 +214,7 @@ func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []
 
 	flags := make(map[string][]string)
 	var operands []string
+	var occurrences []parsedFlag
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
@@ -216,41 +240,65 @@ func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []
 				value = "true"
 			}
 			flags[flag.Name] = append(flags[flag.Name], value)
+			occurrences = append(occurrences, parsedFlag{
+				Name:      flag.Name,
+				InputName: name,
+				Value:     value,
+			})
 			continue
 		}
 		if flag.Value == "" {
 			if hasValue {
-				if _, err := strconv.ParseBool(value); err != nil {
-					return nil, nil, fmt.Errorf("invalid boolean value %q for -%s: parse error", value, name)
+				if !deferValidation {
+					if _, err := strconv.ParseBool(value); err != nil {
+						return flags, operands, occurrences, fmt.Errorf("invalid boolean value %q for -%s: parse error", value, name)
+					}
 				}
 			} else {
 				value = "true"
 			}
 			flags[flag.Name] = append(flags[flag.Name], value)
+			occurrences = append(occurrences, parsedFlag{
+				Name:      flag.Name,
+				InputName: name,
+				Value:     value,
+			})
 			continue
 		}
 		if !hasValue {
 			if i+1 >= len(args) {
-				return nil, nil, fmt.Errorf("flag needs an argument: %s", arg)
+				return flags, operands, occurrences, fmt.Errorf("flag needs an argument: %s", arg)
 			}
 			i++
 			value = args[i]
 		}
 		flags[flag.Name] = append(flags[flag.Name], value)
+		occurrences = append(occurrences, parsedFlag{
+			Name:      flag.Name,
+			InputName: name,
+			Value:     value,
+		})
 	}
-	return flags, operands, nil
+	return flags, operands, occurrences, nil
 }
 
 // parseCommandSpec selects a surface form, validates its constraints, and
 // applies the surface adapter.
 func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
 	flags := make(map[string][]string)
-	operands := args
+	raw := append([]string(nil), args...)
+	parseArgs := omitCommandArguments(args, spec.IgnoredArguments)
+	operands := parseArgs
+	var occurrences []parsedFlag
+	var flagError error
 	if len(spec.Flags) > 0 {
-		var err error
-		flags, operands, err = parseCommandFlags(spec.Flags, args)
-		if err != nil {
-			return parsedCommand{}, err
+		flags, operands, occurrences, flagError = parseCommandFlagsDetailed(
+			spec.Flags,
+			parseArgs,
+			spec.DeferFlagValidation,
+		)
+		if flagError != nil && !spec.DeferFlagErrors {
+			return parsedCommand{}, flagError
 		}
 	}
 	forms := surface.Forms
@@ -267,6 +315,9 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 		parsed.Flags = flags
 		parsed.path = strings.Join(surface.Path, " ")
 		parsed.globals = globals
+		parsed.raw = raw
+		parsed.flagOccurrences = occurrences
+		parsed.flagError = flagError
 		valid := true
 		for _, constraint := range form.Constraints {
 			if err := constraint.Check(parsed); err != nil {
@@ -287,4 +338,21 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 		return parsedCommand{}, constraintErr
 	}
 	return parsedCommand{}, errBadArgs
+}
+
+func omitCommandArguments(args, ignored []string) []string {
+	if len(ignored) == 0 {
+		return args
+	}
+	ignore := make(map[string]bool, len(ignored))
+	for _, arg := range ignored {
+		ignore[arg] = true
+	}
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		if !ignore[arg] {
+			out = append(out, arg)
+		}
+	}
+	return out
 }

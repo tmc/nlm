@@ -475,13 +475,8 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "auth", argsUsage: "[profile]",
 		usage: "Set up authentication from a browser profile", section: "Other",
-		minArgs: 0, maxArgs: -1,
 		noAuth: true, noClient: true,
 		help: printAuthUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			_, _, err := handleAuthWithOptions(args, opts)
-			return err
-		},
 	},
 	{
 		name:  "refresh",

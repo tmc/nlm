@@ -151,6 +151,7 @@ func buildCommandRegistry() {
 	configureSelectorCommandSpecs(specs)
 	configureCreateCommandSpecs(specs)
 	configureChatCommandSpecs(specs)
+	configureAuthCommandSpec(specs)
 
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]

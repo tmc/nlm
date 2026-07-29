@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -45,121 +44,75 @@ type authOptions struct {
 	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
 }
 
-func parseAuthFlagsWithOptions(args []string, globals globalOptions) (*authOptions, []string, error) {
-	// Create a new FlagSet
-	authFlags := flag.NewFlagSet("auth", flag.ContinueOnError)
-
-	// Define auth-specific flags
-	opts := &authOptions{
-		ProfileName: globals.chromeProfile,
-		TargetURL:   "https://notebook.google.com",
-		Debug:       globals.debug,
-	}
-	if globals.authUserSet {
-		opts.AuthUser = authuser.Normalize(globals.authUser)
-	}
-
-	authFlags.BoolVar(&opts.TryAllProfiles, "all", false, "Try all available browser profiles")
-	authFlags.BoolVar(&opts.TryAllProfiles, "a", false, "Try all available browser profiles (shorthand)")
-	authFlags.StringVar(&opts.ProfileName, "profile", opts.ProfileName, "Specific Chrome profile to use")
-	authFlags.StringVar(&opts.ProfileName, "p", opts.ProfileName, "Specific Chrome profile to use (shorthand)")
-	authFlags.StringVar(&opts.TargetURL, "url", opts.TargetURL, "Target URL to authenticate against")
-	authFlags.StringVar(&opts.TargetURL, "u", opts.TargetURL, "Target URL to authenticate against (shorthand)")
-	authFlags.BoolVar(&opts.CheckNotebooks, "notebooks", false, "Check notebook count for profiles")
-	authFlags.BoolVar(&opts.CheckNotebooks, "n", false, "Check notebook count for profiles (shorthand)")
-	authFlags.BoolVar(&opts.Debug, "debug", opts.Debug, "Enable debug output")
-	authFlags.BoolVar(&opts.Debug, "d", opts.Debug, "Enable debug output (shorthand)")
-	authFlags.BoolVar(&opts.Help, "help", false, "Show help for auth command")
-	authFlags.BoolVar(&opts.Help, "h", false, "Show help for auth command (shorthand)")
-	authFlags.BoolVar(&opts.PrintEnv, "print-env", false, "Print shell-safe export lines for the current session to stdout")
-	authFlags.IntVar(&opts.KeepOpenSeconds, "keep-open", 0, "Keep browser open for N seconds after successful auth")
-	authFlags.IntVar(&opts.KeepOpenSeconds, "k", 0, "Keep browser open for N seconds after successful auth (shorthand)")
-	authFlags.StringVar(&opts.RemoteCDPURL, "cdp-url", "", "Remote CDP WebSocket URL (e.g. ws://localhost:9222)")
-	authFlags.StringVar(&opts.RemoteCDPURL, "c", "", "Remote CDP WebSocket URL (shorthand)")
-	authFlags.StringVar(&opts.AuthUser, "authuser", opts.AuthUser, "Google account index for multi-account profiles (e.g. 1)")
-	authFlags.StringVar(&opts.AuthUser, "au", opts.AuthUser, "Google account index (shorthand)")
-
-	// Set custom usage
-	authFlags.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: nlm auth [login] [options] [profile-name]\n\n")
-		fmt.Fprintf(os.Stderr, "Commands:\n")
-		fmt.Fprintf(os.Stderr, "  login            Explicitly use browser authentication (recommended)\n\n")
-		fmt.Fprintf(os.Stderr, "Options:\n")
-		authFlags.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "\nExample: nlm auth login -all -notebooks\n")
-		fmt.Fprintf(os.Stderr, "Example: nlm auth login -profile Work\n")
-		fmt.Fprintf(os.Stderr, "Example: nlm auth login -keep-open 10\n")
-		fmt.Fprintf(os.Stderr, "Example: nlm auth -cdp-url ws://localhost:9222\n")
-		fmt.Fprintf(os.Stderr, "Example: nlm auth -all\n")
-		fmt.Fprintf(os.Stderr, "Example: nlm auth --print-env > creds.sh   # shell-safe exports for CI\n")
-	}
-
-	// Filter out the 'login' argument if present
-	filteredArgs := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg != "login" {
-			filteredArgs = append(filteredArgs, arg)
-		}
-	}
-
-	flagArgs, remainingArgs, err := splitCommandFlags(filteredArgs, map[string]bool{
-		"all": true, "a": true, "profile": true, "p": true,
-		"url": true, "u": true, "notebooks": true, "n": true,
-		"debug": true, "d": true, "help": true, "h": true,
-		"print-env": true, "keep-open": true, "k": true,
-		"cdp-url": true, "c": true, "authuser": true, "au": true,
-	}, map[string]bool{
-		"all": true, "a": true, "notebooks": true, "n": true,
-		"debug": true, "d": true, "help": true, "h": true,
-		"print-env": true,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Parse the flags
-	err = authFlags.Parse(flagArgs)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// If help is requested, show usage and return nil
-	if opts.Help {
-		authFlags.Usage()
-		return nil, nil, fmt.Errorf("help shown")
-	}
-
-	// If there's an argument and no specific profile is set via flag, treat the first arg as profile name
-	if !opts.TryAllProfiles && opts.ProfileName == "" && len(remainingArgs) > 0 {
-		opts.ProfileName = remainingArgs[0]
-		remainingArgs = remainingArgs[1:]
-	}
-
-	// Set default profile name if needed
-	if !opts.TryAllProfiles && opts.ProfileName == "" {
-		opts.ProfileName = "Default"
-		if v := os.Getenv("NLM_BROWSER_PROFILE"); v != "" {
-			opts.ProfileName = v
-		}
-	}
-
-	// Support NLM_CDP_URL env var as fallback for --cdp-url flag
-	if opts.RemoteCDPURL == "" {
-		if v := os.Getenv("NLM_CDP_URL"); v != "" {
-			opts.RemoteCDPURL = v
-		}
-	}
-
-	return opts, remainingArgs, nil
-}
-
 func printAuthUsage(_ string) {
-	_, _, _ = parseAuthFlagsWithOptions([]string{"--help"}, globalOptions{})
+	fmt.Fprint(os.Stderr, strings.ReplaceAll(`Usage: nlm auth [login] [options] [profile-name]
+
+Commands:
+  login            Explicitly use browser authentication (recommended)
+
+Options:
+  -a	Try all available browser profiles (shorthand)
+  -all
+    |Try all available browser profiles
+  -au string
+    |Google account index (shorthand)
+  -authuser string
+    |Google account index for multi-account profiles (e.g. 1)
+  -c string
+    |Remote CDP WebSocket URL (shorthand)
+  -cdp-url string
+    |Remote CDP WebSocket URL (e.g. ws://localhost:9222)
+  -d	Enable debug output (shorthand)
+  -debug
+    |Enable debug output
+  -h	Show help for auth command (shorthand)
+  -help
+    |Show help for auth command
+  -k int
+    |Keep browser open for N seconds after successful auth (shorthand)
+  -keep-open int
+    |Keep browser open for N seconds after successful auth
+  -n	Check notebook count for profiles (shorthand)
+  -notebooks
+    |Check notebook count for profiles
+  -p string
+    |Specific Chrome profile to use (shorthand)
+  -print-env
+    |Print shell-safe export lines for the current session to stdout
+  -profile string
+    |Specific Chrome profile to use
+  -u string
+    |Target URL to authenticate against (shorthand) (default "https://notebook.google.com")
+  -url string
+    |Target URL to authenticate against (default "https://notebook.google.com")
+
+Example: nlm auth login -all -notebooks
+Example: nlm auth login -profile Work
+Example: nlm auth login -keep-open 10
+Example: nlm auth -cdp-url ws://localhost:9222
+Example: nlm auth -all
+Example: nlm auth --print-env > creds.sh   # shell-safe exports for CI
+`, "    |", "    \t"))
 }
 
 func handleAuthWithOptions(args []string, globals globalOptions) (string, string, error) {
+	command, ok := lookupCommand("auth")
+	if !ok {
+		return "", "", fmt.Errorf("auth command not found")
+	}
+	parsed, err := parseBoundCommand(command, "auth", args, globals)
+	if err != nil {
+		return "", "", err
+	}
+	return handleDecodedAuth(decodeAuthArgs(parsed))
+}
+
+func handleDecodedAuth(args authArgs) (string, string, error) {
+	raw := args.Raw
+	globals := args.Globals
+
 	// Check if help flag is present directly
-	for _, arg := range args {
+	for _, arg := range raw {
 		if arg == "-h" || arg == "--help" || arg == "-help" || arg == "help" {
 			printAuthUsage("auth")
 			return "", "", nil // Help was shown, exit gracefully
@@ -168,7 +121,7 @@ func handleAuthWithOptions(args []string, globals globalOptions) (string, string
 
 	// Handle --print-env before any browser or stdin paths so it is safe to run
 	// from CI contexts (no TTY, no local profile).
-	for _, arg := range args {
+	for _, arg := range raw {
 		if arg == "--print-env" || arg == "-print-env" {
 			return printAuthEnv(os.Stdout)
 		}
@@ -182,7 +135,7 @@ func handleAuthWithOptions(args []string, globals globalOptions) (string, string
 
 	// Look for 'login' command which forces browser auth
 	forceBrowser := false
-	for _, arg := range args {
+	for _, arg := range raw {
 		if arg == "login" {
 			forceBrowser = true
 			if globals.debug {
@@ -218,20 +171,20 @@ func handleAuthWithOptions(args []string, globals globalOptions) (string, string
 
 	// Check for login subcommand which explicitly indicates browser auth
 	isLoginCommand := false
-	for _, arg := range args {
+	for _, arg := range raw {
 		if arg == "login" {
 			isLoginCommand = true
 			break
 		}
 	}
 
-	// Parse auth-specific flags
-	opts, _, err := parseAuthFlagsWithOptions(args, globals)
-	if err != nil {
-		if err.Error() == "help shown" {
-			return "", "", nil // Help was shown, exit gracefully
-		}
-		return "", "", fmt.Errorf("error parsing auth flags: %w", err)
+	if args.FlagError != nil {
+		return "", "", fmt.Errorf("error parsing auth flags: %w", args.FlagError)
+	}
+	opts := &args.Options
+	if opts.Help {
+		printAuthUsage("auth")
+		return "", "", nil
 	}
 
 	// Show what we're going to do based on options
