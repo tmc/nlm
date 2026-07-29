@@ -117,16 +117,24 @@ func TestWriteFlashcardDeck(t *testing.T) {
 func TestParseArtifactExportArgs(t *testing.T) {
 	t.Parallel()
 
-	opts, artifactID, err := parseArtifactExportArgs([]string{
+	command, ok := lookupCommand("artifact export")
+	if !ok {
+		t.Fatal("artifact export command not found")
+	}
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
 		"--format", "json",
 		"artifact-1",
 		"--output", "cards.json",
-	})
+	}, globalOptions{})
 	if err != nil {
-		t.Fatalf("parseArtifactExportArgs() error = %v", err)
+		t.Fatal(err)
 	}
-	if artifactID != "artifact-1" || opts.Format != "json" || opts.Output != "cards.json" {
-		t.Fatalf("artifact, options = %q, %#v", artifactID, opts)
+	args, err := decodeArtifactExportArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args.ArtifactID != "artifact-1" || args.Options.Format != "json" || args.Options.Output != "cards.json" {
+		t.Fatalf("arguments = %#v", args)
 	}
 }
 

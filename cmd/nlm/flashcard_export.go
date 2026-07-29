@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -52,71 +51,35 @@ func printArtifactExportUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "  --output, -o <file>    Write to a file instead of stdout")
 }
 
-func validateArtifactExportArgsWithOptions(cmdName string, args []string, _ globalOptions) error {
-	if _, _, err := parseArtifactExportArgs(args); err != nil {
-		fmt.Fprintf(os.Stderr, "nlm: %s: %v\n\n", cmdName, err)
-		printArtifactExportUsage(cmdName)
-		return errBadArgs
-	}
-	return nil
-}
-
-func parseArtifactExportArgs(args []string) (artifactExportOptions, string, error) {
-	opts := artifactExportOptions{Format: "md"}
-	flags := flag.NewFlagSet("artifact-export", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.StringVar(&opts.Format, "format", opts.Format, "")
-	flags.StringVar(&opts.Format, "f", opts.Format, "")
-	flags.StringVar(&opts.Output, "output", "", "")
-	flags.StringVar(&opts.Output, "o", "", "")
-
-	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
-		"format": true,
-		"f":      true,
-		"output": true,
-		"o":      true,
-	}, nil)
-	if err != nil {
-		return opts, "", err
-	}
-	if err := flags.Parse(flagArgs); err != nil {
-		return opts, "", err
-	}
-	if len(positional) != 1 {
-		return opts, "", fmt.Errorf("requires exactly one artifact id")
-	}
+func normalizeArtifactExportOptions(opts *artifactExportOptions) error {
 	opts.Format = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(opts.Format), "."))
 	if opts.Format == "" {
-		return opts, "", fmt.Errorf("format is empty")
+		return fmt.Errorf("format is empty")
 	}
 	for _, r := range opts.Format {
 		if r < 'a' || r > 'z' {
 			if r < '0' || r > '9' {
-				return opts, "", fmt.Errorf("invalid format %q", opts.Format)
+				return fmt.Errorf("invalid format %q", opts.Format)
 			}
 		}
 	}
-	return opts, positional[0], nil
+	return nil
 }
 
-func runArtifactExport(c *api.Client, args []string) error {
-	opts, artifactID, err := parseArtifactExportArgs(args)
-	if err != nil {
-		return err
-	}
-	artifact, err := c.GetArtifact(context.Background(), artifactID)
+func runArtifactExport(c *api.Client, args artifactExportArgs) error {
+	artifact, err := c.GetArtifact(context.Background(), args.ArtifactID)
 	if err != nil {
 		return fmt.Errorf("get artifact: %w", err)
 	}
-	write, err := artifactExportWriter(c, artifact, opts.Format)
+	write, err := artifactExportWriter(c, artifact, args.Options.Format)
 	if err != nil {
 		return err
 	}
 
 	w := io.Writer(os.Stdout)
 	var output *os.File
-	if opts.Output != "" {
-		output, err = os.Create(opts.Output)
+	if args.Options.Output != "" {
+		output, err = os.Create(args.Options.Output)
 		if err != nil {
 			return fmt.Errorf("create output: %w", err)
 		}

@@ -378,13 +378,8 @@ var commandDefinitions = []commandDefinition{
 		name:      "export-flashcards",
 		argsUsage: "<artifact-id> [--format format] [--output file]",
 		usage:     "Export an artifact", section: "Artifact",
-		minArgs: 1, maxArgs: -1,
-		hidden:              true,
-		validateWithOptions: validateArtifactExportArgsWithOptions,
-		help:                printArtifactExportUsage,
-		runWithOptions: func(c *api.Client, args []string, _ globalOptions) error {
-			return runArtifactExport(c, args)
-		},
+		hidden: true,
+		help:   printArtifactExportUsage,
 	},
 	{
 		name: "artifacts", aliases: []string{"list-artifacts"}, argsUsage: "<notebook-id>",
@@ -393,11 +388,6 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "update-artifact", argsUsage: "<artifact-id> [new-title]",
 		usage: "Rename artifact (new title from positional arg or --name)", section: "Artifact",
-		minArgs: 1, maxArgs: 2,
-		validateWithOptions: validateUpdateArtifactArgsWithOptions,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runUpdateArtifactWithOptions(c, args, opts)
-		},
 	},
 	{
 		name: "rename-artifact", argsUsage: "<artifact-id> <new-title>",

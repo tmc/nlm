@@ -33,12 +33,23 @@ func configureTypedCommandSpecWithErrorUsage(
 	decode func(parsedCommand) (commandCall, error),
 	printUsageError func(string, error),
 ) {
+	configureTypedCommandSpecWithParseError(spec, forms, decode, func(path string, err error) error {
+		printUsageError(path, err)
+		return errBadArgs
+	})
+}
+
+func configureTypedCommandSpecWithParseError(
+	spec *commandSpec,
+	forms []commandForm,
+	decode func(parsedCommand) (commandCall, error),
+	handleParseError func(string, error) error,
+) {
 	spec.Forms = forms
 	spec.parse = func(surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
 		parsed, err := parseCommandSpec(spec, surface, args, globals)
 		if err != nil {
-			printUsageError(parsedCommandPath(surface), err)
-			return parsedCommand{}, errBadArgs
+			return parsedCommand{}, handleParseError(parsedCommandPath(surface), err)
 		}
 		return parsed, nil
 	}

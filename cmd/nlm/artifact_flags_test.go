@@ -3,19 +3,31 @@ package main
 import "testing"
 
 func TestParseUpdateArtifactArgsWithOptions(t *testing.T) {
-	opts, artifactID, err := parseUpdateArtifactArgsWithOptions([]string{"art-1", "--name", "New"}, globalOptions{})
-	if err != nil {
-		t.Fatalf("parseUpdateArtifactArgsWithOptions: %v", err)
+	command, ok := lookupCommand("artifact update")
+	if !ok {
+		t.Fatal("artifact update command not found")
 	}
-	if artifactID != "art-1" || opts.Name != "New" {
-		t.Fatalf("artifactID, opts = %q, %+v; want art-1 New", artifactID, opts)
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{"art-1", "--name", "New"}, globalOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	args, err := decodeArtifactUpdateArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args.ArtifactID != "art-1" || args.Options.Name != "New" {
+		t.Fatalf("arguments = %+v; want art-1 New", args)
 	}
 
-	opts, artifactID, err = parseUpdateArtifactArgsWithOptions([]string{"art-2"}, globalOptions{sourceName: "FromGlobal"})
+	parsed, err = parseCommandSpec(command.spec, command.surfaceSpec, []string{"art-2"}, globalOptions{sourceName: "FromGlobal"})
 	if err != nil {
-		t.Fatalf("parseUpdateArtifactArgsWithOptions inherited: %v", err)
+		t.Fatal(err)
 	}
-	if artifactID != "art-2" || opts.Name != "FromGlobal" {
-		t.Fatalf("artifactID, opts = %q, %+v; want art-2 FromGlobal", artifactID, opts)
+	args, err = decodeArtifactUpdateArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args.ArtifactID != "art-2" || args.Options.Name != "FromGlobal" {
+		t.Fatalf("arguments = %+v; want art-2 FromGlobal", args)
 	}
 }

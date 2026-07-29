@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"os"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
@@ -24,6 +26,20 @@ type artifactRenameArgs struct {
 	Title      string
 }
 
+type updateArtifactOptions struct {
+	Name string
+}
+
+type artifactUpdateArgs struct {
+	ArtifactID string
+	Options    updateArtifactOptions
+}
+
+type artifactExportArgs struct {
+	ArtifactID string
+	Options    artifactExportOptions
+}
+
 func configureArtifactCommandSpecs(specs map[commandID]*commandSpec) {
 	artifactForm := commandFormOf(requiredOperand("artifact"))
 	configureTypedCommandSpec(specs["get-artifact"], artifactForm, decodeArtifactGet)
@@ -31,6 +47,40 @@ func configureArtifactCommandSpecs(specs map[commandID]*commandSpec) {
 	configureTypedCommandSpec(specs["artifacts"],
 		commandFormOf(requiredOperand("notebook")),
 		decodeArtifactList,
+	)
+	exportSpec := specs["export-flashcards"]
+	exportSpec.Flags = []flagSpec{
+		{Name: "format", Aliases: []string{"f"}, Value: "format", Description: "artifact format"},
+		{Name: "output", Aliases: []string{"o"}, Value: "file", Description: "output file"},
+	}
+	configureTypedCommandSpecWithErrorUsage(exportSpec,
+		[]commandForm{{
+			Parts: []operandSpec{remainingOperand("artifacts")},
+			Constraints: []constraint{
+				constraintFunc(validateArtifactExportCommand),
+			},
+		}},
+		decodeArtifactExport,
+		func(path string, err error) {
+			fmt.Fprintf(os.Stderr, "nlm: %s: %v\n\n", path, err)
+			printArtifactExportUsage(path)
+		},
+	)
+	updateSpec := specs["update-artifact"]
+	updateSpec.Flags = []flagSpec{
+		{Name: "name", Aliases: []string{"n"}, Value: "title", Description: "new artifact title"},
+	}
+	configureTypedCommandSpecWithParseError(updateSpec,
+		[]commandForm{{
+			Parts: []operandSpec{remainingOperand("arguments")},
+			Constraints: []constraint{
+				constraintFunc(validateArtifactUpdateCommand),
+			},
+		}},
+		decodeArtifactUpdate,
+		func(_ string, err error) error {
+			return fmt.Errorf("%w: %v", errBadArgs, err)
+		},
 	)
 	configureTypedCommandSpec(specs["rename-artifact"],
 		commandFormOf(
@@ -40,6 +90,69 @@ func configureArtifactCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeArtifactRename,
 	)
 	configureTypedCommandSpec(specs["delete-artifact"], artifactForm, decodeArtifactDelete)
+}
+
+func validateArtifactExportCommand(parsed parsedCommand) error {
+	_, err := decodeArtifactExportArgs(parsed)
+	return err
+}
+
+func decodeArtifactExport(parsed parsedCommand) (commandCall, error) {
+	args, err := decodeArtifactExportArgs(parsed)
+	if err != nil {
+		return nil, err
+	}
+	return func(_ context.Context, client *api.Client) error {
+		return runArtifactExport(client, args)
+	}, nil
+}
+
+func decodeArtifactExportArgs(parsed parsedCommand) (artifactExportArgs, error) {
+	artifacts := parsed.Args["artifacts"]
+	if len(artifacts) != 1 {
+		return artifactExportArgs{}, fmt.Errorf("requires exactly one artifact id")
+	}
+	opts := artifactExportOptions{
+		Format: parsedStringFlag(parsed, "format", "md"),
+		Output: parsedStringFlag(parsed, "output", ""),
+	}
+	if err := normalizeArtifactExportOptions(&opts); err != nil {
+		return artifactExportArgs{}, err
+	}
+	return artifactExportArgs{ArtifactID: artifacts[0], Options: opts}, nil
+}
+
+func validateArtifactUpdateCommand(parsed parsedCommand) error {
+	_, err := decodeArtifactUpdateArgs(parsed)
+	return err
+}
+
+func decodeArtifactUpdate(parsed parsedCommand) (commandCall, error) {
+	args, err := decodeArtifactUpdateArgs(parsed)
+	if err != nil {
+		return nil, err
+	}
+	return func(_ context.Context, client *api.Client) error {
+		return renameArtifact(client, args.ArtifactID, args.Options.Name)
+	}, nil
+}
+
+func decodeArtifactUpdateArgs(parsed parsedCommand) (artifactUpdateArgs, error) {
+	arguments := parsed.Args["arguments"]
+	if len(arguments) < 1 || len(arguments) > 2 {
+		return artifactUpdateArgs{}, fmt.Errorf("want artifact id and optional title")
+	}
+	name := parsedStringFlag(parsed, "name", parsed.globals.sourceName)
+	if len(arguments) == 2 {
+		name = arguments[1]
+	}
+	if name == "" {
+		return artifactUpdateArgs{}, fmt.Errorf("provide new title as second arg or --name flag")
+	}
+	return artifactUpdateArgs{
+		ArtifactID: arguments[0],
+		Options:    updateArtifactOptions{Name: name},
+	}, nil
 }
 
 func decodeArtifactGet(parsed parsedCommand) (commandCall, error) {
