@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -173,8 +174,7 @@ func operandCountRange(cardinality cardinality, available int) (int, int) {
 }
 
 // parseCommandFlags separates known command flags from operands. Unknown
-// flags are rejected; Phase 1 bridge decoders continue using their existing
-// parsers where current behavior is more permissive.
+// flags remain operands, matching splitCommandFlags during Phase 1.
 func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []string, error) {
 	byName := make(map[string]flagSpec)
 	for _, spec := range specs {
@@ -206,18 +206,23 @@ func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []
 		}
 		flag, ok := byName[name]
 		if !ok {
-			return nil, nil, fmt.Errorf("unknown flag %q", arg)
+			operands = append(operands, arg)
+			continue
 		}
 		if flag.Value == "" {
 			if hasValue {
-				return nil, nil, fmt.Errorf("flag --%s does not take a value", flag.Name)
+				if _, err := strconv.ParseBool(value); err != nil {
+					return nil, nil, fmt.Errorf("invalid boolean value %q for -%s: parse error", value, name)
+				}
+			} else {
+				value = "true"
 			}
-			flags[flag.Name] = append(flags[flag.Name], "true")
+			flags[flag.Name] = append(flags[flag.Name], value)
 			continue
 		}
 		if !hasValue {
 			if i+1 >= len(args) {
-				return nil, nil, fmt.Errorf("flag --%s needs a value", flag.Name)
+				return nil, nil, fmt.Errorf("flag needs an argument: %s", arg)
 			}
 			i++
 			value = args[i]

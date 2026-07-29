@@ -63,12 +63,7 @@ var commandDefinitions = []commandDefinition{
 		name: "list", aliases: []string{"ls"},
 		usage: "List all notebooks", section: "Notebook",
 		argsUsage: "[flags]",
-		minArgs:   0, maxArgs: -1,
-		validateWithOptions: validateNotebookListArgsWithOptions,
-		help:                printNotebookListUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runNotebookListWithOptions(c, args, opts)
-		},
+		help:      printNotebookListUsage,
 	},
 	{
 		name: "create", argsUsage: "<title>",

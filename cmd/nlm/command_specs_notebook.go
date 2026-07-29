@@ -51,6 +51,25 @@ type notebookIDArgs struct {
 type notebookFeaturedArgs struct{}
 
 func configureNotebookCommandSpecs(specs map[commandID]*commandSpec) {
+	listSpec := specs["list"]
+	listSpec.Flags = []flagSpec{
+		{Name: "all", Description: "show all notebooks when stdout is a terminal"},
+		{Name: "limit", Value: "n", Description: "show at most n notebooks"},
+		{Name: "json", Description: "emit NDJSON"},
+	}
+	configureTypedCommandSpecWithErrorUsage(listSpec,
+		[]commandForm{{
+			Parts: []operandSpec{remainingOperand("unexpected")},
+			Constraints: []constraint{
+				constraintFunc(validateNotebookListCommand),
+			},
+		}},
+		decodeNotebookList,
+		func(path string, err error) {
+			fmt.Fprintf(os.Stderr, "nlm: %v\n\n", err)
+			printNotebookListUsage(path)
+		},
+	)
 	configureTypedCommandSpec(specs["create"],
 		commandFormOf(requiredOperand("title")),
 		decodeNotebookCreate,
@@ -91,6 +110,48 @@ func configureNotebookCommandSpecs(specs map[commandID]*commandSpec) {
 		commandFormOf(),
 		decodeNotebookFeatured,
 	)
+}
+
+func validateNotebookListCommand(parsed parsedCommand) error {
+	_, err := decodeNotebookListOptions(parsed)
+	return err
+}
+
+func decodeNotebookList(parsed parsedCommand) (commandCall, error) {
+	args, err := decodeNotebookListOptions(parsed)
+	if err != nil {
+		return nil, err
+	}
+	return func(_ context.Context, client *api.Client) error {
+		return list(client, args)
+	}, nil
+}
+
+func decodeNotebookListOptions(parsed parsedCommand) (notebookListOptions, error) {
+	opts := notebookListOptions{Limit: -1, JSON: parsed.globals.jsonOutput}
+	if unexpected := parsed.Args["unexpected"]; len(unexpected) > 0 {
+		return opts, fmt.Errorf("unexpected argument: %s", unexpected[0])
+	}
+	var err error
+	opts.All, err = parsedBoolFlag(parsed, "all", false)
+	if err != nil {
+		return opts, err
+	}
+	opts.Limit, err = parsedIntFlag(parsed, "limit", -1)
+	if err != nil {
+		return opts, err
+	}
+	opts.JSON, err = parsedBoolFlag(parsed, "json", opts.JSON)
+	if err != nil {
+		return opts, err
+	}
+	if opts.Limit == 0 || opts.Limit < -1 {
+		return opts, fmt.Errorf("--limit must be greater than 0")
+	}
+	if opts.All && opts.Limit > 0 {
+		return opts, fmt.Errorf("--all and --limit cannot be used together")
+	}
+	return opts, nil
 }
 
 func decodeNotebookCreate(parsed parsedCommand) (commandCall, error) {

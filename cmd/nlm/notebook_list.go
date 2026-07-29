@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -30,54 +29,6 @@ func printNotebookListUsage(cmdName string) {
 	fmt.Fprintf(os.Stderr, "  nlm %s\n", cmdName)
 	fmt.Fprintln(os.Stderr, "  nlm notebook list --all")
 	fmt.Fprintln(os.Stderr, "  nlm ls --limit 25")
-}
-
-func validateNotebookListArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
-	_, err := parseNotebookListArgsWithOptions(args, globals)
-	if err == nil {
-		return nil
-	}
-	fmt.Fprintf(os.Stderr, "nlm: %v\n\n", err)
-	printNotebookListUsage(cmdName)
-	return errBadArgs
-}
-
-func parseNotebookListArgsWithOptions(args []string, globals globalOptions) (notebookListOptions, error) {
-	opts := notebookListOptions{Limit: -1, JSON: globals.jsonOutput}
-	flags := flag.NewFlagSet("notebook-list", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.BoolVar(&opts.All, "all", false, "show all notebooks when stdout is a terminal")
-	flags.IntVar(&opts.Limit, "limit", -1, "show at most n notebooks")
-	flags.BoolVar(&opts.JSON, "json", opts.JSON, "emit NDJSON")
-	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
-		"all": true, "limit": true, "json": true,
-	}, map[string]bool{
-		"all": true, "json": true,
-	})
-	if err != nil {
-		return opts, err
-	}
-	if err := flags.Parse(flagArgs); err != nil {
-		return opts, err
-	}
-	if len(positional) != 0 {
-		return opts, fmt.Errorf("unexpected argument: %s", positional[0])
-	}
-	if opts.Limit == 0 || opts.Limit < -1 {
-		return opts, fmt.Errorf("--limit must be greater than 0")
-	}
-	if opts.All && opts.Limit > 0 {
-		return opts, fmt.Errorf("--all and --limit cannot be used together")
-	}
-	return opts, nil
-}
-
-func runNotebookListWithOptions(c *api.Client, args []string, globals globalOptions) error {
-	opts, err := parseNotebookListArgsWithOptions(args, globals)
-	if err != nil {
-		return err
-	}
-	return list(c, opts)
 }
 
 func list(c *api.Client, opts notebookListOptions) error {

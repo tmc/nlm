@@ -57,18 +57,26 @@ func TestParseNotebookListArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseNotebookListArgsWithOptions(tt.args, globalOptions{})
+			command, ok := lookupCommand("notebook list")
+			if !ok {
+				t.Fatal("notebook list command not found")
+			}
+			parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, tt.args, globalOptions{})
+			if err == nil {
+				got, decodeErr := decodeNotebookListOptions(parsed)
+				err = decodeErr
+				if err == nil && got != tt.want {
+					t.Fatalf("decodeNotebookListOptions(%q) = %+v, want %+v", tt.args, got, tt.want)
+				}
+			}
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
-					t.Fatalf("parseNotebookListArgs(%q) error = %v, want substring %q", tt.args, err, tt.wantErr)
+					t.Fatalf("parse notebook list %q error = %v, want substring %q", tt.args, err, tt.wantErr)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("parseNotebookListArgs(%q) error = %v", tt.args, err)
-			}
-			if got != tt.want {
-				t.Fatalf("parseNotebookListArgs(%q) = %+v, want %+v", tt.args, got, tt.want)
+				t.Fatalf("parse notebook list %q error = %v", tt.args, err)
 			}
 		})
 	}

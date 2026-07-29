@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 func configureTypedCommandSpec(
@@ -10,7 +11,7 @@ func configureTypedCommandSpec(
 	forms []commandForm,
 	decode func(parsedCommand) (commandCall, error),
 ) {
-	configureTypedCommandSpecWithUsage(spec, forms, decode, func(path string) {
+	configureTypedCommandSpecWithErrorUsage(spec, forms, decode, func(path string, _ error) {
 		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", path, spec.definition.argsUsage)
 	})
 }
@@ -21,12 +22,22 @@ func configureTypedCommandSpecWithUsage(
 	decode func(parsedCommand) (commandCall, error),
 	printUsageError func(string),
 ) {
+	configureTypedCommandSpecWithErrorUsage(spec, forms, decode, func(path string, _ error) {
+		printUsageError(path)
+	})
+}
+
+func configureTypedCommandSpecWithErrorUsage(
+	spec *commandSpec,
+	forms []commandForm,
+	decode func(parsedCommand) (commandCall, error),
+	printUsageError func(string, error),
+) {
 	spec.Forms = forms
-	spec.Flags = nil
 	spec.parse = func(surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
 		parsed, err := parseCommandSpec(spec, surface, args, globals)
 		if err != nil {
-			printUsageError(parsedCommandPath(surface))
+			printUsageError(parsedCommandPath(surface), err)
 			return parsedCommand{}, errBadArgs
 		}
 		return parsed, nil
@@ -113,4 +124,28 @@ func parsedArguments(parsed parsedCommand, name string) ([]string, error) {
 		return nil, fmt.Errorf("decode %s: got no values", name)
 	}
 	return append([]string(nil), values...), nil
+}
+
+func parsedBoolFlag(parsed parsedCommand, name string, defaultValue bool) (bool, error) {
+	values := parsed.Flags[name]
+	if len(values) == 0 {
+		return defaultValue, nil
+	}
+	value, err := strconv.ParseBool(values[len(values)-1])
+	if err != nil {
+		return false, fmt.Errorf("invalid boolean value %q for -%s: parse error", values[len(values)-1], name)
+	}
+	return value, nil
+}
+
+func parsedIntFlag(parsed parsedCommand, name string, defaultValue int) (int, error) {
+	values := parsed.Flags[name]
+	if len(values) == 0 {
+		return defaultValue, nil
+	}
+	value, err := strconv.ParseInt(values[len(values)-1], 0, strconv.IntSize)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value %q for flag -%s: parse error", values[len(values)-1], name)
+	}
+	return int(value), nil
 }
