@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // shouldReflowFromTree reports whether an assistant answer should have its
@@ -72,7 +72,7 @@ type ChatMessage struct {
 	Role      string
 	Content   string
 	Thinking  string // reasoning trace; only shown when the caller opted in
-	Citations []api.Citation
+	Citations []notebooklm.Citation
 
 	// Rich is the parsed answer-body span tree, populated only when the history
 	// parse layer decodes one (see rich_document.go). It carries the document
@@ -96,7 +96,7 @@ type RenderContext struct {
 	IncludeFollowUps bool // retain generated trailing prompts in HTML
 
 	ResolveTitle func(sourceID string) string
-	LoadSource   func(sourceID string) (api.LoadSourceText, error)
+	LoadSource   func(sourceID string) (notebooklm.LoadSourceText, error)
 
 	// sourceRemoved reports whether a citation's source ID is absent from the
 	// notebook source list. A citation handle is a granular chunk/passage ID, so
@@ -113,7 +113,7 @@ type RenderContext struct {
 // three format renderers share this so titling never diverges between surfaces.
 // It resolves off the parent source (ParentSourceID), since the chunk-level
 // SourceID is not in the project source list; see citationSourceID.
-func (ctx RenderContext) citationSourceTitle(c api.Citation) string {
+func (ctx RenderContext) citationSourceTitle(c notebooklm.Citation) string {
 	if ctx.ResolveTitle != nil {
 		if t := ctx.ResolveTitle(citationSourceID(c)); t != "" {
 			return t
@@ -127,7 +127,7 @@ func (ctx RenderContext) citationSourceTitle(c api.Citation) string {
 // chunk-level SourceID for frames that carried no parent. A citation grounds a
 // chunk of a source, so SourceID is a passage handle absent from the source
 // list; the parent is the id that resolves to a title and to presence.
-func citationSourceID(c api.Citation) string {
+func citationSourceID(c notebooklm.Citation) string {
 	if c.ParentSourceID != "" {
 		return c.ParentSourceID
 	}
@@ -140,7 +140,7 @@ func citationSourceID(c api.Citation) string {
 // captured at save time), so the title-unavailable hint would be misleading; a
 // titled citation is never flagged. Presence is checked against the parent
 // source id, matching where the title resolves.
-func (ctx RenderContext) citationSourceRemoved(c api.Citation) bool {
+func (ctx RenderContext) citationSourceRemoved(c notebooklm.Citation) bool {
 	if ctx.SourceRemoved == nil {
 		return false
 	}
@@ -155,7 +155,7 @@ func (ctx RenderContext) citationSourceRemoved(c api.Citation) bool {
 // map keyed by citationKey. Returns nil when no loader is configured; callers
 // that want the raw offset fall back to SourceStart/SourceEnd themselves. The
 // resolve is batched so repeated citations into one source cost a single fetch.
-func (ctx RenderContext) citationLocations(cites []api.Citation) map[citationKey]string {
+func (ctx RenderContext) citationLocations(cites []notebooklm.Citation) map[citationKey]string {
 	if ctx.LoadSource == nil {
 		return nil
 	}

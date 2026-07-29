@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 //go:generate env UPDATE_COMMAND_DOCS=1 go test -run ^TestCommandReferenceSignatures$
@@ -248,7 +248,7 @@ type parsedFlag struct {
 }
 
 // commandCall is a fully decoded command ready to run.
-type commandCall func(context.Context, *api.Client) error
+type commandCall func(context.Context, *notebooklm.Client) error
 
 // constraint validates relationships that operand cardinality cannot express.
 type constraint interface {

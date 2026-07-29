@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type audioNotebookArgs struct {
@@ -37,7 +37,7 @@ func decodeAudioList(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return listAudioOverviews(client, args.NotebookID, args.JSON)
 	}, nil
 }
@@ -47,7 +47,7 @@ func decodeAudioGet(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return getAudioOverview(client, args.NotebookID)
 	}, nil
 }
@@ -62,7 +62,7 @@ func decodeAudioDownload(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := audioDownloadArgs{NotebookID: notebookID, Filename: filename}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return downloadAudioOverview(client, args.NotebookID, args.Filename)
 	}, nil
 }
@@ -72,7 +72,7 @@ func decodeAudioDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return deleteAudioOverview(client, args.NotebookID, args.Yes)
 	}, nil
 }
@@ -82,7 +82,7 @@ func decodeAudioShare(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return shareAudioOverview(client, args.NotebookID)
 	}, nil
 }

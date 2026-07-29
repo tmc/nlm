@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type fakeConversationHistoryClient struct {
 	conversationIDs    []string
-	messages           []api.ChatMessage
+	messages           []notebooklm.ChatMessage
 	err                error
 	historyCalls       int
 	lastNotebookID     string
@@ -23,7 +23,7 @@ func (c *fakeConversationHistoryClient) GetConversations(context.Context, string
 	return c.conversationIDs, nil
 }
 
-func (c *fakeConversationHistoryClient) GetConversationHistory(_ context.Context, notebookID, conversationID string) ([]api.ChatMessage, error) {
+func (c *fakeConversationHistoryClient) GetConversationHistory(_ context.Context, notebookID, conversationID string) ([]notebooklm.ChatMessage, error) {
 	c.historyCalls++
 	c.lastNotebookID = notebookID
 	c.lastConversationID = conversationID
@@ -34,7 +34,7 @@ func TestChatShowFallsBackToServerHistory(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	client := &fakeConversationHistoryClient{
 		conversationIDs: []string{"abcdef12-3456-7890-abcd-ef1234567890"},
-		messages: []api.ChatMessage{
+		messages: []notebooklm.ChatMessage{
 			{Role: 1, Content: "question from the browser"},
 			{Role: 2, Content: "answer from the server"},
 		},
@@ -67,7 +67,7 @@ func TestChatShowPrefersLocalSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := &fakeConversationHistoryClient{
-		messages: []api.ChatMessage{{Role: 2, Content: "server answer"}},
+		messages: []notebooklm.ChatMessage{{Role: 2, Content: "server answer"}},
 	}
 
 	output := captureChatShowStdout(t, func() error {

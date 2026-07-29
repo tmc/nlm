@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/tmc/nlm/internal/nlmsync"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type sourceListArgs struct {
@@ -225,7 +225,7 @@ func decodeSourceAdd(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		inputs, err := addSourceInputs(args.Inputs)
 		if err != nil {
 			return err
@@ -255,8 +255,8 @@ func decodeSourceAddArgs(parsed parsedCommand) (sourceAddArgs, error) {
 	if opts.Chunk < 0 {
 		return sourceAddArgs{}, fmt.Errorf("--chunk must be >= 0")
 	}
-	if opts.Chunk > api.MaxTextSourceBytes {
-		return sourceAddArgs{}, fmt.Errorf("--chunk %d exceeds per-request limit %d", opts.Chunk, api.MaxTextSourceBytes)
+	if opts.Chunk > notebooklm.MaxTextSourceBytes {
+		return sourceAddArgs{}, fmt.Errorf("--chunk %d exceeds per-request limit %d", opts.Chunk, notebooklm.MaxTextSourceBytes)
 	}
 	if opts.ReplaceSourceID != "" && len(inputs) != 1 {
 		return sourceAddArgs{}, fmt.Errorf("--replace requires exactly one source")
@@ -274,7 +274,7 @@ func decodeSourceSync(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		syncOpts := nlmsync.Options{
 			MaxBytes:         args.Options.MaxBytes,
 			Name:             args.Options.Name,
@@ -359,7 +359,7 @@ func decodeSourcePack(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(context.Context, *api.Client) error {
+	return func(context.Context, *notebooklm.Client) error {
 		return runSyncPack(args.Paths, args.Options)
 	}, nil
 }
@@ -401,7 +401,7 @@ func decodeSourceRead(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		return runSourceCommand(ctx, client, os.Stderr, args.Target, func(resolved sourceCommandResolution) error {
 			warnDeprecatedSourceReadFormat(os.Stderr, args.Warnings)
 			return readSource(client, resolved.SourceID, resolved.NotebookID, args.Options)
@@ -449,7 +449,7 @@ func decodeSourceList(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := sourceListArgs{NotebookID: notebookID, JSON: jsonOutput}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return listSources(client, args.NotebookID, args.JSON)
 	}, nil
 }
@@ -468,7 +468,7 @@ func decodeSourceDelete(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := sourceDeleteArgs{NotebookID: notebookID, SourceIDs: sourceIDs, Yes: yes}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		return removeSource(ctx, client, args.NotebookID, args.SourceIDs, args.Yes)
 	}, nil
 }
@@ -483,7 +483,7 @@ func decodeSourceRename(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := sourceRenameArgs{SourceID: sourceID, Name: name}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return renameSource(client, args.SourceID, args.Name)
 	}, nil
 }
@@ -498,7 +498,7 @@ func decodeSourceRefresh(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := sourceRefreshArgs{NotebookID: notebookID, SourceID: sourceID}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return refreshSource(client, args.NotebookID, args.SourceID)
 	}, nil
 }
@@ -509,7 +509,7 @@ func decodeSourceCheck(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := sourceCheckArgs{Target: target}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		return runSourceCommand(ctx, client, os.Stderr, args.Target, func(resolved sourceCommandResolution) error {
 			if resolved.Member != nil {
 				return checkResolvedSourceFreshness(resolved.Member)
@@ -541,7 +541,7 @@ func decodeSourceDiscover(parsed parsedCommand) (commandCall, error) {
 		Globals:    parsed.globals,
 		JSON:       jsonOutput,
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return discoverSources(client, args.NotebookID, args.Query, args.Globals, args.JSON)
 	}, nil
 }
@@ -556,7 +556,7 @@ func decodeSourceDump(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := sourceDumpArgs{SourceID: sourceID, NotebookID: notebookID}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		raw, err := client.LoadSourceRaw(ctx, args.SourceID, args.NotebookID)
 		if err != nil {
 			return err

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // NoteDocument is the format-neutral model of one rendered note. Rich is the
@@ -14,10 +14,10 @@ type NoteDocument struct {
 	Title     string
 	Flat      string
 	Rich      *RichDocument
-	Citations []api.Citation
+	Citations []notebooklm.Citation
 }
 
-func noteDocumentFromAPI(note *api.Note) NoteDocument {
+func noteDocumentFromAPI(note *notebooklm.Note) NoteDocument {
 	if note == nil {
 		return NoteDocument{}
 	}
@@ -36,7 +36,7 @@ func noteDocumentFromAPI(note *api.Note) NoteDocument {
 
 // noteCitations joins the note's own grounding details to the visible marker
 // occurrences recovered from its flat Markdown projection.
-func noteCitations(note *api.Note) []api.Citation {
+func noteCitations(note *notebooklm.Note) []notebooklm.Citation {
 	if note == nil || note.Rich == nil {
 		return nil
 	}
@@ -72,7 +72,7 @@ func noteCitations(note *api.Note) []api.Citation {
 	indexByRange := make(map[string][]int)
 	nextByRange := make(map[string]int)
 	next := 0
-	out := make([]api.Citation, 0, len(occurrences))
+	out := make([]notebooklm.Citation, 0, len(occurrences))
 	for _, occurrence := range occurrences {
 		key := noteRangeKey(occurrence.start, occurrence.end)
 		indices, ok := indexByRange[key]
@@ -105,7 +105,7 @@ type noteMarkerOccurrence struct {
 	End   int
 }
 
-func noteMarkerGroups(note *api.Note) [][]int {
+func noteMarkerGroups(note *notebooklm.Note) [][]int {
 	text := note.GetRichText()
 	if text == "" {
 		text = note.GetContentText()
@@ -125,7 +125,7 @@ func noteRangeKey(start, end int64) string {
 	return strconv.FormatInt(start, 10) + ":" + strconv.FormatInt(end, 10)
 }
 
-func noteCitationsFromAnnotations(note *api.Note, records []noteGroundingRecord) []api.Citation {
+func noteCitationsFromAnnotations(note *notebooklm.Note, records []noteGroundingRecord) []notebooklm.Citation {
 	annotations := append([]*pb.SourceAnnotation(nil), note.Rich.GetBody().GetAnnotations()...)
 	sort.SliceStable(annotations, func(i, j int) bool {
 		ri, rj := annotations[i].GetRange(), annotations[j].GetRange()
@@ -135,7 +135,7 @@ func noteCitationsFromAnnotations(note *api.Note, records []noteGroundingRecord)
 		return ri.GetEnd() < rj.GetEnd()
 	})
 	groups := noteMarkerGroups(note)
-	var out []api.Citation
+	var out []notebooklm.Citation
 	group := -1
 	position := 0
 	var lastStart, lastEnd int64
@@ -167,7 +167,7 @@ type noteGroundingRecord struct {
 	detail *pb.Grounding
 }
 
-func noteGroundingRecords(note *api.Note) []noteGroundingRecord {
+func noteGroundingRecords(note *notebooklm.Note) []noteGroundingRecord {
 	keyed := note.Rich.GetGrounding()
 	n := len(keyed)
 	if len(note.Grounding) > n {
@@ -207,8 +207,8 @@ func matchingNoteGrounding(records []noteGroundingRecord, source string, start, 
 	return fallback
 }
 
-func citationFromNoteGrounding(index int, source string, start, end int64, detail *pb.Grounding) api.Citation {
-	citation := api.Citation{
+func citationFromNoteGrounding(index int, source string, start, end int64, detail *pb.Grounding) notebooklm.Citation {
+	citation := notebooklm.Citation{
 		SourceIndex: index,
 		SourceID:    source,
 		StartChar:   int(start),
@@ -221,7 +221,7 @@ func citationFromNoteGrounding(index int, source string, start, end int64, detai
 		citation.SourceID = id
 	}
 	citation.Confidence = detail.GetScore()
-	citation.Excerpt, citation.ExcerptRuns = api.ExcerptFromGrounding(detail)
+	citation.Excerpt, citation.ExcerptRuns = notebooklm.ExcerptFromGrounding(detail)
 	if spans := detail.GetSourceSpans().GetSpans(); len(spans) > 0 {
 		citation.SourceStart = int(spans[0].GetStart())
 		citation.SourceEnd = int(spans[len(spans)-1].GetEnd())

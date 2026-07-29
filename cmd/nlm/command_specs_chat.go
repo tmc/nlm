@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type generateChatArgs struct {
@@ -188,7 +188,7 @@ func decodeGenerateChat(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		prompt := args.Prompt
 		if args.Options.PromptFile != "" {
 			prompt, err = readPromptFile(args.Options.PromptFile)
@@ -247,7 +247,7 @@ func decodeChat(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		if args.Options.PromptFile != "" {
 			prompt, err := readPromptFile(args.Options.PromptFile)
 			if err != nil {
@@ -309,7 +309,7 @@ func decodeChatShow(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, _ *api.Client) error {
+	return func(_ context.Context, _ *notebooklm.Client) error {
 		if args.ConversationID == "" {
 			return chatShowNotebook(args.NotebookID, args.Options)
 		}
@@ -376,7 +376,7 @@ func decodeCreateReport(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return createReport(client, args.NotebookID, args.ReportType, args.Extra, args.Options)
 	}, nil
 }
@@ -404,7 +404,7 @@ func decodeGenerateReport(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return generateReport(client, args.NotebookID, args.Options)
 	}, nil
 }

@@ -10,18 +10,18 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/richrender"
+	"github.com/tmc/nlm/notebooklm"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
-func imageSourceBody() api.LoadSourceText {
-	return api.LoadSourceText{
+func imageSourceBody() notebooklm.LoadSourceText {
+	return notebooklm.LoadSourceText{
 		SourceID: "source-1",
 		Title:    "paper.pdf",
-		Fragments: []api.TextFragment{
+		Fragments: []notebooklm.TextFragment{
 			{Start: 0, End: 1, Text: "A"},
 			{Start: 1, End: 2, ImageURL: "https://example.test/image", ImageID: "image-1"},
 			{Start: 2, End: 3, Text: "B"},
@@ -92,10 +92,10 @@ func TestWriteSourceRead_DefaultPreservesText(t *testing.T) {
 // into a reading break so the dropped region does not surface as a run of
 // blanks. Contiguous fragments are unchanged.
 func TestWriteSourceRead_DefaultCollapsesDroppedGap(t *testing.T) {
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "source-1",
 		Title:    "code.go",
-		Fragments: []api.TextFragment{
+		Fragments: []notebooklm.TextFragment{
 			{Start: 0, End: 24, Text: "func Add(a, b int) int {"},
 			{Start: 71, End: 72, Text: "}"},
 		},
@@ -148,7 +148,7 @@ func TestWriteSourceRead_HTMLIncludesImageAndMathJax(t *testing.T) {
 }
 
 func TestSourceReadImageCaptionBecomesAltText(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 1, ImageURL: "https://example.test/image", ImageID: "image-1"},
 		{Start: 1, End: 35, Text: "Figure 1: The Transformer architecture."},
 	}}
@@ -169,7 +169,7 @@ func TestSourceReadImageCaptionBecomesAltText(t *testing.T) {
 }
 
 func TestSourceReadHTMLRendersTable(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 16, Text: "| Model | BLEU |"},
 		{Start: 17, End: 30, Text: "| --- | --- |"},
 		{Start: 31, End: 48, Text: "| ByteNet | 23.75 |"},
@@ -201,7 +201,7 @@ func TestNormalizeMathNoise(t *testing.T) {
 }
 
 func TestSourceReadPresentationGaps(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 1, Text: "A"},
 		{Start: 3, End: 4, Text: "B"},
 		{Start: 5, End: 6, Text: "C"},
@@ -225,7 +225,7 @@ func TestSourceReadPresentationGaps(t *testing.T) {
 }
 
 func TestSourceReadPresentationBlocks(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 5, Text: "first"},
 		{Start: 5, End: 11, Text: "second", BlockStart: true},
 	}}
@@ -248,7 +248,7 @@ func TestSourceReadPresentationBlocks(t *testing.T) {
 }
 
 func TestSourceReadRendersListMarkers(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 5, Text: "first", ListMarker: "•"},
 		{Start: 5, End: 11, Text: "second", ListMarker: "•"},
 	}}
@@ -269,7 +269,7 @@ func TestSourceReadRendersListMarkers(t *testing.T) {
 }
 
 func TestSourceReadPreservesInlineStyle(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 4, Text: "bold", Bold: true},
 		{Start: 4, End: 10, Text: "italic", Italic: true},
 	}}
@@ -290,7 +290,7 @@ func TestSourceReadPreservesInlineStyle(t *testing.T) {
 }
 
 func TestSourceReadMarkdownPreservesTableRows(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 16, Text: "| Model | BLEU |"},
 		{Start: 17, End: 30, Text: "| --- | --- |"},
 		{Start: 31, End: 48, Text: "| ByteNet | 23.75 |"},
@@ -306,7 +306,7 @@ func TestSourceReadMarkdownPreservesTableRows(t *testing.T) {
 }
 
 func TestSourceReadRendersCodeBlocks(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{{
 		Start:    0,
 		End:      13,
 		Text:     "package main\n",
@@ -333,7 +333,7 @@ func TestSourceReadRendersCodeBlocks(t *testing.T) {
 }
 
 func TestSourceReadSeparatesTxtarMembers(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 10, Text: "-- a.go --"},
 		{Start: 10, End: 19, Text: "package a"},
 		{Start: 19, End: 29, Text: "-- b.go --"},
@@ -460,7 +460,7 @@ func (*recordingSourceReadEmitter) FinishContent() error {
 }
 
 func TestRenderSourceReadClassifiesFragmentsOnce(t *testing.T) {
-	body := api.LoadSourceText{Fragments: []api.TextFragment{
+	body := notebooklm.LoadSourceText{Fragments: []notebooklm.TextFragment{
 		{Start: 0, End: 10, Text: "-- a.go --", Code: true},
 		{Start: 10, End: 23, Text: "package main\n", Code: true},
 		{Start: 23, End: 24, ImageURL: "https://example.test/image", ImageID: "image-1"},

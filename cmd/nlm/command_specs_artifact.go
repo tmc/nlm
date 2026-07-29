@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type artifactIDArgs struct {
@@ -107,7 +107,7 @@ func decodeArtifactExport(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return runArtifactExport(client, args)
 	}, nil
 }
@@ -137,7 +137,7 @@ func decodeArtifactUpdate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return renameArtifact(client, args.ArtifactID, args.Options.Name)
 	}, nil
 }
@@ -165,7 +165,7 @@ func decodeArtifactGet(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return getArtifact(client, args.ArtifactID)
 	}, nil
 }
@@ -179,7 +179,7 @@ func decodeArtifactRead(parsed parsedCommand) (commandCall, error) {
 		ArtifactID: artifactID,
 		CDPURL:     parsedStringFlag(parsed, "cdp-url", parsed.globals.cdpURL),
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return readArtifact(client, args.ArtifactID, args.CDPURL)
 	}, nil
 }
@@ -194,7 +194,7 @@ func decodeArtifactList(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := artifactListArgs{NotebookID: notebookID, JSON: jsonOutput}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return listArtifacts(client, args.NotebookID, args.JSON)
 	}, nil
 }
@@ -209,7 +209,7 @@ func decodeArtifactRename(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := artifactRenameArgs{ArtifactID: artifactID, Title: title}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return renameArtifact(client, args.ArtifactID, args.Title)
 	}, nil
 }
@@ -223,7 +223,7 @@ func decodeArtifactDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return deleteArtifact(client, args.ArtifactID, args.Yes)
 	}, nil
 }

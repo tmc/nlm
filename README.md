@@ -50,6 +50,41 @@ nlm chat <notebook-id> "summarize the key findings"
 Homebrew formula (`brew install tmc/tap/nlm`) are planned so the single binary
 can be fetched without Go.
 
+## Go package
+
+The high-level client is importable as `github.com/tmc/nlm/notebooklm`:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/tmc/nlm/notebooklm"
+)
+
+func main() {
+	client := notebooklm.New(notebooklm.Credentials{
+		AuthToken: os.Getenv("NLM_AUTH_TOKEN"),
+		Cookies:   os.Getenv("NLM_COOKIES"),
+	})
+	notebooks, err := client.ListRecentlyViewedProjects(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(len(notebooks))
+}
+```
+
+The package exposes notebook, source, chat, note, research, and artifact
+operations. It accepts explicit credentials and does not launch a browser;
+applications remain responsible for acquiring and refreshing their session.
+NotebookLM does not publish a supported service API, so the package provides a
+documented Go surface over a best-effort private-RPC implementation.
+
 ## Authentication
 
 `nlm auth login` uses chromedp to launch Chrome, Brave, or Edge headlessly,

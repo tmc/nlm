@@ -12,7 +12,7 @@ import (
 	"unicode"
 	"unicode/utf16"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // htmlExcerptBudget clips excerpts when ExcerptBudget is 0. Excerpts are the
@@ -248,7 +248,7 @@ func buildMarkers(m ChatMessage, ctx RenderContext, budget int) []htmlMarker {
 // buildCitationMarkers is the format-neutral citation-to-marker projection
 // shared by chat turns and notes. Callers supply the coordinate-space length
 // and the marker-token ranges appropriate to their own document model.
-func buildCitationMarkers(citations []api.Citation, ctx RenderContext, budget, u16Len int, markerRanges [][2]int) []htmlMarker {
+func buildCitationMarkers(citations []notebooklm.Citation, ctx RenderContext, budget, u16Len int, markerRanges [][2]int) []htmlMarker {
 	if len(citations) == 0 {
 		return nil
 	}
@@ -287,7 +287,7 @@ func buildCitationMarkers(citations []api.Citation, ctx RenderContext, budget, u
 // Sessions written before source mappings were decoded by citation-data index
 // also carry the mapping ordinal as SourceIndex. The same ordered pairing lets
 // us recover the actual indices from the token without rewriting the session.
-func alignHTMLCitations(content string, citations []api.Citation) []api.Citation {
+func alignHTMLCitations(content string, citations []notebooklm.Citation) []notebooklm.Citation {
 	tokens := htmlCitationTokens(content)
 	occurrences := citationOccurrences(citations)
 	if len(tokens) == 0 || len(tokens) != len(occurrences) {
@@ -319,7 +319,7 @@ func alignHTMLCitations(content string, citations []api.Citation) []api.Citation
 		return citations
 	}
 
-	out := append([]api.Citation(nil), citations...)
+	out := append([]notebooklm.Citation(nil), citations...)
 	for i, occurrence := range occurrences {
 		group := out[occurrence.start:occurrence.end]
 		indices := tokens[i].indices
@@ -401,7 +401,7 @@ type citationOccurrence struct {
 
 // citationOccurrences returns the contiguous source-mapping groups emitted by
 // the decoder. Every source cited by one visible marker shares one answer range.
-func citationOccurrences(citations []api.Citation) []citationOccurrence {
+func citationOccurrences(citations []notebooklm.Citation) []citationOccurrence {
 	var out []citationOccurrence
 	for start := 0; start < len(citations); {
 		end := start + 1
@@ -421,7 +421,7 @@ func citationOccurrences(citations []api.Citation) []citationOccurrence {
 	return out
 }
 
-func sameCitationIndices(group []api.Citation, indices []int) bool {
+func sameCitationIndices(group []notebooklm.Citation, indices []int) bool {
 	if len(group) != len(indices) {
 		return false
 	}
@@ -485,7 +485,7 @@ func answerRangeHasText(content string, start, end int) bool {
 // zero-width point span or an out-of-range span is skipped.
 // Underlining the grounded sentence — not the [N] — is the point: the reply-span
 // sits before the marker, so it never coincides with it.
-func groundedSpans(group []api.Citation, u16Len int, markerRanges [][2]int) []htmlSpan {
+func groundedSpans(group []notebooklm.Citation, u16Len int, markerRanges [][2]int) []htmlSpan {
 	var out []htmlSpan
 	seen := make(map[[2]int]bool)
 	for _, c := range group {
@@ -541,7 +541,7 @@ var htmlMarkerRe = regexp.MustCompile(`\[(\d+(?:\s*[-,]\s*\d+)*)\]`)
 // buildCitation shapes one source under a marker: its handle, resolved title
 // and location, clipped excerpt, and per-source confidence flags (honoring
 // HideConfidence and HideSpans).
-func buildCitation(c api.Citation, ctx RenderContext, locations map[citationKey]string, budget int) htmlCitation {
+func buildCitation(c notebooklm.Citation, ctx RenderContext, locations map[citationKey]string, budget int) htmlCitation {
 	excerpt := clipExcerpt(c.Excerpt, budget)
 	hc := htmlCitation{
 		SourceID:    c.SourceID,
@@ -566,7 +566,7 @@ func buildCitation(c api.Citation, ctx RenderContext, locations map[citationKey]
 	return hc
 }
 
-func buildExcerptRuns(runs []api.ExcerptRun, flat, clipped string, budget int) []htmlExcerptRun {
+func buildExcerptRuns(runs []notebooklm.ExcerptRun, flat, clipped string, budget int) []htmlExcerptRun {
 	if len(runs) == 0 || decodeNumberedExcerpt(flat) != flat || formatFlattenedExcerptTable(flat) != flat {
 		return nil
 	}

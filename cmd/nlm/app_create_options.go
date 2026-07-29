@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type appCreateOptions struct {
@@ -29,16 +29,16 @@ type videoCreateOptions struct {
 
 type slidesCreateOptions struct {
 	Format     string
-	DeckFormat api.SlideDeckFormat
+	DeckFormat notebooklm.SlideDeckFormat
 	Selectors  selectorOptions
 }
 
-func parseSlideDeckFormat(s string) (api.SlideDeckFormat, error) {
+func parseSlideDeckFormat(s string) (notebooklm.SlideDeckFormat, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", "detailed", "detail", "handout":
-		return api.SlideDeckFormatDetailed, nil
+		return notebooklm.SlideDeckFormatDetailed, nil
 	case "presenter", "present", "sparse":
-		return api.SlideDeckFormatPresenter, nil
+		return notebooklm.SlideDeckFormatPresenter, nil
 	default:
 		return 0, fmt.Errorf("unknown slide deck format %q (want detailed or presenter)", s)
 	}

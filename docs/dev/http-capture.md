@@ -24,7 +24,7 @@ go test ./cmd/nlm -run TestCLICommands -export-txtar -v
 
 ```bash
 # View the txtar file
-cat internal/notebooklm/api/testdata/TestName.txtar
+cat notebooklm/testdata/TestName.txtar
 ```
 
 ## Txtar Format
@@ -84,7 +84,7 @@ go test -run TestAudioCreate -httprecord=. -export-txtar
 go test -run TestFailingCommand -httprecord=. -export-txtar
 
 # Inspect the exact request/response
-cat internal/notebooklm/api/testdata/TestFailingCommand_01_RPCId_request.http
+cat notebooklm/testdata/TestFailingCommand_01_RPCId_request.http
 ```
 
 ### 3. Document API Behavior
@@ -94,7 +94,7 @@ cat internal/notebooklm/api/testdata/TestFailingCommand_01_RPCId_request.http
 go test -run TestAllCommands -httprecord=. -export-txtar
 
 # Commit the txtar files as documentation
-git add internal/notebooklm/api/testdata/*.txtar
+git add notebooklm/testdata/*.txtar
 ```
 
 ## Programmatic Usage
@@ -170,8 +170,8 @@ go test ./cmd/nlm \
 
 ## File Locations
 
-- **HTTP recordings**: `internal/notebooklm/api/testdata/*.httprr`
-- **Txtar exports**: `internal/notebooklm/api/testdata/*.txtar`
+- **HTTP recordings**: `notebooklm/testdata/*.httprr`
+- **Txtar exports**: `notebooklm/testdata/*.txtar`
 - **Test scripts**: `cmd/nlm/testdata/*.txt`
 
 ## Integration with Scripts
@@ -183,7 +183,7 @@ The scripttest framework automatically exports HTTP recordings when `-export-txt
 go test ./cmd/nlm -export-txtar -v
 
 # All httprr files are automatically converted to txtar
-ls internal/notebooklm/api/testdata/*.txtar
+ls notebooklm/testdata/*.txtar
 ```
 
 ## Troubleshooting
@@ -213,10 +213,10 @@ Check file permissions and paths:
 
 ```bash
 # Ensure testdata directory exists
-mkdir -p internal/notebooklm/api/testdata
+mkdir -p notebooklm/testdata
 
 # Check file permissions
-ls -la internal/notebooklm/api/testdata/*.httprr
+ls -la notebooklm/testdata/*.httprr
 ```
 
 ## See Also

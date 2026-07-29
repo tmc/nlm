@@ -8,7 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 const (
@@ -194,7 +194,7 @@ type pageResult[T any] struct {
 	NextOffset int  `json:"next_offset,omitempty"`
 }
 
-func registerTools(server *mcp.Server, client *api.Client) {
+func registerTools(server *mcp.Server, client *notebooklm.Client) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_notebooks",
 		Description: "List recently viewed notebooks. Results are paginated; use limit and offset to page through them.",
@@ -334,7 +334,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		if err != nil {
 			return errorResult(err.Error()), nil, nil
 		}
-		result, err := client.CreateAudioOverviewWithOptions(context.Background(), input.NotebookID, api.CreateAudioOverviewOptions{
+		result, err := client.CreateAudioOverviewWithOptions(context.Background(), input.NotebookID, notebooklm.CreateAudioOverviewOptions{
 			Instructions: input.Instructions,
 			AudioType:    audioType,
 			Length:       length,
@@ -379,9 +379,9 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Share an audio overview and return its public URL when enabled.",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input shareAudioInput) (*mcp.CallToolResult, any, error) {
-		option := api.SharePrivate
+		option := notebooklm.SharePrivate
 		if input.Public {
-			option = api.SharePublic
+			option = notebooklm.SharePublic
 		}
 		result, err := client.ShareAudio(context.Background(), input.NotebookID, option)
 		if err != nil {
@@ -406,7 +406,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		if err != nil {
 			return errorResult(err.Error()), nil, nil
 		}
-		result, err := client.CreateVideoOverviewWithOptions(context.Background(), input.NotebookID, api.CreateVideoOverviewOptions{
+		result, err := client.CreateVideoOverviewWithOptions(context.Background(), input.NotebookID, notebooklm.CreateVideoOverviewOptions{
 			Instructions: input.Instructions,
 			AudioType:    audioType,
 			VideoStyle:   style,
@@ -424,7 +424,7 @@ func registerTools(server *mcp.Server, client *api.Client) {
 		Description: "Create a generated app artifact (prototype, mindmap, or canvas).",
 		Annotations: mutatingAnnotations,
 	}, func(ctx context.Context, req *mcp.CallToolRequest, input createAppArtifactInput) (*mcp.CallToolResult, any, error) {
-		kind, err := api.ParseAppArtifactKind(input.Type)
+		kind, err := notebooklm.ParseAppArtifactKind(input.Type)
 		if err != nil {
 			return errorResult(err.Error()), nil, nil
 		}

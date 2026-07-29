@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type labelNotebookArgs struct {
@@ -142,7 +142,7 @@ func decodeLabelList(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		labels, err := client.GetLabels(ctx, args.NotebookID)
 		if err != nil {
 			return err
@@ -156,7 +156,7 @@ func decodeLabelGenerate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		labels, err := client.GenerateLabels(ctx, args.NotebookID)
 		if err != nil {
 			return err
@@ -183,7 +183,7 @@ func decodeLabelCreate(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := labelCreateArgs{NotebookID: notebookID, Name: name, Emoji: emoji, JSON: jsonOutput}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		labels, err := client.CreateLabel(ctx, args.NotebookID, args.Name, args.Emoji)
 		if err != nil {
 			return err
@@ -206,7 +206,7 @@ func decodeLabelRename(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := labelRenameArgs{NotebookID: notebookID, LabelID: labelID, Name: name}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		if err := client.RenameLabel(ctx, args.NotebookID, args.LabelID, args.Name); err != nil {
 			return err
 		}
@@ -229,7 +229,7 @@ func decodeLabelEmoji(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := labelEmojiArgs{NotebookID: notebookID, LabelID: labelID, Emoji: emoji}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		if err := client.SetLabelEmoji(ctx, args.NotebookID, args.LabelID, args.Emoji); err != nil {
 			return err
 		}
@@ -248,7 +248,7 @@ func decodeLabelDelete(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := labelDeleteArgs{NotebookID: notebookID, LabelIDs: labelIDs}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		if err := client.DeleteLabels(ctx, args.NotebookID, args.LabelIDs); err != nil {
 			return err
 		}
@@ -262,7 +262,7 @@ func decodeLabelUnlabeled(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		labels, err := client.LabelUnlabeled(ctx, args.NotebookID)
 		if err != nil {
 			return err
@@ -276,7 +276,7 @@ func decodeLabelRelabelAll(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		labels, err := client.RelabelAll(ctx, args.NotebookID)
 		if err != nil {
 			return err
@@ -299,7 +299,7 @@ func decodeLabelAttach(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := labelAttachArgs{NotebookID: notebookID, Label: label, Source: source}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		labelID, err := resolveLabelArg(client, args.NotebookID, args.Label)
 		if err != nil {
 			return err

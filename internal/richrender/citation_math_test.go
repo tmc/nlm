@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestLiftTrailingMathCitation(t *testing.T) {
@@ -77,7 +77,7 @@ func TestRenderChatHTMLLiftsMathCitations(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: content,
-		Citations: []api.Citation{{
+		Citations: []notebooklm.Citation{{
 			SourceIndex: 7,
 			SourceID:    "source-7",
 		}},
@@ -194,7 +194,7 @@ func TestRenderNoteHTMLLiftsMathCitations(t *testing.T) {
 				Leaf: &richLeaf{Text: `$$\phi_i = z^2 \quad [5, 6]$$`},
 			}}},
 		}}},
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 5, SourceID: "source-5"},
 			{SourceIndex: 6, SourceID: "source-6"},
 		},

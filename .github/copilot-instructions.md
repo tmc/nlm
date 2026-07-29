@@ -40,7 +40,7 @@ go test -race ./internal/...                 # ~16s
 go test ./cmd/nlm -run TestCLICommands -v    # the txtar script-test suite alone
 ```
 
-**Some tests are behind `//go:build integration`** (`internal/notebooklm/api/{client,comprehensive}_record_test.go`).
+**Some tests are behind `//go:build integration`** (`notebooklm/{client,comprehensive}_record_test.go`).
 They are excluded from a default `go test ./...`, so anything they alone use looks unused to
 `go vet`, `staticcheck`, and `deadcode`. Before deleting any "unused" symbol, confirm with
 `go test -tags integration -run XXXNONE ./...`, which compiles those files without running them.
@@ -143,7 +143,7 @@ cmd/nlm/            74 .go files. main.go (4290 L, dispatch), commands.go (1715 
                     betool_*.go (hidden offline wire codec: decode/encode/infer-proto/
                     audit-corpus — the main tool for wire work)
 cmd/nlm/testdata/   rsc.io/script txtar CLI tests (*.txt), driven by main_test.go
-internal/notebooklm/api/   high-level client, 59 files; client.go is 6172 L
+notebooklm/                  public high-level client, 59 files; client.go is 6172 L
 internal/notebooklm/rpc/   low-level batchexecute RPC client + rpc IDs
 internal/batchexecute/     batchexecute protocol + error taxonomy
 internal/beprotojson/      positional-JSON <-> protobuf codec (1240 L)

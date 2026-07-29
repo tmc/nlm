@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // apiErrorWithType returns a *batchexecute.APIError whose ErrorCode.Type is t.
@@ -65,14 +65,14 @@ func TestExitCodeFor(t *testing.T) {
 		{"unauthenticated keyword", errors.New("unauthenticated"), exitAuth},
 
 		// Typed api-layer sentinels.
-		{"ErrSourceCapReached", fmt.Errorf("add sources: %w", api.ErrSourceCapReached), exitPrecondition},
-		{"ErrArtifactGenerating", fmt.Errorf("poll: %w", api.ErrArtifactGenerating), exitBusy},
-		{"ErrArtifactNotFound", fmt.Errorf("get artifact: %w", api.ErrArtifactNotFound), exitNotFound},
-		{"ErrNoteNotFound", fmt.Errorf("update note: %w", api.ErrNoteNotFound), exitNotFound},
-		{"ErrResearchPolling", fmt.Errorf("poll: %w", api.ErrResearchPolling), exitBusy},
-		{"ErrSourceCapReached wrapped twice", fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", api.ErrSourceCapReached)), exitPrecondition},
-		{"ErrSourceTooLarge", fmt.Errorf("add text source: %w", api.ErrSourceTooLarge), exitPrecondition},
-		{"ErrNotebookCapReached", fmt.Errorf("create project: %w", api.ErrNotebookCapReached), exitPrecondition},
+		{"ErrSourceCapReached", fmt.Errorf("add sources: %w", notebooklm.ErrSourceCapReached), exitPrecondition},
+		{"ErrArtifactGenerating", fmt.Errorf("poll: %w", notebooklm.ErrArtifactGenerating), exitBusy},
+		{"ErrArtifactNotFound", fmt.Errorf("get artifact: %w", notebooklm.ErrArtifactNotFound), exitNotFound},
+		{"ErrNoteNotFound", fmt.Errorf("update note: %w", notebooklm.ErrNoteNotFound), exitNotFound},
+		{"ErrResearchPolling", fmt.Errorf("poll: %w", notebooklm.ErrResearchPolling), exitBusy},
+		{"ErrSourceCapReached wrapped twice", fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", notebooklm.ErrSourceCapReached)), exitPrecondition},
+		{"ErrSourceTooLarge", fmt.Errorf("add text source: %w", notebooklm.ErrSourceTooLarge), exitPrecondition},
+		{"ErrNotebookCapReached", fmt.Errorf("create project: %w", notebooklm.ErrNotebookCapReached), exitPrecondition},
 
 		// Structured batchexecute.APIError by ErrorType (exhaustive over
 		// every enumerant in internal/batchexecute/errors.go).
@@ -106,7 +106,7 @@ func TestExitCodeFor(t *testing.T) {
 
 		// Sentinel has precedence over APIError classification.
 		// (Real callers wrap both via fmt.Errorf("op: %w: %w", ErrX, apiErr).)
-		{"sentinel with wrapped APIError", fmt.Errorf("add sources: %w: %w", api.ErrSourceCapReached, apiErrorWithType(batchexecute.ErrorTypeInvalidInput)), exitPrecondition},
+		{"sentinel with wrapped APIError", fmt.Errorf("add sources: %w: %w", notebooklm.ErrSourceCapReached, apiErrorWithType(batchexecute.ErrorTypeInvalidInput)), exitPrecondition},
 
 		// Generic plain error falls through to exit 1.
 		{"plain string error", errors.New("something broke"), exitGeneric},

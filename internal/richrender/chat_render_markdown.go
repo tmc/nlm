@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // renderChatMarkdown writes the conversation as plain CommonMark: no ANSI, no
@@ -43,7 +43,7 @@ func renderChatMarkdown(out io.Writer, doc ChatDocument, ctx RenderContext) erro
 // the # and answer cells are blank on a marker's 2nd+ source rows so a
 // multi-source marker reads as one group. Confidence and the answer span honor
 // HideConfidence/HideSpans.
-func renderMarkdownScan(bw *markdownWriter, cites []api.Citation, ctx RenderContext) {
+func renderMarkdownScan(bw *markdownWriter, cites []notebooklm.Citation, ctx RenderContext) {
 	bw.line("#### Citations")
 	bw.blank()
 
@@ -95,7 +95,7 @@ func renderMarkdownScan(bw *markdownWriter, cites []api.Citation, ctx RenderCont
 // several markers appears once, listing every marker it grounds, with its
 // excerpt as the quote. Confidence and the answer span honor
 // HideConfidence/HideSpans; the source locator honors HideSpans.
-func renderMarkdownAudit(bw *markdownWriter, cites []api.Citation, ctx RenderContext) {
+func renderMarkdownAudit(bw *markdownWriter, cites []notebooklm.Citation, ctx RenderContext) {
 	bw.line("#### Citations")
 
 	locations := ctx.citationLocations(cites)
@@ -145,7 +145,7 @@ func writeBlockquote(bw *markdownWriter, s string) {
 
 // auditGrounds renders the "[1] (p=0.87, answer 115–241) [3] (…)" tail: one
 // clause per marker the source grounds, honoring HideConfidence/HideSpans.
-func auditGrounds(group []api.Citation, ctx RenderContext) string {
+func auditGrounds(group []notebooklm.Citation, ctx RenderContext) string {
 	var b strings.Builder
 	for i, c := range group {
 		if i > 0 {
@@ -173,7 +173,7 @@ func auditGrounds(group []api.Citation, ctx RenderContext) string {
 // auditLocator returns the source-document locator for the audit header: the
 // resolved "file:line:col" from ctx.citationLocations when available, else the
 // raw "src N–M" from SourceStart/SourceEnd, else "".
-func auditLocator(c api.Citation, locations map[citationKey]string) string {
+func auditLocator(c notebooklm.Citation, locations map[citationKey]string) string {
 	if loc, ok := locations[keyFor(c)]; ok && loc != "" {
 		return loc
 	}
@@ -186,9 +186,9 @@ func auditLocator(c api.Citation, locations map[citationKey]string) string {
 // groupCitationsBySource buckets citations by SourceID, preserving first-seen
 // order, so a source grounding several markers appears once. The mirror of
 // groupCitationsByIndex for the source-first audit view.
-func groupCitationsBySource(cites []api.Citation) ([]string, map[string][]api.Citation) {
+func groupCitationsBySource(cites []notebooklm.Citation) ([]string, map[string][]notebooklm.Citation) {
 	var order []string
-	groups := map[string][]api.Citation{}
+	groups := map[string][]notebooklm.Citation{}
 	for _, c := range cites {
 		if _, ok := groups[c.SourceID]; !ok {
 			order = append(order, c.SourceID)
@@ -204,7 +204,7 @@ func groupCitationsBySource(cites []api.Citation) ([]string, map[string][]api.Ci
 // so a blank cell reads as an unresolved title rather than missing data — not
 // "removed", since a citation handle is a granular chunk ID that misses the
 // source list even when the source is present.
-func scanSource(c api.Citation, ctx RenderContext) string {
+func scanSource(c notebooklm.Citation, ctx RenderContext) string {
 	handle := shortSourceID(c.SourceID)
 	title := collapseWhitespace(ctx.citationSourceTitle(c))
 	if title == "" && ctx.citationSourceRemoved(c) {

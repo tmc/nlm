@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type noteListArgs struct {
@@ -200,7 +200,7 @@ func decodeNoteRead(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return readNoteWithOptions(client, args.NotebookID, args.NoteID, args.Options)
 	}, nil
 }
@@ -243,7 +243,7 @@ func decodeNoteList(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := noteListArgs{NotebookID: notebookID, JSON: jsonOutput}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return listNotes(client, args.NotebookID, args.JSON)
 	}, nil
 }
@@ -253,7 +253,7 @@ func decodeNoteCreate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return runNoteCreate(os.Stderr, os.Stdin, args, func(title, content string) error {
 			return createNote(client, args.NotebookID, title, content)
 		})
@@ -313,7 +313,7 @@ func decodeNoteUpdate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return runNoteUpdate(
 			os.Stderr,
 			os.Stdin,
@@ -515,7 +515,7 @@ func decodeNoteDelete(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := noteDeleteArgs{NotebookID: notebookID, NoteID: noteID, Yes: yes}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return removeNote(client, args.NotebookID, args.NoteID, args.Yes)
 	}, nil
 }

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type notebookCreateArgs struct {
@@ -125,7 +125,7 @@ func decodeNotebookList(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return list(client, args)
 	}, nil
 }
@@ -163,7 +163,7 @@ func decodeNotebookCreate(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookCreateArgs{Title: title}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return create(client, args.Title)
 	}, nil
 }
@@ -178,7 +178,7 @@ func decodeNotebookDelete(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookDeleteArgs{NotebookID: notebookID, Yes: yes}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return remove(client, args.NotebookID, args.Yes)
 	}, nil
 }
@@ -193,7 +193,7 @@ func decodeNotebookRename(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookRenameArgs{NotebookID: notebookID, Title: title}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return renameNotebook(client, args.NotebookID, args.Title)
 	}, nil
 }
@@ -208,7 +208,7 @@ func decodeNotebookEmoji(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookEmojiArgs{NotebookID: notebookID, Emoji: emoji}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return setNotebookEmoji(client, args.NotebookID, args.Emoji)
 	}, nil
 }
@@ -223,7 +223,7 @@ func decodeNotebookDescription(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookDescriptionArgs{NotebookID: notebookID, Text: text, TextSet: textSet}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		text := args.Text
 		if !args.TextSet {
 			if info, statErr := os.Stdin.Stat(); statErr == nil && info.Mode()&os.ModeCharDevice == 0 {
@@ -248,7 +248,7 @@ func decodeNotebookCover(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookCoverArgs{NotebookID: notebookID, PresetID: presetID}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		id, err := strconv.Atoi(args.PresetID)
 		if err != nil {
 			return fmt.Errorf("preset-id must be an integer: %w", err)
@@ -267,7 +267,7 @@ func decodeNotebookCoverImage(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookCoverImageArgs{NotebookID: notebookID, ImagePath: imagePath}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return uploadNotebookCoverImage(client, args.NotebookID, args.ImagePath)
 	}, nil
 }
@@ -278,7 +278,7 @@ func decodeNotebookUnrecent(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookIDArgs{NotebookID: notebookID}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		if err := client.RemoveRecentlyViewedProject(ctx, args.NotebookID); err != nil {
 			return fmt.Errorf("remove recently viewed: %w", err)
 		}
@@ -297,7 +297,7 @@ func decodeNotebookAnalytics(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookIDArgs{NotebookID: notebookID}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return getAnalytics(client, args.NotebookID, jsonOutput)
 	}, nil
 }
@@ -308,7 +308,7 @@ func decodeNotebookFeatured(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := notebookFeaturedArgs{JSON: jsonOutput}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return listFeaturedProjects(client, args.JSON)
 	}, nil
 }

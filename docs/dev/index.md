@@ -10,7 +10,7 @@ Internal documentation for contributors to the nlm project.
 nlm is structured in layers:
 
 - **cmd/nlm** — CLI entry point, flag parsing, command dispatch
-- **internal/notebooklm/api** — High-level API client (notebooks, sources, chat, audio, etc.)
+- **notebooklm** — High-level API client (notebooks, sources, chat, audio, etc.)
 - **internal/notebooklm/rpc** — Low-level RPC client wrapping batchexecute
 - **internal/batchexecute** — Google batchexecute protocol implementation
 - **internal/beprotojson** — Custom JSON-to-protobuf unmarshaling for Google's wire format

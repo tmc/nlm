@@ -11,7 +11,7 @@ import (
 // Wire format verified by live end-to-end success — do not regenerate.
 //
 // Provenance: the hand-crafted shape below has been running in production
-// from api.Client.RenameArtifact (pre-2026-04-16) and renames artifacts
+// from notebooklm.Client.RenameArtifact (pre-2026-04-16) and renames artifacts
 // successfully against the NotebookLM backend (phase1-triage row #20).
 // No passive HAR capture was available at the time of this encoder move
 // (the on-hand 2026-04-07 capture covers V5N4be delete-artifact but not

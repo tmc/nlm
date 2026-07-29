@@ -10,16 +10,16 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type sourceMembershipStub struct {
-	notebooks map[string]*api.Notebook
+	notebooks map[string]*notebooklm.Notebook
 	errors    map[string]error
 	calls     []string
 }
 
-func (s *sourceMembershipStub) GetProject(_ context.Context, notebookID string) (*api.Notebook, error) {
+func (s *sourceMembershipStub) GetProject(_ context.Context, notebookID string) (*notebooklm.Notebook, error) {
 	s.calls = append(s.calls, notebookID)
 	if err := s.errors[notebookID]; err != nil {
 		return nil, err
@@ -27,11 +27,11 @@ func (s *sourceMembershipStub) GetProject(_ context.Context, notebookID string) 
 	if notebook := s.notebooks[notebookID]; notebook != nil {
 		return notebook, nil
 	}
-	return &api.Notebook{}, nil
+	return &notebooklm.Notebook{}, nil
 }
 
-func sourceNotebook(sourceIDs ...string) *api.Notebook {
-	notebook := &api.Notebook{}
+func sourceNotebook(sourceIDs ...string) *notebooklm.Notebook {
+	notebook := &notebooklm.Notebook{}
 	for _, sourceID := range sourceIDs {
 		notebook.Sources = append(notebook.Sources, &pb.Source{
 			SourceId: &pb.SourceId{SourceId: sourceID},
@@ -41,7 +41,7 @@ func sourceNotebook(sourceIDs ...string) *api.Notebook {
 }
 
 func notebookLookupError(notebookID string, errorType batchexecute.ErrorType, status int) error {
-	return &api.NotebookAccessError{
+	return &notebooklm.NotebookAccessError{
 		NotebookID: notebookID,
 		Err: &batchexecute.APIError{
 			ErrorCode: &batchexecute.ErrorCode{
@@ -67,7 +67,7 @@ func TestResolveSourceCommand(t *testing.T) {
 	}{
 		{
 			name: "documented order",
-			client: &sourceMembershipStub{notebooks: map[string]*api.Notebook{
+			client: &sourceMembershipStub{notebooks: map[string]*notebooklm.Notebook{
 				"notebook-1": sourceNotebook("source-1"),
 				"source-1":   sourceNotebook("notebook-1"),
 			}},
@@ -78,7 +78,7 @@ func TestResolveSourceCommand(t *testing.T) {
 		},
 		{
 			name: "old order",
-			client: &sourceMembershipStub{notebooks: map[string]*api.Notebook{
+			client: &sourceMembershipStub{notebooks: map[string]*notebooklm.Notebook{
 				"source-1":   sourceNotebook(),
 				"notebook-1": sourceNotebook("source-1"),
 			}},
@@ -90,7 +90,7 @@ func TestResolveSourceCommand(t *testing.T) {
 		{
 			name: "first notebook not found",
 			client: &sourceMembershipStub{
-				notebooks: map[string]*api.Notebook{"notebook-1": sourceNotebook("source-1")},
+				notebooks: map[string]*notebooklm.Notebook{"notebook-1": sourceNotebook("source-1")},
 				errors: map[string]error{
 					"source-1": notebookLookupError("source-1", batchexecute.ErrorTypeNotFound, http.StatusNotFound),
 				},
@@ -103,9 +103,9 @@ func TestResolveSourceCommand(t *testing.T) {
 		{
 			name: "first notebook HTTP 404",
 			client: &sourceMembershipStub{
-				notebooks: map[string]*api.Notebook{"notebook-1": sourceNotebook("source-1")},
+				notebooks: map[string]*notebooklm.Notebook{"notebook-1": sourceNotebook("source-1")},
 				errors: map[string]error{
-					"source-1": &api.NotebookAccessError{
+					"source-1": &notebooklm.NotebookAccessError{
 						NotebookID: "source-1",
 						Err:        &batchexecute.APIError{HTTPStatus: http.StatusNotFound, Message: "not found"},
 					},
@@ -118,7 +118,7 @@ func TestResolveSourceCommand(t *testing.T) {
 		},
 		{
 			name: "neither relation",
-			client: &sourceMembershipStub{notebooks: map[string]*api.Notebook{
+			client: &sourceMembershipStub{notebooks: map[string]*notebooklm.Notebook{
 				"first":  sourceNotebook(),
 				"second": sourceNotebook(),
 			}},
@@ -130,7 +130,7 @@ func TestResolveSourceCommand(t *testing.T) {
 		{
 			name: "reverse hard error",
 			client: &sourceMembershipStub{
-				notebooks: map[string]*api.Notebook{"first": sourceNotebook()},
+				notebooks: map[string]*notebooklm.Notebook{"first": sourceNotebook()},
 				errors:    map[string]error{"second": errors.New("transport failed")},
 			},
 			first:       "first",
@@ -237,7 +237,7 @@ func TestRunSourceCommandWarningsAndNoRetry(t *testing.T) {
 		},
 		{
 			name: "documented order",
-			client: &sourceMembershipStub{notebooks: map[string]*api.Notebook{
+			client: &sourceMembershipStub{notebooks: map[string]*notebooklm.Notebook{
 				"notebook-1": sourceNotebook("source-1"),
 			}},
 			target: sourceCommandTarget{
@@ -250,7 +250,7 @@ func TestRunSourceCommandWarningsAndNoRetry(t *testing.T) {
 		},
 		{
 			name: "old read order",
-			client: &sourceMembershipStub{notebooks: map[string]*api.Notebook{
+			client: &sourceMembershipStub{notebooks: map[string]*notebooklm.Notebook{
 				"source-1":   sourceNotebook(),
 				"notebook-1": sourceNotebook("source-1"),
 			}},
@@ -266,7 +266,7 @@ func TestRunSourceCommandWarningsAndNoRetry(t *testing.T) {
 		},
 		{
 			name: "old check order",
-			client: &sourceMembershipStub{notebooks: map[string]*api.Notebook{
+			client: &sourceMembershipStub{notebooks: map[string]*notebooklm.Notebook{
 				"source-1":   sourceNotebook(),
 				"notebook-1": sourceNotebook("source-1"),
 			}},
@@ -282,7 +282,7 @@ func TestRunSourceCommandWarningsAndNoRetry(t *testing.T) {
 		},
 		{
 			name: "neither order",
-			client: &sourceMembershipStub{notebooks: map[string]*api.Notebook{
+			client: &sourceMembershipStub{notebooks: map[string]*notebooklm.Notebook{
 				"first":  sourceNotebook(),
 				"second": sourceNotebook(),
 			}},

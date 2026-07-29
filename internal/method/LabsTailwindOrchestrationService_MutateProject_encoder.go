@@ -29,7 +29,7 @@ import (
 //
 // Only Project.Title and Project.Emoji are covered by this encoder, since
 // those are the fields the Project proto carries. Description and cover image
-// have no Project proto fields; callers use api.Client convenience methods
+// have no Project proto fields; callers use notebooklm.Client convenience methods
 // that build the args directly.
 func EncodeMutateProjectArgs(req *notebooklmv1alpha1.MutateProjectRequest) []any {
 	id := req.GetProjectId()
@@ -86,7 +86,7 @@ func MutateProjectCoverArgs(projectID string, coverID int) []any {
 // MutateProjectCustomImageArgs builds the s0tc2d wire args for associating an
 // already-uploaded custom image with the notebook. The image bytes must have
 // been uploaded first via the CUSTOMIZATION resumable upload flow (see
-// api.Client.UploadProjectCoverImage); the imageUUID here is the
+// notebooklm.Client.UploadProjectCoverImage); the imageUUID here is the
 // client-generated UUID submitted in the upload's IMAGE_UUID metadata field.
 //
 // The mutation goes in slot 10 (1-indexed) of the mutation submessage,

@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/tmc/nlm/internal/authuser"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type authArgs struct {
@@ -83,7 +83,7 @@ func authFlagSpecs() []flagSpec {
 
 func decodeAuth(parsed parsedCommand) (commandCall, error) {
 	args := decodeAuthArgs(parsed)
-	return func(_ context.Context, _ *api.Client) error {
+	return func(_ context.Context, _ *notebooklm.Client) error {
 		_, _, err := handleDecodedAuth(args)
 		return err
 	}, nil

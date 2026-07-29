@@ -10,7 +10,7 @@ import (
 
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestIsAuthenticationError(t *testing.T) {
@@ -253,7 +253,7 @@ func TestRunReharvestsCachedBrowserProfile(t *testing.T) {
 		return "new-token", "new-cookies", nil
 	}
 	attempts := 0
-	cmd := testCommand("auth-retry-test", func(*api.Client) error {
+	cmd := testCommand("auth-retry-test", func(*notebooklm.Client) error {
 		attempts++
 		if attempts == 1 {
 			return batchexecute.ErrUnauthorized
@@ -291,7 +291,7 @@ func TestRunDoesNotReharvestEnvironmentOnlyCredentials(t *testing.T) {
 		return "", "", nil
 	}
 	attempts := 0
-	cmd := testCommand("auth-no-retry-test", func(*api.Client) error {
+	cmd := testCommand("auth-no-retry-test", func(*notebooklm.Client) error {
 		attempts++
 		return batchexecute.ErrUnauthorized
 	})
@@ -304,14 +304,14 @@ func TestRunDoesNotReharvestEnvironmentOnlyCredentials(t *testing.T) {
 	}
 }
 
-func testCommand(name string, run func(*api.Client) error) *command {
+func testCommand(name string, run func(*notebooklm.Client) error) *command {
 	surface := &commandSurfaceSpec{Path: []string{name}}
 	spec := &commandSpec{
 		ID:       commandID(name),
 		Forms:    commandFormOf(),
 		Surfaces: []commandSurfaceSpec{*surface},
 		Decode: func(parsedCommand) (commandCall, error) {
-			return func(_ context.Context, client *api.Client) error {
+			return func(_ context.Context, client *notebooklm.Client) error {
 				return run(client)
 			}, nil
 		},

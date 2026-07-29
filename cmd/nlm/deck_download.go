@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type deckDownloadOptions struct {
@@ -20,7 +20,7 @@ type deckDownloadOptions struct {
 // requirement, it prints the signed download URL so the user can open it in a
 // logged-in browser; while the deck is still generating it prints the notebook
 // URL instead.
-func runDeckDownload(c *api.Client, args deckDownloadArgs) error {
+func runDeckDownload(c *notebooklm.Client, args deckDownloadArgs) error {
 	output := args.Options.Output
 	if output == "" {
 		output = "deck." + args.Options.Format
@@ -37,7 +37,7 @@ func runDeckDownload(c *api.Client, args deckDownloadArgs) error {
 	}
 
 	// Still generating: nothing to download yet.
-	if errors.Is(derr, api.ErrArtifactGenerating) {
+	if errors.Is(derr, notebooklm.ErrArtifactGenerating) {
 		fmt.Fprintf(os.Stderr, "Slide deck %s is still generating; no %s file yet.\n", args.Options.ArtifactID, args.Options.Format)
 		fmt.Println(notebookBrowserURL(args.NotebookID))
 		return fmt.Errorf("download slide deck: %w", derr)

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestRunPreProcess(t *testing.T) {
@@ -291,7 +291,7 @@ func TestPrepareTextSource(t *testing.T) {
 }
 
 type fakeSourceReplaceClient struct {
-	labels   []api.Label
+	labels   []notebooklm.Label
 	deleted  []string
 	attached []struct {
 		labelID  string
@@ -299,7 +299,7 @@ type fakeSourceReplaceClient struct {
 	}
 }
 
-func (f *fakeSourceReplaceClient) GetLabels(context.Context, string) ([]api.Label, error) {
+func (f *fakeSourceReplaceClient) GetLabels(context.Context, string) ([]notebooklm.Label, error) {
 	return f.labels, nil
 }
 
@@ -318,7 +318,7 @@ func (f *fakeSourceReplaceClient) AttachLabelSource(_ context.Context, _, labelI
 
 func TestReplaceUploadedSourceDeletesOldAndLabelsAllParts(t *testing.T) {
 	fc := &fakeSourceReplaceClient{
-		labels: []api.Label{
+		labels: []notebooklm.Label{
 			{LabelID: "label-a", SourceIDs: []string{"old-src"}},
 			{LabelID: "label-b", SourceIDs: []string{"other", "old-src"}},
 			{LabelID: "label-c", SourceIDs: []string{"other"}},

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type mcpArgs struct{}
@@ -81,7 +81,7 @@ func configureOtherCommandSpecs(specs map[commandID]*commandSpec) {
 
 func decodeMCP(parsedCommand) (commandCall, error) {
 	_ = mcpArgs{}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return runMCP(client)
 	}, nil
 }
@@ -95,7 +95,7 @@ func decodeBetool(parsed parsedCommand) (commandCall, error) {
 		Values: append([]string(nil), parsed.Args["values"]...),
 		JSON:   jsonOutput,
 	}
-	return func(context.Context, *api.Client) error {
+	return func(context.Context, *notebooklm.Client) error {
 		return runBetool(args)
 	}, nil
 }
@@ -104,7 +104,7 @@ func decodeRefresh(parsed parsedCommand) (commandCall, error) {
 	args := refreshArgs{
 		Debug: parsed.globals.debug,
 	}
-	return func(context.Context, *api.Client) error {
+	return func(context.Context, *notebooklm.Client) error {
 		return refreshCredentials(args.Debug)
 	}, nil
 }
@@ -135,14 +135,14 @@ func decodeAccount(parsed parsedCommand) (commandCall, error) {
 		ValueSet:  valueSet,
 		JSON:      jsonOutput,
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return runAccount(client, args)
 	}, nil
 }
 
 func decodeHeartbeat(parsedCommand) (commandCall, error) {
 	_ = heartbeatArgs{}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return heartbeat(client)
 	}, nil
 }

@@ -5,8 +5,8 @@ import (
 	"os"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/richrender"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type richDocument = richrender.RichDocument
@@ -48,7 +48,7 @@ func warnDeprecatedCitationMode(w io.Writer, flag string) {
 	richrender.WarnDeprecatedCitationMode(w, flag)
 }
 
-func citationTitle(citation api.Citation, resolveTitle func(string) string) string {
+func citationTitle(citation notebooklm.Citation, resolveTitle func(string) string) string {
 	return richrender.CitationTitle(citation, resolveTitle)
 }
 
@@ -56,7 +56,7 @@ func richDocumentFromProto(doc *pb.RichDocument) *richDocument {
 	return richrender.RichDocumentFromProto(doc)
 }
 
-func noteDocumentFromAPI(note *api.Note) noteDocument {
+func noteDocumentFromAPI(note *notebooklm.Note) noteDocument {
 	return richrender.NoteDocumentFromAPI(note)
 }
 

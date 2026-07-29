@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // friendlyError rewrites the "API error <N> (<Type>): <msg>" format produced
@@ -34,30 +34,30 @@ func friendlyError(err error) string {
 			return strings.Join(parts, "\n")
 		}
 	}
-	if errors.Is(err, api.ErrAuthExpired) {
-		return friendlyTypedError(err, api.ErrAuthExpired, "authentication expired; run 'nlm auth' to re-authenticate")
+	if errors.Is(err, notebooklm.ErrAuthExpired) {
+		return friendlyTypedError(err, notebooklm.ErrAuthExpired, "authentication expired; run 'nlm auth' to re-authenticate")
 	}
-	if errors.Is(err, api.ErrSourceCapReached) {
-		return friendlyTypedError(err, api.ErrSourceCapReached, "notebook is at the source limit; remove unused sources before adding more")
+	if errors.Is(err, notebooklm.ErrSourceCapReached) {
+		return friendlyTypedError(err, notebooklm.ErrSourceCapReached, "notebook is at the source limit; remove unused sources before adding more")
 	}
-	if errors.Is(err, api.ErrSourceTooLarge) {
-		return friendlyTypedError(err, api.ErrSourceTooLarge, "source exceeds the per-request size limit; split it, or use `nlm sync` / `nlm sync-pack` which chunk automatically")
+	if errors.Is(err, notebooklm.ErrSourceTooLarge) {
+		return friendlyTypedError(err, notebooklm.ErrSourceTooLarge, "source exceeds the per-request size limit; split it, or use `nlm sync` / `nlm sync-pack` which chunk automatically")
 	}
-	if errors.Is(err, api.ErrNotebookCapReached) {
+	if errors.Is(err, notebooklm.ErrNotebookCapReached) {
 		msg := "account is at the notebook limit; delete unused notebooks before creating more"
-		var capErr *api.NotebookCapError
+		var capErr *notebooklm.NotebookCapError
 		if errors.As(err, &capErr) && capErr.Limit > 0 && capErr.Count >= 0 {
 			msg = fmt.Sprintf("account is at the notebook limit (%d/%d); delete unused notebooks before creating more", capErr.Count, capErr.Limit)
 		}
-		return friendlyTypedError(err, api.ErrNotebookCapReached, msg)
+		return friendlyTypedError(err, notebooklm.ErrNotebookCapReached, msg)
 	}
-	if errors.Is(err, api.ErrNotebookNotAccessible) {
+	if errors.Is(err, notebooklm.ErrNotebookNotAccessible) {
 		msg := "notebook not found or not accessible by the current account"
-		var accessErr *api.NotebookAccessError
+		var accessErr *notebooklm.NotebookAccessError
 		if errors.As(err, &accessErr) && accessErr.NotebookID != "" {
 			msg = fmt.Sprintf("notebook %s not found or not accessible by the current account", accessErr.NotebookID)
 		}
-		return friendlyTypedError(err, api.ErrNotebookNotAccessible, msg)
+		return friendlyTypedError(err, notebooklm.ErrNotebookNotAccessible, msg)
 	}
 	var apiErr *batchexecute.APIError
 	if !errors.As(err, &apiErr) {

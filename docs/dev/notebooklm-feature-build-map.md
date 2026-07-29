@@ -102,7 +102,7 @@ Likely files:
 
 - `cmd/nlm/main.go`
 - `cmd/nlm/commands.go`
-- `internal/notebooklm/api/client.go`
+- `notebooklm/client.go`
 - `proto/notebooklm/v1alpha1/orchestration.proto`
 
 Validation:
@@ -144,7 +144,7 @@ Likely files:
 
 - `cmd/nlm/main.go`
 - `cmd/nlm/commands.go`
-- `internal/notebooklm/api/client.go`
+- `notebooklm/client.go`
 - project mutation encoder code under `internal/method` or `gen/method`
 
 Validation:
@@ -185,7 +185,7 @@ Likely files:
 - `cmd/nlm/commands.go`
 - sharing-specific CLI/API files if split
 - `proto/notebooklm/v1alpha1/sharing.proto`
-- `internal/notebooklm/api/client.go`
+- `notebooklm/client.go`
 
 Validation:
 
@@ -220,7 +220,7 @@ Likely files:
 
 - `cmd/nlm/main.go`
 - `cmd/nlm/commands.go`
-- `internal/notebooklm/api/client.go`
+- `notebooklm/client.go`
 - account or project mutation encoder files
 
 Validation:
@@ -257,7 +257,7 @@ Likely files:
 - `cmd/nlm/main.go`
 - `cmd/nlm/commands.go`
 - source-discovery CLI helpers
-- `internal/notebooklm/api/client.go`
+- `notebooklm/client.go`
 - `proto/notebooklm/v1alpha1/orchestration.proto`
 
 Validation:
@@ -294,7 +294,7 @@ Likely files:
 
 - `cmd/nlm/main.go`
 - chat config command helpers
-- `internal/notebooklm/api/client.go`
+- `notebooklm/client.go`
 - `proto/notebooklm/v1alpha1/orchestration.proto`
 
 Validation:

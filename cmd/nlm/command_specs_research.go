@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type researchOptions struct {
@@ -56,7 +56,7 @@ func decodeResearch(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return runResearch(client, args.NotebookID, args.Query, args.Options)
 	}, nil
 }

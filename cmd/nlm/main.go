@@ -27,7 +27,7 @@ import (
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/nlmmcp"
 	"github.com/tmc/nlm/internal/nlmsync"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 	"golang.org/x/term"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -73,9 +73,9 @@ type storedMessage struct {
 
 	// Stream data persisted for replay. Thinking is local-only; server history
 	// can supply citations and rich text but may omit live-stream metadata.
-	Thinking  string           `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
-	Citations []api.Citation   `json:"citations,omitempty"` // Source references from the response
-	Rich      *pb.RichDocument `json:"rich,omitempty"`      // Answer-body span tree (paragraphs, lists, inline marks); nil for turns generated before this was captured
+	Thinking  string                `json:"thinking,omitempty"`  // Reasoning traces from intermediate chunks
+	Citations []notebooklm.Citation `json:"citations,omitempty"` // Source references from the response
+	Rich      *pb.RichDocument      `json:"rich,omitempty"`      // Answer-body span tree (paragraphs, lists, inline marks); nil for turns generated before this was captured
 }
 
 func (m storedMessage) MarshalJSON() ([]byte, error) {
@@ -88,14 +88,14 @@ func (m storedMessage) MarshalJSON() ([]byte, error) {
 		rich = data
 	}
 	return json.Marshal(struct {
-		Role      string          `json:"role"`
-		Content   string          `json:"content"`
-		Timestamp time.Time       `json:"timestamp"`
-		MessageID string          `json:"message_id,omitempty"`
-		SeqNum    int             `json:"seq_num,omitempty"`
-		Thinking  string          `json:"thinking,omitempty"`
-		Citations []api.Citation  `json:"citations,omitempty"`
-		Rich      json.RawMessage `json:"rich,omitempty"`
+		Role      string                `json:"role"`
+		Content   string                `json:"content"`
+		Timestamp time.Time             `json:"timestamp"`
+		MessageID string                `json:"message_id,omitempty"`
+		SeqNum    int                   `json:"seq_num,omitempty"`
+		Thinking  string                `json:"thinking,omitempty"`
+		Citations []notebooklm.Citation `json:"citations,omitempty"`
+		Rich      json.RawMessage       `json:"rich,omitempty"`
 	}{
 		Role:      m.Role,
 		Content:   m.Content,
@@ -110,14 +110,14 @@ func (m storedMessage) MarshalJSON() ([]byte, error) {
 
 func (m *storedMessage) UnmarshalJSON(data []byte) error {
 	var raw struct {
-		Role      string          `json:"role"`
-		Content   string          `json:"content"`
-		Timestamp time.Time       `json:"timestamp"`
-		MessageID string          `json:"message_id,omitempty"`
-		SeqNum    int             `json:"seq_num,omitempty"`
-		Thinking  string          `json:"thinking,omitempty"`
-		Citations []api.Citation  `json:"citations,omitempty"`
-		Rich      json.RawMessage `json:"rich,omitempty"`
+		Role      string                `json:"role"`
+		Content   string                `json:"content"`
+		Timestamp time.Time             `json:"timestamp"`
+		MessageID string                `json:"message_id,omitempty"`
+		SeqNum    int                   `json:"seq_num,omitempty"`
+		Thinking  string                `json:"thinking,omitempty"`
+		Citations []notebooklm.Citation `json:"citations,omitempty"`
+		Rich      json.RawMessage       `json:"rich,omitempty"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -175,15 +175,15 @@ func prepareRuntime(stderr io.Writer, globals globalOptions) {
 
 }
 
-func newNotebookLMClient(credentials api.Credentials, commandOptions commandClientOptions, options ...api.Option) *api.Client {
-	defaults := []api.Option{
-		api.WithDebug(debug),
-		api.WithProtoDebug(debugParsing, debugFieldMapping),
-		api.WithAuthUser(authUser),
-		api.WithUseDirectRPC(commandOptions.DirectRPC),
-		api.WithSkipSources(commandOptions.SkipSources),
+func newNotebookLMClient(credentials notebooklm.Credentials, commandOptions commandClientOptions, options ...notebooklm.Option) *notebooklm.Client {
+	defaults := []notebooklm.Option{
+		notebooklm.WithDebug(debug),
+		notebooklm.WithProtoDebug(debugParsing, debugFieldMapping),
+		notebooklm.WithAuthUser(authUser),
+		notebooklm.WithUseDirectRPC(commandOptions.DirectRPC),
+		notebooklm.WithSkipSources(commandOptions.SkipSources),
 	}
-	return api.New(credentials, append(defaults, options...)...)
+	return notebooklm.New(credentials, append(defaults, options...)...)
 }
 
 func notebookLMBatchOptions() []batchexecute.Option {
@@ -335,11 +335,11 @@ func run(inv invocation) error {
 		return fmt.Errorf("authentication required")
 	}
 
-	var opts []api.Option
+	var opts []notebooklm.Option
 
 	// Add rt=c parameter if chunked response format is requested
 	if commandOptions.Chunked {
-		opts = append(opts, api.WithURLParams(map[string]string{
+		opts = append(opts, notebooklm.WithURLParams(map[string]string{
 			"rt": "c",
 		}))
 		if debug {
@@ -373,7 +373,7 @@ func run(inv invocation) error {
 		}
 
 		client := newNotebookLMClient(
-			api.Credentials{AuthToken: authToken, Cookies: cookies},
+			notebooklm.Credentials{AuthToken: authToken, Cookies: cookies},
 			commandOptions,
 			opts...,
 		)
@@ -524,7 +524,7 @@ func versionString() string {
 	return fmt.Sprintf("nlm %s", version)
 }
 
-func runMCP(client *api.Client) error {
+func runMCP(client *notebooklm.Client) error {
 	info, ok := runtimedebug.ReadBuildInfo()
 	version := "devel"
 	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
@@ -582,7 +582,7 @@ func confirm(prompt string, defaultYes, yes bool) bool {
 }
 
 // Notebook operations
-func create(c *api.Client, title string) error {
+func create(c *notebooklm.Client, title string) error {
 	notebook, err := c.CreateProject(context.Background(), title, "📙")
 	if err != nil {
 		return err
@@ -591,14 +591,14 @@ func create(c *api.Client, title string) error {
 	return nil
 }
 
-func remove(c *api.Client, id string, yes bool) error {
+func remove(c *notebooklm.Client, id string, yes bool) error {
 	if !confirmAction(fmt.Sprintf("Are you sure you want to delete notebook %s?", id), yes) {
 		return fmt.Errorf("operation cancelled")
 	}
 	return c.DeleteProjects(context.Background(), []string{id})
 }
 
-func renameNotebook(c *api.Client, notebookID, newTitle string) error {
+func renameNotebook(c *notebooklm.Client, notebookID, newTitle string) error {
 	if newTitle == "" {
 		return fmt.Errorf("provide a new title")
 	}
@@ -610,7 +610,7 @@ func renameNotebook(c *api.Client, notebookID, newTitle string) error {
 	return nil
 }
 
-func setNotebookEmoji(c *api.Client, notebookID, emoji string) error {
+func setNotebookEmoji(c *notebooklm.Client, notebookID, emoji string) error {
 	if emoji == "" {
 		return fmt.Errorf("provide an emoji")
 	}
@@ -622,7 +622,7 @@ func setNotebookEmoji(c *api.Client, notebookID, emoji string) error {
 	return nil
 }
 
-func setNotebookDescription(c *api.Client, notebookID, description string) error {
+func setNotebookDescription(c *notebooklm.Client, notebookID, description string) error {
 	fmt.Fprintf(os.Stderr, "Updating notebook %s description...\n", notebookID)
 	if err := c.SetProjectDescription(context.Background(), notebookID, description); err != nil {
 		return err
@@ -631,7 +631,7 @@ func setNotebookDescription(c *api.Client, notebookID, description string) error
 	return nil
 }
 
-func setNotebookCover(c *api.Client, notebookID string, coverID int) error {
+func setNotebookCover(c *notebooklm.Client, notebookID string, coverID int) error {
 	fmt.Fprintf(os.Stderr, "Setting notebook %s cover to preset %d...\n", notebookID, coverID)
 	if err := c.SetProjectCover(context.Background(), notebookID, coverID); err != nil {
 		return err
@@ -640,7 +640,7 @@ func setNotebookCover(c *api.Client, notebookID string, coverID int) error {
 	return nil
 }
 
-func uploadNotebookCoverImage(c *api.Client, notebookID, imagePath string) error {
+func uploadNotebookCoverImage(c *notebooklm.Client, notebookID, imagePath string) error {
 	data, err := os.ReadFile(imagePath)
 	if err != nil {
 		return fmt.Errorf("read image: %w", err)
@@ -655,7 +655,7 @@ func uploadNotebookCoverImage(c *api.Client, notebookID, imagePath string) error
 }
 
 // Source operations
-func listSources(c *api.Client, notebookID string, jsonOutput bool) error {
+func listSources(c *notebooklm.Client, notebookID string, jsonOutput bool) error {
 	p, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("list sources: %w", err)
@@ -806,7 +806,7 @@ func sourceTimeRFC3339(src *pb.Source) string {
 	return ""
 }
 
-func addSource(c *api.Client, notebookID, input string, opts sourceAddOptions) (string, error) {
+func addSource(c *notebooklm.Client, notebookID, input string, opts sourceAddOptions) (string, error) {
 	// Handle special input designators
 	switch input {
 	case "-": // stdin
@@ -920,9 +920,9 @@ func addLocalFileSource(ctx context.Context, c localFileSourceClient, notebookID
 	return id, nil
 }
 
-// syncClientAdapter wraps *api.Client to satisfy nlmsync.Client.
+// syncClientAdapter wraps *notebooklm.Client to satisfy nlmsync.Client.
 type syncClientAdapter struct {
-	client *api.Client
+	client *notebooklm.Client
 }
 
 func (a *syncClientAdapter) ListSources(ctx context.Context, notebookID string) ([]nlmsync.Source, error) {
@@ -1000,7 +1000,7 @@ func removeSource(ctx context.Context, c sourceDeleteClient, notebookID, sourceA
 	return nil
 }
 
-func renameSource(c *api.Client, sourceID, newName string) error {
+func renameSource(c *notebooklm.Client, sourceID, newName string) error {
 	fmt.Fprintf(os.Stderr, "Renaming source %s to: %s\n", sourceID, newName)
 	if _, err := c.MutateSource(context.Background(), sourceID, &pb.Source{
 		Title: newName,
@@ -1013,7 +1013,7 @@ func renameSource(c *api.Client, sourceID, newName string) error {
 }
 
 // Note operations
-func createNote(c *api.Client, notebookID, title, content string) error {
+func createNote(c *notebooklm.Client, notebookID, title, content string) error {
 	fmt.Fprintf(os.Stderr, "Creating note in notebook %s...\n", notebookID)
 	if _, err := c.CreateNote(context.Background(), notebookID, title, content); err != nil {
 		return fmt.Errorf("create note: %w", err)
@@ -1022,7 +1022,7 @@ func createNote(c *api.Client, notebookID, title, content string) error {
 	return nil
 }
 
-func updateNote(c *api.Client, notebookID, noteID, content, title string) error {
+func updateNote(c *notebooklm.Client, notebookID, noteID, content, title string) error {
 	fmt.Fprintf(os.Stderr, "Updating note %s...\n", noteID)
 	if _, err := c.MutateNote(context.Background(), notebookID, noteID, content, title); err != nil {
 		return fmt.Errorf("update note: %w", err)
@@ -1031,7 +1031,7 @@ func updateNote(c *api.Client, notebookID, noteID, content, title string) error 
 	return nil
 }
 
-func updateNoteFields(c *api.Client, notebookID, noteID string, title, content *string) error {
+func updateNoteFields(c *notebooklm.Client, notebookID, noteID string, title, content *string) error {
 	fmt.Fprintf(os.Stderr, "Updating note %s...\n", noteID)
 	if _, err := c.UpdateNote(context.Background(), notebookID, noteID, title, content); err != nil {
 		return fmt.Errorf("update note: %w", err)
@@ -1040,7 +1040,7 @@ func updateNoteFields(c *api.Client, notebookID, noteID string, title, content *
 	return nil
 }
 
-func removeNote(c *api.Client, notebookID, noteID string, yes bool) error {
+func removeNote(c *notebooklm.Client, notebookID, noteID string, yes bool) error {
 	if !confirmAction(fmt.Sprintf("Are you sure you want to remove note %s?", noteID), yes) {
 		return fmt.Errorf("operation cancelled")
 	}
@@ -1053,7 +1053,7 @@ func removeNote(c *api.Client, notebookID, noteID string, yes bool) error {
 }
 
 // Note operations
-func listNotes(c *api.Client, notebookID string, jsonOutput bool) error {
+func listNotes(c *notebooklm.Client, notebookID string, jsonOutput bool) error {
 	notes, err := c.GetNotes(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("list notes: %w", err)
@@ -1077,7 +1077,7 @@ func listNotes(c *api.Client, notebookID string, jsonOutput bool) error {
 	return flush()
 }
 
-func noteListRecords(notes []*api.Note) []noteListRecord {
+func noteListRecords(notes []*notebooklm.Note) []noteListRecord {
 	records := make([]noteListRecord, 0, len(notes))
 	for _, note := range notes {
 		if note == nil {
@@ -1098,7 +1098,7 @@ func noteListRecords(notes []*api.Note) []noteListRecord {
 	return records
 }
 
-func readNoteWithOptions(c *api.Client, notebookID, noteID string, opts noteReadOptions) error {
+func readNoteWithOptions(c *notebooklm.Client, notebookID, noteID string, opts noteReadOptions) error {
 	notes, err := c.GetNotes(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("get notes: %w", err)
@@ -1123,7 +1123,7 @@ func formatNoteText(title, content string) string {
 }
 
 // Audio operations
-func getAudioOverview(c *api.Client, projectID string) error {
+func getAudioOverview(c *notebooklm.Client, projectID string) error {
 	fmt.Fprintf(os.Stderr, "Fetching audio overview...\n")
 
 	result, err := c.GetAudioOverview(context.Background(), projectID)
@@ -1158,7 +1158,7 @@ func getAudioOverview(c *api.Client, projectID string) error {
 	return nil
 }
 
-func deleteAudioOverview(c *api.Client, notebookID string, yes bool) error {
+func deleteAudioOverview(c *notebooklm.Client, notebookID string, yes bool) error {
 	if !confirmAction("Are you sure you want to delete the audio overview?", yes) {
 		return fmt.Errorf("operation cancelled")
 	}
@@ -1170,9 +1170,9 @@ func deleteAudioOverview(c *api.Client, notebookID string, yes bool) error {
 	return nil
 }
 
-func shareAudioOverview(c *api.Client, notebookID string) error {
+func shareAudioOverview(c *notebooklm.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating audio share link...\n")
-	res, err := c.ShareAudio(context.Background(), notebookID, api.SharePublic)
+	res, err := c.ShareAudio(context.Background(), notebookID, notebooklm.SharePublic)
 	if err != nil {
 		return err
 	}
@@ -1186,7 +1186,7 @@ func shareAudioOverview(c *api.Client, notebookID string) error {
 }
 
 // Generation operations
-func generateNotebookGuide(c *api.Client, notebookID string) error {
+func generateNotebookGuide(c *notebooklm.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating notebook guide...\n")
 	guide, err := c.GenerateNotebookGuide(context.Background(), notebookID)
 	if err != nil {
@@ -1227,7 +1227,7 @@ func renderCacheDir() (string, error) {
 
 // loadCachedSourceGuide returns the cached guide for sourceID, or
 // (nil, nil) on cache miss.
-func loadCachedSourceGuide(sourceID string) (*api.SourceGuide, error) {
+func loadCachedSourceGuide(sourceID string) (*notebooklm.SourceGuide, error) {
 	dir, err := sourceGuideCacheDir()
 	if err != nil {
 		return nil, err
@@ -1239,14 +1239,14 @@ func loadCachedSourceGuide(sourceID string) (*api.SourceGuide, error) {
 	if err != nil {
 		return nil, err
 	}
-	var g api.SourceGuide
+	var g notebooklm.SourceGuide
 	if err := json.Unmarshal(data, &g); err != nil {
 		return nil, err
 	}
 	return &g, nil
 }
 
-func saveCachedSourceGuide(sourceID string, g *api.SourceGuide) error {
+func saveCachedSourceGuide(sourceID string, g *notebooklm.SourceGuide) error {
 	dir, err := sourceGuideCacheDir()
 	if err != nil {
 		return err
@@ -1258,10 +1258,10 @@ func saveCachedSourceGuide(sourceID string, g *api.SourceGuide) error {
 	return os.WriteFile(filepath.Join(dir, sourceID+".json"), data, 0o644)
 }
 
-func generateSourceGuidesWithOptions(c *api.Client, sourceIDs []string, force, jsonOutput bool) error {
+func generateSourceGuidesWithOptions(c *notebooklm.Client, sourceIDs []string, force, jsonOutput bool) error {
 	enc := json.NewEncoder(os.Stdout)
 	for i, sourceID := range sourceIDs {
-		var guide *api.SourceGuide
+		var guide *notebooklm.SourceGuide
 		if !force {
 			cached, err := loadCachedSourceGuide(sourceID)
 			if err != nil {
@@ -1308,7 +1308,7 @@ func generateSourceGuidesWithOptions(c *api.Client, sourceIDs []string, force, j
 	return nil
 }
 
-func createAudioOverviewWithOptions(c *api.Client, projectID string, instructions string, opts audioCreateOptions) error {
+func createAudioOverviewWithOptions(c *notebooklm.Client, projectID string, instructions string, opts audioCreateOptions) error {
 	// NLM limits to one audio overview per notebook. Check for existing.
 	existing, _ := c.ListAudioOverviews(context.Background(), projectID)
 	if len(existing) > 0 {
@@ -1337,7 +1337,7 @@ func createAudioOverviewWithOptions(c *api.Client, projectID string, instruction
 	if err != nil {
 		return err
 	}
-	result, err := c.CreateAudioOverviewWithOptions(context.Background(), projectID, api.CreateAudioOverviewOptions{
+	result, err := c.CreateAudioOverviewWithOptions(context.Background(), projectID, notebooklm.CreateAudioOverviewOptions{
 		Instructions: instructions,
 		AudioType:    audioType,
 		Length:       length,
@@ -1374,13 +1374,13 @@ func createAudioOverviewWithOptions(c *api.Client, projectID string, instruction
 	return nil
 }
 
-func heartbeat(c *api.Client) error {
+func heartbeat(c *notebooklm.Client) error {
 	return nil
 }
 
 // New orchestration service functions
 
-func getAnalytics(c *api.Client, projectID string, jsonOutput bool) error {
+func getAnalytics(c *notebooklm.Client, projectID string, jsonOutput bool) error {
 	resp, err := c.GetProjectAnalytics(context.Background(), projectID)
 	if err != nil {
 		return fmt.Errorf("get analytics: %w", err)
@@ -1417,7 +1417,7 @@ func getAnalytics(c *api.Client, projectID string, jsonOutput bool) error {
 	return flush()
 }
 
-func listFeaturedProjects(c *api.Client, jsonOutput bool) error {
+func listFeaturedProjects(c *notebooklm.Client, jsonOutput bool) error {
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies, notebookLMBatchOptions()...)
 	resp, err := orchClient.ListFeaturedProjects(context.Background(), &pb.ListFeaturedProjectsRequest{})
 	if err != nil {
@@ -1476,7 +1476,7 @@ func featuredProjectDescription(project *pb.FeaturedProject) string {
 // When a notebook-id is available we gate client-side and emit a clear
 // error before dispatch; otherwise we pass through and surface the
 // server error as-is.
-func refreshSource(c *api.Client, notebookID, sourceID string) error {
+func refreshSource(c *notebooklm.Client, notebookID, sourceID string) error {
 	if err := assertDriveSource(c, notebookID, sourceID); err != nil {
 		return err
 	}
@@ -1489,7 +1489,7 @@ func refreshSource(c *api.Client, notebookID, sourceID string) error {
 	return nil
 }
 
-func checkSourceFreshness(c *api.Client, sourceID, notebookID string) error {
+func checkSourceFreshness(c *notebooklm.Client, sourceID, notebookID string) error {
 	if notebookID != "" {
 		if err := assertDriveSource(c, notebookID, sourceID); err != nil {
 			return err
@@ -1532,7 +1532,7 @@ func dispatchSourceFreshnessCheck(sourceID string) error {
 // notebookID but is not a Google-Drive source type. A lookup failure is
 // treated as non-fatal — the caller continues and lets the server
 // error speak for itself.
-func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
+func assertDriveSource(c *notebooklm.Client, notebookID, sourceID string) error {
 	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "note: could not verify source type (%v); dispatching anyway\n", err)
@@ -1560,7 +1560,7 @@ func assertDriveSourceType(source *pb.Source) error {
 	return fmt.Errorf("%w: refresh/freshness is Google-Drive-only; source %s is %s", errPrecondition, sourceID, sourceType)
 }
 
-func discoverSources(c *api.Client, projectID, query string, globals globalOptions, jsonOutput bool) error {
+func discoverSources(c *notebooklm.Client, projectID, query string, globals globalOptions, jsonOutput bool) error {
 	resp, err := c.DiscoverSources(context.Background(), projectID, query)
 	if err != nil {
 		// Earlier rounds routed this through deep-research as a
@@ -1570,7 +1570,7 @@ func discoverSources(c *api.Client, projectID, query string, globals globalOptio
 		// rejects the call, fall back to a chat suggestion so
 		// users still get something usable.
 		fmt.Fprintf(os.Stderr, "DiscoverSources (Es3dTe) returned %v; falling back to chat suggestions.\n", err)
-		res, fbErr := streamChatResponse(c, api.ChatRequest{
+		res, fbErr := streamChatResponse(c, notebooklm.ChatRequest{
 			ProjectID: projectID,
 			Prompt:    fmt.Sprintf("Suggest sources to add for this query: %s. Respond with a short bullet list of specific documents, sites, or search directions.", query),
 		}, chatRenderOptionsFromGlobals(globals))
@@ -1609,7 +1609,7 @@ func discoverSources(c *api.Client, projectID, query string, globals globalOptio
 }
 
 // Artifact management
-func getArtifact(c *api.Client, artifactID string) error {
+func getArtifact(c *notebooklm.Client, artifactID string) error {
 	artifact, err := c.GetArtifact(context.Background(), artifactID)
 	if err != nil {
 		return fmt.Errorf("get artifact: %w", err)
@@ -1696,7 +1696,7 @@ func getArtifact(c *api.Client, artifactID string) error {
 	return nil
 }
 
-func readArtifact(c *api.Client, artifactID, cdpURL string) error {
+func readArtifact(c *notebooklm.Client, artifactID, cdpURL string) error {
 	directErr := c.ReadArtifactFile(context.Background(), artifactID, "md", os.Stdout)
 	if directErr == nil {
 		return nil
@@ -1716,7 +1716,7 @@ func readArtifact(c *api.Client, artifactID, cdpURL string) error {
 	return err
 }
 
-func listArtifacts(c *api.Client, projectID string, jsonOutput bool) error {
+func listArtifacts(c *notebooklm.Client, projectID string, jsonOutput bool) error {
 	artifacts, err := c.ListArtifacts(context.Background(), projectID)
 	if err != nil {
 		return fmt.Errorf("list artifacts: %w", err)
@@ -1763,7 +1763,7 @@ func displayArtifacts(artifacts []*pb.Artifact, jsonOutput bool) error {
 	return flush()
 }
 
-func renameArtifact(c *api.Client, artifactID, newTitle string) error {
+func renameArtifact(c *notebooklm.Client, artifactID, newTitle string) error {
 	fmt.Fprintf(os.Stderr, "Renaming artifact %s to '%s'...\n", artifactID, newTitle)
 
 	artifact, err := c.RenameArtifact(context.Background(), artifactID, newTitle)
@@ -1778,7 +1778,7 @@ func renameArtifact(c *api.Client, artifactID, newTitle string) error {
 	return nil
 }
 
-func deleteArtifact(c *api.Client, artifactID string, yes bool) error {
+func deleteArtifact(c *notebooklm.Client, artifactID string, yes bool) error {
 	if !confirmAction(fmt.Sprintf("Are you sure you want to delete artifact %s?", artifactID), yes) {
 		return fmt.Errorf("operation cancelled")
 	}
@@ -1796,12 +1796,12 @@ func deleteArtifact(c *api.Client, artifactID string, yes bool) error {
 type chatResult struct {
 	Answer    string
 	Thinking  string
-	Citations []api.Citation // raw citation metadata for persistence / re-rendering
+	Citations []notebooklm.Citation // raw citation metadata for persistence / re-rendering
 	FollowUps []string
 	Rich      *pb.RichDocument // answer-body span tree; nil when the stream carried none
 }
 
-func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptions) (chatResult, error) {
+func streamChatResponse(c *notebooklm.Client, req notebooklm.ChatRequest, opts chatRenderOptions) (chatResult, error) {
 	mode := resolveCitationMode(opts.CitationMode)
 	warnDeprecatedCitationMode(os.Stderr, opts.CitationMode)
 	// --thinking-jsonl is the legacy form of `--citations=json --thinking`.
@@ -1811,11 +1811,11 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 		mode = citationModeJSON
 	}
 	resolveTitle := notebookSourceTitles(c, req.ProjectID)
-	var loadSource func(string) (api.LoadSourceText, error)
+	var loadSource func(string) (notebooklm.LoadSourceText, error)
 	// Only --resolve-citations needs source bodies now (for txtar file:line).
 	// Excerpts ship inline on the citation, so they need no loader.
 	if opts.ResolveCitations && c != nil && req.ProjectID != "" {
-		loadSource = func(sourceID string) (api.LoadSourceText, error) {
+		loadSource = func(sourceID string) (notebooklm.LoadSourceText, error) {
 			return c.LoadSourceText(context.Background(), sourceID, req.ProjectID)
 		}
 	}
@@ -1835,7 +1835,7 @@ func streamChatResponse(c *api.Client, req api.ChatRequest, opts chatRenderOptio
 	responseReceived, stopWaiting := startInitialChatResponseWaiter(os.Stderr, 30*time.Second)
 	defer stopWaiting()
 
-	err := c.StreamChat(context.Background(), req, func(chunk api.ChatChunk) bool {
+	err := c.StreamChat(context.Background(), req, func(chunk notebooklm.ChatChunk) bool {
 		responseReceived()
 		renderer.WriteChunk(chunk)
 		return true
@@ -1898,11 +1898,11 @@ func startInitialChatResponseWaiter(status io.Writer, interval time.Duration) (r
 // project source list, so it never resolves; the title lives under the parent
 // source at ParentSourceID. Resolve the parent first and fall back to SourceID
 // only for older frames that carried no parent.
-func persistableCitations(cites []api.Citation, resolveTitle func(string) string) []api.Citation {
+func persistableCitations(cites []notebooklm.Citation, resolveTitle func(string) string) []notebooklm.Citation {
 	if resolveTitle == nil || len(cites) == 0 {
 		return cites
 	}
-	out := make([]api.Citation, len(cites))
+	out := make([]notebooklm.Citation, len(cites))
 	copy(out, cites)
 	for i := range out {
 		if out[i].Title == "" {
@@ -1994,7 +1994,7 @@ func printStreamFallback(out io.Writer, streamed, full string, jsonl bool) {
 // fetch (offline / unauthed replay), mapped is false and callers must not claim
 // a source was removed — absence of a map is not evidence of a removed source.
 type notebookSourceIndex struct {
-	c         *api.Client
+	c         *notebooklm.Client
 	projectID string
 	titles    map[string]string // nil until a successful fetch
 	loaded    bool              // a fetch was attempted
@@ -2004,7 +2004,7 @@ type notebookSourceIndex struct {
 // newNotebookSourceIndex returns a lazy index, or nil when no client/notebook is
 // available (offline replay). A nil *notebookSourceIndex is safe to call: its
 // methods degrade to "unknown".
-func newNotebookSourceIndex(c *api.Client, projectID string) *notebookSourceIndex {
+func newNotebookSourceIndex(c *notebooklm.Client, projectID string) *notebookSourceIndex {
 	if c == nil || projectID == "" {
 		return nil
 	}
@@ -2061,7 +2061,7 @@ func (idx *notebookSourceIndex) removed(sourceID string) bool {
 // notebookSourceTitles adapts a source index to the bare title lookup the
 // live-stream renderer and persistableCitations use. Returns nil when no index
 // is available so existing nil-checks keep working.
-func notebookSourceTitles(c *api.Client, projectID string) func(string) string {
+func notebookSourceTitles(c *notebooklm.Client, projectID string) func(string) string {
 	idx := newNotebookSourceIndex(c, projectID)
 	if idx == nil {
 		return nil
@@ -2087,7 +2087,7 @@ func newListWriter(w *os.File) (io.Writer, func() error) {
 }
 
 // Generation operations
-func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generateChatOptions) error {
+func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts generateChatOptions) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
 	sourceIDs, err := resolveSourceSelectorsWithOptions(c, projectID, opts.Selectors)
@@ -2095,7 +2095,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 		return err
 	}
 
-	chatReq := api.ChatRequest{
+	chatReq := notebooklm.ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
 		SourceIDs: sourceIDs,
@@ -2119,7 +2119,7 @@ func generateFreeFormChat(c *api.Client, projectID, prompt string, opts generate
 
 	res, streamErr := streamChatResponse(c, chatReq, opts.Render)
 	if streamErr != nil {
-		if api.IsChatStreamTimeout(streamErr) {
+		if notebooklm.IsChatStreamTimeout(streamErr) {
 			return fmt.Errorf("generate chat: %w; the streaming RPC produced no usable response; check 'nlm auth status' and 'nlm sources %s'", streamErr, projectID)
 		}
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
@@ -2209,7 +2209,7 @@ func printContinuationHint(w *os.File, projectID, convID string, isNew bool) {
 // resolveGenerateChatConversation resolves --conversation and --web flags into
 // a conversation ID, wire history, and sequence number for generate-chat.
 // Returns empty values when neither flag is set (fresh conversation).
-func resolveGenerateChatConversation(c *api.Client, projectID string, opts generateChatOptions) (string, []api.ChatMessage, int, error) {
+func resolveGenerateChatConversation(c *notebooklm.Client, projectID string, opts generateChatOptions) (string, []notebooklm.ChatMessage, int, error) {
 	conversationID := opts.ConversationID
 	if opts.UseWebChat {
 		// Fetch the most recent server-side conversation.
@@ -2266,12 +2266,12 @@ func resolveGenerateChatConversation(c *api.Client, projectID string, opts gener
 // buildWireHistoryFromServer converts server-fetched ChatMessages into the
 // wire format expected by generate-chat: newest-first, with the final
 // message (which the server will pair with the current prompt) excluded.
-func buildWireHistoryFromServer(msgs []api.ChatMessage) []api.ChatMessage {
+func buildWireHistoryFromServer(msgs []notebooklm.ChatMessage) []notebooklm.ChatMessage {
 	if len(msgs) == 0 {
 		return nil
 	}
 	// Newest-first ordering to match buildWireHistory.
-	history := make([]api.ChatMessage, 0, len(msgs))
+	history := make([]notebooklm.ChatMessage, 0, len(msgs))
 	for i := len(msgs) - 1; i >= 0; i-- {
 		history = append(history, msgs[i])
 	}
@@ -2301,7 +2301,7 @@ Requirements:
 // the description are replaced with spaces so each blueprint stays on
 // a single line, safe for cut/awk/xargs pipelines. Pass --json to emit
 // JSON objects instead.
-func audioSuggestions(c *api.Client, notebookID string, jsonOutput bool) error {
+func audioSuggestions(c *notebooklm.Client, notebookID string, jsonOutput bool) error {
 	suggestions, err := c.GenerateArtifactSuggestions(context.Background(), notebookID, intmethod.ArtifactSuggestionKindAudio, 1)
 	if err != nil {
 		return err
@@ -2323,7 +2323,7 @@ func audioSuggestions(c *api.Client, notebookID string, jsonOutput bool) error {
 	return nil
 }
 
-func createReport(c *api.Client, notebookID, reportType string, extra []string, opts createReportOptions) error {
+func createReport(c *notebooklm.Client, notebookID, reportType string, extra []string, opts createReportOptions) error {
 	description := ""
 	instructions := ""
 	if len(extra) > 0 {
@@ -2365,7 +2365,7 @@ func createReport(c *api.Client, notebookID, reportType string, extra []string, 
 	return nil
 }
 
-func generateReport(c *api.Client, notebookID string, opts reportOptions) error {
+func generateReport(c *notebooklm.Client, notebookID string, opts reportOptions) error {
 	// Optionally set notebook instructions.
 	if opts.Instructions != "" {
 		fmt.Fprintf(os.Stderr, "Setting instructions...\n")
@@ -2407,7 +2407,7 @@ func generateReport(c *api.Client, notebookID string, opts reportOptions) error 
 		if opts.Prompt == "" && s.GetPrompt() != "" {
 			prompt = s.GetPrompt()
 		}
-		chatReq := api.ChatRequest{
+		chatReq := notebooklm.ChatRequest{
 			ProjectID: notebookID,
 			Prompt:    prompt,
 			SourceIDs: unionIDs(flagIDs, reportSuggestionSourceIDs(s)),
@@ -2442,7 +2442,7 @@ func reportSuggestionSourceIDs(s *pb.ReportSuggestion) []string {
 // readReportSuggestions reads suggestions from stdin (one title per line) or
 // from the report-suggestions API. API suggestions include per-section source
 // scoping and prompts; stdin suggestions are title-only.
-func readReportSuggestions(c *api.Client, notebookID string) ([]*pb.ReportSuggestion, error) {
+func readReportSuggestions(c *notebooklm.Client, notebookID string) ([]*pb.ReportSuggestion, error) {
 	if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice == 0 {
 		// stdin is piped — read topics from it.
 		var suggestions []*pb.ReportSuggestion
@@ -2476,7 +2476,7 @@ func readReportSuggestions(c *api.Client, notebookID string) ([]*pb.ReportSugges
 	return suggestions, nil
 }
 
-func deleteChatHistory(c *api.Client, notebookID string, yes bool) error {
+func deleteChatHistory(c *notebooklm.Client, notebookID string, yes bool) error {
 	if !confirmAction(fmt.Sprintf("Delete all chat history for notebook %s?", notebookID), yes) {
 		return fmt.Errorf("operation cancelled")
 	}
@@ -2487,7 +2487,7 @@ func deleteChatHistory(c *api.Client, notebookID string, yes bool) error {
 	return nil
 }
 
-func setChatConfig(c *api.Client, args chatConfigArgs) error {
+func setChatConfig(c *notebooklm.Client, args chatConfigArgs) error {
 	switch args.Setting {
 	case "goal":
 		if !args.ModeSet {
@@ -2495,13 +2495,13 @@ func setChatConfig(c *api.Client, args chatConfigArgs) error {
 		}
 		switch args.Mode {
 		case "default":
-			return c.SetChatConfig(context.Background(), args.NotebookID, api.ChatGoalDefault, "", api.ResponseLengthDefault)
+			return c.SetChatConfig(context.Background(), args.NotebookID, notebooklm.ChatGoalDefault, "", notebooklm.ResponseLengthDefault)
 		case "custom":
 			if len(args.Values) == 0 {
 				return fmt.Errorf("usage: nlm chat config <id> goal custom \"your prompt\"")
 			}
 			prompt := strings.Join(args.Values, " ")
-			return c.SetChatConfig(context.Background(), args.NotebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault)
+			return c.SetChatConfig(context.Background(), args.NotebookID, notebooklm.ChatGoalCustom, prompt, notebooklm.ResponseLengthDefault)
 		default:
 			return fmt.Errorf("unknown goal: %s (use 'default' or 'custom')", args.Mode)
 		}
@@ -2511,11 +2511,11 @@ func setChatConfig(c *api.Client, args chatConfigArgs) error {
 		}
 		switch args.Mode {
 		case "default":
-			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", api.ResponseLengthDefault)
+			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", notebooklm.ResponseLengthDefault)
 		case "longer":
-			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", api.ResponseLengthLonger)
+			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", notebooklm.ResponseLengthLonger)
 		case "shorter":
-			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", api.ResponseLengthShorter)
+			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", notebooklm.ResponseLengthShorter)
 		default:
 			return fmt.Errorf("unknown length: %s (use 'default', 'longer', or 'shorter')", args.Mode)
 		}
@@ -2539,7 +2539,7 @@ func isConversationID(s string) bool {
 }
 
 // oneShotChat sends a single prompt and streams the response without entering interactive mode.
-func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) error {
+func oneShotChat(c *notebooklm.Client, notebookID, prompt string, opts chatOptions) error {
 	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
@@ -2566,7 +2566,7 @@ func oneShotChat(c *api.Client, notebookID, prompt string, opts chatOptions) err
 	})
 
 	wireHistory := buildWireHistory(session)
-	chatReq := api.ChatRequest{
+	chatReq := notebooklm.ChatRequest{
 		ProjectID:      notebookID,
 		Prompt:         prompt,
 		SourceIDs:      sourceIDs,
@@ -2632,7 +2632,7 @@ func readPromptFile(path string) (string, error) {
 // oneShotChatInConv sends a single prompt to an existing conversation, then exits.
 // Mirrors oneShotChat but preserves the server-side conversation ID so callers
 // can chain turns via automation.
-func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string, opts chatOptions) error {
+func oneShotChatInConv(c *notebooklm.Client, notebookID, conversationID, prompt string, opts chatOptions) error {
 	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
@@ -2653,7 +2653,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 		Role: "user", Content: prompt, Timestamp: time.Now(),
 	})
 	wireHistory := buildWireHistory(session)
-	chatReq := api.ChatRequest{
+	chatReq := notebooklm.ChatRequest{
 		ProjectID:      notebookID,
 		Prompt:         prompt,
 		SourceIDs:      sourceIDs,
@@ -2691,7 +2691,7 @@ func oneShotChatInConv(c *api.Client, notebookID, conversationID, prompt string,
 }
 
 // interactiveChatWithConv starts or resumes an interactive chat with a specific conversation ID.
-func interactiveChatWithConv(c *api.Client, notebookID, conversationID string, opts chatOptions) error {
+func interactiveChatWithConv(c *notebooklm.Client, notebookID, conversationID string, opts chatOptions) error {
 	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
@@ -2740,7 +2740,7 @@ func interactiveChatWithConv(c *api.Client, notebookID, conversationID string, o
 
 // printChatHistory prints conversation history, trying the server first then
 // falling back to local session storage.
-func printChatHistory(c *api.Client, notebookID, conversationID string) error {
+func printChatHistory(c *notebooklm.Client, notebookID, conversationID string) error {
 	// Resolve partial conversation IDs (e.g. "abcd1234" from chat-list output).
 	conversationID = resolveConversationID(c, notebookID, conversationID)
 
@@ -2781,7 +2781,7 @@ func printChatHistory(c *api.Client, notebookID, conversationID string) error {
 
 type conversationHistoryClient interface {
 	GetConversations(context.Context, string) ([]string, error)
-	GetConversationHistory(context.Context, string, string) ([]api.ChatMessage, error)
+	GetConversationHistory(context.Context, string, string) ([]notebooklm.ChatMessage, error)
 }
 
 // resolveConversationID expands a partial conversation ID prefix (as shown by
@@ -2824,7 +2824,7 @@ func loadChatSessionByConversation(notebookID, conversationID string) (*chatSess
 	return nil, os.ErrNotExist
 }
 
-func chatSessionFromServerHistory(notebookID, conversationID string, messages []api.ChatMessage) *chatSession {
+func chatSessionFromServerHistory(notebookID, conversationID string, messages []notebooklm.ChatMessage) *chatSession {
 	now := time.Now()
 	session := &chatSession{
 		NotebookID:     notebookID,
@@ -2844,7 +2844,7 @@ func chatSessionFromServerHistory(notebookID, conversationID string, messages []
 			Role:      role,
 			Content:   message.Content,
 			MessageID: message.MessageID,
-			Citations: append([]api.Citation(nil), message.Citations...),
+			Citations: append([]notebooklm.Citation(nil), message.Citations...),
 			Rich:      message.Rich,
 		})
 	}
@@ -2868,7 +2868,7 @@ func citationContentKey(content string) string {
 // mergeChatHistory fills local gaps from server history without replacing
 // stream-only or already-persisted data. Thinking is intentionally untouched:
 // the history endpoint does not preserve the live reasoning trace.
-func mergeChatHistory(session *chatSession, rich map[string]*pb.RichDocument, citations map[string][]api.Citation) (changed bool, richCount, citationCount int) {
+func mergeChatHistory(session *chatSession, rich map[string]*pb.RichDocument, citations map[string][]notebooklm.Citation) (changed bool, richCount, citationCount int) {
 	for i := range session.Messages {
 		message := &session.Messages[i]
 		if message.Role != "assistant" {
@@ -2881,7 +2881,7 @@ func mergeChatHistory(session *chatSession, rich map[string]*pb.RichDocument, ci
 			changed = true
 		}
 		if len(message.Citations) == 0 && len(citations[key]) > 0 {
-			message.Citations = append([]api.Citation(nil), citations[key]...)
+			message.Citations = append([]notebooklm.Citation(nil), citations[key]...)
 			citationCount++
 			changed = true
 		}
@@ -2893,14 +2893,14 @@ func mergeChatHistory(session *chatSession, rich map[string]*pb.RichDocument, ci
 // local session, whose persisted citation metadata includes char ranges and
 // source IDs that the server history may omit.
 func chatShow(notebookID, conversationID string, opts chatRenderOptions) error {
-	var c *api.Client
+	var c *notebooklm.Client
 	if authToken != "" && cookies != "" {
-		c = newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, opts.Client)
+		c = newNotebookLMClient(notebooklm.Credentials{AuthToken: authToken, Cookies: cookies}, opts.Client)
 	}
 	return chatShowWithClients(notebookID, conversationID, opts, c, c)
 }
 
-func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptions, historyClient conversationHistoryClient, c *api.Client) error {
+func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptions, historyClient conversationHistoryClient, c *notebooklm.Client) error {
 	session, err := loadChatSessionByConversation(notebookID, conversationID)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -2940,7 +2940,7 @@ func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptio
 	//   - --resolve-citations still needs source bodies for txtar file:line,
 	//     via a memoized loader.
 	//   - Titles come from the notebook source list.
-	var loadSource func(string) (api.LoadSourceText, error)
+	var loadSource func(string) (notebooklm.LoadSourceText, error)
 	var resolveTitle func(string) string
 	var sourceRemoved func(string) bool
 	// Server-history citations (which carry excerpts and source-body offsets),
@@ -2948,7 +2948,7 @@ func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptio
 	// rather than position makes the swap robust to the server returning
 	// messages in a different order (newest-first) or count than the local
 	// session stores them (chronological).
-	historyCitations := map[string][]api.Citation{}
+	historyCitations := map[string][]notebooklm.Citation{}
 	historyAPIRich := map[string]*pb.RichDocument{}
 	// Parsed answer-body span trees from server history, keyed the same way as
 	// historyCitations (a signature of the answer text). Populated only when the
@@ -3007,23 +3007,23 @@ func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptio
 			}
 
 			if opts.ResolveCitations {
-				cache := make(map[string]api.LoadSourceText)
+				cache := make(map[string]notebooklm.LoadSourceText)
 				var authWarned bool
-				loadSource = func(sourceID string) (api.LoadSourceText, error) {
+				loadSource = func(sourceID string) (notebooklm.LoadSourceText, error) {
 					if body, ok := cache[sourceID]; ok {
 						if len(body.Fragments) == 0 {
-							return api.LoadSourceText{}, fmt.Errorf("source %s unavailable", sourceID)
+							return notebooklm.LoadSourceText{}, fmt.Errorf("source %s unavailable", sourceID)
 						}
 						return body, nil
 					}
 					body, err := c.LoadSourceText(context.Background(), sourceID, notebookID)
 					if err != nil {
-						cache[sourceID] = api.LoadSourceText{} // negative cache
+						cache[sourceID] = notebooklm.LoadSourceText{} // negative cache
 						if !authWarned {
 							authWarned = true
 							fmt.Fprintln(os.Stderr, "nlm: could not fetch source text (auth may be expired — run 'nlm auth'); skipping file:line.")
 						}
-						return api.LoadSourceText{}, err
+						return notebooklm.LoadSourceText{}, err
 					}
 					cache[sourceID] = body
 					return body, nil
@@ -3108,9 +3108,9 @@ type persistedRenderConfig struct {
 	excerptBudget  int
 	hideConfidence bool
 	hideSpans      bool
-	loadSource     func(string) (api.LoadSourceText, error) // fetch a source body for txtar file:line hydration
-	resolveTitle   func(string) string                      // map a source ID to its notebook title
-	sourceRemoved  func(string) bool                        // report a source ID no longer in the notebook
+	loadSource     func(string) (notebooklm.LoadSourceText, error) // fetch a source body for txtar file:line hydration
+	resolveTitle   func(string) string                             // map a source ID to its notebook title
+	sourceRemoved  func(string) bool                               // report a source ID no longer in the notebook
 }
 
 // listChatConversationsWithAuth creates a client and lists server-side
@@ -3119,12 +3119,12 @@ func listChatConversationsWithAuth(notebookID string, jsonOutput bool, commandOp
 	if authToken == "" || cookies == "" {
 		return fmt.Errorf("authentication required for server-side listing; run 'nlm auth' first")
 	}
-	c := newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, commandOptions)
+	c := newNotebookLMClient(notebooklm.Credentials{AuthToken: authToken, Cookies: cookies}, commandOptions)
 	return listChatConversations(c, notebookID, jsonOutput)
 }
 
 // listChatConversations lists server-side conversations for a notebook.
-func listChatConversations(c *api.Client, notebookID string, jsonOutput bool) error {
+func listChatConversations(c *notebooklm.Client, notebookID string, jsonOutput bool) error {
 	convIDs, err := c.GetConversations(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("list conversations: %w", err)
@@ -3218,15 +3218,15 @@ func listChatConversations(c *api.Client, notebookID string, jsonOutput bool) er
 	return flush()
 }
 
-func setInstructions(c *api.Client, notebookID, prompt string) error {
-	if err := c.SetChatConfig(context.Background(), notebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault); err != nil {
+func setInstructions(c *notebooklm.Client, notebookID, prompt string) error {
+	if err := c.SetChatConfig(context.Background(), notebookID, notebooklm.ChatGoalCustom, prompt, notebooklm.ResponseLengthDefault); err != nil {
 		return fmt.Errorf("set instructions: %w", err)
 	}
 	fmt.Fprintln(os.Stderr, "Instructions updated.")
 	return nil
 }
 
-func getInstructions(c *api.Client, notebookID string) error {
+func getInstructions(c *notebooklm.Client, notebookID string) error {
 	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("get project: %w", err)
@@ -3254,7 +3254,7 @@ func getInstructions(c *api.Client, notebookID string) error {
 }
 
 // Utility functions for commented-out operations
-func shareNotebook(c *api.Client, notebookID string) error {
+func shareNotebook(c *notebooklm.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating public share link...\n")
 	resp, err := c.ShareProject(context.Background(), notebookID, &pb.ShareSettings{IsPublic: true})
 	if err != nil {
@@ -3272,7 +3272,7 @@ func shareNotebook(c *api.Client, notebookID string) error {
 //
 // Supported keys for set: 'emoji' (default_project_emoji) and
 // 'email-notifications' (true/false).
-func runAccount(c *api.Client, args accountArgs) error {
+func runAccount(c *notebooklm.Client, args accountArgs) error {
 	if !args.ActionSet {
 		status, err := c.GetAccountStatus(context.Background())
 		if err != nil {
@@ -3327,7 +3327,7 @@ func runAccount(c *api.Client, args accountArgs) error {
 	}
 }
 
-func shareNotebookPrivate(c *api.Client, notebookID string) error {
+func shareNotebookPrivate(c *notebooklm.Client, notebookID string) error {
 	fmt.Fprintf(os.Stderr, "Generating private share link...\n")
 	resp, err := c.ShareProject(context.Background(), notebookID, &pb.ShareSettings{IsPublic: false})
 	if err != nil {
@@ -3354,7 +3354,7 @@ func printPrivateShareResult(w io.Writer, notebookID string, resp *pb.ShareProje
 	fmt.Fprintf(w, "Project shared privately, but the server returned no share URL or share ID. Open https://notebook.google.com/notebook/%s in the browser to copy the invite link.\n", notebookID)
 }
 
-func getShareDetails(c *api.Client, shareID string) error {
+func getShareDetails(c *notebooklm.Client, shareID string) error {
 	fmt.Fprintf(os.Stderr, "Getting share details...\n")
 	details, err := c.GetProjectDetails(context.Background(), shareID)
 	if err != nil {
@@ -3584,7 +3584,7 @@ func showRecentHistory(session *chatSession, maxMessages int) {
 // buildWireHistory converts a chatSession's messages into the wire format expected
 // by the NotebookLM chat API. Messages are ordered newest-first, with each entry
 // being [content, null, role] where role 1=user, 2=assistant.
-func buildWireHistory(session *chatSession) []api.ChatMessage {
+func buildWireHistory(session *chatSession) []notebooklm.ChatMessage {
 	msgs := session.Messages
 	// Exclude the last message (it's the current user prompt, sent separately)
 	if len(msgs) > 1 {
@@ -3594,13 +3594,13 @@ func buildWireHistory(session *chatSession) []api.ChatMessage {
 	}
 
 	// Build in reverse chronological order (newest first)
-	var history []api.ChatMessage
+	var history []notebooklm.ChatMessage
 	for i := len(msgs) - 1; i >= 0; i-- {
 		role := 1 // user
 		if msgs[i].Role == "assistant" {
 			role = 2
 		}
-		history = append(history, api.ChatMessage{
+		history = append(history, notebooklm.ChatMessage{
 			Content: msgs[i].Content,
 			Role:    role,
 		})
@@ -3641,7 +3641,7 @@ func getFallbackResponse(input, notebookID string) string {
 }
 
 // interactiveChat starts a new or resumes the default interactive chat session for a notebook.
-func interactiveChat(c *api.Client, notebookID string, opts chatOptions) error {
+func interactiveChat(c *notebooklm.Client, notebookID string, opts chatOptions) error {
 	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
@@ -3664,7 +3664,7 @@ func interactiveChat(c *api.Client, notebookID string, opts chatOptions) error {
 
 // runInteractiveChat runs the interactive chat loop with the given session.
 // sourceIDs, when non-empty, scopes every request in the loop to that subset.
-func runInteractiveChat(c *api.Client, session *chatSession, sourceIDs []string, opts chatOptions) error {
+func runInteractiveChat(c *notebooklm.Client, session *chatSession, sourceIDs []string, opts chatOptions) error {
 	notebookID := session.NotebookID
 
 	fmt.Println("\nNotebookLM Interactive Chat")
@@ -3892,7 +3892,7 @@ func runInteractiveChat(c *api.Client, session *chatSession, sourceIDs []string,
 		userMsg.SeqNum = session.SeqNum
 
 		wireHistory := buildWireHistory(session)
-		chatReq := api.ChatRequest{
+		chatReq := notebooklm.ChatRequest{
 			ProjectID:      notebookID,
 			Prompt:         input,
 			SourceIDs:      sourceIDs,
@@ -3956,7 +3956,7 @@ func runInteractiveChat(c *api.Client, session *chatSession, sourceIDs []string,
 	return nil
 }
 
-func createVideoOverviewWithOptions(c *api.Client, projectID string, instructions string, opts videoCreateOptions) error {
+func createVideoOverviewWithOptions(c *notebooklm.Client, projectID string, instructions string, opts videoCreateOptions) error {
 	fmt.Fprintf(os.Stderr, "Creating video overview for notebook %s...\n", projectID)
 	fmt.Printf("Instructions: %s\n", instructions)
 
@@ -3968,7 +3968,7 @@ func createVideoOverviewWithOptions(c *api.Client, projectID string, instruction
 	if err != nil {
 		return err
 	}
-	result, err := c.CreateVideoOverviewWithOptions(context.Background(), projectID, api.CreateVideoOverviewOptions{
+	result, err := c.CreateVideoOverviewWithOptions(context.Background(), projectID, notebooklm.CreateVideoOverviewOptions{
 		Instructions: instructions,
 		AudioType:    audioType,
 		VideoStyle:   style,
@@ -3992,7 +3992,7 @@ func createVideoOverviewWithOptions(c *api.Client, projectID string, instruction
 	return nil
 }
 
-func listAudioOverviews(c *api.Client, notebookID string, jsonOutput bool) error {
+func listAudioOverviews(c *notebooklm.Client, notebookID string, jsonOutput bool) error {
 	if !jsonOutput {
 		fmt.Fprintf(os.Stderr, "Listing audio overviews for notebook %s...\n", notebookID)
 	}
@@ -4050,7 +4050,7 @@ func listAudioOverviews(c *api.Client, notebookID string, jsonOutput bool) error
 	return flush()
 }
 
-func downloadAudioOverview(c *api.Client, notebookID string, filename string) error {
+func downloadAudioOverview(c *notebooklm.Client, notebookID string, filename string) error {
 	fmt.Fprintf(os.Stderr, "Downloading audio overview for notebook %s...\n", notebookID)
 
 	// Generate default filename if not provided

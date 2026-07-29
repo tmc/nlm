@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // weakConfidence is the grounding-score threshold below which a citation reads
@@ -14,9 +14,9 @@ const weakConfidence = 0.75
 
 // groupCitationsByIndex buckets citations by SourceIndex, preserving the order
 // indices first appear in the stream.
-func groupCitationsByIndex(cites []api.Citation) ([]int, map[int][]api.Citation) {
+func groupCitationsByIndex(cites []notebooklm.Citation) ([]int, map[int][]notebooklm.Citation) {
 	var order []int
-	groups := map[int][]api.Citation{}
+	groups := map[int][]notebooklm.Citation{}
 	for _, c := range cites {
 		if _, ok := groups[c.SourceIndex]; !ok {
 			order = append(order, c.SourceIndex)

@@ -78,7 +78,7 @@ func testProtoListItem(nesting int64) *pb.ListItem {
 // character (offset integrity: reflow only adds whitespace, never drops or
 // reorders content, so citation offsets into the flat text stay valid). The
 // proto-decode seam is covered by TestExtractChatPayloadPreservesRichDocument
-// in the api package; this exercises the bridge→project→flatten chain that runs
+// in the notebooklm package; this exercises the bridge→project→flatten chain that runs
 // on the cmd side.
 func TestRichReflowIntegrity(t *testing.T) {
 	// Three paragraphs the flat text would run together ("AlphaBetaGamma").

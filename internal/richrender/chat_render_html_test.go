@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // decodeHTMLPayload extracts and decodes the JSON blob the page embeds in its
@@ -65,7 +65,7 @@ func TestRenderChatHTMLSelfContained(t *testing.T) {
 			{
 				Role:    "assistant",
 				Content: "Auth uses stored cookies and a token.",
-				Citations: []api.Citation{{
+				Citations: []notebooklm.Citation{{
 					SourceIndex: 1,
 					SourceID:    "11111111-2222-3333-4444-555555555555",
 					Title:       "auth.go",
@@ -113,7 +113,7 @@ func TestRenderChatHTMLMobileInteraction(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "A wide equation $$x_1 + x_2 + x_3 = y$$ [1]",
-			Citations: []api.Citation{{
+			Citations: []notebooklm.Citation{{
 				SourceIndex: 1,
 				SourceID:    "source-mobile",
 				Title:       "Mobile source",
@@ -164,7 +164,7 @@ func TestRenderChatHTMLMarkerLinking(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Alpha grounds this [1] and that [2].",
-			Citations: []api.Citation{
+			Citations: []notebooklm.Citation{
 				{SourceIndex: 1, SourceID: "abcdef0123456789", Title: "t1", StartChar: 0, EndChar: 5, Confidence: 0.9, Excerpt: "e1"},
 				{SourceIndex: 2, SourceID: "99887766aabbccdd", Title: "t2", StartChar: 6, EndChar: 9, Confidence: 0.6, Excerpt: "e2"},
 			},
@@ -208,7 +208,7 @@ func TestRenderChatHTMLEscaping(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: `See <script>alert(1)</script> & more.`,
-			Citations: []api.Citation{{
+			Citations: []notebooklm.Citation{{
 				SourceIndex: 1,
 				SourceID:    "deadbeefcafef00d",
 				Title:       `<img src=x onerror=alert(2)> & co`,
@@ -266,7 +266,7 @@ func TestRenderChatHTMLMultibyteNoCorruption(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: content,
-			Citations: []api.Citation{{
+			Citations: []notebooklm.Citation{{
 				SourceIndex: 1, SourceID: "feedface00000000", Title: "t",
 				StartChar: 0, EndChar: 5, Excerpt: "héllo 世界 🌍", Confidence: 0.95,
 			}},
@@ -293,7 +293,7 @@ func TestRenderChatHTMLPerSourceExcerpts(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Grounded in several sources [1].",
-			Citations: []api.Citation{
+			Citations: []notebooklm.Citation{
 				{SourceIndex: 1, SourceID: "aaaa0000aaaa0000", Title: "A", Excerpt: "excerpt from source A", Confidence: 0.9},
 				{SourceIndex: 1, SourceID: "bbbb1111bbbb1111", Title: "B", Excerpt: "excerpt from source B", Confidence: 0.7},
 			},
@@ -314,7 +314,7 @@ func TestRenderChatHTMLHideConfidenceAndSpans(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "answer body here",
-			Citations: []api.Citation{{
+			Citations: []notebooklm.Citation{{
 				SourceIndex: 1, SourceID: "aabbccddeeff0011", Title: "t",
 				StartChar: 0, EndChar: 6, Confidence: 0.4,
 				SourceStart: 10, SourceEnd: 40, Excerpt: "e",
@@ -337,7 +337,7 @@ func TestRenderChatHTMLWeakConfidence(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "weak and strong",
-			Citations: []api.Citation{
+			Citations: []notebooklm.Citation{
 				{SourceIndex: 1, SourceID: "s1s1s1s1s1s1s1s1", Title: "weak", StartChar: 0, EndChar: 4, Confidence: weakConfidence - 0.2},
 				{SourceIndex: 2, SourceID: "s2s2s2s2s2s2s2s2", Title: "strong", StartChar: 9, EndChar: 15, Confidence: weakConfidence + 0.1},
 			},
@@ -368,7 +368,7 @@ func TestRenderChatHTMLResolvedLocationAndTitle(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "resolved answer",
-			Citations: []api.Citation{{
+			Citations: []notebooklm.Citation{{
 				SourceIndex: 1, SourceID: "res0res0res0res0", Title: "server-title",
 				StartChar: 0, EndChar: 8, SourceStart: 200, SourceEnd: 260, Confidence: 0.8,
 			}},
@@ -400,7 +400,7 @@ func TestRenderChatHTMLResolvedLocationAndTitle(t *testing.T) {
 func TestRenderChatHTMLPreservesExcerptNewlines(t *testing.T) {
 	excerpt := "line one\n  indented two\n\nline four"
 	doc := ChatDocument{Messages: []ChatMessage{
-		{Role: "assistant", Content: "See the config [1].", Citations: []api.Citation{
+		{Role: "assistant", Content: "See the config [1].", Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "cfgabcd-1", Title: "config", Excerpt: excerpt, StartChar: 4, EndChar: 10, Confidence: 0.9},
 		}},
 	}}
@@ -424,7 +424,7 @@ func TestRenderChatHTMLPreservesExcerptNewlines(t *testing.T) {
 }
 
 func TestBuildCitationStructuredExcerpt(t *testing.T) {
-	runs := []api.ExcerptRun{
+	runs := []notebooklm.ExcerptRun{
 		{Text: "plain "},
 		{Text: "code", Code: true},
 		{Text: " http", Link: "https://example.test/docs"},
@@ -437,7 +437,7 @@ func TestBuildCitationStructuredExcerpt(t *testing.T) {
 	for _, run := range runs {
 		flat.WriteString(run.Text)
 	}
-	citation := api.Citation{
+	citation := notebooklm.Citation{
 		SourceIndex: 1,
 		SourceID:    "source-1",
 		Excerpt:     flat.String(),
@@ -465,7 +465,7 @@ func TestBuildCitationStructuredExcerpt(t *testing.T) {
 	}
 
 	page := renderToString(t, ChatDocument{Messages: []ChatMessage{{
-		Role: "assistant", Content: "claim [1]", Citations: []api.Citation{citation},
+		Role: "assistant", Content: "claim [1]", Citations: []notebooklm.Citation{citation},
 	}}}, RenderContext{})
 	for _, want := range []string{
 		`document.createTextNode(run.text)`,
@@ -523,7 +523,7 @@ func TestRenderChatHTMLRailAndBottom(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Backed by a source [1].",
-			Citations: []api.Citation{
+			Citations: []notebooklm.Citation{
 				{SourceIndex: 1, SourceID: "aaaa0000aaaa0000", Title: "A", Excerpt: "cited text A", Confidence: 0.9},
 			},
 		}},
@@ -548,7 +548,7 @@ func TestRenderChatHTMLRailNavigation(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [1]",
-		Citations: []api.Citation{{
+		Citations: []notebooklm.Citation{{
 			SourceIndex: 1,
 			SourceID:    "source-1",
 			StartChar:   0,
@@ -583,7 +583,7 @@ func TestGroundedSpanValidatesAndCarries(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: groundedAnswer,
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			// A real, in-range range covering "Alpha beta gamma." — must be carried.
 			{SourceIndex: 1, SourceID: "s1", StartChar: 0, EndChar: 17, Confidence: 0.9},
 		},
@@ -613,7 +613,7 @@ func TestGroundedSpanSkipsBadRanges(t *testing.T) {
 			doc := ChatDocument{Messages: []ChatMessage{{
 				Role:      "assistant",
 				Content:   groundedAnswer,
-				Citations: []api.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: tc.start, EndChar: tc.end}},
+				Citations: []notebooklm.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: tc.start, EndChar: tc.end}},
 			}}}
 			p := decodeHTMLPayload(t, renderToString(t, doc, RenderContext{}))
 			if sp := p.Messages[0].Markers[0].Span; sp != nil {
@@ -637,7 +637,7 @@ func TestGroundedSpanMultibyte(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:      "assistant",
 		Content:   content,
-		Citations: []api.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: 3, EndChar: 20}},
+		Citations: []notebooklm.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: 3, EndChar: 20}},
 	}}}
 	html := renderToString(t, doc, RenderContext{})
 	p := decodeHTMLPayload(t, html)
@@ -725,7 +725,7 @@ func TestRenderChatHTMLFlatFallback(t *testing.T) {
 	doc := structuredAnswerDoc()
 	// Give the content a newline: the tree render must not fire.
 	doc.Messages[0].Content = "Line one.\n\n- a markdown bullet\n\nSee [1]."
-	doc.Messages[0].Citations = []api.Citation{{
+	doc.Messages[0].Citations = []notebooklm.Citation{{
 		SourceIndex: 1, SourceID: "aaaa0000aaaa0000", Title: "t", Excerpt: "e", Confidence: 0.9,
 	}}
 	html := renderToString(t, doc, RenderContext{})
@@ -809,7 +809,7 @@ func TestRenderChatHTMLXSSInAnswer(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: payload,
-			Citations: []api.Citation{{
+			Citations: []notebooklm.Citation{{
 				SourceIndex: 1, SourceID: "aaaa0000aaaa0000", Title: "t", Excerpt: "e", Confidence: 0.9,
 			}},
 		}},
@@ -855,7 +855,7 @@ func TestRenderChatHTMLMarkerRangeExpands(t *testing.T) {
 		Messages: []ChatMessage{{
 			Role:    "assistant",
 			Content: "Grounded across [1-4] and also [2, 3] but not [9].",
-			Citations: []api.Citation{
+			Citations: []notebooklm.Citation{
 				{SourceIndex: 1, SourceID: "aaaa0000aaaa0001", Title: "a", Excerpt: "e", Confidence: 0.9},
 				{SourceIndex: 2, SourceID: "aaaa0000aaaa0002", Title: "b", Excerpt: "e", Confidence: 0.9},
 				{SourceIndex: 3, SourceID: "aaaa0000aaaa0003", Title: "c", Excerpt: "e", Confidence: 0.9},
@@ -889,7 +889,7 @@ func TestRenderChatHTMLGroundedSpanInBody(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: groundedAnswer, // "Alpha beta gamma. [1] Delta."
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "s1", StartChar: 0, EndChar: 17, Confidence: 0.9},
 		},
 	}}}
@@ -905,7 +905,7 @@ func TestRenderChatHTMLGroundedSpanInBody(t *testing.T) {
 
 func TestAlignHTMLCitationsToVisibleMarkers(t *testing.T) {
 	content := "Prefix decoration. Grounded answer text [4, 7]. More source content [7-9]."
-	citations := []api.Citation{
+	citations := []notebooklm.Citation{
 		{SourceIndex: 1, SourceID: "source-4", StartChar: 5, EndChar: 25},
 		{SourceIndex: 1, SourceID: "source-7", StartChar: 5, EndChar: 25},
 		{SourceIndex: 2, SourceID: "source-7", StartChar: 26, EndChar: 45},
@@ -1001,7 +1001,7 @@ func TestRenderChatHTMLMultibyteOffsets(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:      "assistant",
 		Content:   content,
-		Citations: []api.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: 3, EndChar: 20, Confidence: 0.9}},
+		Citations: []notebooklm.Citation{{SourceIndex: 1, SourceID: "s1", StartChar: 3, EndChar: 20, Confidence: 0.9}},
 	}}}
 	body := answerBody(t, renderToString(t, doc, RenderContext{}), 0)
 	if !strings.Contains(body, `<span class="grounded" data-msg="0" data-cite="1">Alpha beta gamma.</span>`) {
@@ -1034,7 +1034,7 @@ func thinkingDoc() ChatDocument {
 		Role:     "assistant",
 		Content:  "The answer. [1]",
 		Thinking: "First I consider X.\n\nThen I weigh Y.",
-		Citations: []api.Citation{{
+		Citations: []notebooklm.Citation{{
 			SourceIndex: 1, SourceID: "aaaa0000aaaa0000", Title: "t", Excerpt: "e", Confidence: 0.9,
 		}},
 	}}}

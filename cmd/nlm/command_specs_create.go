@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type appCreateArgs struct {
@@ -164,8 +164,8 @@ func decodeAppCreateArgs(parsed parsedCommand, defaultType string) (appCreateArg
 }
 
 func appCreateCall(args appCreateArgs) commandCall {
-	return func(_ context.Context, client *api.Client) error {
-		kind, err := api.ParseAppArtifactKind(args.Options.Type)
+	return func(_ context.Context, client *notebooklm.Client) error {
+		kind, err := notebooklm.ParseAppArtifactKind(args.Options.Type)
 		if err != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ func decodeAudioCreate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return createAudioOverviewWithOptions(client, args.NotebookID, args.Instructions, args.Options)
 	}, nil
 }
@@ -229,7 +229,7 @@ func decodeVideoCreate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return createVideoOverviewWithOptions(client, args.NotebookID, args.Instructions, args.Options)
 	}, nil
 }
@@ -255,7 +255,7 @@ func decodeSlidesCreate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		var sourceIDs []string
 		var err error
 		if !args.Options.Selectors.empty() {

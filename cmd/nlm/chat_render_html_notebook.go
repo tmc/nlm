@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type localChatSessionRecord struct {
@@ -149,9 +149,9 @@ func chatShowNotebook(notebookID string, opts chatRenderOptions) error {
 	}
 
 	docs := make([]notebookChatDocument, 0, len(records))
-	var historyClient *api.Client
+	var historyClient *notebooklm.Client
 	if opts.ExcerptBudget > 0 && authToken != "" && cookies != "" {
-		historyClient = newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, opts.Client)
+		historyClient = newNotebookLMClient(notebooklm.Credentials{AuthToken: authToken, Cookies: cookies}, opts.Client)
 	}
 	for _, record := range records {
 		doc := notebookDocumentFromSession(record.Session)
@@ -178,8 +178,8 @@ func chatShowNotebook(notebookID string, opts chatRenderOptions) error {
 // mergeNotebookHistory overlays the excerpt-bearing citations and rich tree
 // returned by conversation history onto a render-only document. The saved
 // session remains authoritative on disk and is never modified.
-func mergeNotebookHistory(doc *chatDocument, messages []api.ChatMessage) {
-	citations := make(map[string][]api.Citation)
+func mergeNotebookHistory(doc *chatDocument, messages []notebooklm.ChatMessage) {
+	citations := make(map[string][]notebooklm.Citation)
 	rich := make(map[string]*richDocument)
 	for _, message := range messages {
 		if message.Role != 2 {
@@ -228,19 +228,19 @@ func notebookChatRenderContext(notebookID string, opts chatRenderOptions) chatRe
 		return ctx
 	}
 
-	c := newNotebookLMClient(api.Credentials{AuthToken: authToken, Cookies: cookies}, opts.Client)
+	c := newNotebookLMClient(notebooklm.Credentials{AuthToken: authToken, Cookies: cookies}, opts.Client)
 	sourceIndex := newNotebookSourceIndex(c, notebookID)
 	ctx.ResolveTitle = sourceIndex.title
 	ctx.SourceRemoved = sourceIndex.removed
 	if opts.ResolveCitations {
-		cache := make(map[string]api.LoadSourceText)
-		ctx.LoadSource = func(sourceID string) (api.LoadSourceText, error) {
+		cache := make(map[string]notebooklm.LoadSourceText)
+		ctx.LoadSource = func(sourceID string) (notebooklm.LoadSourceText, error) {
 			if body, ok := cache[sourceID]; ok {
 				return body, nil
 			}
 			body, err := c.LoadSourceText(context.Background(), sourceID, notebookID)
 			if err != nil {
-				return api.LoadSourceText{}, err
+				return notebooklm.LoadSourceText{}, err
 			}
 			cache[sourceID] = body
 			return body, nil

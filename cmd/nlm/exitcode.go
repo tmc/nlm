@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // Exit codes classify failure modes so shell scripts can branch on them.
@@ -77,18 +77,18 @@ func exitCodeFor(err error) int {
 
 	// Typed api-layer sentinels for states batchexecute cannot disambiguate.
 	switch {
-	case errors.Is(err, api.ErrAuthExpired):
+	case errors.Is(err, notebooklm.ErrAuthExpired):
 		return exitAuth
-	case errors.Is(err, api.ErrSourceCapReached),
-		errors.Is(err, api.ErrSourceTooLarge),
-		errors.Is(err, api.ErrNotebookCapReached):
+	case errors.Is(err, notebooklm.ErrSourceCapReached),
+		errors.Is(err, notebooklm.ErrSourceTooLarge),
+		errors.Is(err, notebooklm.ErrNotebookCapReached):
 		return exitPrecondition
-	case errors.Is(err, api.ErrArtifactGenerating),
-		errors.Is(err, api.ErrResearchPolling):
+	case errors.Is(err, notebooklm.ErrArtifactGenerating),
+		errors.Is(err, notebooklm.ErrResearchPolling):
 		return exitBusy
-	case errors.Is(err, api.ErrNotebookNotAccessible),
-		errors.Is(err, api.ErrArtifactNotFound),
-		errors.Is(err, api.ErrNoteNotFound):
+	case errors.Is(err, notebooklm.ErrNotebookNotAccessible),
+		errors.Is(err, notebooklm.ErrArtifactNotFound),
+		errors.Is(err, notebooklm.ErrNoteNotFound):
 		return exitNotFound
 	}
 

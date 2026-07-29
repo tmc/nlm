@@ -3361,7 +3361,7 @@ func (x *DeleteArtifactRequest) GetArtifactId() string {
 //
 // where RequestContext.artifact_types carries the type filter and field 3 is a
 // CEL-ish filter string (e.g. NOT artifact.status = "ARTIFACT_STATUS_SUGGESTED").
-// The live api.Client.ListArtifacts hand-builds a truncated [[2], project_id]
+// The live notebooklm.Client.ListArtifacts hand-builds a truncated [[2], project_id]
 // form and does not use this message as an encoder.
 type ListArtifactsRequest struct {
 	state         protoimpl.MessageState
@@ -8741,7 +8741,7 @@ func (x *MutateAccountCapabilityPair) GetSecond() int32 {
 // previously modeled as an "email" string, but the wire carries a
 // [tier, notebook_limit, source_limit, upload_limit, tier] quota array
 // instead (see AccountLimits; confirmed against the hand-written
-// AccountStatus decoder in internal/notebooklm/api/account.go, which reads
+// AccountStatus decoder in notebooklm/account.go, which reads
 // the same ZwVcOc response positionally). No live code reads Account.email,
 // so the field is replaced rather than kept alongside the real shape.
 type Account struct {
@@ -16945,7 +16945,7 @@ func (x *InteractivityICEServer) GetCredential() string {
 // Position [0] is a 2-level-nested filename list (the inner [filename]
 // is a 1-element list). Position [2] is [2] = source_type=file_upload.
 // Position [3] is the same fixed options blob seen in DeleteArtifact's
-// V5N4be call. See api.Client.registerFileSource (client.go:952).
+// V5N4be call. See notebooklm.Client.registerFileSource (client.go:952).
 type AddFileSourceRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -17178,7 +17178,7 @@ func (*DeleteChatTurnsResponse) Descriptor() ([]byte, []int) {
 //
 // JS bundle binding: Ljjv0c → DiscoverSourcesManifold. The
 // "research" feature is built on top of the DiscoverSources job
-// system; api.Client uses the StartFastResearch alias.
+// system; notebooklm.Client uses the StartFastResearch alias.
 //
 // Wire request: [[query, 1], null, 1, project_id]
 // Wire response: [conversation_id]
@@ -22270,7 +22270,7 @@ func (x *CreateLabelResponse) GetCollections() []*Collection {
 //
 //	[<RequestContext>, project_id, label_id, [<mutation>]]
 //
-// The live path (api.Client.mutateLabel) hand-builds these args and does not
+// The live path (notebooklm.Client.mutateLabel) hand-builds these args and does not
 // use this message as an encoder, so the layout is decode-only. The mutation
 // block has two observed inner shapes: [[name, emoji]] (rename/emoji) and
 // [null, [[source_id]]] (attach source); the captured request is the latter.
@@ -24351,7 +24351,7 @@ func (x *CopyProjectResponse) GetStatus() int64 {
 }
 
 // CreateAudioOverviewLegacy (AHyHrd). Direct-RPC fallback that
-// api.Client.createAudioOverviewDirectRPC still uses; the live UI now
+// notebooklm.Client.createAudioOverviewDirectRPC still uses; the live UI now
 // goes through R7cb6c. The "Legacy" suffix avoids a name collision
 // with the modern CreateAudioOverview rpc that targets R7cb6c above.
 type CreateAudioOverviewLegacyRequest struct {

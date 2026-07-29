@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestChatMarkdownSubset(t *testing.T) {
@@ -12,7 +12,7 @@ func TestChatMarkdownSubset(t *testing.T) {
 		Role: "assistant",
 		Content: "### Heading\n\n**Bold** and *italic* with `code` [1,2].\n\n" +
 			"- first\n  - nested\n\n1. one\n2. two\n\n---\n\n$k$",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "source-1"},
 			{SourceIndex: 2, SourceID: "source-2"},
 		},

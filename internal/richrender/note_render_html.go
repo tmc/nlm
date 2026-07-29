@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 var (
@@ -77,7 +77,7 @@ func noteHasMath(text string) bool {
 }
 
 func noteCitationMarkers(doc NoteDocument) []htmlMarker {
-	citations := append([]api.Citation(nil), doc.Citations...)
+	citations := append([]notebooklm.Citation(nil), doc.Citations...)
 	for i := range citations {
 		citations[i].SourceID = citationSourceID(citations[i])
 	}
@@ -153,7 +153,7 @@ func richNoteNodes(doc NoteDocument, markers []htmlMarker) []answerNode {
 	return liftSplitMathCitations(nodes, 0, byIndex)
 }
 
-func noteMarkerOccurrences(citations []api.Citation) []noteMarkerOccurrence {
+func noteMarkerOccurrences(citations []notebooklm.Citation) []noteMarkerOccurrence {
 	var out []noteMarkerOccurrence
 	seen := make(map[string]bool)
 	for _, citation := range citations {

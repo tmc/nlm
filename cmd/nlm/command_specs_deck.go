@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type deckDownloadArgs struct {
@@ -47,7 +47,7 @@ func decodeDeckDownload(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return runDeckDownload(client, args)
 	}, nil
 }

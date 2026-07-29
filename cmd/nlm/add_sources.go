@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // runPreProcess pipes r through `sh -c cmd` and returns the command's stdout.
@@ -71,7 +71,7 @@ func chunkedSourceNames(base string, n int) []string {
 // Used when the caller passed --chunk N and the source is not a URL. Returns
 // one source ID per uploaded part, in order. The first error aborts remaining
 // uploads.
-func addSourceChunked(c *api.Client, notebookID string, content []byte, baseName string, chunkSize int) ([]string, error) {
+func addSourceChunked(c *notebooklm.Client, notebookID string, content []byte, baseName string, chunkSize int) ([]string, error) {
 	parts := splitIntoChunks(content, chunkSize)
 	if len(parts) == 0 {
 		return nil, fmt.Errorf("nothing to upload: source is empty")
@@ -158,7 +158,7 @@ func validateSourceInputs(inputs []string) error {
 // NOTE: the underlying wire path is per-type RPCs (text/base64/upload-url),
 // not an unverified izAoDd bulk envelope. When capture evidence establishes
 // that wire shape, this function is the single switch point.
-func addSources(c *api.Client, notebookID string, inputs []string, opts sourceAddOptions) error {
+func addSources(c *notebooklm.Client, notebookID string, inputs []string, opts sourceAddOptions) error {
 	if err := validateSourceInputs(inputs); err != nil {
 		return err
 	}
@@ -222,9 +222,9 @@ func replaceUploadedSource(ctx context.Context, c sourceReplaceClient, notebookI
 // addSourceEntry dispatches a single positional input to the appropriate
 // upload path and returns one or more source IDs. URLs and binary files
 // upload as a single source (one ID); text content auto-chunks on server-
-// side rejection via api.AddSourceFromTextAuto, returning one ID per part.
+// side rejection via notebooklm.AddSourceFromTextAuto, returning one ID per part.
 // Passing --chunk N forces fixed-size splitting and skips auto-chunking.
-func addSourceEntry(c *api.Client, notebookID, input string, opts sourceAddOptions) ([]string, error) {
+func addSourceEntry(c *notebooklm.Client, notebookID, input string, opts sourceAddOptions) ([]string, error) {
 	if opts.Chunk > 0 && !isURL(input) {
 		content, name, err := collectChunkedInput(input, opts)
 		if err != nil {
@@ -283,9 +283,9 @@ func isProbablyText(content []byte, name string) bool {
 // addSourceAuto uploads text content via the auto-chunking helper, emitting
 // per-part progress to stderr so the user can see how many parts went up
 // when content is large enough to be split.
-func addSourceAuto(c *api.Client, notebookID string, content []byte, baseName string) ([]string, error) {
+func addSourceAuto(c *notebooklm.Client, notebookID string, content []byte, baseName string) ([]string, error) {
 	content = prepareTextSource(content)
-	progress := func(p api.AutoChunkProgress) {
+	progress := func(p notebooklm.AutoChunkProgress) {
 		switch {
 		case p.SourceID != "":
 			fmt.Fprintf(os.Stderr, "  uploaded %s (%d bytes) -> %s\n", p.PartName, p.SizeBytes, p.SourceID)
@@ -342,7 +342,7 @@ func isMarkupName(name []byte) bool {
 // already happened (so we have the bytes), but the content isn't text. We
 // upload as a single binary source via the resumable upload path, paying
 // the cost of holding the whole file in memory once. URLs never reach here.
-func addSourceBinaryFallback(c *api.Client, notebookID, input string, content []byte, name string, opts sourceAddOptions) ([]string, error) {
+func addSourceBinaryFallback(c *notebooklm.Client, notebookID, input string, content []byte, name string, opts sourceAddOptions) ([]string, error) {
 	if _, err := os.Stat(input); err == nil {
 		id, err := addLocalFileSource(context.Background(), c, notebookID, input, bytes.NewReader(content), opts)
 		if err != nil {
@@ -418,7 +418,7 @@ func collectChunkedInput(input string, opts sourceAddOptions) ([]byte, string, e
 	return content, name, nil
 }
 
-func sourceIDSet(c *api.Client, notebookID string) (map[string]struct{}, error) {
+func sourceIDSet(c *notebooklm.Client, notebookID string) (map[string]struct{}, error) {
 	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return nil, err
@@ -434,7 +434,7 @@ func sourceIDSet(c *api.Client, notebookID string) (map[string]struct{}, error) 
 	return ids, nil
 }
 
-func cleanupFailedAdd(c *api.Client, notebookID string, knownSourceIDs map[string]struct{}) error {
+func cleanupFailedAdd(c *notebooklm.Client, notebookID string, knownSourceIDs map[string]struct{}) error {
 	if knownSourceIDs == nil {
 		return nil
 	}

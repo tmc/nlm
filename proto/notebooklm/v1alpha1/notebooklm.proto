@@ -414,7 +414,7 @@ message GenerateDocumentGuidesResponse {
 //
 //   [ [[source_id]], [summary], [[topic, topic, ...]], [] ]
 //
-// The live reader (api.Client.GenerateSourceGuide) hand-parses these
+// The live reader (notebooklm.Client.GenerateSourceGuide) hand-parses these
 // positions directly; this message mirrors the wire for betool/beprotojson
 // decode. Positions [1] and [2] wrap their payload one level deep, so each is
 // modeled as a small wrapper message.
@@ -606,7 +606,7 @@ service NotebookLM {
 
     // Generation operations
     //
-    // Per-source guide generation (tr032e) lives in the api package, not
+    // Per-source guide generation (tr032e) lives in the notebooklm package, not
     // here — its wire shape is keyed by source_id, not project_id, and
     // does not round-trip through the %project_id%-style arg_format.
     rpc GenerateNotebookGuide(GenerateNotebookGuideRequest) returns (GenerateNotebookGuideResponse) {

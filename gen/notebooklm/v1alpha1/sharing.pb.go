@@ -196,7 +196,7 @@ type GetProjectDetailsRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Field is named share_id for backwards compatibility with
-	// existing Go callers (api.Client.GetProjectDetails); on the wire
+	// existing Go callers (notebooklm.Client.GetProjectDetails); on the wire
 	// this is the project UUID.
 	ShareId string          `protobuf:"bytes,1,opt,name=share_id,json=shareId,proto3" json:"share_id,omitempty"`
 	Context *RequestContext `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`

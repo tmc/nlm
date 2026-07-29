@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // NativeCitation is a citation event emitted by
@@ -46,7 +46,7 @@ type Resolved struct {
 }
 
 type sourceResolver struct {
-	body        api.LoadSourceText
+	body        notebooklm.LoadSourceText
 	text        []rune
 	defaultFile string
 	members     []txtarMember
@@ -62,7 +62,7 @@ type txtarMember struct {
 }
 
 // Resolve maps one citation against a source's server-indexed text.
-func Resolve(body api.LoadSourceText, c NativeCitation) Resolved {
+func Resolve(body notebooklm.LoadSourceText, c NativeCitation) Resolved {
 	return newSourceResolver(body).Resolve(c)
 }
 
@@ -72,7 +72,7 @@ func Resolve(body api.LoadSourceText, c NativeCitation) Resolved {
 // and replaces each non-empty run of Unicode whitespace with one ASCII space.
 // If no projection, or more than one distinct projection, matches, resolution
 // fails closed.
-func ResolveCitation(body api.LoadSourceText, c NativeCitation, excerpt string) Resolved {
+func ResolveCitation(body notebooklm.LoadSourceText, c NativeCitation, excerpt string) Resolved {
 	out := unresolvedCitation(body, c)
 	if strings.TrimSpace(excerpt) == "" {
 		out.Status = StatusOffsetMiss
@@ -120,11 +120,11 @@ func ExcerptMatches(source, excerpt string) bool {
 	return strings.Join(strings.Fields(source), " ") == strings.Join(strings.Fields(excerpt), " ")
 }
 
-func newSourceResolver(body api.LoadSourceText) *sourceResolver {
+func newSourceResolver(body notebooklm.LoadSourceText) *sourceResolver {
 	return newSourceResolverText(body, body.Full())
 }
 
-func newSourceResolverText(body api.LoadSourceText, text string) *sourceResolver {
+func newSourceResolverText(body notebooklm.LoadSourceText, text string) *sourceResolver {
 	file := body.Title
 	if file == "" {
 		file = body.SourceID
@@ -144,7 +144,7 @@ type sourceProjection struct {
 	Text string
 }
 
-func citationProjections(body api.LoadSourceText) []sourceProjection {
+func citationProjections(body notebooklm.LoadSourceText) []sourceProjection {
 	var compact strings.Builder
 	for _, fragment := range body.Fragments {
 		if fragment.IsImage() {
@@ -172,7 +172,7 @@ func citationProjections(body api.LoadSourceText) []sourceProjection {
 	return projections
 }
 
-func unresolvedCitation(body api.LoadSourceText, c NativeCitation) Resolved {
+func unresolvedCitation(body notebooklm.LoadSourceText, c NativeCitation) Resolved {
 	title := c.SourceTitle
 	if title == "" {
 		title = body.Title

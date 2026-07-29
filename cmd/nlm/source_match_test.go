@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestResolveSelectorIDs(t *testing.T) {
@@ -17,7 +17,7 @@ func TestResolveSelectorIDs(t *testing.T) {
 		{ID: "src-impl-2", Title: "impl/client"},
 		{ID: "src-draft-1", Title: "spec/draft-notes"},
 	}
-	labels := []api.Label{
+	labels := []notebooklm.Label{
 		{LabelID: "lbl-test", Name: "Testing", SourceIDs: []string{"src-impl-1", "src-impl-2"}},
 		{LabelID: "lbl-rpc", Name: "RPC and Networking", SourceIDs: []string{"src-spec-2", "src-impl-1"}},
 		{LabelID: "lbl-draft", Name: "Draft", SourceIDs: []string{"src-draft-1"}},

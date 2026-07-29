@@ -14,7 +14,7 @@ least one assumption the wire contradicts.
 ## Status
 
 - The citation **data model** and parser are shipped and wire-verified
-  (`internal/notebooklm/api`, branch `work/citation-excerpts`). `Citation`
+  (`notebooklm`, branch `work/citation-excerpts`). `Citation`
   carries per-marker and per-source fields; see below.
 - The **renderer** (`cmd/nlm/main.go`, `renderCitationList` and friends) is the
   subject of this spec. Renderer correctness (§8 step 1) is **done**
@@ -47,7 +47,7 @@ per-source grounding[i]  { source:{source_id},
                            source_spans:[{start,end, leaf.text}] }  // SOURCE offsets + excerpt
 ```
 
-`Citation` (in `internal/notebooklm/api/client.go`) is one **(marker, source)
+`Citation` (in `notebooklm/client.go`) is one **(marker, source)
 pair** flattened from that:
 
 | Field                     | Meaning                                         | Scope    |
@@ -580,7 +580,7 @@ branch).
 
 - Wire model verified with `nlm betool decode-response --proto` (proto encoder
   lives on branch `nlm-wt-betool`; not a dependency of the citation code).
-- Data model / parser: `internal/notebooklm/api/client.go` (`Citation`,
+- Data model / parser: `notebooklm/client.go` (`Citation`,
   `parseCitationsV2`, `parseConversationHistory`).
 - Current renderer: `cmd/nlm/main.go` (`renderCitationList`,
   `renderCompactGroup`, `renderExpandedGroup`, `citationGroupHeader`).

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // captureStdout redirects os.Stdout for the duration of fn and returns what was written.
@@ -69,7 +69,7 @@ func TestEmitResearchEvent(t *testing.T) {
 				Type:    "complete",
 				Mode:    "deep",
 				Report:  "# Report",
-				Sources: []api.ResearchSource{{Title: "T", URL: "https://example.com"}},
+				Sources: []notebooklm.ResearchSource{{Title: "T", URL: "https://example.com"}},
 			},
 			map[string]any{"type": "complete", "mode": "deep"},
 		},
@@ -111,7 +111,7 @@ func TestRunResearchModeValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.wantErr == "" {
-				// Mode validation alone passes; we don't wire a real api.Client
+				// Mode validation alone passes; we don't wire a real notebooklm.Client
 				// here (the scaffolded encoders are HAR-blocked and would hit
 				// the network in this test). Just confirm the mode check
 				// doesn't error synchronously.
@@ -153,20 +153,20 @@ func TestParseResearchArgs(t *testing.T) {
 // treats ErrResearchPolling as exit 7 (busy) — locks in the Phase 0.5 wiring
 // so 1c's scaffolding surfaces correctly today.
 func TestResearchPollingErrorClassification(t *testing.T) {
-	wrapped := fmt.Errorf("poll exhausted: %w", api.ErrResearchPolling)
+	wrapped := fmt.Errorf("poll exhausted: %w", notebooklm.ErrResearchPolling)
 	if code := exitCodeFor(wrapped); code != exitBusy {
 		t.Errorf("got exit %d; want exitBusy (%d)", code, exitBusy)
 	}
 	// Sanity: the sentinel alone also classifies as busy.
-	if code := exitCodeFor(api.ErrResearchPolling); code != exitBusy {
+	if code := exitCodeFor(notebooklm.ErrResearchPolling); code != exitBusy {
 		t.Errorf("unwrapped: got exit %d; want exitBusy (%d)", code, exitBusy)
 	}
 }
 
 func TestResearchSentinelIsErrorsIs(t *testing.T) {
 	// Belt-and-braces: confirm errors.Is composes across multiple wraps.
-	err := fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", api.ErrResearchPolling))
-	if !errors.Is(err, api.ErrResearchPolling) {
+	err := fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", notebooklm.ErrResearchPolling))
+	if !errors.Is(err, notebooklm.ErrResearchPolling) {
 		t.Error("errors.Is did not unwrap ErrResearchPolling through two layers")
 	}
 }

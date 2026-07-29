@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type flashcard struct {
@@ -55,7 +55,7 @@ func normalizeArtifactExportOptions(opts *artifactExportOptions) error {
 	return nil
 }
 
-func runArtifactExport(c *api.Client, args artifactExportArgs) error {
+func runArtifactExport(c *notebooklm.Client, args artifactExportArgs) error {
 	artifact, err := c.GetArtifact(context.Background(), args.ArtifactID)
 	if err != nil {
 		return fmt.Errorf("get artifact: %w", err)

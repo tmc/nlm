@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type sourceGuideArgs struct {
@@ -64,7 +64,7 @@ func decodeSourceGuide(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		sourceIDs := args.SourceIDs
 		if len(sourceIDs) == 0 {
 			var err error

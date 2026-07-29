@@ -20,7 +20,7 @@ type ServiceConfig struct {
 //
 // The boq_labs-tailwind-frontend JS bundle is the source of truth for
 // what each rpc_id is officially called. Many of the Go-side names
-// below describe the higher-level api.Client feature that uses an
+// below describe the higher-level notebooklm.Client feature that uses an
 // RPC ("StartFastResearch", "DeleteDeepResearch") rather than the
 // raw service contract ("DiscoverSourcesManifold",
 // "FinishDiscoverSourcesRun"); both are correct in their own frame.
@@ -43,7 +43,7 @@ type ServiceConfig struct {
 //   otmP3b -> GeneratePromptSuggestions (we call it AudioTopicSuggestions)
 //   sqTeoe -> GetArtifactCustomizationChoices (we call it GetAudioFormats)
 //
-// These divergences are intentional — the api.Client API surfaces
+// These divergences are intentional — the notebooklm.Client API surfaces
 // reflect the user-facing feature, not the wire endpoint name.
 // Future readers grepping for a wire id should consult the JS bundle
 // (www.gstatic.com .jsonl in any capture) for the canonical name.
@@ -104,12 +104,12 @@ const (
 	// NotebookLM service - Research operations
 	//
 	// Note: the JS bundle gives a wholly-different naming for these
-	// rpc_ids than what api.Client uses today:
+	// rpc_ids than what notebooklm.Client uses today:
 	//   Ljjv0c → DiscoverSourcesManifold     (we call it StartFastResearch)
 	//   QA9ei  → DiscoverSourcesAsync        (we call it StartDeepResearch)
 	//   e3bVqc → ListDiscoverSourcesJob      (we call it DeleteChatHistory / GetDeepResearchSessions; polymorphic — verified)
 	//   LBwxtb → FinishDiscoverSourcesRun    (we call it DeleteDeepResearch / BulkImportFromResearch)
-	// The Go-side names reflect how api.Client uses these RPCs (the
+	// The Go-side names reflect how notebooklm.Client uses these RPCs (the
 	// "research" feature is built on top of the DiscoverSources job
 	// system); the JS-bundle names reflect the raw service contract.
 	// Both are correct in their own frame.
@@ -161,7 +161,7 @@ const (
 	// collaborators slice — per-user [email, role, display_name,
 	// avatar_url] entries plus permission flags — and not the
 	// title/emoji/thumbnail metadata that the proto's ProjectDetails
-	// message also models. api.Client extracts only OwnerName + IsPublic
+	// message also models. notebooklm.Client extracts only OwnerName + IsPublic
 	// from the generated message. The fuller
 	// project-metadata fields may populate under different request
 	// modes (the trailing [2] arg looks like a mode enum); they

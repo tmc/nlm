@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
@@ -15,13 +15,13 @@ func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 	var status bytes.Buffer
 
 	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
-	r.WriteChunk(api.ChatChunk{
-		Phase:  api.ChatChunkThinking,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase:  notebooklm.ChatChunkThinking,
 		Header: "**Thinking**",
 		Text:   "**Thinking**\nPlanning response",
 	})
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase: notebooklm.ChatChunkAnswer,
 		Text:  "Hello, world.",
 	})
 	r.Finish()
@@ -40,9 +40,9 @@ func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 func TestChatStreamRendererThinkingReplacesCumulativeSnapshots(t *testing.T) {
 	var out, status bytes.Buffer
 	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip"})
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip a thin wrapper"})
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip a thin wrapper via cmd/cove-serve"})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip"})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip a thin wrapper"})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkThinking, Header: "**T**", Text: "**T**\nShip a thin wrapper via cmd/cove-serve"})
 	r.Finish()
 
 	want := "**T**\nShip a thin wrapper via cmd/cove-serve"
@@ -57,13 +57,13 @@ func TestChatStreamRendererThinkingModes(t *testing.T) {
 		var status bytes.Buffer
 
 		r := newChatStreamRenderer(&out, &status, true, false, citationModeOff)
-		r.WriteChunk(api.ChatChunk{
-			Phase:  api.ChatChunkThinking,
+		r.WriteChunk(notebooklm.ChatChunk{
+			Phase:  notebooklm.ChatChunkThinking,
 			Header: "**Thinking**",
 			Text:   "**Thinking**\nPlanning response",
 		})
-		r.WriteChunk(api.ChatChunk{
-			Phase: api.ChatChunkAnswer,
+		r.WriteChunk(notebooklm.ChatChunk{
+			Phase: notebooklm.ChatChunkAnswer,
 			Text:  "Answer",
 		})
 		r.Finish()
@@ -84,13 +84,13 @@ func TestChatStreamRendererThinkingModes(t *testing.T) {
 		var status bytes.Buffer
 
 		r := newChatStreamRenderer(&out, &status, true, false, citationModeOff)
-		r.WriteChunk(api.ChatChunk{
-			Phase:  api.ChatChunkThinking,
+		r.WriteChunk(notebooklm.ChatChunk{
+			Phase:  notebooklm.ChatChunkThinking,
 			Header: "**Thinking**",
 			Text:   "**Thinking**\nPlanning response",
 		})
-		r.WriteChunk(api.ChatChunk{
-			Phase: api.ChatChunkAnswer,
+		r.WriteChunk(notebooklm.ChatChunk{
+			Phase: notebooklm.ChatChunkAnswer,
 			Text:  "Answer",
 		})
 		r.Finish()
@@ -108,8 +108,8 @@ func TestChatStreamRendererThinkingModes(t *testing.T) {
 		var status bytes.Buffer
 
 		r := newChatStreamRenderer(&out, &status, true, true, citationModeOff)
-		r.WriteChunk(api.ChatChunk{
-			Phase:  api.ChatChunkThinking,
+		r.WriteChunk(notebooklm.ChatChunk{
+			Phase:  notebooklm.ChatChunkThinking,
 			Header: "**Thinking**",
 			Text:   "**Thinking**\nPlanning response",
 		})
@@ -130,10 +130,10 @@ func TestChatStreamRendererCitationList(t *testing.T) {
 		}
 		return ""
 	}
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase: notebooklm.ChatChunkAnswer,
 		Text:  "Answer body.",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "src_aaa", Title: "ignored when resolver hits", StartChar: 0, EndChar: 12, Confidence: 0.82},
 			{SourceIndex: 2, SourceID: "src_bbb_longidentifier", Title: "Fallback excerpt", StartChar: 20, EndChar: 40},
 		},
@@ -180,7 +180,7 @@ func TestChatStreamRendererCitationList(t *testing.T) {
 func TestChatStreamRendererCitationScan(t *testing.T) {
 	var status bytes.Buffer
 	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
-	r.citations = []api.Citation{
+	r.citations = []notebooklm.Citation{
 		// Marker 1 cites two sources with DIFFERENT scores — the case the old
 		// header-hoist silently dropped.
 		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 42, EndChar: 205, Confidence: 0.91},
@@ -229,7 +229,7 @@ func TestChatStreamRendererCitationExpanded(t *testing.T) {
 	var status bytes.Buffer
 	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
 	r.excerptBudget = 40 // enables the expanded view
-	r.citations = []api.Citation{
+	r.citations = []notebooklm.Citation{
 		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 4, EndChar: 9, Confidence: 0.82, SourceStart: 965670, SourceEnd: 966914, Excerpt: "The alpha source passage that grounds this."},
 		{SourceIndex: 1, SourceID: "bbbbbbbb-2", Title: "Beta", StartChar: 4, EndChar: 9, Confidence: 0.82, SourceStart: 12000, SourceEnd: 12050, Excerpt: "The beta source passage that grounds this."},
 	}
@@ -259,7 +259,7 @@ func TestChatStreamRendererCitationExpanded(t *testing.T) {
 func TestChatStreamRendererCitationPerSourceConfidence(t *testing.T) {
 	var status bytes.Buffer
 	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
-	r.citations = []api.Citation{
+	r.citations = []notebooklm.Citation{
 		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 5, EndChar: 9, Confidence: 0.82},
 		{SourceIndex: 1, SourceID: "bbbbbbbb-2", Title: "Beta", StartChar: 5, EndChar: 9, Confidence: 0.60},
 	}
@@ -286,7 +286,7 @@ func TestChatStreamRendererCitationPerSourceConfidence(t *testing.T) {
 func TestChatStreamRendererCitationMixedSpan(t *testing.T) {
 	var status bytes.Buffer
 	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
-	r.citations = []api.Citation{
+	r.citations = []notebooklm.Citation{
 		{SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha", StartChar: 5, EndChar: 9, Confidence: 0.82},
 		{SourceIndex: 1, SourceID: "bbbbbbbb-2", Title: "Beta", StartChar: 20, EndChar: 30, Confidence: 0.82},
 	}
@@ -306,7 +306,7 @@ func TestChatStreamRendererCitationColumnToggles(t *testing.T) {
 		var status bytes.Buffer
 		r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
 		r.excerptBudget = 40 // expanded view so the src-offset locator is exercised too
-		r.citations = []api.Citation{
+		r.citations = []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "src_aaaaaaaa", Title: "T", StartChar: 42, EndChar: 205, Confidence: 0.82, SourceStart: 1000, SourceEnd: 1050, Excerpt: "cited"},
 		}
 		return &status, r
@@ -373,10 +373,10 @@ func TestFormatSpanLabels(t *testing.T) {
 func TestChatStreamRendererCitationModeOff(t *testing.T) {
 	var out, status bytes.Buffer
 	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase: notebooklm.ChatChunkAnswer,
 		Text:  "Answer.",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "src_a", Title: "noisy"},
 		},
 	})
@@ -440,7 +440,7 @@ func TestRenderPersistedAssistantList(t *testing.T) {
 	msg := storedMessage{
 		Role:    "assistant",
 		Content: "Answer body.",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "src_a", Title: "First"},
 			{SourceIndex: 2, SourceID: "src_b", Title: "Second"},
 		},
@@ -498,19 +498,19 @@ func TestChatStreamRendererJSONLEmitsTypedEvents(t *testing.T) {
 	r.jsonl = true
 	r.jsonlIncludeThinking = true
 
-	r.WriteChunk(api.ChatChunk{
-		Phase:  api.ChatChunkThinking,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase:  notebooklm.ChatChunkThinking,
 		Header: "**Thinking**",
 		Text:   "**Thinking**\nPlanning response",
 	})
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase: notebooklm.ChatChunkAnswer,
 		Text:  "Hello, ",
 	})
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase: notebooklm.ChatChunkAnswer,
 		Text:  "world.",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "src_aaa", Title: "Guide", StartChar: 0, EndChar: 12, Confidence: 0.87},
 		},
 		FollowUps: []string{"Tell me more", "Different angle"},
@@ -578,9 +578,9 @@ func TestChatStreamRendererJSONLCumulativeThinkingNotDuplicated(t *testing.T) {
 
 	// Thinking arrives as cumulative snapshots; jsonl must emit once per
 	// change, not once per snapshot.
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "step 1"})
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "step 1"}) // dup
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "step 1\nstep 2"})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkThinking, Text: "step 1"})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkThinking, Text: "step 1"}) // dup
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkThinking, Text: "step 1\nstep 2"})
 	r.Finish()
 
 	events := parseJSONLEvents(t, out.String())
@@ -600,7 +600,7 @@ func TestChatStreamRendererJSONLIsOptIn(t *testing.T) {
 	// byte-for-byte — no regressions for users who didn't ask for JSON.
 	var out, status bytes.Buffer
 	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkAnswer, Text: "plain answer"})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkAnswer, Text: "plain answer"})
 	r.Finish()
 
 	if got := out.String(); got != "plain answer" {
@@ -616,11 +616,11 @@ func TestChatStreamRendererJSONLGatesThinking(t *testing.T) {
 	r.jsonl = true
 	// jsonlIncludeThinking intentionally left false.
 
-	r.WriteChunk(api.ChatChunk{Phase: api.ChatChunkThinking, Text: "hidden trace"})
-	r.WriteChunk(api.ChatChunk{
-		Phase: api.ChatChunkAnswer,
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkThinking, Text: "hidden trace"})
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase: notebooklm.ChatChunkAnswer,
 		Text:  "answer body",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "s1", Title: "t", StartChar: 0, EndChar: 6},
 		},
 	})

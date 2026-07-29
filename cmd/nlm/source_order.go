@@ -9,13 +9,13 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 var errSourceRelationNotFound = errors.New("neither argument order identifies a source in a notebook")
 
 type sourceMembershipClient interface {
-	GetProject(context.Context, string) (*api.Notebook, error)
+	GetProject(context.Context, string) (*notebooklm.Notebook, error)
 }
 
 type sourceCommandTarget struct {

@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type selectorOptions struct {
@@ -39,7 +39,7 @@ func (opts selectorOptions) empty() bool {
 		opts.LabelExclude == ""
 }
 
-func resolveSourceSelectorsWithOptions(c *api.Client, notebookID string, opts selectorOptions) ([]string, error) {
+func resolveSourceSelectorsWithOptions(c *notebooklm.Client, notebookID string, opts selectorOptions) ([]string, error) {
 	flagIDs, err := resolveIDList(opts.SourceIDs)
 	if err != nil {
 		return nil, fmt.Errorf("--source-ids: %w", err)
@@ -52,7 +52,7 @@ func resolveSourceSelectorsWithOptions(c *api.Client, notebookID string, opts se
 	needsLabels := len(flagLabelIDs) > 0 || opts.LabelMatch != "" || opts.LabelExclude != ""
 	needsSources := opts.SourceMatch != "" || opts.SourceExclude != "" || needsLabels
 
-	var labels []api.Label
+	var labels []notebooklm.Label
 	var sources []sourceSummary
 	if needsSources {
 		p, perr := c.GetProject(context.Background(), notebookID)
@@ -89,7 +89,7 @@ type sourceSummary struct {
 // resolveSelectorIDs is the pure resolution logic. statusW receives the
 // human-readable explanations (one line per active selector). Returns the
 // final ID list with order-preserved de-duplication.
-func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, sources []sourceSummary, labels []api.Label, statusW interface{ Write([]byte) (int, error) }) ([]string, error) {
+func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, sources []sourceSummary, labels []notebooklm.Label, statusW interface{ Write([]byte) (int, error) }) ([]string, error) {
 	if opts.empty() {
 		return nil, nil
 	}
@@ -219,12 +219,12 @@ func matchSources(sources []sourceSummary, re *regexp.Regexp) []sourceSummary {
 
 // matchLabels returns labels whose label_id is in includeIDs OR whose name
 // matches re. If both filters are empty, returns nil.
-func matchLabels(labels []api.Label, includeIDs []string, re *regexp.Regexp) []api.Label {
+func matchLabels(labels []notebooklm.Label, includeIDs []string, re *regexp.Regexp) []notebooklm.Label {
 	idSet := make(map[string]bool, len(includeIDs))
 	for _, id := range includeIDs {
 		idSet[id] = true
 	}
-	var out []api.Label
+	var out []notebooklm.Label
 	for _, l := range labels {
 		if idSet[l.LabelID] || (re != nil && re.MatchString(l.Name)) {
 			out = append(out, l)
@@ -240,7 +240,7 @@ func listAvailableSources(w interface{ Write([]byte) (int, error) }, flag, expr 
 	}
 }
 
-func listAvailableLabels(w interface{ Write([]byte) (int, error) }, opts selectorOptions, labels []api.Label) {
+func listAvailableLabels(w interface{ Write([]byte) (int, error) }, opts selectorOptions, labels []notebooklm.Label) {
 	switch {
 	case opts.LabelMatch != "" && len(opts.LabelIDs) > 0:
 		fmt.Fprintf(w, "--label-ids/--label-match matched no labels. Available labels:\n")

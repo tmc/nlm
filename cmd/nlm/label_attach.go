@@ -6,12 +6,12 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
-func resolveLabelArg(c *api.Client, notebookID, arg string) (string, error) {
+func resolveLabelArg(c *notebooklm.Client, notebookID, arg string) (string, error) {
 	if uuidRE.MatchString(arg) {
 		return arg, nil
 	}
@@ -20,7 +20,7 @@ func resolveLabelArg(c *api.Client, notebookID, arg string) (string, error) {
 		return "", fmt.Errorf("list labels to resolve %q: %w", arg, err)
 	}
 	want := strings.ToLower(arg)
-	var matches []api.Label
+	var matches []notebooklm.Label
 	for _, l := range labels {
 		if strings.ToLower(l.Name) == want {
 			matches = append(matches, l)
@@ -36,7 +36,7 @@ func resolveLabelArg(c *api.Client, notebookID, arg string) (string, error) {
 	}
 }
 
-func resolveSourceArg(c *api.Client, notebookID, arg string) (string, error) {
+func resolveSourceArg(c *notebooklm.Client, notebookID, arg string) (string, error) {
 	if uuidRE.MatchString(arg) {
 		return arg, nil
 	}

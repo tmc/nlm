@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type notebookListOptions struct {
@@ -18,7 +18,7 @@ type notebookListOptions struct {
 	JSON  bool
 }
 
-func list(c *api.Client, opts notebookListOptions) error {
+func list(c *notebooklm.Client, opts notebookListOptions) error {
 	notebooks, err := c.ListRecentlyViewedProjects(context.Background())
 	if err != nil {
 		return err
@@ -26,7 +26,7 @@ func list(c *api.Client, opts notebookListOptions) error {
 	return renderNotebookList(os.Stdout, os.Stderr, notebooks, opts, isTerminal(os.Stdout))
 }
 
-func renderNotebookList(out io.Writer, status io.Writer, notebooks []*api.Notebook, opts notebookListOptions, tty bool) error {
+func renderNotebookList(out io.Writer, status io.Writer, notebooks []*notebooklm.Notebook, opts notebookListOptions, tty bool) error {
 	total := len(notebooks)
 	limit := notebookListLimit(total, opts, tty)
 

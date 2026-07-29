@@ -7,15 +7,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 var researchCitationPattern = regexp.MustCompile(`(?i)\[cite:\s*([0-9]+(?:\s*,\s*[0-9]+)*)\]`)
 
 // researchMarkdown replaces NotebookLM's [cite: 1, 2] markers with Markdown
 // footnote references and appends definitions for the cited research sources.
-func researchMarkdown(report string, sources []api.ResearchSource) string {
-	byIndex := make(map[int]api.ResearchSource)
+func researchMarkdown(report string, sources []notebooklm.ResearchSource) string {
+	byIndex := make(map[int]notebooklm.ResearchSource)
 	for _, source := range sources {
 		if source.CitationIndex <= 0 || strings.TrimSpace(source.URL) == "" {
 			continue

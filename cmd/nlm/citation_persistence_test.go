@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // TestPersistableCitationsBakesParentTitle checks that save-time title
@@ -20,7 +20,7 @@ func TestPersistableCitationsBakesParentTitle(t *testing.T) {
 		}
 		return ""
 	}
-	citations := []api.Citation{{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent}}
+	citations := []notebooklm.Citation{{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent}}
 
 	got := persistableCitations(citations, resolveTitle)
 	if len(got) != 1 {
@@ -42,7 +42,7 @@ func TestChatMessageCitationParentRoundTrip(t *testing.T) {
 	message := storedMessage{
 		Role:    "assistant",
 		Content: "Grounded claim. [1]",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent, Title: "product-docs.md", Confidence: 0.9},
 		},
 	}

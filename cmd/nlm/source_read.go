@@ -16,13 +16,13 @@ import (
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/internal/auth"
-	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/richrender"
+	"github.com/tmc/nlm/notebooklm"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
-func readSource(c *api.Client, sourceID, notebookID string, opts globalOptions) error {
+func readSource(c *notebooklm.Client, sourceID, notebookID string, opts globalOptions) error {
 	if err := normalizeSourceReadFormat(&opts); err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func readSource(c *api.Client, sourceID, notebookID string, opts globalOptions) 
 	return writeSourceRead(os.Stdout, body, opts, sourceImageFetcherFor(c, opts))
 }
 
-func sourceImageFetcherFor(c *api.Client, opts globalOptions) sourceImageFetcher {
+func sourceImageFetcherFor(c *notebooklm.Client, opts globalOptions) sourceImageFetcher {
 	return func(imageURL string) ([]byte, string, error) {
 		data, contentType, err := c.DownloadSourceImage(context.Background(), imageURL)
 		if err == nil {
@@ -69,7 +69,7 @@ func sourceImageFetcherFor(c *api.Client, opts globalOptions) sourceImageFetcher
 
 type sourceImageFetcher func(imageURL string) ([]byte, string, error)
 
-func writeSourceRead(w io.Writer, body api.LoadSourceText, opts globalOptions, fetchImage sourceImageFetcher) error {
+func writeSourceRead(w io.Writer, body notebooklm.LoadSourceText, opts globalOptions, fetchImage sourceImageFetcher) error {
 	if err := normalizeSourceReadFormat(&opts); err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ type sourceReadJSONFragment struct {
 	BlockStart    bool   `json:"block_start,omitempty"`
 }
 
-func writeSourceReadJSON(w io.Writer, body api.LoadSourceText) error {
+func writeSourceReadJSON(w io.Writer, body notebooklm.LoadSourceText) error {
 	emitter := sourceReadJSONEmitter{
 		w: w,
 		document: sourceReadJSON{
@@ -186,7 +186,7 @@ func (e *sourceReadJSONEmitter) FinishContent() error {
 }
 
 type sourceReadContent struct {
-	body api.LoadSourceText
+	body notebooklm.LoadSourceText
 }
 
 func (c sourceReadContent) ContentLen() int {
@@ -217,7 +217,7 @@ func (c sourceReadContent) ContentFragment(i int) richrender.ContentFragment {
 	return fragment
 }
 
-func renderSourceRead(body api.LoadSourceText, emitter richrender.ContentEmitter) error {
+func renderSourceRead(body notebooklm.LoadSourceText, emitter richrender.ContentEmitter) error {
 	return richrender.RenderContent(sourceReadContent{body: body}, emitter)
 }
 
@@ -230,7 +230,7 @@ func renderSourceRead(body api.LoadSourceText, emitter richrender.ContentEmitter
 // offset lookups, so it collapses each gap into reading flow the same way the
 // Markdown and HTML views do via writePresentationGap. Contiguous sources are
 // unaffected: with no gaps this equals Full.
-func sourceReadText(body api.LoadSourceText) string {
+func sourceReadText(body notebooklm.LoadSourceText) string {
 	emitter := sourceReadTextEmitter{cursor: firstFragmentOffset(body.Fragments)}
 	_ = renderSourceRead(body, &emitter)
 	return emitter.out.String()
@@ -261,7 +261,7 @@ func (*sourceReadTextEmitter) FinishContent() error {
 	return nil
 }
 
-func sourceReadMarkdown(body api.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {
+func sourceReadMarkdown(body notebooklm.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {
 	emitter := sourceReadMarkdownEmitter{
 		cursor:     firstFragmentOffset(body.Fragments),
 		fetchImage: fetchImage,
@@ -355,7 +355,7 @@ func (*sourceReadMarkdownEmitter) FinishContent() error {
 	return nil
 }
 
-func sourceReadImageAlt(fragments []api.TextFragment, imageIndex int) string {
+func sourceReadImageAlt(fragments []notebooklm.TextFragment, imageIndex int) string {
 	if imageIndex+1 >= len(fragments) {
 		return ""
 	}
@@ -515,7 +515,7 @@ func sourceReadImageDataURI(f richrender.ContentFragment, fetchImage sourceImage
 // sourceReadHTML writes a responsive reading view from the server's ordered
 // fragments. hizoJc does not expose page coordinates, so this deliberately
 // reconstructs document flow rather than trying to synthesize pixel layout.
-func sourceReadHTML(body api.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {
+func sourceReadHTML(body notebooklm.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {
 	emitter := sourceReadHTMLEmitter{
 		cursor:     firstFragmentOffset(body.Fragments),
 		fetchImage: fetchImage,
@@ -648,7 +648,7 @@ func (e *sourceReadHTMLEmitter) FinishContent() error {
 	return nil
 }
 
-func firstFragmentOffset(fragments []api.TextFragment) int {
+func firstFragmentOffset(fragments []notebooklm.TextFragment) int {
 	if len(fragments) == 0 {
 		return 0
 	}

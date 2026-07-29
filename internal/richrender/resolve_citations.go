@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/sourcecite"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // resolvedCitation holds what a per-citation source lookup produced. Today
@@ -19,7 +19,7 @@ import (
 // destroys the line structure txtar resolution relies on — so Location is
 // often empty even for sources that were uploaded as txtar archives. The cited
 // source text is not recovered here: the server ships it inline on the wire
-// (api.Citation.Excerpt), so there is nothing to slice out of the body.
+// (notebooklm.Citation.Excerpt), so there is nothing to slice out of the body.
 type resolvedCitation struct {
 	Location string // "file:line:col" for a resolved txtar member; "" otherwise
 }
@@ -28,11 +28,11 @@ type resolvedCitation struct {
 // "file:line:col" coordinate when possible. Returns nil if there are no
 // citations or no loader. On per-source load failures the affected entries are
 // simply missing from the result map (callers degrade to the unresolved label).
-func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cites []api.Citation, debug io.Writer) map[citationKey]resolvedCitation {
+func resolveCitationLocations(load func(string) (notebooklm.LoadSourceText, error), cites []notebooklm.Citation, debug io.Writer) map[citationKey]resolvedCitation {
 	if load == nil || len(cites) == 0 {
 		return nil
 	}
-	bodies := make(map[string]api.LoadSourceText)
+	bodies := make(map[string]notebooklm.LoadSourceText)
 	loadFailed := make(map[string]bool)
 	out := make(map[citationKey]resolvedCitation)
 	seen := make(map[citationKey]bool)
@@ -51,7 +51,7 @@ func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cit
 		if !ok {
 			loaded, err := load(sourceID)
 			if err != nil {
-				bodies[sourceID] = api.LoadSourceText{} // negative cache
+				bodies[sourceID] = notebooklm.LoadSourceText{} // negative cache
 				loadFailed[sourceID] = true
 				writeCitationDiagnostic(debug, c, "load error")
 				continue
@@ -79,7 +79,7 @@ func resolveCitationLocations(load func(string) (api.LoadSourceText, error), cit
 // no location could be produced. This is the single source of truth shared by
 // the batch (resolveCitationLocations) and streaming-JSONL paths so the two
 // never diverge.
-func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitation, bool, string) {
+func resolveOneCitation(body notebooklm.LoadSourceText, c notebooklm.Citation) (resolvedCitation, bool, string) {
 	if len(body.Fragments) == 0 {
 		return resolvedCitation{}, false, "no members"
 	}
@@ -122,7 +122,7 @@ func resolveOneCitation(body api.LoadSourceText, c api.Citation) (resolvedCitati
 	}
 }
 
-func writeCitationDiagnostic(w io.Writer, c api.Citation, reason string) {
+func writeCitationDiagnostic(w io.Writer, c notebooklm.Citation, reason string) {
 	if w == nil || reason == "" {
 		return
 	}
@@ -132,7 +132,7 @@ func writeCitationDiagnostic(w io.Writer, c api.Citation, reason string) {
 // citationSourceRange returns the citation's span in the source document.
 // Older captures did not carry source offsets, so fall back to the answer
 // offsets for compatibility with those saved sessions.
-func citationSourceRange(c api.Citation) (start, end int) {
+func citationSourceRange(c notebooklm.Citation) (start, end int) {
 	if c.SourceStart < c.SourceEnd {
 		return c.SourceStart, c.SourceEnd
 	}
@@ -202,6 +202,6 @@ type citationKey struct {
 	EndChar     int
 }
 
-func keyFor(c api.Citation) citationKey {
+func keyFor(c notebooklm.Citation) citationKey {
 	return citationKey{SourceIndex: c.SourceIndex, SourceID: c.SourceID, StartChar: c.StartChar, EndChar: c.EndChar}
 }

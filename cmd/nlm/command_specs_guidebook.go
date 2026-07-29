@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type guidebookListArgs struct {
@@ -46,7 +46,7 @@ func decodeGuidebookList(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := guidebookListArgs{JSON: jsonOutput}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		guidebooks, err := client.ListGuidebooks(ctx)
 		if err != nil {
 			return err
@@ -79,7 +79,7 @@ func decodeGuidebookGet(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		guidebook, err := client.GetGuidebook(ctx, args.GuidebookID)
 		if err != nil {
 			return err
@@ -99,7 +99,7 @@ func decodeGuidebookDetails(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		details, err := client.GetGuidebookDetails(ctx, args.GuidebookID)
 		if err != nil {
 			return err
@@ -130,7 +130,7 @@ func decodeGuidebookPublish(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		_, err := client.PublishGuidebook(ctx, args.GuidebookID)
 		if err == nil {
 			fmt.Fprintln(os.Stderr, "Guidebook published.")
@@ -144,7 +144,7 @@ func decodeGuidebookShare(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		_, err := client.ShareGuidebook(ctx, args.GuidebookID)
 		if err == nil {
 			fmt.Fprintln(os.Stderr, "Guidebook shared.")
@@ -166,7 +166,7 @@ func decodeGuidebookAsk(parsed parsedCommand) (commandCall, error) {
 		GuidebookID: guidebookID,
 		Question:    strings.Join(question, " "),
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		response, err := client.GuidebookAsk(ctx, args.GuidebookID, args.Question)
 		if err != nil {
 			return err
@@ -181,7 +181,7 @@ func decodeGuidebookDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		err := client.DeleteGuidebook(ctx, args.GuidebookID)
 		if err == nil {
 			fmt.Fprintln(os.Stderr, "Guidebook deleted.")

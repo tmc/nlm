@@ -4,7 +4,7 @@ import (
 	"io"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 const (
@@ -33,7 +33,7 @@ type StreamOptions struct {
 	JSONLIncludeThinking bool
 	ResolveTitle         func(string) string
 	SourceRemoved        func(string) bool
-	LoadSource           func(string) (api.LoadSourceText, error)
+	LoadSource           func(string) (notebooklm.LoadSourceText, error)
 	ExcerptBudget        int
 	ShowConfidence       bool
 	ShowSpans            bool
@@ -56,7 +56,7 @@ func NewStreamRenderer(out, status io.Writer, opts StreamOptions) *StreamRendere
 }
 
 // Citations returns the latest citation snapshot received by the renderer.
-func (r *StreamRenderer) Citations() []api.Citation {
+func (r *StreamRenderer) Citations() []notebooklm.Citation {
 	return r.citations
 }
 
@@ -76,7 +76,7 @@ func WarnDeprecatedCitationMode(w io.Writer, flag string) {
 }
 
 // CitationTitle returns the best available title for a citation.
-func CitationTitle(citation api.Citation, resolveTitle func(string) string) string {
+func CitationTitle(citation notebooklm.Citation, resolveTitle func(string) string) string {
 	return citationTitle(citation, resolveTitle)
 }
 
@@ -86,7 +86,7 @@ func RichDocumentFromProto(doc *pb.RichDocument) *RichDocument {
 }
 
 // NoteDocumentFromAPI projects an API note for rendering.
-func NoteDocumentFromAPI(note *api.Note) NoteDocument {
+func NoteDocumentFromAPI(note *notebooklm.Note) NoteDocument {
 	return noteDocumentFromAPI(note)
 }
 

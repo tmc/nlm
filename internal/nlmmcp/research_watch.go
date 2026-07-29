@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 )
 
 type deepResearchPoller interface {
-	PollDeepResearch(context.Context, string, string) (*api.DeepResearchResult, error)
+	PollDeepResearch(context.Context, string, string) (*notebooklm.DeepResearchResult, error)
 }
 
 type researchWatchProgress struct {
@@ -28,7 +28,7 @@ func watchDeepResearch(
 	poller deepResearchPoller,
 	input watchDeepResearchInput,
 	notify func(researchWatchProgress) error,
-) (*api.DeepResearchResult, error) {
+) (*notebooklm.DeepResearchResult, error) {
 	if input.NotebookID == "" {
 		return nil, fmt.Errorf("notebook_id is required")
 	}
@@ -66,7 +66,7 @@ func watchDeepResearch(
 			}
 			return result, nil
 		}
-		if err != nil && !errors.Is(err, api.ErrResearchPolling) {
+		if err != nil && !errors.Is(err, notebooklm.ErrResearchPolling) {
 			return nil, fmt.Errorf("poll deep research: %w", err)
 		}
 		if notify != nil {

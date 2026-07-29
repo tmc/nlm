@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // A citation whose source cannot be resolved to a titled notebook source: no
@@ -38,21 +38,21 @@ func TestCitationSourceRemovedGating(t *testing.T) {
 	ctx := removedCtx(0)
 
 	// Removed + untitled → flagged.
-	if !ctx.citationSourceRemoved(api.Citation{SourceID: removedSourceID}) {
+	if !ctx.citationSourceRemoved(notebooklm.Citation{SourceID: removedSourceID}) {
 		t.Errorf("untitled removed source should be flagged removed")
 	}
 	// A server-supplied title means the source is not treated as removed, even
 	// when the hook would say the current notebook lacks the ID — a titled
 	// citation is never "removed".
-	if ctx.citationSourceRemoved(api.Citation{SourceID: removedSourceID, Title: "was-titled"}) {
+	if ctx.citationSourceRemoved(notebooklm.Citation{SourceID: removedSourceID, Title: "was-titled"}) {
 		t.Errorf("titled citation must not be flagged removed")
 	}
 	// A present, resolvable source is not removed.
-	if ctx.citationSourceRemoved(api.Citation{SourceID: presentSourceID}) {
+	if ctx.citationSourceRemoved(notebooklm.Citation{SourceID: presentSourceID}) {
 		t.Errorf("present source must not be flagged removed")
 	}
 	// No hook → never removed (offline replay must not claim removal).
-	if (RenderContext{}).citationSourceRemoved(api.Citation{SourceID: removedSourceID}) {
+	if (RenderContext{}).citationSourceRemoved(notebooklm.Citation{SourceID: removedSourceID}) {
 		t.Errorf("without a sourceRemoved hook nothing is removed")
 	}
 }
@@ -61,7 +61,7 @@ func TestCitationSourceRemovedHTML(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [2]",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 2, SourceID: removedSourceID, Confidence: 0.95, Excerpt: "-- NOTES.md -- cited text"},
 			{SourceIndex: 2, SourceID: presentSourceID, Confidence: 0.90, Excerpt: "present excerpt"},
 		},
@@ -99,7 +99,7 @@ func TestCitationSourceRemovedText(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [2]",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 2, SourceID: removedSourceID, Confidence: 0.95},
 			{SourceIndex: 2, SourceID: presentSourceID, Confidence: 0.90},
 		},
@@ -122,7 +122,7 @@ func TestCitationSourceRemovedMarkdownScan(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim.",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: removedSourceID, StartChar: 5, EndChar: 20, Confidence: 0.95},
 			{SourceIndex: 1, SourceID: presentSourceID, StartChar: 5, EndChar: 20, Confidence: 0.90},
 		},
@@ -145,7 +145,7 @@ func TestCitationSourceRemovedMarkdownAudit(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim.",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: removedSourceID, StartChar: 5, EndChar: 20, Confidence: 0.95},
 		},
 	}}}
@@ -172,7 +172,7 @@ func TestCitationPresentUntitledNotRemoved(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:      "assistant",
 		Content:   "Claim.",
-		Citations: []api.Citation{{SourceIndex: 1, SourceID: presentSourceID, Confidence: 0.9}},
+		Citations: []notebooklm.Citation{{SourceIndex: 1, SourceID: presentSourceID, Confidence: 0.9}},
 	}}}
 
 	var buf bytes.Buffer
@@ -197,7 +197,7 @@ func TestCitationNoRemovedHookNoHint(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{{
 		Role:    "assistant",
 		Content: "Grounded claim. [1]",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: removedSourceID, StartChar: 8, EndChar: 14, Confidence: 0.95, Excerpt: "-- NOTES.md -- x"},
 		},
 	}}}
@@ -238,19 +238,19 @@ func TestCitationParentSourcePreferred(t *testing.T) {
 	}
 
 	// citationSourceID prefers the parent, else the chunk.
-	if got := citationSourceID(api.Citation{SourceID: chunk, ParentSourceID: parent}); got != parent {
+	if got := citationSourceID(notebooklm.Citation{SourceID: chunk, ParentSourceID: parent}); got != parent {
 		t.Errorf("citationSourceID with parent = %q, want %q", got, parent)
 	}
-	if got := citationSourceID(api.Citation{SourceID: chunk}); got != chunk {
+	if got := citationSourceID(notebooklm.Citation{SourceID: chunk}); got != chunk {
 		t.Errorf("citationSourceID without parent = %q, want %q", got, chunk)
 	}
 
 	// citationTitle resolves via the parent even though the chunk id would miss.
-	if got := citationTitle(api.Citation{SourceID: chunk, ParentSourceID: parent}, resolveTitle); got != "product-docs.md" {
+	if got := citationTitle(notebooklm.Citation{SourceID: chunk, ParentSourceID: parent}, resolveTitle); got != "product-docs.md" {
 		t.Errorf("citationTitle = %q, want product-docs.md", got)
 	}
 	// No parent: the chunk id misses, so no title — the pre-§9 behavior.
-	if got := citationTitle(api.Citation{SourceID: chunk}, resolveTitle); got != "" {
+	if got := citationTitle(notebooklm.Citation{SourceID: chunk}, resolveTitle); got != "" {
 		t.Errorf("citationTitle without parent = %q, want empty", got)
 	}
 }
@@ -274,7 +274,7 @@ func TestCitationResolvableParentNotUnresolved(t *testing.T) {
 		// The chunk id is absent from the list; the parent is present.
 		SourceRemoved: func(id string) bool { return id != parent },
 	}
-	c := api.Citation{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent}
+	c := notebooklm.Citation{SourceIndex: 1, SourceID: chunk, ParentSourceID: parent}
 
 	if got := ctx.citationSourceTitle(c); got != "product-docs.md" {
 		t.Errorf("citationSourceTitle = %q, want product-docs.md", got)

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // getCode13 returns the dictionary entry for gRPC INTERNAL so the test
@@ -58,7 +58,7 @@ func TestFriendlyError(t *testing.T) {
 		},
 		{
 			name: "notebook access error names notebook not auth",
-			err: fmt.Errorf("list sources: get project: %w", &api.NotebookAccessError{
+			err: fmt.Errorf("list sources: get project: %w", &notebooklm.NotebookAccessError{
 				NotebookID: "nb-missing",
 				Err: &batchexecute.APIError{
 					ErrorCode: &batchexecute.ErrorCode{
@@ -75,7 +75,7 @@ func TestFriendlyError(t *testing.T) {
 		{
 			name: "source cap sentinel hides wrapper noise",
 			err: fmt.Errorf("add source from URL: %w: %w",
-				api.ErrSourceCapReached,
+				notebooklm.ErrSourceCapReached,
 				&batchexecute.APIError{
 					ErrorCode: &batchexecute.ErrorCode{
 						Code:        9,
@@ -91,7 +91,7 @@ func TestFriendlyError(t *testing.T) {
 		{
 			name: "source too large sentinel replaces wrapper noise",
 			err: fmt.Errorf("add text source %q (%d bytes > %d limit): %w",
-				"big.jsonl", 13_815_499, 10*1024*1024, api.ErrSourceTooLarge),
+				"big.jsonl", 13_815_499, 10*1024*1024, notebooklm.ErrSourceTooLarge),
 			// The sentinel's own literal message is stripped; the friendly
 			// rewrite must not double-surface it or leak the cap-reached
 			// label users mistook size failures for.
@@ -100,7 +100,7 @@ func TestFriendlyError(t *testing.T) {
 		},
 		{
 			name:           "notebook cap sentinel hides wrapper noise",
-			err:            fmt.Errorf("create project: %w: %w", api.ErrNotebookCapReached, errors.New("invalid arguments")),
+			err:            fmt.Errorf("create project: %w: %w", notebooklm.ErrNotebookCapReached, errors.New("invalid arguments")),
 			wantContains:   []string{"create project", "notebook limit"},
 			wantNotContain: []string{"notebook cap reached", "invalid arguments"},
 		},
@@ -112,7 +112,7 @@ func TestFriendlyError(t *testing.T) {
 			// user sees only the actionable advice.
 			name: "notebook cap sentinel strips real APIError suffix",
 			err: fmt.Errorf("create project: %w: %w",
-				api.ErrNotebookCapReached,
+				notebooklm.ErrNotebookCapReached,
 				&batchexecute.APIError{
 					ErrorCode: &batchexecute.ErrorCode{
 						Code:    3,
@@ -129,7 +129,7 @@ func TestFriendlyError(t *testing.T) {
 			// callers don't have to run `nlm account` to see how close they
 			// were. This is what the api layer produces in practice.
 			name: "notebook cap error includes count and limit",
-			err: fmt.Errorf("create project: %w", &api.NotebookCapError{
+			err: fmt.Errorf("create project: %w", &notebooklm.NotebookCapError{
 				Count: 492,
 				Limit: 500,
 				Err: &batchexecute.APIError{

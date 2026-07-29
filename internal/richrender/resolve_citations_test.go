@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/sourcecite"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // TestResolveCitationLocations pins excerpt-validated txtar file:line
@@ -25,10 +25,10 @@ func TestResolveCitationLocations(t *testing.T) {
 		"This is the readme.\n" +
 		"It has two lines.\n"
 
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "src_txtar",
 		Title:    "project.txtar",
-		Fragments: []api.TextFragment{
+		Fragments: []notebooklm.TextFragment{
 			{Start: 0, End: len(txtar), Text: txtar},
 		},
 	}
@@ -36,7 +36,7 @@ func TestResolveCitationLocations(t *testing.T) {
 	helloOff := indexOf(txtar, "Hello") // member main.go
 	readmeOff := indexOf(txtar, "two")  // member README.md
 
-	cites := []api.Citation{
+	cites := []notebooklm.Citation{
 		{
 			SourceIndex: 1, SourceID: "chunk_hello", ParentSourceID: "src_txtar",
 			StartChar: 4, EndChar: 12, SourceStart: helloOff, SourceEnd: helloOff + len("Hello()"),
@@ -50,14 +50,14 @@ func TestResolveCitationLocations(t *testing.T) {
 		{SourceIndex: 3, SourceID: "src_other"}, // no body — skipped
 	}
 
-	load := func(id string) (api.LoadSourceText, error) {
+	load := func(id string) (notebooklm.LoadSourceText, error) {
 		switch id {
 		case "src_txtar":
 			return body, nil
 		case "src_other":
-			return api.LoadSourceText{}, errors.New("not found")
+			return notebooklm.LoadSourceText{}, errors.New("not found")
 		}
-		return api.LoadSourceText{}, errors.New("unexpected id " + id)
+		return notebooklm.LoadSourceText{}, errors.New("unexpected id " + id)
 	}
 
 	got := resolveCitationLocations(load, cites, nil)
@@ -79,13 +79,13 @@ func TestResolveCitationLocations(t *testing.T) {
 
 func TestResolveOneCitationRejectsExcerptMismatch(t *testing.T) {
 	const txtar = "-- main.go --\npackage main\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src",
 		Title:     "project.txtar",
-		Fragments: []api.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
 	}
 	start := indexOf(txtar, "package")
-	cite := api.Citation{
+	cite := notebooklm.Citation{
 		SourceID:    "src",
 		SourceStart: start,
 		SourceEnd:   start + len("package"),
@@ -101,16 +101,16 @@ func TestResolveOneCitationUsesCompactProjection(t *testing.T) {
 		first  = "-- main.go --\n"
 		second = "package main\n"
 	)
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "src",
 		Title:    "project.txtar",
-		Fragments: []api.TextFragment{
+		Fragments: []notebooklm.TextFragment{
 			{Start: 100, End: 100 + len(first), Text: first},
 			{Start: 500, End: 500 + len(second), Text: second},
 		},
 	}
 	start := len(first)
-	cite := api.Citation{
+	cite := notebooklm.Citation{
 		SourceID:    "src",
 		SourceStart: start,
 		SourceEnd:   start + len("package"),
@@ -158,14 +158,14 @@ func TestFormatLocation(t *testing.T) {
 
 func TestResolveOneCitationMultiMemberSpan(t *testing.T) {
 	const txtar = "-- a.py --\none\n-- b.py --\ntwo\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src",
 		Title:     "project.txtar",
-		Fragments: []api.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
 	}
 	start := indexOf(txtar, "one")
 	end := indexOf(txtar, "two") + len("two")
-	cite := api.Citation{
+	cite := notebooklm.Citation{
 		SourceID:    "src",
 		SourceStart: start,
 		SourceEnd:   end,
@@ -197,7 +197,7 @@ func TestFormatLocationShortenAbsolutePath(t *testing.T) {
 }
 
 func TestResolveCitationLocationsNoLoader(t *testing.T) {
-	if got := resolveCitationLocations(nil, []api.Citation{{SourceID: "x"}}, nil); got != nil {
+	if got := resolveCitationLocations(nil, []notebooklm.Citation{{SourceID: "x"}}, nil); got != nil {
 		t.Fatalf("nil loader should return nil, got %v", got)
 	}
 }
@@ -207,15 +207,15 @@ func TestResolveCitationLocationsNoLoader(t *testing.T) {
 // and excerpts no longer come from this path.
 func TestResolveCitationLocationsNonTxtarSource(t *testing.T) {
 	const plain = "Just a single-file source.\nNo txtar markers.\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src_plain",
 		Title:     "plain.txt",
-		Fragments: []api.TextFragment{{Start: 0, End: len(plain), Text: plain}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len(plain), Text: plain}},
 	}
-	load := func(string) (api.LoadSourceText, error) { return body, nil }
+	load := func(string) (notebooklm.LoadSourceText, error) { return body, nil }
 
-	cite := api.Citation{SourceIndex: 1, SourceID: "src_plain", StartChar: 0, EndChar: 4}
-	got := resolveCitationLocations(load, []api.Citation{cite}, nil)
+	cite := notebooklm.Citation{SourceIndex: 1, SourceID: "src_plain", StartChar: 0, EndChar: 4}
+	got := resolveCitationLocations(load, []notebooklm.Citation{cite}, nil)
 	if len(got) != 0 {
 		t.Fatalf("non-txtar source has no location to resolve, got %v", got)
 	}
@@ -223,30 +223,30 @@ func TestResolveCitationLocationsNonTxtarSource(t *testing.T) {
 
 func TestResolveCitationLocationsDebugReasons(t *testing.T) {
 	const txtar = "-- main.go --\npackage main\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src",
 		Title:     "project.txtar",
-		Fragments: []api.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len(txtar), Text: txtar}},
 	}
-	plain := api.LoadSourceText{
+	plain := notebooklm.LoadSourceText{
 		SourceID:  "plain",
 		Title:     "notes.txt",
-		Fragments: []api.TextFragment{{Start: 0, End: 5, Text: "notes"}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: 5, Text: "notes"}},
 	}
-	load := func(id string) (api.LoadSourceText, error) {
+	load := func(id string) (notebooklm.LoadSourceText, error) {
 		switch id {
 		case "missing":
-			return api.LoadSourceText{}, errors.New("missing")
+			return notebooklm.LoadSourceText{}, errors.New("missing")
 		case "src":
 			return body, nil
 		case "plain":
 			return plain, nil
 		default:
-			return api.LoadSourceText{}, errors.New("unexpected")
+			return notebooklm.LoadSourceText{}, errors.New("unexpected")
 		}
 	}
 	start := indexOf(txtar, "package")
-	cites := []api.Citation{
+	cites := []notebooklm.Citation{
 		{SourceIndex: 1, SourceID: "missing"},
 		{SourceIndex: 1, SourceID: "missing"}, // duplicate
 		{

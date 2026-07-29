@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // researchEvent is one JSON-lines record emitted on stdout.
@@ -21,12 +21,12 @@ import (
 //	report_chunk     — a chunk of the markdown report (deep only)
 //	complete         — terminal event with the final report and source list
 type researchEvent struct {
-	Type    string               `json:"type"`
-	Mode    string               `json:"mode,omitempty"`
-	Query   string               `json:"query,omitempty"`
-	Report  string               `json:"report,omitempty"`
-	Delta   string               `json:"report_delta,omitempty"`
-	Sources []api.ResearchSource `json:"sources,omitempty"`
+	Type    string                      `json:"type"`
+	Mode    string                      `json:"mode,omitempty"`
+	Query   string                      `json:"query,omitempty"`
+	Report  string                      `json:"report,omitempty"`
+	Delta   string                      `json:"report_delta,omitempty"`
+	Sources []notebooklm.ResearchSource `json:"sources,omitempty"`
 	// Deep-only: surface the researchID so a caller that needs to resume a
 	// poll later can persist it.
 	ResearchID string `json:"research_id,omitempty"`
@@ -40,11 +40,11 @@ type researchEvent struct {
 // JSON-lines on stdout by default; --md emits Markdown with source footnotes.
 //
 // Current implementation is scaffolding: both fast and deep modes call the
-// same api.Client methods, but their encoders remain argbuilder stubs until
+// same notebooklm.Client methods, but their encoders remain argbuilder stubs until
 // the request and poll response shapes are captured. Exit-code wiring
 // via ErrResearchPolling is in place so the taxonomy (exit 7) applies the
 // moment the polling shape is known.
-func runResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
+func runResearch(c *notebooklm.Client, notebookID, query string, opts researchOptions) error {
 	mode := strings.ToLower(strings.TrimSpace(opts.Mode))
 	if mode == "" {
 		mode = "deep"
@@ -59,7 +59,7 @@ func runResearch(c *api.Client, notebookID, query string, opts researchOptions) 
 	}
 }
 
-func runFastResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
+func runFastResearch(c *notebooklm.Client, notebookID, query string, opts researchOptions) error {
 	fmt.Fprintf(os.Stderr, "Fast research: %s\n", query)
 
 	result, err := c.FastResearch(context.Background(), notebookID, query)
@@ -94,7 +94,7 @@ func runFastResearch(c *api.Client, notebookID, query string, opts researchOptio
 // if --import was passed. Progress lines go to stderr; the set of
 // imported source ids is logged so scripts can extract via stderr
 // parsing if needed. Returns nil (non-fatal) when --import is off.
-func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResearchResult, query, mode string, opts researchOptions) error {
+func maybeImportResearch(c *notebooklm.Client, notebookID string, result *notebooklm.DeepResearchResult, query, mode string, opts researchOptions) error {
 	if !opts.Import {
 		return nil
 	}
@@ -105,12 +105,12 @@ func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResea
 		fmt.Fprintln(os.Stderr, "no sources to import")
 		return nil
 	}
-	imports := make([]api.BulkImportSource, 0, len(result.Sources))
+	imports := make([]notebooklm.BulkImportSource, 0, len(result.Sources))
 	for _, s := range result.Sources {
 		if s.URL == "" {
 			continue
 		}
-		imports = append(imports, api.BulkImportSource{URL: s.URL, Title: s.Title})
+		imports = append(imports, notebooklm.BulkImportSource{URL: s.URL, Title: s.Title})
 	}
 	if len(imports) == 0 {
 		fmt.Fprintln(os.Stderr, "no URL sources to import (all discovered sources lacked a URL)")
@@ -127,7 +127,7 @@ func maybeImportResearch(c *api.Client, notebookID string, result *api.DeepResea
 	return nil
 }
 
-func runDeepResearch(c *api.Client, notebookID, query string, opts researchOptions) error {
+func runDeepResearch(c *notebooklm.Client, notebookID, query string, opts researchOptions) error {
 	project, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("look up notebook: %w", err)
@@ -195,7 +195,7 @@ func runDeepResearch(c *api.Client, notebookID, query string, opts researchOptio
 
 	// Loop exhausted without a done signal; surface the busy sentinel so
 	// scripts can retry via polling instead of treating this as a fatal error.
-	return fmt.Errorf("deep research polling exhausted after %d attempts: %w", maxPolls, api.ErrResearchPolling)
+	return fmt.Errorf("deep research polling exhausted after %d attempts: %w", maxPolls, notebooklm.ErrResearchPolling)
 }
 
 // emitResearchEvent writes one JSON-lines record to stdout.

@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestParseAppCreateArgsWithOptions(t *testing.T) {
@@ -79,16 +79,16 @@ func TestParseSlideDeckFormat(t *testing.T) {
 
 	tests := []struct {
 		in      string
-		want    api.SlideDeckFormat
+		want    notebooklm.SlideDeckFormat
 		wantErr bool
 	}{
-		{"", api.SlideDeckFormatDetailed, false},
-		{"detailed", api.SlideDeckFormatDetailed, false},
-		{"DETAILED", api.SlideDeckFormatDetailed, false},
-		{"detail", api.SlideDeckFormatDetailed, false},
-		{"presenter", api.SlideDeckFormatPresenter, false},
-		{" Presenter ", api.SlideDeckFormatPresenter, false},
-		{"sparse", api.SlideDeckFormatPresenter, false},
+		{"", notebooklm.SlideDeckFormatDetailed, false},
+		{"detailed", notebooklm.SlideDeckFormatDetailed, false},
+		{"DETAILED", notebooklm.SlideDeckFormatDetailed, false},
+		{"detail", notebooklm.SlideDeckFormatDetailed, false},
+		{"presenter", notebooklm.SlideDeckFormatPresenter, false},
+		{" Presenter ", notebooklm.SlideDeckFormatPresenter, false},
+		{"sparse", notebooklm.SlideDeckFormatPresenter, false},
 		{"bogus", 0, true},
 	}
 	for _, tt := range tests {

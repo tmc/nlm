@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestRenderNotebookHTML(t *testing.T) {
@@ -94,7 +94,7 @@ func notebookTestDocument(id, question, answer string) ChatDocument {
 			{
 				Role:    "assistant",
 				Content: answer,
-				Citations: []api.Citation{{
+				Citations: []notebooklm.Citation{{
 					SourceIndex: 1,
 					SourceID:    "source-" + id,
 					Title:       "Source",

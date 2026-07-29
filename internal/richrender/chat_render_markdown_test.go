@@ -5,13 +5,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestRenderChatMarkdown(t *testing.T) {
 	// A multi-source marker ([1] → three sources) plus a single-source marker
 	// ([3]). Confidences differ per source; excerpts ride on the citations.
-	multiSource := []api.Citation{
+	multiSource := []notebooklm.Citation{
 		{SourceIndex: 1, SourceID: "b149abcd-0000", Title: "codex: B149", StartChar: 115, EndChar: 241, Confidence: 0.91, Excerpt: "first excerpt text", SourceStart: 965670, SourceEnd: 966914},
 		{SourceIndex: 1, SourceID: "7a59beef-1111", Title: "Skill triage", StartChar: 115, EndChar: 241, Confidence: 0.87, Excerpt: "ARCHITECTURE (user's suggestion, adopted): add native\nprofiling flags to the rank tools", SourceStart: 100, SourceEnd: 200},
 		{SourceIndex: 1, SourceID: "e347cafe-2222", Title: "claude: E347", StartChar: 115, EndChar: 241, Confidence: 0.71},
@@ -158,7 +158,7 @@ func TestRenderChatMarkdown(t *testing.T) {
 
 func TestRenderChatMarkdownEscapesTitles(t *testing.T) {
 	doc := ChatDocument{Messages: []ChatMessage{
-		{Role: "assistant", Content: "A.", Citations: []api.Citation{
+		{Role: "assistant", Content: "A.", Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "aaaaaaaa-0000", Title: "a | b `c`", Confidence: 0.5},
 		}},
 	}}
@@ -180,7 +180,7 @@ func TestRenderChatMarkdownEscapesTitles(t *testing.T) {
 func TestRenderChatMarkdownPreservesExcerptNewlines(t *testing.T) {
 	excerpt := "func main() {\n\tfmt.Println(\"hi\")\n\n\treturn\n}"
 	doc := ChatDocument{Messages: []ChatMessage{
-		{Role: "assistant", Content: "See the entrypoint [1].", Citations: []api.Citation{
+		{Role: "assistant", Content: "See the entrypoint [1].", Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "codeabcd-1", Title: "main.go", Excerpt: excerpt, StartChar: 4, EndChar: 18, Confidence: 0.9},
 		}},
 	}}

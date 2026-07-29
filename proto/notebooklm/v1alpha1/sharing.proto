@@ -35,7 +35,7 @@ message ShareAudioResponse {
 //   shapes but have not been observed.
 message GetProjectDetailsRequest {
     // Field is named share_id for backwards compatibility with
-    // existing Go callers (api.Client.GetProjectDetails); on the wire
+    // existing Go callers (notebooklm.Client.GetProjectDetails); on the wire
     // this is the project UUID.
     string share_id = 1;
     RequestContext context = 2;

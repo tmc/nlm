@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 var (
@@ -27,7 +27,7 @@ var (
 func boolPtr(v bool) *bool { return &v }
 
 // New returns an MCP server for NotebookLM operations.
-func New(client *api.Client, impl *mcp.Implementation) *mcp.Server {
+func New(client *notebooklm.Client, impl *mcp.Implementation) *mcp.Server {
 	if impl == nil {
 		impl = &mcp.Implementation{
 			Name:    "nlm-mcp",
@@ -47,6 +47,6 @@ Mutating tools change NotebookLM state directly.`,
 }
 
 // Run serves the NotebookLM MCP server on stdio.
-func Run(ctx context.Context, client *api.Client, impl *mcp.Implementation) error {
+func Run(ctx context.Context, client *notebooklm.Client, impl *mcp.Implementation) error {
 	return New(client, impl).Run(ctx, &mcp.StdioTransport{})
 }

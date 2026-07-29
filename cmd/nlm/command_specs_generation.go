@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type generationNotebookArgs struct {
@@ -24,7 +24,7 @@ func decodeGenerateGuide(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return generateNotebookGuide(client, args.NotebookID)
 	}, nil
 }
@@ -34,7 +34,7 @@ func decodeReportSuggestions(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(ctx context.Context, client *api.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		response, err := client.GenerateReportSuggestions(ctx, args.NotebookID)
 		if err != nil {
 			return err
@@ -60,7 +60,7 @@ func decodeAudioSuggestions(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return audioSuggestions(client, args.NotebookID, args.JSON)
 	}, nil
 }

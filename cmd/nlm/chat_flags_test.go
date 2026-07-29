@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestParseSourceSelectionArgs(t *testing.T) {
@@ -502,13 +502,13 @@ func TestMergeChatHistory(t *testing.T) {
 	key := citationContentKey("answer")
 	serverRich := testProtoRichDocument("answer")
 	localRich := testProtoRichDocument("local")
-	serverCitations := []api.Citation{{SourceIndex: 1, SourceID: "server"}}
-	localCitations := []api.Citation{{SourceIndex: 2, SourceID: "local"}}
+	serverCitations := []notebooklm.Citation{{SourceIndex: 1, SourceID: "server"}}
+	localCitations := []notebooklm.Citation{{SourceIndex: 2, SourceID: "local"}}
 	tests := []struct {
 		name              string
 		message           storedMessage
 		rich              map[string]*pb.RichDocument
-		citations         map[string][]api.Citation
+		citations         map[string][]notebooklm.Citation
 		wantChanged       bool
 		wantRich, wantCit int
 	}{
@@ -518,7 +518,7 @@ func TestMergeChatHistory(t *testing.T) {
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 			},
 			rich:        map[string]*pb.RichDocument{key: serverRich},
-			citations:   map[string][]api.Citation{key: serverCitations},
+			citations:   map[string][]notebooklm.Citation{key: serverCitations},
 			wantChanged: true, wantRich: 1, wantCit: 1,
 		},
 		{
@@ -528,7 +528,7 @@ func TestMergeChatHistory(t *testing.T) {
 				Rich: localRich, Citations: localCitations,
 			},
 			rich:      map[string]*pb.RichDocument{key: serverRich},
-			citations: map[string][]api.Citation{key: serverCitations},
+			citations: map[string][]notebooklm.Citation{key: serverCitations},
 		},
 		{
 			name: "server flat leaves local flat",
@@ -536,7 +536,7 @@ func TestMergeChatHistory(t *testing.T) {
 				Role: "assistant", Content: "answer", Thinking: "keep me",
 			},
 			rich:      map[string]*pb.RichDocument{},
-			citations: map[string][]api.Citation{},
+			citations: map[string][]notebooklm.Citation{},
 		},
 	}
 	for _, test := range tests {

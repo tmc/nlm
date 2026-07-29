@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type labelReader interface {
-	GetLabels(ctx context.Context, projectID string) ([]api.Label, error)
+	GetLabels(ctx context.Context, projectID string) ([]notebooklm.Label, error)
 }
 
 type labelAttacher interface {

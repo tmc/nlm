@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestResearchMarkdown(t *testing.T) {
@@ -12,13 +12,13 @@ func TestResearchMarkdown(t *testing.T) {
 	tests := []struct {
 		name    string
 		report  string
-		sources []api.ResearchSource
+		sources []notebooklm.ResearchSource
 		want    string
 	}{
 		{
 			name:   "multiple citations and unknown index",
 			report: "First [cite: 2, 1, 2]. Unknown [cite: 9]. Mixed [cite: 1, 9].\n",
-			sources: []api.ResearchSource{
+			sources: []notebooklm.ResearchSource{
 				{CitationIndex: 1, Title: "One ] source", URL: "https://example.com/one_(x)"},
 				{CitationIndex: 2, Title: "Two", URL: "https://example.com/two"},
 			},
@@ -29,7 +29,7 @@ func TestResearchMarkdown(t *testing.T) {
 		{
 			name:   "fenced code is unchanged",
 			report: "Before [cite: 1].\n\n```text\nliteral [cite: 1]\n```\n",
-			sources: []api.ResearchSource{
+			sources: []notebooklm.ResearchSource{
 				{CitationIndex: 1, Title: "Source", URL: "https://example.com"},
 			},
 			want: "Before [^1].\n\n```text\nliteral [cite: 1]\n```\n\n" +
@@ -38,7 +38,7 @@ func TestResearchMarkdown(t *testing.T) {
 		{
 			name:   "no indexed sources",
 			report: "Unchanged [cite: 1].",
-			sources: []api.ResearchSource{
+			sources: []notebooklm.ResearchSource{
 				{Title: "Source", URL: "https://example.com"},
 			},
 			want: "Unchanged [cite: 1].",

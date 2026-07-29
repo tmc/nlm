@@ -23,7 +23,7 @@ Small, sanitized, version-controlled. Examples:
 
 - `internal/method/testdata/r7cb6c_{audio,video,slides}_request.json` — golden-payload request bodies for the R7cb6c encoder.
 - `internal/method/testdata/rc3d8d_rename_artifact_request.json` — golden-payload for rename-artifact.
-- `internal/notebooklm/api/testdata/AUrzMb_analytics_response.json` — captured wire response preserved as redesign evidence for the analytics response model.
+- `notebooklm/testdata/AUrzMb_analytics_response.json` — captured wire response preserved as redesign evidence for the analytics response model.
 
 Tests that read these do so unconditionally:
 
@@ -114,7 +114,7 @@ The rule: a reader looking at the encoder should be able to tell *how* the shape
 | Kind | Location | Committed? | Test guard? |
 |---|---|---|---|
 | Golden-payload requests (scrubbed) | `internal/method/testdata/` | yes | none — `t.Fatal` on absence |
-| Captured responses (scrubbed, used as evidence) | `internal/notebooklm/api/testdata/` | yes | none — `t.Fatal` on absence |
+| Captured responses (scrubbed, used as evidence) | `notebooklm/testdata/` | yes | none — `t.Fatal` on absence |
 | Raw HAR / JSONL captures with secrets | `docs/captures/` (gitignored) | **no** | `skipIfFixtureMissing` pattern |
 | Encoder guard-comment references | in source, next to the function | n/a | n/a |
 

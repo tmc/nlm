@@ -6,14 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 func TestResolvePlainText(t *testing.T) {
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "src-1",
 		Title:    "notes.txt",
-		Fragments: []api.TextFragment{{
+		Fragments: []notebooklm.TextFragment{{
 			Start: 0,
 			End:   len([]rune("alpha\nbeta\ngamma")),
 			Text:  "alpha\nbeta\ngamma",
@@ -50,10 +50,10 @@ func TestResolveTxtar(t *testing.T) {
 		"-- dir/beta.go --\n" +
 		"package beta\n" +
 		"func F() {}\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "src-1",
 		Title:    ".",
-		Fragments: []api.TextFragment{{
+		Fragments: []notebooklm.TextFragment{{
 			Start: 0,
 			End:   len([]rune(full)),
 			Text:  full,
@@ -87,10 +87,10 @@ func TestResolveCitationProjection(t *testing.T) {
 		header   = "-- alpha.txt --\n"
 		bodyText = "first line\nsecond line\n"
 	)
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "src-1",
 		Title:    "project.txtar",
-		Fragments: []api.TextFragment{
+		Fragments: []notebooklm.TextFragment{
 			{Start: 100, End: 100 + len(header), Text: header},
 			{Start: 500, End: 500 + len(bodyText), Text: bodyText},
 		},
@@ -114,10 +114,10 @@ func TestResolveCitationProjection(t *testing.T) {
 
 func TestResolveCitationFailsClosed(t *testing.T) {
 	const text = "-- alpha.txt --\nfirst line\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src-1",
 		Title:     "project.txtar",
-		Fragments: []api.TextFragment{{Start: 0, End: len(text), Text: text}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len(text), Text: text}},
 	}
 	tests := []struct {
 		name    string
@@ -150,9 +150,9 @@ func TestResolveHeaderSpan(t *testing.T) {
 		"first line\n" +
 		"-- dir/beta.go --\n" +
 		"package beta\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "src-1",
-		Fragments: []api.TextFragment{{
+		Fragments: []notebooklm.TextFragment{{
 			Start: 0,
 			End:   len([]rune(full)),
 			Text:  full,
@@ -183,9 +183,9 @@ func TestResolveMultiMemberSpan(t *testing.T) {
 		"package beta\n" +
 		"-- gamma.md --\n" +
 		"last line\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src-1",
-		Fragments: []api.TextFragment{{Start: 0, End: len(full), Text: full}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len(full), Text: full}},
 	}
 	start := strings.Index(full, "first line")
 	end := strings.Index(full, "last line") + len("last")
@@ -211,10 +211,10 @@ func TestResolveMultiMemberSpan(t *testing.T) {
 // to plain-text reporting against the source's title.
 func TestResolveTxtarHeadersStripped(t *testing.T) {
 	const full = "-- a.md --content one -- b.md --content two\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID: "src-1",
 		Title:    "stripped.txtar",
-		Fragments: []api.TextFragment{{
+		Fragments: []notebooklm.TextFragment{{
 			Start: 0,
 			End:   len([]rune(full)),
 			Text:  full,
@@ -243,10 +243,10 @@ func TestResolveTxtarHeaderTrailingContent(t *testing.T) {
 	const full = "" +
 		"-- alpha.txt --first line\n" +
 		"second line\n"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src-1",
 		Title:     "x.txt",
-		Fragments: []api.TextFragment{{Start: 0, End: len([]rune(full)), Text: full}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len([]rune(full)), Text: full}},
 	}
 	start := strings.Index(full, "first line")
 	got := Resolve(body, NativeCitation{
@@ -287,10 +287,10 @@ func TestResolveCollapsedTxtarUsesMemberOffset(t *testing.T) {
 		"body one " +
 		"-- cmd/one.go -- package one " +
 		"-- internal/two.go -- package two"
-	body := api.LoadSourceText{
+	body := notebooklm.LoadSourceText{
 		SourceID:  "src",
 		Title:     "project.txtar",
-		Fragments: []api.TextFragment{{Start: 0, End: len(text), Text: text}},
+		Fragments: []notebooklm.TextFragment{{Start: 0, End: len(text), Text: text}},
 	}
 	start := strings.Index(text, "package one")
 	got := Resolve(body, NativeCitation{
@@ -327,7 +327,7 @@ func TestResolveFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := api.DecodeLoadSourceText(raw)
+	body, err := notebooklm.DecodeLoadSourceText(raw)
 	if err != nil {
 		t.Fatalf("DecodeLoadSourceText: %v", err)
 	}

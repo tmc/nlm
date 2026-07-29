@@ -6,11 +6,11 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type researchPollResult struct {
-	result *api.DeepResearchResult
+	result *notebooklm.DeepResearchResult
 	err    error
 }
 
@@ -19,7 +19,7 @@ type fakeResearchPoller struct {
 	calls   int
 }
 
-func (p *fakeResearchPoller) PollDeepResearch(context.Context, string, string) (*api.DeepResearchResult, error) {
+func (p *fakeResearchPoller) PollDeepResearch(context.Context, string, string) (*notebooklm.DeepResearchResult, error) {
 	i := p.calls
 	p.calls++
 	if i >= len(p.results) {
@@ -31,14 +31,14 @@ func (p *fakeResearchPoller) PollDeepResearch(context.Context, string, string) (
 func TestWatchDeepResearch(t *testing.T) {
 	t.Parallel()
 
-	want := &api.DeepResearchResult{
+	want := &notebooklm.DeepResearchResult{
 		ResearchID: "research-1",
 		Done:       true,
 		Report:     "# Complete",
 	}
 	poller := &fakeResearchPoller{results: []researchPollResult{
-		{result: &api.DeepResearchResult{ResearchID: "research-1"}, err: api.ErrResearchPolling},
-		{result: &api.DeepResearchResult{ResearchID: "research-1"}, err: api.ErrResearchPolling},
+		{result: &notebooklm.DeepResearchResult{ResearchID: "research-1"}, err: notebooklm.ErrResearchPolling},
+		{result: &notebooklm.DeepResearchResult{ResearchID: "research-1"}, err: notebooklm.ErrResearchPolling},
 		{result: want},
 	}}
 	var progress []researchWatchProgress
@@ -78,8 +78,8 @@ func TestWatchDeepResearchStopsOnContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	poller := &fakeResearchPoller{results: []researchPollResult{{
-		result: &api.DeepResearchResult{ResearchID: "research-1"},
-		err:    api.ErrResearchPolling,
+		result: &notebooklm.DeepResearchResult{ResearchID: "research-1"},
+		err:    notebooklm.ErrResearchPolling,
 	}}}
 	_, err := watchDeepResearch(ctx, poller, watchDeepResearchInput{
 		NotebookID: "notebook-1",
@@ -118,8 +118,8 @@ func TestWatchDeepResearchReturnsNotificationError(t *testing.T) {
 
 	notifyErr := errors.New("client disconnected")
 	poller := &fakeResearchPoller{results: []researchPollResult{{
-		result: &api.DeepResearchResult{ResearchID: "research-1"},
-		err:    api.ErrResearchPolling,
+		result: &notebooklm.DeepResearchResult{ResearchID: "research-1"},
+		err:    notebooklm.ErrResearchPolling,
 	}}}
 	_, err := watchDeepResearch(context.Background(), poller, watchDeepResearchInput{
 		NotebookID: "notebook-1",

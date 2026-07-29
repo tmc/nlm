@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type sharingNotebookArgs struct {
@@ -29,7 +29,7 @@ func decodeSharePublic(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return shareNotebook(client, args.NotebookID)
 	}, nil
 }
@@ -39,7 +39,7 @@ func decodeSharePrivate(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return shareNotebookPrivate(client, args.NotebookID)
 	}, nil
 }
@@ -50,7 +50,7 @@ func decodeShareDetails(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := sharingDetailsArgs{ShareID: shareID}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return getShareDetails(client, args.ShareID)
 	}, nil
 }

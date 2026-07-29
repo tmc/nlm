@@ -2955,7 +2955,7 @@ func (x *GenerateDocumentGuidesResponse) GetGuides() []*DocumentGuide {
 //
 //	[ [[source_id]], [summary], [[topic, topic, ...]], [] ]
 //
-// The live reader (api.Client.GenerateSourceGuide) hand-parses these
+// The live reader (notebooklm.Client.GenerateSourceGuide) hand-parses these
 // positions directly; this message mirrors the wire for betool/beprotojson
 // decode. Positions [1] and [2] wrap their payload one level deep, so each is
 // modeled as a small wrapper message.

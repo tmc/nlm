@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 type chatListArgs struct {
@@ -193,7 +193,7 @@ func decodeChatList(parsed parsedCommand) (commandCall, error) {
 		JSON:          jsonOutput,
 		Client:        clientOptions,
 	}
-	return func(context.Context, *api.Client) error {
+	return func(context.Context, *notebooklm.Client) error {
 		if args.NotebookIDSet {
 			return listChatConversationsWithAuth(args.NotebookID, args.JSON, args.Client)
 		}
@@ -211,7 +211,7 @@ func decodeChatHistory(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	args := chatHistoryArgs{NotebookID: notebookID, ConversationID: conversationID}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return printChatHistory(client, args.NotebookID, args.ConversationID)
 	}, nil
 }
@@ -221,7 +221,7 @@ func decodeChatDelete(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return deleteChatHistory(client, args.NotebookID, args.Yes)
 	}, nil
 }
@@ -246,7 +246,7 @@ func decodeChatConfig(parsed parsedCommand) (commandCall, error) {
 		ModeSet:    modeSet,
 		Values:     append([]string(nil), parsed.Args["values"]...),
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return setChatConfig(client, args)
 	}, nil
 }
@@ -264,7 +264,7 @@ func decodeChatInstructionsSet(parsed parsedCommand) (commandCall, error) {
 		NotebookID: notebookID,
 		Prompt:     strings.Join(prompt, " "),
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return setInstructions(client, args.NotebookID, args.Prompt)
 	}, nil
 }
@@ -274,7 +274,7 @@ func decodeChatInstructionsGet(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
+	return func(_ context.Context, client *notebooklm.Client) error {
 		return getInstructions(client, args.NotebookID)
 	}, nil
 }

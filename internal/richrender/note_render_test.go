@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 	"golang.org/x/net/html"
 	"google.golang.org/protobuf/proto"
 )
@@ -192,7 +192,7 @@ func TestRenderNoteHTMLCitationDataEscaped(t *testing.T) {
 }
 
 func TestRenderNoteHTMLStructuredExcerpt(t *testing.T) {
-	runs := []api.ExcerptRun{
+	runs := []notebooklm.ExcerptRun{
 		{Text: "plain "},
 		{Text: "code<&", Code: true},
 		{Text: " http", Link: "https://example.test/docs"},
@@ -208,7 +208,7 @@ func TestRenderNoteHTMLStructuredExcerpt(t *testing.T) {
 	doc := NoteDocument{
 		Title: "Structured excerpt",
 		Flat:  "claim [1]",
-		Citations: []api.Citation{{
+		Citations: []notebooklm.Citation{{
 			SourceIndex: 1,
 			SourceID:    "source-1",
 			Excerpt:     flat.String(),
@@ -398,7 +398,7 @@ func TestRenderNoteHTMLSuperscriptCitations(t *testing.T) {
 	doc := NoteDocument{
 		Title: "Citations",
 		Flat:  "Range [1-4] and list [1, 2].",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "source-1"},
 			{SourceIndex: 2, SourceID: "source-2"},
 			{SourceIndex: 4, SourceID: "source-4"},
@@ -423,7 +423,7 @@ func TestRenderNoteHTMLGroundedSpans(t *testing.T) {
 	doc := NoteDocument{
 		Title: "Grounding",
 		Flat:  "Alpha claim [1]. Beta claim [1].",
-		Citations: []api.Citation{
+		Citations: []notebooklm.Citation{
 			{SourceIndex: 1, SourceID: "source-1", StartChar: 0, EndChar: 11},
 			{SourceIndex: 1, SourceID: "source-2", StartChar: 17, EndChar: 27},
 		},
@@ -441,7 +441,7 @@ func TestRenderNoteHTMLGroundedSpans(t *testing.T) {
 	}
 }
 
-func richNoteFixture() *api.Note {
+func richNoteFixture() *notebooklm.Note {
 	span := func(start, end int64, text string, marks *pb.TextMarks) *pb.Span {
 		return &pb.Span{
 			Start: proto.Int64(start),
@@ -502,7 +502,7 @@ func richNoteFixture() *api.Note {
 		{Source: source("source-a"), Grounding: first},
 		{Source: source("source-b"), Grounding: second},
 	}
-	return &api.Note{
+	return &notebooklm.Note{
 		Note: &pb.Note{
 			NoteId: "note-1",
 			Title:  "Rich <Note>",

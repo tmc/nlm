@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
 // ANSI escape codes. Grey/dim style secondary output (thinking traces,
@@ -90,19 +90,19 @@ type StreamRenderer struct {
 	jsonl                bool // when true, emit typed JSON-lines events on r.out instead of human output
 	jsonlIncludeThinking bool // when true, thinking chunks are emitted as JSON-lines events (otherwise skipped)
 	citationMode         CitationMode
-	resolveTitle         func(sourceID string) string                      // optional; returns "" if unknown
-	sourceRemoved        func(sourceID string) bool                        // optional; reports a source ID no longer in the notebook
-	loadSource           func(sourceID string) (api.LoadSourceText, error) // optional; populated when --resolve-citations or --citation-excerpt is set
-	excerptBudget        int                                               // >0 enables per-citation excerpts, clipped to this many runes
-	showConfidence       bool                                              // list mode: show the (p=…) column (default on)
-	showSpans            bool                                              // list mode: show the "chars X-Y" column (default on)
-	resolvedLocations    map[citationKey]resolvedCitation                  // computed once at Finish; keyed by citationKey
+	resolveTitle         func(sourceID string) string                             // optional; returns "" if unknown
+	sourceRemoved        func(sourceID string) bool                               // optional; reports a source ID no longer in the notebook
+	loadSource           func(sourceID string) (notebooklm.LoadSourceText, error) // optional; populated when --resolve-citations or --citation-excerpt is set
+	excerptBudget        int                                                      // >0 enables per-citation excerpts, clipped to this many runes
+	showConfidence       bool                                                     // list mode: show the (p=…) column (default on)
+	showSpans            bool                                                     // list mode: show the "chars X-Y" column (default on)
+	resolvedLocations    map[citationKey]resolvedCitation                         // computed once at Finish; keyed by citationKey
 	debug                io.Writer
 	debuggedCitations    map[citationKey]bool
 	lastThinkingLen      int
 	answerBuf            strings.Builder
 	thinking             string
-	citations            []api.Citation
+	citations            []notebooklm.Citation
 	followUps            []string
 	rich                 *pb.RichDocument // last answer chunk's span tree (cumulative); nil when the stream carried none
 
@@ -116,7 +116,7 @@ type StreamRenderer struct {
 	jsonlAnswerEmitted int
 	jsonlThinkingSeen  string
 	jsonlCitationsSeen int
-	jsonlSourceBodies  map[string]api.LoadSourceText // per-source cache for lazy JSONL resolution ("" body = negative)
+	jsonlSourceBodies  map[string]notebooklm.LoadSourceText // per-source cache for lazy JSONL resolution ("" body = negative)
 	jsonlLoadFailed    map[string]bool
 }
 
@@ -133,13 +133,13 @@ func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mo
 }
 
 // WriteChunk incorporates and renders one phase-aware chat chunk.
-func (r *StreamRenderer) WriteChunk(chunk api.ChatChunk) {
+func (r *StreamRenderer) WriteChunk(chunk notebooklm.ChatChunk) {
 	if r.jsonl {
 		r.writeChunkJSONL(chunk)
 		return
 	}
 	switch chunk.Phase {
-	case api.ChatChunkThinking:
+	case notebooklm.ChatChunkThinking:
 		// Thinking chunks arrive as full cumulative snapshots, not deltas.
 		// Replace instead of appending to avoid quadratic growth.
 		r.thinking = chunk.Text
@@ -156,7 +156,7 @@ func (r *StreamRenderer) WriteChunk(chunk api.ChatChunk) {
 		line := fmt.Sprintf("%s  [thinking] %s%s", ansiGrey, display, ansiReset)
 		fmt.Fprint(r.status, line)
 		r.lastThinkingLen = len("  [thinking] ") + len(display)
-	case api.ChatChunkAnswer:
+	case notebooklm.ChatChunkAnswer:
 		r.clearThinkingLine()
 		r.answerBuf.WriteString(chunk.Text)
 		// The answer always streams live to stdout; citations render as a
@@ -181,9 +181,9 @@ func (r *StreamRenderer) WriteChunk(chunk api.ChatChunk) {
 // Answer text is emitted as deltas so shell consumers can pipeline without
 // waiting for the full response. Thinking chunks arrive as cumulative
 // snapshots; only emit when the snapshot differs from what we last emitted.
-func (r *StreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
+func (r *StreamRenderer) writeChunkJSONL(chunk notebooklm.ChatChunk) {
 	switch chunk.Phase {
-	case api.ChatChunkThinking:
+	case notebooklm.ChatChunkThinking:
 		r.thinking = chunk.Text
 		if !r.jsonlIncludeThinking {
 			return
@@ -196,7 +196,7 @@ func (r *StreamRenderer) writeChunkJSONL(chunk api.ChatChunk) {
 			"phase": "thinking",
 			"text":  chunk.Text,
 		})
-	case api.ChatChunkAnswer:
+	case notebooklm.ChatChunkAnswer:
 		r.answerBuf.WriteString(chunk.Text)
 		if chunk.Text != "" {
 			r.emitJSONLEvent(map[string]any{
@@ -343,7 +343,7 @@ func (r *StreamRenderer) renderCitationList() {
 // confidence (amber below weakConfidence) — never hoisted to the header,
 // because a marker's sources have independent, usually differing scores. In the
 // expanded view each source's locator and excerpt follow on indented lines.
-func (r *StreamRenderer) renderCitationGroup(idx int, group []api.Citation, expanded bool) {
+func (r *StreamRenderer) renderCitationGroup(idx int, group []notebooklm.Citation, expanded bool) {
 	fmt.Fprintf(r.status, "  %s\n", r.citationMarkerHeader(idx, group))
 	for _, c := range group {
 		if row := r.citationSourceRow(c, expanded); row != "" {
@@ -360,7 +360,7 @@ func (r *StreamRenderer) renderCitationGroup(idx int, group []api.Citation, expa
 // claim in the answer text); it is labeled "answer" so it is never confused
 // with a source offset. All sources under a marker share it. When showSpans is
 // off, or the sources somehow disagree on the span, only "[n]" prints.
-func (r *StreamRenderer) citationMarkerHeader(idx int, group []api.Citation) string {
+func (r *StreamRenderer) citationMarkerHeader(idx int, group []notebooklm.Citation) string {
 	header := fmt.Sprintf("[%d]", idx)
 	if r.showSpans {
 		if start, end, ok := uniformSpan(group); ok {
@@ -377,7 +377,7 @@ func (r *StreamRenderer) citationMarkerHeader(idx int, group []api.Citation) str
 // after. In the expanded view the row also carries the source-offset locator
 // ("src N-M", or a resolved file:line) so the excerpt beneath it can be placed
 // in the source document. Returns "" when there is nothing to show.
-func (r *StreamRenderer) citationSourceRow(c api.Citation, expanded bool) string {
+func (r *StreamRenderer) citationSourceRow(c notebooklm.Citation, expanded bool) string {
 	label := r.citationLabel(c)
 	var row string
 	if r.showConfidence {
@@ -421,7 +421,7 @@ func (r *StreamRenderer) formatSourceConfidence(conf float64) string {
 // otherwise the raw source-offset range as "src N-M" (from SourceStart/End).
 // Both are source-document coordinates, distinct from the answer span on the
 // marker header; returns "" when neither is available.
-func (r *StreamRenderer) citationSourceLocator(c api.Citation) string {
+func (r *StreamRenderer) citationSourceLocator(c notebooklm.Citation) string {
 	if loc := r.resolvedLocationFor(c); loc != "" {
 		return "→ " + loc
 	}
@@ -435,7 +435,7 @@ func (r *StreamRenderer) citationSourceLocator(c api.Citation) string {
 // every member agrees, else ok=false. All sources under one marker cite the
 // same answer claim, so they share this span; the guard is defensive against a
 // payload that ever splits it (in which case only "[n]" heads the group).
-func uniformSpan(group []api.Citation) (int, int, bool) {
+func uniformSpan(group []notebooklm.Citation) (int, int, bool) {
 	for _, c := range group[1:] {
 		if c.StartChar != group[0].StartChar || c.EndChar != group[0].EndChar {
 			return 0, 0, false
@@ -449,7 +449,7 @@ func uniformSpan(group []api.Citation) (int, int, bool) {
 // color so the cited text stays legible. The source-document locator now rides
 // on the source row itself; only the excerpt lands here. Nothing prints when
 // the server sent no excerpt.
-func (r *StreamRenderer) printCitationExcerpt(c api.Citation, indent string) {
+func (r *StreamRenderer) printCitationExcerpt(c notebooklm.Citation, indent string) {
 	if ex := r.excerptFor(c); ex != "" {
 		fmt.Fprintf(r.status, "%s“%s”\n", indent, ex)
 	}
@@ -462,7 +462,7 @@ func (r *StreamRenderer) printCitationExcerpt(c api.Citation, indent string) {
 // prefers a resolved notebook title, then the server-supplied one. Degrades to
 // just the handle or just the quoted title when only one is available. The
 // resolved file:line and excerpt render separately on continuation lines.
-func (r *StreamRenderer) citationLabel(c api.Citation) string {
+func (r *StreamRenderer) citationLabel(c notebooklm.Citation) string {
 	handle := shortSourceID(c.SourceID)
 	var title string
 	if r.resolveTitle != nil {
@@ -499,7 +499,7 @@ func (r *StreamRenderer) citationLabel(c api.Citation) string {
 // citation c when --resolve-citations resolved it against a txtar member, or
 // "" otherwise. Footer printers render this on a continuation line beneath the
 // citation label so the original source name stays visible.
-func (r *StreamRenderer) resolvedLocationFor(c api.Citation) string {
+func (r *StreamRenderer) resolvedLocationFor(c notebooklm.Citation) string {
 	if r.resolvedLocations == nil {
 		return ""
 	}
@@ -509,9 +509,9 @@ func (r *StreamRenderer) resolvedLocationFor(c api.Citation) string {
 // excerptFor returns the cited source text for citation c, clipped to the
 // excerpt budget, or "" when excerpts are disabled or the server sent none.
 // The text is the verbatim passage the server shipped inline with the citation
-// (api.Citation.Excerpt) — available for any source type (notes included) with
+// (notebooklm.Citation.Excerpt) — available for any source type (notes included) with
 // no source fetch or txtar resolution required.
-func (r *StreamRenderer) excerptFor(c api.Citation) string {
+func (r *StreamRenderer) excerptFor(c notebooklm.Citation) string {
 	if r.excerptBudget <= 0 {
 		return ""
 	}
@@ -525,19 +525,19 @@ func (r *StreamRenderer) excerptFor(c api.Citation) string {
 // be loaded, or the source is not a pinnable txtar member. The excerpt is no
 // longer resolved here — it ships inline on the citation. Resolution is shared
 // with the batch path via resolveOneCitation so the two never diverge.
-func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitation, bool) {
+func (r *StreamRenderer) resolveCitationJSONL(c notebooklm.Citation) (resolvedCitation, bool) {
 	sourceID := citationSourceID(c)
 	if r.loadSource == nil || sourceID == "" {
 		return resolvedCitation{}, false
 	}
 	if r.jsonlSourceBodies == nil {
-		r.jsonlSourceBodies = make(map[string]api.LoadSourceText)
+		r.jsonlSourceBodies = make(map[string]notebooklm.LoadSourceText)
 	}
 	body, ok := r.jsonlSourceBodies[sourceID]
 	if !ok {
 		loaded, err := r.loadSource(sourceID)
 		if err != nil {
-			r.jsonlSourceBodies[sourceID] = api.LoadSourceText{} // negative cache
+			r.jsonlSourceBodies[sourceID] = notebooklm.LoadSourceText{} // negative cache
 			if r.jsonlLoadFailed == nil {
 				r.jsonlLoadFailed = make(map[string]bool)
 			}
@@ -557,7 +557,7 @@ func (r *StreamRenderer) resolveCitationJSONL(c api.Citation) (resolvedCitation,
 	return entry, resolved
 }
 
-func (r *StreamRenderer) writeCitationDiagnosticOnce(c api.Citation, reason string) {
+func (r *StreamRenderer) writeCitationDiagnosticOnce(c notebooklm.Citation, reason string) {
 	if r.debug == nil || reason == "" {
 		return
 	}
@@ -612,7 +612,7 @@ func (r *StreamRenderer) clearThinkingLine() {
 // list), then falling back to the chunk-level SourceID for frames that embedded
 // no parent. Callers that resolve titles or presence off a citation route
 // through this so the parent-vs-chunk distinction lives in one place.
-func citationTitle(c api.Citation, resolveTitle func(string) string) string {
+func citationTitle(c notebooklm.Citation, resolveTitle func(string) string) string {
 	if resolveTitle == nil {
 		return ""
 	}
@@ -628,14 +628,14 @@ type storedMessage struct {
 	Role      string
 	Content   string
 	Thinking  string
-	Citations []api.Citation
+	Citations []notebooklm.Citation
 }
 
 type persistedRenderConfig struct {
 	excerptBudget  int
 	hideConfidence bool
 	hideSpans      bool
-	loadSource     func(string) (api.LoadSourceText, error)
+	loadSource     func(string) (notebooklm.LoadSourceText, error)
 	resolveTitle   func(string) string
 	sourceRemoved  func(string) bool
 	debug          io.Writer
@@ -650,8 +650,8 @@ func renderPersistedAssistant(out, status io.Writer, m storedMessage, mode Citat
 	r.resolveTitle = cfg.resolveTitle
 	r.sourceRemoved = cfg.sourceRemoved
 	r.debug = cfg.debug
-	r.WriteChunk(api.ChatChunk{
-		Phase:     api.ChatChunkAnswer,
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase:     notebooklm.ChatChunkAnswer,
 		Text:      m.Content,
 		Citations: m.Citations,
 	})

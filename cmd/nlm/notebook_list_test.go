@@ -8,7 +8,7 @@ import (
 	"time"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -168,13 +168,13 @@ func TestRenderNotebookList(t *testing.T) {
 	}
 }
 
-func makeNotebookFixtures(t *testing.T, n int) []*api.Notebook {
+func makeNotebookFixtures(t *testing.T, n int) []*notebooklm.Notebook {
 	t.Helper()
 
-	notebooks := make([]*api.Notebook, 0, n)
+	notebooks := make([]*notebooklm.Notebook, 0, n)
 	base := time.Date(2026, 4, 22, 15, 4, 5, 0, time.UTC)
 	for i := 0; i < n; i++ {
-		notebooks = append(notebooks, &api.Notebook{
+		notebooks = append(notebooks, &notebooklm.Notebook{
 			ProjectId: fmt.Sprintf("nb-%02d", i),
 			Title:     fmt.Sprintf("Notebook %02d", i),
 			Sources: []*pb.Source{

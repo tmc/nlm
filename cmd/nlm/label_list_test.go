@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/notebooklm/api"
+	"github.com/tmc/nlm/notebooklm"
 )
 
-var labelListFixture = []api.Label{
+var labelListFixture = []notebooklm.Label{
 	{LabelID: "lbl-1", Name: "Testing", SourceIDs: []string{"src-a", "src-b"}},
 	{LabelID: "lbl-2", Name: "RPC and Networking", SourceIDs: []string{"src-c"}},
 	{LabelID: "lbl-3", Name: "Empty Label", SourceIDs: nil},
@@ -19,7 +19,7 @@ var labelListFixture = []api.Label{
 func TestRenderLabelList_TableOutput(t *testing.T) {
 	tests := []struct {
 		name     string
-		labels   []api.Label
+		labels   []notebooklm.Label
 		tty      bool
 		wantOut  []string
 		wantStat []string
