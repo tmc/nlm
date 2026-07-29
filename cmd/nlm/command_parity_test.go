@@ -81,6 +81,12 @@ func TestCommandParityPhase1Baseline(t *testing.T) {
 	compareCommandParityPhase1(t, baseline, current)
 }
 
+func TestCommandParityPhase2Baseline(t *testing.T) {
+	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase2.golden.json"))
+	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	compareCommandParityPhase2(t, baseline, current)
+}
+
 func readCommandParityGolden(t *testing.T, name string) commandParityGolden {
 	t.Helper()
 	data, err := os.ReadFile(name)
@@ -96,7 +102,7 @@ func readCommandParityGolden(t *testing.T, name string) commandParityGolden {
 
 func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGolden) {
 	t.Helper()
-	if filterInventoryHelpLines(current.RootHelp) != filterInventoryHelpLines(baseline.RootHelp) {
+	if filterPhase1HelpLines(current.RootHelp) != filterPhase1HelpLines(baseline.RootHelp) {
 		t.Error("root help differs outside the Phase 2 inventory")
 	}
 	if len(current.SectionHelp) != len(baseline.SectionHelp) {
@@ -107,7 +113,7 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 		if got.Name != want.Name {
 			t.Fatalf("section %d name changed: got %q, want %q", i, got.Name, want.Name)
 		}
-		if filterInventoryHelpLines(got.Help) != filterInventoryHelpLines(want.Help) {
+		if filterPhase1HelpLines(got.Help) != filterPhase1HelpLines(want.Help) {
 			t.Errorf("%s section help differs outside the Phase 2 inventory", want.Name)
 		}
 	}
@@ -118,6 +124,20 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 		got, want := current.Commands[i], baseline.Commands[i]
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
+		}
+		if phase4CommandPaths[want.Path] {
+			got.ArgsUsage, got.Help = want.ArgsUsage, want.Help
+			if len(got.Cases) != len(want.Cases) {
+				t.Errorf("%s argument case count changed", want.Path)
+				continue
+			}
+			for j := range got.Cases {
+				got.Cases[j].Stderr = want.Cases[j].Stderr
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%s changed outside Phase 4 help text", want.Path)
+			}
+			continue
 		}
 		if authorizedDetailedHelpPaths[want.Path] {
 			got.Help = want.Help
@@ -146,19 +166,74 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 	}
 }
 
-func filterInventoryHelpLines(help string) string {
+func compareCommandParityPhase2(t *testing.T, baseline, current commandParityGolden) {
+	t.Helper()
+	if filterHelpLines(current.RootHelp, phase4CommandPaths) != filterHelpLines(baseline.RootHelp, phase4CommandPaths) {
+		t.Error("root help differs outside the Phase 4 source paths")
+	}
+	if len(current.SectionHelp) != len(baseline.SectionHelp) {
+		t.Fatalf("section help count changed: got %d, want %d", len(current.SectionHelp), len(baseline.SectionHelp))
+	}
+	for i := range baseline.SectionHelp {
+		got, want := current.SectionHelp[i], baseline.SectionHelp[i]
+		if got.Name != want.Name {
+			t.Fatalf("section %d name changed: got %q, want %q", i, got.Name, want.Name)
+		}
+		if filterHelpLines(got.Help, phase4CommandPaths) != filterHelpLines(want.Help, phase4CommandPaths) {
+			t.Errorf("%s section help differs outside the Phase 4 source paths", want.Name)
+		}
+	}
+	if len(current.Commands) != len(baseline.Commands) {
+		t.Fatalf("command count changed: got %d, want %d", len(current.Commands), len(baseline.Commands))
+	}
+	for i := range baseline.Commands {
+		got, want := current.Commands[i], baseline.Commands[i]
+		if got.Path != want.Path {
+			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
+		}
+		if !phase4CommandPaths[want.Path] {
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%s changed outside Phase 4", want.Path)
+			}
+			continue
+		}
+		got.ArgsUsage, got.Help = want.ArgsUsage, want.Help
+		if len(got.Cases) != len(want.Cases) {
+			t.Errorf("%s argument case count changed", want.Path)
+			continue
+		}
+		for j := range got.Cases {
+			got.Cases[j].Stderr = want.Cases[j].Stderr
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s changed outside Phase 4 help text", want.Path)
+		}
+	}
+}
+
+func filterPhase1HelpLines(help string) string {
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
-		if !inventoryHelpLine(line) {
+		if !helpLineForPaths(line, inventoryCommandPaths) && !helpLineForPaths(line, phase4CommandPaths) {
 			kept = append(kept, line)
 		}
 	}
 	return strings.Join(kept, "\n")
 }
 
-func inventoryHelpLine(line string) bool {
+func filterHelpLines(help string, paths map[string]bool) string {
+	var kept []string
+	for _, line := range strings.Split(help, "\n") {
+		if !helpLineForPaths(line, paths) {
+			kept = append(kept, line)
+		}
+	}
+	return strings.Join(kept, "\n")
+}
+
+func helpLineForPaths(line string, paths map[string]bool) bool {
 	line = strings.TrimLeft(line, " \t")
-	for path := range inventoryCommandPaths {
+	for path := range paths {
 		if !strings.HasPrefix(line, path) {
 			continue
 		}
@@ -174,6 +249,11 @@ func inventoryHelpLine(line string) bool {
 		}
 	}
 	return false
+}
+
+var phase4CommandPaths = map[string]bool{
+	"source read":  true,
+	"source check": true,
 }
 
 // inventoryCommandPaths expands the 24 Phase 2 inventory rows across every

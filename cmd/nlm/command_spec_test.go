@@ -75,6 +75,9 @@ func TestCommandSpecSynopses(t *testing.T) {
 		cmd := &commands[i]
 		got := commandSynopsis(cmd.spec, cmd.surfaceSpec)
 		want := cmd.argsUsage
+		if phase4, ok := phase4SurfaceSynopses[cmd.name]; ok {
+			want = phase4
+		}
 		if inventory, ok := phase2InventorySynopses[cmd.spec.ID]; ok {
 			want = inventory
 		}
@@ -82,6 +85,13 @@ func TestCommandSpecSynopses(t *testing.T) {
 			t.Errorf("%s synopsis = %q, want %q", cmd.name, got, want)
 		}
 	}
+}
+
+var phase4SurfaceSynopses = map[string]string{
+	"source read":  "[--format text|markdown|html|json|raw] <notebook-id> <source-id>",
+	"source check": "<notebook-id> <source-id>",
+	"read-source":  "[--format text|markdown|html|json|raw] <source-id> [notebook-id]",
+	"check-source": "<source-id> [notebook-id]",
 }
 
 func TestCommandHelpUsesSpecSynopsis(t *testing.T) {

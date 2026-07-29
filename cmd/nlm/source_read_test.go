@@ -518,22 +518,22 @@ func TestParseSourceReadArgsFormats(t *testing.T) {
 			if got.Options.sourceReadFormat != test.format {
 				t.Errorf("format = %q, want %q", got.Options.sourceReadFormat, test.format)
 			}
-			if got.SourceID != "source-1" || got.NotebookID != "" {
+			if got.Target.SourceID != "source-1" || got.Target.NotebookID != "" || !got.Target.Grace {
 				t.Errorf("arguments = %+v", got)
 			}
 		})
 	}
 }
 
-func TestParseSourceReadArgsKeepsNotebookPositional(t *testing.T) {
+func TestParseSourceReadArgsUsesNotebookFirst(t *testing.T) {
 	command, ok := lookupCommand("source read")
 	if !ok {
 		t.Fatal("source read command not found")
 	}
 	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
 		"--format=raw",
-		"source-1",
 		"notebook-1",
+		"source-1",
 	}, globalOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -545,8 +545,35 @@ func TestParseSourceReadArgsKeepsNotebookPositional(t *testing.T) {
 	if args.Options.sourceReadFormat != "raw" {
 		t.Errorf("format = %q", args.Options.sourceReadFormat)
 	}
-	if got, want := strings.Join([]string{args.SourceID, args.NotebookID}, " "), "source-1 notebook-1"; got != want {
+	if got, want := strings.Join([]string{args.Target.NotebookID, args.Target.SourceID}, " "), "notebook-1 source-1"; got != want {
 		t.Errorf("arguments = %q, want %q", got, want)
+	}
+	if !args.Target.Resolve || args.Target.Grace {
+		t.Errorf("target = %+v", args.Target)
+	}
+}
+
+func TestParseLegacySourceReadArgsKeepsChildFirstOrder(t *testing.T) {
+	command, ok := lookupCommand("read-source")
+	if !ok {
+		t.Fatal("read-source command not found")
+	}
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
+		"source-1",
+		"notebook-1",
+	}, globalOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	args, err := decodeSourceReadArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := strings.Join([]string{args.Target.SourceID, args.Target.NotebookID}, " "), "source-1 notebook-1"; got != want {
+		t.Errorf("arguments = %q, want %q", got, want)
+	}
+	if args.Target.Resolve || args.Target.Grace {
+		t.Errorf("legacy target = %+v", args.Target)
 	}
 }
 

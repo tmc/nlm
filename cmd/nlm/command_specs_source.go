@@ -29,8 +29,7 @@ type sourceRefreshArgs struct {
 }
 
 type sourceCheckArgs struct {
-	SourceID   string
-	NotebookID string
+	Target sourceCommandTarget
 }
 
 type sourceDiscoverArgs struct {
@@ -45,10 +44,9 @@ type sourceDumpArgs struct {
 }
 
 type sourceReadArgs struct {
-	SourceID   string
-	NotebookID string
-	Options    globalOptions
-	Warnings   globalOptions
+	Target   sourceCommandTarget
+	Options  globalOptions
+	Warnings globalOptions
 }
 
 type sourceAddArgs struct {
@@ -88,10 +86,12 @@ func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 		commandFormOf(requiredOperand("notebook"), requiredOperand("source")),
 		decodeSourceRefresh,
 	)
-	configureTypedCommandSpec(specs["check-source"],
-		commandFormOf(requiredOperand("source"), optionalOperand("notebook")),
+	checkSpec := specs["check-source"]
+	configureTypedCommandSpec(checkSpec,
+		stableSourceCommandForms(),
 		decodeSourceCheck,
 	)
+	findSpecSurface(checkSpec, "check-source").Forms = legacySourceCommandForms()
 	configureTypedCommandSpec(specs["discover-sources"],
 		commandFormOf(requiredOperand("notebook"), requiredOperand("query")),
 		decodeSourceDiscover,
@@ -105,20 +105,41 @@ func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 		{Name: "format", Value: "text|markdown|html|json|raw", Description: "output format", Inline: true},
 	}
 	configureTypedCommandSpecWithUsage(readSpec,
-		[]commandForm{{
-			Parts: []operandSpec{
-				requiredOperand("source"),
-				optionalOperand("notebook"),
-			},
-			Constraints: []constraint{
-				constraintFunc(validateSourceReadCommand),
-			},
-		}},
+		withSourceReadConstraint(stableSourceCommandForms()),
 		decodeSourceRead,
 		func(path string) {
 			printCommandUsageForPath(path)
 		},
 	)
+	findSpecSurface(readSpec, "read-source").Forms = withSourceReadConstraint(legacySourceCommandForms())
+}
+
+func stableSourceCommandForms() []commandForm {
+	return []commandForm{
+		{
+			Parts: []operandSpec{
+				requiredOperand("notebook"),
+				requiredOperand("source"),
+			},
+		},
+		{
+			// Choice B keeps the one-argument stable form for one release.
+			// Hidden prevents it from appearing in help or generated docs.
+			Parts:  []operandSpec{requiredOperand("source")},
+			Hidden: true,
+		},
+	}
+}
+
+func legacySourceCommandForms() []commandForm {
+	return commandFormOf(requiredOperand("source"), optionalOperand("notebook"))
+}
+
+func withSourceReadConstraint(forms []commandForm) []commandForm {
+	for i := range forms {
+		forms[i].Constraints = []constraint{constraintFunc(validateSourceReadCommand)}
+	}
+	return forms
 }
 
 func configureSourceAddSpec(spec *commandSpec) {
@@ -377,18 +398,16 @@ func decodeSourceRead(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *api.Client) error {
-		warnDeprecatedSourceReadFormat(os.Stderr, args.Warnings)
-		return readSource(client, args.SourceID, args.NotebookID, args.Options)
+	return func(ctx context.Context, client *api.Client) error {
+		return runSourceCommand(ctx, client, os.Stderr, args.Target, func(resolved sourceCommandResolution) error {
+			warnDeprecatedSourceReadFormat(os.Stderr, args.Warnings)
+			return readSource(client, resolved.SourceID, resolved.NotebookID, args.Options)
+		})
 	}, nil
 }
 
 func decodeSourceReadArgs(parsed parsedCommand) (sourceReadArgs, error) {
-	sourceID, err := parsedArgument(parsed, "source")
-	if err != nil {
-		return sourceReadArgs{}, err
-	}
-	notebookID, _, err := parsedOptionalArgument(parsed, "notebook")
+	target, err := decodeSourceCommandTarget(parsed, "source read")
 	if err != nil {
 		return sourceReadArgs{}, err
 	}
@@ -398,10 +417,9 @@ func decodeSourceReadArgs(parsed parsedCommand) (sourceReadArgs, error) {
 		return sourceReadArgs{}, err
 	}
 	return sourceReadArgs{
-		SourceID:   sourceID,
-		NotebookID: notebookID,
-		Options:    opts,
-		Warnings:   parsed.globals,
+		Target:   target,
+		Options:  opts,
+		Warnings: parsed.globals,
 	}, nil
 }
 
@@ -462,17 +480,21 @@ func decodeSourceRefresh(parsed parsedCommand) (commandCall, error) {
 }
 
 func decodeSourceCheck(parsed parsedCommand) (commandCall, error) {
-	sourceID, err := parsedArgument(parsed, "source")
+	target, err := decodeSourceCommandTarget(parsed, "source check")
 	if err != nil {
 		return nil, err
 	}
-	notebookID, _, err := parsedOptionalArgument(parsed, "notebook")
-	if err != nil {
-		return nil, err
-	}
-	args := sourceCheckArgs{SourceID: sourceID, NotebookID: notebookID}
-	return func(_ context.Context, client *api.Client) error {
-		return checkSourceFreshness(client, args.SourceID, args.NotebookID)
+	args := sourceCheckArgs{Target: target}
+	return func(ctx context.Context, client *api.Client) error {
+		return runSourceCommand(ctx, client, os.Stderr, args.Target, func(resolved sourceCommandResolution) error {
+			if resolved.Member != nil {
+				return checkResolvedSourceFreshness(resolved.Member)
+			}
+			if args.Target.Grace {
+				return dispatchSourceFreshnessCheck(resolved.SourceID)
+			}
+			return checkSourceFreshness(client, resolved.SourceID, resolved.NotebookID)
+		})
 	}, nil
 }
 

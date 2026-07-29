@@ -274,11 +274,7 @@ func printCommandHelpForPath(path string) {
 }
 
 func printCommandUsageForPath(path string) {
-	cmd, ok := lookupCommand(path)
-	if !ok {
-		panic("missing command usage path: " + path)
-	}
-	fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", path, cmd.argsUsage)
+	printCommandUsage(os.Stderr, path)
 }
 
 func reportRunError(stderr io.Writer, err error) int {
@@ -1490,6 +1486,17 @@ func checkSourceFreshness(c *api.Client, sourceID, notebookID string) error {
 	} else {
 		fmt.Fprintln(os.Stderr, "note: pass notebook-id as the second argument to enable client-side Drive-source validation")
 	}
+	return dispatchSourceFreshnessCheck(sourceID)
+}
+
+func checkResolvedSourceFreshness(source *pb.Source) error {
+	if err := assertDriveSourceType(source); err != nil {
+		return err
+	}
+	return dispatchSourceFreshnessCheck(source.GetSourceId().GetSourceId())
+}
+
+func dispatchSourceFreshnessCheck(sourceID string) error {
 	orchClient := service.NewLabsTailwindOrchestrationServiceClient(authToken, cookies, notebookLMBatchOptions()...)
 	req := &pb.CheckSourceFreshnessRequest{Source: &pb.SourceIdList{SourceId: sourceID}, Context: &pb.RequestContext{
 		Version: proto.Int32(2),
@@ -1524,17 +1531,22 @@ func assertDriveSource(c *api.Client, notebookID, sourceID string) error {
 		if src.SourceId.GetSourceId() != sourceID {
 			continue
 		}
-		st := src.Metadata.GetSourceType()
-		switch st {
-		case pb.SourceType_SOURCE_TYPE_GOOGLE_DOCS,
-			pb.SourceType_SOURCE_TYPE_GOOGLE_SLIDES,
-			pb.SourceType_SOURCE_TYPE_GOOGLE_SHEETS:
-			return nil
-		}
-		return fmt.Errorf("%w: refresh/freshness is Google-Drive-only; source %s is %s", errPrecondition, sourceID, st)
+		return assertDriveSourceType(src)
 	}
 	fmt.Fprintf(os.Stderr, "note: source %s not found in notebook %s; dispatching anyway\n", sourceID, notebookID)
 	return nil
+}
+
+func assertDriveSourceType(source *pb.Source) error {
+	sourceID := source.GetSourceId().GetSourceId()
+	sourceType := source.GetMetadata().GetSourceType()
+	switch sourceType {
+	case pb.SourceType_SOURCE_TYPE_GOOGLE_DOCS,
+		pb.SourceType_SOURCE_TYPE_GOOGLE_SLIDES,
+		pb.SourceType_SOURCE_TYPE_GOOGLE_SHEETS:
+		return nil
+	}
+	return fmt.Errorf("%w: refresh/freshness is Google-Drive-only; source %s is %s", errPrecondition, sourceID, sourceType)
 }
 
 func discoverSources(c *api.Client, projectID, query string, globals globalOptions) error {
