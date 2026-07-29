@@ -140,15 +140,8 @@ func frozenCommandParityCases(golden commandParityGolden) map[string][][]string 
 }
 
 func commandParityArgs(cmd *command) [][]string {
-	limit := cmd.maxArgs + 1
-	if cmd.maxArgs < 0 {
-		limit = cmd.minArgs + 2
-	}
-	limit = max(limit, cmd.minArgs+1)
-	limit = min(limit, 6)
-
 	var cases [][]string
-	for n := 0; n <= limit; n++ {
+	for n := 0; n <= 6; n++ {
 		args := make([]string, n)
 		for i := range args {
 			args[i] = "arg"

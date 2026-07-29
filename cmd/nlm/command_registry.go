@@ -1,12 +1,7 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"os"
 	"strings"
-
-	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 type groupedCommandSurface struct {
@@ -90,16 +85,14 @@ var commands []command
 var commandSpecs []*commandSpec
 
 func buildCommandRegistry() {
-	definitions := make(map[commandID]*commandDefinition, len(commandDefinitions))
 	specs := make(map[commandID]*commandSpec, len(commandDefinitions))
 	for i := range commandDefinitions {
 		definition := &commandDefinitions[i]
 		id := commandID(definition.name)
-		if definitions[id] != nil {
+		if specs[id] != nil {
 			panic("duplicate command ID: " + id)
 		}
-		definitions[id] = definition
-		spec := newLegacyCommandSpec(id, definition)
+		spec := newCommandSpec(id, definition)
 		specs[id] = spec
 		commandSpecs = append(commandSpecs, spec)
 	}
@@ -153,6 +146,11 @@ func buildCommandRegistry() {
 	configureChatCommandSpecs(specs)
 	configureAuthCommandSpec(specs)
 
+	for _, spec := range commandSpecs {
+		if spec.Decode == nil || len(spec.Forms) == 0 {
+			panic("incomplete command spec: " + spec.ID)
+		}
+	}
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]
 		surface := findSpecSurface(spec, grouped.Path)
@@ -165,87 +163,13 @@ func buildCommandRegistry() {
 	}
 }
 
-func newLegacyCommandSpec(id commandID, definition *commandDefinition) *commandSpec {
-	spec := &commandSpec{
-		ID:           id,
-		Section:      definition.section,
-		Summary:      definition.usage,
-		Forms:        legacyCommandForms(definition),
-		definition:   definition,
-		legacyBridge: true,
+func newCommandSpec(id commandID, definition *commandDefinition) *commandSpec {
+	return &commandSpec{
+		ID:         id,
+		Section:    definition.section,
+		Summary:    definition.usage,
+		definition: definition,
 	}
-	spec.parse = func(surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
-		if err := validateLegacyCommandArgs(definition, strings.Join(surface.Path, " "), args, globals); err != nil {
-			return parsedCommand{}, err
-		}
-		return parsedCommand{
-			Args:    map[string][]string{"args": append([]string(nil), args...)},
-			Flags:   map[string][]string{},
-			path:    strings.Join(surface.Path, " "),
-			globals: globals,
-			legacy:  legacyArgs{Values: append([]string(nil), args...)},
-		}, nil
-	}
-	spec.Decode = func(parsed parsedCommand) (commandCall, error) {
-		args := append([]string(nil), parsed.legacy.Values...)
-		globals := parsed.globals
-		return func(_ context.Context, client *api.Client) error {
-			if definition.runWithOptions != nil {
-				return definition.runWithOptions(client, args, globals)
-			}
-			return definition.run(client, args)
-		}, nil
-	}
-	return spec
-}
-
-func legacyCommandForms(definition *commandDefinition) []commandForm {
-	if definition.validate != nil || definition.validateWithOptions != nil {
-		return []commandForm{{Parts: []operandSpec{{
-			Name:        "args",
-			Placeholder: "arg",
-			Cardinality: cardinalityZeroOrMore,
-		}}}}
-	}
-	var parts []operandSpec
-	for i := 0; i < definition.minArgs; i++ {
-		parts = append(parts, operandSpec{
-			Name:        fmt.Sprintf("arg%d", i+1),
-			Placeholder: "arg",
-			Cardinality: cardinalityRequired,
-		})
-	}
-	if definition.maxArgs < 0 {
-		parts = append(parts, operandSpec{
-			Name:        "rest",
-			Placeholder: "arg",
-			Cardinality: cardinalityZeroOrMore,
-		})
-	} else {
-		for i := definition.minArgs; i < definition.maxArgs; i++ {
-			parts = append(parts, operandSpec{
-				Name:        fmt.Sprintf("arg%d", i+1),
-				Placeholder: "arg",
-				Cardinality: cardinalityOptional,
-			})
-		}
-	}
-	return []commandForm{{Parts: parts}}
-}
-
-func validateLegacyCommandArgs(definition *commandDefinition, path string, args []string, opts globalOptions) error {
-	if definition.validateWithOptions != nil {
-		return definition.validateWithOptions(path, args, opts)
-	}
-	if definition.validate != nil {
-		return definition.validate(path, args)
-	}
-	n := len(args)
-	if n < definition.minArgs || definition.maxArgs >= 0 && n > definition.maxArgs {
-		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", path, definition.argsUsage)
-		return errBadArgs
-	}
-	return nil
 }
 
 func commandDefinitionSurface(name string) commandSurface {

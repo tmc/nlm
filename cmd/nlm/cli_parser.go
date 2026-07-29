@@ -284,11 +284,21 @@ func globalFlagAllowedHere(positional []string, name string) bool {
 }
 
 func commandOwnsFlag(positional []string, name string) bool {
-	cmdName, _, _, ok := findCommand(positional)
+	_, command, _, ok := findCommand(positional)
 	if !ok {
 		return false
 	}
-	return commandLocalFlags[cmdName][name]
+	for _, spec := range command.spec.Flags {
+		if spec.Name == name {
+			return true
+		}
+		for _, alias := range spec.Aliases {
+			if alias == name {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 var postCommandGlobalFlags = map[string]bool{
@@ -310,159 +320,6 @@ var postCommandGlobalFlags = map[string]bool{
 	"version":             true,
 	"y":                   true,
 	"yes":                 true,
-}
-
-var commandLocalFlags = map[string]map[string]bool{
-	"auth": {
-		"all": true, "a": true, "profile": true, "p": true,
-		"url": true, "u": true, "notebooks": true, "debug": true,
-		"d": true, "help": true, "h": true, "print-env": true,
-		"keep-open": true, "k": true, "cdp-url": true, "c": true,
-		"authuser": true, "au": true,
-	},
-	"notebook list": {"all": true, "limit": true, "json": true},
-	"list":          {"all": true, "limit": true, "json": true},
-	"ls":            {"all": true, "limit": true, "json": true},
-	"source add": {
-		"name": true, "n": true, "mime": true, "mime-type": true,
-		"replace": true, "pre-process": true, "chunk": true,
-	},
-	"add": {
-		"name": true, "n": true, "mime": true, "mime-type": true,
-		"replace": true, "pre-process": true, "chunk": true,
-	},
-	"source sync": {
-		"name": true, "n": true, "force": true, "dry-run": true,
-		"max-bytes": true, "json": true, "exclude": true, "x": true,
-		"include-untracked": true, "parallel": true, "pre-process": true,
-	},
-	"sync": {
-		"name": true, "n": true, "force": true, "dry-run": true,
-		"max-bytes": true, "json": true, "exclude": true, "x": true,
-		"include-untracked": true, "parallel": true, "pre-process": true,
-	},
-	"source pack": {
-		"name": true, "n": true, "max-bytes": true, "chunk": true,
-		"exclude": true, "x": true, "pre-process": true,
-	},
-	"sync-pack": {
-		"name": true, "n": true, "max-bytes": true, "chunk": true,
-		"exclude": true, "x": true, "pre-process": true,
-	},
-	"source read":   {"format": true},
-	"read-source":   {"format": true},
-	"generate-chat": chatCommandLocalFlags(),
-	"chat":          chatCommandLocalFlags(),
-	"chat show":     chatShowCommandLocalFlags(),
-	"chat-show":     chatShowCommandLocalFlags(),
-	"note read":     noteReadCommandLocalFlags(),
-	"read-note":     noteReadCommandLocalFlags(),
-	"app-create": {
-		"type": true, "instructions": true,
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	},
-	"app create": {
-		"type": true, "instructions": true,
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	},
-	"mindmap-create": {
-		"type": true, "instructions": true,
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	},
-	"mindmap create": {
-		"type": true, "instructions": true,
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	},
-	"create-audio": {
-		"length": true, "language": true, "audio-type": true,
-	},
-	"audio create": {
-		"length": true, "language": true, "audio-type": true,
-	},
-	"create-video": {
-		"style": true, "language": true, "audio-type": true,
-	},
-	"video create": {
-		"style": true, "language": true, "audio-type": true,
-	},
-	"create-slides": {
-		"format": true, "f": true,
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	},
-	"deck create": {
-		"format": true, "f": true,
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	},
-	"create-report":   selectorCommandLocalFlags(),
-	"generate-report": reportCommandLocalFlags(),
-	"research": {
-		"mode": true, "md": true, "poll-ms": true, "import": true,
-	},
-	"deck download": {
-		"id": true, "artifact-id": true, "format": true, "f": true,
-		"output": true, "o": true,
-	},
-	"download slide-deck": {
-		"id": true, "artifact-id": true, "format": true, "f": true,
-		"output": true, "o": true,
-	},
-	"artifact update": {"name": true, "n": true},
-	"update-artifact": {"name": true, "n": true},
-	"artifact export": {
-		"format": true, "f": true, "output": true, "o": true,
-	},
-	"export-flashcards": {
-		"format": true, "f": true, "output": true, "o": true,
-	},
-}
-
-func chatCommandLocalFlags() map[string]bool {
-	return map[string]bool{
-		"conversation": true, "c": true, "web": true, "prompt-file": true,
-		"f": true, "history": true, "thinking": true, "reasoning": true,
-		"thinking-jsonl": true, "verbose": true, "v": true,
-		"citations": true, "resolve-citations": true,
-		"citation-excerpts": true, "citation-excerpt": true,
-		"citation-confidence": true, "citation-spans": true,
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	}
-}
-
-func reportCommandLocalFlags() map[string]bool {
-	flags := chatCommandLocalFlags()
-	flags["prompt"] = true
-	flags["instructions"] = true
-	flags["sections"] = true
-	return flags
-}
-
-func chatShowCommandLocalFlags() map[string]bool {
-	return map[string]bool{
-		"thinking": true, "reasoning": true,
-		"citations": true, "resolve-citations": true,
-		"citation-excerpts": true, "citation-excerpt": true,
-		"citation-confidence": true, "citation-spans": true,
-		"format": true, "out": true, "open": true,
-		"include-follow-ups": true, "backfill": true,
-	}
-}
-
-func noteReadCommandLocalFlags() map[string]bool {
-	return map[string]bool{"format": true, "out": true, "open": true}
-}
-
-func selectorCommandLocalFlags() map[string]bool {
-	return map[string]bool{
-		"source-ids": true, "source-match": true, "source-exclude": true,
-		"label-ids": true, "label-match": true, "label-exclude": true,
-	}
 }
 
 func commandHelpRequested(args []string) bool {

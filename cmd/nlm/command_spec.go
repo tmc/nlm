@@ -29,9 +29,8 @@ type commandSpec struct {
 	DeferFlagErrors     bool
 	DeferFlagValidation bool
 
-	definition   *commandDefinition
-	parse        func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
-	legacyBridge bool
+	definition *commandDefinition
+	parse      func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
 }
 
 // commandSurfaceSpec describes one user-visible route to a command behavior.
@@ -106,20 +105,12 @@ type parsedCommand struct {
 
 	flagOccurrences []parsedFlag
 	flagError       error
-	legacy          legacyArgs
 }
 
 type parsedFlag struct {
 	Name      string
 	InputName string
 	Value     string
-}
-
-// legacyArgs is the temporary Phase 1 bridge for command behaviors not yet
-// decoded by a commandSpec. legacyCommandSpecInventory tracks every remaining
-// use; the bridge must be empty before Phase 1 is complete.
-type legacyArgs struct {
-	Values []string
 }
 
 // commandCall is a fully decoded command ready to run.
@@ -190,7 +181,7 @@ func operandCountRange(cardinality cardinality, available int) (int, int) {
 }
 
 // parseCommandFlags separates known command flags from operands. Unknown
-// flags remain operands, matching splitCommandFlags during Phase 1.
+// flags remain operands to preserve the Phase 1 command grammar.
 func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []string, error) {
 	flags, operands, _, err := parseCommandFlagsDetailed(specs, args, false)
 	return flags, operands, err

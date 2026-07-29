@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -252,20 +253,13 @@ func TestRunReharvestsCachedBrowserProfile(t *testing.T) {
 		return "new-token", "new-cookies", nil
 	}
 	attempts := 0
-	cmd := &command{
-		name: "auth-retry-test",
-		commandDefinition: &commandDefinition{
-			minArgs: 0,
-			maxArgs: 0,
-			run: func(*api.Client, []string) error {
-				attempts++
-				if attempts == 1 {
-					return batchexecute.ErrUnauthorized
-				}
-				return nil
-			},
-		},
-	}
+	cmd := testCommand("auth-retry-test", func(*api.Client) error {
+		attempts++
+		if attempts == 1 {
+			return batchexecute.ErrUnauthorized
+		}
+		return nil
+	})
 	if err := run(invocation{name: cmd.name, cmd: cmd}); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
@@ -297,22 +291,35 @@ func TestRunDoesNotReharvestEnvironmentOnlyCredentials(t *testing.T) {
 		return "", "", nil
 	}
 	attempts := 0
-	cmd := &command{
-		name: "auth-no-retry-test",
-		commandDefinition: &commandDefinition{
-			minArgs: 0,
-			maxArgs: 0,
-			run: func(*api.Client, []string) error {
-				attempts++
-				return batchexecute.ErrUnauthorized
-			},
-		},
-	}
+	cmd := testCommand("auth-no-retry-test", func(*api.Client) error {
+		attempts++
+		return batchexecute.ErrUnauthorized
+	})
 	err := run(invocation{name: cmd.name, cmd: cmd})
 	if !errors.Is(err, batchexecute.ErrUnauthorized) {
 		t.Fatalf("run() error = %v, want ErrUnauthorized", err)
 	}
 	if attempts != 1 {
 		t.Fatalf("attempts = %d, want 1", attempts)
+	}
+}
+
+func testCommand(name string, run func(*api.Client) error) *command {
+	surface := &commandSurfaceSpec{Path: []string{name}}
+	spec := &commandSpec{
+		ID:       commandID(name),
+		Forms:    commandFormOf(),
+		Surfaces: []commandSurfaceSpec{*surface},
+		Decode: func(parsedCommand) (commandCall, error) {
+			return func(_ context.Context, client *api.Client) error {
+				return run(client)
+			}, nil
+		},
+	}
+	return &command{
+		commandDefinition: &commandDefinition{name: name},
+		spec:              spec,
+		surfaceSpec:       surface,
+		name:              name,
 	}
 }

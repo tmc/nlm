@@ -54,8 +54,6 @@ func configureTypedCommandSpecWithParseError(
 		return parsed, nil
 	}
 	spec.Decode = decode
-	spec.legacyBridge = false
-	delete(legacyCommandSpecInventory, spec.ID)
 }
 
 func parsedCommandPath(surface *commandSurfaceSpec) string {

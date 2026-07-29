@@ -19,27 +19,20 @@ const (
 	surfaceCompatibility
 )
 
-// commandDefinition is the temporary Phase 1 behavior scaffold. commandSpec is
-// the registry authority; definitions retain the old help and handler fields
-// only until each family moves onto typed calls.
+// commandDefinition retains the Phase 1 help presentation. Grammar, flags,
+// routing, and command behavior live in commandSpec.
 type commandDefinition struct {
-	name                string
-	aliases             []string
-	usage               string // one-line description for help text
-	argsUsage           string // positional args hint for "usage: nlm <name> <argsUsage>"
-	section             string // help section header
-	surface             commandSurface
-	minArgs             int  // minimum positional args (after command name)
-	maxArgs             int  // maximum positional args; -1 = unlimited
-	noAuth              bool // true if command does not require authentication
-	noClient            bool // true if command does not need an API client (implies noAuth)
-	directRPC           bool // true if the command requires direct RPC mode
-	hidden              bool // true to hide from help text (experimental)
-	validate            func(cmdName string, args []string) error
-	validateWithOptions func(cmdName string, args []string, opts globalOptions) error
-	help                func(cmdName string)
-	run                 func(c *api.Client, args []string) error
-	runWithOptions      func(c *api.Client, args []string, opts globalOptions) error
+	name      string
+	aliases   []string
+	usage     string // one-line description for help text
+	argsUsage string // positional args hint for "usage: nlm <name> <argsUsage>"
+	section   string // help section header
+	surface   commandSurface
+	noAuth    bool // true if command does not require authentication
+	noClient  bool // true if command does not need an API client (implies noAuth)
+	directRPC bool // true if the command requires direct RPC mode
+	hidden    bool // true to hide from help text (experimental)
+	help      func(cmdName string)
 }
 
 // command is one bound surface of a commandSpec. The embedded definition is a
@@ -938,45 +931,20 @@ var errPrecondition = errors.New("precondition failed")
 var errNotFound = errors.New("not found")
 
 func validateCommandArgs(cmd *command, cmdName string, args []string, opts globalOptions) error {
-	if cmd.spec != nil {
-		_, err := parseBoundCommand(cmd, cmdName, args, opts)
-		return err
-	}
-	if cmd.validateWithOptions != nil {
-		return cmd.validateWithOptions(cmdName, args, opts)
-	}
-	if cmd.validate != nil {
-		return cmd.validate(cmdName, args)
-	}
-
-	n := len(args)
-	if n < cmd.minArgs {
-		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
-		return errBadArgs
-	}
-	if cmd.maxArgs >= 0 && n > cmd.maxArgs {
-		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", cmdName, cmd.argsUsage)
-		return errBadArgs
-	}
-	return nil
+	_, err := parseBoundCommand(cmd, cmdName, args, opts)
+	return err
 }
 
 func runCommand(cmd *command, c *api.Client, args []string, opts globalOptions) error {
-	if cmd.spec != nil {
-		parsed, err := parseBoundCommand(cmd, cmd.name, args, opts)
-		if err != nil {
-			return err
-		}
-		call, err := cmd.spec.Decode(parsed)
-		if err != nil {
-			return err
-		}
-		return call(context.Background(), c)
+	parsed, err := parseBoundCommand(cmd, cmd.name, args, opts)
+	if err != nil {
+		return err
 	}
-	if cmd.runWithOptions != nil {
-		return cmd.runWithOptions(c, args, opts)
+	call, err := cmd.spec.Decode(parsed)
+	if err != nil {
+		return err
 	}
-	return cmd.run(c, args)
+	return call(context.Background(), c)
 }
 
 // commandTableEntries returns all command entries for testing.

@@ -50,17 +50,11 @@ func TestCommandTable(t *testing.T) {
 			if cmd.spec == nil || cmd.spec.Decode == nil {
 				t.Errorf("command %q has no spec decoder", cmd.name)
 			}
-			if cmd.spec != nil && cmd.spec.legacyBridge && cmd.run == nil && cmd.runWithOptions == nil {
-				t.Errorf("bridged command %q has no legacy run func", cmd.name)
-			}
 			if cmd.usage == "" {
 				t.Errorf("command %q has empty usage", cmd.name)
 			}
 			if cmd.section == "" {
 				t.Errorf("command %q has empty section", cmd.name)
-			}
-			if cmd.spec != nil && cmd.spec.legacyBridge && cmd.maxArgs >= 0 && cmd.minArgs > cmd.maxArgs {
-				t.Errorf("command %q: minArgs (%d) > maxArgs (%d)", cmd.name, cmd.minArgs, cmd.maxArgs)
 			}
 		})
 	}

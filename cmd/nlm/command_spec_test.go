@@ -27,8 +27,23 @@ func TestCommandSpecsCoverRegistry(t *testing.T) {
 		if spec.Decode == nil {
 			t.Errorf("%s has no Decode", spec.ID)
 		}
+		if spec.parse == nil {
+			t.Errorf("%s has no parser", spec.ID)
+		}
 		if len(spec.Forms) == 0 {
 			t.Errorf("%s has no forms", spec.ID)
+		}
+		flagNames := make(map[string]bool)
+		for _, flag := range spec.Flags {
+			for _, name := range append([]string{flag.Name}, flag.Aliases...) {
+				if name == "" {
+					t.Errorf("%s has an empty flag name", spec.ID)
+				}
+				if flagNames[name] {
+					t.Errorf("%s has duplicate flag %q", spec.ID, name)
+				}
+				flagNames[name] = true
+			}
 		}
 		for i := range spec.Surfaces {
 			surface := &spec.Surfaces[i]
@@ -45,16 +60,6 @@ func TestCommandSpecsCoverRegistry(t *testing.T) {
 				}
 				paths[name] = true
 			}
-		}
-	}
-	for _, spec := range commandSpecs {
-		if spec.legacyBridge != legacyCommandSpecInventory[spec.ID] {
-			t.Errorf("%s bridge state and inventory differ", spec.ID)
-		}
-	}
-	for id := range legacyCommandSpecInventory {
-		if !ids[id] {
-			t.Errorf("bridge inventory contains unknown ID %s", id)
 		}
 	}
 	for i := range commands {
