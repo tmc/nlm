@@ -411,12 +411,7 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "source-guide", argsUsage: "<notebook-id> [source-id...]",
 		usage: "Show the per-source auto-summary and keyword chips (cached on disk)", section: "Generation",
-		minArgs: 1, maxArgs: -1,
-		validateWithOptions: validateSourceSelectionArgsWithOptions,
-		help:                printSourceSelectionUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runSourceGuideWithOptions(c, args, opts)
-		},
+		help: printSourceSelectionUsage,
 	},
 	{
 		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",

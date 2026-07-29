@@ -148,6 +148,7 @@ func buildCommandRegistry() {
 	configureOtherCommandSpecs(specs)
 	configureDeckCommandSpecs(specs)
 	configureResearchCommandSpecs(specs)
+	configureSelectorCommandSpecs(specs)
 
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]

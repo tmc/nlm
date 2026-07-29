@@ -38,7 +38,15 @@ func TestParseSourceSelectionArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotPos, err := parseSourceSelectionArgsWithOptions(tt.args, globalOptions{})
+			command, ok := lookupCommand("source-guide")
+			if !ok {
+				t.Fatal("source-guide command not found")
+			}
+			parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, tt.args, globalOptions{})
+			var got sourceGuideArgs
+			if err == nil {
+				got, err = decodeSourceGuideArgs(parsed)
+			}
 			if tt.wantErr != "" {
 				if err == nil || err.Error() != tt.wantErr {
 					t.Fatalf("parseSourceSelectionArgs(%q) error = %v, want %q", tt.args, err, tt.wantErr)
@@ -49,8 +57,9 @@ func TestParseSourceSelectionArgs(t *testing.T) {
 				t.Fatalf("parseSourceSelectionArgs(%q) error = %v", tt.args, err)
 			}
 			if got.Selectors != tt.wantSel {
-				t.Fatalf("parseSourceSelectionArgs(%q) selectors = %+v, want %+v", tt.args, got.Selectors, tt.wantSel)
+				t.Fatalf("parse source-guide %q selectors = %+v, want %+v", tt.args, got.Selectors, tt.wantSel)
 			}
+			gotPos := append([]string{got.NotebookID}, got.SourceIDs...)
 			if len(gotPos) != len(tt.wantPos) {
 				t.Fatalf("parseSourceSelectionArgs(%q) positional = %q, want %q", tt.args, gotPos, tt.wantPos)
 			}
