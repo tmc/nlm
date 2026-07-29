@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -76,89 +75,43 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "create", argsUsage: "<title>",
 		usage: "Create a new notebook", section: "Notebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return create(c, args[0]) },
 	},
 	{
 		name: "rm", argsUsage: "<id>",
 		usage: "Delete a notebook", section: "Notebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return remove(c, args[0]) },
 	},
 	{
 		name: "rename-notebook", argsUsage: "<notebook-id> <new-title>",
 		usage: "Rename a notebook", section: "Notebook",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return renameNotebook(c, args[0], args[1]) },
 	},
 	{
 		name: "notebook-emoji", argsUsage: "<notebook-id> <emoji>",
 		usage: "Change notebook emoji", section: "Notebook",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return setNotebookEmoji(c, args[0], args[1]) },
 	},
 	{
 		name: "notebook-description", aliases: []string{"notebook-notes"},
 		argsUsage: "<notebook-id> [text]",
 		usage:     "Set notebook description / creator notes (text via arg or stdin; empty clears)", section: "Notebook",
-		minArgs: 1, maxArgs: 2,
-		run: func(c *api.Client, args []string) error {
-			text := ""
-			if len(args) > 1 {
-				text = args[1]
-			} else if fi, stErr := os.Stdin.Stat(); stErr == nil && fi.Mode()&os.ModeCharDevice == 0 {
-				data, readErr := io.ReadAll(os.Stdin)
-				if readErr != nil {
-					return readErr
-				}
-				text = string(data)
-			}
-			return setNotebookDescription(c, args[0], text)
-		},
 	},
 	{
 		name: "notebook-cover", argsUsage: "<notebook-id> <preset-id>",
 		usage: "Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)", section: "Notebook",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error {
-			id, err := strconv.Atoi(args[1])
-			if err != nil {
-				return fmt.Errorf("preset-id must be an integer: %w", err)
-			}
-			return setNotebookCover(c, args[0], id)
-		},
 	},
 	{
 		name: "notebook-cover-image", argsUsage: "<notebook-id> <image-path>",
 		usage: "Upload a custom cover image and associate it with the notebook", section: "Notebook",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return uploadNotebookCoverImage(c, args[0], args[1]) },
 	},
 	{
 		name: "notebook-unrecent", argsUsage: "<notebook-id>",
 		usage: "Remove a notebook from the recently-viewed list (does not delete it)", section: "Notebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			if err := c.RemoveRecentlyViewedProject(context.Background(), args[0]); err != nil {
-				return fmt.Errorf("remove recently viewed: %w", err)
-			}
-			fmt.Fprintf(os.Stderr, "Removed %s from recently viewed.\n", args[0])
-			return nil
-		},
 	},
 	{
 		name: "analytics", argsUsage: "<notebook-id>",
 		usage: "Show notebook analytics time series", section: "Notebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			return getAnalytics(c, args[0])
-		},
 	},
 	{
 		name:  "list-featured",
 		usage: "List featured notebooks", section: "Notebook",
-		minArgs: 0, maxArgs: 0,
-		run: func(c *api.Client, args []string) error { return listFeaturedProjects(c) },
 	},
 
 	// Source operations

@@ -135,6 +135,7 @@ func buildCommandRegistry() {
 			Section:     definition.section,
 		})
 	}
+	configureNotebookCommandSpecs(specs)
 
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]
@@ -150,11 +151,12 @@ func buildCommandRegistry() {
 
 func newLegacyCommandSpec(id commandID, definition *commandDefinition) *commandSpec {
 	spec := &commandSpec{
-		ID:         id,
-		Section:    definition.section,
-		Summary:    definition.usage,
-		Forms:      legacyCommandForms(definition),
-		definition: definition,
+		ID:           id,
+		Section:      definition.section,
+		Summary:      definition.usage,
+		Forms:        legacyCommandForms(definition),
+		definition:   definition,
+		legacyBridge: true,
 	}
 	spec.parse = func(surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
 		if err := validateLegacyCommandArgs(definition, strings.Join(surface.Path, " "), args, globals); err != nil {

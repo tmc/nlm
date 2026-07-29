@@ -24,8 +24,9 @@ type commandSpec struct {
 	Surfaces []commandSurfaceSpec
 	Decode   func(parsedCommand) (commandCall, error)
 
-	definition *commandDefinition
-	parse      func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
+	definition   *commandDefinition
+	parse        func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
+	legacyBridge bool
 }
 
 // commandSurfaceSpec describes one user-visible route to a command behavior.
@@ -229,9 +230,14 @@ func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []
 // parseCommandSpec selects a surface form, validates its constraints, and
 // applies the surface adapter.
 func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
-	flags, operands, err := parseCommandFlags(spec.Flags, args)
-	if err != nil {
-		return parsedCommand{}, err
+	flags := make(map[string][]string)
+	operands := args
+	if len(spec.Flags) > 0 {
+		var err error
+		flags, operands, err = parseCommandFlags(spec.Flags, args)
+		if err != nil {
+			return parsedCommand{}, err
+		}
 	}
 	forms := surface.Forms
 	if forms == nil {

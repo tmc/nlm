@@ -44,29 +44,36 @@ type commandParityArgsCase struct {
 }
 
 func TestCommandParityGolden(t *testing.T) {
-	got := collectCommandParity(t)
+	name := filepath.Join("testdata", "command_parity.golden.json")
+	want, err := os.ReadFile(name)
+	if err != nil && os.Getenv(updateCommandParityEnv) == "" {
+		t.Fatalf("read golden: %v; regenerate with %s=1", err, updateCommandParityEnv)
+	}
+	var frozen commandParityGolden
+	if len(want) > 0 {
+		if err := json.Unmarshal(want, &frozen); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := collectCommandParity(t, frozenCommandParityCases(frozen))
 	data, err := json.MarshalIndent(got, "", "  ")
 	if err != nil {
 		t.Fatal(err)
 	}
 	data = append(data, '\n')
 
-	name := filepath.Join("testdata", "command_parity.golden.json")
 	if os.Getenv(updateCommandParityEnv) != "" {
 		if err := os.WriteFile(name, data, 0o644); err != nil {
 			t.Fatal(err)
 		}
-	}
-	want, err := os.ReadFile(name)
-	if err != nil {
-		t.Fatalf("read golden: %v; regenerate with %s=1", err, updateCommandParityEnv)
+		want = data
 	}
 	if string(data) != string(want) {
 		t.Fatalf("command behavior differs from %s; regenerate only before a behavior-preserving migration\nwant %d bytes\ngot  %d bytes", name, len(want), len(data))
 	}
 }
 
-func collectCommandParity(t *testing.T) commandParityGolden {
+func collectCommandParity(t *testing.T, frozenCases map[string][][]string) commandParityGolden {
 	t.Helper()
 	golden := commandParityGolden{
 		RootHelp: captureCommandStderr(t, printUsage),
@@ -98,7 +105,11 @@ func collectCommandParity(t *testing.T) commandParityGolden {
 					printCommandHelp(path, cmd)
 				}),
 			}
-			for _, args := range commandParityArgs(cmd) {
+			cases := frozenCases[path]
+			if cases == nil {
+				cases = commandParityArgs(cmd)
+			}
+			for _, args := range cases {
 				args := slices.Clone(args)
 				var validationErr error
 				stderr := captureCommandStderr(t, func() {
@@ -116,6 +127,16 @@ func collectCommandParity(t *testing.T) commandParityGolden {
 		}
 	}
 	return golden
+}
+
+func frozenCommandParityCases(golden commandParityGolden) map[string][][]string {
+	cases := make(map[string][][]string, len(golden.Commands))
+	for _, command := range golden.Commands {
+		for _, test := range command.Cases {
+			cases[command.Path] = append(cases[command.Path], slices.Clone(test.Args))
+		}
+	}
+	return cases
 }
 
 func commandParityArgs(cmd *command) [][]string {

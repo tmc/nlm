@@ -47,9 +47,9 @@ func TestCommandSpecsCoverRegistry(t *testing.T) {
 			}
 		}
 	}
-	for id := range ids {
-		if !legacyCommandSpecInventory[id] {
-			t.Errorf("%s missing from Phase 1 bridge inventory", id)
+	for _, spec := range commandSpecs {
+		if spec.legacyBridge != legacyCommandSpecInventory[spec.ID] {
+			t.Errorf("%s bridge state and inventory differ", spec.ID)
 		}
 	}
 	for id := range legacyCommandSpecInventory {
