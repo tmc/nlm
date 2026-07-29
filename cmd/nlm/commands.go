@@ -246,62 +246,27 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "create-audio", argsUsage: "<notebook-id> <instructions>",
 		usage: "Create audio overview", section: "Create",
-		minArgs: 2, maxArgs: -1,
-		validateWithOptions: validateAudioCreateArgsWithOptions,
-		help:                printAudioCreateUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			createOpts, positional, err := parseAudioCreateArgs(args)
-			if err != nil {
-				return err
-			}
-			return createAudioOverviewWithOptions(c, positional[0], strings.Join(positional[1:], " "), createOpts)
-		},
+		help: printAudioCreateUsage,
 	},
 	{
 		name: "create-video", argsUsage: "<notebook-id> <instructions>",
 		usage: "Create video overview", section: "Create",
-		minArgs: 2, maxArgs: -1,
-		validateWithOptions: validateVideoCreateArgsWithOptions,
-		help:                printVideoCreateUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			createOpts, positional, err := parseVideoCreateArgs(args)
-			if err != nil {
-				return err
-			}
-			return createVideoOverviewWithOptions(c, positional[0], strings.Join(positional[1:], " "), createOpts)
-		},
+		help: printVideoCreateUsage,
 	},
 	{
 		name: "app-create", argsUsage: "--type <prototype|mindmap|canvas> <notebook-id> [instructions]",
 		usage: "Create a generated app artifact", section: "Create",
-		minArgs: 1, maxArgs: -1,
-		validateWithOptions: validateAppCreateArgsWithOptions,
-		help:                printAppCreateUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runAppCreateWithOptions(c, args, opts)
-		},
+		help: printAppCreateUsage,
 	},
 	{
 		name: "mindmap-create", argsUsage: "<notebook-id> [instructions]",
 		usage: "Create a generated mind map artifact", section: "Create",
-		minArgs: 1, maxArgs: -1,
-		validateWithOptions: func(cmdName string, args []string, opts globalOptions) error {
-			return validateAppCreateArgsWithOptions(cmdName, append([]string{"--type", "mindmap"}, args...), opts)
-		},
 		help: printAppCreateUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runMindmapCreateWithOptions(c, args, opts)
-		},
 	},
 	{
 		name: "create-slides", argsUsage: "[--format detailed|presenter] [selectors] <notebook-id> [instructions]",
 		usage: "Create slide deck", section: "Create",
-		minArgs: 1, maxArgs: -1,
-		validateWithOptions: validateSlidesCreateArgsWithOptions,
-		help:                printSlidesCreateUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runSlidesCreateWithOptions(c, args, opts)
-		},
+		help: printSlidesCreateUsage,
 	},
 	{
 		name:      "deck-download",

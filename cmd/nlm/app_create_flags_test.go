@@ -9,42 +9,68 @@ import (
 func TestParseAppCreateArgsWithOptions(t *testing.T) {
 	t.Parallel()
 
-	opts, positional, err := parseAppCreateArgsWithOptions([]string{
+	parsed := parseCreateCommandForTest(t, "app create", []string{
 		"--type", "mindmap",
 		"--instructions", "focus on architecture",
 		"--source-ids", "src-1,src-2",
 		"nb-1",
-	}, globalOptions{})
+	})
+	args, err := decodeAppCreateArgs(parsed, "")
 	if err != nil {
-		t.Fatalf("parseAppCreateArgsWithOptions: %v", err)
+		t.Fatalf("decodeAppCreateArgs: %v", err)
 	}
-	if opts.Type != "mindmap" || opts.Instructions != "focus on architecture" {
-		t.Fatalf("type/instructions = %q/%q", opts.Type, opts.Instructions)
+	if args.Options.Type != "mindmap" || args.Options.Instructions != "focus on architecture" {
+		t.Fatalf("type/instructions = %q/%q", args.Options.Type, args.Options.Instructions)
 	}
-	if opts.Selectors.SourceIDs != "src-1,src-2" {
-		t.Fatalf("source ids = %q, want src-1,src-2", opts.Selectors.SourceIDs)
+	if args.Options.Selectors.SourceIDs != "src-1,src-2" {
+		t.Fatalf("source ids = %q, want src-1,src-2", args.Options.Selectors.SourceIDs)
 	}
-	if len(positional) != 1 || positional[0] != "nb-1" {
-		t.Fatalf("positional = %v, want [nb-1]", positional)
+	if args.NotebookID != "nb-1" {
+		t.Fatalf("notebook id = %q, want nb-1", args.NotebookID)
 	}
 }
 
 func TestParseAppCreateArgsUsesPositionalInstructions(t *testing.T) {
 	t.Parallel()
 
-	opts, positional, err := parseAppCreateArgsWithOptions([]string{
+	parsed := parseCreateCommandForTest(t, "app create", []string{
 		"--type", "prototype",
 		"nb-1",
 		"build", "a", "study", "app",
-	}, globalOptions{})
+	})
+	args, err := decodeAppCreateArgs(parsed, "")
 	if err != nil {
-		t.Fatalf("parseAppCreateArgsWithOptions: %v", err)
+		t.Fatalf("decodeAppCreateArgs: %v", err)
 	}
-	if opts.Instructions != "build a study app" {
-		t.Fatalf("instructions = %q, want positional join", opts.Instructions)
+	if args.Options.Instructions != "build a study app" {
+		t.Fatalf("instructions = %q, want positional join", args.Options.Instructions)
 	}
-	if len(positional) != 1 || positional[0] != "nb-1" {
-		t.Fatalf("positional = %v, want [nb-1]", positional)
+	if args.NotebookID != "nb-1" {
+		t.Fatalf("notebook id = %q, want nb-1", args.NotebookID)
+	}
+}
+
+func TestDecodeMindmapCreateArgsType(t *testing.T) {
+	t.Parallel()
+
+	parsed := parseCreateCommandForTest(t, "mindmap create", []string{"nb-1", "map the sources"})
+	args, err := decodeAppCreateArgs(parsed, "mindmap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args.Options.Type != "mindmap" {
+		t.Fatalf("type = %q, want mindmap", args.Options.Type)
+	}
+
+	parsed = parseCreateCommandForTest(t, "mindmap create", []string{
+		"nb-1", "build an app", "--type", "prototype",
+	})
+	args, err = decodeAppCreateArgs(parsed, "mindmap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args.Options.Type != "prototype" {
+		t.Fatalf("type = %q, want prototype", args.Options.Type)
 	}
 }
 
@@ -87,74 +113,101 @@ func TestParseSlidesCreateArgs(t *testing.T) {
 	t.Parallel()
 
 	// Flags before and after the positional notebook id; instructions optional.
-	opts, positional, err := parseSlidesCreateArgs([]string{
+	parsed := parseCreateCommandForTest(t, "deck create", []string{
 		"--format", "presenter",
 		"nb-1",
 		"focus", "on", "the", "results",
 		"--source-match", "^spec/",
-	}, globalOptions{})
+	})
+	args, err := decodeSlidesCreateArgs(parsed)
 	if err != nil {
-		t.Fatalf("parseSlidesCreateArgs: %v", err)
+		t.Fatalf("decodeSlidesCreateArgs: %v", err)
 	}
-	if opts.Format != "presenter" {
-		t.Fatalf("format = %q, want presenter", opts.Format)
+	if args.Options.Format != "presenter" {
+		t.Fatalf("format = %q, want presenter", args.Options.Format)
 	}
-	if opts.Selectors.SourceMatch != "^spec/" {
-		t.Fatalf("source-match = %q, want ^spec/", opts.Selectors.SourceMatch)
+	if args.Options.Selectors.SourceMatch != "^spec/" {
+		t.Fatalf("source-match = %q, want ^spec/", args.Options.Selectors.SourceMatch)
 	}
-	if len(positional) != 5 || positional[0] != "nb-1" {
-		t.Fatalf("positional = %v, want [nb-1 focus on the results]", positional)
+	if args.NotebookID != "nb-1" || args.Instructions != "focus on the results" {
+		t.Fatalf("arguments = %+v, want nb-1 and instructions", args)
 	}
 
 	// Notebook id alone (no instructions, no format) is valid.
-	if _, _, err := parseSlidesCreateArgs([]string{"nb-1"}, globalOptions{}); err != nil {
-		t.Fatalf("parseSlidesCreateArgs(nb only): %v", err)
+	parsed = parseCreateCommandForTest(t, "deck create", []string{"nb-1"})
+	if _, err := decodeSlidesCreateArgs(parsed); err != nil {
+		t.Fatalf("decodeSlidesCreateArgs(nb only): %v", err)
 	}
 
 	// Missing notebook id is an error.
-	if _, _, err := parseSlidesCreateArgs([]string{"--format", "detailed"}, globalOptions{}); err == nil {
-		t.Fatal("parseSlidesCreateArgs with no notebook id: want error")
+	if err := parseCreateCommandErrorForTest(t, "deck create", []string{"--format", "detailed"}); err == nil {
+		t.Fatal("parseCommandSpec with no notebook id: want error")
 	}
 
 	// Invalid format is rejected at parse time.
-	if _, _, err := parseSlidesCreateArgs([]string{"--format", "bogus", "nb-1"}, globalOptions{}); err == nil {
-		t.Fatal("parseSlidesCreateArgs with bad format: want error")
+	if err := parseCreateCommandErrorForTest(t, "deck create", []string{"--format", "bogus", "nb-1"}); err == nil {
+		t.Fatal("parseCommandSpec with bad format: want error")
 	}
 }
 
 func TestParseAudioVideoOptions(t *testing.T) {
 	t.Parallel()
 
-	aopts, apos, err := parseAudioCreateArgs([]string{
+	parsed := parseCreateCommandForTest(t, "audio create", []string{
 		"--length", "long",
 		"--language", "es",
 		"--audio-type", "debate",
 		"nb-1",
 		"compare the sources",
 	})
+	audioArgs, err := decodeAudioCreateArgs(parsed)
 	if err != nil {
-		t.Fatalf("parseAudioCreateArgs: %v", err)
+		t.Fatalf("decodeAudioCreateArgs: %v", err)
 	}
-	if aopts.Length != "long" || aopts.Language != "es" || aopts.AudioType != "debate" {
-		t.Fatalf("audio opts = %+v", aopts)
+	if audioArgs.Options.Length != "long" || audioArgs.Options.Language != "es" || audioArgs.Options.AudioType != "debate" {
+		t.Fatalf("audio opts = %+v", audioArgs.Options)
 	}
-	if len(apos) != 2 {
-		t.Fatalf("audio positional = %v", apos)
+	if audioArgs.NotebookID != "nb-1" || audioArgs.Instructions != "compare the sources" {
+		t.Fatalf("audio arguments = %+v", audioArgs)
 	}
 
-	vopts, vpos, err := parseVideoCreateArgs([]string{
+	parsed = parseCreateCommandForTest(t, "video create", []string{
 		"--style", "whiteboard",
 		"--language", "fr",
 		"nb-1",
 		"explain visually",
 	})
+	videoArgs, err := decodeVideoCreateArgs(parsed)
 	if err != nil {
-		t.Fatalf("parseVideoCreateArgs: %v", err)
+		t.Fatalf("decodeVideoCreateArgs: %v", err)
 	}
-	if vopts.Style != "whiteboard" || vopts.Language != "fr" {
-		t.Fatalf("video opts = %+v", vopts)
+	if videoArgs.Options.Style != "whiteboard" || videoArgs.Options.Language != "fr" {
+		t.Fatalf("video opts = %+v", videoArgs.Options)
 	}
-	if len(vpos) != 2 {
-		t.Fatalf("video positional = %v", vpos)
+	if videoArgs.NotebookID != "nb-1" || videoArgs.Instructions != "explain visually" {
+		t.Fatalf("video arguments = %+v", videoArgs)
 	}
+}
+
+func parseCreateCommandForTest(t *testing.T, path string, values []string) parsedCommand {
+	t.Helper()
+	command, ok := lookupCommand(path)
+	if !ok {
+		t.Fatalf("%s command not found", path)
+	}
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, values, globalOptions{})
+	if err != nil {
+		t.Fatalf("parseCommandSpec(%s): %v", path, err)
+	}
+	return parsed
+}
+
+func parseCreateCommandErrorForTest(t *testing.T, path string, values []string) error {
+	t.Helper()
+	command, ok := lookupCommand(path)
+	if !ok {
+		t.Fatalf("%s command not found", path)
+	}
+	_, err := parseCommandSpec(command.spec, command.surfaceSpec, values, globalOptions{})
+	return err
 }
