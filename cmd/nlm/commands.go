@@ -385,16 +385,10 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "get-artifact", argsUsage: "<artifact-id>",
 		usage: "Get artifact details", section: "Artifact",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return getArtifact(c, args[0]) },
 	},
 	{
 		name: "read-artifact", argsUsage: "<artifact-id>",
 		usage: "Print a text artifact", section: "Artifact",
-		minArgs: 1, maxArgs: 1,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return readArtifact(c, args[0], opts)
-		},
 	},
 	{
 		name:      "export-flashcards",
@@ -411,8 +405,6 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "artifacts", aliases: []string{"list-artifacts"}, argsUsage: "<notebook-id>",
 		usage: "List artifacts in notebook", section: "Artifact",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return listArtifacts(c, args[0]) },
 	},
 	{
 		name: "update-artifact", argsUsage: "<artifact-id> [new-title]",
@@ -426,15 +418,11 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "rename-artifact", argsUsage: "<artifact-id> <new-title>",
 		usage: "Rename artifact (alias: update-artifact)", section: "Artifact",
-		minArgs: 2, maxArgs: 2,
 		hidden: true, // superseded by update-artifact
-		run:    func(c *api.Client, args []string) error { return renameArtifact(c, args[0], args[1]) },
 	},
 	{
 		name: "delete-artifact", argsUsage: "<artifact-id>",
 		usage: "Delete artifact", section: "Artifact",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return deleteArtifact(c, args[0]) },
 	},
 	// Guidebook operations
 	{
