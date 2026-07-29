@@ -43,11 +43,12 @@ type commandSpec struct {
 }
 
 // commandSurfaceSpec describes one user-visible route to a command behavior.
-// Nil Forms means the surface uses commandSpec.Forms.
+// Nil Forms or Flags inherit the corresponding commandSpec field.
 type commandSurfaceSpec struct {
 	Path        []string
 	Surface     commandSurface
 	Forms       []commandForm
+	Flags       []flagSpec
 	Adapt       func(parsedCommand) (parsedCommand, error)
 	Replacement []string
 	Help        commandHelpSpec
@@ -90,15 +91,17 @@ const (
 
 // flagSpec describes one command-owned flag. Value is empty for a boolean
 // flag and names the value placeholder otherwise. OptionalValue permits a
-// bare flag or an explicit value joined with "=".
+// bare flag or an explicit value joined with "=". Inline flags with the same
+// ExclusiveGroup render as alternatives in one synopsis group.
 type flagSpec struct {
-	Name          string
-	Aliases       []string
-	Value         string
-	OptionalValue bool
-	Description   string
-	Visibility    flagVisibility
-	Inline        bool
+	Name           string
+	Aliases        []string
+	Value          string
+	OptionalValue  bool
+	ExclusiveGroup string
+	Description    string
+	Visibility     flagVisibility
+	Inline         bool
 }
 
 type flagVisibility uint8
@@ -114,17 +117,18 @@ func commandSynopsis(spec *commandSpec, surface *commandSurfaceSpec) string {
 	if len(surface.Forms) > 0 {
 		forms = surface.Forms
 	}
+	flags := commandFlagsForSurface(spec, surface)
 	var rendered []string
 	for _, form := range forms {
 		if form.Hidden {
 			continue
 		}
-		rendered = append(rendered, renderCommandForm(spec, form))
+		rendered = append(rendered, renderCommandForm(spec, flags, form))
 	}
 	return strings.Join(rendered, " | ")
 }
 
-func renderCommandForm(spec *commandSpec, form commandForm) string {
+func renderCommandForm(spec *commandSpec, flagSpecs []flagSpec, form commandForm) string {
 	var before, after []string
 	groupAfter := spec.FlagGroupAfter
 	visible := 0
@@ -146,7 +150,8 @@ func renderCommandForm(spec *commandSpec, form commandForm) string {
 
 	var flags []string
 	grouped := false
-	for _, flag := range spec.Flags {
+	renderedGroups := make(map[string]bool)
+	for _, flag := range flagSpecs {
 		if flag.Visibility != flagVisible {
 			continue
 		}
@@ -154,11 +159,24 @@ func renderCommandForm(spec *commandSpec, form commandForm) string {
 			grouped = true
 			continue
 		}
-		label := "--" + flag.Name
-		if flag.Value != "" {
-			label += " " + flag.Value
+		if flag.ExclusiveGroup != "" {
+			if renderedGroups[flag.ExclusiveGroup] {
+				continue
+			}
+			renderedGroups[flag.ExclusiveGroup] = true
+			var alternatives []string
+			for _, alternative := range flagSpecs {
+				if alternative.Visibility != flagVisible ||
+					!alternative.Inline ||
+					alternative.ExclusiveGroup != flag.ExclusiveGroup {
+					continue
+				}
+				alternatives = append(alternatives, renderFlag(alternative))
+			}
+			flags = append(flags, "["+strings.Join(alternatives, " | ")+"]")
+			continue
 		}
-		flags = append(flags, "["+label+"]")
+		flags = append(flags, "["+renderFlag(flag)+"]")
 	}
 	if grouped {
 		group := spec.FlagGroup
@@ -168,6 +186,14 @@ func renderCommandForm(spec *commandSpec, form commandForm) string {
 		flags = append([]string{"[" + group + "]"}, flags...)
 	}
 	return strings.Join(append(append(before, flags...), after...), " ")
+}
+
+func renderFlag(flag flagSpec) string {
+	label := "--" + flag.Name
+	if flag.Value != "" {
+		label += " " + flag.Value
+	}
+	return label
 }
 
 func renderOperand(spec operandSpec) string {
@@ -389,9 +415,10 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 	operands := parseArgs
 	var occurrences []parsedFlag
 	var flagError error
-	if len(spec.Flags) > 0 {
+	flagSpecs := commandFlagsForSurface(spec, surface)
+	if len(flagSpecs) > 0 {
 		flags, operands, occurrences, flagError = parseCommandFlagsDetailed(
-			spec.Flags,
+			flagSpecs,
 			parseArgs,
 			spec.DeferFlagValidation,
 		)
@@ -436,6 +463,13 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 		return parsedCommand{}, constraintErr
 	}
 	return parsedCommand{}, errBadArgs
+}
+
+func commandFlagsForSurface(spec *commandSpec, surface *commandSurfaceSpec) []flagSpec {
+	if surface.Flags != nil {
+		return surface.Flags
+	}
+	return spec.Flags
 }
 
 func omitCommandArguments(args, ignored []string) []string {

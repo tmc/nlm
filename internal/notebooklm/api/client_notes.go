@@ -59,6 +59,47 @@ func (c *Client) MutateNote(ctx context.Context, projectID string, noteID string
 	return &Note{Note: note}, nil
 }
 
+// UpdateNote changes the supplied note fields and preserves omitted fields.
+//
+// Title and content use pointer presence so an empty content clears the note
+// body. An empty title is invalid. When both fields are present, UpdateNote
+// skips the read and sends the proven full-replacement mutation directly.
+func (c *Client) UpdateNote(ctx context.Context, projectID, noteID string, title, content *string) (*Note, error) {
+	if title == nil && content == nil {
+		return nil, fmt.Errorf("update note: no fields supplied")
+	}
+	if title != nil && *title == "" {
+		return nil, fmt.Errorf("update note: title is empty")
+	}
+	if title != nil && content != nil {
+		return c.MutateNote(ctx, projectID, noteID, *content, *title)
+	}
+
+	notes, err := c.getOrdinaryNotes(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	var current *Note
+	for _, note := range notes {
+		if note != nil && note.GetNoteId() == noteID {
+			current = note
+			break
+		}
+	}
+	if current == nil {
+		return nil, fmt.Errorf("update note %q: %w", noteID, ErrNoteNotFound)
+	}
+	if title == nil {
+		currentTitle := current.GetTitle()
+		title = &currentTitle
+	}
+	if content == nil {
+		currentContent := current.GetContentText()
+		content = &currentContent
+	}
+	return c.MutateNote(ctx, projectID, noteID, *content, *title)
+}
+
 // DeleteNotes deletes notes from a notebook.
 func (c *Client) DeleteNotes(ctx context.Context, projectID string, noteIDs []string) error {
 	req := &pb.DeleteNotesRequest{
@@ -75,12 +116,10 @@ func (c *Client) DeleteNotes(ctx context.Context, projectID string, noteIDs []st
 
 // GetNotes returns all notes in a notebook.
 func (c *Client) GetNotes(ctx context.Context, projectID string) ([]*Note, error) {
-	req := &pb.GetNotesRequest{ProjectId: projectID}
-	response, rpcErr := c.orchestrationService.GetNotes(ctx, req)
-	if rpcErr != nil {
-		return nil, fmt.Errorf("get notes: %w", rpcErr)
+	notes, err := c.getOrdinaryNotes(ctx, projectID)
+	if err != nil {
+		return nil, err
 	}
-	notes := notesFromWireResponse(response)
 	artifacts, err := c.ListArtifacts(ctx, projectID)
 	if err != nil {
 		// Preserve the notes RPC result when artifact enumeration is
@@ -88,6 +127,15 @@ func (c *Client) GetNotes(ctx context.Context, projectID string) ([]*Note, error
 		return notes, nil
 	}
 	return mergeNotes(notes, notesFromArtifacts(artifacts)), nil
+}
+
+func (c *Client) getOrdinaryNotes(ctx context.Context, projectID string) ([]*Note, error) {
+	req := &pb.GetNotesRequest{ProjectId: projectID}
+	response, rpcErr := c.orchestrationService.GetNotes(ctx, req)
+	if rpcErr != nil {
+		return nil, fmt.Errorf("get notes: %w", rpcErr)
+	}
+	return notesFromWireResponse(response), nil
 }
 
 func notesFromArtifacts(artifacts []*pb.Artifact) []*Note {

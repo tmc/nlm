@@ -1029,6 +1029,15 @@ func updateNote(c *api.Client, notebookID, noteID, content, title string) error 
 	return nil
 }
 
+func updateNoteFields(c *api.Client, notebookID, noteID string, title, content *string) error {
+	fmt.Fprintf(os.Stderr, "Updating note %s...\n", noteID)
+	if _, err := c.UpdateNote(context.Background(), notebookID, noteID, title, content); err != nil {
+		return fmt.Errorf("update note: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "Updated note: %s\n", noteID)
+	return nil
+}
+
 func removeNote(c *api.Client, notebookID, noteID string) error {
 	if !confirmAction(fmt.Sprintf("Are you sure you want to remove note %s?", noteID)) {
 		return fmt.Errorf("operation cancelled")

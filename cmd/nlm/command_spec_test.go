@@ -34,20 +34,12 @@ func TestCommandSpecsCoverRegistry(t *testing.T) {
 		if len(spec.Forms) == 0 {
 			t.Errorf("%s has no forms", spec.ID)
 		}
-		flagNames := make(map[string]bool)
-		for _, flag := range spec.Flags {
-			for _, name := range append([]string{flag.Name}, flag.Aliases...) {
-				if name == "" {
-					t.Errorf("%s has an empty flag name", spec.ID)
-				}
-				if flagNames[name] {
-					t.Errorf("%s has duplicate flag %q", spec.ID, name)
-				}
-				flagNames[name] = true
-			}
-		}
+		checkCommandFlagSpecs(t, string(spec.ID), spec.Flags)
 		for i := range spec.Surfaces {
 			surface := &spec.Surfaces[i]
+			if surface.Flags != nil {
+				checkCommandFlagSpecs(t, strings.Join(surface.Path, " "), surface.Flags)
+			}
 			if surface.Surface == surfaceStable && len(surface.Forms) == 0 && len(spec.Forms) == 0 {
 				t.Errorf("%s stable surface has no executable form", strings.Join(surface.Path, " "))
 			}
@@ -78,6 +70,9 @@ func TestCommandSpecSynopses(t *testing.T) {
 		if phase4, ok := phase4SurfaceSynopses[cmd.name]; ok {
 			want = phase4
 		}
+		if phase5, ok := phase5SurfaceSynopses[cmd.name]; ok {
+			want = phase5
+		}
 		if inventory, ok := phase2InventorySynopses[cmd.spec.ID]; ok {
 			want = inventory
 		}
@@ -92,6 +87,13 @@ var phase4SurfaceSynopses = map[string]string{
 	"source check": "<notebook-id> <source-id>",
 	"read-source":  "[--format text|markdown|html|json|raw] <source-id> [notebook-id]",
 	"check-source": "<source-id> [notebook-id]",
+}
+
+var phase5SurfaceSynopses = map[string]string{
+	"note create": "<notebook-id> <title> [--content TEXT | --content-file FILE]",
+	"note update": "<notebook-id> <note-id> [--title TITLE] [--content TEXT | --content-file FILE]",
+	"new-note":    "<notebook-id> <title> [content]",
+	"update-note": "<notebook-id> <note-id> <content> <title>",
 }
 
 func TestCommandHelpUsesSpecSynopsis(t *testing.T) {
@@ -126,7 +128,7 @@ func TestCommandHelpCoversVisibleFlags(t *testing.T) {
 			if surface.Help.UsageTitle == "" {
 				continue
 			}
-			for _, flag := range spec.Flags {
+			for _, flag := range commandFlagsForSurface(spec, surface) {
 				if flag.Visibility != flagVisible {
 					continue
 				}
@@ -134,6 +136,22 @@ func TestCommandHelpCoversVisibleFlags(t *testing.T) {
 					t.Errorf("%s detailed help omits --%s", joinCommandPath(surface.Path), flag.Name)
 				}
 			}
+		}
+	}
+}
+
+func checkCommandFlagSpecs(t *testing.T, name string, flags []flagSpec) {
+	t.Helper()
+	flagNames := make(map[string]bool)
+	for _, flag := range flags {
+		for _, flagName := range append([]string{flag.Name}, flag.Aliases...) {
+			if flagName == "" {
+				t.Errorf("%s has an empty flag name", name)
+			}
+			if flagNames[flagName] {
+				t.Errorf("%s has duplicate flag %q", name, flagName)
+			}
+			flagNames[flagName] = true
 		}
 	}
 }
@@ -251,6 +269,28 @@ func TestParseCommandFlags(t *testing.T) {
 	wantOperands := []string{"notebook", "--unknown", "--literal"}
 	if !reflect.DeepEqual(operands, wantOperands) {
 		t.Errorf("operands = %q, want %q", operands, wantOperands)
+	}
+}
+
+func TestCommandSynopsisGroupsExclusiveFlags(t *testing.T) {
+	spec := &commandSpec{
+		FlagGroupAfter: 2,
+		Forms: commandFormOf(
+			requiredOperand("notebook"),
+			requiredOperand("note"),
+		),
+	}
+	surface := &commandSurfaceSpec{
+		Flags: []flagSpec{
+			{Name: "title", Value: "TITLE", Inline: true},
+			{Name: "content", Value: "TEXT", Inline: true, ExclusiveGroup: "content"},
+			{Name: "content-file", Value: "FILE", Inline: true, ExclusiveGroup: "content"},
+		},
+	}
+	got := commandSynopsis(spec, surface)
+	want := "<notebook-id> <note-id> [--title TITLE] [--content TEXT | --content-file FILE]"
+	if got != want {
+		t.Errorf("synopsis = %q, want %q", got, want)
 	}
 }
 

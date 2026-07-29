@@ -69,8 +69,8 @@ specification.
 | --- | --- |
 | `nlm note list <notebook-id>` | List notes in notebook |
 | `nlm note read [--format text\|markdown\|html] [--out file] [--open] <notebook-id> <note-id>` | Read full note content |
-| `nlm note create <notebook-id> <title> [content]` | Create new note (content via arg or stdin) |
-| `nlm note update <notebook-id> <note-id> <content> <title>` | Edit note content and title |
+| `nlm note create <notebook-id> <title> [--content TEXT \| --content-file FILE]` | Create new note (content via arg or stdin) |
+| `nlm note update <notebook-id> <note-id> [--title TITLE] [--content TEXT \| --content-file FILE]` | Edit note content and title |
 | `nlm note delete <notebook-id> <note-id>` | Remove a note from a notebook |
 
 ### Label

@@ -288,7 +288,7 @@ func commandOwnsFlag(positional []string, name string) bool {
 	if !ok {
 		return false
 	}
-	for _, spec := range command.spec.Flags {
+	for _, spec := range commandFlagsForSurface(command.spec, command.surfaceSpec) {
 		if spec.Name == name {
 			return true
 		}
