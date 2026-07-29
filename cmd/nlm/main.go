@@ -2443,54 +2443,40 @@ func deleteChatHistory(c *api.Client, notebookID string) error {
 	return nil
 }
 
-func setChatConfig(c *api.Client, args []string) error {
-	if len(args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: nlm chat config <notebook-id> <setting> [value]\n")
-		fmt.Fprintf(os.Stderr, "\nSettings:\n")
-		fmt.Fprintf(os.Stderr, "  goal default              Reset to default conversational style\n")
-		fmt.Fprintf(os.Stderr, "  goal custom \"<prompt>\"    Set custom system prompt\n")
-		fmt.Fprintf(os.Stderr, "  length default            Reset to default response length\n")
-		fmt.Fprintf(os.Stderr, "  length longer             Set longer responses\n")
-		fmt.Fprintf(os.Stderr, "  length shorter            Set shorter responses\n")
-		return fmt.Errorf("invalid arguments")
-	}
-
-	notebookID := args[0]
-	setting := args[1]
-
-	switch setting {
+func setChatConfig(c *api.Client, args chatConfigArgs) error {
+	switch args.Setting {
 	case "goal":
-		if len(args) < 3 {
+		if !args.ModeSet {
 			return fmt.Errorf("usage: nlm chat config <id> goal <default|custom \"prompt\">")
 		}
-		switch args[2] {
+		switch args.Mode {
 		case "default":
-			return c.SetChatConfig(context.Background(), notebookID, api.ChatGoalDefault, "", api.ResponseLengthDefault)
+			return c.SetChatConfig(context.Background(), args.NotebookID, api.ChatGoalDefault, "", api.ResponseLengthDefault)
 		case "custom":
-			if len(args) < 4 {
+			if len(args.Values) == 0 {
 				return fmt.Errorf("usage: nlm chat config <id> goal custom \"your prompt\"")
 			}
-			prompt := strings.Join(args[3:], " ")
-			return c.SetChatConfig(context.Background(), notebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault)
+			prompt := strings.Join(args.Values, " ")
+			return c.SetChatConfig(context.Background(), args.NotebookID, api.ChatGoalCustom, prompt, api.ResponseLengthDefault)
 		default:
-			return fmt.Errorf("unknown goal: %s (use 'default' or 'custom')", args[2])
+			return fmt.Errorf("unknown goal: %s (use 'default' or 'custom')", args.Mode)
 		}
 	case "length":
-		if len(args) < 3 {
+		if !args.ModeSet {
 			return fmt.Errorf("usage: nlm chat config <id> length <default|longer|shorter>")
 		}
-		switch args[2] {
+		switch args.Mode {
 		case "default":
-			return c.SetChatConfig(context.Background(), notebookID, 0, "", api.ResponseLengthDefault)
+			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", api.ResponseLengthDefault)
 		case "longer":
-			return c.SetChatConfig(context.Background(), notebookID, 0, "", api.ResponseLengthLonger)
+			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", api.ResponseLengthLonger)
 		case "shorter":
-			return c.SetChatConfig(context.Background(), notebookID, 0, "", api.ResponseLengthShorter)
+			return c.SetChatConfig(context.Background(), args.NotebookID, 0, "", api.ResponseLengthShorter)
 		default:
-			return fmt.Errorf("unknown length: %s (use 'default', 'longer', or 'shorter')", args[2])
+			return fmt.Errorf("unknown length: %s (use 'default', 'longer', or 'shorter')", args.Mode)
 		}
 	default:
-		return fmt.Errorf("unknown setting: %s (use 'goal' or 'length')", setting)
+		return fmt.Errorf("unknown setting: %s (use 'goal' or 'length')", args.Setting)
 	}
 }
 

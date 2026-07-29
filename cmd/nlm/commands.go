@@ -519,22 +519,11 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "chat-list", argsUsage: "[notebook-id]",
 		usage: "List chat sessions (server-side when a notebook is given)", section: "Chat",
-		minArgs: 0, maxArgs: 1,
 		noAuth: true, noClient: true,
-		run: func(_ *api.Client, args []string) error {
-			if len(args) == 1 {
-				return listChatConversationsWithAuth(args[0])
-			}
-			return listChatSessions()
-		},
 	},
 	{
 		name: "chat-history", argsUsage: "<notebook-id> <conversation-id>",
 		usage: "View conversation history", section: "Chat",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error {
-			return printChatHistory(c, args[0], args[1])
-		},
 	},
 	{
 		name: "chat-show", argsUsage: "<notebook-id> [conversation-id]",
@@ -550,29 +539,18 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "delete-chat", argsUsage: "<notebook-id>",
 		usage: "Delete server-side chat history", section: "Chat",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return deleteChatHistory(c, args[0]) },
 	},
 	{
 		name: "chat-config", argsUsage: "<notebook-id> <setting> [value]",
 		usage: "Configure chat settings", section: "Chat",
-		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error { return setChatConfig(c, args) },
 	},
 	{
 		name: "set-instructions", argsUsage: "<notebook-id> \"prompt\"",
 		usage: "Set system instructions", section: "Chat",
-		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			prompt := strings.Join(args[1:], " ")
-			return setInstructions(c, args[0], prompt)
-		},
 	},
 	{
 		name: "get-instructions", argsUsage: "<notebook-id>",
 		usage: "Show current system instructions", section: "Chat",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return getInstructions(c, args[0]) },
 	},
 
 	// Research operations

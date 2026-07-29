@@ -75,6 +75,14 @@ func repeatedOperand(name string) operandSpec {
 	}
 }
 
+func remainingOperand(name string) operandSpec {
+	return operandSpec{
+		Name:        name,
+		Placeholder: name,
+		Cardinality: cardinalityZeroOrMore,
+	}
+}
+
 func commandFormOf(parts ...operandSpec) []commandForm {
 	return []commandForm{{Parts: parts}}
 }

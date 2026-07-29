@@ -143,6 +143,7 @@ func buildCommandRegistry() {
 	configureArtifactCommandSpecs(specs)
 	configureGuidebookCommandSpecs(specs)
 	configureGenerationCommandSpecs(specs)
+	configureSimpleChatCommandSpecs(specs)
 
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]
