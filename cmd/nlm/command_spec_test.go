@@ -2,8 +2,67 @@ package main
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
+
+func TestCommandSpecsCoverRegistry(t *testing.T) {
+	if got, want := len(commandSpecs), 87; got != want {
+		t.Fatalf("command specs = %d, want %d", got, want)
+	}
+	if got, want := len(groupedCommandSurfaces), 57; got != want {
+		t.Fatalf("grouped surfaces = %d, want %d", got, want)
+	}
+	if got, want := len(commands), 144; got != want {
+		t.Fatalf("bound commands = %d, want %d", got, want)
+	}
+
+	ids := make(map[commandID]bool)
+	paths := make(map[string]bool)
+	for _, spec := range commandSpecs {
+		if ids[spec.ID] {
+			t.Errorf("duplicate command ID %q", spec.ID)
+		}
+		ids[spec.ID] = true
+		if spec.Decode == nil {
+			t.Errorf("%s has no Decode", spec.ID)
+		}
+		if len(spec.Forms) == 0 {
+			t.Errorf("%s has no forms", spec.ID)
+		}
+		for i := range spec.Surfaces {
+			surface := &spec.Surfaces[i]
+			if surface.Surface == surfaceStable && len(surface.Forms) == 0 && len(spec.Forms) == 0 {
+				t.Errorf("%s stable surface has no executable form", strings.Join(surface.Path, " "))
+			}
+			if surface.Surface == surfaceCompatibility && len(surface.Replacement) == 0 {
+				t.Errorf("%s compatibility surface has no replacement", strings.Join(surface.Path, " "))
+			}
+			for _, path := range append([][]string{surface.Path}, surface.Aliases...) {
+				name := strings.Join(path, " ")
+				if paths[name] {
+					t.Errorf("duplicate command path %q", name)
+				}
+				paths[name] = true
+			}
+		}
+	}
+	for id := range ids {
+		if !legacyCommandSpecInventory[id] {
+			t.Errorf("%s missing from Phase 1 bridge inventory", id)
+		}
+	}
+	for id := range legacyCommandSpecInventory {
+		if !ids[id] {
+			t.Errorf("bridge inventory contains unknown ID %s", id)
+		}
+	}
+	for i := range commands {
+		if commands[i].spec == nil || commands[i].surfaceSpec == nil {
+			t.Errorf("command %q is not spec-bound", commands[i].name)
+		}
+	}
+}
 
 func TestParseCommandFormCardinality(t *testing.T) {
 	form := commandForm{Parts: []operandSpec{

@@ -22,8 +22,10 @@ const (
 	surfaceCompatibility
 )
 
-// command describes a single CLI command.
-type command struct {
+// commandDefinition is the temporary Phase 1 behavior scaffold. commandSpec is
+// the registry authority; definitions retain the old help and handler fields
+// only until each family moves onto typed calls.
+type commandDefinition struct {
 	name                string
 	aliases             []string
 	usage               string // one-line description for help text
@@ -43,105 +45,22 @@ type command struct {
 	runWithOptions      func(c *api.Client, args []string, opts globalOptions) error
 }
 
-func mustCommand(byName map[string]command, name string) command {
-	cmd, ok := byName[name]
-	if !ok {
-		panic("missing command: " + name)
-	}
-	return cmd
+// command is one bound surface of a commandSpec. The embedded definition is a
+// shared pointer, so stable and compatibility surfaces do not clone handlers.
+type command struct {
+	*commandDefinition
+	spec        *commandSpec
+	surfaceSpec *commandSurfaceSpec
+	name        string
+	aliases     []string
+	section     string
+	surface     commandSurface
+	hidden      bool
 }
 
-func cloneCommand(base command, name string) command {
-	base.name = name
-	base.aliases = nil
-	base.hidden = false
-	base.surface = surfaceStable
-	return base
-}
-
-func cloneCommandInSection(base command, name, section string) command {
-	base = cloneCommand(base, name)
-	base.section = section
-	return base
-}
-
-func groupedCommandsFromExisting(existing []command) []command {
-	byName := make(map[string]command, len(existing))
-	for _, cmd := range existing {
-		byName[cmd.name] = cmd
-	}
-	return []command{
-		cloneCommand(mustCommand(byName, "list"), "notebook list"),
-		cloneCommand(mustCommand(byName, "create"), "notebook create"),
-		cloneCommand(mustCommand(byName, "rm"), "notebook delete"),
-		cloneCommand(mustCommand(byName, "rename-notebook"), "notebook rename"),
-		cloneCommand(mustCommand(byName, "notebook-emoji"), "notebook emoji"),
-		cloneCommand(mustCommand(byName, "notebook-description"), "notebook description"),
-		cloneCommand(mustCommand(byName, "notebook-cover"), "notebook cover"),
-		cloneCommand(mustCommand(byName, "notebook-cover-image"), "notebook cover-image"),
-		cloneCommand(mustCommand(byName, "notebook-unrecent"), "notebook unrecent"),
-		cloneCommand(mustCommand(byName, "list-featured"), "notebook featured"),
-
-		cloneCommand(mustCommand(byName, "sources"), "source list"),
-		cloneCommand(mustCommand(byName, "add"), "source add"),
-		cloneCommand(mustCommand(byName, "sync"), "source sync"),
-		cloneCommand(mustCommand(byName, "sync-pack"), "source pack"),
-		cloneCommand(mustCommand(byName, "rm-source"), "source delete"),
-		cloneCommand(mustCommand(byName, "rename-source"), "source rename"),
-		cloneCommand(mustCommand(byName, "refresh-source"), "source refresh"),
-		cloneCommand(mustCommand(byName, "check-source"), "source check"),
-		cloneCommand(mustCommand(byName, "read-source"), "source read"),
-
-		cloneCommand(mustCommand(byName, "notes"), "note list"),
-		cloneCommand(mustCommand(byName, "read-note"), "note read"),
-		cloneCommand(mustCommand(byName, "new-note"), "note create"),
-		cloneCommand(mustCommand(byName, "update-note"), "note update"),
-		cloneCommand(mustCommand(byName, "rm-note"), "note delete"),
-
-		cloneCommand(mustCommand(byName, "label-list"), "label list"),
-		cloneCommand(mustCommand(byName, "label-generate"), "label generate"),
-		cloneCommand(mustCommand(byName, "label-create"), "label create"),
-		cloneCommand(mustCommand(byName, "label-rename"), "label rename"),
-		cloneCommand(mustCommand(byName, "label-emoji"), "label emoji"),
-		cloneCommand(mustCommand(byName, "label-delete"), "label delete"),
-		cloneCommand(mustCommand(byName, "label-unlabeled"), "label unlabeled"),
-		cloneCommand(mustCommand(byName, "label-relabel-all"), "label relabel-all"),
-		cloneCommand(mustCommand(byName, "label-attach"), "label attach"),
-
-		cloneCommand(mustCommand(byName, "artifacts"), "artifact list"),
-		cloneCommand(mustCommand(byName, "get-artifact"), "artifact get"),
-		cloneCommand(mustCommand(byName, "read-artifact"), "artifact read"),
-		cloneCommand(mustCommand(byName, "export-flashcards"), "artifact export"),
-		cloneCommand(mustCommand(byName, "update-artifact"), "artifact update"),
-		cloneCommand(mustCommand(byName, "delete-artifact"), "artifact delete"),
-
-		cloneCommand(mustCommand(byName, "chat-list"), "chat list"),
-		cloneCommand(mustCommand(byName, "chat-history"), "chat history"),
-		cloneCommand(mustCommand(byName, "chat-show"), "chat show"),
-		cloneCommand(mustCommand(byName, "delete-chat"), "chat delete"),
-		cloneCommand(mustCommand(byName, "chat-config"), "chat config"),
-		cloneCommand(mustCommand(byName, "set-instructions"), "chat instructions set"),
-		cloneCommand(mustCommand(byName, "get-instructions"), "chat instructions get"),
-
-		cloneCommand(mustCommand(byName, "audio-list"), "audio list"),
-		cloneCommandInSection(mustCommand(byName, "create-audio"), "audio create", "Audio"),
-		cloneCommand(mustCommand(byName, "audio-get"), "audio get"),
-		cloneCommand(mustCommand(byName, "audio-download"), "audio download"),
-		cloneCommand(mustCommand(byName, "audio-rm"), "audio delete"),
-		cloneCommand(mustCommand(byName, "audio-share"), "audio share"),
-
-		cloneCommandInSection(mustCommand(byName, "create-video"), "video create", "Video"),
-
-		cloneCommandInSection(mustCommand(byName, "create-slides"), "deck create", "Deck"),
-		cloneCommand(mustCommand(byName, "deck-download"), "deck download"),
-
-		cloneCommand(mustCommand(byName, "app-create"), "app create"),
-		cloneCommand(mustCommand(byName, "mindmap-create"), "mindmap create"),
-	}
-}
-
-// commands is the single source of truth for all CLI commands.
-var commands = []command{
+// commandDefinitions retain Phase 0 behavior while commandSpecs take over the
+// registry family by family.
+var commandDefinitions = []commandDefinition{
 	// Notebook operations
 	{
 		name: "list", aliases: []string{"ls"},
@@ -1155,19 +1074,11 @@ var compatibilityReplacements = map[string]string{
 }
 
 func init() {
-	commands = append(groupedCommandsFromExisting(commands), commands...)
+	buildCommandRegistry()
 	commandIndex = make(map[string]*command, len(commands)*2)
 	commandStarts = make(map[string]bool, len(commands))
 	for i := range commands {
 		cmd := &commands[i]
-		switch {
-		case experimentalCommands[cmd.name]:
-			cmd.surface = surfaceExperimental
-		case internalCommands[cmd.name]:
-			cmd.surface = surfaceInternal
-		case compatibilityCommands[cmd.name]:
-			cmd.surface = surfaceCompatibility
-		}
 		commandIndex[cmd.name] = cmd
 		registerCommandStart(cmd.name)
 		for _, alias := range cmd.aliases {
@@ -1453,7 +1364,13 @@ func warnCompatibilityCommand(name string, cmd *command) {
 	if cmd.surface != surfaceCompatibility {
 		return
 	}
-	replacement := compatibilityReplacements[name]
+	replacement := ""
+	if cmd.surfaceSpec != nil {
+		replacement = strings.Join(cmd.surfaceSpec.Replacement, " ")
+	}
+	if replacement == "" {
+		replacement = compatibilityReplacements[name]
+	}
 	if replacement == "" {
 		return
 	}
@@ -1476,6 +1393,10 @@ var errPrecondition = errors.New("precondition failed")
 var errNotFound = errors.New("not found")
 
 func validateCommandArgs(cmd *command, cmdName string, args []string, opts globalOptions) error {
+	if cmd.spec != nil {
+		_, err := parseBoundCommand(cmd, cmdName, args, opts)
+		return err
+	}
 	if cmd.validateWithOptions != nil {
 		return cmd.validateWithOptions(cmdName, args, opts)
 	}
@@ -1496,6 +1417,17 @@ func validateCommandArgs(cmd *command, cmdName string, args []string, opts globa
 }
 
 func runCommand(cmd *command, c *api.Client, args []string, opts globalOptions) error {
+	if cmd.spec != nil {
+		parsed, err := parseBoundCommand(cmd, cmd.name, args, opts)
+		if err != nil {
+			return err
+		}
+		call, err := cmd.spec.Decode(parsed)
+		if err != nil {
+			return err
+		}
+		return call(context.Background(), c)
+	}
 	if cmd.runWithOptions != nil {
 		return cmd.runWithOptions(c, args, opts)
 	}

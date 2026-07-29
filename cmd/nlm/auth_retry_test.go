@@ -253,15 +253,17 @@ func TestRunReharvestsCachedBrowserProfile(t *testing.T) {
 	}
 	attempts := 0
 	cmd := &command{
-		name:    "auth-retry-test",
-		minArgs: 0,
-		maxArgs: 0,
-		run: func(*api.Client, []string) error {
-			attempts++
-			if attempts == 1 {
-				return batchexecute.ErrUnauthorized
-			}
-			return nil
+		name: "auth-retry-test",
+		commandDefinition: &commandDefinition{
+			minArgs: 0,
+			maxArgs: 0,
+			run: func(*api.Client, []string) error {
+				attempts++
+				if attempts == 1 {
+					return batchexecute.ErrUnauthorized
+				}
+				return nil
+			},
 		},
 	}
 	if err := run(invocation{name: cmd.name, cmd: cmd}); err != nil {
@@ -296,12 +298,14 @@ func TestRunDoesNotReharvestEnvironmentOnlyCredentials(t *testing.T) {
 	}
 	attempts := 0
 	cmd := &command{
-		name:    "auth-no-retry-test",
-		minArgs: 0,
-		maxArgs: 0,
-		run: func(*api.Client, []string) error {
-			attempts++
-			return batchexecute.ErrUnauthorized
+		name: "auth-no-retry-test",
+		commandDefinition: &commandDefinition{
+			minArgs: 0,
+			maxArgs: 0,
+			run: func(*api.Client, []string) error {
+				attempts++
+				return batchexecute.ErrUnauthorized
+			},
 		},
 	}
 	err := run(invocation{name: cmd.name, cmd: cmd})

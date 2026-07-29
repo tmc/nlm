@@ -23,6 +23,9 @@ type commandSpec struct {
 	Forms    []commandForm
 	Surfaces []commandSurfaceSpec
 	Decode   func(parsedCommand) (commandCall, error)
+
+	definition *commandDefinition
+	parse      func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
 }
 
 // commandSurfaceSpec describes one user-visible route to a command behavior.
