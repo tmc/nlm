@@ -30,6 +30,7 @@ const (
 	shapeScalar shapeKind = iota + 1
 	shapeMessage
 	shapeRepeated
+	shapeConflict
 )
 
 // wireShape is the smallest schema description that preserves the positional
@@ -52,34 +53,99 @@ func betoolInferProto(opts betoolOptions) error {
 		return fmt.Errorf("infer-proto: payload root is not a positional message array")
 	}
 
-	method, methodErr := resolveInferMethod(opts.rpcID)
 	var fd *descriptorpb.FileDescriptorProto
+	var set *descriptorpb.FileDescriptorSet
 	rootName := ""
-	if methodErr == nil {
-		fd = proto.Clone(protodesc.ToFileDescriptorProto(method.Response.Descriptor().ParentFile())).(*descriptorpb.FileDescriptorProto)
-		rootName = string(method.Response.Descriptor().FullName())
+	if opts.descriptorFile != "" {
+		var md protoreflect.MessageDescriptor
+		set, fd, md, err = readInferDescriptor(opts.descriptorFile, opts.messageName)
+		if err != nil {
+			return err
+		}
+		rootName = string(md.FullName())
 		root := findMessageProto(fd, rootName)
 		if root == nil {
-			return fmt.Errorf("infer-proto: response descriptor %s is not in %s", method.Response.Descriptor().FullName(), fd.GetName())
+			return fmt.Errorf("infer-proto: message %s is not in %s", md.FullName(), fd.GetName())
 		}
-		mergeStaticMessage(root, method.Response.Descriptor(), merged, fd)
+		mergeStaticMessage(root, md, merged, fd)
 	} else {
-		var unknown rpcinfo.ErrUnknownRPCID
-		if !errors.As(methodErr, &unknown) {
-			return methodErr
+		method, methodErr := resolveInferMethod(opts.rpcID)
+		if methodErr == nil {
+			fd = proto.Clone(protodesc.ToFileDescriptorProto(method.Response.Descriptor().ParentFile())).(*descriptorpb.FileDescriptorProto)
+			rootName = string(method.Response.Descriptor().FullName())
+			root := findMessageProto(fd, rootName)
+			if root == nil {
+				return fmt.Errorf("infer-proto: response descriptor %s is not in %s", method.Response.Descriptor().FullName(), fd.GetName())
+			}
+			mergeStaticMessage(root, method.Response.Descriptor(), merged, fd)
+		} else {
+			var unknown rpcinfo.ErrUnknownRPCID
+			if !errors.As(methodErr, &unknown) {
+				return methodErr
+			}
+			fd = inferredFile(opts.rpcID, merged)
+			rootName = "betool.inferred.InferredMessage"
 		}
-		fd = inferredFile(opts.rpcID, merged)
-		rootName = "betool.inferred.InferredMessage"
 	}
 
+	if set == nil {
+		set = &descriptorpb.FileDescriptorSet{File: []*descriptorpb.FileDescriptorProto{fd}}
+	}
+	if opts.outputFile != "" {
+		data, err := proto.Marshal(set)
+		if err != nil {
+			return fmt.Errorf("infer-proto: encode descriptor set: %w", err)
+		}
+		if err := os.WriteFile(opts.outputFile, data, 0666); err != nil {
+			return fmt.Errorf("infer-proto: write descriptor set: %w", err)
+		}
+	}
 	if opts.asJSON {
-		b, err := (protojson.MarshalOptions{UseProtoNames: true, Multiline: true}).Marshal(fd)
+		value := proto.Message(fd)
+		if opts.descriptorFile != "" {
+			value = set
+		}
+		b, err := (protojson.MarshalOptions{UseProtoNames: true, Multiline: true}).Marshal(value)
 		if err != nil {
 			return fmt.Errorf("infer-proto: marshal JSON: %w", err)
 		}
 		return writeText(string(b))
 	}
 	return writeText(renderFocusedProto(fd, rootName))
+}
+
+func readInferDescriptor(path, messageName string) (*descriptorpb.FileDescriptorSet, *descriptorpb.FileDescriptorProto, protoreflect.MessageDescriptor, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("infer-proto: read descriptor: %w", err)
+	}
+	var set descriptorpb.FileDescriptorSet
+	if err := proto.Unmarshal(data, &set); err != nil {
+		return nil, nil, nil, fmt.Errorf("infer-proto: decode descriptor set: %w", err)
+	}
+	files, err := protodesc.NewFiles(&set)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("infer-proto: load descriptor set: %w", err)
+	}
+	desc, err := files.FindDescriptorByName(protoreflect.FullName(strings.TrimPrefix(messageName, ".")))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("infer-proto: find message %s: %w", messageName, err)
+	}
+	md, ok := desc.(protoreflect.MessageDescriptor)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("infer-proto: %s is not a message", messageName)
+	}
+	var source *descriptorpb.FileDescriptorProto
+	for _, candidate := range set.GetFile() {
+		if candidate.GetName() == md.ParentFile().Path() {
+			source = candidate
+			break
+		}
+	}
+	if source == nil {
+		return nil, nil, nil, fmt.Errorf("infer-proto: file %s is missing from descriptor set", md.ParentFile().Path())
+	}
+	return &set, source, md, nil
 }
 
 func resolveInferMethod(id string) (rpcinfo.Method, error) {
@@ -162,6 +228,9 @@ func inferFileSamples(data []byte, rpcID string) ([]any, error) {
 }
 
 type trafficEntry struct {
+	Request struct {
+		URL string `json:"url"`
+	} `json:"request"`
 	Response struct {
 		Content struct {
 			Text     string `json:"text"`
@@ -193,6 +262,9 @@ func inferHAR(data []byte, rpcID string) ([]any, error) {
 	}
 	values := make([]any, 0, len(har.Log.Entries))
 	for _, entry := range har.Log.Entries {
+		if !trafficMatchesRPC(entry, rpcID) {
+			continue
+		}
 		body := trafficBody(entry)
 		if body == nil {
 			continue
@@ -218,6 +290,9 @@ func inferJSONL(data []byte, rpcID string) ([]any, error) {
 		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
 			continue
 		}
+		if !trafficMatchesRPC(entry, rpcID) {
+			continue
+		}
 		body := trafficBody(entry)
 		if body == nil {
 			continue
@@ -235,6 +310,19 @@ func inferJSONL(data []byte, rpcID string) ([]any, error) {
 		return nil, fmt.Errorf("JSONL contains no matching response payloads")
 	}
 	return values, nil
+}
+
+func trafficMatchesRPC(entry trafficEntry, rpcID string) bool {
+	ids := corpusRPCIDs(entry.Request.URL)
+	if len(ids) == 0 {
+		return true
+	}
+	for _, id := range ids {
+		if id == rpcID {
+			return true
+		}
+	}
+	return false
 }
 
 func inferHTTPRR(data []byte) ([][]byte, error) {
@@ -381,20 +469,22 @@ func mergeShapes(a, b *wireShape) *wireShape {
 		return a
 	}
 	if a.kind != b.kind {
-		return a
+		return &wireShape{kind: shapeConflict}
 	}
 	switch a.kind {
 	case shapeScalar:
 		if a.scalar == b.scalar {
 			return a
 		}
-		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_STRING}
+		return &wireShape{kind: shapeConflict}
 	case shapeMessage:
 		for number, field := range b.fields {
 			a.fields[number] = mergeShapes(a.fields[number], field)
 		}
 	case shapeRepeated:
 		a.elem = mergeShapes(a.elem, b.elem)
+	case shapeConflict:
+		return a
 	}
 	return a
 }
@@ -429,6 +519,8 @@ func shapeSignature(s *wireShape) string {
 			fmt.Fprintf(&b, "%d=%s;", number, shapeSignature(s.fields[number]))
 		}
 		return b.String()
+	case shapeConflict:
+		return "conflict"
 	default:
 		return "unknown"
 	}
@@ -469,7 +561,7 @@ func mergeStaticMessage(dst *descriptorpb.DescriptorProto, md protoreflect.Messa
 }
 
 func appendSyntheticField(dst *descriptorpb.DescriptorProto, number int32, shape *wireShape, parent string, fd *descriptorpb.FileDescriptorProto) {
-	if shape == nil {
+	if shape == nil || shape.kind == shapeConflict {
 		return
 	}
 	field := &descriptorpb.FieldDescriptorProto{
@@ -483,6 +575,9 @@ func appendSyntheticField(dst *descriptorpb.DescriptorProto, number int32, shape
 		valueShape = shape.elem
 	}
 	if valueShape == nil {
+		return
+	}
+	if valueShape.kind == shapeConflict {
 		return
 	}
 	if valueShape.kind == shapeMessage {

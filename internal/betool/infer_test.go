@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/descriptorpb"
@@ -85,6 +86,104 @@ func TestBetoolInferProtoSamplesWidenSingleMessageToRepeated(t *testing.T) {
 	}
 }
 
+func TestBetoolInferProtoExternalDescriptor(t *testing.T) {
+	set := &descriptorpb.FileDescriptorSet{File: []*descriptorpb.FileDescriptorProto{{
+		Name:    proto.String("external.proto"),
+		Package: proto.String("external"),
+		Syntax:  proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{{
+			Name: proto.String("Response"),
+			Field: []*descriptorpb.FieldDescriptorProto{{
+				Name:   proto.String("name"),
+				Number: proto.Int32(1),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			}},
+		}},
+	}}}
+	data, err := proto.Marshal(set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "schema.pb")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "augmented.pb")
+
+	out, err := runBetoolCapture(t, []string{
+		"--json", "infer-proto",
+		"--rpc-id=unbound",
+		"--descriptor=" + path,
+		"--message=external.Response",
+		"--output=" + outputPath,
+	}, `[["known",7]]`)
+	if err != nil {
+		t.Fatalf("infer-proto: %v", err)
+	}
+	var gotSet descriptorpb.FileDescriptorSet
+	if err := protojson.Unmarshal([]byte(out), &gotSet); err != nil {
+		t.Fatalf("output is not protojson: %v\n%s", err, out)
+	}
+	if len(gotSet.GetFile()) != 1 {
+		t.Fatalf("output has %d files, want 1", len(gotSet.GetFile()))
+	}
+	fd := gotSet.GetFile()[0]
+	root := findMessageProto(fd, "external.Response")
+	if root == nil {
+		t.Fatal("output lost external.Response")
+	}
+	if got := fieldByNumber(root, 1); got == nil || got.GetName() != "name" {
+		t.Fatalf("field 1 = %v, want preserved name field", got)
+	}
+	if got := fieldByNumber(root, 2); got == nil || got.GetName() != "unknown_2" || got.GetType() != descriptorpb.FieldDescriptorProto_TYPE_INT64 {
+		t.Fatalf("field 2 = %v, want inferred int64 unknown_2", got)
+	}
+	binary, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var binarySet descriptorpb.FileDescriptorSet
+	if err := proto.Unmarshal(binary, &binarySet); err != nil {
+		t.Fatalf("binary output is not a descriptor set: %v", err)
+	}
+	if !proto.Equal(&gotSet, &binarySet) {
+		t.Fatal("binary and JSON descriptor sets differ")
+	}
+}
+
+func TestBetoolInferProtoSkipsConflictingField(t *testing.T) {
+	dir := t.TempDir()
+	for name, contents := range map[string]string{
+		"bool.json":   `[["known",true,7]]`,
+		"number.json": `[["known",1,7]]`,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out, err := runBetoolCapture(t, []string{
+		"--json", "infer-proto",
+		"--rpc-id=unbound",
+		"--samples=" + dir,
+	}, "")
+	if err != nil {
+		t.Fatalf("infer-proto: %v", err)
+	}
+	var fd descriptorpb.FileDescriptorProto
+	if err := protojson.Unmarshal([]byte(out), &fd); err != nil {
+		t.Fatalf("output is not protojson: %v\n%s", err, out)
+	}
+	root := fd.GetMessageType()[0]
+	if got := fieldByNumber(root, 2); got != nil {
+		t.Fatalf("conflicting field 2 = %v, want absent", got)
+	}
+	if got := fieldByNumber(root, 3); got == nil || got.GetType() != descriptorpb.FieldDescriptorProto_TYPE_INT64 {
+		t.Fatalf("unambiguous field 3 = %v, want int64", got)
+	}
+}
+
 func TestBetoolInferProtoTextproto(t *testing.T) {
 	input := `[[["value",null,4]]]`
 	out, err := runBetoolCapture(t, []string{"infer-proto", "--rpc-id=unbound"}, input)
@@ -124,6 +223,20 @@ func TestInferFileSamplesAcceptsHARAndHTTPRR(t *testing.T) {
 	values, err = inferFileSamples([]byte(httprr), "unbound")
 	if err != nil || len(values) != 1 {
 		t.Fatalf("httprr samples = %v, %v; want one sample", values, err)
+	}
+}
+
+func TestInferJSONLFiltersRPCID(t *testing.T) {
+	data := strings.Join([]string{
+		`{"request":{"url":"https://example.test/_/rpc?rpcids=other"},"response":{"content":{"text":"[[[\"wrong\"]]]"}}}`,
+		`{"request":{"url":"https://example.test/_/rpc?rpcids=target"},"response":{"content":{"text":"[[[\"right\"]]]"}}}`,
+	}, "\n")
+	values, err := inferJSONL([]byte(data), "target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(values) != 1 || fmt.Sprint(values[0]) != "[[right]]" {
+		t.Fatalf("values = %v, want matching RPC only", values)
 	}
 }
 

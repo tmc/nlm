@@ -29,6 +29,9 @@ type betoolOptions struct {
 	file              string   // positional input file, "" for stdin
 	files             []string // infer-proto input files
 	samplesDir        string   // infer-proto corpus directory
+	descriptorFile    string   // infer-proto descriptor set to augment
+	messageName       string   // infer-proto root message in descriptorFile
+	outputFile        string   // infer-proto binary descriptor set output
 }
 
 // Options configures one betool invocation.
@@ -148,6 +151,21 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 				return opts, fmt.Errorf("betool %s: --samples applies only to infer-proto", mode)
 			}
 			opts.samplesDir = strings.TrimPrefix(a, "--samples=")
+		case strings.HasPrefix(a, "--descriptor="):
+			if mode != "infer-proto" {
+				return opts, fmt.Errorf("betool %s: --descriptor applies only to infer-proto", mode)
+			}
+			opts.descriptorFile = strings.TrimPrefix(a, "--descriptor=")
+		case strings.HasPrefix(a, "--message="):
+			if mode != "infer-proto" {
+				return opts, fmt.Errorf("betool %s: --message applies only to infer-proto", mode)
+			}
+			opts.messageName = strings.TrimPrefix(a, "--message=")
+		case strings.HasPrefix(a, "--output="):
+			if mode != "infer-proto" {
+				return opts, fmt.Errorf("betool %s: --output applies only to infer-proto", mode)
+			}
+			opts.outputFile = strings.TrimPrefix(a, "--output=")
 		case a == "--samples":
 			if mode != "infer-proto" {
 				return opts, fmt.Errorf("betool %s: --samples applies only to infer-proto", mode)
@@ -180,6 +198,9 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 	}
 	if mode == "infer-proto" && opts.rpcID == "" {
 		return opts, fmt.Errorf("betool infer-proto: --rpc-id is required")
+	}
+	if mode == "infer-proto" && (opts.descriptorFile == "") != (opts.messageName == "") {
+		return opts, fmt.Errorf("betool infer-proto: --descriptor and --message must be used together")
 	}
 	if mode == "audit-corpus" && len(opts.files) == 0 {
 		return opts, fmt.Errorf("betool audit-corpus: at least one JSONL file is required")
@@ -487,7 +508,10 @@ infer-proto flags:
   --samples=<dir>   infer from every regular file in a directory
                     (multiple input files may also be listed; raw responses,
                     HAR, JSONL traffic, and httprr recordings are accepted)
-  --json            emit FileDescriptorProto as protojson instead of textproto
+  --descriptor=<f>  augment a binary FileDescriptorSet instead of the built-in schema
+  --message=<name>  fully-qualified root message in --descriptor; required with it
+  --output=<f>      write the augmented binary FileDescriptorSet to a file
+  --json            emit the descriptor as protojson instead of focused proto text
 
 Decode modes print a human-readable summary by default; pass the global --json
 flag (before the mode: "nlm --json betool decode-response …") for the full
