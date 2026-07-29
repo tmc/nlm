@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 )
 
@@ -12,7 +11,7 @@ func configureTypedCommandSpec(
 	decode func(parsedCommand) (commandCall, error),
 ) {
 	configureTypedCommandSpecWithErrorUsage(spec, forms, decode, func(path string, _ error) {
-		fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", path, spec.definition.argsUsage)
+		printCommandUsageForPath(path)
 	})
 }
 
@@ -74,7 +73,7 @@ func joinCommandPath(path []string) string {
 func requiredOperand(name string) operandSpec {
 	return operandSpec{
 		Name:        name,
-		Placeholder: name,
+		Placeholder: operandPlaceholder(name),
 		Cardinality: cardinalityRequired,
 	}
 }
@@ -82,7 +81,7 @@ func requiredOperand(name string) operandSpec {
 func optionalOperand(name string) operandSpec {
 	return operandSpec{
 		Name:        name,
-		Placeholder: name,
+		Placeholder: operandPlaceholder(name),
 		Cardinality: cardinalityOptional,
 	}
 }
@@ -90,7 +89,7 @@ func optionalOperand(name string) operandSpec {
 func repeatedOperand(name string) operandSpec {
 	return operandSpec{
 		Name:        name,
-		Placeholder: name,
+		Placeholder: operandPlaceholder(name),
 		Cardinality: cardinalityOneOrMore,
 	}
 }
@@ -98,9 +97,41 @@ func repeatedOperand(name string) operandSpec {
 func remainingOperand(name string) operandSpec {
 	return operandSpec{
 		Name:        name,
-		Placeholder: name,
+		Placeholder: operandPlaceholder(name),
 		Cardinality: cardinalityZeroOrMore,
 	}
+}
+
+func operandPlaceholder(name string) string {
+	switch name {
+	case "artifact", "conversation", "guidebook", "label", "note", "notebook", "share", "source":
+		return name + "-id"
+	case "image":
+		return "image-path"
+	case "preset":
+		return "preset-id"
+	default:
+		return name
+	}
+}
+
+func withPlaceholder(spec operandSpec, placeholder string) operandSpec {
+	spec.Placeholder = placeholder
+	return spec
+}
+
+func withUsage(spec operandSpec, usage string) operandSpec {
+	spec.Usage = usage
+	return spec
+}
+
+func hiddenOperand(spec operandSpec) operandSpec {
+	spec.Hidden = true
+	return spec
+}
+
+func virtualOperand(usage string) operandSpec {
+	return operandSpec{Usage: usage, Virtual: true}
 }
 
 func commandFormOf(parts ...operandSpec) []commandForm {

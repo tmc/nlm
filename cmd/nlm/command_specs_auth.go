@@ -21,12 +21,17 @@ type authArgs struct {
 func configureAuthCommandSpec(specs map[commandID]*commandSpec) {
 	spec := specs["auth"]
 	spec.Flags = authFlagSpecs()
+	spec.FlagGroup = "options"
+	spec.FlagGroupAfter = 1
 	spec.IgnoredArguments = []string{"login"}
 	spec.DeferFlagErrors = true
 	spec.DeferFlagValidation = true
 	configureTypedCommandSpec(
 		spec,
-		[]commandForm{{Parts: []operandSpec{remainingOperand("positionals")}}},
+		[]commandForm{{Parts: []operandSpec{
+			virtualOperand("[login]"),
+			withUsage(remainingOperand("positionals"), "[profile-name]"),
+		}}},
 		decodeAuth,
 	)
 }

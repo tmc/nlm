@@ -55,7 +55,7 @@ func configureArtifactCommandSpecs(specs map[commandID]*commandSpec) {
 	}
 	configureTypedCommandSpecWithErrorUsage(exportSpec,
 		[]commandForm{{
-			Parts: []operandSpec{remainingOperand("artifacts")},
+			Parts: []operandSpec{withUsage(remainingOperand("artifacts"), "<artifact-id>")},
 			Constraints: []constraint{
 				constraintFunc(validateArtifactExportCommand),
 			},
@@ -63,16 +63,16 @@ func configureArtifactCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeArtifactExport,
 		func(path string, err error) {
 			fmt.Fprintf(os.Stderr, "nlm: %s: %v\n\n", path, err)
-			printArtifactExportUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	updateSpec := specs["update-artifact"]
 	updateSpec.Flags = []flagSpec{
-		{Name: "name", Aliases: []string{"n"}, Value: "title", Description: "new artifact title"},
+		{Name: "name", Aliases: []string{"n"}, Value: "<name>", Description: "new artifact title", Inline: true},
 	}
 	configureTypedCommandSpecWithParseError(updateSpec,
 		[]commandForm{{
-			Parts: []operandSpec{remainingOperand("arguments")},
+			Parts: []operandSpec{withUsage(remainingOperand("arguments"), "<artifact-id> [title]")},
 			Constraints: []constraint{
 				constraintFunc(validateArtifactUpdateCommand),
 			},
@@ -85,7 +85,7 @@ func configureArtifactCommandSpecs(specs map[commandID]*commandSpec) {
 	configureTypedCommandSpec(specs["rename-artifact"],
 		commandFormOf(
 			requiredOperand("artifact"),
-			requiredOperand("title"),
+			withPlaceholder(requiredOperand("title"), "new-title"),
 		),
 		decodeArtifactRename,
 	)

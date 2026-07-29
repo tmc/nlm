@@ -40,17 +40,6 @@ type artifactExportOptions struct {
 	Output string
 }
 
-func printArtifactExportUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s <artifact-id> [--format format] [--output file]\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Exports a READY artifact using its server-rendered download.")
-	fmt.Fprintln(os.Stderr, "Type-4 flashcard apps additionally support md, json, tsv, and html.")
-	fmt.Fprintln(os.Stderr, "Output is written to stdout by default.")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Flags:")
-	fmt.Fprintln(os.Stderr, "  --format, -f <format>  Server file extension or flashcard format (default md)")
-	fmt.Fprintln(os.Stderr, "  --output, -o <file>    Write to a file instead of stdout")
-}
-
 func normalizeArtifactExportOptions(opts *artifactExportOptions) error {
 	opts.Format = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(opts.Format), "."))
 	if opts.Format == "" {

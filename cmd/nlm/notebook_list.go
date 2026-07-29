@@ -18,19 +18,6 @@ type notebookListOptions struct {
 	JSON  bool
 }
 
-func printNotebookListUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s [flags]\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Flags:")
-	fmt.Fprintln(os.Stderr, "  --all          Show all notebooks when stdout is a terminal")
-	fmt.Fprintln(os.Stderr, "  --limit <n>    Show at most n notebooks (default: 10 on TTY, all when piped)")
-	fmt.Fprintln(os.Stderr, "  --json         Emit NDJSON instead of a table")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Examples:")
-	fmt.Fprintf(os.Stderr, "  nlm %s\n", cmdName)
-	fmt.Fprintln(os.Stderr, "  nlm notebook list --all")
-	fmt.Fprintln(os.Stderr, "  nlm ls --limit 25")
-}
-
 func list(c *api.Client, opts notebookListOptions) error {
 	notebooks, err := c.ListRecentlyViewedProjects(context.Background())
 	if err != nil {

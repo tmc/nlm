@@ -119,6 +119,13 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
+		if authorizedDetailedHelpPaths[want.Path] {
+			got.Help = want.Help
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%s changed outside its detailed-help first line", want.Path)
+			}
+			continue
+		}
 		if !inventoryCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside the Phase 2 inventory", want.Path)
@@ -126,8 +133,15 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 			continue
 		}
 		got.ArgsUsage, got.Help = want.ArgsUsage, want.Help
+		if len(got.Cases) != len(want.Cases) {
+			t.Errorf("%s argument case count changed", want.Path)
+			continue
+		}
+		for j := range got.Cases {
+			got.Cases[j].Stderr = want.Cases[j].Stderr
+		}
 		if !reflect.DeepEqual(got, want) {
-			t.Errorf("%s changed outside ArgsUsage or Help", want.Path)
+			t.Errorf("%s changed outside help text", want.Path)
 		}
 	}
 }
@@ -205,6 +219,16 @@ var inventoryCommandPaths = map[string]bool{
 	"auth":                true,
 	"betool":              true,
 	"refresh":             true,
+}
+
+// authorizedDetailedHelpPaths are the four read paths whose detailed first
+// lines were explicitly authorized to match their already-correct inline-flag
+// root synopses. No other parity field may change for these paths.
+var authorizedDetailedHelpPaths = map[string]bool{
+	"source read": true,
+	"read-source": true,
+	"note read":   true,
+	"read-note":   true,
 }
 
 func collectCommandParity(t *testing.T, frozenCases map[string][][]string) commandParityGolden {

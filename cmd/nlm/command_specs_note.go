@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 
@@ -45,9 +44,9 @@ func configureNoteCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	readSpec := specs["read-note"]
 	readSpec.Flags = []flagSpec{
-		{Name: "format", Value: "fmt", Description: "output format"},
-		{Name: "out", Value: "file", Description: "html output file"},
-		{Name: "open", Description: "open html output"},
+		{Name: "format", Value: "text|markdown|html", Description: "output format", Inline: true},
+		{Name: "out", Value: "file", Description: "html output file", Inline: true},
+		{Name: "open", Description: "open html output", Inline: true},
 	}
 	configureTypedCommandSpecWithUsage(readSpec,
 		[]commandForm{{
@@ -61,7 +60,7 @@ func configureNoteCommandSpecs(specs map[commandID]*commandSpec) {
 		}},
 		decodeNoteRead,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s [--format text|markdown|html] [--out file] [--open] <notebook-id> <note-id>\n", path)
+			printCommandUsageForPath(path)
 		},
 	)
 	configureTypedCommandSpec(specs["new-note"],

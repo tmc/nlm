@@ -9,7 +9,3 @@ func runBetool(args betoolArgs) error {
 		DebugFieldMapping: debugFieldMapping,
 	})
 }
-
-func printBetoolUsage() {
-	betool.PrintUsage()
-}

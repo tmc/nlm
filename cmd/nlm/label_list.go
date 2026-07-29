@@ -9,15 +9,6 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
-func printLabelListUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s <notebook-id>\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "List autolabel clusters (labels) for a notebook.")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Examples:")
-	fmt.Fprintf(os.Stderr, "  nlm %s NOTEBOOK_ID\n", cmdName)
-	fmt.Fprintf(os.Stderr, "  nlm --json %s NOTEBOOK_ID\n", cmdName)
-}
-
 func renderLabelList(out, status io.Writer, labels []api.Label, tty bool) error {
 	if jsonOutput {
 		enc := json.NewEncoder(out)

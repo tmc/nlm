@@ -59,7 +59,7 @@ func configureNotebookCommandSpecs(specs map[commandID]*commandSpec) {
 	}
 	configureTypedCommandSpecWithErrorUsage(listSpec,
 		[]commandForm{{
-			Parts: []operandSpec{remainingOperand("unexpected")},
+			Parts: []operandSpec{hiddenOperand(remainingOperand("unexpected"))},
 			Constraints: []constraint{
 				constraintFunc(validateNotebookListCommand),
 			},
@@ -67,7 +67,7 @@ func configureNotebookCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeNotebookList,
 		func(path string, err error) {
 			fmt.Fprintf(os.Stderr, "nlm: %v\n\n", err)
-			printNotebookListUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpec(specs["create"],
@@ -79,7 +79,7 @@ func configureNotebookCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeNotebookDelete,
 	)
 	configureTypedCommandSpec(specs["rename-notebook"],
-		commandFormOf(requiredOperand("notebook"), requiredOperand("title")),
+		commandFormOf(requiredOperand("notebook"), withPlaceholder(requiredOperand("title"), "new-title")),
 		decodeNotebookRename,
 	)
 	configureTypedCommandSpec(specs["notebook-emoji"],

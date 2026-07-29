@@ -3,20 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
-
-func printLabelAttachUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s <notebook-id> <label-id|name> <source-id|name>\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Attach a source to an existing label. Either argument may be a UUID or a")
-	fmt.Fprintln(os.Stderr, "name; names are resolved case-insensitively against the notebook's labels")
-	fmt.Fprintln(os.Stderr, "and sources, and must match exactly one entry. Only the single-source form")
-	fmt.Fprintln(os.Stderr, "is HAR-verified — invoke once per source for now.")
-}
 
 var uuidRE = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 

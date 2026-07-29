@@ -19,470 +19,340 @@ const (
 	surfaceCompatibility
 )
 
-// commandDefinition retains the Phase 1 help presentation. Grammar, flags,
-// routing, and command behavior live in commandSpec.
-type commandDefinition struct {
-	name      string
-	aliases   []string
-	usage     string // one-line description for help text
-	argsUsage string // positional args hint for "usage: nlm <name> <argsUsage>"
-	section   string // help section header
-	surface   commandSurface
-	noAuth    bool // true if command does not require authentication
-	noClient  bool // true if command does not need an API client (implies noAuth)
-	directRPC bool // true if the command requires direct RPC mode
-	hidden    bool // true to hide from help text (experimental)
-	help      func(cmdName string)
-}
-
-// command is one bound surface of a commandSpec. The embedded definition is a
-// shared pointer, so stable and compatibility surfaces do not clone handlers.
+// command is one bound surface of a commandSpec. Stable and compatibility
+// surfaces share the same behavior-bearing specification.
 type command struct {
-	*commandDefinition
 	spec        *commandSpec
 	surfaceSpec *commandSurfaceSpec
 	name        string
 	aliases     []string
+	usage       string
+	argsUsage   string
 	section     string
 	surface     commandSurface
 	hidden      bool
 }
 
-// commandDefinitions retain Phase 0 behavior while commandSpecs take over the
-// registry family by family.
-var commandDefinitions = []commandDefinition{
+var commandSpecs = []*commandSpec{
 	// Notebook operations
 	{
-		name: "list", aliases: []string{"ls"},
-		usage: "List all notebooks", section: "Notebook",
-		argsUsage: "[flags]",
-		help:      printNotebookListUsage,
+		ID: "list", aliases: []string{"ls"},
+		Summary: "List all notebooks", Section: "Notebook",
 	},
 	{
-		name: "create", argsUsage: "<title>",
-		usage: "Create a new notebook", section: "Notebook",
+		ID: "create", Summary: "Create a new notebook", Section: "Notebook",
 	},
 	{
-		name: "rm", argsUsage: "<id>",
-		usage: "Delete a notebook", section: "Notebook",
+		ID: "rm", Summary: "Delete a notebook", Section: "Notebook",
 	},
 	{
-		name: "rename-notebook", argsUsage: "<notebook-id> <new-title>",
-		usage: "Rename a notebook", section: "Notebook",
+		ID: "rename-notebook", Summary: "Rename a notebook", Section: "Notebook",
 	},
 	{
-		name: "notebook-emoji", argsUsage: "<notebook-id> <emoji>",
-		usage: "Change notebook emoji", section: "Notebook",
+		ID: "notebook-emoji", Summary: "Change notebook emoji", Section: "Notebook",
 	},
 	{
-		name: "notebook-description", aliases: []string{"notebook-notes"},
-		argsUsage: "<notebook-id> [text]",
-		usage:     "Set notebook description / creator notes (text via arg or stdin; empty clears)", section: "Notebook",
+		ID: "notebook-description", aliases: []string{"notebook-notes"},
+		Summary: "Set notebook description / creator notes (text via arg or stdin; empty clears)", Section: "Notebook",
 	},
 	{
-		name: "notebook-cover", argsUsage: "<notebook-id> <preset-id>",
-		usage: "Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)", section: "Notebook",
+		ID: "notebook-cover", Summary: "Pick a built-in cover image (preset ID; HAR-captured value: 4. Other IDs uncatalogued)", Section: "Notebook",
 	},
 	{
-		name: "notebook-cover-image", argsUsage: "<notebook-id> <image-path>",
-		usage: "Upload a custom cover image and associate it with the notebook", section: "Notebook",
+		ID: "notebook-cover-image", Summary: "Upload a custom cover image and associate it with the notebook", Section: "Notebook",
 	},
 	{
-		name: "notebook-unrecent", argsUsage: "<notebook-id>",
-		usage: "Remove a notebook from the recently-viewed list (does not delete it)", section: "Notebook",
+		ID: "notebook-unrecent", Summary: "Remove a notebook from the recently-viewed list (does not delete it)", Section: "Notebook",
 	},
 	{
-		name: "analytics", argsUsage: "<notebook-id>",
-		usage: "Show notebook analytics time series", section: "Notebook",
+		ID: "analytics", Summary: "Show notebook analytics time series", Section: "Notebook",
 	},
 	{
-		name:  "list-featured",
-		usage: "List featured notebooks", section: "Notebook",
+		ID:      "list-featured",
+		Summary: "List featured notebooks", Section: "Notebook",
 	},
 
 	// Source operations
 	{
-		name: "sources", argsUsage: "<notebook-id>",
-		usage: "List sources in notebook", section: "Source",
+		ID: "sources", Summary: "List sources in notebook", Section: "Source",
 	},
 	{
-		name: "add", argsUsage: "<notebook-id> <source|-> [source...]",
-		usage: "Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)", section: "Source",
-		help: printSourceAddUsage,
+		ID: "add", Summary: "Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)", Section: "Source",
 	},
 	{
-		name: "sync", argsUsage: "<notebook-id> [paths...]",
-		usage: "Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)", section: "Source",
+		ID: "sync", Summary: "Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)", Section: "Source",
 		hidden: true, // top-level shortcut for `source sync`; kept first-class but de-duplicated from help
-		help:   printSourceSyncUsage,
 	},
 	{
-		name: "sync-pack", argsUsage: "[paths...]",
-		usage:    "Preview the txtar bytes that sync would upload (offline)",
-		section:  "Source",
+		ID: "sync-pack", Summary: "Preview the txtar bytes that sync would upload (offline)",
+		Section:  "Source",
 		hidden:   true, // top-level shortcut for `source pack`; kept first-class but de-duplicated from help
 		noClient: true,
-		help:     printSourcePackUsage,
 	},
 	{
-		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id|-|a,b,c>",
-		usage: "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)", section: "Source",
+		ID: "rm-source", aliases: []string{"source-rm"}, Summary: "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)", Section: "Source",
 	},
 	{
-		name: "rename-source", argsUsage: "<source-id> <new-name>",
-		usage: "Rename a source", section: "Source",
+		ID: "rename-source", Summary: "Rename a source", Section: "Source",
 	},
 	{
-		name: "refresh-source", argsUsage: "<notebook-id> <source-id>",
-		usage: "Refresh source content", section: "Source",
+		ID: "refresh-source", Summary: "Refresh source content", Section: "Source",
 	},
 	{
-		name: "check-source", argsUsage: "<source-id> [notebook-id]",
-		usage: "Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)", section: "Source",
+		ID: "check-source", Summary: "Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)", Section: "Source",
 	},
 	{
-		name: "discover-sources", argsUsage: "<notebook-id> <query>",
-		usage: "Discover relevant sources via Es3dTe (chat fallback if the server rejects)", section: "Source",
+		ID: "discover-sources", Summary: "Discover relevant sources via Es3dTe (chat fallback if the server rejects)", Section: "Source",
 	},
 	{
-		name: "dump-load-source", argsUsage: "<source-id> [notebook-id]",
-		usage: "Print the raw JSON wire response of LoadSource (hizoJc) for a source", section: "Source",
+		ID: "dump-load-source", Summary: "Print the raw JSON wire response of LoadSource (hizoJc) for a source", Section: "Source",
 		hidden: true, // developer tool; exposes unmodeled fields (text body fragments, etc.)
 	},
 	{
-		name: "read-source", argsUsage: "[--format text|markdown|html|json|raw] <source-id> [notebook-id]",
-		usage: "Read a source body", section: "Source",
-		help: printSourceReadUsage,
+		ID: "read-source", Summary: "Read a source body", Section: "Source",
 	},
 
 	// Note operations
 	{
-		name: "notes", argsUsage: "<notebook-id>",
-		usage: "List notes in notebook", section: "Note",
+		ID: "notes", Summary: "List notes in notebook", Section: "Note",
 	},
 	{
-		name: "read-note", argsUsage: "[--format text|markdown|html] [--out file] [--open] <notebook-id> <note-id>",
-		usage: "Read full note content", section: "Note",
-		help: printNoteReadUsage,
+		ID: "read-note", Summary: "Read full note content", Section: "Note",
 	},
 
 	{
-		name: "new-note", argsUsage: "<notebook-id> <title> [content]",
-		usage: "Create new note (content via arg or stdin)", section: "Note",
+		ID: "new-note", Summary: "Create new note (content via arg or stdin)", Section: "Note",
 	},
 	{
-		name: "update-note", argsUsage: "<notebook-id> <note-id> <content> <title>",
-		usage: "Edit note content and title", section: "Note",
+		ID: "update-note", Summary: "Edit note content and title", Section: "Note",
 	},
 	{
-		name: "rm-note", aliases: []string{"note-rm"}, argsUsage: "<notebook-id> <note-id>",
-		usage: "Remove a note from a notebook", section: "Note",
+		ID: "rm-note", aliases: []string{"note-rm"}, Summary: "Remove a note from a notebook", Section: "Note",
 	},
 
 	// Label operations
 	{
-		name: "label-list", aliases: []string{"labels"},
-		argsUsage: "<notebook-id>",
-		usage:     "List labels (autolabel clusters) in a notebook", section: "Label",
-		help: printLabelListUsage,
+		ID: "label-list", aliases: []string{"labels"},
+		Summary: "List labels (autolabel clusters) in a notebook", Section: "Label",
 	},
 	{
-		name: "label-generate", aliases: []string{"autolabel"},
-		argsUsage: "<notebook-id>",
-		usage:     "Recompute autolabel clusters for a notebook", section: "Label",
-		help: printLabelGenerateUsage,
+		ID: "label-generate", aliases: []string{"autolabel"},
+		Summary: "Recompute autolabel clusters for a notebook", Section: "Label",
 	},
 	{
-		name:      "label-create",
-		argsUsage: "<notebook-id> <name> [emoji]",
-		usage:     "Create a new manual label on a notebook", section: "Label",
-		help: printLabelCreateUsage,
+		ID:      "label-create",
+		Summary: "Create a new manual label on a notebook", Section: "Label",
 	},
 	{
-		name:      "label-rename",
-		argsUsage: "<notebook-id> <label-id> <new-name>",
-		usage:     "Rename an existing label", section: "Label",
-		help: printLabelRenameUsage,
+		ID:      "label-rename",
+		Summary: "Rename an existing label", Section: "Label",
 	},
 	{
-		name:      "label-emoji",
-		argsUsage: "<notebook-id> <label-id> <emoji>",
-		usage:     "Set or clear the emoji on a label", section: "Label",
-		help: printLabelEmojiUsage,
+		ID:      "label-emoji",
+		Summary: "Set or clear the emoji on a label", Section: "Label",
 	},
 	{
-		name:      "label-delete",
-		argsUsage: "<notebook-id> <label-id> [<label-id>...]",
-		usage:     "Delete one or more labels by ID", section: "Label",
-		help: printLabelDeleteUsage,
+		ID:      "label-delete",
+		Summary: "Delete one or more labels by ID", Section: "Label",
 	},
 	{
-		name:      "label-unlabeled",
-		argsUsage: "<notebook-id>",
-		usage:     "Apply existing labels to currently-unlabeled sources", section: "Label",
-		help: printLabelUnlabeledUsage,
+		ID:      "label-unlabeled",
+		Summary: "Apply existing labels to currently-unlabeled sources", Section: "Label",
 	},
 	{
-		name:      "label-relabel-all",
-		argsUsage: "<notebook-id>",
-		usage:     "Re-cluster everything (UI's \"Relabel all\")", section: "Label",
-		help: printLabelRelabelAllUsage,
+		ID:      "label-relabel-all",
+		Summary: "Re-cluster everything (UI's \"Relabel all\")", Section: "Label",
 	},
 	{
-		name:      "label-attach",
-		argsUsage: "<notebook-id> <label-id> <source-id>",
-		usage:     "Attach a source to a label (single source per call)", section: "Label",
-		help: printLabelAttachUsage,
+		ID:      "label-attach",
+		Summary: "Attach a source to a label (single source per call)", Section: "Label",
 	},
 
 	// Create operations
 	{
-		name: "create-audio", argsUsage: "<notebook-id> <instructions>",
-		usage: "Create audio overview", section: "Create",
-		help: printAudioCreateUsage,
+		ID: "create-audio", Summary: "Create audio overview", Section: "Create",
 	},
 	{
-		name: "create-video", argsUsage: "<notebook-id> <instructions>",
-		usage: "Create video overview", section: "Create",
-		help: printVideoCreateUsage,
+		ID: "create-video", Summary: "Create video overview", Section: "Create",
 	},
 	{
-		name: "app-create", argsUsage: "--type <prototype|mindmap|canvas> <notebook-id> [instructions]",
-		usage: "Create a generated app artifact", section: "Create",
-		help: printAppCreateUsage,
+		ID: "app-create", Summary: "Create a generated app artifact", Section: "Create",
 	},
 	{
-		name: "mindmap-create", argsUsage: "<notebook-id> [instructions]",
-		usage: "Create a generated mind map artifact", section: "Create",
-		help: printAppCreateUsage,
+		ID: "mindmap-create", Summary: "Create a generated mind map artifact", Section: "Create",
 	},
 	{
-		name: "create-slides", argsUsage: "[--format detailed|presenter] [selectors] <notebook-id> [instructions]",
-		usage: "Create slide deck", section: "Create",
-		help: printSlidesCreateUsage,
+		ID: "create-slides", Summary: "Create slide deck", Section: "Create",
 	},
 	{
-		name:      "deck-download",
-		argsUsage: "<notebook-id> --id <artifact-id> [--format pdf|pptx] [--output file]",
-		usage:     "Download a slide deck (PDF/PPTX)", section: "Deck",
+		ID:      "deck-download",
+		Summary: "Download a slide deck (PDF/PPTX)", Section: "Deck",
 		hidden: true,
-		help:   printDeckDownloadUsage,
 	},
 	{
-		name:      "download slide-deck",
-		argsUsage: "<notebook-id> --id <artifact-id> [--format pdf|pptx] [--output file]",
-		usage:     "Download a slide deck (PDF/PPTX)", section: "Deck",
+		ID:      "download slide-deck",
+		Summary: "Download a slide deck (PDF/PPTX)", Section: "Deck",
 		hidden: true,
-		help:   printDeckDownloadUsage,
 	},
 
 	// Audio operations
 	{
-		name: "audio-list", argsUsage: "<notebook-id>",
-		usage: "List audio overviews for a notebook", section: "Audio",
+		ID: "audio-list", Summary: "List audio overviews for a notebook", Section: "Audio",
 	},
 	{
-		name: "audio-get", argsUsage: "<notebook-id>",
-		usage: "Get audio overview details", section: "Audio",
+		ID: "audio-get", Summary: "Get audio overview details", Section: "Audio",
 	},
 	{
-		name: "audio-download", argsUsage: "<notebook-id> [filename]",
-		usage: "Download audio file", section: "Audio",
+		ID: "audio-download", Summary: "Download audio file", Section: "Audio",
 	},
 	{
-		name: "audio-rm", argsUsage: "<notebook-id>",
-		usage: "Delete audio overview", section: "Audio",
+		ID: "audio-rm", Summary: "Delete audio overview", Section: "Audio",
 	},
 	{
-		name: "audio-share", argsUsage: "<notebook-id>",
-		usage: "Share audio overview", section: "Audio",
+		ID: "audio-share", Summary: "Share audio overview", Section: "Audio",
 	},
 
 	// Artifact operations
 	{
-		name: "get-artifact", argsUsage: "<artifact-id>",
-		usage: "Get artifact details", section: "Artifact",
+		ID: "get-artifact", Summary: "Get artifact details", Section: "Artifact",
 	},
 	{
-		name: "read-artifact", argsUsage: "<artifact-id>",
-		usage: "Print a text artifact", section: "Artifact",
+		ID: "read-artifact", Summary: "Print a text artifact", Section: "Artifact",
 	},
 	{
-		name:      "export-flashcards",
-		argsUsage: "<artifact-id> [--format format] [--output file]",
-		usage:     "Export an artifact", section: "Artifact",
+		ID:      "export-flashcards",
+		Summary: "Export an artifact", Section: "Artifact",
 		hidden: true,
-		help:   printArtifactExportUsage,
 	},
 	{
-		name: "artifacts", aliases: []string{"list-artifacts"}, argsUsage: "<notebook-id>",
-		usage: "List artifacts in notebook", section: "Artifact",
+		ID: "artifacts", aliases: []string{"list-artifacts"}, Summary: "List artifacts in notebook", Section: "Artifact",
 	},
 	{
-		name: "update-artifact", argsUsage: "<artifact-id> [new-title]",
-		usage: "Rename artifact (new title from positional arg or --name)", section: "Artifact",
+		ID: "update-artifact", Summary: "Rename artifact (new title from positional arg or --name)", Section: "Artifact",
 	},
 	{
-		name: "rename-artifact", argsUsage: "<artifact-id> <new-title>",
-		usage: "Rename artifact (alias: update-artifact)", section: "Artifact",
+		ID: "rename-artifact", Summary: "Rename artifact (alias: update-artifact)", Section: "Artifact",
 		hidden: true, // superseded by update-artifact
 	},
 	{
-		name: "delete-artifact", argsUsage: "<artifact-id>",
-		usage: "Delete artifact", section: "Artifact",
+		ID: "delete-artifact", Summary: "Delete artifact", Section: "Artifact",
 	},
 	// Guidebook operations
 	{
-		name:  "guidebooks",
-		usage: "List all guidebooks", section: "Guidebook",
+		ID:      "guidebooks",
+		Summary: "List all guidebooks", Section: "Guidebook",
 	},
 	{
-		name: "guidebook", argsUsage: "<guidebook-id>",
-		usage: "Get guidebook details", section: "Guidebook",
+		ID: "guidebook", Summary: "Get guidebook details", Section: "Guidebook",
 	},
 	{
-		name: "guidebook-details", argsUsage: "<guidebook-id>",
-		usage: "Get detailed guidebook info with sections and analytics", section: "Guidebook",
+		ID: "guidebook-details", Summary: "Get detailed guidebook info with sections and analytics", Section: "Guidebook",
 	},
 	{
-		name: "guidebook-publish", argsUsage: "<guidebook-id>",
-		usage: "Publish a guidebook", section: "Guidebook",
+		ID: "guidebook-publish", Summary: "Publish a guidebook", Section: "Guidebook",
 	},
 	{
-		name: "guidebook-share", argsUsage: "<guidebook-id>",
-		usage: "Share a guidebook", section: "Guidebook",
+		ID: "guidebook-share", Summary: "Share a guidebook", Section: "Guidebook",
 	},
 	{
-		name: "guidebook-ask", argsUsage: "<guidebook-id> <question>",
-		usage: "Ask a guidebook question", section: "Guidebook",
+		ID: "guidebook-ask", Summary: "Ask a guidebook question", Section: "Guidebook",
 	},
 	{
-		name: "guidebook-rm", argsUsage: "<guidebook-id>",
-		usage: "Delete a guidebook", section: "Guidebook",
+		ID: "guidebook-rm", Summary: "Delete a guidebook", Section: "Guidebook",
 	},
 
 	// Generation operations
 	{
-		name: "generate-guide", argsUsage: "<notebook-id>",
-		usage: "Generate notebook guide", section: "Generation",
+		ID: "generate-guide", Summary: "Generate notebook guide", Section: "Generation",
 	},
 	{
-		name: "source-guide", argsUsage: "<notebook-id> [source-id...]",
-		usage: "Show the per-source auto-summary and keyword chips (cached on disk)", section: "Generation",
-		help: printSourceSelectionUsage,
+		ID: "source-guide", Summary: "Show the per-source auto-summary and keyword chips (cached on disk)", Section: "Generation",
 	},
 	{
-		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",
-		usage: "Stream a one-shot chat answer (use --conversation to follow up)", section: "Generation",
-		help: printGenerateChatUsage,
+		ID: "generate-chat", Summary: "Stream a one-shot chat answer (use --conversation to follow up)", Section: "Generation",
 	},
 	{
-		name: "report-suggestions", argsUsage: "<notebook-id>",
-		usage: "Suggest report topics for notebook", section: "Generation",
+		ID: "report-suggestions", Summary: "Suggest report topics for notebook", Section: "Generation",
 	},
 	{
-		name: "audio-suggestions", argsUsage: "<notebook-id>",
-		usage: "Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)", section: "Generation",
+		ID: "audio-suggestions", Summary: "Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)", Section: "Generation",
 	},
 	{
-		name: "create-report", argsUsage: "<notebook-id> <report-type> [description] [instructions]",
-		usage: "Create a report artifact (run report-suggestions for valid types)", section: "Create",
+		ID: "create-report", Summary: "Create a report artifact (run report-suggestions for valid types)", Section: "Create",
 	},
 	{
-		name: "generate-report", argsUsage: "<notebook-id>",
-		usage: "Generate multi-section report via chat (see --prompt, --sections)", section: "Generation",
-		help: printGenerateReportUsage,
+		ID: "generate-report", Summary: "Generate multi-section report via chat (see --prompt, --sections)", Section: "Generation",
 	},
 	// Chat operations
 	{
-		name: "chat", argsUsage: "<notebook-id> [conversation-id | prompt]",
-		usage: "Open interactive chat (one-shot if a prompt is given; -f <file> reads a long prompt from file)", section: "Chat",
-		help: printChatUsage,
+		ID: "chat", Summary: "Open interactive chat (one-shot if a prompt is given; -f <file> reads a long prompt from file)", Section: "Chat",
 	},
 	{
-		name: "chat-list", argsUsage: "[notebook-id]",
-		usage: "List chat sessions (server-side when a notebook is given)", section: "Chat",
+		ID: "chat-list", Summary: "List chat sessions (server-side when a notebook is given)", Section: "Chat",
 		noAuth: true, noClient: true,
 	},
 	{
-		name: "chat-history", argsUsage: "<notebook-id> <conversation-id>",
-		usage: "View conversation history", section: "Chat",
+		ID: "chat-history", Summary: "View conversation history", Section: "Chat",
 	},
 	{
-		name: "chat-show", argsUsage: "<notebook-id> [conversation-id]",
-		usage: "Render a local chat transcript (see --citations)", section: "Chat",
+		ID: "chat-show", Summary: "Render a local chat transcript (see --citations)", Section: "Chat",
 		noAuth: true, noClient: true,
-		help: printChatShowUsage,
 	},
 	{
-		name: "delete-chat", argsUsage: "<notebook-id>",
-		usage: "Delete server-side chat history", section: "Chat",
+		ID: "delete-chat", Summary: "Delete server-side chat history", Section: "Chat",
 	},
 	{
-		name: "chat-config", argsUsage: "<notebook-id> <setting> [value]",
-		usage: "Configure chat settings", section: "Chat",
+		ID: "chat-config", Summary: "Configure chat settings", Section: "Chat",
 	},
 	{
-		name: "set-instructions", argsUsage: "<notebook-id> \"prompt\"",
-		usage: "Set system instructions", section: "Chat",
+		ID: "set-instructions", Summary: "Set system instructions", Section: "Chat",
 	},
 	{
-		name: "get-instructions", argsUsage: "<notebook-id>",
-		usage: "Show current system instructions", section: "Chat",
+		ID: "get-instructions", Summary: "Show current system instructions", Section: "Chat",
 	},
 
 	// Research operations
 	{
-		name: "research", argsUsage: "<notebook-id> \"query\"",
-		usage: "Run fast or deep research (JSON-lines by default; --md for markdown; --mode=fast|deep)", section: "Research",
-		help: printResearchUsage,
+		ID: "research", Summary: "Run fast or deep research (JSON-lines by default; --md for markdown; --mode=fast|deep)", Section: "Research",
 	},
 
 	// Sharing operations
 	{
-		name: "share", argsUsage: "<notebook-id>",
-		usage: "Share notebook publicly", section: "Sharing",
+		ID: "share", Summary: "Share notebook publicly", Section: "Sharing",
 	},
 	{
-		name: "share-private", argsUsage: "<notebook-id>",
-		usage: "Share notebook privately", section: "Sharing",
+		ID: "share-private", Summary: "Share notebook privately", Section: "Sharing",
 	},
 	{
-		name: "share-details", argsUsage: "<share-id>",
-		usage: "Get details of shared project", section: "Sharing",
+		ID: "share-details", Summary: "Get details of shared project", Section: "Sharing",
 	},
 
 	// Other operations
 	{
-		name:  "mcp",
-		usage: "Run the MCP server on stdin/stdout", section: "Other",
+		ID:      "mcp",
+		Summary: "Run the MCP server on stdin/stdout", Section: "Other",
 	},
 	{
-		name: "betool", argsUsage: "<decode-request|encode-request|decode-response|encode-response|infer-proto> [file...]",
-		usage:   "Translate raw batchexecute payloads to JSON and back (offline codec)",
-		section: "Other",
+		ID: "betool", Summary: "Translate raw batchexecute payloads to JSON and back (offline codec)",
+		Section: "Other",
 		noAuth:  true, noClient: true,
 		hidden: true, // developer tool; pure wire codec, no network I/O
-		help:   func(cmdName string) { printBetoolUsage() },
 	},
 	{
-		name: "auth", argsUsage: "[profile]",
-		usage: "Set up authentication from a browser profile", section: "Other",
-		noAuth: true, noClient: true,
-		help: printAuthUsage,
-	},
-	{
-		name:  "refresh",
-		usage: "Refresh stored authentication credentials", section: "Other",
+		ID: "auth", Summary: "Set up authentication from a browser profile", Section: "Other",
 		noAuth: true, noClient: true,
 	},
 	{
-		name: "account", argsUsage: "[set <key> <value>]",
-		usage: "Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)", section: "Other",
+		ID:      "refresh",
+		Summary: "Refresh stored authentication credentials", Section: "Other",
+		noAuth: true, noClient: true,
 	},
 	{
-		name:  "hb",
-		usage: "Send a session heartbeat", section: "Other",
+		ID: "account", Summary: "Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)", Section: "Other",
+	},
+	{
+		ID:      "hb",
+		Summary: "Send a session heartbeat", Section: "Other",
 	},
 }
 

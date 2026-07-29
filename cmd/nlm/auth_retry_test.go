@@ -317,9 +317,8 @@ func testCommand(name string, run func(*api.Client) error) *command {
 		},
 	}
 	return &command{
-		commandDefinition: &commandDefinition{name: name},
-		spec:              spec,
-		surfaceSpec:       surface,
-		name:              name,
+		spec:        spec,
+		surfaceSpec: surface,
+		name:        name,
 	}
 }

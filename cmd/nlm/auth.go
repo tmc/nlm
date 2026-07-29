@@ -44,57 +44,6 @@ type authOptions struct {
 	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
 }
 
-func printAuthUsage(_ string) {
-	fmt.Fprint(os.Stderr, strings.ReplaceAll(`Usage: nlm auth [login] [options] [profile-name]
-
-Commands:
-  login            Explicitly use browser authentication (recommended)
-
-Options:
-  -a	Try all available browser profiles (shorthand)
-  -all
-    |Try all available browser profiles
-  -au string
-    |Google account index (shorthand)
-  -authuser string
-    |Google account index for multi-account profiles (e.g. 1)
-  -c string
-    |Remote CDP WebSocket URL (shorthand)
-  -cdp-url string
-    |Remote CDP WebSocket URL (e.g. ws://localhost:9222)
-  -d	Enable debug output (shorthand)
-  -debug
-    |Enable debug output
-  -h	Show help for auth command (shorthand)
-  -help
-    |Show help for auth command
-  -k int
-    |Keep browser open for N seconds after successful auth (shorthand)
-  -keep-open int
-    |Keep browser open for N seconds after successful auth
-  -n	Check notebook count for profiles (shorthand)
-  -notebooks
-    |Check notebook count for profiles
-  -p string
-    |Specific Chrome profile to use (shorthand)
-  -print-env
-    |Print shell-safe export lines for the current session to stdout
-  -profile string
-    |Specific Chrome profile to use
-  -u string
-    |Target URL to authenticate against (shorthand) (default "https://notebook.google.com")
-  -url string
-    |Target URL to authenticate against (default "https://notebook.google.com")
-
-Example: nlm auth login -all -notebooks
-Example: nlm auth login -profile Work
-Example: nlm auth login -keep-open 10
-Example: nlm auth -cdp-url ws://localhost:9222
-Example: nlm auth -all
-Example: nlm auth --print-env > creds.sh   # shell-safe exports for CI
-`, "    |", "    \t"))
-}
-
 func handleAuthWithOptions(args []string, globals globalOptions) (string, string, error) {
 	command, ok := lookupCommand("auth")
 	if !ok {
@@ -114,7 +63,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	// Check if help flag is present directly
 	for _, arg := range raw {
 		if arg == "-h" || arg == "--help" || arg == "-help" || arg == "help" {
-			printAuthUsage("auth")
+			printCommandHelpForPath("auth")
 			return "", "", nil // Help was shown, exit gracefully
 		}
 	}
@@ -183,7 +132,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	}
 	opts := &args.Options
 	if opts.Help {
-		printAuthUsage("auth")
+		printCommandHelpForPath("auth")
 		return "", "", nil
 	}
 

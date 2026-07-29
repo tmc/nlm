@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -67,6 +68,93 @@ func TestCommandSpecsCoverRegistry(t *testing.T) {
 			t.Errorf("command %q is not spec-bound", commands[i].name)
 		}
 	}
+}
+
+func TestCommandSpecSynopses(t *testing.T) {
+	for i := range commands {
+		cmd := &commands[i]
+		got := commandSynopsis(cmd.spec, cmd.surfaceSpec)
+		want := cmd.argsUsage
+		if inventory, ok := phase2InventorySynopses[cmd.spec.ID]; ok {
+			want = inventory
+		}
+		if got != want {
+			t.Errorf("%s synopsis = %q, want %q", cmd.name, got, want)
+		}
+	}
+}
+
+func TestCommandHelpUsesSpecSynopsis(t *testing.T) {
+	for i := range commands {
+		cmd := &commands[i]
+		for _, path := range append([]string{cmd.name}, cmd.aliases...) {
+			help := captureCommandStderr(t, func() {
+				printCommandHelp(path, cmd)
+			})
+			first, _, _ := strings.Cut(help, "\n")
+			title := cmd.surfaceSpec.Help.UsageTitle
+			if title == "" {
+				title = "usage"
+			}
+			want := fmt.Sprintf("%s: nlm %s", title, path)
+			if synopsis := commandSynopsis(cmd.spec, cmd.surfaceSpec); synopsis != "" {
+				want += " " + synopsis
+			} else if cmd.surfaceSpec.Help.UsageTitle == "" {
+				want += " "
+			}
+			if first != want {
+				t.Errorf("%s detailed synopsis = %q, want %q", path, first, want)
+			}
+		}
+	}
+}
+
+func TestCommandHelpCoversVisibleFlags(t *testing.T) {
+	for _, spec := range commandSpecs {
+		for i := range spec.Surfaces {
+			surface := &spec.Surfaces[i]
+			if surface.Help.UsageTitle == "" {
+				continue
+			}
+			for _, flag := range spec.Flags {
+				if flag.Visibility != flagVisible {
+					continue
+				}
+				if !strings.Contains(surface.Help.Body, "-"+flag.Name) {
+					t.Errorf("%s detailed help omits --%s", joinCommandPath(surface.Path), flag.Name)
+				}
+			}
+		}
+	}
+}
+
+var phase2InventorySynopses = map[commandID]string{
+	"rm":                  "<notebook-id>",
+	"add":                 "[flags] <notebook-id> <source...>",
+	"sync":                "[flags] <notebook-id> [path...]",
+	"sync-pack":           "[flags] [path...]",
+	"label-attach":        "<notebook-id> <label-id|name> <source-id|name>",
+	"app-create":          "[flags] <notebook-id> <instructions...>",
+	"mindmap-create":      "[flags] <notebook-id> <instructions...>",
+	"create-audio":        "[flags] <notebook-id> <instructions...>",
+	"create-video":        "[flags] <notebook-id> <instructions...>",
+	"create-slides":       "[flags] <notebook-id> [instructions...]",
+	"deck-download":       "[flags] <notebook-id>",
+	"download slide-deck": "[flags] <notebook-id>",
+	"export-flashcards":   "[flags] <artifact-id>",
+	"update-artifact":     "[--name <name>] <artifact-id> [title]",
+	"source-guide":        "[flags] <notebook-id> [source-id...]",
+	"generate-chat":       "[flags] <notebook-id> [prompt...]",
+	"create-report":       "[flags] <notebook-id> <report-type> [description...]",
+	"generate-report":     "[flags] <notebook-id>",
+	"chat":                "[flags] <notebook-id> [conversation-id | prompt...]",
+	"chat-show":           "[flags] <notebook-id> [conversation-id]",
+	"chat-config": "<notebook-id> goal default | <notebook-id> goal custom <prompt...> | " +
+		"<notebook-id> length <default|longer|shorter>",
+	"research": "[flags] <notebook-id> <query...>",
+	"auth":     "[login] [options] [profile-name]",
+	"betool":   "<mode> [flags] [file...]",
+	"refresh":  "",
 }
 
 func TestParseCommandFormCardinality(t *testing.T) {

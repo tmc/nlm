@@ -77,11 +77,11 @@ func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 	configureSourceSyncSpec(specs["sync"])
 	configureSourcePackSpec(specs["sync-pack"])
 	configureTypedCommandSpec(specs["rm-source"],
-		commandFormOf(requiredOperand("notebook"), requiredOperand("sources")),
+		commandFormOf(requiredOperand("notebook"), withPlaceholder(requiredOperand("sources"), "source-id|-|a,b,c")),
 		decodeSourceDelete,
 	)
 	configureTypedCommandSpec(specs["rename-source"],
-		commandFormOf(requiredOperand("source"), requiredOperand("name")),
+		commandFormOf(requiredOperand("source"), withPlaceholder(requiredOperand("name"), "new-name")),
 		decodeSourceRename,
 	)
 	configureTypedCommandSpec(specs["refresh-source"],
@@ -102,7 +102,7 @@ func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	readSpec := specs["read-source"]
 	readSpec.Flags = []flagSpec{
-		{Name: "format", Value: "format", Description: "output format"},
+		{Name: "format", Value: "text|markdown|html|json|raw", Description: "output format", Inline: true},
 	}
 	configureTypedCommandSpecWithUsage(readSpec,
 		[]commandForm{{
@@ -116,7 +116,7 @@ func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 		}},
 		decodeSourceRead,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s [--format text|markdown|html|json|raw] <source-id> [notebook-id]\n", path)
+			printCommandUsageForPath(path)
 		},
 	)
 }
@@ -131,14 +131,14 @@ func configureSourceAddSpec(spec *commandSpec) {
 	}
 	configureTypedCommandSpecWithUsage(spec,
 		[]commandForm{{
-			Parts: []operandSpec{remainingOperand("positionals")},
+			Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> <source...>")},
 			Constraints: []constraint{
 				constraintFunc(validateSourceAddCommand),
 			},
 		}},
 		decodeSourceAdd,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <source|-> [source...]\n", path)
+			printCommandUsageForPath(path)
 		},
 	)
 }
@@ -157,14 +157,14 @@ func configureSourceSyncSpec(spec *commandSpec) {
 	}
 	configureTypedCommandSpecWithUsage(spec,
 		[]commandForm{{
-			Parts: []operandSpec{remainingOperand("positionals")},
+			Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> [path...]")},
 			Constraints: []constraint{
 				constraintFunc(validateSourceSyncCommand),
 			},
 		}},
 		decodeSourceSync,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [paths...]\n", path)
+			printCommandUsageForPath(path)
 		},
 	)
 }
@@ -179,14 +179,14 @@ func configureSourcePackSpec(spec *commandSpec) {
 	}
 	configureTypedCommandSpecWithUsage(spec,
 		[]commandForm{{
-			Parts: []operandSpec{remainingOperand("paths")},
+			Parts: []operandSpec{withUsage(remainingOperand("paths"), "[path...]")},
 			Constraints: []constraint{
 				constraintFunc(validateSourcePackCommand),
 			},
 		}},
 		decodeSourcePack,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s [paths...]\n", path)
+			printCommandUsageForPath(path)
 		},
 	)
 }

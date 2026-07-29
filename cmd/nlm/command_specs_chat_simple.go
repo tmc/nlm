@@ -51,18 +51,13 @@ func configureSimpleChatCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeChatDelete,
 	)
 	configureTypedCommandSpec(specs["chat-config"],
-		commandFormOf(
-			requiredOperand("notebook"),
-			requiredOperand("setting"),
-			optionalOperand("mode"),
-			remainingOperand("values"),
-		),
+		chatConfigForms(),
 		decodeChatConfig,
 	)
 	configureTypedCommandSpec(specs["set-instructions"],
 		commandFormOf(
 			requiredOperand("notebook"),
-			repeatedOperand("prompt"),
+			withUsage(repeatedOperand("prompt"), "\"prompt\""),
 		),
 		decodeChatInstructionsSet,
 	)
@@ -70,6 +65,67 @@ func configureSimpleChatCommandSpecs(specs map[commandID]*commandSpec) {
 		commandFormOf(requiredOperand("notebook")),
 		decodeChatInstructionsGet,
 	)
+}
+
+func chatConfigForms() []commandForm {
+	form := func(usage string, valid func(parsedCommand) bool) commandForm {
+		return commandForm{
+			Parts: []operandSpec{
+				withUsage(requiredOperand("notebook"), usage),
+				hiddenOperand(requiredOperand("setting")),
+				hiddenOperand(optionalOperand("mode")),
+				hiddenOperand(remainingOperand("values")),
+			},
+			Constraints: []constraint{
+				constraintFunc(func(parsed parsedCommand) error {
+					if valid(parsed) {
+						return nil
+					}
+					return errBadArgs
+				}),
+			},
+		}
+	}
+	return []commandForm{
+		form("<notebook-id> goal default", func(parsed parsedCommand) bool {
+			if len(parsed.Args["mode"]) == 0 {
+				return false
+			}
+			return parsed.Args["setting"][0] == "goal" &&
+				parsed.Args["mode"][0] == "default" &&
+				len(parsed.Args["values"]) == 0
+		}),
+		form("<notebook-id> goal custom <prompt...>", func(parsed parsedCommand) bool {
+			if len(parsed.Args["mode"]) == 0 {
+				return false
+			}
+			return parsed.Args["setting"][0] == "goal" &&
+				parsed.Args["mode"][0] == "custom" &&
+				len(parsed.Args["values"]) > 0
+		}),
+		form("<notebook-id> length <default|longer|shorter>", func(parsed parsedCommand) bool {
+			if len(parsed.Args["mode"]) == 0 ||
+				parsed.Args["setting"][0] != "length" ||
+				len(parsed.Args["values"]) != 0 {
+				return false
+			}
+			switch parsed.Args["mode"][0] {
+			case "default", "longer", "shorter":
+				return true
+			default:
+				return false
+			}
+		}),
+		{
+			Parts: []operandSpec{
+				requiredOperand("notebook"),
+				requiredOperand("setting"),
+				optionalOperand("mode"),
+				remainingOperand("values"),
+			},
+			Hidden: true,
+		},
+	}
 }
 
 func decodeChatList(parsed parsedCommand) (commandCall, error) {

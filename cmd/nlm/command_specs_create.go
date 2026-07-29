@@ -38,7 +38,7 @@ func configureCreateCommandSpecs(specs map[commandID]*commandSpec) {
 		flagSpec{Name: "instructions", Value: "text", Description: "generation instructions"},
 	)
 	appForm := []commandForm{{
-		Parts: []operandSpec{remainingOperand("positionals")},
+		Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> <instructions...>")},
 		Constraints: []constraint{
 			constraintFunc(func(parsed parsedCommand) error {
 				_, err := decodeAppCreateArgs(parsed, "")
@@ -53,7 +53,7 @@ func configureCreateCommandSpecs(specs map[commandID]*commandSpec) {
 	mindmapSpec := specs["mindmap-create"]
 	mindmapSpec.Flags = append([]flagSpec(nil), appFlags...)
 	mindmapForm := []commandForm{{
-		Parts: []operandSpec{remainingOperand("positionals")},
+		Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> <instructions...>")},
 		Constraints: []constraint{
 			constraintFunc(func(parsed parsedCommand) error {
 				_, err := decodeAppCreateArgs(parsed, "mindmap")
@@ -70,7 +70,7 @@ func configureCreateCommandSpecs(specs map[commandID]*commandSpec) {
 		{Name: "audio-type", Value: "value", Description: "audio style"},
 	}
 	audioForm := []commandForm{{
-		Parts: []operandSpec{remainingOperand("positionals")},
+		Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> <instructions...>")},
 		Constraints: []constraint{
 			constraintFunc(func(parsed parsedCommand) error {
 				_, err := decodeAudioCreateArgs(parsed)
@@ -87,7 +87,7 @@ func configureCreateCommandSpecs(specs map[commandID]*commandSpec) {
 		{Name: "audio-type", Value: "value", Description: "content style"},
 	}
 	videoForm := []commandForm{{
-		Parts: []operandSpec{remainingOperand("positionals")},
+		Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> <instructions...>")},
 		Constraints: []constraint{
 			constraintFunc(func(parsed parsedCommand) error {
 				_, err := decodeVideoCreateArgs(parsed)
@@ -102,7 +102,7 @@ func configureCreateCommandSpecs(specs map[commandID]*commandSpec) {
 		flagSpec{Name: "format", Aliases: []string{"f"}, Value: "value", Description: "deck format"},
 	)
 	slidesForm := []commandForm{{
-		Parts: []operandSpec{remainingOperand("positionals")},
+		Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> [instructions...]")},
 		Constraints: []constraint{
 			constraintFunc(func(parsed parsedCommand) error {
 				_, err := decodeSlidesCreateArgs(parsed)
@@ -114,15 +114,15 @@ func configureCreateCommandSpecs(specs map[commandID]*commandSpec) {
 }
 
 func printAppCreateErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s --type <prototype|mindmap|canvas> <notebook-id> [instructions]\n", path)
+	printCommandUsageForPath(path)
 }
 
 func printCreateMediaErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <instructions>\n", path)
+	printCommandUsageForPath(path)
 }
 
 func printSlidesCreateErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s [--format detailed|presenter] [selectors] <notebook-id> [instructions]\n", path)
+	printCommandUsageForPath(path)
 }
 
 func decodeAppCreate(parsed parsedCommand) (commandCall, error) {

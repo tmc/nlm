@@ -15,18 +15,6 @@ type deckDownloadOptions struct {
 	Output     string
 }
 
-func printDeckDownloadUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s <notebook-id> --id <artifact-id> [--format pdf|pptx] [--output file]\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Downloads a rendered slide deck (PDF or PPTX) for a completed deck artifact.")
-	fmt.Fprintln(os.Stderr, "If the deck is still generating or the rendered file is unavailable, it falls")
-	fmt.Fprintln(os.Stderr, "back to printing the NotebookLM browser URL.")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Flags:")
-	fmt.Fprintln(os.Stderr, "  --id, --artifact-id <id>  Slide deck artifact ID")
-	fmt.Fprintln(os.Stderr, "  --format, -f <format>     Export format: pdf (default) or pptx")
-	fmt.Fprintln(os.Stderr, "  --output, -o <file>       Output filename (default deck.<format>)")
-}
-
 // runDeckDownload fetches the rendered deck file with an authenticated client.
 // When the direct fetch is blocked by the usercontent host's browser-auth
 // requirement, it prints the signed download URL so the user can open it in a

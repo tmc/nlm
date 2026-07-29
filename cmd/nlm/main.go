@@ -253,11 +253,32 @@ func runCLI(args []string, env func(string) string, stdout, stderr io.Writer) in
 }
 
 func printCommandHelp(cmdName string, cmd *command) {
-	if cmd.help != nil {
-		cmd.help(cmdName)
+	if help := cmd.surfaceSpec.Help; help.UsageTitle != "" {
+		fmt.Fprintf(os.Stderr, "%s: nlm %s", help.UsageTitle, cmdName)
+		if cmd.argsUsage != "" {
+			fmt.Fprintf(os.Stderr, " %s", cmd.argsUsage)
+		}
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprint(os.Stderr, strings.ReplaceAll(help.Body, "{{command}}", cmdName))
 		return
 	}
 	fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n  %s\n", cmdName, cmd.argsUsage, cmd.usage)
+}
+
+func printCommandHelpForPath(path string) {
+	cmd, ok := lookupCommand(path)
+	if !ok {
+		panic("missing command help path: " + path)
+	}
+	printCommandHelp(path, cmd)
+}
+
+func printCommandUsageForPath(path string) {
+	cmd, ok := lookupCommand(path)
+	if !ok {
+		panic("missing command usage path: " + path)
+	}
+	fmt.Fprintf(os.Stderr, "usage: nlm %s %s\n", path, cmd.argsUsage)
 }
 
 func reportRunError(stderr io.Writer, err error) int {
@@ -306,12 +327,12 @@ func run(inv invocation) error {
 	}
 
 	// Commands that don't need an API client run directly.
-	if entry.noClient {
+	if entry.spec.noClient {
 		return runCommand(entry, nil, args, inv.globals)
 	}
 
 	// Check authentication.
-	if !entry.noAuth && (authToken == "" || cookies == "") {
+	if !entry.spec.noAuth && (authToken == "" || cookies == "") {
 		fmt.Fprintf(os.Stderr, "nlm: Authentication required for '%s'. Run 'nlm auth' first, or export NLM_AUTH_TOKEN and NLM_COOKIES (see 'nlm auth --print-env').\n", cmdName)
 		return fmt.Errorf("authentication required")
 	}
@@ -355,10 +376,10 @@ func run(inv invocation) error {
 
 		client := newNotebookLMClient(
 			api.Credentials{AuthToken: authToken, Cookies: cookies},
-			entry.directRPC,
+			entry.spec.directRPC,
 			opts...,
 		)
-		if useDirectRPC || entry.directRPC {
+		if useDirectRPC || entry.spec.directRPC {
 			if debug {
 				fmt.Fprintf(os.Stderr, "nlm: using direct RPC for audio/video operations\n")
 			}

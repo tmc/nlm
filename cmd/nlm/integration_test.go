@@ -35,7 +35,7 @@ func TestAuthCommand(t *testing.T) {
 			if !ok {
 				t.Fatalf("command %q not found in table", tt.cmd)
 			}
-			needsAuth := !cmd.noAuth
+			needsAuth := !cmd.spec.noAuth
 			if needsAuth != tt.wantAuth {
 				t.Errorf("command %q: needsAuth=%v, want %v", tt.cmd, needsAuth, tt.wantAuth)
 			}

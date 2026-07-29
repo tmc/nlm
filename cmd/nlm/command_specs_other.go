@@ -32,18 +32,22 @@ type heartbeatArgs struct{}
 func configureOtherCommandSpecs(specs map[commandID]*commandSpec) {
 	configureTypedCommandSpec(specs["mcp"], commandFormOf(), decodeMCP)
 	configureTypedCommandSpec(specs["betool"],
-		commandFormOf(remainingOperand("values")),
+		commandFormOf(
+			withUsage(remainingOperand("values"), "<mode>"),
+			virtualOperand("[flags]"),
+			virtualOperand("[file...]"),
+		),
 		decodeBetool,
 	)
 	configureTypedCommandSpec(specs["refresh"],
-		commandFormOf(remainingOperand("values")),
+		commandFormOf(hiddenOperand(remainingOperand("values"))),
 		decodeRefresh,
 	)
 	configureTypedCommandSpec(specs["account"],
 		commandFormOf(
-			optionalOperand("action"),
-			optionalOperand("key"),
-			optionalOperand("value"),
+			withUsage(optionalOperand("action"), "[set <key> <value>]"),
+			hiddenOperand(optionalOperand("key")),
+			hiddenOperand(optionalOperand("value")),
 		),
 		decodeAccount,
 	)

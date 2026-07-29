@@ -6,7 +6,7 @@ stderr 'usage: nlm create <title>'
 
 # Test rm command validation  
 ! exec ./nlm_test rm
-stderr 'usage: nlm rm <id>'
+stderr 'usage: nlm rm <notebook-id>'
 
 # Test sources command validation
 ! exec ./nlm_test sources
@@ -14,11 +14,11 @@ stderr 'usage: nlm sources <notebook-id>'
 
 # Test add command validation - no args
 ! exec ./nlm_test add
-stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
+stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 
 # Test add command validation - one arg
 ! exec ./nlm_test add notebook123
-stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
+stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 
 # Test rm-source command validation
 ! exec ./nlm_test rm-source
@@ -58,11 +58,11 @@ stderr 'usage: nlm rm-note <notebook-id> <note-id>'
 
 # Test create-audio command validation
 ! exec ./nlm_test create-audio
-stderr 'usage: nlm create-audio <notebook-id> <instructions>'
+stderr 'usage: nlm create-audio \[flags\] <notebook-id> <instructions\.\.\.>'
 
 # Test create-audio command validation - one arg
 ! exec ./nlm_test create-audio notebook123
-stderr 'usage: nlm create-audio <notebook-id> <instructions>'
+stderr 'usage: nlm create-audio \[flags\] <notebook-id> <instructions\.\.\.>'
 
 # Test audio-get command validation
 ! exec ./nlm_test audio-get

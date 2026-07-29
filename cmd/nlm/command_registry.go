@@ -82,19 +82,14 @@ var groupedCommandSurfaces = []groupedCommandSurface{
 }
 
 var commands []command
-var commandSpecs []*commandSpec
 
 func buildCommandRegistry() {
-	specs := make(map[commandID]*commandSpec, len(commandDefinitions))
-	for i := range commandDefinitions {
-		definition := &commandDefinitions[i]
-		id := commandID(definition.name)
-		if specs[id] != nil {
-			panic("duplicate command ID: " + id)
+	specs := make(map[commandID]*commandSpec, len(commandSpecs))
+	for _, spec := range commandSpecs {
+		if specs[spec.ID] != nil {
+			panic("duplicate command ID: " + spec.ID)
 		}
-		spec := newCommandSpec(id, definition)
-		specs[id] = spec
-		commandSpecs = append(commandSpecs, spec)
+		specs[spec.ID] = spec
 	}
 
 	for _, grouped := range groupedCommandSurfaces {
@@ -113,19 +108,19 @@ func buildCommandRegistry() {
 		})
 	}
 	for _, spec := range commandSpecs {
-		definition := spec.definition
-		surface := commandDefinitionSurface(definition.name)
+		name := string(spec.ID)
+		surface := commandSurfaceForPath(name)
 		var aliases [][]string
-		for _, alias := range definition.aliases {
+		for _, alias := range spec.aliases {
 			aliases = append(aliases, strings.Fields(alias))
 		}
-		replacement := compatibilityReplacements[definition.name]
+		replacement := compatibilityReplacements[name]
 		spec.Surfaces = append(spec.Surfaces, commandSurfaceSpec{
-			Path:        strings.Fields(definition.name),
+			Path:        strings.Fields(name),
 			Aliases:     aliases,
 			Surface:     surface,
 			Replacement: strings.Fields(replacement),
-			Section:     definition.section,
+			Section:     spec.Section,
 		})
 	}
 	configureNotebookCommandSpecs(specs)
@@ -151,28 +146,19 @@ func buildCommandRegistry() {
 			panic("incomplete command spec: " + spec.ID)
 		}
 	}
+	configureCommandHelp(commandSpecs)
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]
 		surface := findSpecSurface(spec, grouped.Path)
 		commands = append(commands, bindCommandSurface(spec, surface))
 	}
 	for _, spec := range commandSpecs {
-		definition := spec.definition
-		surface := findSpecSurface(spec, definition.name)
+		surface := findSpecSurface(spec, string(spec.ID))
 		commands = append(commands, bindCommandSurface(spec, surface))
 	}
 }
 
-func newCommandSpec(id commandID, definition *commandDefinition) *commandSpec {
-	return &commandSpec{
-		ID:         id,
-		Section:    definition.section,
-		Summary:    definition.usage,
-		definition: definition,
-	}
-}
-
-func commandDefinitionSurface(name string) commandSurface {
+func commandSurfaceForPath(name string) commandSurface {
 	switch {
 	case experimentalCommands[name]:
 		return surfaceExperimental
@@ -195,25 +181,25 @@ func findSpecSurface(spec *commandSpec, path string) *commandSurfaceSpec {
 }
 
 func bindCommandSurface(spec *commandSpec, surface *commandSurfaceSpec) command {
-	definition := spec.definition
 	var aliases []string
 	for _, alias := range surface.Aliases {
 		aliases = append(aliases, strings.Join(alias, " "))
 	}
 	name := strings.Join(surface.Path, " ")
-	hidden := definition.hidden
-	if name != definition.name {
+	hidden := spec.hidden
+	if name != string(spec.ID) {
 		hidden = false
 	}
 	return command{
-		commandDefinition: definition,
-		spec:              spec,
-		surfaceSpec:       surface,
-		name:              name,
-		aliases:           aliases,
-		section:           surface.Section,
-		surface:           surface.Surface,
-		hidden:            hidden,
+		spec:        spec,
+		surfaceSpec: surface,
+		name:        name,
+		aliases:     aliases,
+		usage:       spec.Summary,
+		argsUsage:   commandSynopsis(spec, surface),
+		section:     surface.Section,
+		surface:     surface.Surface,
+		hidden:      hidden,
 	}
 }
 

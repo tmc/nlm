@@ -20,12 +20,12 @@ stderr 'Authentication required'
 # === GENERATE-CHAT COMMAND ===
 # Test generate-chat without arguments
 ! exec ./nlm_test generate-chat
-stderr 'usage: nlm generate-chat <notebook-id> \[prompt\]'
+stderr 'usage: nlm generate-chat \[flags\] <notebook-id> \[prompt\.\.\.\]'
 ! stderr 'panic'
 
 # Test generate-chat with only notebook ID
 ! exec ./nlm_test generate-chat notebook123
-stderr 'usage: nlm generate-chat <notebook-id> \[prompt\]'
+stderr 'usage: nlm generate-chat \[flags\] <notebook-id> \[prompt\.\.\.\]'
 ! stderr 'panic'
 
 # Test generate-chat without authentication

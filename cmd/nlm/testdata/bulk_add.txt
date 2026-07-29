@@ -6,12 +6,12 @@
 
 # `nlm add` with no arguments — bad-args exit 2 with usage hint.
 ! exec ./nlm_test add
-stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
+stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 ! stderr 'panic'
 
 # `nlm add` with only a notebook id — same usage hint, still bad-args.
 ! exec ./nlm_test add notebook123
-stderr 'usage: nlm add <notebook-id> <source\|-> \[source\.\.\.\]'
+stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 ! stderr 'panic'
 
 # Two inputs after the notebook id pass argument-count validation and

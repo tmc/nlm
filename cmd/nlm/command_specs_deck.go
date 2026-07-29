@@ -23,7 +23,7 @@ func configureDeckCommandSpecs(specs map[commandID]*commandSpec) {
 		}
 		configureTypedCommandSpecWithErrorUsage(spec,
 			[]commandForm{{
-				Parts: []operandSpec{remainingOperand("notebooks")},
+				Parts: []operandSpec{withUsage(remainingOperand("notebooks"), "<notebook-id>")},
 				Constraints: []constraint{
 					constraintFunc(validateDeckDownloadCommand),
 				},
@@ -31,7 +31,7 @@ func configureDeckCommandSpecs(specs map[commandID]*commandSpec) {
 			decodeDeckDownload,
 			func(path string, err error) {
 				fmt.Fprintf(os.Stderr, "nlm: %s: %v\n\n", path, err)
-				printDeckDownloadUsage(path)
+				printCommandHelpForPath(path)
 			},
 		)
 	}

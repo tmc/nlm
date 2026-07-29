@@ -2,21 +2,12 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
 
 type noteReadOptions struct {
 	Format  string
 	OutFile string
 	Open    bool
-}
-
-func printNoteReadUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s [flags] <notebook-id> <note-id>\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Flags:")
-	fmt.Fprintln(os.Stderr, "  --format <fmt>  Output format: text (default), markdown, or html")
-	fmt.Fprintln(os.Stderr, "  --out <file>    Write html output to a file instead of stdout (--format=html only)")
-	fmt.Fprintln(os.Stderr, "  --open          Open the written html file in a browser (--format=html with --out)")
 }
 
 func validateNoteFormat(opts *noteReadOptions) error {

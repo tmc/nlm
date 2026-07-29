@@ -353,7 +353,7 @@ func TestCustomCommandHelpDoesNotUseGenericFallback(t *testing.T) {
 
 	for _, cmdEntry := range commandTableEntries() {
 		cmdEntry := cmdEntry
-		if cmdEntry.help == nil || cmdEntry.surface != surfaceStable || cmdEntry.hidden {
+		if cmdEntry.surfaceSpec.Help.UsageTitle == "" || cmdEntry.surface != surfaceStable || cmdEntry.hidden {
 			continue
 		}
 		t.Run(cmdEntry.name, func(t *testing.T) {

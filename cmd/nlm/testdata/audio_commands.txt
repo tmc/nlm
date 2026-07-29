@@ -4,12 +4,12 @@
 # === CREATE-AUDIO COMMAND ===
 # Test create-audio without arguments (should fail with usage)
 ! exec ./nlm_test create-audio
-stderr 'usage: nlm create-audio <notebook-id> <instructions>'
+stderr 'usage: nlm create-audio \[flags\] <notebook-id> <instructions\.\.\.>'
 ! stderr 'panic'
 
 # Test create-audio with only one argument (should fail with usage)
 ! exec ./nlm_test create-audio notebook123
-stderr 'usage: nlm create-audio <notebook-id> <instructions>'
+stderr 'usage: nlm create-audio \[flags\] <notebook-id> <instructions\.\.\.>'
 ! stderr 'panic'
 
 # Test create-audio with multi-word instructions (should pass validation, then fail auth)
@@ -68,12 +68,12 @@ stderr 'Authentication required'
 # === CREATE-VIDEO COMMAND ===
 # Test create-video without arguments (should fail with usage)
 ! exec ./nlm_test create-video
-stderr 'usage: nlm create-video <notebook-id> <instructions>'
+stderr 'usage: nlm create-video \[flags\] <notebook-id> <instructions\.\.\.>'
 ! stderr 'panic'
 
 # Test create-video with only one argument (should fail with usage)
 ! exec ./nlm_test create-video notebook123
-stderr 'usage: nlm create-video <notebook-id> <instructions>'
+stderr 'usage: nlm create-video \[flags\] <notebook-id> <instructions\.\.\.>'
 ! stderr 'panic'
 
 # Test create-video with multi-word instructions (should pass validation, then fail auth)

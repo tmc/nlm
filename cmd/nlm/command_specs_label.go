@@ -47,7 +47,7 @@ func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeLabelList,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires exactly one argument: <notebook-id>\n\n", path)
-			printLabelListUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-generate"],
@@ -55,7 +55,7 @@ func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeLabelGenerate,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires exactly one argument: <notebook-id>\n\n", path)
-			printLabelGenerateUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-create"],
@@ -67,19 +67,19 @@ func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeLabelCreate,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <name> [emoji]\n\n", path)
-			printLabelCreateUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-rename"],
 		commandFormOf(
 			requiredOperand("notebook"),
 			requiredOperand("label"),
-			requiredOperand("name"),
+			withPlaceholder(requiredOperand("name"), "new-name"),
 		),
 		decodeLabelRename,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <label-id> <new-name>\n\n", path)
-			printLabelRenameUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-emoji"],
@@ -91,18 +91,18 @@ func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeLabelEmoji,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <label-id> <emoji>\n\n", path)
-			printLabelEmojiUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-delete"],
 		commandFormOf(
 			requiredOperand("notebook"),
-			repeatedOperand("labels"),
+			withUsage(repeatedOperand("labels"), "<label-id> [<label-id>...]"),
 		),
 		decodeLabelDelete,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> and at least one <label-id>\n\n", path)
-			printLabelDeleteUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-unlabeled"],
@@ -110,7 +110,7 @@ func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeLabelUnlabeled,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires exactly one argument: <notebook-id>\n\n", path)
-			printLabelUnlabeledUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-relabel-all"],
@@ -118,19 +118,19 @@ func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
 		decodeLabelRelabelAll,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires exactly one argument: <notebook-id>\n\n", path)
-			printLabelRelabelAllUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-attach"],
 		commandFormOf(
 			requiredOperand("notebook"),
-			requiredOperand("label"),
-			requiredOperand("source"),
+			withPlaceholder(requiredOperand("label"), "label-id|name"),
+			withPlaceholder(requiredOperand("source"), "source-id|name"),
 		),
 		decodeLabelAttach,
 		func(path string) {
 			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <label-id|name> <source-id|name>\n\n", path)
-			printLabelAttachUsage(path)
+			printCommandHelpForPath(path)
 		},
 	)
 }

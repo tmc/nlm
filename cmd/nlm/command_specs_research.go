@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -22,19 +21,6 @@ type researchArgs struct {
 	Options    researchOptions
 }
 
-func printResearchUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s [flags] <notebook-id> <query>\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Flags:")
-	fmt.Fprintln(os.Stderr, "  --mode <fast|deep>  Research mode (default: deep)")
-	fmt.Fprintln(os.Stderr, "  --md                Emit Markdown with source footnotes instead of JSON-lines")
-	fmt.Fprintln(os.Stderr, "  --poll-ms <n>       Override deep-research polling interval in milliseconds")
-	fmt.Fprintln(os.Stderr, "  --import            Import discovered sources into the notebook after completion")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Examples:")
-	fmt.Fprintf(os.Stderr, "  nlm %s <notebook-id> \"What changed in the auth flow?\"\n", cmdName)
-	fmt.Fprintf(os.Stderr, "  nlm %s --mode fast <notebook-id> \"Which docs should I read first?\"\n", cmdName)
-}
-
 func configureResearchCommandSpecs(specs map[commandID]*commandSpec) {
 	spec := specs["research"]
 	spec.Flags = []flagSpec{
@@ -47,7 +33,7 @@ func configureResearchCommandSpecs(specs map[commandID]*commandSpec) {
 		[]commandForm{{
 			Parts: []operandSpec{
 				requiredOperand("notebook"),
-				repeatedOperand("query"),
+				withUsage(repeatedOperand("query"), "<query...>"),
 			},
 			Constraints: []constraint{
 				constraintFunc(validateResearchCommand),
@@ -55,7 +41,7 @@ func configureResearchCommandSpecs(specs map[commandID]*commandSpec) {
 		}},
 		decodeResearch,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <query>\n", path)
+			printCommandUsageForPath(path)
 		},
 	)
 }

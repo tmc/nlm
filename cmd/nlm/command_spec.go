@@ -9,13 +9,15 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
+//go:generate env UPDATE_COMMAND_DOCS=1 go test -run ^TestCommandReferenceSignatures$
+
 // commandID is the stable identity of one command behavior. A command may
 // expose that behavior through several stable or compatibility surfaces.
 type commandID string
 
 // commandSpec describes one command behavior and every surface that reaches
-// it. Help remains on command during Phase 1 so this specification can become
-// executable without changing presentation bytes.
+// it. Parsing, routing, help, and command-reference signatures all use this
+// specification.
 type commandSpec struct {
 	ID       commandID
 	Section  string
@@ -25,12 +27,19 @@ type commandSpec struct {
 	Surfaces []commandSurfaceSpec
 	Decode   func(parsedCommand) (commandCall, error)
 
+	FlagGroup      string
+	FlagGroupAfter int
+
 	IgnoredArguments    []string
 	DeferFlagErrors     bool
 	DeferFlagValidation bool
 
-	definition *commandDefinition
-	parse      func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
+	aliases   []string
+	noAuth    bool // command does not require authentication
+	noClient  bool // command does not need an API client
+	directRPC bool // command requires direct RPC mode
+	hidden    bool // base surface is omitted from help
+	parse     func(*commandSurfaceSpec, []string, globalOptions) (parsedCommand, error)
 }
 
 // commandSurfaceSpec describes one user-visible route to a command behavior.
@@ -41,25 +50,33 @@ type commandSurfaceSpec struct {
 	Forms       []commandForm
 	Adapt       func(parsedCommand) (parsedCommand, error)
 	Replacement []string
+	Help        commandHelpSpec
 
-	// Aliases and Section preserve current Phase 1 presentation. Phase 2 can
-	// render aliases and sections directly from the specification.
 	Aliases [][]string
 	Section string
+}
+
+type commandHelpSpec struct {
+	UsageTitle string
+	Body       string
 }
 
 // commandForm is one executable operand grammar.
 type commandForm struct {
 	Parts       []operandSpec
 	Constraints []constraint
+	Hidden      bool
 }
 
 // operandSpec describes one literal or named operand in a command form.
 type operandSpec struct {
 	Name        string
 	Placeholder string
+	Usage       string
 	Cardinality cardinality
 	Literal     string
+	Hidden      bool
+	Virtual     bool
 }
 
 type cardinality uint8
@@ -81,6 +98,7 @@ type flagSpec struct {
 	OptionalValue bool
 	Description   string
 	Visibility    flagVisibility
+	Inline        bool
 }
 
 type flagVisibility uint8
@@ -90,6 +108,92 @@ const (
 	flagHidden
 	flagDeprecated
 )
+
+func commandSynopsis(spec *commandSpec, surface *commandSurfaceSpec) string {
+	forms := spec.Forms
+	if len(surface.Forms) > 0 {
+		forms = surface.Forms
+	}
+	var rendered []string
+	for _, form := range forms {
+		if form.Hidden {
+			continue
+		}
+		rendered = append(rendered, renderCommandForm(spec, form))
+	}
+	return strings.Join(rendered, " | ")
+}
+
+func renderCommandForm(spec *commandSpec, form commandForm) string {
+	var before, after []string
+	groupAfter := spec.FlagGroupAfter
+	visible := 0
+	for _, part := range form.Parts {
+		if part.Hidden {
+			continue
+		}
+		rendered := renderOperand(part)
+		if rendered == "" {
+			continue
+		}
+		if visible < groupAfter {
+			before = append(before, rendered)
+		} else {
+			after = append(after, rendered)
+		}
+		visible++
+	}
+
+	var flags []string
+	grouped := false
+	for _, flag := range spec.Flags {
+		if flag.Visibility != flagVisible {
+			continue
+		}
+		if !flag.Inline {
+			grouped = true
+			continue
+		}
+		label := "--" + flag.Name
+		if flag.Value != "" {
+			label += " " + flag.Value
+		}
+		flags = append(flags, "["+label+"]")
+	}
+	if grouped {
+		group := spec.FlagGroup
+		if group == "" {
+			group = "flags"
+		}
+		flags = append([]string{"[" + group + "]"}, flags...)
+	}
+	return strings.Join(append(append(before, flags...), after...), " ")
+}
+
+func renderOperand(spec operandSpec) string {
+	if spec.Usage != "" {
+		return spec.Usage
+	}
+	if spec.Literal != "" {
+		return spec.Literal
+	}
+	placeholder := spec.Placeholder
+	if placeholder == "" {
+		placeholder = spec.Name
+	}
+	switch spec.Cardinality {
+	case cardinalityRequired:
+		return "<" + placeholder + ">"
+	case cardinalityOptional:
+		return "[" + placeholder + "]"
+	case cardinalityOneOrMore:
+		return "<" + placeholder + ">"
+	case cardinalityZeroOrMore:
+		return "[" + placeholder + "...]"
+	default:
+		return ""
+	}
+}
 
 // parsedCommand is the stringly grammar result passed to a command decoder.
 // Decode immediately converts it into a named argument type or an existing
@@ -141,6 +245,9 @@ func matchOperandParts(parts []operandSpec, args []string, part, arg int, values
 		return arg == len(args)
 	}
 	spec := parts[part]
+	if spec.Virtual {
+		return matchOperandParts(parts, args, part+1, arg, values)
+	}
 	minCount, maxCount := operandCountRange(spec.Cardinality, len(args)-arg)
 	for count := maxCount; count >= minCount; count-- {
 		if spec.Literal != "" {

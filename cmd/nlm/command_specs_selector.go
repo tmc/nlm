@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
 )
@@ -42,14 +41,14 @@ func configureSelectorCommandSpecs(specs map[commandID]*commandSpec) {
 	spec.Flags = selectorFlagSpecs()
 	configureTypedCommandSpecWithUsage(spec,
 		[]commandForm{{
-			Parts: []operandSpec{remainingOperand("positionals")},
+			Parts: []operandSpec{withUsage(remainingOperand("positionals"), "<notebook-id> [source-id...]")},
 			Constraints: []constraint{
 				constraintFunc(validateSourceGuideCommand),
 			},
 		}},
 		decodeSourceGuide,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <source-id> [source-id...] (or pass --source-ids / --source-match)\n", path)
+			printCommandUsageForPath(path)
 		},
 	)
 }

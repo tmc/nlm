@@ -4,7 +4,7 @@
 # === CHAT COMMAND ===
 # Test chat without arguments (should fail with usage)
 ! exec ./nlm_test chat
-stderr 'usage: nlm chat <notebook-id> \[conversation-id \| prompt\]'
+stderr 'usage: nlm chat \[flags\] <notebook-id> \[conversation-id \| prompt\.\.\.\]'
 ! stderr 'panic'
 
 # Test chat with a prompt argument (should require auth)

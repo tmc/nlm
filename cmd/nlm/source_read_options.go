@@ -3,19 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
 )
-
-func printSourceReadUsage(cmdName string) {
-	fmt.Fprintf(os.Stderr, "Usage: nlm %s [flags] <source-id> [notebook-id]\n\n", cmdName)
-	fmt.Fprintln(os.Stderr, "Flags:")
-	fmt.Fprintln(os.Stderr, "  --format <fmt>  Output format: text (default), markdown, html, json, or raw")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "The json format is nlm's stable decoded source model. The raw format is")
-	fmt.Fprintln(os.Stderr, "the unstable LoadSource protobuf encoded with protojson.")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Deprecated aliases: --markdown, --html, and --json.")
-}
 
 func normalizeSourceReadFormat(opts *globalOptions) error {
 	selected := 0

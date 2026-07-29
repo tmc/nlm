@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/tmc/nlm/internal/notebooklm/api"
@@ -51,7 +50,7 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	configureTypedCommandSpecWithUsage(
 		generateSpec,
-		chatCommandForm(validateGenerateChatCommand),
+		chatCommandForm("<notebook-id> [prompt...]", validateGenerateChatCommand),
 		decodeGenerateChat,
 		printGenerateChatErrorUsage,
 	)
@@ -66,7 +65,7 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	configureTypedCommandSpecWithUsage(
 		chatSpec,
-		chatCommandForm(validateChatCommand),
+		chatCommandForm("<notebook-id> [conversation-id | prompt...]", validateChatCommand),
 		decodeChat,
 		printChatErrorUsage,
 	)
@@ -81,7 +80,7 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	configureTypedCommandSpecWithUsage(
 		showSpec,
-		chatCommandForm(validateChatShowCommand),
+		chatCommandForm("<notebook-id> [conversation-id]", validateChatShowCommand),
 		decodeChatShow,
 		printChatShowErrorUsage,
 	)
@@ -90,7 +89,7 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 	createReportSpec.Flags = selectorFlagSpecs()
 	configureTypedCommandSpecWithUsage(
 		createReportSpec,
-		chatCommandForm(validateCreateReportCommand),
+		chatCommandForm("<notebook-id> <report-type> [description...]", validateCreateReportCommand),
 		decodeCreateReport,
 		printCreateReportErrorUsage,
 	)
@@ -106,15 +105,15 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	configureTypedCommandSpecWithUsage(
 		reportSpec,
-		chatCommandForm(validateGenerateReportCommand),
+		chatCommandForm("<notebook-id>", validateGenerateReportCommand),
 		decodeGenerateReport,
 		printGenerateReportErrorUsage,
 	)
 }
 
-func chatCommandForm(validate func(parsedCommand) error) []commandForm {
+func chatCommandForm(usage string, validate func(parsedCommand) error) []commandForm {
 	return []commandForm{{
-		Parts:       []operandSpec{remainingOperand("positionals")},
+		Parts:       []operandSpec{withUsage(remainingOperand("positionals"), usage)},
 		Constraints: []constraint{constraintFunc(validate)},
 	}}
 }
@@ -122,7 +121,7 @@ func chatCommandForm(validate func(parsedCommand) error) []commandForm {
 func chatRenderFlagSpecs() []flagSpec {
 	return []flagSpec{
 		{Name: "thinking", Aliases: []string{"reasoning"}, Description: "show thinking"},
-		{Name: "thinking-jsonl", Description: "emit thinking JSON lines"},
+		{Name: "thinking-jsonl", Description: "emit thinking JSON lines", Visibility: flagDeprecated},
 		{Name: "verbose", Aliases: []string{"v"}, Description: "show thinking traces"},
 		{Name: "citations", Value: "mode", Description: "citation rendering"},
 		{Name: "resolve-citations", Description: "resolve citations"},
@@ -160,23 +159,23 @@ func chatShowRenderFlagSpecs() []flagSpec {
 }
 
 func printGenerateChatErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [prompt]\n", path)
+	printCommandUsageForPath(path)
 }
 
 func printChatErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [conversation-id | prompt]\n", path)
+	printCommandUsageForPath(path)
 }
 
 func printChatShowErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> [conversation-id]\n", path)
+	printCommandUsageForPath(path)
 }
 
 func printCreateReportErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id> <report-type> [description] [instructions]\n", path)
+	printCommandUsageForPath(path)
 }
 
 func printGenerateReportErrorUsage(path string) {
-	fmt.Fprintf(os.Stderr, "usage: nlm %s <notebook-id>\n", path)
+	printCommandUsageForPath(path)
 }
 
 func validateGenerateChatCommand(parsed parsedCommand) error {

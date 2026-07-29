@@ -42,12 +42,12 @@ stderr 'Authentication required'
 # === RM COMMAND ===
 # Test rm without arguments
 ! exec ./nlm_test rm
-stderr 'usage: nlm rm <id>'
+stderr 'usage: nlm rm <notebook-id>'
 ! stderr 'panic'
 
 # Test rm with too many arguments
 ! exec ./nlm_test rm notebook123 extra
-stderr 'usage: nlm rm <id>'
+stderr 'usage: nlm rm <notebook-id>'
 ! stderr 'panic'
 
 # Test rm without authentication
