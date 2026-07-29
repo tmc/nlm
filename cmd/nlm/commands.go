@@ -118,8 +118,6 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "sources", argsUsage: "<notebook-id>",
 		usage: "List sources in notebook", section: "Source",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return listSources(c, args[0]) },
 	},
 	{
 		name: "add", argsUsage: "<notebook-id> <source|-> [source...]",
@@ -158,63 +156,27 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id|-|a,b,c>",
 		usage: "Remove one or more sources (pass '-' to read newline-delimited IDs from stdin)", section: "Source",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error {
-			return removeSource(context.Background(), c, args[0], args[1])
-		},
 	},
 	{
 		name: "rename-source", argsUsage: "<source-id> <new-name>",
 		usage: "Rename a source", section: "Source",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return renameSource(c, args[0], args[1]) },
 	},
 	{
 		name: "refresh-source", argsUsage: "<notebook-id> <source-id>",
 		usage: "Refresh source content", section: "Source",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return refreshSource(c, args[0], args[1]) },
 	},
 	{
 		name: "check-source", argsUsage: "<source-id> [notebook-id]",
 		usage: "Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation)", section: "Source",
-		minArgs: 1, maxArgs: 2,
-		run: func(c *api.Client, args []string) error {
-			notebookID := ""
-			if len(args) > 1 {
-				notebookID = args[1]
-			}
-			return checkSourceFreshness(c, args[0], notebookID)
-		},
 	},
 	{
 		name: "discover-sources", argsUsage: "<notebook-id> <query>",
 		usage: "Discover relevant sources via Es3dTe (chat fallback if the server rejects)", section: "Source",
-		minArgs: 2, maxArgs: 2,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return discoverSources(c, args[0], args[1], opts)
-		},
 	},
 	{
 		name: "dump-load-source", argsUsage: "<source-id> [notebook-id]",
 		usage: "Print the raw JSON wire response of LoadSource (hizoJc) for a source", section: "Source",
-		minArgs: 1, maxArgs: 2,
 		hidden: true, // developer tool; exposes unmodeled fields (text body fragments, etc.)
-		run: func(c *api.Client, args []string) error {
-			nb := ""
-			if len(args) == 2 {
-				nb = args[1]
-			}
-			raw, err := c.LoadSourceRaw(context.Background(), args[0], nb)
-			if err != nil {
-				return err
-			}
-			_, err = os.Stdout.Write(raw)
-			if err == nil {
-				fmt.Fprintln(os.Stdout)
-			}
-			return err
-		},
 	},
 	{
 		name: "read-source", argsUsage: "[--format text|markdown|html|json|raw] <source-id> [notebook-id]",
