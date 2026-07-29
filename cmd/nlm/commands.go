@@ -115,36 +115,21 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "add", argsUsage: "<notebook-id> <source|-> [source...]",
 		usage: "Add one or more sources (files, URLs, or text; pass '-' to stream stdin as a single source)", section: "Source",
-		minArgs: 2, maxArgs: -1,
-		validateWithOptions: validateSourceAddArgsWithOptions,
-		help:                printSourceAddUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runSourceAddWithOptions(c, args, opts)
-		},
+		help: printSourceAddUsage,
 	},
 	{
 		name: "sync", argsUsage: "<notebook-id> [paths...]",
 		usage: "Bundle local files into a txtar source and keep it in sync (auto-chunks at 5MB; see --help)", section: "Source",
-		minArgs: 1, maxArgs: -1,
-		hidden:              true, // top-level shortcut for `source sync`; kept first-class but de-duplicated from help
-		validateWithOptions: validateSourceSyncArgsWithOptions,
-		help:                printSourceSyncUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runSourceSyncWithOptions(c, args, opts)
-		},
+		hidden: true, // top-level shortcut for `source sync`; kept first-class but de-duplicated from help
+		help:   printSourceSyncUsage,
 	},
 	{
 		name: "sync-pack", argsUsage: "[paths...]",
-		usage:   "Preview the txtar bytes that sync would upload (offline)",
-		section: "Source",
-		minArgs: 0, maxArgs: -1,
-		hidden:              true, // top-level shortcut for `source pack`; kept first-class but de-duplicated from help
-		noClient:            true,
-		validateWithOptions: validateSourcePackArgsWithOptions,
-		help:                printSourcePackUsage,
-		runWithOptions: func(_ *api.Client, args []string, opts globalOptions) error {
-			return runSourcePackWithOptions(args, opts)
-		},
+		usage:    "Preview the txtar bytes that sync would upload (offline)",
+		section:  "Source",
+		hidden:   true, // top-level shortcut for `source pack`; kept first-class but de-duplicated from help
+		noClient: true,
+		help:     printSourcePackUsage,
 	},
 	{
 		name: "rm-source", aliases: []string{"source-rm"}, argsUsage: "<notebook-id> <source-id|-|a,b,c>",

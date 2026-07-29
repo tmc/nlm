@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -67,28 +68,32 @@ func TestParseSourceAddArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotOpts, gotNotebook, gotInputs, err := parseSourceAddArgsWithOptions(tt.args, globalOptions{})
+			parsed, err := parseSourceCommand("source add", tt.args, globalOptions{})
+			var got sourceAddArgs
+			if err == nil {
+				got, err = decodeSourceAddArgs(parsed)
+			}
 			if tt.wantErr != "" {
 				if err == nil || err.Error() != tt.wantErr {
-					t.Fatalf("parseSourceAddArgs(%q) error = %v, want %q", tt.args, err, tt.wantErr)
+					t.Fatalf("parse source add %q error = %v, want %q", tt.args, err, tt.wantErr)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("parseSourceAddArgs(%q) error = %v", tt.args, err)
+				t.Fatalf("parse source add %q error = %v", tt.args, err)
 			}
-			if gotOpts != tt.wantOpts {
-				t.Fatalf("parseSourceAddArgs(%q) opts = %+v, want %+v", tt.args, gotOpts, tt.wantOpts)
+			if got.Options != tt.wantOpts {
+				t.Fatalf("parse source add %q options = %+v, want %+v", tt.args, got.Options, tt.wantOpts)
 			}
-			if gotNotebook != tt.wantNotebook {
-				t.Fatalf("parseSourceAddArgs(%q) notebook = %q, want %q", tt.args, gotNotebook, tt.wantNotebook)
+			if got.NotebookID != tt.wantNotebook {
+				t.Fatalf("parse source add %q notebook = %q, want %q", tt.args, got.NotebookID, tt.wantNotebook)
 			}
-			if len(gotInputs) != len(tt.wantInputs) {
-				t.Fatalf("parseSourceAddArgs(%q) inputs = %q, want %q", tt.args, gotInputs, tt.wantInputs)
+			if len(got.Inputs) != len(tt.wantInputs) {
+				t.Fatalf("parse source add %q inputs = %q, want %q", tt.args, got.Inputs, tt.wantInputs)
 			}
-			for i := range gotInputs {
-				if gotInputs[i] != tt.wantInputs[i] {
-					t.Fatalf("parseSourceAddArgs(%q) inputs = %q, want %q", tt.args, gotInputs, tt.wantInputs)
+			for i := range got.Inputs {
+				if got.Inputs[i] != tt.wantInputs[i] {
+					t.Fatalf("parse source add %q inputs = %q, want %q", tt.args, got.Inputs, tt.wantInputs)
 				}
 			}
 		})
@@ -129,25 +134,30 @@ func TestParseSourceSyncArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotOpts, gotPos, err := parseSourceSyncArgsWithOptions(tt.args, globalOptions{})
+			parsed, err := parseSourceCommand("source sync", tt.args, globalOptions{})
+			var got sourceSyncArgs
+			if err == nil {
+				got, err = decodeSourceSyncArgs(parsed)
+			}
 			if tt.wantErrText != "" {
 				if err == nil || err.Error() != tt.wantErrText {
-					t.Fatalf("parseSourceSyncArgs(%q) error = %v, want %q", tt.args, err, tt.wantErrText)
+					t.Fatalf("parse source sync %q error = %v, want %q", tt.args, err, tt.wantErrText)
 				}
 				return
 			}
 			if err != nil {
-				t.Fatalf("parseSourceSyncArgs(%q) error = %v", tt.args, err)
+				t.Fatalf("parse source sync %q error = %v", tt.args, err)
 			}
-			if !reflect.DeepEqual(gotOpts, tt.wantOpts) {
-				t.Fatalf("parseSourceSyncArgs(%q) opts = %+v, want %+v", tt.args, gotOpts, tt.wantOpts)
+			if !reflect.DeepEqual(got.Options, tt.wantOpts) {
+				t.Fatalf("parse source sync %q options = %+v, want %+v", tt.args, got.Options, tt.wantOpts)
 			}
+			gotPos := append([]string{got.NotebookID}, got.Paths...)
 			if len(gotPos) != len(tt.wantPos) {
-				t.Fatalf("parseSourceSyncArgs(%q) positional = %q, want %q", tt.args, gotPos, tt.wantPos)
+				t.Fatalf("parse source sync %q positional = %q, want %q", tt.args, gotPos, tt.wantPos)
 			}
 			for i := range gotPos {
 				if gotPos[i] != tt.wantPos[i] {
-					t.Fatalf("parseSourceSyncArgs(%q) positional = %q, want %q", tt.args, gotPos, tt.wantPos)
+					t.Fatalf("parse source sync %q positional = %q, want %q", tt.args, gotPos, tt.wantPos)
 				}
 			}
 		})
@@ -155,16 +165,20 @@ func TestParseSourceSyncArgs(t *testing.T) {
 }
 
 func TestParseSourcePackArgs(t *testing.T) {
-	gotOpts, gotPaths, err := parseSourcePackArgsWithOptions([]string{"./docs", "--chunk", "2", "--name", "bundle"}, globalOptions{})
+	parsed, err := parseSourceCommand("source pack", []string{"./docs", "--chunk", "2", "--name", "bundle"}, globalOptions{})
 	if err != nil {
-		t.Fatalf("parseSourcePackArgs() error = %v", err)
+		t.Fatal(err)
+	}
+	got, err := decodeSourcePackArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
 	}
 	wantOpts := syncPackOptions{Name: "bundle", Chunk: 2}
-	if !reflect.DeepEqual(gotOpts, wantOpts) {
-		t.Fatalf("parseSourcePackArgs() opts = %+v, want %+v", gotOpts, wantOpts)
+	if !reflect.DeepEqual(got.Options, wantOpts) {
+		t.Fatalf("options = %+v, want %+v", got.Options, wantOpts)
 	}
-	if len(gotPaths) != 1 || gotPaths[0] != "./docs" {
-		t.Fatalf("parseSourcePackArgs() paths = %q, want [./docs]", gotPaths)
+	if len(got.Paths) != 1 || got.Paths[0] != "./docs" {
+		t.Fatalf("paths = %q, want [./docs]", got.Paths)
 	}
 }
 
@@ -176,22 +190,38 @@ func TestParseSourceArgsUseGlobalDefaults(t *testing.T) {
 		maxBytes:        1024,
 		replaceSourceID: "src-old",
 	}
-	syncOpts, positional, err := parseSourceSyncArgsWithOptions([]string{"nb", "./docs"}, globals)
+	parsed, err := parseSourceCommand("source sync", []string{"nb", "./docs"}, globals)
 	if err != nil {
-		t.Fatalf("parseSourceSyncArgsWithOptions: %v", err)
+		t.Fatal(err)
 	}
-	if !syncOpts.Force || !syncOpts.JSON || syncOpts.Name != "docs" || syncOpts.MaxBytes != 1024 {
-		t.Fatalf("sync opts = %+v, want inherited force/json/name/maxBytes", syncOpts)
+	syncArgs, err := decodeSourceSyncArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got, want := strings.Join(positional, ","), "nb,./docs"; got != want {
+	if !syncArgs.Options.Force || !syncArgs.Options.JSON || syncArgs.Options.Name != "docs" || syncArgs.Options.MaxBytes != 1024 {
+		t.Fatalf("sync options = %+v, want inherited force/json/name/maxBytes", syncArgs.Options)
+	}
+	if got, want := strings.Join(append([]string{syncArgs.NotebookID}, syncArgs.Paths...), ","), "nb,./docs"; got != want {
 		t.Fatalf("positional = %q, want %q", got, want)
 	}
 
-	addOpts, _, _, err := parseSourceAddArgsWithOptions([]string{"nb", "README.md"}, globals)
+	parsed, err = parseSourceCommand("source add", []string{"nb", "README.md"}, globals)
 	if err != nil {
-		t.Fatalf("parseSourceAddArgsWithOptions: %v", err)
+		t.Fatal(err)
 	}
-	if addOpts.Name != "docs" || addOpts.ReplaceSourceID != "src-old" {
-		t.Fatalf("add opts = %+v, want inherited name and replace id", addOpts)
+	addArgs, err := decodeSourceAddArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
 	}
+	if addArgs.Options.Name != "docs" || addArgs.Options.ReplaceSourceID != "src-old" {
+		t.Fatalf("add options = %+v, want inherited name and replace id", addArgs.Options)
+	}
+}
+
+func parseSourceCommand(path string, values []string, globals globalOptions) (parsedCommand, error) {
+	command, ok := lookupCommand(path)
+	if !ok {
+		return parsedCommand{}, fmt.Errorf("command %q not found", path)
+	}
+	return parseCommandSpec(command.spec, command.surfaceSpec, values, globals)
 }
