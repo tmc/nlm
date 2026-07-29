@@ -522,12 +522,7 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "research", argsUsage: "<notebook-id> \"query\"",
 		usage: "Run fast or deep research (JSON-lines by default; --md for markdown; --mode=fast|deep)", section: "Research",
-		minArgs: 2, maxArgs: -1,
-		validateWithOptions: validateResearchArgsWithOptions,
-		help:                printResearchUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runResearchCommandWithOptions(c, args, opts)
-		},
+		help: printResearchUsage,
 	},
 
 	// Sharing operations

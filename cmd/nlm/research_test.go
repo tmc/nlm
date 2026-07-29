@@ -129,21 +129,23 @@ func TestRunResearchModeValidation(t *testing.T) {
 }
 
 func TestParseResearchArgs(t *testing.T) {
-	got, gotPos, err := parseResearchArgsWithOptions([]string{"nb", "--mode", "fast", "--md", "--poll-ms", "1500", "--import", "query", "terms"}, globalOptions{})
+	command, ok := lookupCommand("research")
+	if !ok {
+		t.Fatal("research command not found")
+	}
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{"nb", "--mode", "fast", "--md", "--poll-ms", "1500", "--import", "query", "terms"}, globalOptions{})
 	if err != nil {
-		t.Fatalf("parseResearchArgs error = %v", err)
+		t.Fatal(err)
 	}
-	if got.Mode != "fast" || !got.MD || got.PollMS != 1500 || !got.Import {
-		t.Fatalf("parseResearchArgs opts = %+v", got)
+	got, err := decodeResearchArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
 	}
-	wantPos := []string{"nb", "query", "terms"}
-	if len(gotPos) != len(wantPos) {
-		t.Fatalf("parseResearchArgs positional = %q, want %q", gotPos, wantPos)
+	if got.Options.Mode != "fast" || !got.Options.MD || got.Options.PollMS != 1500 || !got.Options.Import {
+		t.Fatalf("options = %+v", got.Options)
 	}
-	for i := range gotPos {
-		if gotPos[i] != wantPos[i] {
-			t.Fatalf("parseResearchArgs positional = %q, want %q", gotPos, wantPos)
-		}
+	if got.NotebookID != "nb" || got.Query != "query terms" {
+		t.Fatalf("arguments = %+v", got)
 	}
 }
 
