@@ -200,8 +200,14 @@ stderr 'Authentication required'
 ! stderr 'panic'
 
 # === ARGUMENT PARSING EDGE CASES ===
-# Test rename-artifact with title that looks like a flag
-! exec ./nlm_test rename-artifact artifact123 "--debug"
+# Dash-prefixed titles require the -- escape hatch.
+! exec ./nlm_test rename-artifact artifact123 --bogus
+stderr 'unknown flag --bogus for "rename-artifact"'
+stderr 'exit-class=bad-args \(exit 2\)'
+! stderr 'panic'
+
+# The escaped title remains data and reaches the authentication boundary.
+! exec ./nlm_test rename-artifact -- artifact123 --bogus
 stderr 'Authentication required'
 ! stderr 'panic'
 
@@ -210,9 +216,10 @@ stderr 'Authentication required'
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test rename-artifact with artifact ID that looks like a flag (should pass validation but fail auth)
+# Dash-prefixed artifact IDs also require --.
 ! exec ./nlm_test rename-artifact --artifact123 'New Title'
-stderr 'Authentication required'
+stderr 'unknown flag --artifact123 for "rename-artifact"'
+stderr 'exit-class=bad-args \(exit 2\)'
 ! stderr 'panic'
 
 # === CONCURRENT FLAG USAGE ===

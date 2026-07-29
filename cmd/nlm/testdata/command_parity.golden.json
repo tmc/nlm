@@ -101,9 +101,9 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook list\"",
           "usage_error": true,
-          "stderr": "nlm: unexpected argument: --unknown\n\nUsage: nlm notebook list [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm notebook list\n  nlm notebook list --all\n  nlm ls --limit 25\n"
+          "stderr": "nlm: unknown flag --unknown for \"notebook list\"\n\nUsage: nlm notebook list [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm notebook list\n  nlm notebook list --all\n  nlm ls --limit 25\n"
         },
         {
           "args": [
@@ -159,7 +159,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notebook create\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notebook create \u003ctitle\u003e\n"
         },
         {
           "args": [
@@ -212,7 +215,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notebook delete\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notebook delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -277,7 +283,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook rename\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook rename \u003cnotebook-id\u003e \u003cnew-title\u003e\n"
         },
@@ -350,7 +356,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook emoji\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook emoji \u003cnotebook-id\u003e \u003cemoji\u003e\n"
         },
@@ -419,7 +425,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notebook description\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notebook description \u003cnotebook-id\u003e [text]\n"
         },
         {
           "args": [
@@ -484,7 +493,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook cover\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook cover \u003cnotebook-id\u003e \u003cpreset-id\u003e\n"
         },
@@ -557,7 +566,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook cover-image\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook cover-image \u003cnotebook-id\u003e \u003cimage-path\u003e\n"
         },
@@ -618,7 +627,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notebook unrecent\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notebook unrecent \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -662,7 +674,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook featured\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook featured [flags]\n"
         },
@@ -723,7 +735,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"source list\"",
+          "usage_error": true,
+          "stderr": "usage: nlm source list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -794,7 +809,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"source add\"",
           "usage_error": true,
           "stderr": "usage: nlm source add [flags] \u003cnotebook-id\u003e \u003csource...\u003e\n"
         },
@@ -860,7 +875,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"source sync\"",
+          "usage_error": true,
+          "stderr": "usage: nlm source sync [flags] \u003cnotebook-id\u003e [path...]\n"
         },
         {
           "args": [
@@ -916,7 +934,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"source pack\"",
+          "usage_error": true,
+          "stderr": "usage: nlm source pack [flags] [path...]\n"
         },
         {
           "args": [
@@ -981,7 +1002,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"source delete\"",
           "usage_error": true,
           "stderr": "usage: nlm source delete [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
@@ -1054,7 +1075,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"source rename\"",
           "usage_error": true,
           "stderr": "usage: nlm source rename \u003csource-id\u003e \u003cnew-name\u003e\n"
         },
@@ -1127,7 +1148,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"source refresh\"",
           "usage_error": true,
           "stderr": "usage: nlm source refresh \u003cnotebook-id\u003e \u003csource-id\u003e\n"
         },
@@ -1196,7 +1217,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"source check\"",
+          "usage_error": true,
+          "stderr": "usage: nlm source check \u003cnotebook-id\u003e \u003csource-id\u003e\n"
         },
         {
           "args": [
@@ -1246,7 +1270,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"source read\"",
+          "usage_error": true,
+          "stderr": "usage: nlm source read [--format text|markdown|html|json|raw|prototext] \u003cnotebook-id\u003e \u003csource-id\u003e\n"
         },
         {
           "args": [
@@ -1308,7 +1335,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"note list\"",
+          "usage_error": true,
+          "stderr": "usage: nlm note list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -1362,7 +1392,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"note read\"",
           "usage_error": true,
           "stderr": "usage: nlm note read [--format text|markdown|html] [--out file] [--open] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
@@ -1451,7 +1481,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"note create\"",
           "usage_error": true,
           "stderr": "usage: nlm note create \u003cnotebook-id\u003e \u003ctitle\u003e [--content TEXT | --content-file FILE]\n"
         },
@@ -1549,7 +1579,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"note update\"",
           "usage_error": true,
           "stderr": "usage: nlm note update \u003cnotebook-id\u003e \u003cnote-id\u003e [--title TITLE] [--content TEXT | --content-file FILE]\n"
         },
@@ -1622,7 +1652,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"note delete\"",
           "usage_error": true,
           "stderr": "usage: nlm note delete [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
@@ -1683,7 +1713,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label list\"",
+          "usage_error": true,
+          "stderr": "nlm: label list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label list NOTEBOOK_ID\n  nlm --json label list NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -1736,7 +1769,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label generate\"",
+          "usage_error": true,
+          "stderr": "nlm: label generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label generate NOTEBOOK_ID\n  nlm --json label generate NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -1810,7 +1846,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label create\"",
           "usage_error": true,
           "stderr": "nlm: label create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label create NOTEBOOK_ID \"Important\"\n  nlm label create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
@@ -1895,7 +1931,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label rename\"",
           "usage_error": true,
           "stderr": "nlm: label rename requires \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e\n\nUsage: nlm label rename \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e\n\nRename an existing label. Use 'nlm label list' to find the label ID.\n"
         },
@@ -1980,7 +2016,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label emoji\"",
           "usage_error": true,
           "stderr": "nlm: label emoji requires \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e\n\nUsage: nlm label emoji \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e\n\nSet the emoji on an existing label. Pass an empty string to clear it.\n"
         },
@@ -2059,7 +2095,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label delete\"",
           "usage_error": true,
           "stderr": "nlm: label delete requires \u003cnotebook-id\u003e and at least one \u003clabel-id\u003e\n\nUsage: nlm label delete \u003cnotebook-id\u003e \u003clabel-id\u003e [\u003clabel-id\u003e...]\n\nDelete one or more labels by ID. Sources keep their content; only the cluster goes away.\n"
         },
@@ -2120,7 +2156,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label unlabeled\"",
+          "usage_error": true,
+          "stderr": "nlm: label unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -2173,7 +2212,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label relabel-all\"",
+          "usage_error": true,
+          "stderr": "nlm: label relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -2250,7 +2292,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label attach\"",
           "usage_error": true,
           "stderr": "nlm: label attach requires \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e\n\nUsage: nlm label attach \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e\n\nAttach a source to an existing label. Either argument may be a UUID or a\nname; names are resolved case-insensitively against the notebook's labels\nand sources, and must match exactly one entry. Only the single-source form\nis HAR-verified — invoke once per source for now.\n"
         },
@@ -2311,7 +2353,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"artifact list\"",
+          "usage_error": true,
+          "stderr": "usage: nlm artifact list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -2364,7 +2409,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"artifact get\"",
+          "usage_error": true,
+          "stderr": "usage: nlm artifact get \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -2417,7 +2465,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"artifact read\"",
+          "usage_error": true,
+          "stderr": "usage: nlm artifact read \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -2481,7 +2532,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"artifact export\"",
+          "usage_error": true,
+          "stderr": "nlm: artifact export: unknown flag --unknown for \"artifact export\"\n\nUsage: nlm artifact export [flags] \u003cartifact-id\u003e\n\nExports a READY artifact using its server-rendered download.\nType-4 flashcard apps additionally support md, json, tsv, and html.\nOutput is written to stdout by default.\n\nFlags:\n  --format, -f \u003cformat\u003e  Server file extension or flashcard format (default md)\n  --output, -o \u003cfile\u003e    Write to a file instead of stdout\n"
         },
         {
           "args": [
@@ -2554,7 +2608,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments: provide new title as second arg or --name flag",
+          "error": "unknown flag --unknown for \"artifact update\"",
           "usage_error": true
         },
         {
@@ -2612,7 +2666,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"artifact delete\"",
+          "usage_error": true,
+          "stderr": "usage: nlm artifact delete [flags] \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -2662,7 +2719,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"chat list\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat list [flags] [notebook-id]\n"
         },
         {
           "args": [
@@ -2727,7 +2787,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"chat history\"",
           "usage_error": true,
           "stderr": "usage: nlm chat history \u003cnotebook-id\u003e \u003cconversation-id\u003e\n"
         },
@@ -2796,7 +2856,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"chat show\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat show [flags] \u003cnotebook-id\u003e [conversation-id]\n"
         },
         {
           "args": [
@@ -2852,7 +2915,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"chat delete\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -2923,7 +2989,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"chat config\"",
           "usage_error": true,
           "stderr": "usage: nlm chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
@@ -3002,7 +3068,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"chat instructions set\"",
           "usage_error": true,
           "stderr": "usage: nlm chat instructions set \u003cnotebook-id\u003e \"prompt\"\n"
         },
@@ -3063,7 +3129,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"chat instructions get\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat instructions get \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3116,7 +3185,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio list\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3187,7 +3259,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"audio create\"",
           "usage_error": true,
           "stderr": "usage: nlm audio create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -3248,7 +3320,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio get\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio get \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3309,7 +3384,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio download\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio download \u003cnotebook-id\u003e [filename]\n"
         },
         {
           "args": [
@@ -3362,7 +3440,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio delete\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio delete [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3415,7 +3496,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio share\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio share \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -3486,7 +3570,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"video create\"",
           "usage_error": true,
           "stderr": "usage: nlm video create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -3552,7 +3636,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"deck create\"",
+          "usage_error": true,
+          "stderr": "usage: nlm deck create [flags] \u003cnotebook-id\u003e [instructions...]\n"
         },
         {
           "args": [
@@ -3623,9 +3710,9 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"deck download\"",
           "usage_error": true,
-          "stderr": "nlm: deck download: missing --id \u003cartifact-id\u003e\n\nUsage: nlm deck download [flags] \u003cnotebook-id\u003e\n\nDownloads a rendered slide deck (PDF or PPTX) for a completed deck artifact.\nIf the deck is still generating or the rendered file is unavailable, it falls\nback to printing the NotebookLM browser URL.\n\nFlags:\n  --id, --artifact-id \u003cid\u003e  Slide deck artifact ID\n  --format, -f \u003cformat\u003e     Export format: pdf (default) or pptx\n  --output, -o \u003cfile\u003e       Output filename (default deck.\u003cformat\u003e)\n"
+          "stderr": "nlm: deck download: unknown flag --unknown for \"deck download\"\n\nUsage: nlm deck download [flags] \u003cnotebook-id\u003e\n\nDownloads a rendered slide deck (PDF or PPTX) for a completed deck artifact.\nIf the deck is still generating or the rendered file is unavailable, it falls\nback to printing the NotebookLM browser URL.\n\nFlags:\n  --id, --artifact-id \u003cid\u003e  Slide deck artifact ID\n  --format, -f \u003cformat\u003e     Export format: pdf (default) or pptx\n  --output, -o \u003cfile\u003e       Output filename (default deck.\u003cformat\u003e)\n"
         },
         {
           "args": [
@@ -3707,7 +3794,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"app create\"",
           "usage_error": true,
           "stderr": "usage: nlm app create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -3788,7 +3875,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"mindmap create\"",
           "usage_error": true,
           "stderr": "usage: nlm mindmap create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -3859,9 +3946,9 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"list\"",
           "usage_error": true,
-          "stderr": "nlm: unexpected argument: --unknown\n\nUsage: nlm list [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm list\n  nlm notebook list --all\n  nlm ls --limit 25\n"
+          "stderr": "nlm: unknown flag --unknown for \"list\"\n\nUsage: nlm list [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm list\n  nlm notebook list --all\n  nlm ls --limit 25\n"
         },
         {
           "args": [
@@ -3918,9 +4005,9 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"ls\"",
           "usage_error": true,
-          "stderr": "nlm: unexpected argument: --unknown\n\nUsage: nlm ls [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm ls\n  nlm notebook list --all\n  nlm ls --limit 25\n"
+          "stderr": "nlm: unknown flag --unknown for \"ls\"\n\nUsage: nlm ls [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm ls\n  nlm notebook list --all\n  nlm ls --limit 25\n"
         },
         {
           "args": [
@@ -3976,7 +4063,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"create\"",
+          "usage_error": true,
+          "stderr": "usage: nlm create \u003ctitle\u003e\n"
         },
         {
           "args": [
@@ -4029,7 +4119,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"rm\"",
+          "usage_error": true,
+          "stderr": "usage: nlm rm [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4094,7 +4187,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"rename-notebook\"",
           "usage_error": true,
           "stderr": "usage: nlm rename-notebook \u003cnotebook-id\u003e \u003cnew-title\u003e\n"
         },
@@ -4167,7 +4260,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook-emoji\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook-emoji \u003cnotebook-id\u003e \u003cemoji\u003e\n"
         },
@@ -4236,7 +4329,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notebook-description\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notebook-description \u003cnotebook-id\u003e [text]\n"
         },
         {
           "args": [
@@ -4297,7 +4393,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notebook-notes\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notebook-notes \u003cnotebook-id\u003e [text]\n"
         },
         {
           "args": [
@@ -4362,7 +4461,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook-cover\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook-cover \u003cnotebook-id\u003e \u003cpreset-id\u003e\n"
         },
@@ -4435,7 +4534,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"notebook-cover-image\"",
           "usage_error": true,
           "stderr": "usage: nlm notebook-cover-image \u003cnotebook-id\u003e \u003cimage-path\u003e\n"
         },
@@ -4496,7 +4595,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notebook-unrecent\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notebook-unrecent \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4549,7 +4651,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"analytics\"",
+          "usage_error": true,
+          "stderr": "usage: nlm analytics [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4593,7 +4698,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"list-featured\"",
           "usage_error": true,
           "stderr": "usage: nlm list-featured [flags]\n"
         },
@@ -4654,7 +4759,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"sources\"",
+          "usage_error": true,
+          "stderr": "usage: nlm sources [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -4725,7 +4833,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"add\"",
           "usage_error": true,
           "stderr": "usage: nlm add [flags] \u003cnotebook-id\u003e \u003csource...\u003e\n"
         },
@@ -4791,7 +4899,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"sync\"",
+          "usage_error": true,
+          "stderr": "usage: nlm sync [flags] \u003cnotebook-id\u003e [path...]\n"
         },
         {
           "args": [
@@ -4847,7 +4958,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"sync-pack\"",
+          "usage_error": true,
+          "stderr": "usage: nlm sync-pack [flags] [path...]\n"
         },
         {
           "args": [
@@ -4912,7 +5026,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"rm-source\"",
           "usage_error": true,
           "stderr": "usage: nlm rm-source [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
@@ -4985,7 +5099,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"source-rm\"",
           "usage_error": true,
           "stderr": "usage: nlm source-rm [flags] \u003cnotebook-id\u003e \u003csource-id|-|a,b,c\u003e\n"
         },
@@ -5058,7 +5172,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"rename-source\"",
           "usage_error": true,
           "stderr": "usage: nlm rename-source \u003csource-id\u003e \u003cnew-name\u003e\n"
         },
@@ -5131,7 +5245,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"refresh-source\"",
           "usage_error": true,
           "stderr": "usage: nlm refresh-source \u003cnotebook-id\u003e \u003csource-id\u003e\n"
         },
@@ -5200,7 +5314,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"check-source\"",
+          "usage_error": true,
+          "stderr": "usage: nlm check-source \u003csource-id\u003e [notebook-id]\n"
         },
         {
           "args": [
@@ -5265,7 +5382,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"discover-sources\"",
           "usage_error": true,
           "stderr": "usage: nlm discover-sources [flags] \u003cnotebook-id\u003e \u003cquery\u003e\n"
         },
@@ -5334,7 +5451,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"dump-load-source\"",
+          "usage_error": true,
+          "stderr": "usage: nlm dump-load-source \u003csource-id\u003e [notebook-id]\n"
         },
         {
           "args": [
@@ -5384,7 +5504,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"read-source\"",
+          "usage_error": true,
+          "stderr": "usage: nlm read-source [--format text|markdown|html|json|raw|prototext] \u003csource-id\u003e [notebook-id]\n"
         },
         {
           "args": [
@@ -5446,7 +5569,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"notes\"",
+          "usage_error": true,
+          "stderr": "usage: nlm notes [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -5500,7 +5626,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"read-note\"",
           "usage_error": true,
           "stderr": "usage: nlm read-note [--format text|markdown|html] [--out file] [--open] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
@@ -5589,7 +5715,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"new-note\"",
           "usage_error": true,
           "stderr": "usage: nlm new-note \u003cnotebook-id\u003e \u003ctitle\u003e [content]\n"
         },
@@ -5687,7 +5813,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"update-note\"",
           "usage_error": true,
           "stderr": "usage: nlm update-note \u003cnotebook-id\u003e \u003cnote-id\u003e \u003ccontent\u003e \u003ctitle\u003e\n"
         },
@@ -5760,7 +5886,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"rm-note\"",
           "usage_error": true,
           "stderr": "usage: nlm rm-note [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
@@ -5833,7 +5959,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"note-rm\"",
           "usage_error": true,
           "stderr": "usage: nlm note-rm [flags] \u003cnotebook-id\u003e \u003cnote-id\u003e\n"
         },
@@ -5894,7 +6020,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label-list\"",
+          "usage_error": true,
+          "stderr": "nlm: label-list requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-list [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm label-list NOTEBOOK_ID\n  nlm --json label-list NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -5947,7 +6076,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"labels\"",
+          "usage_error": true,
+          "stderr": "nlm: labels requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm labels [flags] \u003cnotebook-id\u003e\n\nList autolabel clusters (labels) for a notebook.\n\nExamples:\n  nlm labels NOTEBOOK_ID\n  nlm --json labels NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -6000,7 +6132,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label-generate\"",
+          "usage_error": true,
+          "stderr": "nlm: label-generate requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-generate [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm label-generate NOTEBOOK_ID\n  nlm --json label-generate NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -6053,7 +6188,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"autolabel\"",
+          "usage_error": true,
+          "stderr": "nlm: autolabel requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm autolabel [flags] \u003cnotebook-id\u003e\n\nRecompute autolabel clusters for a notebook (server-side clustering job).\nReturns the freshly produced clusters in the same shape as 'label list'.\n\nExamples:\n  nlm autolabel NOTEBOOK_ID\n  nlm --json autolabel NOTEBOOK_ID\n"
         },
         {
           "args": [
@@ -6127,7 +6265,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label-create\"",
           "usage_error": true,
           "stderr": "nlm: label-create requires \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nUsage: nlm label-create [flags] \u003cnotebook-id\u003e \u003cname\u003e [emoji]\n\nCreate a new manual label on a notebook. The emoji is optional.\nReturns the refreshed label list.\n\nFlags:\n  --json  Emit JSON\n\nExamples:\n  nlm label-create NOTEBOOK_ID \"Important\"\n  nlm label-create NOTEBOOK_ID \"Bugs\" \"\\xf0\\x9f\\x90\\x9b\"\n"
         },
@@ -6212,7 +6350,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label-rename\"",
           "usage_error": true,
           "stderr": "nlm: label-rename requires \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e\n\nUsage: nlm label-rename \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cnew-name\u003e\n\nRename an existing label. Use 'nlm label list' to find the label ID.\n"
         },
@@ -6297,7 +6435,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label-emoji\"",
           "usage_error": true,
           "stderr": "nlm: label-emoji requires \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e\n\nUsage: nlm label-emoji \u003cnotebook-id\u003e \u003clabel-id\u003e \u003cemoji\u003e\n\nSet the emoji on an existing label. Pass an empty string to clear it.\n"
         },
@@ -6376,7 +6514,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label-delete\"",
           "usage_error": true,
           "stderr": "nlm: label-delete requires \u003cnotebook-id\u003e and at least one \u003clabel-id\u003e\n\nUsage: nlm label-delete \u003cnotebook-id\u003e \u003clabel-id\u003e [\u003clabel-id\u003e...]\n\nDelete one or more labels by ID. Sources keep their content; only the cluster goes away.\n"
         },
@@ -6437,7 +6575,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label-unlabeled\"",
+          "usage_error": true,
+          "stderr": "nlm: label-unlabeled requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-unlabeled [flags] \u003cnotebook-id\u003e\n\nApply existing labels to sources that don't yet belong to one (mode 0).\nCluster set is preserved; only unlabeled sources are touched.\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -6490,7 +6631,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"label-relabel-all\"",
+          "usage_error": true,
+          "stderr": "nlm: label-relabel-all requires exactly one argument: \u003cnotebook-id\u003e\n\nUsage: nlm label-relabel-all [flags] \u003cnotebook-id\u003e\n\nTrigger a full re-cluster of the notebook (mode 1) — the UI's \"Relabel all\".\nOn large notebooks this can hit the 60s server deadline (exit-class=transient).\n\nFlags:\n  --json  Emit JSON\n"
         },
         {
           "args": [
@@ -6567,7 +6711,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"label-attach\"",
           "usage_error": true,
           "stderr": "nlm: label-attach requires \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e\n\nUsage: nlm label-attach \u003cnotebook-id\u003e \u003clabel-id|name\u003e \u003csource-id|name\u003e\n\nAttach a source to an existing label. Either argument may be a UUID or a\nname; names are resolved case-insensitively against the notebook's labels\nand sources, and must match exactly one entry. Only the single-source form\nis HAR-verified — invoke once per source for now.\n"
         },
@@ -6646,7 +6790,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"create-audio\"",
           "usage_error": true,
           "stderr": "usage: nlm create-audio [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -6725,7 +6869,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"create-video\"",
           "usage_error": true,
           "stderr": "usage: nlm create-video [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -6801,7 +6945,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"app-create\"",
           "usage_error": true,
           "stderr": "usage: nlm app-create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -6882,7 +7026,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"mindmap-create\"",
           "usage_error": true,
           "stderr": "usage: nlm mindmap-create [flags] \u003cnotebook-id\u003e \u003cinstructions...\u003e\n"
         },
@@ -6957,7 +7101,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"create-slides\"",
+          "usage_error": true,
+          "stderr": "usage: nlm create-slides [flags] \u003cnotebook-id\u003e [instructions...]\n"
         },
         {
           "args": [
@@ -7028,9 +7175,9 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"deck-download\"",
           "usage_error": true,
-          "stderr": "nlm: deck-download: missing --id \u003cartifact-id\u003e\n\nUsage: nlm deck-download [flags] \u003cnotebook-id\u003e\n\nDownloads a rendered slide deck (PDF or PPTX) for a completed deck artifact.\nIf the deck is still generating or the rendered file is unavailable, it falls\nback to printing the NotebookLM browser URL.\n\nFlags:\n  --id, --artifact-id \u003cid\u003e  Slide deck artifact ID\n  --format, -f \u003cformat\u003e     Export format: pdf (default) or pptx\n  --output, -o \u003cfile\u003e       Output filename (default deck.\u003cformat\u003e)\n"
+          "stderr": "nlm: deck-download: unknown flag --unknown for \"deck-download\"\n\nUsage: nlm deck-download [flags] \u003cnotebook-id\u003e\n\nDownloads a rendered slide deck (PDF or PPTX) for a completed deck artifact.\nIf the deck is still generating or the rendered file is unavailable, it falls\nback to printing the NotebookLM browser URL.\n\nFlags:\n  --id, --artifact-id \u003cid\u003e  Slide deck artifact ID\n  --format, -f \u003cformat\u003e     Export format: pdf (default) or pptx\n  --output, -o \u003cfile\u003e       Output filename (default deck.\u003cformat\u003e)\n"
         },
         {
           "args": [
@@ -7112,9 +7259,9 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"download slide-deck\"",
           "usage_error": true,
-          "stderr": "nlm: download slide-deck: missing --id \u003cartifact-id\u003e\n\nUsage: nlm download slide-deck [flags] \u003cnotebook-id\u003e\n\nDownloads a rendered slide deck (PDF or PPTX) for a completed deck artifact.\nIf the deck is still generating or the rendered file is unavailable, it falls\nback to printing the NotebookLM browser URL.\n\nFlags:\n  --id, --artifact-id \u003cid\u003e  Slide deck artifact ID\n  --format, -f \u003cformat\u003e     Export format: pdf (default) or pptx\n  --output, -o \u003cfile\u003e       Output filename (default deck.\u003cformat\u003e)\n"
+          "stderr": "nlm: download slide-deck: unknown flag --unknown for \"download slide-deck\"\n\nUsage: nlm download slide-deck [flags] \u003cnotebook-id\u003e\n\nDownloads a rendered slide deck (PDF or PPTX) for a completed deck artifact.\nIf the deck is still generating or the rendered file is unavailable, it falls\nback to printing the NotebookLM browser URL.\n\nFlags:\n  --id, --artifact-id \u003cid\u003e  Slide deck artifact ID\n  --format, -f \u003cformat\u003e     Export format: pdf (default) or pptx\n  --output, -o \u003cfile\u003e       Output filename (default deck.\u003cformat\u003e)\n"
         },
         {
           "args": [
@@ -7181,7 +7328,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio-list\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio-list [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7234,7 +7384,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio-get\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio-get \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7295,7 +7448,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio-download\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio-download \u003cnotebook-id\u003e [filename]\n"
         },
         {
           "args": [
@@ -7348,7 +7504,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio-rm\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio-rm [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7401,7 +7560,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio-share\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio-share \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7454,7 +7616,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"get-artifact\"",
+          "usage_error": true,
+          "stderr": "usage: nlm get-artifact \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -7507,7 +7672,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"read-artifact\"",
+          "usage_error": true,
+          "stderr": "usage: nlm read-artifact \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -7571,7 +7739,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"export-flashcards\"",
+          "usage_error": true,
+          "stderr": "nlm: export-flashcards: unknown flag --unknown for \"export-flashcards\"\n\nUsage: nlm export-flashcards [flags] \u003cartifact-id\u003e\n\nExports a READY artifact using its server-rendered download.\nType-4 flashcard apps additionally support md, json, tsv, and html.\nOutput is written to stdout by default.\n\nFlags:\n  --format, -f \u003cformat\u003e  Server file extension or flashcard format (default md)\n  --output, -o \u003cfile\u003e    Write to a file instead of stdout\n"
         },
         {
           "args": [
@@ -7635,7 +7806,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"artifacts\"",
+          "usage_error": true,
+          "stderr": "usage: nlm artifacts [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7688,7 +7862,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"list-artifacts\"",
+          "usage_error": true,
+          "stderr": "usage: nlm list-artifacts [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -7750,7 +7927,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments: provide new title as second arg or --name flag",
+          "error": "unknown flag --unknown for \"update-artifact\"",
           "usage_error": true
         },
         {
@@ -7820,7 +7997,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"rename-artifact\"",
           "usage_error": true,
           "stderr": "usage: nlm rename-artifact \u003cartifact-id\u003e \u003cnew-title\u003e\n"
         },
@@ -7881,7 +8058,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"delete-artifact\"",
+          "usage_error": true,
+          "stderr": "usage: nlm delete-artifact [flags] \u003cartifact-id\u003e\n"
         },
         {
           "args": [
@@ -7925,7 +8105,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"guidebooks\"",
           "usage_error": true,
           "stderr": "usage: nlm guidebooks [flags]\n"
         },
@@ -7986,7 +8166,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"guidebook\"",
+          "usage_error": true,
+          "stderr": "usage: nlm guidebook \u003cguidebook-id\u003e\n"
         },
         {
           "args": [
@@ -8039,7 +8222,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"guidebook-details\"",
+          "usage_error": true,
+          "stderr": "usage: nlm guidebook-details \u003cguidebook-id\u003e\n"
         },
         {
           "args": [
@@ -8092,7 +8278,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"guidebook-publish\"",
+          "usage_error": true,
+          "stderr": "usage: nlm guidebook-publish \u003cguidebook-id\u003e\n"
         },
         {
           "args": [
@@ -8145,7 +8334,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"guidebook-share\"",
+          "usage_error": true,
+          "stderr": "usage: nlm guidebook-share \u003cguidebook-id\u003e\n"
         },
         {
           "args": [
@@ -8216,7 +8408,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"guidebook-ask\"",
           "usage_error": true,
           "stderr": "usage: nlm guidebook-ask \u003cguidebook-id\u003e \u003cquestion\u003e\n"
         },
@@ -8277,7 +8469,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"guidebook-rm\"",
+          "usage_error": true,
+          "stderr": "usage: nlm guidebook-rm \u003cguidebook-id\u003e\n"
         },
         {
           "args": [
@@ -8330,7 +8525,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"generate-guide\"",
+          "usage_error": true,
+          "stderr": "usage: nlm generate-guide \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -8392,7 +8590,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"source-guide\"",
           "usage_error": true,
           "stderr": "usage: nlm source-guide [flags] \u003cnotebook-id\u003e [source-id...]\n"
         },
@@ -8471,7 +8669,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"generate-chat\"",
           "usage_error": true,
           "stderr": "usage: nlm generate-chat [flags] \u003cnotebook-id\u003e [prompt...]\n"
         },
@@ -8532,7 +8730,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"report-suggestions\"",
+          "usage_error": true,
+          "stderr": "usage: nlm report-suggestions \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -8585,7 +8786,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"audio-suggestions\"",
+          "usage_error": true,
+          "stderr": "usage: nlm audio-suggestions [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -8656,7 +8860,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"create-report\"",
           "usage_error": true,
           "stderr": "usage: nlm create-report [flags] \u003cnotebook-id\u003e \u003creport-type\u003e [description...]\n"
         },
@@ -8717,7 +8921,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"generate-report\"",
+          "usage_error": true,
+          "stderr": "usage: nlm generate-report [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -8778,7 +8985,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"chat\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat [flags] \u003cnotebook-id\u003e [conversation-id | prompt...]\n"
         },
         {
           "args": [
@@ -8831,7 +9041,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"chat-list\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat-list [flags] [notebook-id]\n"
         },
         {
           "args": [
@@ -8896,7 +9109,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"chat-history\"",
           "usage_error": true,
           "stderr": "usage: nlm chat-history \u003cnotebook-id\u003e \u003cconversation-id\u003e\n"
         },
@@ -8965,7 +9178,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"chat-show\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat-show [flags] \u003cnotebook-id\u003e [conversation-id]\n"
         },
         {
           "args": [
@@ -9021,7 +9237,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"delete-chat\"",
+          "usage_error": true,
+          "stderr": "usage: nlm delete-chat [flags] \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -9092,7 +9311,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"chat-config\"",
           "usage_error": true,
           "stderr": "usage: nlm chat-config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
@@ -9171,7 +9390,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"set-instructions\"",
           "usage_error": true,
           "stderr": "usage: nlm set-instructions \u003cnotebook-id\u003e \"prompt\"\n"
         },
@@ -9232,7 +9451,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"get-instructions\"",
+          "usage_error": true,
+          "stderr": "usage: nlm get-instructions \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -9303,7 +9525,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"research\"",
           "usage_error": true,
           "stderr": "usage: nlm research [flags] \u003cnotebook-id\u003e \u003cquery...\u003e\n"
         },
@@ -9371,7 +9593,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"share\"",
+          "usage_error": true,
+          "stderr": "usage: nlm share \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -9424,7 +9649,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"share-private\"",
+          "usage_error": true,
+          "stderr": "usage: nlm share-private \u003cnotebook-id\u003e\n"
         },
         {
           "args": [
@@ -9477,7 +9705,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"share-details\"",
+          "usage_error": true,
+          "stderr": "usage: nlm share-details \u003cshare-id\u003e\n"
         },
         {
           "args": [
@@ -9521,7 +9752,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"mcp\"",
           "usage_error": true,
           "stderr": "usage: nlm mcp \n"
         },
@@ -9576,7 +9807,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"betool\"",
+          "usage_error": true,
+          "stderr": "usage: nlm betool [flags] \u003cmode\u003e [flags] [file...]\n"
         },
         {
           "args": [
@@ -9623,7 +9857,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"auth\"",
+          "usage_error": true,
+          "stderr": "usage: nlm auth [login] [options] [profile-name]\n"
         },
         {
           "args": [
@@ -9670,7 +9907,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"refresh\"",
+          "usage_error": true,
+          "stderr": "usage: nlm refresh \n"
         },
         {
           "args": [
@@ -9737,7 +9977,10 @@
           "args": [
             "--unknown"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unknown flag --unknown for \"account\"",
+          "usage_error": true,
+          "stderr": "usage: nlm account [flags] [set \u003ckey\u003e \u003cvalue\u003e]\n"
         },
         {
           "args": [
@@ -9781,7 +10024,7 @@
             "--unknown"
           ],
           "accepted": false,
-          "error": "invalid arguments",
+          "error": "unknown flag --unknown for \"hb\"",
           "usage_error": true,
           "stderr": "usage: nlm hb \n"
         },

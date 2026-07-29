@@ -106,6 +106,7 @@ type flagSpec struct {
 	Description    string
 	Visibility     flagVisibility
 	Inline         bool
+	PassThrough    bool
 }
 
 type flagVisibility uint8
@@ -363,6 +364,14 @@ func parseCommandFlagsDetailed(
 			operands = append(operands, arg)
 			continue
 		}
+		if flag.PassThrough {
+			operands = append(operands, arg)
+			if flag.Value != "" && !flag.OptionalValue && !hasValue && i+1 < len(args) {
+				i++
+				operands = append(operands, args[i])
+			}
+			continue
+		}
 		if flag.OptionalValue {
 			if !hasValue {
 				value = "true"
@@ -420,6 +429,9 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 	var occurrences []parsedFlag
 	var flagError error
 	flagSpecs := commandFlagsForSurface(spec, surface)
+	if err := validateCommandFlagNames(parsedCommandPath(surface), flagSpecs, parseArgs); err != nil {
+		return parsedCommand{}, err
+	}
 	bareDoubleDashArg := spec.BareDoubleDashArg
 	if surface.Flags != nil {
 		bareDoubleDashArg = surface.BareDoubleDashArg
@@ -471,6 +483,50 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 		return parsedCommand{}, constraintErr
 	}
 	return parsedCommand{}, errBadArgs
+}
+
+func validateCommandFlagNames(path string, specs []flagSpec, args []string) error {
+	byName := make(map[string]flagSpec)
+	for _, spec := range specs {
+		byName[spec.Name] = spec
+		for _, alias := range spec.Aliases {
+			byName[alias] = spec
+		}
+	}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			return nil
+		}
+		if arg == "-" || !strings.HasPrefix(arg, "-") {
+			continue
+		}
+		name, hasValue := commandFlagName(arg)
+		if spec, ok := byName[name]; ok {
+			if spec.Value != "" && !spec.OptionalValue && !hasValue {
+				i++
+			}
+			continue
+		}
+		display := commandFlagDisplay(arg)
+		if knownCommandFlag(name) {
+			return badArgsf("flag %s is not valid for %q", display, path)
+		}
+		return badArgsf("unknown flag %s for %q", display, path)
+	}
+	return nil
+}
+
+func knownCommandFlag(name string) bool {
+	for i := range commands {
+		command := &commands[i]
+		for _, spec := range commandFlagsForSurface(command.spec, command.surfaceSpec) {
+			if spec.Name == name || containsString(spec.Aliases, name) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func commandFlagsForSurface(spec *commandSpec, surface *commandSurfaceSpec) []flagSpec {

@@ -34,6 +34,9 @@ func configureTypedCommandSpecWithErrorUsage(
 ) {
 	configureTypedCommandSpecWithParseError(spec, forms, decode, func(path string, err error) error {
 		printUsageError(path, err)
+		if isDetailedBadArgs(err) {
+			return err
+		}
 		return errBadArgs
 	})
 }

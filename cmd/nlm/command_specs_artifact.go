@@ -81,6 +81,9 @@ func configureArtifactCommandSpecs(specs map[commandID]*commandSpec) {
 		}},
 		decodeArtifactUpdate,
 		func(_ string, err error) error {
+			if isDetailedBadArgs(err) {
+				return err
+			}
 			return fmt.Errorf("%w: %v", errBadArgs, err)
 		},
 	)

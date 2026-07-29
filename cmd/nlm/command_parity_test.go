@@ -99,6 +99,30 @@ func TestCommandParityPhase5Baseline(t *testing.T) {
 	compareCommandParityPhase5(t, baseline, current)
 }
 
+func TestCommandParityPhase6UnknownFlags(t *testing.T) {
+	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase5.golden.json"))
+	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	if len(baseline.Commands) != len(current.Commands) {
+		t.Fatalf("command count changed: got %d, want %d", len(current.Commands), len(baseline.Commands))
+	}
+	for i := range baseline.Commands {
+		before, after := baseline.Commands[i], current.Commands[i]
+		if before.Path != after.Path {
+			t.Fatalf("command %d path changed: got %q, want %q", i, after.Path, before.Path)
+		}
+		beforeCase := commandParityCaseForArgs(t, before, []string{"--unknown"})
+		afterCase := commandParityCaseForArgs(t, after, []string{"--unknown"})
+		if beforeCase.Accepted != phase6UnknownAcceptedPaths[before.Path] {
+			t.Errorf("%s baseline accepted = %v, want %v", before.Path, beforeCase.Accepted, phase6UnknownAcceptedPaths[before.Path])
+		}
+		if afterCase.Accepted ||
+			afterCase.Error != `unknown flag --unknown for "`+after.Path+`"` ||
+			!afterCase.UsageError {
+			t.Errorf("%s unknown case = %+v", after.Path, afterCase)
+		}
+	}
+}
+
 func readCommandParityGolden(t *testing.T, name string) commandParityGolden {
 	t.Helper()
 	data, err := os.ReadFile(name)
@@ -137,6 +161,7 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
+		normalizePhase6UnknownCase(t, &got, want)
 		if phase4CommandPaths[want.Path] || phase5CommandPaths[want.Path] || prototextCommandPaths[want.Path] || phase6OwnershipCommandPaths[want.Path] {
 			got.ArgsUsage, got.Help = want.ArgsUsage, want.Help
 			if len(got.Cases) != len(want.Cases) {
@@ -203,6 +228,7 @@ func compareCommandParityPhase2(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
+		normalizePhase6UnknownCase(t, &got, want)
 		if !phase4CommandPaths[want.Path] && !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 4 and Phase 5", want.Path)
@@ -248,6 +274,7 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
+		normalizePhase6UnknownCase(t, &got, want)
 		if !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 5 and prototext", want.Path)
@@ -295,6 +322,7 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
+		normalizePhase6UnknownCase(t, &got, want)
 		if !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside the prototext paths", want.Path)
@@ -451,6 +479,123 @@ var phase6OwnershipCommandPaths = map[string]bool{
 	"source-guide":      true,
 	"source-rm":         true,
 	"sources":           true,
+}
+
+// phase6UnknownAcceptedPaths is the exact set of surfaces whose synthetic
+// --unknown case was accepted before shared unknown-flag rejection.
+var phase6UnknownAcceptedPaths = map[string]bool{
+	"account":               true,
+	"analytics":             true,
+	"artifact delete":       true,
+	"artifact export":       true,
+	"artifact get":          true,
+	"artifact list":         true,
+	"artifact read":         true,
+	"artifacts":             true,
+	"audio delete":          true,
+	"audio download":        true,
+	"audio get":             true,
+	"audio list":            true,
+	"audio share":           true,
+	"audio-download":        true,
+	"audio-get":             true,
+	"audio-list":            true,
+	"audio-rm":              true,
+	"audio-share":           true,
+	"audio-suggestions":     true,
+	"auth":                  true,
+	"autolabel":             true,
+	"betool":                true,
+	"chat":                  true,
+	"chat delete":           true,
+	"chat instructions get": true,
+	"chat list":             true,
+	"chat show":             true,
+	"chat-list":             true,
+	"chat-show":             true,
+	"check-source":          true,
+	"create":                true,
+	"create-slides":         true,
+	"deck create":           true,
+	"delete-artifact":       true,
+	"delete-chat":           true,
+	"dump-load-source":      true,
+	"export-flashcards":     true,
+	"generate-guide":        true,
+	"generate-report":       true,
+	"get-artifact":          true,
+	"get-instructions":      true,
+	"guidebook":             true,
+	"guidebook-details":     true,
+	"guidebook-publish":     true,
+	"guidebook-rm":          true,
+	"guidebook-share":       true,
+	"label generate":        true,
+	"label list":            true,
+	"label relabel-all":     true,
+	"label unlabeled":       true,
+	"label-generate":        true,
+	"label-list":            true,
+	"label-relabel-all":     true,
+	"label-unlabeled":       true,
+	"labels":                true,
+	"list-artifacts":        true,
+	"note list":             true,
+	"notebook create":       true,
+	"notebook delete":       true,
+	"notebook description":  true,
+	"notebook unrecent":     true,
+	"notebook-description":  true,
+	"notebook-notes":        true,
+	"notebook-unrecent":     true,
+	"notes":                 true,
+	"read-artifact":         true,
+	"read-source":           true,
+	"refresh":               true,
+	"report-suggestions":    true,
+	"rm":                    true,
+	"share":                 true,
+	"share-details":         true,
+	"share-private":         true,
+	"source check":          true,
+	"source list":           true,
+	"source pack":           true,
+	"source read":           true,
+	"source sync":           true,
+	"sources":               true,
+	"sync":                  true,
+	"sync-pack":             true,
+}
+
+func normalizePhase6UnknownCase(t *testing.T, got *commandParityCommand, want commandParityCommand) {
+	t.Helper()
+	got.Cases = slices.Clone(got.Cases)
+	for i := range got.Cases {
+		if !slices.Equal(got.Cases[i].Args, []string{"--unknown"}) {
+			continue
+		}
+		got.Cases[i] = commandParityCaseForArgs(t, want, []string{"--unknown"})
+		return
+	}
+	t.Fatalf("%s missing parity case %v", got.Path, []string{"--unknown"})
+}
+
+func commandParityCaseForArgs(t *testing.T, command commandParityCommand, args []string) commandParityArgsCase {
+	t.Helper()
+	test, ok := findCommandParityCase(command, args)
+	if !ok {
+		t.Fatalf("%s missing parity case %v", command.Path, args)
+	}
+	return test
+}
+
+func findCommandParityCase(command commandParityCommand, args []string) (commandParityArgsCase, bool) {
+	for _, test := range command.Cases {
+		if slices.Equal(test.Args, args) {
+			return test, true
+		}
+	}
+	return commandParityArgsCase{}, false
 }
 
 // inventoryCommandPaths expands the 24 Phase 2 inventory rows across every

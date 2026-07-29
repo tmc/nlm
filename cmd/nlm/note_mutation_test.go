@@ -441,7 +441,7 @@ func TestLegacyNoteMutationsKeepPositionalMapping(t *testing.T) {
 	}
 }
 
-func TestLegacyNoteMutationsDoNotParseNamedFlags(t *testing.T) {
+func TestLegacyNoteMutationsRejectNamedFlags(t *testing.T) {
 	devNull, err := os.Open(os.DevNull)
 	if err != nil {
 		t.Fatal(err)
@@ -460,16 +460,15 @@ func TestLegacyNoteMutationsDoNotParseNamedFlags(t *testing.T) {
 		t.Errorf("new-note error = %v, want invalid arguments", err)
 	}
 
-	parsed := parseNoteCommand(t, "update-note", []string{
-		"notebook-1", "note-1", "--title", "Title",
-	})
-	args, err := decodeNoteUpdateArgs(parsed)
-	if err != nil {
-		t.Fatal(err)
+	cmd, ok = lookupCommand("update-note")
+	if !ok {
+		t.Fatal("update-note not found")
 	}
-	if args.Content.Text == nil || *args.Content.Text != "--title" ||
-		args.Title == nil || *args.Title != "Title" {
-		t.Errorf("update-note parsed named-looking operands as %+v", args)
+	_, err = parseCommandSpec(cmd.spec, cmd.surfaceSpec, []string{
+		"notebook-1", "note-1", "--title", "Title",
+	}, globalOptions{})
+	if !errors.Is(err, errBadArgs) {
+		t.Errorf("update-note error = %v, want invalid arguments", err)
 	}
 }
 

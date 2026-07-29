@@ -32,7 +32,22 @@ type heartbeatArgs struct{}
 
 func configureOtherCommandSpecs(specs map[commandID]*commandSpec) {
 	configureTypedCommandSpec(specs["mcp"], commandFormOf(), decodeMCP)
-	configureTypedCommandSpec(specs["betool"],
+	betoolSpec := specs["betool"]
+	betoolSpec.Flags = []flagSpec{
+		{Name: "proto", PassThrough: true, Visibility: flagHidden},
+		{Name: "verify", PassThrough: true, Visibility: flagHidden},
+		{Name: "verify-all", PassThrough: true, Visibility: flagHidden},
+		{Name: "infer", Aliases: []string{"infer-missing"}, PassThrough: true, Visibility: flagHidden},
+		{Name: "rpc-id", PassThrough: true, Visibility: flagHidden},
+		{Name: "samples", Value: "dir", PassThrough: true, Visibility: flagHidden},
+		{Name: "descriptor", PassThrough: true, Visibility: flagHidden},
+		{Name: "message", PassThrough: true, Visibility: flagHidden},
+		{Name: "output", PassThrough: true, Visibility: flagHidden},
+		{Name: "rpc-option", PassThrough: true, Visibility: flagHidden},
+		{Name: "boolean-option", PassThrough: true, Visibility: flagHidden},
+		{Name: "min-observations", PassThrough: true, Visibility: flagHidden},
+	}
+	configureTypedCommandSpec(betoolSpec,
 		commandFormOf(
 			withUsage(remainingOperand("values"), "<mode>"),
 			virtualOperand("[flags]"),

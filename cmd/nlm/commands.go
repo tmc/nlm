@@ -805,6 +805,11 @@ func badArgsf(format string, args ...any) error {
 	return badArgsError{message: fmt.Sprintf(format, args...)}
 }
 
+func isDetailedBadArgs(err error) bool {
+	var target badArgsError
+	return errors.As(err, &target)
+}
+
 // errPrecondition marks a locally detected state that makes an otherwise
 // valid command inapplicable. It maps to exit 5.
 var errPrecondition = errors.New("precondition failed")
