@@ -69,13 +69,15 @@ const (
 )
 
 // flagSpec describes one command-owned flag. Value is empty for a boolean
-// flag and names the value placeholder otherwise.
+// flag and names the value placeholder otherwise. OptionalValue permits a
+// bare flag or an explicit value joined with "=".
 type flagSpec struct {
-	Name        string
-	Aliases     []string
-	Value       string
-	Description string
-	Visibility  flagVisibility
+	Name          string
+	Aliases       []string
+	Value         string
+	OptionalValue bool
+	Description   string
+	Visibility    flagVisibility
 }
 
 type flagVisibility uint8
@@ -207,6 +209,13 @@ func parseCommandFlags(specs []flagSpec, args []string) (map[string][]string, []
 		flag, ok := byName[name]
 		if !ok {
 			operands = append(operands, arg)
+			continue
+		}
+		if flag.OptionalValue {
+			if !hasValue {
+				value = "true"
+			}
+			flags[flag.Name] = append(flags[flag.Name], value)
 			continue
 		}
 		if flag.Value == "" {

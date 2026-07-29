@@ -381,12 +381,7 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "generate-chat", argsUsage: "<notebook-id> <prompt>",
 		usage: "Stream a one-shot chat answer (use --conversation to follow up)", section: "Generation",
-		minArgs: 2, maxArgs: -1,
-		validateWithOptions: validateGenerateChatArgsWithOptions,
-		help:                printGenerateChatUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runGenerateChatWithOptions(c, args, opts)
-		},
+		help: printGenerateChatUsage,
 	},
 	{
 		name: "report-suggestions", argsUsage: "<notebook-id>",
@@ -399,32 +394,17 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "create-report", argsUsage: "<notebook-id> <report-type> [description] [instructions]",
 		usage: "Create a report artifact (run report-suggestions for valid types)", section: "Create",
-		minArgs: 2, maxArgs: -1,
-		validateWithOptions: validateCreateReportArgsWithOptions,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runCreateReportWithOptions(c, args, opts)
-		},
 	},
 	{
 		name: "generate-report", argsUsage: "<notebook-id>",
 		usage: "Generate multi-section report via chat (see --prompt, --sections)", section: "Generation",
-		minArgs: 1, maxArgs: 1,
-		validateWithOptions: validateGenerateReportArgsWithOptions,
-		help:                printGenerateReportUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runGenerateReportWithOptions(c, args, opts)
-		},
+		help: printGenerateReportUsage,
 	},
 	// Chat operations
 	{
 		name: "chat", argsUsage: "<notebook-id> [conversation-id | prompt]",
 		usage: "Open interactive chat (one-shot if a prompt is given; -f <file> reads a long prompt from file)", section: "Chat",
-		minArgs: 1, maxArgs: -1,
-		validateWithOptions: validateChatArgsWithOptions,
-		help:                printChatUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runChatWithOptions(c, args, opts)
-		},
+		help: printChatUsage,
 	},
 	{
 		name: "chat-list", argsUsage: "[notebook-id]",
@@ -438,13 +418,8 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "chat-show", argsUsage: "<notebook-id> [conversation-id]",
 		usage: "Render a local chat transcript (see --citations)", section: "Chat",
-		minArgs: 1, maxArgs: 2,
 		noAuth: true, noClient: true,
-		validateWithOptions: validateChatShowArgsWithOptions,
-		help:                printChatShowUsage,
-		runWithOptions: func(_ *api.Client, args []string, opts globalOptions) error {
-			return runChatShowWithOptions(args, opts)
-		},
+		help: printChatShowUsage,
 	},
 	{
 		name: "delete-chat", argsUsage: "<notebook-id>",

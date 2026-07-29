@@ -128,16 +128,19 @@ func TestParseCommandFlags(t *testing.T) {
 	specs := []flagSpec{
 		{Name: "format", Aliases: []string{"f"}, Value: "format"},
 		{Name: "open"},
+		{Name: "excerpt", Value: "n", OptionalValue: true},
 	}
 	flags, operands, err := parseCommandFlags(specs, []string{
-		"--format=html", "--open=false", "notebook", "--unknown", "-f", "text", "--", "--literal",
+		"--format=html", "--open=false", "--excerpt", "--excerpt=80",
+		"notebook", "--unknown", "-f", "text", "--", "--literal",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantFlags := map[string][]string{
-		"format": {"html", "text"},
-		"open":   {"false"},
+		"format":  {"html", "text"},
+		"open":    {"false"},
+		"excerpt": {"true", "80"},
 	}
 	if !reflect.DeepEqual(flags, wantFlags) {
 		t.Errorf("flags = %#v, want %#v", flags, wantFlags)

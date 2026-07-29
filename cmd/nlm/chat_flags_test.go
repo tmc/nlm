@@ -73,7 +73,7 @@ func TestParseSourceSelectionArgs(t *testing.T) {
 }
 
 func TestParseGenerateChatArgs(t *testing.T) {
-	got, gotPos, err := parseGenerateChatArgsWithOptions([]string{
+	parsed := parseChatCommandForTest(t, "generate-chat", []string{
 		"nb",
 		"why",
 		"--conversation", "conv-1",
@@ -81,20 +81,17 @@ func TestParseGenerateChatArgs(t *testing.T) {
 		"--source-match", "^spec/",
 		"now",
 	}, globalOptions{})
+	got, err := decodeGenerateChatArgs(parsed)
 	if err != nil {
 		t.Fatalf("parseGenerateChatArgs error = %v", err)
 	}
-	if got.ConversationID != "conv-1" || !got.Render.ShowThinking || got.Selectors.SourceMatch != "^spec/" {
+	if got.Options.ConversationID != "conv-1" ||
+		!got.Options.Render.ShowThinking ||
+		got.Options.Selectors.SourceMatch != "^spec/" {
 		t.Fatalf("parseGenerateChatArgs opts = %+v", got)
 	}
-	wantPos := []string{"nb", "why", "now"}
-	if len(gotPos) != len(wantPos) {
-		t.Fatalf("parseGenerateChatArgs positional = %q, want %q", gotPos, wantPos)
-	}
-	for i := range gotPos {
-		if gotPos[i] != wantPos[i] {
-			t.Fatalf("parseGenerateChatArgs positional = %q, want %q", gotPos, wantPos)
-		}
+	if got.NotebookID != "nb" || got.Prompt != "why now" {
+		t.Fatalf("parseGenerateChatArgs arguments = %+v", got)
 	}
 }
 
@@ -118,54 +115,62 @@ func TestParseGenerateChatArgsPromptFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotPos, err := parseGenerateChatArgsWithOptions(tt.args, globalOptions{})
+			parsed := parseChatCommandForTest(t, "generate-chat", tt.args, globalOptions{})
+			got, err := decodeGenerateChatArgs(parsed)
 			if err != nil {
 				t.Fatalf("parseGenerateChatArgs error = %v", err)
 			}
-			if got.PromptFile != tt.want {
-				t.Fatalf("prompt file = %q, want %q", got.PromptFile, tt.want)
+			if got.Options.PromptFile != tt.want {
+				t.Fatalf("prompt file = %q, want %q", got.Options.PromptFile, tt.want)
 			}
-			if len(gotPos) != 1 || gotPos[0] != "nb" {
-				t.Fatalf("positional = %q, want [nb]", gotPos)
+			if got.NotebookID != "nb" {
+				t.Fatalf("notebook = %q, want nb", got.NotebookID)
 			}
 		})
 	}
 }
 
 func TestParseChatArgs(t *testing.T) {
-	got, gotPos, err := parseChatArgsWithOptions([]string{
+	parsed := parseChatCommandForTest(t, "chat", []string{
 		"nb",
 		"--prompt-file", "prompt.txt",
 		"--history",
 		"--citations", "tail",
 		"--source-ids", "a,b",
 	}, globalOptions{})
+	got, err := decodeChatArgs(parsed)
 	if err != nil {
 		t.Fatalf("parseChatArgs error = %v", err)
 	}
-	if got.PromptFile != "prompt.txt" || !got.ShowHistory || got.Render.CitationMode != "tail" || got.Selectors.SourceIDs != "a,b" {
+	if got.Options.PromptFile != "prompt.txt" ||
+		!got.Options.ShowHistory ||
+		got.Options.Render.CitationMode != "tail" ||
+		got.Options.Selectors.SourceIDs != "a,b" {
 		t.Fatalf("parseChatArgs opts = %+v", got)
 	}
-	if len(gotPos) != 1 || gotPos[0] != "nb" {
-		t.Fatalf("parseChatArgs positional = %q, want [nb]", gotPos)
+	if got.NotebookID != "nb" || len(got.Rest) != 0 {
+		t.Fatalf("parseChatArgs arguments = %+v", got)
 	}
 }
 
 func TestParseGenerateReportArgs(t *testing.T) {
-	got, gotPos, err := parseGenerateReportArgsWithOptions([]string{
+	parsed := parseChatCommandForTest(t, "generate-report", []string{
 		"nb",
 		"--sections", "3",
 		"--prompt", "# {topic}",
 		"--source-match", "^guide/",
 	}, globalOptions{})
+	got, err := decodeGenerateReportArgs(parsed)
 	if err != nil {
 		t.Fatalf("parseGenerateReportArgs error = %v", err)
 	}
-	if got.Sections != 3 || got.Prompt != "# {topic}" || got.Selectors.SourceMatch != "^guide/" {
+	if got.Options.Sections != 3 ||
+		got.Options.Prompt != "# {topic}" ||
+		got.Options.Selectors.SourceMatch != "^guide/" {
 		t.Fatalf("parseGenerateReportArgs opts = %+v", got)
 	}
-	if len(gotPos) != 1 || gotPos[0] != "nb" {
-		t.Fatalf("parseGenerateReportArgs positional = %q, want [nb]", gotPos)
+	if got.NotebookID != "nb" {
+		t.Fatalf("notebook = %q, want nb", got.NotebookID)
 	}
 }
 
@@ -174,56 +179,64 @@ func TestParseCreateReportArgsUsesGlobalSelectors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseInvocation: %v", err)
 	}
-	got, gotPos, err := parseCreateReportArgsWithOptions(inv.args, inv.globals)
+	parsed := parseChatCommandForTest(t, "create-report", inv.args, inv.globals)
+	got, err := decodeCreateReportArgs(parsed)
 	if err != nil {
 		t.Fatalf("parseCreateReportArgs: %v", err)
 	}
-	if got.Selectors.SourceMatch != "^spec/" {
-		t.Fatalf("create-report selectors = %+v, want source-match from globals", got.Selectors)
+	if got.Options.Selectors.SourceMatch != "^spec/" {
+		t.Fatalf("create-report selectors = %+v, want source-match from globals", got.Options.Selectors)
 	}
-	if strings.Join(gotPos, ",") != "nb,brief" {
-		t.Fatalf("create-report positional = %q, want [nb brief]", gotPos)
+	if got.NotebookID != "nb" || got.ReportType != "brief" || len(got.Extra) != 0 {
+		t.Fatalf("create-report arguments = %+v", got)
 	}
 }
 
 func TestParseCreateReportArgsLocalSelectors(t *testing.T) {
-	got, gotPos, err := parseCreateReportArgsWithOptions([]string{"nb", "brief", "--source-ids", "src-1,src-2", "desc"}, globalOptions{})
+	parsed := parseChatCommandForTest(t, "create-report", []string{
+		"nb", "brief", "--source-ids", "src-1,src-2", "desc",
+	}, globalOptions{})
+	got, err := decodeCreateReportArgs(parsed)
 	if err != nil {
 		t.Fatalf("parseCreateReportArgs: %v", err)
 	}
-	if got.Selectors.SourceIDs != "src-1,src-2" {
-		t.Fatalf("create-report selectors = %+v, want source ids", got.Selectors)
+	if got.Options.Selectors.SourceIDs != "src-1,src-2" {
+		t.Fatalf("create-report selectors = %+v, want source ids", got.Options.Selectors)
 	}
-	if strings.Join(gotPos, ",") != "nb,brief,desc" {
-		t.Fatalf("create-report positional = %q, want [nb brief desc]", gotPos)
+	if got.NotebookID != "nb" || got.ReportType != "brief" || strings.Join(got.Extra, ",") != "desc" {
+		t.Fatalf("create-report arguments = %+v", got)
 	}
 }
 
 func TestParseChatShowArgsResolveCitationsCompatibility(t *testing.T) {
-	got, gotPos, err := parseChatShowArgsWithOptions([]string{"nb", "conv", "--resolve-citations"}, globalOptions{})
+	parsed := parseChatCommandForTest(t, "chat show", []string{
+		"nb", "conv", "--resolve-citations",
+	}, globalOptions{})
+	got, err := decodeChatShowArgs(parsed)
 	if err != nil {
 		t.Fatalf("parseChatShowArgs: %v", err)
 	}
-	if !got.ResolveCitations {
+	if !got.Options.ResolveCitations {
 		t.Fatalf("chat show resolve citations = false, want true")
 	}
-	if strings.Join(gotPos, ",") != "nb,conv" {
-		t.Fatalf("chat show positional = %q, want [nb conv]", gotPos)
+	if got.NotebookID != "nb" || got.ConversationID != "conv" {
+		t.Fatalf("chat show arguments = %+v", got)
 	}
 }
 
 func TestParseChatShowIncludeFollowUps(t *testing.T) {
-	opts, positional, err := parseChatShowArgsWithOptions([]string{
+	parsed := parseChatCommandForTest(t, "chat show", []string{
 		"--format=html", "--include-follow-ups", "notebook", "conversation",
 	}, globalOptions{})
+	args, err := decodeChatShowArgs(parsed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !opts.IncludeFollowUps {
+	if !args.Options.IncludeFollowUps {
 		t.Fatal("IncludeFollowUps = false, want true")
 	}
-	if got, want := strings.Join(positional, " "), "notebook conversation"; got != want {
-		t.Fatalf("positional = %q, want %q", got, want)
+	if args.NotebookID != "notebook" || args.ConversationID != "conversation" {
+		t.Fatalf("arguments = %+v", args)
 	}
 }
 
@@ -257,12 +270,22 @@ func TestParseChatShowHTMLOutput(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts, _, err := parseChatShowArgsWithOptions(test.args, globalOptions{})
-			if (err != nil) != test.wantErr {
-				t.Fatalf("error = %v, want error %v", err, test.wantErr)
+			parsed, err := tryParseChatCommandForTest(t, "chat show", test.args, globalOptions{})
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("error = nil, want error")
+				}
+				return
 			}
-			if opts.OutFile != test.wantOut {
-				t.Fatalf("OutFile = %q, want %q", opts.OutFile, test.wantOut)
+			if err != nil {
+				t.Fatal(err)
+			}
+			args, err := decodeChatShowArgs(parsed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if args.Options.OutFile != test.wantOut {
+				t.Fatalf("OutFile = %q, want %q", args.Options.OutFile, test.wantOut)
 			}
 		})
 	}
@@ -282,33 +305,115 @@ func TestParseChatShowNotebook(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts, positional, err := parseChatShowArgsWithOptions(test.args, globalOptions{})
-			if (err != nil) != test.wantErr {
-				t.Fatalf("error = %v, want error %v", err, test.wantErr)
+			parsed, err := tryParseChatCommandForTest(t, "chat show", test.args, globalOptions{})
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("error = nil, want error")
+				}
+				return
 			}
-			if opts.Format != test.wantFormat {
-				t.Fatalf("format = %q, want %q", opts.Format, test.wantFormat)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if !test.wantErr && (len(positional) != 1 || positional[0] != "notebook") {
-				t.Fatalf("positional = %q, want [notebook]", positional)
+			args, err := decodeChatShowArgs(parsed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if args.Options.Format != test.wantFormat {
+				t.Fatalf("format = %q, want %q", args.Options.Format, test.wantFormat)
+			}
+			if args.NotebookID != "notebook" || args.ConversationID != "" {
+				t.Fatalf("arguments = %+v, want notebook only", args)
 			}
 		})
 	}
 }
 
 func TestParseChatShowBackfill(t *testing.T) {
-	opts, positional, err := parseChatShowArgsWithOptions([]string{
+	parsed := parseChatCommandForTest(t, "chat show", []string{
 		"--backfill", "notebook", "conversation",
 	}, globalOptions{})
+	args, err := decodeChatShowArgs(parsed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !opts.Backfill {
+	if !args.Options.Backfill {
 		t.Fatal("Backfill = false, want true")
 	}
-	if got, want := strings.Join(positional, " "), "notebook conversation"; got != want {
-		t.Fatalf("positional = %q, want %q", got, want)
+	if args.NotebookID != "notebook" || args.ConversationID != "conversation" {
+		t.Fatalf("arguments = %+v", args)
 	}
+}
+
+func TestParseChatRenderOptionalFlags(t *testing.T) {
+	tests := []struct {
+		name           string
+		flags          []string
+		excerptBudget  int
+		hideConfidence bool
+		hideSpans      bool
+	}{
+		{
+			name:          "bare excerpt",
+			flags:         []string{"--citation-excerpts"},
+			excerptBudget: defaultExcerptBudget,
+		},
+		{
+			name:           "explicit values",
+			flags:          []string{"--citation-excerpt=80", "--citation-confidence=off", "--citation-spans=off"},
+			excerptBudget:  80,
+			hideConfidence: true,
+			hideSpans:      true,
+		},
+		{
+			name:  "bare toggles show columns",
+			flags: []string{"--citation-confidence=off", "--citation-confidence", "--citation-spans"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			values := append([]string{"nb"}, test.flags...)
+			parsed := parseChatCommandForTest(t, "chat", values, globalOptions{})
+			args, err := decodeChatArgs(parsed)
+			if err != nil {
+				t.Fatal(err)
+			}
+			render := args.Options.Render
+			if render.ExcerptBudget != test.excerptBudget ||
+				render.HideConfidence != test.hideConfidence ||
+				render.HideSpans != test.hideSpans {
+				t.Fatalf("render = %+v", render)
+			}
+		})
+	}
+}
+
+func parseChatCommandForTest(
+	t *testing.T,
+	path string,
+	values []string,
+	globals globalOptions,
+) parsedCommand {
+	t.Helper()
+	parsed, err := tryParseChatCommandForTest(t, path, values, globals)
+	if err != nil {
+		t.Fatalf("parseCommandSpec(%s): %v", path, err)
+	}
+	return parsed
+}
+
+func tryParseChatCommandForTest(
+	t *testing.T,
+	path string,
+	values []string,
+	globals globalOptions,
+) (parsedCommand, error) {
+	t.Helper()
+	command, ok := lookupCommand(path)
+	if !ok {
+		t.Fatalf("%s command not found", path)
+	}
+	return parseCommandSpec(command.spec, command.surfaceSpec, values, globals)
 }
 
 func TestSaveChatSessionWritesConversationFile(t *testing.T) {
