@@ -569,20 +569,14 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "share", argsUsage: "<notebook-id>",
 		usage: "Share notebook publicly", section: "Sharing",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return shareNotebook(c, args[0]) },
 	},
 	{
 		name: "share-private", argsUsage: "<notebook-id>",
 		usage: "Share notebook privately", section: "Sharing",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return shareNotebookPrivate(c, args[0]) },
 	},
 	{
 		name: "share-details", argsUsage: "<share-id>",
 		usage: "Get details of shared project", section: "Sharing",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return getShareDetails(c, args[0]) },
 	},
 
 	// Other operations
