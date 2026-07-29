@@ -226,9 +226,10 @@ stderr 'usage: nlm rename-artifact <artifact-id> <new-title>'
 stderr 'Authentication required'
 ! stderr 'panic'
 
-# Test rename-artifact with direct-rpc flag (should pass validation but fail auth)
+# direct-rpc is owned only by the audio/video commands that can use it.
 ! exec ./nlm_test -direct-rpc rename-artifact artifact123 'New Title'
-stderr 'Authentication required'
+stderr 'flag -direct-rpc is not valid for "rename-artifact"'
+stderr 'exit-class=bad-args \(exit 2\)'
 ! stderr 'panic'
 
 # === INTERACTION WITH OTHER ARTIFACT COMMANDS ===

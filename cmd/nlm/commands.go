@@ -789,6 +789,22 @@ func warnCompatibilityCommand(name string, cmd *command) {
 // generic — the per-command usage hint is printed separately to stderr.
 var errBadArgs = errors.New("invalid arguments")
 
+type badArgsError struct {
+	message string
+}
+
+func (e badArgsError) Error() string {
+	return e.message
+}
+
+func (badArgsError) Is(target error) bool {
+	return target == errBadArgs
+}
+
+func badArgsf(format string, args ...any) error {
+	return badArgsError{message: fmt.Sprintf(format, args...)}
+}
+
 // errPrecondition marks a locally detected state that makes an otherwise
 // valid command inapplicable. It maps to exit 5.
 var errPrecondition = errors.New("precondition failed")

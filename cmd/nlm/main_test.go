@@ -524,9 +524,10 @@ func TestFlags(t *testing.T) {
 	defer os.RemoveAll(tmpHome)
 
 	tests := []struct {
-		name string
-		args []string
-		env  map[string]string
+		name    string
+		args    []string
+		command []string
+		env     map[string]string
 	}{
 		{
 			name: "debug flag",
@@ -541,12 +542,14 @@ func TestFlags(t *testing.T) {
 			args: []string{"-cookies", "test-cookies"},
 		},
 		{
-			name: "profile flag",
-			args: []string{"-profile", "test-profile"},
+			name:    "profile flag",
+			args:    []string{"-profile", "test-profile"},
+			command: []string{"source", "read", "--help"},
 		},
 		{
-			name: "mime type flag",
-			args: []string{"-mime", "application/json"},
+			name:    "mime type flag",
+			args:    []string{"-mime", "application/json"},
+			command: []string{"source", "add", "--help"},
 		},
 		{
 			name: "environment variables",
@@ -563,7 +566,11 @@ func TestFlags(t *testing.T) {
 			// Run with help to test flag parsing without auth issues
 			cmd := exec.Command("./nlm_test")
 			cmd.Args = append(cmd.Args, tt.args...)
-			cmd.Args = append(cmd.Args, "help")
+			command := tt.command
+			if len(command) == 0 {
+				command = []string{"help"}
+			}
+			cmd.Args = append(cmd.Args, command...)
 
 			// Start with minimal environment
 			cmd.Env = []string{

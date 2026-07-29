@@ -110,65 +110,16 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.BoolVar(&opts.debugDumpPayload, "debug-dump-payload", false, "dump raw JSON payload and exit (unix-friendly)")
 	flags.BoolVar(&opts.debugParsing, "debug-parsing", false, "show detailed protobuf parsing information")
 	flags.BoolVar(&opts.debugFieldMapping, "debug-field-mapping", false, "show how JSON array positions map to protobuf fields")
-	flags.BoolVar(&opts.chunkedResponse, "chunked", false, "use chunked response format (rt=c)")
-	flags.BoolVar(&opts.useDirectRPC, "direct-rpc", false, "use direct RPC calls for audio/video (bypasses orchestration service)")
-	flags.BoolVar(&opts.skipSources, "skip-sources", false, "skip fetching sources for chat (useful for testing)")
-	flags.BoolVar(&opts.yes, "yes", false, "skip confirmation prompts")
-	flags.BoolVar(&opts.yes, "y", false, "skip confirmation prompts")
-	flags.StringVar(&opts.chromeProfile, "profile", opts.chromeProfile, "Chrome profile to use")
-	flags.StringVar(&opts.cdpURL, "cdp-url", opts.cdpURL, "remote CDP WebSocket URL")
 	flags.StringVar(&opts.authToken, "auth", opts.authToken, "auth token (or set NLM_AUTH_TOKEN)")
 	flags.StringVar(&opts.cookies, "cookies", opts.cookies, "cookies for authentication (or set NLM_COOKIES)")
 	flags.StringVar(&opts.authUser, "authuser", opts.authUser, "Google account index for multi-account profiles")
-	flags.StringVar(&opts.mimeType, "mime", "", "specify MIME type for content (e.g. 'application/pdf', 'text/plain')")
-	flags.StringVar(&opts.mimeType, "mime-type", "", "specify MIME type for content (alias for -mime)")
-	flags.StringVar(&opts.sourceName, "name", "", "custom name for added source")
-	flags.StringVar(&opts.sourceName, "n", "", "custom name for added source (shorthand)")
-	flags.StringVar(&opts.replaceSourceID, "replace", "", "source ID to replace (upload new, then delete old)")
-	flags.BoolVar(&opts.jsonOutput, "json", false, "emit NDJSON for list and sync commands; deprecated alias for source read --format=json")
-	flags.BoolVar(&opts.sourceReadMarkdown, "markdown", false, "deprecated alias for source read --format=markdown")
-	flags.BoolVar(&opts.sourceReadHTML, "html", false, "deprecated alias for source read --format=html")
-	flags.BoolVar(&opts.force, "force", false, "force re-upload even if unchanged (sync)")
-	flags.BoolVar(&opts.dryRun, "dry-run", false, "show what would change without uploading (sync)")
-	flags.IntVar(&opts.maxBytes, "max-bytes", 0, "chunk threshold in bytes (sync, default 5120000)")
-	flags.IntVar(&opts.packChunk, "chunk", 0, "1-indexed chunk to emit (sync-pack); omit to list or emit sole chunk")
-	flags.StringVar(&opts.reportPrompt, "prompt", "", "per-section prompt template for generate-report ({topic} is replaced)")
-	flags.StringVar(&opts.reportInstructions, "instructions", "", "set notebook instructions before generate-report")
-	flags.IntVar(&opts.reportSections, "sections", 0, "max sections for generate-report (0 = all)")
-	flags.StringVar(&opts.conversationID, "conversation", "", "continue an existing conversation by ID (generate-chat prints the ID on first turn)")
-	flags.StringVar(&opts.conversationID, "c", "", "continue an existing conversation by ID (shorthand)")
-	flags.BoolVar(&opts.useWebChat, "web", false, "use the most recent server-side conversation (generate-chat)")
-	flags.BoolVar(&opts.showChatHistory, "history", false, "show previous chat conversation on start")
-	flags.BoolVar(&opts.showThinking, "thinking", false, "show thinking headers while streaming chat and generate-chat responses")
-	flags.BoolVar(&opts.showThinking, "reasoning", false, "show thinking headers while streaming chat and generate-chat responses")
-	flags.BoolVar(&opts.thinkingJSONL, "thinking-jsonl", false, "deprecated: equivalent to --citations=json --thinking; emits thinking+answer+citation+followup JSON-lines events")
-	flags.BoolVar(&opts.verbose, "verbose", false, "show full thinking traces while streaming chat and generate-chat responses")
-	flags.BoolVar(&opts.verbose, "v", false, "show full thinking traces while streaming responses (shorthand)")
-	flags.StringVar(&opts.citationMode, "citations", "", "citation rendering: off|list|json (default: list - answer + a grouped, per-[n] Citations list; json emits flat answer+citation JSON-lines). block/stream/tail are deprecated aliases of list; overlay is removed.")
-	flags.BoolVar(&opts.resolveCitationsFlag, "resolve-citations", false, "resolve each citation back to file:line when the source is a txtar archive (one extra LoadSourceText fetch per cited source)")
-	flags.Var(&opts.citationExcerpt, "citation-excerpts", "show the cited source text beneath each citation, clipped to N chars (bare flag uses "+fmt.Sprint(defaultExcerptBudget)+"); fetches each cited source, like --resolve-citations")
-	flags.Var(&opts.citationExcerpt, "citation-excerpt", "") // singular alias for --citation-excerpts
-	flags.Var(&opts.hideCitationConf, "citation-confidence", "show the (p=…) confidence column in the citation list (default on; pass =off to hide)")
-	flags.Var(&opts.hideCitationSpans, "citation-spans", "show the trailing [chars N-M] span column in the citation list (default on; pass =off to hide)")
-	flags.StringVar(&opts.sourceIDsFlag, "source-ids", "", "focus on these source IDs (e.g. 'a,b,c' or '-' for newline-delimited stdin); applies to chat, report, and transform commands")
-	flags.StringVar(&opts.sourceMatchFlag, "source-match", "", "focus on sources whose title or UUID matches this regex (e.g. '^nlm internal/' or '^132af'); unioned with --source-ids")
-	flags.StringVar(&opts.sourceExcludeFlag, "source-exclude", "", "exclude sources whose title or UUID matches this regex; applied after include selectors")
-	flags.StringVar(&opts.labelIDsFlag, "label-ids", "", "include sources tagged with any of these label IDs ('a,b,c'); requires labels to be computed for the notebook")
-	flags.StringVar(&opts.labelMatchFlag, "label-match", "", "include sources tagged with any label whose name matches this regex (e.g. '^Testing$')")
-	flags.StringVar(&opts.labelExcludeFlag, "label-exclude", "", "exclude sources tagged with any label whose name matches this regex; applied after include selectors")
-	flags.StringVar(&opts.promptFile, "prompt-file", "", "read prompt from file for one-shot chat ('-' reads stdin). Reliable for long/automated prompts.")
-	flags.StringVar(&opts.promptFile, "f", "", "read prompt from file for one-shot chat ('-' reads stdin) (shorthand)")
-	flags.StringVar(&opts.researchMode, "mode", "", "research mode: fast|deep (default: deep; used by nlm research)")
-	flags.BoolVar(&opts.researchMD, "md", false, "emit raw markdown report (nlm research; default is JSON-lines events)")
-	flags.IntVar(&opts.researchPollMs, "poll-ms", 0, "override research polling interval in milliseconds (default: 5000)")
-	flags.BoolVar(&opts.researchImport, "import", false, "after research completes, import the discovered sources into the notebook via LBwxtb BulkImportFromResearch")
 }
 
 func parseInvocation(args []string, env func(string) string, stdout, stderr io.Writer) (invocation, error) {
 	_ = stdout
 	opts := defaultGlobalOptions(env)
 	flags := newGlobalFlagSet(&opts)
-	flagArgs, positional := splitGlobalArgs(args, flags)
+	flagArgs, positional, stopCommandFlags := splitGlobalArgs(args, flags)
 	inv := invocation{globals: opts}
 	if err := flags.Parse(flagArgs); err != nil {
 		inv.globals = opts
@@ -183,6 +134,17 @@ func parseInvocation(args []string, env func(string) string, stdout, stderr io.W
 	if opts.showVersion {
 		inv.action = invocationVersion
 		return inv, nil
+	}
+	if !stopCommandFlags {
+		normalized, warningFlags, normalizeErr := normalizePreCommandFlags(positional)
+		if normalizeErr != nil {
+			inv.globals = opts
+			return inv, normalizeErr
+		}
+		positional = normalized
+		if len(warningFlags) > 0 {
+			warnPreCommandFlags(stderr, positional, warningFlags)
+		}
 	}
 	if len(positional) == 0 {
 		inv.action = invocationRootHelp
@@ -216,7 +178,7 @@ func parseInvocation(args []string, env func(string) string, stdout, stderr io.W
 	return inv, nil
 }
 
-func splitGlobalArgs(args []string, flags *flag.FlagSet) ([]string, []string) {
+func splitGlobalArgs(args []string, flags *flag.FlagSet) ([]string, []string, bool) {
 	knownFlags := map[string]bool{}
 	boolFlags := map[string]bool{}
 	flags.VisitAll(func(f *flag.Flag) {
@@ -232,6 +194,7 @@ func splitGlobalArgs(args []string, flags *flag.FlagSet) ([]string, []string) {
 		if arg == "--" {
 			if len(positional) == 0 {
 				positional = append(positional, args[i+1:]...)
+				return flagArgs, positional, true
 			} else {
 				positional = append(positional, args[i:]...)
 			}
@@ -246,7 +209,7 @@ func splitGlobalArgs(args []string, flags *flag.FlagSet) ([]string, []string) {
 		if eq := strings.IndexByte(name, '='); eq >= 0 {
 			name = name[:eq]
 		}
-		if !knownFlags[name] || !globalFlagAllowedHere(positional, name) {
+		if !knownFlags[name] {
 			positional = append(positional, arg)
 			if !strings.Contains(arg, "=") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 				i++
@@ -270,24 +233,10 @@ func splitGlobalArgs(args []string, flags *flag.FlagSet) ([]string, []string) {
 		}
 		flagArgs[len(flagArgs)-1] = arg + "="
 	}
-	return flagArgs, positional
+	return flagArgs, positional, false
 }
 
-func globalFlagAllowedHere(positional []string, name string) bool {
-	if len(positional) == 0 {
-		return true
-	}
-	if commandOwnsFlag(positional, name) {
-		return false
-	}
-	return postCommandGlobalFlags[name]
-}
-
-func commandOwnsFlag(positional []string, name string) bool {
-	_, command, _, ok := findCommand(positional)
-	if !ok {
-		return false
-	}
+func commandOwnsFlag(command *command, name string) bool {
 	for _, spec := range commandFlagsForSurface(command.spec, command.surfaceSpec) {
 		if spec.Name == name {
 			return true
@@ -301,25 +250,188 @@ func commandOwnsFlag(positional []string, name string) bool {
 	return false
 }
 
-var postCommandGlobalFlags = map[string]bool{
-	"auth":                true,
-	"authuser":            true,
-	"chunked":             true,
-	"cookies":             true,
-	"debug":               true,
-	"debug-dump-payload":  true,
-	"debug-field-mapping": true,
-	"debug-parsing":       true,
-	"direct-rpc":          true,
-	"experimental":        true,
-	"force":               true,
-	"json":                true,
-	"markdown":            true,
-	"html":                true,
-	"skip-sources":        true,
-	"version":             true,
-	"y":                   true,
-	"yes":                 true,
+// preCommandFlagGraceRelease marks the release that introduced warnings for
+// command flags before the command path. Remove this compatibility path after
+// the next release, as tracked by preCommandFlagRemovalIssue.
+const (
+	preCommandFlagGraceRelease = "2026-07-29"
+	preCommandFlagRemovalIssue = "Phase 6 follow-up commit 5"
+)
+
+type preCommandFlagKind uint8
+
+const (
+	preCommandBoolFlag preCommandFlagKind = iota
+	preCommandValueFlag
+)
+
+// preCommandFlagCompatibility is the exact set of command flag spellings and
+// arities that registerGlobalFlags accepted before the command path before
+// preCommandFlagGraceRelease.
+var preCommandFlagCompatibility = map[string]preCommandFlagKind{
+	"c":                   preCommandValueFlag,
+	"cdp-url":             preCommandValueFlag,
+	"chunk":               preCommandValueFlag,
+	"chunked":             preCommandBoolFlag,
+	"citation-confidence": preCommandBoolFlag,
+	"citation-excerpt":    preCommandBoolFlag,
+	"citation-excerpts":   preCommandBoolFlag,
+	"citation-spans":      preCommandBoolFlag,
+	"citations":           preCommandValueFlag,
+	"conversation":        preCommandValueFlag,
+	"direct-rpc":          preCommandBoolFlag,
+	"dry-run":             preCommandBoolFlag,
+	"f":                   preCommandValueFlag,
+	"force":               preCommandBoolFlag,
+	"history":             preCommandBoolFlag,
+	"html":                preCommandBoolFlag,
+	"import":              preCommandBoolFlag,
+	"instructions":        preCommandValueFlag,
+	"json":                preCommandBoolFlag,
+	"label-exclude":       preCommandValueFlag,
+	"label-ids":           preCommandValueFlag,
+	"label-match":         preCommandValueFlag,
+	"markdown":            preCommandBoolFlag,
+	"max-bytes":           preCommandValueFlag,
+	"md":                  preCommandBoolFlag,
+	"mime":                preCommandValueFlag,
+	"mime-type":           preCommandValueFlag,
+	"mode":                preCommandValueFlag,
+	"n":                   preCommandValueFlag,
+	"name":                preCommandValueFlag,
+	"poll-ms":             preCommandValueFlag,
+	"profile":             preCommandValueFlag,
+	"prompt":              preCommandValueFlag,
+	"prompt-file":         preCommandValueFlag,
+	"reasoning":           preCommandBoolFlag,
+	"replace":             preCommandValueFlag,
+	"resolve-citations":   preCommandBoolFlag,
+	"sections":            preCommandValueFlag,
+	"skip-sources":        preCommandBoolFlag,
+	"source-exclude":      preCommandValueFlag,
+	"source-ids":          preCommandValueFlag,
+	"source-match":        preCommandValueFlag,
+	"thinking":            preCommandBoolFlag,
+	"thinking-jsonl":      preCommandBoolFlag,
+	"v":                   preCommandBoolFlag,
+	"verbose":             preCommandBoolFlag,
+	"web":                 preCommandBoolFlag,
+	"y":                   preCommandBoolFlag,
+	"yes":                 preCommandBoolFlag,
+}
+
+type preCommandFlag struct {
+	name    string
+	display string
+	args    []string
+}
+
+func normalizePreCommandFlags(args []string) ([]string, []string, error) {
+	var flags []preCommandFlag
+	i := 0
+	for i < len(args) {
+		arg := args[i]
+		if arg == "--" {
+			if len(flags) == 0 {
+				return args, nil, nil
+			}
+			i++
+			break
+		}
+		if arg == "-" || !strings.HasPrefix(arg, "-") {
+			break
+		}
+		name, hasValue := commandFlagName(arg)
+		kind, ok := preCommandFlagCompatibility[name]
+		if !ok {
+			return args, nil, nil
+		}
+		flagArgs := []string{arg}
+		if kind == preCommandValueFlag && !hasValue {
+			if i+1 >= len(args) {
+				return nil, nil, badArgsf("flag needs an argument: %s", arg)
+			}
+			i++
+			flagArgs = append(flagArgs, args[i])
+		}
+		flags = append(flags, preCommandFlag{
+			name:    name,
+			display: commandFlagDisplay(arg),
+			args:    flagArgs,
+		})
+		i++
+	}
+	if len(flags) == 0 || i >= len(args) {
+		return args, nil, nil
+	}
+
+	commandName, command, commandArgs, ok := findCommand(args[i:])
+	if !ok {
+		return args, nil, nil
+	}
+	for _, flag := range flags {
+		if commandOwnsFlag(command, flag.name) {
+			continue
+		}
+		if flag.name == "f" {
+			return nil, nil, badArgsf("command flag -f before the command path is ambiguous; move it after the command")
+		}
+		return nil, nil, badArgsf("flag %s is not valid for %q", flag.display, commandName)
+	}
+
+	pathLen := len(args[i:]) - len(commandArgs)
+	normalized := append([]string(nil), args[i:i+pathLen]...)
+	for _, flag := range flags {
+		normalized = append(normalized, flag.args...)
+	}
+	normalized = append(normalized, commandArgs...)
+
+	seen := make(map[string]bool)
+	var warnings []string
+	for _, flag := range flags {
+		if seen[flag.name] {
+			continue
+		}
+		seen[flag.name] = true
+		warnings = append(warnings, flag.display)
+	}
+	return normalized, warnings, nil
+}
+
+func commandFlagName(arg string) (name string, hasValue bool) {
+	name = strings.TrimLeft(arg, "-")
+	if before, _, ok := strings.Cut(name, "="); ok {
+		return before, true
+	}
+	return name, false
+}
+
+func commandFlagDisplay(arg string) string {
+	if before, _, ok := strings.Cut(arg, "="); ok {
+		return before
+	}
+	return arg
+}
+
+func containsString(values []string, value string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
+}
+
+func warnPreCommandFlags(stderr io.Writer, args, flags []string) {
+	commandName, _, _, ok := findCommand(args)
+	if !ok {
+		return
+	}
+	if len(flags) == 1 {
+		fmt.Fprintf(stderr, "nlm: warning: command flag %s before %q is deprecated; move it after the command path\n", flags[0], commandName)
+		return
+	}
+	fmt.Fprintf(stderr, "nlm: warning: command flags %s before %q are deprecated; move them after the command path\n", strings.Join(flags, ", "), commandName)
 }
 
 func commandHelpRequested(args []string) bool {

@@ -16,21 +16,23 @@ exec ./nlm_test -cookies test-cookies help
 stderr 'Usage: nlm <command>'
 ! stderr 'Warning: Missing authentication credentials'
 
-# Test profile flag doesn't break help
-exec ./nlm_test -profile test-profile help
-stderr 'Usage: nlm <command>'
+# Test the profile compatibility flag with one of its owners
+exec ./nlm_test -profile test-profile source read --help
+stderr 'Usage: nlm source read'
+stderr 'command flag -profile before "source read" is deprecated'
 ! stderr 'Warning: Missing authentication credentials'
 
-# Test mime flag doesn't break help
-exec ./nlm_test -mime application/json help
-stderr 'Usage: nlm <command>'
+# Test the MIME compatibility flag with one of its owners
+exec ./nlm_test -mime application/json source add --help
+stderr 'Usage: nlm source add'
+stderr 'command flag -mime before "source add" is deprecated'
 ! stderr 'Warning: Missing authentication credentials'
 
 # Test multiple flags together
-exec ./nlm_test -debug -auth test-token -cookies test-cookies -profile test-profile help
-stderr 'Usage: nlm <command>'
+exec ./nlm_test -debug -auth test-token -cookies test-cookies -profile test-profile source read --help
+stderr 'Usage: nlm source read'
 stderr 'nlm: debug mode enabled'
-stderr 'nlm: using Chrome profile: test.*file'
+stderr 'command flag -profile before "source read" is deprecated'
 
 # Test environment variable support
 env NLM_BROWSER_PROFILE=env-profile

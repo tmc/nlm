@@ -1,0 +1,39 @@
+# Command-local flags after the command path are canonical and do not warn.
+exec ./nlm_test betool decode-response --json testdata/betool/response.txt
+stdout '"responses"'
+! stderr 'before "betool" is deprecated'
+
+# The one-release pre-path compatibility form still works and warns once.
+exec ./nlm_test --json betool decode-response testdata/betool/response.txt
+stdout '"responses"'
+stderr 'nlm: warning: command flag --json before "betool" is deprecated; move it after the command path'
+
+# Multiple pre-path flags produce one ordered, aggregate warning.
+exec ./nlm_test --name Title --max-bytes 1 source pack --help
+stderr 'nlm: warning: command flags --name, --max-bytes before "source pack" are deprecated; move them after the command path'
+
+# The overloaded -f spelling normalizes only for a resolved owner.
+exec ./nlm_test -f prompt.txt chat --help
+stderr 'nlm: warning: command flag -f before "chat" is deprecated; move it after the command path'
+
+# A known pre-path flag for a non-owner fails instead of leaking globally.
+! exec ./nlm_test --json refresh
+stderr 'nlm: flag --json is not valid for "refresh"'
+stderr 'exit-class=bad-args \(exit 2\)'
+
+# An overloaded -f without an owner is explicitly ambiguous.
+! exec ./nlm_test -f prompt.txt refresh
+stderr 'nlm: command flag -f before the command path is ambiguous; move it after the command'
+stderr 'exit-class=bad-args \(exit 2\)'
+
+# True globals remain valid before and after the command without a placement warning.
+exec ./nlm_test --debug betool help
+stderr 'nlm: debug mode enabled'
+! stderr 'command flag'
+exec ./nlm_test betool help --debug
+stderr 'nlm: debug mode enabled'
+! stderr 'command flag'
+
+# A leading -- ends flag recognition and prevents compatibility normalization.
+! exec ./nlm_test -- --json betool help
+! stderr 'before "betool" is deprecated'

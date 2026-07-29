@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -70,12 +71,16 @@ func TestCLISurface(t *testing.T) {
 	})
 
 	t.Run("artifact read", func(t *testing.T) {
-		inv, _, err := parse(t, "--cdp-url", "ws://localhost:9222", "artifact", "read", "artifact-1")
+		inv, stderr, err := parse(t, "--cdp-url", "ws://localhost:9222", "artifact", "read", "artifact-1")
 		if err != nil {
 			t.Fatalf("parseInvocation: %v", err)
 		}
-		if inv.name != "artifact read" || inv.globals.cdpURL != "ws://localhost:9222" || !reflect.DeepEqual(inv.args, []string{"artifact-1"}) {
-			t.Fatalf("name, cdp URL, args = %q, %q, %v; want artifact read ws://localhost:9222 [artifact-1]", inv.name, inv.globals.cdpURL, inv.args)
+		wantArgs := []string{"--cdp-url", "ws://localhost:9222", "artifact-1"}
+		if inv.name != "artifact read" || inv.globals.cdpURL != "" || !reflect.DeepEqual(inv.args, wantArgs) {
+			t.Fatalf("name, cdp URL, args = %q, %q, %v; want artifact read empty %v", inv.name, inv.globals.cdpURL, inv.args, wantArgs)
+		}
+		if want := `command flag --cdp-url before "artifact read" is deprecated`; !strings.Contains(stderr, want) {
+			t.Fatalf("stderr = %q, want %q", stderr, want)
 		}
 	})
 
@@ -164,14 +169,17 @@ func TestCLISurface(t *testing.T) {
 		}
 	})
 
-	t.Run("legacy before-command local flags seed command defaults", func(t *testing.T) {
-		inv, _, err := parse(t, "--name", "Title", "source", "add", "nb", "-")
+	t.Run("legacy before-command local flags move after command", func(t *testing.T) {
+		inv, stderr, err := parse(t, "--name", "Title", "source", "add", "nb", "-")
 		if err != nil {
 			t.Fatalf("parseInvocation: %v", err)
 		}
-		wantArgs := []string{"nb", "-"}
-		if inv.name != "source add" || inv.globals.sourceName != "Title" || !reflect.DeepEqual(inv.args, wantArgs) {
-			t.Fatalf("name, global name, args = %q, %q, %v; want source add Title %v", inv.name, inv.globals.sourceName, inv.args, wantArgs)
+		wantArgs := []string{"--name", "Title", "nb", "-"}
+		if inv.name != "source add" || inv.globals.sourceName != "" || !reflect.DeepEqual(inv.args, wantArgs) {
+			t.Fatalf("name, global name, args = %q, %q, %v; want source add empty %v", inv.name, inv.globals.sourceName, inv.args, wantArgs)
+		}
+		if want := `command flag --name before "source add" is deprecated`; !strings.Contains(stderr, want) {
+			t.Fatalf("stderr = %q, want %q", stderr, want)
 		}
 	})
 
@@ -215,9 +223,9 @@ func TestCLISurface(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parseInvocation: %v", err)
 		}
-		wantArgs = []string{"Work", "--debug"}
-		if inv.name != "auth" || inv.globals.debug || !reflect.DeepEqual(inv.args, wantArgs) {
-			t.Fatalf("name, global debug, args = %q, %v, %v; want auth false %v", inv.name, inv.globals.debug, inv.args, wantArgs)
+		wantArgs = []string{"Work"}
+		if inv.name != "auth" || !inv.globals.debug || !reflect.DeepEqual(inv.args, wantArgs) {
+			t.Fatalf("name, global debug, args = %q, %v, %v; want auth true %v", inv.name, inv.globals.debug, inv.args, wantArgs)
 		}
 
 		inv, _, err = parse(t, "artifact", "update", "art-1", "--name", "New")

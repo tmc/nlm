@@ -69,7 +69,7 @@ exec ./nlm_test -auth flag-secret-token -cookies 'flag-cookie-secret' help
 ! stderr 'flag-cookie-secret'
 
 # Test 7: Profile flag with sensitive name should be masked in debug output
-! exec ./nlm_test -debug -profile 'my-secret-profile-name' ls
+! exec ./nlm_test -debug -profile 'my-secret-profile-name' source read notebook source
 stderr 'debug mode enabled'
 # Profile name should be masked in debug output (testing masking functionality)
 ! stderr 'my-secret-profile-name'
