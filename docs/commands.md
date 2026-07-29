@@ -60,7 +60,7 @@ specification.
 | `nlm source rename <source-id> <new-name>` | Rename a source |
 | `nlm source refresh <notebook-id> <source-id>` | Refresh source content |
 | `nlm source check <notebook-id> <source-id>` | Check source freshness (Google-Drive-only; notebook-id enables client-side source-type validation) |
-| `nlm source read [--format text\|markdown\|html\|json\|raw] <notebook-id> <source-id>` | Read a source body |
+| `nlm source read [--format text\|markdown\|html\|json\|raw\|prototext] <notebook-id> <source-id>` | Read a source body |
 | `nlm discover-sources <notebook-id> <query>` | Discover relevant sources via Es3dTe (chat fallback if the server rejects) |
 
 ### Note

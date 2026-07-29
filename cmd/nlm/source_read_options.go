@@ -35,11 +35,11 @@ func normalizeSourceReadFormat(opts *globalOptions) error {
 		format = "text"
 	case "markdown", "md":
 		format = "markdown"
-	case "html", "json", "raw":
+	case "html", "json", "raw", "prototext":
 	case "raw-json":
 		format = "raw"
 	default:
-		return fmt.Errorf("unknown --format %q (want text, markdown, html, json, or raw)", format)
+		return fmt.Errorf("unknown --format %q (want text, markdown, html, json, raw, or prototext)", format)
 	}
 	opts.sourceReadFormat = format
 	opts.jsonOutput = false

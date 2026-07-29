@@ -102,7 +102,7 @@ func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	readSpec := specs["read-source"]
 	readSpec.Flags = []flagSpec{
-		{Name: "format", Value: "text|markdown|html|json|raw", Description: "output format", Inline: true},
+		{Name: "format", Value: "text|markdown|html|json|raw|prototext", Description: "output format", Inline: true},
 	}
 	configureTypedCommandSpecWithUsage(readSpec,
 		withSourceReadConstraint(stableSourceCommandForms()),

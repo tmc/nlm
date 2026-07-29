@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -11,6 +12,8 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/richrender"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 func imageSourceBody() api.LoadSourceText {
@@ -30,6 +33,45 @@ func testSourceImageFetcher(imageURL string) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("unexpected image URL %q", imageURL)
 	}
 	return []byte("image"), "image/png", nil
+}
+
+func sourceReadProtoFixture() *pb.LoadSourceResponse {
+	start, end := int64(10), int64(22)
+	language := "go"
+	return &pb.LoadSourceResponse{
+		Source: &pb.Source{
+			SourceId: &pb.SourceId{SourceId: "source-1"},
+			Title:    "source.md",
+			MediaData: &pb.SourceMediaData{
+				Blob: &pb.SourceBlob{
+					BlobRef:  "/contrib_service/blobrefs/notebooklm/source-1",
+					MimeType: "text/markdown",
+				},
+			},
+		},
+		Content: &pb.LoadedSourceContent{
+			Rows: &pb.LoadedSourceRows{
+				Rows: []*pb.LoadedSourceRow{
+					{
+						Start: &start,
+						End:   &end,
+						CodeBlock: &pb.SpanCodeBlock{
+							Code:     "package main\n",
+							Language: &language,
+						},
+					},
+					{
+						Start: &start,
+						End:   &end,
+						Image: &pb.LoadedSourceImage{
+							Url:     "https://example.test/image",
+							ImageId: "image-1",
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func TestWriteSourceRead_DefaultPreservesText(t *testing.T) {
@@ -346,42 +388,7 @@ func TestWriteSourceReadJSONUsesStableModel(t *testing.T) {
 }
 
 func TestWriteSourceReadProtoJSONPreservesRowsAndBlob(t *testing.T) {
-	start, end := int64(10), int64(22)
-	language := "go"
-	response := &pb.LoadSourceResponse{
-		Source: &pb.Source{
-			SourceId: &pb.SourceId{SourceId: "source-1"},
-			Title:    "source.md",
-			MediaData: &pb.SourceMediaData{
-				Blob: &pb.SourceBlob{
-					BlobRef:  "/contrib_service/blobrefs/notebooklm/source-1",
-					MimeType: "text/markdown",
-				},
-			},
-		},
-		Content: &pb.LoadedSourceContent{
-			Rows: &pb.LoadedSourceRows{
-				Rows: []*pb.LoadedSourceRow{
-					{
-						Start: &start,
-						End:   &end,
-						CodeBlock: &pb.SpanCodeBlock{
-							Code:     "package main\n",
-							Language: &language,
-						},
-					},
-					{
-						Start: &start,
-						End:   &end,
-						Image: &pb.LoadedSourceImage{
-							Url:     "https://example.test/image",
-							ImageId: "image-1",
-						},
-					},
-				},
-			},
-		},
-	}
+	response := sourceReadProtoFixture()
 	var out bytes.Buffer
 	if err := writeSourceReadProtoJSON(&out, response); err != nil {
 		t.Fatal(err)
@@ -397,7 +404,7 @@ func TestWriteSourceReadProtoJSONPreservesRowsAndBlob(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("rows = %d, want 2", len(rows))
 	}
-	if rows[0].GetStart() != start || rows[0].GetEnd() != end || rows[0].GetCodeBlock().GetCode() != "package main\n" {
+	if rows[0].GetStart() != 10 || rows[0].GetEnd() != 22 || rows[0].GetCodeBlock().GetCode() != "package main\n" {
 		t.Errorf("code row = %+v", rows[0])
 	}
 	if rows[1].GetImage().GetImageId() != "image-1" {
@@ -412,6 +419,29 @@ func TestWriteSourceReadProtoJSONPreservesRowsAndBlob(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"code_block"`) || !strings.Contains(out.String(), `"blob_ref"`) {
 		t.Fatalf("proto field names missing:\n%s", out.String())
+	}
+}
+
+func TestWriteSourceReadProtoTextPreservesResponse(t *testing.T) {
+	response := sourceReadProtoFixture()
+	var out bytes.Buffer
+	if err := writeSourceReadProtoText(&out, response); err != nil {
+		t.Fatal(err)
+	}
+	if out.Len() == 0 {
+		t.Fatal("prototext output is empty")
+	}
+	var got pb.LoadSourceResponse
+	if err := prototext.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("parse prototext: %v\n%s", err, out.String())
+	}
+	if !proto.Equal(&got, response) {
+		t.Fatalf("prototext round trip differs:\n%s", out.String())
+	}
+	for _, field := range []string{"code_block", "blob_ref"} {
+		if !strings.Contains(out.String(), field+":") {
+			t.Errorf("prototext does not contain %s field:\n%s", field, out.String())
+		}
 	}
 }
 
@@ -496,7 +526,9 @@ func TestParseSourceReadArgsFormats(t *testing.T) {
 		{name: "html", args: []string{"--format", "html", "source-1"}, format: "html"},
 		{name: "stable json", args: []string{"--format=json", "source-1"}, format: "json"},
 		{name: "raw proto", args: []string{"--format=raw", "source-1"}, format: "raw"},
+		{name: "proto text", args: []string{"--format=prototext", "source-1"}, format: "prototext"},
 		{name: "raw json synonym", args: []string{"--format=raw-json", "source-1"}, format: "raw"},
+		{name: "repeated format is last wins", args: []string{"--format=raw", "--format=prototext", "source-1"}, format: "prototext"},
 		{name: "json alias", args: []string{"source-1"}, globals: globalOptions{jsonOutput: true}, format: "json"},
 		{name: "markdown alias", args: []string{"source-1"}, globals: globalOptions{sourceReadMarkdown: true}, format: "markdown"},
 		{name: "html alias", args: []string{"source-1"}, globals: globalOptions{sourceReadHTML: true}, format: "html"},
@@ -531,7 +563,7 @@ func TestParseSourceReadArgsUsesNotebookFirst(t *testing.T) {
 		t.Fatal("source read command not found")
 	}
 	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
-		"--format=raw",
+		"--format=prototext",
 		"notebook-1",
 		"source-1",
 	}, globalOptions{})
@@ -542,7 +574,7 @@ func TestParseSourceReadArgsUsesNotebookFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if args.Options.sourceReadFormat != "raw" {
+	if args.Options.sourceReadFormat != "prototext" {
 		t.Errorf("format = %q", args.Options.sourceReadFormat)
 	}
 	if got, want := strings.Join([]string{args.Target.NotebookID, args.Target.SourceID}, " "), "notebook-1 source-1"; got != want {
@@ -559,6 +591,7 @@ func TestParseLegacySourceReadArgsKeepsChildFirstOrder(t *testing.T) {
 		t.Fatal("read-source command not found")
 	}
 	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
+		"--format", "prototext",
 		"source-1",
 		"notebook-1",
 	}, globalOptions{})
@@ -575,15 +608,67 @@ func TestParseLegacySourceReadArgsKeepsChildFirstOrder(t *testing.T) {
 	if args.Target.Resolve || args.Target.Grace {
 		t.Errorf("legacy target = %+v", args.Target)
 	}
+	if args.Options.sourceReadFormat != "prototext" {
+		t.Errorf("format = %q, want prototext", args.Options.sourceReadFormat)
+	}
 }
 
-func TestSourceReadRejectsMultipleFormats(t *testing.T) {
-	err := readSource(nil, "source-1", "", globalOptions{
-		jsonOutput:         true,
-		sourceReadMarkdown: true,
-	})
-	if err == nil || !strings.Contains(err.Error(), "use only one") {
-		t.Fatalf("readSource error = %v", err)
+func TestSourceReadFormatAliasConflictsUnchanged(t *testing.T) {
+	for _, format := range []string{"raw", "prototext"} {
+		err := readSource(nil, "source-1", "", globalOptions{
+			sourceReadFormat: format,
+			jsonOutput:       true,
+		})
+		if err == nil || !strings.Contains(err.Error(), "use only one") {
+			t.Errorf("%s readSource error = %v", format, err)
+		}
+	}
+}
+
+func TestSourceReadProtoTextMirrorsRawOutBehavior(t *testing.T) {
+	command, ok := lookupCommand("source read")
+	if !ok {
+		t.Fatal("source read command not found")
+	}
+	for _, format := range []string{"raw", "prototext"} {
+		_, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
+			"--format=" + format,
+			"--out",
+			"source.txt",
+			"source-1",
+		}, globalOptions{})
+		if !errors.Is(err, errBadArgs) {
+			t.Errorf("%s --out error = %v, want invalid arguments", format, err)
+		}
+	}
+}
+
+func TestSourceReadUnknownFormatListsProtoText(t *testing.T) {
+	opts := globalOptions{sourceReadFormat: "yaml"}
+	err := normalizeSourceReadFormat(&opts)
+	want := `unknown --format "yaml" (want text, markdown, html, json, raw, or prototext)`
+	if err == nil || err.Error() != want {
+		t.Fatalf("error = %v, want %q", err, want)
+	}
+}
+
+func TestSourceReadHelpDocumentsProtoText(t *testing.T) {
+	for _, path := range []string{"source read", "read-source"} {
+		command, ok := lookupCommand(path)
+		if !ok {
+			t.Fatalf("%s command not found", path)
+		}
+		help := captureCommandStderr(t, func() {
+			printCommandHelp(path, command)
+		})
+		for _, want := range []string{
+			"text|markdown|html|json|raw|prototext",
+			"The prototext format\nis the unstable LoadSource protobuf in protobuf text format.",
+		} {
+			if !strings.Contains(help, want) {
+				t.Errorf("%s help does not contain %q:\n%s", path, want, help)
+			}
+		}
 	}
 }
 

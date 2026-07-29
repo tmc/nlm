@@ -19,18 +19,22 @@ import (
 	"github.com/tmc/nlm/internal/notebooklm/api"
 	"github.com/tmc/nlm/internal/richrender"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 func readSource(c *api.Client, sourceID, notebookID string, opts globalOptions) error {
 	if err := normalizeSourceReadFormat(&opts); err != nil {
 		return err
 	}
-	if opts.sourceReadFormat == "raw" {
+	if opts.sourceReadFormat == "raw" || opts.sourceReadFormat == "prototext" {
 		response, err := c.LoadSourceProto(context.Background(), sourceID, notebookID)
 		if err != nil {
 			return err
 		}
-		return writeSourceReadProtoJSON(os.Stdout, response)
+		if opts.sourceReadFormat == "raw" {
+			return writeSourceReadProtoJSON(os.Stdout, response)
+		}
+		return writeSourceReadProtoText(os.Stdout, response)
 	}
 	body, err := c.LoadSourceText(context.Background(), sourceID, notebookID)
 	if err != nil {
@@ -102,6 +106,19 @@ func writeSourceReadProtoJSON(w io.Writer, response *pb.LoadSourceResponse) erro
 	}).Marshal(response)
 	if err != nil {
 		return fmt.Errorf("marshal load source proto: %w", err)
+	}
+	data = append(data, '\n')
+	_, err = w.Write(data)
+	return err
+}
+
+func writeSourceReadProtoText(w io.Writer, response *pb.LoadSourceResponse) error {
+	data, err := (prototext.MarshalOptions{
+		Multiline: true,
+		Indent:    "  ",
+	}).Marshal(response)
+	if err != nil {
+		return fmt.Errorf("marshal load source prototext: %w", err)
 	}
 	data = append(data, '\n')
 	_, err = w.Write(data)

@@ -73,6 +73,9 @@ func TestCommandSpecSynopses(t *testing.T) {
 		if phase5, ok := phase5SurfaceSynopses[cmd.name]; ok {
 			want = phase5
 		}
+		if prototext, ok := prototextSurfaceSynopses[cmd.name]; ok {
+			want = prototext
+		}
 		if inventory, ok := phase2InventorySynopses[cmd.spec.ID]; ok {
 			want = inventory
 		}
@@ -94,6 +97,11 @@ var phase5SurfaceSynopses = map[string]string{
 	"note update": "<notebook-id> <note-id> [--title TITLE] [--content TEXT | --content-file FILE]",
 	"new-note":    "<notebook-id> <title> [content]",
 	"update-note": "<notebook-id> <note-id> <content> <title>",
+}
+
+var prototextSurfaceSynopses = map[string]string{
+	"source read": "[--format text|markdown|html|json|raw|prototext] <notebook-id> <source-id>",
+	"read-source": "[--format text|markdown|html|json|raw|prototext] <source-id> [notebook-id]",
 }
 
 func TestCommandHelpUsesSpecSynopsis(t *testing.T) {

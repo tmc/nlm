@@ -44,6 +44,13 @@ func TestCommandReferenceSignatures(t *testing.T) {
 	}
 }
 
+func TestCommandReferenceDocumentsSourceProtoText(t *testing.T) {
+	want := "nlm source read [--format text\\|markdown\\|html\\|json\\|raw\\|prototext] <notebook-id> <source-id>"
+	if got := renderCommandReferenceSignatures(); !strings.Contains(got, want) {
+		t.Fatalf("command reference does not contain %q", want)
+	}
+}
+
 func renderCommandReferenceSignatures() string {
 	var out strings.Builder
 	for _, section := range helpSections {
