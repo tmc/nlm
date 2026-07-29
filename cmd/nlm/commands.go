@@ -457,8 +457,6 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "generate-guide", argsUsage: "<notebook-id>",
 		usage: "Generate notebook guide", section: "Generation",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return generateNotebookGuide(c, args[0]) },
 	},
 	{
 		name: "source-guide", argsUsage: "<notebook-id> [source-id...]",
@@ -483,34 +481,10 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "report-suggestions", argsUsage: "<notebook-id>",
 		usage: "Suggest report topics for notebook", section: "Generation",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			resp, err := c.GenerateReportSuggestions(context.Background(), args[0])
-			if err != nil {
-				return err
-			}
-			for i, s := range resp.GetSuggestions() {
-				if i > 0 {
-					fmt.Println()
-				}
-				fmt.Printf("%s\n", s.GetTitle())
-				if s.GetDescription() != "" {
-					fmt.Printf("  %s\n", s.GetDescription())
-				}
-				if s.GetPrompt() != "" {
-					fmt.Printf("  Prompt: %s\n", s.GetPrompt())
-				}
-			}
-			return nil
-		},
 	},
 	{
 		name: "audio-suggestions", argsUsage: "<notebook-id>",
 		usage: "Suggest audio-overview blueprints (emit JSON lines; pipe to create-audio)", section: "Generation",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			return audioSuggestions(c, args[0])
-		},
 	},
 	{
 		name: "create-report", argsUsage: "<notebook-id> <report-type> [description] [instructions]",
