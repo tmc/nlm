@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -428,130 +427,30 @@ var commandDefinitions = []commandDefinition{
 	{
 		name:  "guidebooks",
 		usage: "List all guidebooks", section: "Guidebook",
-		minArgs: 0, maxArgs: 0,
-		run: func(c *api.Client, args []string) error {
-			guidebooks, err := c.ListGuidebooks(context.Background())
-			if err != nil {
-				return err
-			}
-			if jsonOutput {
-				enc := json.NewEncoder(os.Stdout)
-				for _, gb := range guidebooks {
-					rec := guidebookListRecord{
-						GuidebookID: gb.GetGuidebookId(),
-						Title:       gb.GetTitle(),
-						Status:      gb.GetStatus().String(),
-					}
-					if err := enc.Encode(rec); err != nil {
-						return err
-					}
-				}
-				return nil
-			}
-			w, flush := newListWriter(os.Stdout)
-			fmt.Fprintln(w, "ID\tTITLE\tSTATUS")
-			for _, gb := range guidebooks {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", gb.GetGuidebookId(), gb.GetTitle(), gb.GetStatus().String())
-			}
-			return flush()
-		},
 	},
 	{
 		name: "guidebook", argsUsage: "<guidebook-id>",
 		usage: "Get guidebook details", section: "Guidebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			gb, err := c.GetGuidebook(context.Background(), args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Printf("Guidebook: %s\n", gb.GetTitle())
-			fmt.Printf("ID: %s\n", gb.GetGuidebookId())
-			fmt.Printf("Status: %s\n", gb.GetStatus().String())
-			if content := gb.GetContent(); content != "" {
-				fmt.Printf("\n%s\n", content)
-			}
-			return nil
-		},
 	},
 	{
 		name: "guidebook-details", argsUsage: "<guidebook-id>",
 		usage: "Get detailed guidebook info with sections and analytics", section: "Guidebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			details, err := c.GetGuidebookDetails(context.Background(), args[0])
-			if err != nil {
-				return err
-			}
-			if gb := details.GetGuidebook(); gb != nil {
-				fmt.Printf("Guidebook: %s\n", gb.GetTitle())
-				fmt.Printf("ID: %s\n", gb.GetGuidebookId())
-				fmt.Printf("Status: %s\n", gb.GetStatus().String())
-			}
-			if sections := details.GetSections(); len(sections) > 0 {
-				fmt.Printf("\nSections (%d):\n", len(sections))
-				for i, s := range sections {
-					fmt.Printf("  %d. %s\n", i+1, s.GetTitle())
-				}
-			}
-			if analytics := details.GetAnalytics(); analytics != nil {
-				data, err := json.MarshalIndent(analytics, "", "  ")
-				if err == nil {
-					fmt.Printf("\nAnalytics:\n%s\n", string(data))
-				}
-			}
-			return nil
-		},
 	},
 	{
 		name: "guidebook-publish", argsUsage: "<guidebook-id>",
 		usage: "Publish a guidebook", section: "Guidebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			_, err := c.PublishGuidebook(context.Background(), args[0])
-			if err == nil {
-				fmt.Fprintf(os.Stderr, "Guidebook published.\n")
-			}
-			return err
-		},
 	},
 	{
 		name: "guidebook-share", argsUsage: "<guidebook-id>",
 		usage: "Share a guidebook", section: "Guidebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			_, err := c.ShareGuidebook(context.Background(), args[0])
-			if err == nil {
-				fmt.Fprintf(os.Stderr, "Guidebook shared.\n")
-			}
-			return err
-		},
 	},
 	{
 		name: "guidebook-ask", argsUsage: "<guidebook-id> <question>",
 		usage: "Ask a guidebook question", section: "Guidebook",
-		minArgs: 2, maxArgs: -1,
-		run: func(c *api.Client, args []string) error {
-			question := strings.Join(args[1:], " ")
-			resp, err := c.GuidebookAsk(context.Background(), args[0], question)
-			if err != nil {
-				return err
-			}
-			fmt.Println(resp.GetAnswer())
-			return nil
-		},
 	},
 	{
 		name: "guidebook-rm", argsUsage: "<guidebook-id>",
 		usage: "Delete a guidebook", section: "Guidebook",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error {
-			err := c.DeleteGuidebook(context.Background(), args[0])
-			if err == nil {
-				fmt.Fprintf(os.Stderr, "Guidebook deleted.\n")
-			}
-			return err
-		},
 	},
 
 	// Generation operations
