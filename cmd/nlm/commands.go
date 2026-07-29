@@ -363,38 +363,22 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "audio-list", argsUsage: "<notebook-id>",
 		usage: "List audio overviews for a notebook", section: "Audio",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return listAudioOverviews(c, args[0]) },
 	},
 	{
 		name: "audio-get", argsUsage: "<notebook-id>",
 		usage: "Get audio overview details", section: "Audio",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return getAudioOverview(c, args[0]) },
 	},
 	{
 		name: "audio-download", argsUsage: "<notebook-id> [filename]",
 		usage: "Download audio file", section: "Audio",
-		minArgs: 1, maxArgs: 2,
-		run: func(c *api.Client, args []string) error {
-			filename := ""
-			if len(args) > 1 {
-				filename = args[1]
-			}
-			return downloadAudioOverview(c, args[0], filename)
-		},
 	},
 	{
 		name: "audio-rm", argsUsage: "<notebook-id>",
 		usage: "Delete audio overview", section: "Audio",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return deleteAudioOverview(c, args[0]) },
 	},
 	{
 		name: "audio-share", argsUsage: "<notebook-id>",
 		usage: "Share audio overview", section: "Audio",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return shareAudioOverview(c, args[0]) },
 	},
 
 	// Artifact operations

@@ -139,6 +139,7 @@ func buildCommandRegistry() {
 	configureSourceCommandSpecs(specs)
 	configureNoteCommandSpecs(specs)
 	configureLabelCommandSpecs(specs)
+	configureAudioCommandSpecs(specs)
 
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]
