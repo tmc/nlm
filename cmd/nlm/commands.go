@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -193,8 +192,6 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "notes", argsUsage: "<notebook-id>",
 		usage: "List notes in notebook", section: "Note",
-		minArgs: 1, maxArgs: 1,
-		run: func(c *api.Client, args []string) error { return listNotes(c, args[0]) },
 	},
 	{
 		name: "read-note", argsUsage: "[--format text|markdown|html] [--out file] [--open] <notebook-id> <note-id>",
@@ -210,32 +207,14 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "new-note", argsUsage: "<notebook-id> <title> [content]",
 		usage: "Create new note (content via arg or stdin)", section: "Note",
-		minArgs: 2, maxArgs: 3,
-		run: func(c *api.Client, args []string) error {
-			noteContent := ""
-			if len(args) > 2 {
-				noteContent = args[2]
-			} else if fi, stErr := os.Stdin.Stat(); stErr == nil && fi.Mode()&os.ModeCharDevice == 0 {
-				data, readErr := io.ReadAll(os.Stdin)
-				if readErr != nil {
-					return readErr
-				}
-				noteContent = string(data)
-			}
-			return createNote(c, args[0], args[1], noteContent)
-		},
 	},
 	{
 		name: "update-note", argsUsage: "<notebook-id> <note-id> <content> <title>",
 		usage: "Edit note content and title", section: "Note",
-		minArgs: 4, maxArgs: 4,
-		run: func(c *api.Client, args []string) error { return updateNote(c, args[0], args[1], args[2], args[3]) },
 	},
 	{
 		name: "rm-note", aliases: []string{"note-rm"}, argsUsage: "<notebook-id> <note-id>",
 		usage: "Remove a note from a notebook", section: "Note",
-		minArgs: 2, maxArgs: 2,
-		run: func(c *api.Client, args []string) error { return removeNote(c, args[0], args[1]) },
 	},
 
 	// Label operations
