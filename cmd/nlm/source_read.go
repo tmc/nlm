@@ -21,27 +21,23 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-func readSource(c *api.Client, args []string, opts globalOptions) error {
+func readSource(c *api.Client, sourceID, notebookID string, opts globalOptions) error {
 	if err := normalizeSourceReadFormat(&opts); err != nil {
 		return err
 	}
-	nb := ""
-	if len(args) == 2 {
-		nb = args[1]
-	}
 	if opts.sourceReadFormat == "raw" {
-		response, err := c.LoadSourceProto(context.Background(), args[0], nb)
+		response, err := c.LoadSourceProto(context.Background(), sourceID, notebookID)
 		if err != nil {
 			return err
 		}
 		return writeSourceReadProtoJSON(os.Stdout, response)
 	}
-	body, err := c.LoadSourceText(context.Background(), args[0], nb)
+	body, err := c.LoadSourceText(context.Background(), sourceID, notebookID)
 	if err != nil {
 		return err
 	}
 	if len(body.Fragments) == 0 && opts.sourceReadFormat != "json" {
-		return fmt.Errorf("source %s has no indexed text body; use --format=raw to inspect non-text or blob-backed content", args[0])
+		return fmt.Errorf("source %s has no indexed text body; use --format=raw to inspect non-text or blob-backed content", sourceID)
 	}
 	return writeSourceRead(os.Stdout, body, opts, sourceImageFetcherFor(c, opts))
 }

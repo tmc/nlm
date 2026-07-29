@@ -43,6 +43,13 @@ type sourceDumpArgs struct {
 	NotebookID string
 }
 
+type sourceReadArgs struct {
+	SourceID   string
+	NotebookID string
+	Options    globalOptions
+	Warnings   globalOptions
+}
+
 func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 	configureTypedCommandSpec(specs["sources"],
 		commandFormOf(requiredOperand("notebook")),
@@ -72,6 +79,63 @@ func configureSourceCommandSpecs(specs map[commandID]*commandSpec) {
 		commandFormOf(requiredOperand("source"), optionalOperand("notebook")),
 		decodeSourceDump,
 	)
+	readSpec := specs["read-source"]
+	readSpec.Flags = []flagSpec{
+		{Name: "format", Value: "format", Description: "output format"},
+	}
+	configureTypedCommandSpecWithUsage(readSpec,
+		[]commandForm{{
+			Parts: []operandSpec{
+				requiredOperand("source"),
+				optionalOperand("notebook"),
+			},
+			Constraints: []constraint{
+				constraintFunc(validateSourceReadCommand),
+			},
+		}},
+		decodeSourceRead,
+		func(path string) {
+			fmt.Fprintf(os.Stderr, "usage: nlm %s [--format text|markdown|html|json|raw] <source-id> [notebook-id]\n", path)
+		},
+	)
+}
+
+func validateSourceReadCommand(parsed parsedCommand) error {
+	_, err := decodeSourceReadArgs(parsed)
+	return err
+}
+
+func decodeSourceRead(parsed parsedCommand) (commandCall, error) {
+	args, err := decodeSourceReadArgs(parsed)
+	if err != nil {
+		return nil, err
+	}
+	return func(_ context.Context, client *api.Client) error {
+		warnDeprecatedSourceReadFormat(os.Stderr, args.Warnings)
+		return readSource(client, args.SourceID, args.NotebookID, args.Options)
+	}, nil
+}
+
+func decodeSourceReadArgs(parsed parsedCommand) (sourceReadArgs, error) {
+	sourceID, err := parsedArgument(parsed, "source")
+	if err != nil {
+		return sourceReadArgs{}, err
+	}
+	notebookID, _, err := parsedOptionalArgument(parsed, "notebook")
+	if err != nil {
+		return sourceReadArgs{}, err
+	}
+	opts := parsed.globals
+	opts.sourceReadFormat = parsedStringFlag(parsed, "format", opts.sourceReadFormat)
+	if err := normalizeSourceReadFormat(&opts); err != nil {
+		return sourceReadArgs{}, err
+	}
+	return sourceReadArgs{
+		SourceID:   sourceID,
+		NotebookID: notebookID,
+		Options:    opts,
+		Warnings:   parsed.globals,
+	}, nil
 }
 
 func decodeSourceList(parsed parsedCommand) (commandCall, error) {

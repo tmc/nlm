@@ -503,22 +503,34 @@ func TestParseSourceReadArgsFormats(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, positional, err := parseSourceReadArgs(test.args, test.globals)
+			command, ok := lookupCommand("source read")
+			if !ok {
+				t.Fatal("source read command not found")
+			}
+			parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, test.args, test.globals)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got.sourceReadFormat != test.format {
-				t.Errorf("format = %q, want %q", got.sourceReadFormat, test.format)
+			got, err := decodeSourceReadArgs(parsed)
+			if err != nil {
+				t.Fatal(err)
 			}
-			if len(positional) != 1 || positional[0] != "source-1" {
-				t.Errorf("positional = %q", positional)
+			if got.Options.sourceReadFormat != test.format {
+				t.Errorf("format = %q, want %q", got.Options.sourceReadFormat, test.format)
+			}
+			if got.SourceID != "source-1" || got.NotebookID != "" {
+				t.Errorf("arguments = %+v", got)
 			}
 		})
 	}
 }
 
 func TestParseSourceReadArgsKeepsNotebookPositional(t *testing.T) {
-	opts, positional, err := parseSourceReadArgs([]string{
+	command, ok := lookupCommand("source read")
+	if !ok {
+		t.Fatal("source read command not found")
+	}
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
 		"--format=raw",
 		"source-1",
 		"notebook-1",
@@ -526,16 +538,20 @@ func TestParseSourceReadArgsKeepsNotebookPositional(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if opts.sourceReadFormat != "raw" {
-		t.Errorf("format = %q", opts.sourceReadFormat)
+	args, err := decodeSourceReadArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got, want := strings.Join(positional, " "), "source-1 notebook-1"; got != want {
-		t.Errorf("positional = %q, want %q", got, want)
+	if args.Options.sourceReadFormat != "raw" {
+		t.Errorf("format = %q", args.Options.sourceReadFormat)
+	}
+	if got, want := strings.Join([]string{args.SourceID, args.NotebookID}, " "), "source-1 notebook-1"; got != want {
+		t.Errorf("arguments = %q, want %q", got, want)
 	}
 }
 
 func TestSourceReadRejectsMultipleFormats(t *testing.T) {
-	err := readSource(nil, []string{"source-1"}, globalOptions{
+	err := readSource(nil, "source-1", "", globalOptions{
 		jsonOutput:         true,
 		sourceReadMarkdown: true,
 	})

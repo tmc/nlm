@@ -1,12 +1,9 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/tmc/nlm/internal/notebooklm/api"
 )
 
 func printSourceReadUsage(cmdName string) {
@@ -18,39 +15,6 @@ func printSourceReadUsage(cmdName string) {
 	fmt.Fprintln(os.Stderr, "the unstable LoadSource protobuf encoded with protojson.")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Deprecated aliases: --markdown, --html, and --json.")
-}
-
-func validateSourceReadArgsWithOptions(cmdName string, args []string, globals globalOptions) error {
-	_, _, err := parseSourceReadArgs(args, globals)
-	if err == nil {
-		return nil
-	}
-	fmt.Fprintf(os.Stderr, "usage: nlm %s [--format text|markdown|html|json|raw] <source-id> [notebook-id]\n", cmdName)
-	return errBadArgs
-}
-
-func parseSourceReadArgs(args []string, globals globalOptions) (globalOptions, []string, error) {
-	opts := globals
-	flags := flag.NewFlagSet("source-read", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.StringVar(&opts.sourceReadFormat, "format", opts.sourceReadFormat, "")
-
-	flagArgs, positional, err := splitCommandFlags(args, map[string]bool{
-		"format": true,
-	}, nil)
-	if err != nil {
-		return opts, nil, err
-	}
-	if err := flags.Parse(flagArgs); err != nil {
-		return opts, nil, err
-	}
-	if len(positional) < 1 || len(positional) > 2 {
-		return opts, nil, fmt.Errorf("want source id and optional notebook id")
-	}
-	if err := normalizeSourceReadFormat(&opts); err != nil {
-		return opts, nil, err
-	}
-	return opts, positional, nil
 }
 
 func normalizeSourceReadFormat(opts *globalOptions) error {
@@ -94,15 +58,6 @@ func normalizeSourceReadFormat(opts *globalOptions) error {
 	opts.sourceReadMarkdown = false
 	opts.sourceReadHTML = false
 	return nil
-}
-
-func runSourceRead(c *api.Client, args []string, globals globalOptions) error {
-	opts, positional, err := parseSourceReadArgs(args, globals)
-	if err != nil {
-		return err
-	}
-	warnDeprecatedSourceReadFormat(os.Stderr, globals)
-	return readSource(c, positional, opts)
 }
 
 func warnDeprecatedSourceReadFormat(w io.Writer, opts globalOptions) {

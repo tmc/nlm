@@ -174,12 +174,7 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "read-source", argsUsage: "[--format text|markdown|html|json|raw] <source-id> [notebook-id]",
 		usage: "Read a source body", section: "Source",
-		minArgs: 0, maxArgs: -1,
-		validateWithOptions: validateSourceReadArgsWithOptions,
-		help:                printSourceReadUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runSourceRead(c, args, opts)
-		},
+		help: printSourceReadUsage,
 	},
 
 	// Note operations
