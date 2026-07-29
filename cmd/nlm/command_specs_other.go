@@ -14,8 +14,7 @@ type betoolArgs struct {
 }
 
 type refreshArgs struct {
-	Values []string
-	Debug  bool
+	Debug bool
 }
 
 type accountArgs struct {
@@ -55,8 +54,18 @@ func configureOtherCommandSpecs(specs map[commandID]*commandSpec) {
 		),
 		decodeBetool,
 	)
-	configureTypedCommandSpec(specs["refresh"],
-		commandFormOf(hiddenOperand(remainingOperand("values"))),
+	configureTypedCommandSpec(specs["refresh"], []commandForm{
+		{},
+		{
+			Parts: []operandSpec{hiddenOperand(remainingOperand("values"))},
+			Constraints: []constraint{
+				constraintFunc(func(parsed parsedCommand) error {
+					return badArgsf("unexpected argument %q for %q", parsed.Args["values"][0], parsed.path)
+				}),
+			},
+			Hidden: true,
+		},
+	},
 		decodeRefresh,
 	)
 	configureTypedCommandSpec(specs["account"],
@@ -93,8 +102,7 @@ func decodeBetool(parsed parsedCommand) (commandCall, error) {
 
 func decodeRefresh(parsed parsedCommand) (commandCall, error) {
 	args := refreshArgs{
-		Values: append([]string(nil), parsed.Args["values"]...),
-		Debug:  parsed.globals.debug,
+		Debug: parsed.globals.debug,
 	}
 	return func(context.Context, *api.Client) error {
 		return refreshCredentials(args.Debug)

@@ -2965,7 +2965,10 @@
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"chat config\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
         {
           "args": [
@@ -2973,7 +2976,10 @@
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"chat config\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
         {
           "args": [
@@ -2982,7 +2988,10 @@
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"chat config\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
         {
           "args": [
@@ -9287,7 +9296,10 @@
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"chat-config\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat-config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
         {
           "args": [
@@ -9295,7 +9307,10 @@
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"chat-config\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat-config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
         {
           "args": [
@@ -9304,7 +9319,10 @@
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"chat-config\"",
+          "usage_error": true,
+          "stderr": "usage: nlm chat-config \u003cnotebook-id\u003e goal default | \u003cnotebook-id\u003e goal custom \u003cprompt...\u003e | \u003cnotebook-id\u003e length \u003cdefault|longer|shorter\u003e\n"
         },
         {
           "args": [
@@ -9851,7 +9869,10 @@
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"auth\"",
+          "usage_error": true,
+          "stderr": "usage: nlm auth [login] [options] [profile-name]\n"
         },
         {
           "args": [
@@ -9894,14 +9915,20 @@
           "args": [
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"refresh\"",
+          "usage_error": true,
+          "stderr": "usage: nlm refresh \n"
         },
         {
           "args": [
             "arg",
             "arg"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"arg\" for \"refresh\"",
+          "usage_error": true,
+          "stderr": "usage: nlm refresh \n"
         },
         {
           "args": [
@@ -9916,13 +9943,19 @@
           "args": [
             "-"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"-\" for \"refresh\"",
+          "usage_error": true,
+          "stderr": "usage: nlm refresh \n"
         },
         {
           "args": [
             "--"
           ],
-          "accepted": true
+          "accepted": false,
+          "error": "unexpected argument \"--\" for \"refresh\"",
+          "usage_error": true,
+          "stderr": "usage: nlm refresh \n"
         }
       ]
     },

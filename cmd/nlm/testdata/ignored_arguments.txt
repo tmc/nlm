@@ -1,0 +1,17 @@
+# Commands that formerly ignored surplus operands reject them as bad arguments.
+! exec ./nlm_test refresh extra
+stderr 'nlm: unexpected argument "extra" for "refresh"'
+stderr 'exit-class=bad-args \(exit 2\)'
+
+! exec ./nlm_test auth Work extra
+stderr 'nlm: unexpected argument "extra" for "auth"'
+stderr 'exit-class=bad-args \(exit 2\)'
+
+! exec ./nlm_test chat config notebook goal default extra
+stderr 'nlm: unexpected argument "extra" for "chat config"'
+stderr 'exit-class=bad-args \(exit 2\)'
+
+# Compatibility surfaces name the path the user typed.
+! exec ./nlm_test chat-config notebook length default extra
+stderr 'nlm: unexpected argument "extra" for "chat-config"'
+stderr 'exit-class=bad-args \(exit 2\)'

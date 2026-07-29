@@ -23,17 +23,47 @@ func configureAuthCommandSpec(specs map[commandID]*commandSpec) {
 	spec.Flags = authFlagSpecs()
 	spec.FlagGroup = "options"
 	spec.FlagGroupAfter = 1
-	spec.IgnoredArguments = []string{"login"}
 	spec.DeferFlagErrors = true
 	spec.DeferFlagValidation = true
 	configureTypedCommandSpec(
 		spec,
-		[]commandForm{{Parts: []operandSpec{
-			virtualOperand("[login]"),
-			withUsage(remainingOperand("positionals"), "[profile-name]"),
-		}}},
+		authCommandForms(),
 		decodeAuth,
 	)
+}
+
+func authCommandForms() []commandForm {
+	return []commandForm{
+		{
+			Parts: []operandSpec{
+				operandSpec{Literal: "login"},
+				optionalOperand("profile"),
+			},
+			Hidden: true,
+		},
+		{
+			Parts: []operandSpec{
+				virtualOperand("[login]"),
+				withUsage(optionalOperand("profile"), "[profile-name]"),
+			},
+		},
+		{
+			Parts: []operandSpec{hiddenOperand(remainingOperand("positionals"))},
+			Constraints: []constraint{
+				constraintFunc(rejectExtraAuthArguments),
+			},
+			Hidden: true,
+		},
+	}
+}
+
+func rejectExtraAuthArguments(parsed parsedCommand) error {
+	args := parsed.Args["positionals"]
+	extra := 1
+	if args[0] == "login" {
+		extra = 2
+	}
+	return badArgsf("unexpected argument %q for %q", args[extra], parsed.path)
 }
 
 func authFlagSpecs() []flagSpec {
@@ -79,7 +109,7 @@ func decodeAuthArgs(parsed parsedCommand) authArgs {
 		}
 	}
 
-	remaining := append([]string(nil), parsed.Args["positionals"]...)
+	remaining := append([]string(nil), parsed.Args["profile"]...)
 	if !options.TryAllProfiles && options.ProfileName == "" && len(remaining) > 0 {
 		options.ProfileName = remaining[0]
 		remaining = remaining[1:]

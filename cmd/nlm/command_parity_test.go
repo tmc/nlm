@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -123,6 +124,46 @@ func TestCommandParityPhase6UnknownFlags(t *testing.T) {
 	}
 }
 
+func TestCommandParityPhase6IgnoredArguments(t *testing.T) {
+	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase5.golden.json"))
+	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	if len(baseline.Commands) != len(current.Commands) {
+		t.Fatalf("command count changed: got %d, want %d", len(current.Commands), len(baseline.Commands))
+	}
+
+	var changed []string
+	for i := range baseline.Commands {
+		before, after := baseline.Commands[i], current.Commands[i]
+		if before.Path != after.Path {
+			t.Fatalf("command %d path changed: got %q, want %q", i, after.Path, before.Path)
+		}
+		beforeCases := commandParityCaseSemantics(before.Cases)
+		afterCases := commandParityCaseSemantics(after.Cases)
+		if reflect.DeepEqual(beforeCases, afterCases) {
+			continue
+		}
+		changed = append(changed, after.Path)
+		if !phase6IgnoredArgumentPaths[after.Path] {
+			continue
+		}
+		for j := range beforeCases {
+			if reflect.DeepEqual(beforeCases[j], afterCases[j]) {
+				continue
+			}
+			if !beforeCases[j].Accepted || afterCases[j].Accepted ||
+				!afterCases[j].UsageError ||
+				!strings.HasPrefix(afterCases[j].Error, "unexpected argument ") {
+				t.Errorf("%s case %v changed from %+v to %+v", after.Path, afterCases[j].Args, beforeCases[j], afterCases[j])
+			}
+		}
+	}
+	slices.Sort(changed)
+	want := slices.Sorted(maps.Keys(phase6IgnoredArgumentPaths))
+	if !slices.Equal(changed, want) {
+		t.Fatalf("semantic case changes = %v, want %v", changed, want)
+	}
+}
+
 func readCommandParityGolden(t *testing.T, name string) commandParityGolden {
 	t.Helper()
 	data, err := os.ReadFile(name)
@@ -162,6 +203,7 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
 		normalizePhase6UnknownCase(t, &got, want)
+		normalizePhase6IgnoredArgumentCases(&got, want)
 		if phase4CommandPaths[want.Path] || phase5CommandPaths[want.Path] || prototextCommandPaths[want.Path] || phase6OwnershipCommandPaths[want.Path] {
 			got.ArgsUsage, got.Help = want.ArgsUsage, want.Help
 			if len(got.Cases) != len(want.Cases) {
@@ -229,6 +271,7 @@ func compareCommandParityPhase2(t *testing.T, baseline, current commandParityGol
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
 		normalizePhase6UnknownCase(t, &got, want)
+		normalizePhase6IgnoredArgumentCases(&got, want)
 		if !phase4CommandPaths[want.Path] && !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 4 and Phase 5", want.Path)
@@ -275,6 +318,7 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
 		normalizePhase6UnknownCase(t, &got, want)
+		normalizePhase6IgnoredArgumentCases(&got, want)
 		if !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 5 and prototext", want.Path)
@@ -323,6 +367,7 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
 		normalizePhase6UnknownCase(t, &got, want)
+		normalizePhase6IgnoredArgumentCases(&got, want)
 		if !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside the prototext paths", want.Path)
@@ -567,6 +612,13 @@ var phase6UnknownAcceptedPaths = map[string]bool{
 	"sync-pack":             true,
 }
 
+var phase6IgnoredArgumentPaths = map[string]bool{
+	"auth":        true,
+	"chat config": true,
+	"chat-config": true,
+	"refresh":     true,
+}
+
 func normalizePhase6UnknownCase(t *testing.T, got *commandParityCommand, want commandParityCommand) {
 	t.Helper()
 	got.Cases = slices.Clone(got.Cases)
@@ -578,6 +630,24 @@ func normalizePhase6UnknownCase(t *testing.T, got *commandParityCommand, want co
 		return
 	}
 	t.Fatalf("%s missing parity case %v", got.Path, []string{"--unknown"})
+}
+
+func normalizePhase6IgnoredArgumentCases(got *commandParityCommand, want commandParityCommand) {
+	if phase6IgnoredArgumentPaths[got.Path] {
+		got.Cases = want.Cases
+	}
+}
+
+func commandParityCaseSemantics(cases []commandParityArgsCase) []commandParityArgsCase {
+	var out []commandParityArgsCase
+	for _, test := range cases {
+		if slices.Equal(test.Args, []string{"--unknown"}) {
+			continue
+		}
+		test.Stderr = ""
+		out = append(out, test)
+	}
+	return out
 }
 
 func commandParityCaseForArgs(t *testing.T, command commandParityCommand, args []string) commandParityArgsCase {

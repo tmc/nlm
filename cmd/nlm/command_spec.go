@@ -30,7 +30,6 @@ type commandSpec struct {
 	FlagGroup      string
 	FlagGroupAfter int
 
-	IgnoredArguments    []string
 	DeferFlagErrors     bool
 	DeferFlagValidation bool
 	// BareDoubleDashArg preserves a command's established literal "--" operand
@@ -424,22 +423,21 @@ func parseCommandFlagsDetailed(
 func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []string, globals globalOptions) (parsedCommand, error) {
 	flags := make(map[string][]string)
 	raw := append([]string(nil), args...)
-	parseArgs := omitCommandArguments(args, spec.IgnoredArguments)
-	operands := parseArgs
+	operands := args
 	var occurrences []parsedFlag
 	var flagError error
 	flagSpecs := commandFlagsForSurface(spec, surface)
-	if err := validateCommandFlagNames(parsedCommandPath(surface), flagSpecs, parseArgs); err != nil {
+	if err := validateCommandFlagNames(parsedCommandPath(surface), flagSpecs, args); err != nil {
 		return parsedCommand{}, err
 	}
 	bareDoubleDashArg := spec.BareDoubleDashArg
 	if surface.Flags != nil {
 		bareDoubleDashArg = surface.BareDoubleDashArg
 	}
-	if len(flagSpecs) > 0 && !(bareDoubleDashArg && len(parseArgs) == 1 && parseArgs[0] == "--") {
+	if len(flagSpecs) > 0 && !(bareDoubleDashArg && len(args) == 1 && args[0] == "--") {
 		flags, operands, occurrences, flagError = parseCommandFlagsDetailed(
 			flagSpecs,
-			parseArgs,
+			args,
 			spec.DeferFlagValidation,
 		)
 		if flagError != nil && !spec.DeferFlagErrors {
@@ -534,21 +532,4 @@ func commandFlagsForSurface(spec *commandSpec, surface *commandSurfaceSpec) []fl
 		return surface.Flags
 	}
 	return spec.Flags
-}
-
-func omitCommandArguments(args, ignored []string) []string {
-	if len(ignored) == 0 {
-		return args
-	}
-	ignore := make(map[string]bool, len(ignored))
-	for _, arg := range ignored {
-		ignore[arg] = true
-	}
-	out := make([]string, 0, len(args))
-	for _, arg := range args {
-		if !ignore[arg] {
-			out = append(out, arg)
-		}
-	}
-	return out
 }

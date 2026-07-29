@@ -126,9 +126,52 @@ func chatConfigForms() []commandForm {
 				optionalOperand("mode"),
 				remainingOperand("values"),
 			},
+			Constraints: []constraint{
+				constraintFunc(rejectInvalidChatConfig),
+			},
 			Hidden: true,
 		},
 	}
+}
+
+func rejectInvalidChatConfig(parsed parsedCommand) error {
+	setting := parsed.Args["setting"][0]
+	mode := parsed.Args["mode"]
+	values := parsed.Args["values"]
+
+	switch setting {
+	case "goal":
+		if len(mode) == 0 {
+			return errBadArgs
+		}
+		switch mode[0] {
+		case "default":
+			if len(values) > 0 {
+				return badArgsf("unexpected argument %q for %q", values[0], parsed.path)
+			}
+		case "custom":
+			if len(values) == 0 {
+				return errBadArgs
+			}
+		default:
+			return badArgsf("unexpected argument %q for %q", mode[0], parsed.path)
+		}
+	case "length":
+		if len(mode) == 0 {
+			return errBadArgs
+		}
+		switch mode[0] {
+		case "default", "longer", "shorter":
+			if len(values) > 0 {
+				return badArgsf("unexpected argument %q for %q", values[0], parsed.path)
+			}
+		default:
+			return badArgsf("unexpected argument %q for %q", mode[0], parsed.path)
+		}
+	default:
+		return badArgsf("unexpected argument %q for %q", setting, parsed.path)
+	}
+	return errBadArgs
 }
 
 func decodeChatList(parsed parsedCommand) (commandCall, error) {
