@@ -190,12 +190,7 @@ var commandDefinitions = []commandDefinition{
 	{
 		name: "read-note", argsUsage: "[--format text|markdown|html] [--out file] [--open] <notebook-id> <note-id>",
 		usage: "Read full note content", section: "Note",
-		minArgs: 0, maxArgs: -1,
-		validate: validateNoteReadArgs,
-		help:     printNoteReadUsage,
-		runWithOptions: func(c *api.Client, args []string, _ globalOptions) error {
-			return runNoteRead(c, args)
-		},
+		help: printNoteReadUsage,
 	},
 
 	{

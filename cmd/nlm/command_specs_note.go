@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
@@ -10,6 +11,12 @@ import (
 
 type noteListArgs struct {
 	NotebookID string
+}
+
+type noteReadArgs struct {
+	NotebookID string
+	NoteID     string
+	Options    noteReadOptions
 }
 
 type noteCreateArgs struct {
@@ -36,6 +43,27 @@ func configureNoteCommandSpecs(specs map[commandID]*commandSpec) {
 		commandFormOf(requiredOperand("notebook")),
 		decodeNoteList,
 	)
+	readSpec := specs["read-note"]
+	readSpec.Flags = []flagSpec{
+		{Name: "format", Value: "fmt", Description: "output format"},
+		{Name: "out", Value: "file", Description: "html output file"},
+		{Name: "open", Description: "open html output"},
+	}
+	configureTypedCommandSpecWithUsage(readSpec,
+		[]commandForm{{
+			Parts: []operandSpec{
+				requiredOperand("notebook"),
+				requiredOperand("note"),
+			},
+			Constraints: []constraint{
+				constraintFunc(validateNoteReadCommand),
+			},
+		}},
+		decodeNoteRead,
+		func(path string) {
+			fmt.Fprintf(os.Stderr, "usage: nlm %s [--format text|markdown|html] [--out file] [--open] <notebook-id> <note-id>\n", path)
+		},
+	)
 	configureTypedCommandSpec(specs["new-note"],
 		commandFormOf(
 			requiredOperand("notebook"),
@@ -57,6 +85,49 @@ func configureNoteCommandSpecs(specs map[commandID]*commandSpec) {
 		commandFormOf(requiredOperand("notebook"), requiredOperand("note")),
 		decodeNoteDelete,
 	)
+}
+
+func validateNoteReadCommand(parsed parsedCommand) error {
+	_, err := decodeNoteReadArgs(parsed)
+	return err
+}
+
+func decodeNoteRead(parsed parsedCommand) (commandCall, error) {
+	args, err := decodeNoteReadArgs(parsed)
+	if err != nil {
+		return nil, err
+	}
+	return func(_ context.Context, client *api.Client) error {
+		return readNoteWithOptions(client, args.NotebookID, args.NoteID, args.Options)
+	}, nil
+}
+
+func decodeNoteReadArgs(parsed parsedCommand) (noteReadArgs, error) {
+	notebookID, err := parsedArgument(parsed, "notebook")
+	if err != nil {
+		return noteReadArgs{}, err
+	}
+	noteID, err := parsedArgument(parsed, "note")
+	if err != nil {
+		return noteReadArgs{}, err
+	}
+	open, err := parsedBoolFlag(parsed, "open", false)
+	if err != nil {
+		return noteReadArgs{}, err
+	}
+	opts := noteReadOptions{
+		Format:  parsedStringFlag(parsed, "format", ""),
+		OutFile: parsedStringFlag(parsed, "out", ""),
+		Open:    open,
+	}
+	if err := validateNoteFormat(&opts); err != nil {
+		return noteReadArgs{}, err
+	}
+	return noteReadArgs{
+		NotebookID: notebookID,
+		NoteID:     noteID,
+		Options:    opts,
+	}, nil
 }
 
 func decodeNoteList(parsed parsedCommand) (commandCall, error) {

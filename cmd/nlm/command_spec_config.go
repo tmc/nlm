@@ -149,3 +149,11 @@ func parsedIntFlag(parsed parsedCommand, name string, defaultValue int) (int, er
 	}
 	return int(value), nil
 }
+
+func parsedStringFlag(parsed parsedCommand, name, defaultValue string) string {
+	values := parsed.Flags[name]
+	if len(values) == 0 {
+		return defaultValue
+	}
+	return values[len(values)-1]
+}

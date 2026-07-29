@@ -1,7 +1,6 @@
 package main
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -24,18 +23,26 @@ func TestParseNoteReadArgs(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, positional, err := parseNoteReadArgs(test.args)
+			command, ok := lookupCommand("note read")
+			if !ok {
+				t.Fatal("note read command not found")
+			}
+			parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, test.args, globalOptions{})
+			var got noteReadArgs
+			if err == nil {
+				got, err = decodeNoteReadArgs(parsed)
+			}
 			if (err != nil) != test.wantErr {
 				t.Fatalf("error = %v, wantErr %v", err, test.wantErr)
 			}
 			if test.wantErr {
 				return
 			}
-			if got.Format != test.wantFormat || got.OutFile != test.wantOut || got.Open != test.wantOpen {
-				t.Errorf("options = %+v", got)
+			if got.Options.Format != test.wantFormat || got.Options.OutFile != test.wantOut || got.Options.Open != test.wantOpen {
+				t.Errorf("options = %+v", got.Options)
 			}
-			if strings.Join(positional, ",") != "nb,note" {
-				t.Errorf("positional = %q", positional)
+			if got.NotebookID != "nb" || got.NoteID != "note" {
+				t.Errorf("arguments = %+v", got)
 			}
 		})
 	}
