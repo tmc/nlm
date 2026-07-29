@@ -97,8 +97,8 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 	req.Header.Set("Authorization", fmt.Sprintf("SAPISIDHASH %d_%s", timestamp, authHash))
 	req.Header.Set("Content-Type", "application/json+protobuf")
 	req.Header.Set("Cookie", r.cookies)
-	req.Header.Set("Origin", "https://notebook.google.com")
-	req.Header.Set("Referer", "https://notebook.google.com/")
+	req.Header.Set("Origin", appOrigin)
+	req.Header.Set("Referer", appOrigin+"/")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36")
 
 	if r.debug {
@@ -147,8 +147,7 @@ func (r *RefreshClient) generateSAPISIDHASH(timestamp int64) string {
 }
 
 func generateSAPISIDHASH(sapisid string, timestamp int64) string {
-	origin := "https://notebook.google.com"
-	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, origin)
+	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, appOrigin)
 
 	hash := sha1.New()
 	hash.Write([]byte(data))
@@ -205,7 +204,7 @@ func fetchNotebookLMPage(cookies string) ([]byte, string, error) {
 	}
 
 	// Create request to NotebookLM
-	req, err := http.NewRequest("GET", "https://notebook.google.com/", nil)
+	req, err := http.NewRequest("GET", appOrigin+"/", nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("create request: %w", err)
 	}
@@ -246,7 +245,11 @@ func validateNotebookLMPageURL(finalURL string) error {
 	if err != nil {
 		return fmt.Errorf("parse notebooklm final url: %w", err)
 	}
-	if !strings.EqualFold(u.Host, "notebook.google.com") {
+	origin, err := url.Parse(appOrigin)
+	if err != nil {
+		return fmt.Errorf("parse notebooklm app origin: %w", err)
+	}
+	if !strings.EqualFold(u.Host, origin.Host) {
 		return fmt.Errorf("unexpected notebooklm final url %q", finalURL)
 	}
 	return nil

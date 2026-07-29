@@ -106,6 +106,7 @@ func TestPrintPrivateShareResult(t *testing.T) {
 			resp: &pb.ShareProjectResponse{},
 			want: []string{
 				"Project shared privately, but the server returned no share URL or share ID.",
+				"Open https://notebook.google.com/notebook/notebook-123 in the browser to copy the invite link.",
 			},
 		},
 		{
@@ -113,6 +114,7 @@ func TestPrintPrivateShareResult(t *testing.T) {
 			resp: nil,
 			want: []string{
 				"Project shared privately, but the server returned no share metadata.",
+				"Open https://notebook.google.com/notebook/notebook-123 in the browser to copy the invite link.",
 			},
 		},
 	}

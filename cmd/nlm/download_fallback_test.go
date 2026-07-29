@@ -8,6 +8,13 @@ import (
 	"testing"
 )
 
+func TestNotebookBrowserURL(t *testing.T) {
+	const want = "https://notebook.google.com/notebook/notebook%2F123"
+	if got := notebookBrowserURL("notebook/123"); got != want {
+		t.Fatalf("notebookBrowserURL() = %q, want %q", got, want)
+	}
+}
+
 func TestAudioDownloadFallbackPrintsBrowserURL(t *testing.T) {
 	out, errText, err := captureStdoutStderr(t, func() error {
 		return audioDownloadUnavailableError("notebook-123", errors.New("audio overview data not found"))

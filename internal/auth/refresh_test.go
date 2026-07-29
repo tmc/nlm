@@ -1,8 +1,30 @@
 package auth
 
 import (
+	"crypto/sha1"
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestAppOrigin(t *testing.T) {
+	const want = "https://notebook.google.com"
+	if appOrigin != want {
+		t.Fatalf("appOrigin = %q, want %q", appOrigin, want)
+	}
+	if got := defaultBrowserAuthOptions().TargetURL; got != appOrigin {
+		t.Fatalf("default TargetURL = %q, want appOrigin %q", got, appOrigin)
+	}
+}
 
 func TestGenerateSAPISIDHASH(t *testing.T) {
 	tests := []struct {
@@ -30,6 +52,56 @@ func TestGenerateSAPISIDHASH(t *testing.T) {
 				t.Errorf("generateSAPISIDHASH() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRefreshCredentialsUsesAppOrigin(t *testing.T) {
+	const sapisid = "test-sapisid"
+	var request *http.Request
+	client := &RefreshClient{
+		cookies: "SAPISID=" + sapisid,
+		sapisid: sapisid,
+		httpClient: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			request = req
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Status:     http.StatusText(http.StatusOK),
+				Body:       io.NopCloser(strings.NewReader("")),
+				Header:     make(http.Header),
+				Request:    req,
+			}, nil
+		})},
+	}
+
+	if err := client.RefreshCredentials(""); err != nil {
+		t.Fatalf("RefreshCredentials: %v", err)
+	}
+	if request == nil {
+		t.Fatal("RefreshCredentials sent no request")
+	}
+	if got := request.Header.Get("Origin"); got != appOrigin {
+		t.Fatalf("Origin = %q, want %q", got, appOrigin)
+	}
+	if got := request.Header.Get("Referer"); got != appOrigin+"/" {
+		t.Fatalf("Referer = %q, want %q", got, appOrigin+"/")
+	}
+
+	scheme, value, ok := strings.Cut(request.Header.Get("Authorization"), " ")
+	if !ok || scheme != "SAPISIDHASH" {
+		t.Fatalf("Authorization = %q, want SAPISIDHASH value", request.Header.Get("Authorization"))
+	}
+	timestampText, gotHash, ok := strings.Cut(value, "_")
+	if !ok {
+		t.Fatalf("Authorization value = %q, want timestamp_hash", value)
+	}
+	timestamp, err := strconv.ParseInt(timestampText, 10, 64)
+	if err != nil {
+		t.Fatalf("parse Authorization timestamp %q: %v", timestampText, err)
+	}
+	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, request.Header.Get("Origin"))
+	wantHash := fmt.Sprintf("%x", sha1.Sum([]byte(data)))
+	if gotHash != wantHash {
+		t.Fatalf("SAPISIDHASH = %q, want %q computed from request Origin", gotHash, wantHash)
 	}
 }
 
@@ -80,6 +152,8 @@ window.WIZ_global_data = {"FdrFJe":"-8344731930921376674","cfb2h":"boq_labs-tail
 }
 
 func TestValidateNotebookLMPageURL(t *testing.T) {
+	// The page fetch may follow redirects, but only the app origin is valid as
+	// the final page from which bootstrap state is parsed.
 	tests := []struct {
 		name     string
 		finalURL string
@@ -90,12 +164,22 @@ func TestValidateNotebookLMPageURL(t *testing.T) {
 			finalURL: "",
 		},
 		{
-			name:     "NotebookLM host accepted",
-			finalURL: "https://notebook.google.com/",
+			name:     "app host accepted",
+			finalURL: appOrigin + "/notebook/notebook-1",
 		},
 		{
-			name:     "redirect to auth host rejected",
-			finalURL: "https://accounts.google.com/v3/signin/identifier",
+			name:     "account chooser rejected",
+			finalURL: "https://accounts.google.com/AccountChooser?continue=" + appOrigin,
+			wantErr:  true,
+		},
+		{
+			name:     "legacy login host rejected as final URL",
+			finalURL: "https://notebooklm.google.com/login?continue=" + appOrigin,
+			wantErr:  true,
+		},
+		{
+			name:     "unrelated host rejected",
+			finalURL: "https://example.com/",
 			wantErr:  true,
 		},
 		{

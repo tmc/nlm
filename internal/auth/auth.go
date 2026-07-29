@@ -19,6 +19,8 @@ import (
 	"github.com/tmc/nlm/internal/authuser"
 )
 
+const appOrigin = "https://notebook.google.com"
+
 type BrowserAuth struct {
 	debug           bool
 	tempDir         string
@@ -108,6 +110,18 @@ func WithCheckNotebooks() Option             { return func(o *Options) { o.Check
 func WithKeepOpenSeconds(seconds int) Option { return func(o *Options) { o.KeepOpenSeconds = seconds } }
 func WithRemoteCDPURL(url string) Option     { return func(o *Options) { o.RemoteCDPURL = url } }
 func WithAuthUser(authUser string) Option    { return func(o *Options) { o.AuthUser = authUser } }
+
+func defaultBrowserAuthOptions() *Options {
+	return &Options{
+		ProfileName:       "Default",
+		TryAllProfiles:    false,
+		ScanBeforeAuth:    true, // Default to showing profile information
+		TargetURL:         appOrigin,
+		PreferredBrowsers: []string{},
+		CheckNotebooks:    false,
+		KeepOpenSeconds:   0,
+	}
+}
 
 // authViaRemoteCDP connects to an existing CDP session and extracts auth data.
 func (ba *BrowserAuth) authViaRemoteCDP(remoteCDPURL, targetURL string) (token, cookies string, err error) {
@@ -438,7 +452,7 @@ func countNotebooks(token, cookies, authUser string) (int, error) {
 	}
 
 	// Create a new request to the notebooks API
-	req, err := http.NewRequest("GET", "https://notebook.google.com/gen_notebook/notebook", nil)
+	req, err := http.NewRequest("GET", appOrigin+"/gen_notebook/notebook", nil)
 	if err != nil {
 		return 0, fmt.Errorf("create request: %w", err)
 	}
@@ -480,15 +494,7 @@ func countNotebooks(token, cookies, authUser string) (int, error) {
 }
 
 func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error) {
-	o := &Options{
-		ProfileName:       "Default",
-		TryAllProfiles:    false,
-		ScanBeforeAuth:    true, // Default to showing profile information
-		TargetURL:         "https://notebook.google.com",
-		PreferredBrowsers: []string{},
-		CheckNotebooks:    false,
-		KeepOpenSeconds:   0,
-	}
+	o := defaultBrowserAuthOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -1076,8 +1082,7 @@ func (ba *BrowserAuth) gracefulShutdown(ctx context.Context) error {
 }
 
 func (ba *BrowserAuth) extractAuthData(ctx context.Context) (token, cookies string, err error) {
-	targetURL := "https://notebook.google.com"
-	return ba.extractAuthDataForURL(ctx, targetURL)
+	return ba.extractAuthDataForURL(ctx, appOrigin)
 }
 
 func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL string) (token, cookies string, err error) {
@@ -1295,7 +1300,7 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 		// Use current URL for cookies
 	} else {
 		// Fallback to NotebookLM
-		cookieURL = "https://notebook.google.com"
+		cookieURL = appOrigin
 	}
 
 	err = chromedp.Run(ctx,
