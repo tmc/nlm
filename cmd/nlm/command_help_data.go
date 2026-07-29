@@ -1,5 +1,11 @@
 package main
 
+import (
+	"strings"
+
+	"github.com/tmc/nlm/internal/betool"
+)
+
 // commandHelpByPath holds authored detailed-help prose. Usage signatures are
 // rendered from each command's executable forms and flags.
 var commandHelpByPath = map[string]commandHelpSpec{
@@ -66,6 +72,10 @@ func configureCommandHelp(specs []*commandSpec) {
 		for i := range spec.Surfaces {
 			surface := &spec.Surfaces[i]
 			surface.Help = commandHelpByPath[joinCommandPath(surface.Path)]
+			if joinCommandPath(surface.Path) == "betool" {
+				_, body, _ := strings.Cut(betool.HelpText("{{command}}"), "\n\n")
+				surface.Help.Body = "\n" + body
+			}
 		}
 	}
 }

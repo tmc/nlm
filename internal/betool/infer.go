@@ -37,10 +37,12 @@ const (
 // batchexecute structure. It deliberately does not try to recover proto
 // distinctions erased by JSON (enum vs int, bytes vs string, and bool vs int).
 type wireShape struct {
-	kind   shapeKind
-	scalar descriptorpb.FieldDescriptorProto_Type
-	fields map[int32]*wireShape
-	elem   *wireShape
+	kind         shapeKind
+	scalar       descriptorpb.FieldDescriptorProto_Type
+	fields       map[int32]*wireShape
+	elem         *wireShape
+	count        int
+	defaultCount int
 }
 
 func betoolInferProto(opts betoolOptions) error {
@@ -391,7 +393,7 @@ func observeMessage(v any) *wireShape {
 	if !ok {
 		return observeValue(v)
 	}
-	s := &wireShape{kind: shapeMessage, fields: make(map[int32]*wireShape)}
+	s := &wireShape{kind: shapeMessage, fields: make(map[int32]*wireShape), count: 1}
 	for i, value := range arr {
 		if value == nil {
 			continue
@@ -406,14 +408,26 @@ func observeValue(v any) *wireShape {
 	case nil:
 		return nil
 	case string:
-		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_STRING}
-	case bool:
-		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_BOOL}
-	case float64:
-		if math.Trunc(value) == value {
-			return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_INT64}
+		defaultCount := 0
+		if value == "" {
+			defaultCount = 1
 		}
-		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_DOUBLE}
+		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_STRING, count: 1, defaultCount: defaultCount}
+	case bool:
+		defaultCount := 0
+		if !value {
+			defaultCount = 1
+		}
+		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_BOOL, count: 1, defaultCount: defaultCount}
+	case float64:
+		defaultCount := 0
+		if value == 0 {
+			defaultCount = 1
+		}
+		if math.Trunc(value) == value {
+			return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_INT64, count: 1, defaultCount: defaultCount}
+		}
+		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, count: 1, defaultCount: defaultCount}
 	case []any:
 		if isMessageArray(value) {
 			return observeMessage(value)
@@ -422,9 +436,9 @@ func observeValue(v any) *wireShape {
 		for _, item := range value {
 			elem = mergeShapes(elem, observeValue(item))
 		}
-		return &wireShape{kind: shapeRepeated, elem: elem}
+		return &wireShape{kind: shapeRepeated, elem: elem, count: 1}
 	default:
-		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_STRING}
+		return &wireShape{kind: shapeScalar, scalar: descriptorpb.FieldDescriptorProto_TYPE_STRING, count: 1}
 	}
 }
 
@@ -458,25 +472,31 @@ func mergeShapes(a, b *wireShape) *wireShape {
 	}
 	if a.kind == shapeMessage && b.kind == shapeRepeated {
 		if field := a.fields[1]; field != nil {
-			return &wireShape{kind: shapeRepeated, elem: mergeShapes(field, b.elem)}
+			return &wireShape{kind: shapeRepeated, elem: mergeShapes(field, b.elem), count: a.count + b.count, defaultCount: a.defaultCount + b.defaultCount}
 		}
+		a.count += b.count
+		a.defaultCount += b.defaultCount
 		return a
 	}
 	if a.kind == shapeRepeated && b.kind == shapeMessage {
 		if field := b.fields[1]; field != nil {
-			return &wireShape{kind: shapeRepeated, elem: mergeShapes(a.elem, field)}
+			return &wireShape{kind: shapeRepeated, elem: mergeShapes(a.elem, field), count: a.count + b.count, defaultCount: a.defaultCount + b.defaultCount}
 		}
+		a.count += b.count
+		a.defaultCount += b.defaultCount
 		return a
 	}
 	if a.kind != b.kind {
-		return &wireShape{kind: shapeConflict}
+		return &wireShape{kind: shapeConflict, count: a.count + b.count, defaultCount: a.defaultCount + b.defaultCount}
 	}
+	a.count += b.count
+	a.defaultCount += b.defaultCount
 	switch a.kind {
 	case shapeScalar:
 		if a.scalar == b.scalar {
 			return a
 		}
-		return &wireShape{kind: shapeConflict}
+		return &wireShape{kind: shapeConflict, count: a.count, defaultCount: a.defaultCount}
 	case shapeMessage:
 		for number, field := range b.fields {
 			a.fields[number] = mergeShapes(a.fields[number], field)
@@ -493,7 +513,7 @@ func cloneShape(s *wireShape) *wireShape {
 	if s == nil {
 		return nil
 	}
-	c := &wireShape{kind: s.kind, scalar: s.scalar, elem: cloneShape(s.elem)}
+	c := &wireShape{kind: s.kind, scalar: s.scalar, elem: cloneShape(s.elem), count: s.count, defaultCount: s.defaultCount}
 	if s.fields != nil {
 		c.fields = make(map[int32]*wireShape, len(s.fields))
 		for number, field := range s.fields {

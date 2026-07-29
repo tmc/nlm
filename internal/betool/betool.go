@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -32,6 +33,9 @@ type betoolOptions struct {
 	descriptorFile    string   // infer-proto descriptor set to augment
 	messageName       string   // infer-proto root message in descriptorFile
 	outputFile        string   // infer-proto binary descriptor set output
+	rpcOption         string   // augment-corpus MethodOptions extension carrying RPC IDs
+	booleanOption     string   // augment-corpus FieldOptions extension for JSON booleans
+	minObservations   int      // augment-corpus minimum consistent observations
 }
 
 // Options configures one betool invocation.
@@ -66,6 +70,7 @@ func beprotoUnmarshalOptions(opts betoolOptions) beprotojson.UnmarshalOptions {
 //	encode-response  JSON WireResponse                   -> raw response body
 //	infer-proto      one or more raw response payloads   -> merged descriptor
 //	audit-corpus     JSONL traffic files                 -> per-RPC verification report
+//	augment-corpus   descriptor set and JSONL traffic    -> augmented descriptor set
 //
 // With --proto, the decode modes resolve each call's rpc_id to its bound
 // proto message type and emit canonical proto JSON (named fields) instead of
@@ -84,7 +89,7 @@ func Run(args []string, config Options) error {
 	rest := args[1:]
 
 	switch mode {
-	case "decode-request", "encode-request", "decode-response", "encode-response", "infer-proto", "audit-corpus":
+	case "decode-request", "encode-request", "decode-response", "encode-response", "infer-proto", "audit-corpus", "augment-corpus":
 	case "help", "-h", "--help":
 		PrintUsage()
 		return nil
@@ -105,6 +110,9 @@ func Run(args []string, config Options) error {
 	}
 	if mode == "audit-corpus" {
 		return betoolAuditCorpus(opts)
+	}
+	if mode == "augment-corpus" {
+		return betoolAugmentCorpus(opts)
 	}
 	input, err := readBetoolInput(opts.file)
 	if err != nil {
@@ -152,8 +160,8 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 			}
 			opts.samplesDir = strings.TrimPrefix(a, "--samples=")
 		case strings.HasPrefix(a, "--descriptor="):
-			if mode != "infer-proto" {
-				return opts, fmt.Errorf("betool %s: --descriptor applies only to infer-proto", mode)
+			if mode != "infer-proto" && mode != "augment-corpus" {
+				return opts, fmt.Errorf("betool %s: --descriptor applies only to infer-proto and augment-corpus", mode)
 			}
 			opts.descriptorFile = strings.TrimPrefix(a, "--descriptor=")
 		case strings.HasPrefix(a, "--message="):
@@ -162,10 +170,30 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 			}
 			opts.messageName = strings.TrimPrefix(a, "--message=")
 		case strings.HasPrefix(a, "--output="):
-			if mode != "infer-proto" {
-				return opts, fmt.Errorf("betool %s: --output applies only to infer-proto", mode)
+			if mode != "infer-proto" && mode != "augment-corpus" {
+				return opts, fmt.Errorf("betool %s: --output applies only to infer-proto and augment-corpus", mode)
 			}
 			opts.outputFile = strings.TrimPrefix(a, "--output=")
+		case strings.HasPrefix(a, "--rpc-option="):
+			if mode != "augment-corpus" {
+				return opts, fmt.Errorf("betool %s: --rpc-option applies only to augment-corpus", mode)
+			}
+			opts.rpcOption = strings.TrimPrefix(a, "--rpc-option=")
+		case strings.HasPrefix(a, "--boolean-option="):
+			if mode != "augment-corpus" {
+				return opts, fmt.Errorf("betool %s: --boolean-option applies only to augment-corpus", mode)
+			}
+			opts.booleanOption = strings.TrimPrefix(a, "--boolean-option=")
+		case strings.HasPrefix(a, "--min-observations="):
+			if mode != "augment-corpus" {
+				return opts, fmt.Errorf("betool %s: --min-observations applies only to augment-corpus", mode)
+			}
+			value := strings.TrimPrefix(a, "--min-observations=")
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 1 {
+				return opts, fmt.Errorf("betool augment-corpus: --min-observations must be a positive integer")
+			}
+			opts.minObservations = n
 		case a == "--samples":
 			if mode != "infer-proto" {
 				return opts, fmt.Errorf("betool %s: --samples applies only to infer-proto", mode)
@@ -178,7 +206,7 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 		case strings.HasPrefix(a, "-") && a != "-":
 			return opts, fmt.Errorf("betool %s: unknown flag %q", mode, a)
 		default:
-			if mode == "infer-proto" || mode == "audit-corpus" {
+			if mode == "infer-proto" || mode == "audit-corpus" || mode == "augment-corpus" {
 				opts.files = append(opts.files, a)
 				continue
 			}
@@ -204,6 +232,17 @@ func parseBetoolFlags(mode string, args []string) (betoolOptions, error) {
 	}
 	if mode == "audit-corpus" && len(opts.files) == 0 {
 		return opts, fmt.Errorf("betool audit-corpus: at least one JSONL file is required")
+	}
+	if mode == "augment-corpus" {
+		if opts.minObservations == 0 {
+			opts.minObservations = 2
+		}
+		if opts.descriptorFile == "" || opts.rpcOption == "" || opts.outputFile == "" {
+			return opts, fmt.Errorf("betool augment-corpus: --descriptor, --rpc-option, and --output are required")
+		}
+		if len(opts.files) == 0 {
+			return opts, fmt.Errorf("betool augment-corpus: at least one JSONL file is required")
+		}
 	}
 	if (opts.proto || opts.rpcID != "") && mode != "decode-request" && mode != "decode-response" && mode != "infer-proto" {
 		return opts, fmt.Errorf("betool %s: --proto/--rpc-id/--verify apply only to decode-request and decode-response", mode)
@@ -486,9 +525,7 @@ func writeJSON(v any) error {
 	return err
 }
 
-// PrintUsage writes betool command usage to standard error.
-func PrintUsage() {
-	fmt.Fprint(os.Stderr, strings.TrimLeft(`
+const helpTemplate = `
 usage: nlm betool <mode> [flags] [file]
 
 Translate raw batchexecute network payloads to a readable summary or JSON, and
@@ -502,6 +539,7 @@ Modes:
   encode-response   JSON response spec                -> raw response body
   infer-proto       raw response payloads             -> descriptor textproto
   audit-corpus      JSONL traffic files               -> per-RPC verification
+  augment-corpus    descriptor set and JSONL traffic  -> augmented descriptor set
 
 infer-proto flags:
   --rpc-id=<id>     select the response descriptor; required for inference
@@ -512,6 +550,16 @@ infer-proto flags:
   --message=<name>  fully-qualified root message in --descriptor; required with it
   --output=<f>      write the augmented binary FileDescriptorSet to a file
   --json            emit the descriptor as protojson instead of focused proto text
+
+augment-corpus flags:
+  --descriptor=<f>  binary FileDescriptorSet to augment
+  --rpc-option=<n>  string MethodOptions extension containing captured RPC IDs
+  --boolean-option=<n>
+                    bool FieldOptions extension marking JSON boolean encoding
+  --min-observations=<n>
+                    require n consistent observations before mutation (default 2)
+  --output=<f>      write the augmented binary FileDescriptorSet
+  --json            emit the evidence and mutation report as JSON
 
 Decode modes print a human-readable summary by default; pass the global --json
 flag (before the mode: "nlm --json betool decode-response …") for the full
@@ -552,5 +600,21 @@ Examples:
 
   # Audit every RPC request and response in captured JSONL traffic:
   nlm --json betool audit-corpus "$NLM_CORPUS_DIR"/*/notebooklm.google.com/*.jsonl
-`, "\n"))
+
+  # Add evidence-backed fields to an external descriptor set:
+  nlm --json betool augment-corpus --descriptor=input.pb \
+    --rpc-option=example.rpc_id --output=augmented.pb traffic.jsonl
+`
+
+// HelpText returns betool's detailed help with command substituted for
+// "betool" in example invocations.
+func HelpText(command string) string {
+	text := strings.TrimLeft(helpTemplate, "\n")
+	text = strings.ReplaceAll(text, "nlm --json betool", "nlm --json "+command)
+	return strings.ReplaceAll(text, "nlm betool", "nlm "+command)
+}
+
+// PrintUsage writes betool command usage to standard error.
+func PrintUsage() {
+	fmt.Fprint(os.Stderr, HelpText("betool"))
 }
