@@ -583,20 +583,14 @@ var commandDefinitions = []commandDefinition{
 	{
 		name:  "mcp",
 		usage: "Run the MCP server on stdin/stdout", section: "Other",
-		minArgs: 0, maxArgs: 0,
-		run: func(c *api.Client, args []string) error { return runMCP(c) },
 	},
 	{
 		name: "betool", argsUsage: "<decode-request|encode-request|decode-response|encode-response|infer-proto> [file...]",
 		usage:   "Translate raw batchexecute payloads to JSON and back (offline codec)",
 		section: "Other",
-		minArgs: 0, maxArgs: -1,
-		noAuth: true, noClient: true,
+		noAuth:  true, noClient: true,
 		hidden: true, // developer tool; pure wire codec, no network I/O
 		help:   func(cmdName string) { printBetoolUsage() },
-		runWithOptions: func(_ *api.Client, args []string, opts globalOptions) error {
-			return runBetool(args, opts.jsonOutput)
-		},
 	},
 	{
 		name: "auth", argsUsage: "[profile]",
@@ -612,23 +606,15 @@ var commandDefinitions = []commandDefinition{
 	{
 		name:  "refresh",
 		usage: "Refresh stored authentication credentials", section: "Other",
-		minArgs: 0, maxArgs: -1,
 		noAuth: true, noClient: true,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return refreshCredentials(opts.debug)
-		},
 	},
 	{
 		name: "account", argsUsage: "[set <key> <value>]",
 		usage: "Show or update the authenticated user's NotebookLM account (ZwVcOc / hT54vc)", section: "Other",
-		minArgs: 0, maxArgs: 3,
-		run: func(c *api.Client, args []string) error { return runAccount(c, args) },
 	},
 	{
 		name:  "hb",
 		usage: "Send a session heartbeat", section: "Other",
-		minArgs: 0, maxArgs: 0,
-		run: func(c *api.Client, args []string) error { return heartbeat(c) },
 	},
 }
 

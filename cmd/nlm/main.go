@@ -3228,8 +3228,8 @@ func shareNotebook(c *api.Client, notebookID string) error {
 //
 // Supported keys for set: 'emoji' (default_project_emoji) and
 // 'email-notifications' (true/false).
-func runAccount(c *api.Client, args []string) error {
-	if len(args) == 0 {
+func runAccount(c *api.Client, args accountArgs) error {
+	if !args.ActionSet {
 		status, err := c.GetAccountStatus(context.Background())
 		if err != nil {
 			return err
@@ -3269,17 +3269,17 @@ func runAccount(c *api.Client, args []string) error {
 		}
 		return nil
 	}
-	if args[0] != "set" {
-		return fmt.Errorf("account: unknown subcommand %q (try 'set')", args[0])
+	if args.Action != "set" {
+		return fmt.Errorf("account: unknown subcommand %q (try 'set')", args.Action)
 	}
-	if len(args) != 3 {
+	if !args.KeySet || !args.ValueSet {
 		return fmt.Errorf("account set: usage 'nlm account set <key> <value>'")
 	}
-	switch args[1] {
+	switch args.Key {
 	case "emoji", "email-notifications":
-		return fmt.Errorf("account set %s is not supported: NotebookLM changed the account wire schema", args[1])
+		return fmt.Errorf("account set %s is not supported: NotebookLM changed the account wire schema", args.Key)
 	default:
-		return fmt.Errorf("account set: unknown key %q (try 'emoji' or 'email-notifications')", args[1])
+		return fmt.Errorf("account set: unknown key %q (try 'emoji' or 'email-notifications')", args.Key)
 	}
 }
 
