@@ -66,6 +66,7 @@ func TestExitCodeFor(t *testing.T) {
 
 		// Typed api-layer sentinels.
 		{"ErrSourceCapReached", fmt.Errorf("add sources: %w", api.ErrSourceCapReached), exitPrecondition},
+		{"ErrRichNoteTitleUpdateUnsupported", fmt.Errorf("update note: %w", api.ErrRichNoteTitleUpdateUnsupported), exitPrecondition},
 		{"ErrArtifactGenerating", fmt.Errorf("poll: %w", api.ErrArtifactGenerating), exitBusy},
 		{"ErrArtifactNotFound", fmt.Errorf("get artifact: %w", api.ErrArtifactNotFound), exitNotFound},
 		{"ErrNoteNotFound", fmt.Errorf("update note: %w", api.ErrNoteNotFound), exitNotFound},

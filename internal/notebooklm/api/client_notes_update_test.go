@@ -11,6 +11,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
+	"github.com/tmc/nlm/internal/beprotojson"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestUpdateNotePreservesOmittedFields(t *testing.T) {
@@ -129,6 +133,138 @@ func TestUpdateNoteRejectsEmptyMutation(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Errorf("RPC calls = %d, want 0", calls)
+	}
+}
+
+func TestUpdateNoteExcludesArtifactBackedNotes(t *testing.T) {
+	artifacts := []*pb.Artifact{{
+		ArtifactId: "artifact-note",
+		Title:      "Generated note",
+		Type:       pb.ArtifactType_ARTIFACT_TYPE_NOTE,
+		Note: &pb.ArtifactNotePreview{Config: &pb.ArtifactNoteConfig{
+			Prompt: "Generated body",
+		}},
+	}}
+	if got := mergeNotes(nil, notesFromArtifacts(artifacts)); len(got) != 1 || got[0].GetNoteId() != "artifact-note" {
+		t.Fatalf("public note projection = %#v, want artifact-note", got)
+	}
+
+	var calls []string
+	httpClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		rpcID, _ := noteRequest(t, req)
+		calls = append(calls, rpcID)
+		if rpcID != "cFji9" {
+			t.Fatalf("unexpected RPC %q", rpcID)
+		}
+		return noteResponse(req, rpcID, `[]`), nil
+	})}
+	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
+
+	_, err := client.UpdateNote(
+		context.Background(),
+		"notebook-1",
+		"artifact-note",
+		stringPointer("New title"),
+		nil,
+	)
+	if !errors.Is(err, ErrNoteNotFound) {
+		t.Fatalf("error = %v, want %v", err, ErrNoteNotFound)
+	}
+	if want := []string{"cFji9"}; !reflect.DeepEqual(calls, want) {
+		t.Errorf("RPC calls = %v, want %v", calls, want)
+	}
+}
+
+func TestUpdateNoteReadErrorDoesNotMutate(t *testing.T) {
+	var calls []string
+	readErr := errors.New("read failed")
+	httpClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		rpcID, _ := noteRequest(t, req)
+		calls = append(calls, rpcID)
+		if rpcID != "cFji9" {
+			t.Fatalf("unexpected RPC %q", rpcID)
+		}
+		return nil, readErr
+	})}
+	client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
+
+	_, err := client.UpdateNote(
+		context.Background(),
+		"notebook-1",
+		"note-1",
+		stringPointer("New title"),
+		nil,
+	)
+	if !errors.Is(err, readErr) {
+		t.Fatalf("error = %v, want %v", err, readErr)
+	}
+	if want := []string{"cFji9"}; !reflect.DeepEqual(calls, want) {
+		t.Errorf("RPC calls = %v, want %v", calls, want)
+	}
+}
+
+func TestUpdateNoteRejectsTitleOnlyStructuredNote(t *testing.T) {
+	tests := []struct {
+		name string
+		note *pb.GetNotesRichRecord
+	}{
+		{
+			name: "rich document",
+			note: &pb.GetNotesRichRecord{
+				NoteId:      "note-1",
+				ContentText: proto.String("Plain projection"),
+				Title:       "Old title",
+				RichText: &pb.NoteRichText{Value: &pb.NoteRichText_Document{Document: &pb.RichDocument{
+					Body: &pb.SpanLayers{Blocks: []*pb.Span{{Start: proto.Int64(0), End: proto.Int64(4)}}},
+				}}},
+			},
+		},
+		{
+			name: "grounding",
+			note: &pb.GetNotesRichRecord{
+				NoteId:      "note-1",
+				ContentText: proto.String("Plain projection"),
+				Title:       "Old title",
+				GroundingDetails: &pb.NoteGroundingDetails{
+					Grounding: []*pb.Grounding{{Score: proto.Float64(0.75)}},
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload, err := beprotojson.Marshal(&pb.GetNotesRichWireResponse{
+				Entries: []*pb.GetNotesRichEntry{{NoteId: "note-1", Note: test.note}},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var calls []string
+			httpClient := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				rpcID, _ := noteRequest(t, req)
+				calls = append(calls, rpcID)
+				if rpcID != "cFji9" {
+					t.Fatalf("unexpected RPC %q", rpcID)
+				}
+				return noteResponse(req, rpcID, string(payload)), nil
+			})}
+			client := New(Credentials{AuthToken: "auth", Cookies: "cookie"}, WithHTTPClient(httpClient))
+
+			_, err = client.UpdateNote(
+				context.Background(),
+				"notebook-1",
+				"note-1",
+				stringPointer("New title"),
+				nil,
+			)
+			if !errors.Is(err, ErrRichNoteTitleUpdateUnsupported) {
+				t.Fatalf("error = %v, want %v", err, ErrRichNoteTitleUpdateUnsupported)
+			}
+			if want := []string{"cFji9"}; !reflect.DeepEqual(calls, want) {
+				t.Errorf("RPC calls = %v, want %v", calls, want)
+			}
+		})
 	}
 }
 

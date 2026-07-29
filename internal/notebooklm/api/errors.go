@@ -57,6 +57,13 @@ var (
 	// exists in the notebook. Artifact-backed notes are not mutable notes.
 	ErrNoteNotFound = errors.New("note not found")
 
+	// ErrRichNoteTitleUpdateUnsupported indicates a title-only update would
+	// replace structured note content with its plain-text projection. The
+	// mutation RPC has no field mask or rich-document field, so the update
+	// must fail closed until a lossless partial-mutation path is known.
+	// Maps to exit code 5 (permanent precondition).
+	ErrRichNoteTitleUpdateUnsupported = errors.New("title-only update cannot preserve structured note content")
+
 	// ErrResearchPolling indicates a deep-research request is still being
 	// polled via e3bVqc and the final report has not arrived. Maps to exit
 	// code 7 (resource busy).

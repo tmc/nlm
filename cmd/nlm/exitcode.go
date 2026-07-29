@@ -81,7 +81,8 @@ func exitCodeFor(err error) int {
 		return exitAuth
 	case errors.Is(err, api.ErrSourceCapReached),
 		errors.Is(err, api.ErrSourceTooLarge),
-		errors.Is(err, api.ErrNotebookCapReached):
+		errors.Is(err, api.ErrNotebookCapReached),
+		errors.Is(err, api.ErrRichNoteTitleUpdateUnsupported):
 		return exitPrecondition
 	case errors.Is(err, api.ErrArtifactGenerating),
 		errors.Is(err, api.ErrResearchPolling):

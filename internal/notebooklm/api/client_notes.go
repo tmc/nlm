@@ -64,6 +64,8 @@ func (c *Client) MutateNote(ctx context.Context, projectID string, noteID string
 // Title and content use pointer presence so an empty content clears the note
 // body. An empty title is invalid. When both fields are present, UpdateNote
 // skips the read and sends the proven full-replacement mutation directly.
+// A title-only update fails for notes with structured content because the
+// mutation RPC cannot preserve their rich document or grounding.
 func (c *Client) UpdateNote(ctx context.Context, projectID, noteID string, title, content *string) (*Note, error) {
 	if title == nil && content == nil {
 		return nil, fmt.Errorf("update note: no fields supplied")
@@ -94,6 +96,9 @@ func (c *Client) UpdateNote(ctx context.Context, projectID, noteID string, title
 		title = &currentTitle
 	}
 	if content == nil {
+		if current.Rich != nil || len(current.Grounding) != 0 {
+			return nil, fmt.Errorf("update note %q: %w", noteID, ErrRichNoteTitleUpdateUnsupported)
+		}
 		currentContent := current.GetContentText()
 		content = &currentContent
 	}
