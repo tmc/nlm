@@ -8,31 +8,46 @@ import (
 )
 
 func TestParseDeckDownloadArgs(t *testing.T) {
-	opts, notebookID, err := parseDeckDownloadArgs([]string{
+	command, ok := lookupCommand("deck download")
+	if !ok {
+		t.Fatal("deck download command not found")
+	}
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
 		"notebook-123",
 		"--id", "artifact-456",
 		"--format", "pptx",
 		"--output", "deck.pptx",
-	})
+	}, globalOptions{})
 	if err != nil {
-		t.Fatalf("parseDeckDownloadArgs() error = %v", err)
+		t.Fatal(err)
 	}
-	if notebookID != "notebook-123" {
-		t.Fatalf("notebookID = %q, want notebook-123", notebookID)
+	args, err := decodeDeckDownloadArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if opts.ArtifactID != "artifact-456" || opts.Format != "pptx" || opts.Output != "deck.pptx" {
-		t.Fatalf("opts = %+v", opts)
+	if args.NotebookID != "notebook-123" {
+		t.Fatalf("notebookID = %q, want notebook-123", args.NotebookID)
+	}
+	if args.Options.ArtifactID != "artifact-456" || args.Options.Format != "pptx" || args.Options.Output != "deck.pptx" {
+		t.Fatalf("options = %+v", args.Options)
 	}
 }
 
 func TestParseDeckDownloadArgsRejectsBadFormat(t *testing.T) {
-	_, _, err := parseDeckDownloadArgs([]string{
+	command, ok := lookupCommand("deck download")
+	if !ok {
+		t.Fatal("deck download command not found")
+	}
+	parsed, err := parseCommandSpec(command.spec, command.surfaceSpec, []string{
 		"notebook-123",
 		"--id", "artifact-456",
 		"--format", "keynote",
-	})
+	}, globalOptions{})
+	if err == nil {
+		_, err = decodeDeckDownloadArgs(parsed)
+	}
 	if err == nil || !strings.Contains(err.Error(), "unsupported format") {
-		t.Fatalf("parseDeckDownloadArgs() error = %v, want unsupported format", err)
+		t.Fatalf("parse deck download error = %v, want unsupported format", err)
 	}
 }
 

@@ -322,25 +322,15 @@ var commandDefinitions = []commandDefinition{
 		name:      "deck-download",
 		argsUsage: "<notebook-id> --id <artifact-id> [--format pdf|pptx] [--output file]",
 		usage:     "Download a slide deck (PDF/PPTX)", section: "Deck",
-		minArgs: 1, maxArgs: -1,
-		hidden:              true,
-		validateWithOptions: validateDeckDownloadArgsWithOptions,
-		help:                printDeckDownloadUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runDeckDownload(c, args)
-		},
+		hidden: true,
+		help:   printDeckDownloadUsage,
 	},
 	{
 		name:      "download slide-deck",
 		argsUsage: "<notebook-id> --id <artifact-id> [--format pdf|pptx] [--output file]",
 		usage:     "Download a slide deck (PDF/PPTX)", section: "Deck",
-		minArgs: 1, maxArgs: -1,
-		hidden:              true,
-		validateWithOptions: validateDeckDownloadArgsWithOptions,
-		help:                printDeckDownloadUsage,
-		runWithOptions: func(c *api.Client, args []string, opts globalOptions) error {
-			return runDeckDownload(c, args)
-		},
+		hidden: true,
+		help:   printDeckDownloadUsage,
 	},
 
 	// Audio operations

@@ -146,6 +146,7 @@ func buildCommandRegistry() {
 	configureSimpleChatCommandSpecs(specs)
 	configureSharingCommandSpecs(specs)
 	configureOtherCommandSpecs(specs)
+	configureDeckCommandSpecs(specs)
 
 	for _, grouped := range groupedCommandSurfaces {
 		spec := specs[grouped.ID]
