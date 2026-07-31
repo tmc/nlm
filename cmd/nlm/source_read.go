@@ -231,34 +231,7 @@ func renderSourceRead(body notebooklm.LoadSourceText, emitter richrender.Content
 // Markdown and HTML views do via writePresentationGap. Contiguous sources are
 // unaffected: with no gaps this equals Full.
 func sourceReadText(body notebooklm.LoadSourceText) string {
-	emitter := sourceReadTextEmitter{cursor: firstFragmentOffset(body.Fragments)}
-	_ = renderSourceRead(body, &emitter)
-	return emitter.out.String()
-}
-
-type sourceReadTextEmitter struct {
-	out    strings.Builder
-	cursor int
-}
-
-func (e *sourceReadTextEmitter) EmitContent(fragment richrender.ContentFragment) error {
-	switch fragment.Kind {
-	case richrender.ContentImage:
-		return nil
-	case richrender.ContentMember:
-		writePresentationBreak(&e.out)
-		e.out.WriteString(fragment.Text)
-		writePresentationBreak(&e.out)
-	default:
-		writePresentationGap(&e.out, e.cursor, fragment.Start)
-		e.out.WriteString(fragment.Text)
-	}
-	e.cursor = fragment.End
-	return nil
-}
-
-func (*sourceReadTextEmitter) FinishContent() error {
-	return nil
+	return richrender.SourceText(body)
 }
 
 func sourceReadMarkdown(body notebooklm.LoadSourceText, fetchImage sourceImageFetcher) (string, error) {
