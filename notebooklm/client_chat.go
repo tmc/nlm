@@ -1160,6 +1160,31 @@ const (
 	ResponseLengthShorter ResponseLength = 3
 )
 
+// ChatConfig is a notebook's chat configuration: the conversational goal,
+// an optional custom prompt (when Goal is ChatGoalCustom), and the response
+// length. A zero field means the notebook uses the server default.
+type ChatConfig struct {
+	Goal           ChatGoal
+	CustomPrompt   string
+	ResponseLength ResponseLength
+}
+
+// GetChatConfig returns the chat configuration set for a notebook. It reads
+// the configuration the project already carries, so it costs one GetProject.
+// A notebook that has never had SetChatConfig applied reports zero values.
+func (c *Client) GetChatConfig(ctx context.Context, projectID string) (ChatConfig, error) {
+	project, err := c.GetProject(ctx, projectID)
+	if err != nil {
+		return ChatConfig{}, fmt.Errorf("get chat config: %w", err)
+	}
+	config := project.GetChatbotConfig()
+	return ChatConfig{
+		Goal:           ChatGoal(config.GetGoal().GetGoal()),
+		CustomPrompt:   config.GetGoal().GetCustomPrompt(),
+		ResponseLength: ResponseLength(config.GetResponseLength().GetValue()),
+	}, nil
+}
+
 // SetChatConfig updates the chat configuration for a notebook via MutateProject.
 // goalConfig: [goal_type] or [goal_type, "custom_prompt"]
 // responseLengthConfig: [] for default, [4] for longer, [3] for shorter
