@@ -26,7 +26,7 @@ import (
 	"github.com/tmc/nlm/internal/batchexecute"
 	intmethod "github.com/tmc/nlm/internal/method"
 	"github.com/tmc/nlm/internal/nlmmcp"
-	"github.com/tmc/nlm/internal/nlmsync"
+	"github.com/tmc/nlm/nlmsync"
 	"github.com/tmc/nlm/notebooklm"
 	"golang.org/x/term"
 	"google.golang.org/protobuf/encoding/protojson"

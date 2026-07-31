@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tmc/nlm/internal/nlmsync"
+	"github.com/tmc/nlm/nlmsync"
 	"github.com/tmc/nlm/notebooklm"
 )
 
