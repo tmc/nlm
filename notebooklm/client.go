@@ -37,6 +37,10 @@ type Note struct {
 type AppArtifactKind int32
 
 const (
+	// AppArtifactKindFlashcards identifies a flashcards artifact.
+	AppArtifactKindFlashcards AppArtifactKind = 1
+	// AppArtifactKindQuiz identifies a quiz artifact.
+	AppArtifactKindQuiz AppArtifactKind = 2
 	// AppArtifactKindPrototype identifies an interactive prototype artifact.
 	AppArtifactKindPrototype AppArtifactKind = 3
 	// AppArtifactKindMindmap identifies a mind-map artifact.
@@ -48,6 +52,10 @@ const (
 // ParseAppArtifactKind parses an app artifact kind name.
 func ParseAppArtifactKind(s string) (AppArtifactKind, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "flashcards", "flashcard":
+		return AppArtifactKindFlashcards, nil
+	case "quiz":
+		return AppArtifactKindQuiz, nil
 	case "prototype", "notebook-app", "notebook_app":
 		return AppArtifactKindPrototype, nil
 	case "mindmap", "mindmap_app", "mind-map":
@@ -62,6 +70,10 @@ func ParseAppArtifactKind(s string) (AppArtifactKind, error) {
 // String returns the app artifact kind name.
 func (k AppArtifactKind) String() string {
 	switch k {
+	case AppArtifactKindFlashcards:
+		return "flashcards"
+	case AppArtifactKindQuiz:
+		return "quiz"
 	case AppArtifactKindPrototype:
 		return "prototype"
 	case AppArtifactKindMindmap:
@@ -75,7 +87,8 @@ func (k AppArtifactKind) String() string {
 
 func (k AppArtifactKind) valid() bool {
 	switch k {
-	case AppArtifactKindPrototype, AppArtifactKindMindmap, AppArtifactKindCanvas:
+	case AppArtifactKindFlashcards, AppArtifactKindQuiz,
+		AppArtifactKindPrototype, AppArtifactKindMindmap, AppArtifactKindCanvas:
 		return true
 	default:
 		return false

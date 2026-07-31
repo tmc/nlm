@@ -11,6 +11,9 @@ func TestParseAppArtifactKind(t *testing.T) {
 		in   string
 		want AppArtifactKind
 	}{
+		{"flashcards", AppArtifactKindFlashcards},
+		{"flashcard", AppArtifactKindFlashcards},
+		{"quiz", AppArtifactKindQuiz},
 		{"prototype", AppArtifactKindPrototype},
 		{"notebook-app", AppArtifactKindPrototype},
 		{"mindmap", AppArtifactKindMindmap},
@@ -31,8 +34,8 @@ func TestParseAppArtifactKind(t *testing.T) {
 func TestParseAppArtifactKindRejectsUnknown(t *testing.T) {
 	t.Parallel()
 
-	if _, err := ParseAppArtifactKind("flashcards"); err == nil {
-		t.Fatal("ParseAppArtifactKind(flashcards) succeeded, want error")
+	if _, err := ParseAppArtifactKind("infographic"); err == nil {
+		t.Fatal("ParseAppArtifactKind(infographic) succeeded, want error")
 	}
 }
 
