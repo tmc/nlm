@@ -574,23 +574,20 @@ func (c *Client) parseChatResponseChunkedWithProgressTimeout(r io.ReadCloser, so
 //
 // Chunks are emitted immediately as they are read, enabling real-time streaming.
 func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callback func(ChatChunk) bool) error {
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, 256*1024), 1024*1024) // up to 1MB lines
-
 	var lastThinking string
 	var lastAnswer string
 	var answerStarted bool
 	firstLine := true
 
-	for scanner.Scan() {
-		line := scanner.Text()
-
+	// handle processes one wire line. It reports whether to keep reading;
+	// false means the caller's callback asked to stop.
+	handle := func(line string) bool {
 		// Strip anti-XSSI prefix on first non-empty line.
 		if firstLine {
 			line = strings.TrimPrefix(line, ")]}'")
 			line = strings.TrimSpace(line)
 			if line == "" {
-				continue
+				return true
 			}
 			firstLine = false
 		}
@@ -598,7 +595,7 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 		// Skip length-prefix lines (pure digits).
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
-			continue
+			return true
 		}
 		isLengthLine := true
 		for _, ch := range trimmed {
@@ -608,37 +605,37 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 			}
 		}
 		if isLengthLine {
-			continue
+			return true
 		}
 
 		// Look for wrb.fr envelope in this line.
 		startIdx := strings.Index(line, "[\"wrb.fr\"")
 		if startIdx < 0 {
-			continue
+			return true
 		}
 
 		chunkJSON := extractJSONArray(line[startIdx:])
 		if chunkJSON == "" {
-			continue
+			return true
 		}
 
 		var envelope []interface{}
 		if err := json.Unmarshal([]byte(chunkJSON), &envelope); err != nil {
-			continue
+			return true
 		}
 
 		if len(envelope) < 3 {
-			continue
+			return true
 		}
 		innerStr, ok := envelope[2].(string)
 		if !ok || innerStr == "" {
-			continue
+			return true
 		}
 
 		payload := extractChatPayloadWithOptions(innerStr, sourceIDs, c.unmarshalOptions(), c.config.Debug)
 		text := payload.Text
 		if text == "" {
-			continue
+			return true
 		}
 
 		if c.config.Debug {
@@ -664,7 +661,7 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 		// as the start of the final answer.
 		if isThinking && !answerStarted {
 			if text == lastThinking {
-				continue
+				return true
 			}
 
 			header := text
@@ -672,15 +669,15 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 				header = text[:idx]
 			}
 			if !callback(ChatChunk{Text: text, Header: header, Phase: ChatChunkThinking}) {
-				return nil
+				return false
 			}
 			lastThinking = text
-			continue
+			return true
 		}
 
 		answerStarted = true
 		if text == lastAnswer {
-			continue
+			return true
 		}
 
 		// The server sends cumulative text. Find the longest common
@@ -704,13 +701,31 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 				FollowUps: payload.FollowUps,
 				Rich:      payload.Rich,
 			}) {
-				return nil
+				return false
 			}
 		}
 		lastAnswer = text
+		return true
 	}
 
-	return scanner.Err()
+	// bufio.Reader (not Scanner): a single grounded answer frame carries the
+	// whole cumulative answer plus its citations and routinely runs past any
+	// fixed token cap, and Scanner turns that into ErrTooLong and kills the
+	// stream. Reader.ReadString grows unbounded and promotes a final line with
+	// no trailing newline on EOF.
+	br := bufio.NewReader(r)
+	for {
+		raw, err := br.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return fmt.Errorf("read chat stream: %w", err)
+		}
+		if !handle(strings.TrimRight(raw, "\r\n")) {
+			return nil
+		}
+		if err == io.EOF {
+			return nil
+		}
+	}
 }
 
 // parseChatResponse reads the Google chunked response format and extracts text.

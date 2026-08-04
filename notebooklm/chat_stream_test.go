@@ -671,3 +671,59 @@ func TestScanIntTokens(t *testing.T) {
 		}
 	}
 }
+
+// A single grounded answer frame can be several megabytes. The reader must not
+// impose a line-length cap.
+func TestParseChatResponseChunkedLargeFrame(t *testing.T) {
+	tests := []struct {
+		name string
+		size int
+	}{
+		{"under1MB", 512 * 1024},
+		{"over1MB", 2 * 1024 * 1024},
+		{"over4MB", 4*1024*1024 + 7},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			answer := strings.Repeat("a", tt.size)
+			stream := mockChatStream(t, answer)
+
+			var got strings.Builder
+			c := &Client{}
+			err := c.parseChatResponseChunked(strings.NewReader(stream), nil, func(chunk ChatChunk) bool {
+				if chunk.Phase != ChatChunkAnswer {
+					t.Errorf("phase = %v, want answer", chunk.Phase)
+				}
+				got.WriteString(chunk.Text)
+				return true
+			})
+			if err != nil {
+				t.Fatalf("parseChatResponseChunked() error = %v", err)
+			}
+			if got.Len() != len(answer) {
+				t.Fatalf("got %d bytes, want %d", got.Len(), len(answer))
+			}
+			if got.String() != answer {
+				t.Fatal("answer text corrupted")
+			}
+		})
+	}
+}
+
+// The final frame may arrive without a trailing newline.
+func TestParseChatResponseChunkedNoTrailingNewline(t *testing.T) {
+	stream := strings.TrimRight(mockChatStream(t, "Answer"), "\n")
+
+	var got strings.Builder
+	c := &Client{}
+	err := c.parseChatResponseChunked(strings.NewReader(stream), nil, func(chunk ChatChunk) bool {
+		got.WriteString(chunk.Text)
+		return true
+	})
+	if err != nil {
+		t.Fatalf("parseChatResponseChunked() error = %v", err)
+	}
+	if got.String() != "Answer" {
+		t.Fatalf("got %q, want %q", got.String(), "Answer")
+	}
+}
