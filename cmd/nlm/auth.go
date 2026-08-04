@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/tmc/nlm/internal/auth"
@@ -355,20 +353,20 @@ func persistSignalerAuthorization(authz string) error {
 }
 
 func writeStoredEnvFile(path string, values map[string]string) error {
-	content := fmt.Sprintf(
-		"NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\nNLM_AUTHUSER=%q\n",
-		values["NLM_COOKIES"],
-		values["NLM_AUTH_TOKEN"],
-		values["NLM_BROWSER_PROFILE"],
-		values["NLM_SESSION_ID"],
-		values["NLM_BL_PARAM"],
-		values["NLM_SIGNALER_AUTH"],
-		values["NLM_AUTHUSER"],
-	)
-	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-		return fmt.Errorf("write env file: %w", err)
-	}
-	return nil
+	// The store location and file format are owned by nlmauth.Save; path is
+	// retained for call-site compatibility and is always $HOME/.nlm/env.
+	_ = path
+	return nlmauth.Save(nlmauth.Session{
+		Credentials: nlmauth.Credentials{
+			AuthToken: values["NLM_AUTH_TOKEN"],
+			Cookies:   values["NLM_COOKIES"],
+			AuthUser:  values["NLM_AUTHUSER"],
+		},
+		BrowserProfile: values["NLM_BROWSER_PROFILE"],
+		SessionID:      values["NLM_SESSION_ID"],
+		BLParam:        values["NLM_BL_PARAM"],
+		SignalerAuth:   values["NLM_SIGNALER_AUTH"],
+	})
 }
 
 func loadStoredEnv() {
@@ -383,37 +381,19 @@ func loadStoredEnv() {
 }
 
 func readStoredEnv() map[string]string {
-	home, err := os.UserHomeDir()
-	if err != nil {
+	s, err := nlmauth.LoadSession()
+	if err != nil || s == (nlmauth.Session{}) {
 		return nil
 	}
-
-	data, err := os.ReadFile(filepath.Join(home, ".nlm", "env"))
-	if err != nil {
-		return nil
+	return map[string]string{
+		"NLM_COOKIES":         s.Cookies,
+		"NLM_AUTH_TOKEN":      s.AuthToken,
+		"NLM_BROWSER_PROFILE": s.BrowserProfile,
+		"NLM_SESSION_ID":      s.SessionID,
+		"NLM_BL_PARAM":        s.BLParam,
+		"NLM_SIGNALER_AUTH":   s.SignalerAuth,
+		"NLM_AUTHUSER":        s.AuthUser,
 	}
-
-	values := make(map[string]string)
-	s := bufio.NewScanner(strings.NewReader(string(data)))
-	for s.Scan() {
-		line := strings.TrimSpace(s.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			continue
-		}
-
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
-		if unquoted, err := strconv.Unquote(value); err == nil {
-			value = unquoted
-		}
-		values[key] = value
-	}
-	return values
 }
 
 func firstNonEmpty(values ...string) string {
