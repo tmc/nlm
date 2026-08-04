@@ -12,10 +12,11 @@ import (
 
 	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/authuser"
+	"github.com/tmc/nlm/nlmauth"
 	"golang.org/x/term"
 )
 
-var extractNotebookLMPageState = auth.ExtractNotebookLMPageState
+var extractNotebookLMPageState = nlmauth.ExtractNotebookLMPageState
 
 // maskProfileName masks sensitive profile names in debug output
 func maskProfileName(profile string) string {
@@ -445,7 +446,7 @@ func refreshCredentials(debugFlag bool) error {
 	authToken := os.Getenv("NLM_AUTH_TOKEN")
 
 	// Create refresh client
-	refreshClient, err := auth.NewRefreshClient(cookies)
+	refreshClient, err := nlmauth.NewRefreshClient(cookies)
 	if err != nil {
 		return fmt.Errorf("failed to create refresh client: %w", err)
 	}

@@ -1,5 +1,4 @@
-// Package auth handles authentication and credential refresh for NotebookLM
-package auth
+package nlmauth
 
 import (
 	"bytes"
@@ -16,7 +15,12 @@ import (
 )
 
 const (
-	// Google Signaler API for credential refresh.
+	// AppOrigin is the NotebookLM web app origin. It is the Origin/Referer
+	// under which the browser session was established and must match for
+	// SAPISIDHASH authorization and page-state fetches to succeed.
+	AppOrigin = "https://notebook.google.com"
+
+	// SignalerAPIURL is Google's Signaler API for credential refresh.
 	SignalerAPIURL = "https://signaler-pa.clients6.google.com/punctual/v1/refreshCreds"
 
 	// SignalerAPIKey is Google's public API key for the Signaler service,
@@ -26,7 +30,8 @@ const (
 	SignalerAPIKey = "AIzaSyC_pzrI0AjEDXDYcg7kkq3uQEjnXV50pBM"
 )
 
-// RefreshClient handles credential refreshing
+// RefreshClient refreshes an expiring NotebookLM session against the Signaler
+// API. Its zero value is not usable; construct one with [NewRefreshClient].
 type RefreshClient struct {
 	cookies    string
 	sapisid    string
@@ -42,9 +47,9 @@ type NotebookLMPageState struct {
 	BLParam    string
 }
 
-// NewRefreshClient creates a new refresh client
+// NewRefreshClient returns a RefreshClient for the given raw Cookie header. It
+// fails if the cookies do not carry a SAPISID value.
 func NewRefreshClient(cookies string) (*RefreshClient, error) {
-	// Extract SAPISID from cookies
 	sapisid := extractCookieValue(cookies, "SAPISID")
 	if sapisid == "" {
 		return nil, fmt.Errorf("SAPISID not found in cookies")
@@ -57,14 +62,13 @@ func NewRefreshClient(cookies string) (*RefreshClient, error) {
 	}, nil
 }
 
-// SetDebug enables or disables debug output
+// SetDebug enables or disables debug output.
 func (r *RefreshClient) SetDebug(debug bool) {
 	r.debug = debug
 }
 
-// RefreshCredentials refreshes the authentication credentials
+// RefreshCredentials refreshes the authentication credentials for gsessionID.
 func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
-	// Build the URL with parameters
 	params := url.Values{}
 	params.Set("key", SignalerAPIKey)
 	if gsessionID != "" {
@@ -73,32 +77,28 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 
 	fullURL := SignalerAPIURL + "?" + params.Encode()
 
-	// Generate SAPISIDHASH for authorization
 	timestamp := time.Now().Unix()
 	authHash := r.generateSAPISIDHASH(timestamp)
 
-	// Create request body
-	// The body appears to be a session identifier
-	requestBody := []string{"tZf5V3ry"} // This might need to be dynamic
+	// The body appears to be a session identifier.
+	requestBody := []string{"tZf5V3ry"}
 	bodyJSON, err := json.Marshal(requestBody)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
-	// Create the HTTP request
 	req, err := http.NewRequest("POST", fullURL, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 	req.Header.Set("Authorization", fmt.Sprintf("SAPISIDHASH %d_%s", timestamp, authHash))
 	req.Header.Set("Content-Type", "application/json+protobuf")
 	req.Header.Set("Cookie", r.cookies)
-	req.Header.Set("Origin", appOrigin)
-	req.Header.Set("Referer", appOrigin+"/")
+	req.Header.Set("Origin", AppOrigin)
+	req.Header.Set("Referer", AppOrigin+"/")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36")
 
 	if r.debug {
@@ -108,14 +108,12 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 		fmt.Printf("Body: %s\n", string(bodyJSON))
 	}
 
-	// Send the request
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send refresh request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Read the response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
@@ -131,8 +129,6 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 		return fmt.Errorf("refresh failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Parse response to check for success
-	// The response format needs to be determined from actual API responses
 	if r.debug {
 		fmt.Println("Credentials refreshed successfully")
 	}
@@ -140,28 +136,25 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 	return nil
 }
 
-// generateSAPISIDHASH generates the authorization hash
-// Format: SHA1(timestamp + " " + SAPISID + " " + origin)
+// generateSAPISIDHASH generates the authorization hash.
+// Format: SHA1(timestamp + " " + SAPISID + " " + origin).
 func (r *RefreshClient) generateSAPISIDHASH(timestamp int64) string {
 	return generateSAPISIDHASH(r.sapisid, timestamp)
 }
 
 func generateSAPISIDHASH(sapisid string, timestamp int64) string {
-	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, appOrigin)
+	data := fmt.Sprintf("%d %s %s", timestamp, sapisid, AppOrigin)
 
 	hash := sha1.New()
 	hash.Write([]byte(data))
 	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
-// extractCookieValue extracts a specific cookie value from a cookie string
+// extractCookieValue extracts a specific cookie value from a cookie string.
 func extractCookieValue(cookies, name string) string {
-	// Split cookies by semicolon
 	parts := strings.Split(cookies, ";")
 	for _, part := range parts {
-		// Trim spaces
 		part = strings.TrimSpace(part)
-		// Check if this is the cookie we're looking for
 		if strings.HasPrefix(part, name+"=") {
 			return strings.TrimPrefix(part, name+"=")
 		}
@@ -187,15 +180,12 @@ func ExtractNotebookLMPageState(cookies string) (NotebookLMPageState, error) {
 }
 
 func fetchNotebookLMPage(cookies string) ([]byte, string, error) {
-	// Create HTTP client with longer timeout and redirect following
 	client := &http.Client{
 		Timeout: 60 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// Allow up to 10 redirects
 			if len(via) >= 10 {
 				return fmt.Errorf("too many redirects")
 			}
-			// Copy cookies to the redirect request
 			if len(via) > 0 {
 				req.Header.Set("Cookie", via[0].Header.Get("Cookie"))
 			}
@@ -203,24 +193,20 @@ func fetchNotebookLMPage(cookies string) ([]byte, string, error) {
 		},
 	}
 
-	// Create request to NotebookLM
-	req, err := http.NewRequest("GET", appOrigin+"/", nil)
+	req, err := http.NewRequest("GET", AppOrigin+"/", nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("create request: %w", err)
 	}
 
-	// Set headers
 	req.Header.Set("Cookie", cookies)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36")
 
-	// Send request
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", fmt.Errorf("fetch page: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Read response
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, "", fmt.Errorf("read response: %w", err)
@@ -245,7 +231,7 @@ func validateNotebookLMPageURL(finalURL string) error {
 	if err != nil {
 		return fmt.Errorf("parse notebooklm final url: %w", err)
 	}
-	origin, err := url.Parse(appOrigin)
+	origin, err := url.Parse(AppOrigin)
 	if err != nil {
 		return fmt.Errorf("parse notebooklm app origin: %w", err)
 	}

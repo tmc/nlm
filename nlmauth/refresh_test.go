@@ -1,4 +1,4 @@
-package auth
+package nlmauth
 
 import (
 	"crypto/sha1"
@@ -18,11 +18,8 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func TestAppOrigin(t *testing.T) {
 	const want = "https://notebook.google.com"
-	if appOrigin != want {
-		t.Fatalf("appOrigin = %q, want %q", appOrigin, want)
-	}
-	if got := defaultBrowserAuthOptions().TargetURL; got != appOrigin {
-		t.Fatalf("default TargetURL = %q, want appOrigin %q", got, appOrigin)
+	if AppOrigin != want {
+		t.Fatalf("AppOrigin = %q, want %q", AppOrigin, want)
 	}
 }
 
@@ -35,9 +32,9 @@ func TestGenerateSAPISIDHASH(t *testing.T) {
 	}{
 		{
 			name:      "Example hash",
-			sapisid:   "ehxTF4-jACAOIp6k/Ax2l7oysalHiZneAB",
+			sapisid:   "test-sapisid-cookie",
 			timestamp: 1757337921,
-			want:      "30fc826e39451a7a4cd75a0621013cc4afe1d6de",
+			want:      "3fcdcde25419df4771db630a967ca2fa4a83003b",
 		},
 	}
 
@@ -79,11 +76,11 @@ func TestRefreshCredentialsUsesAppOrigin(t *testing.T) {
 	if request == nil {
 		t.Fatal("RefreshCredentials sent no request")
 	}
-	if got := request.Header.Get("Origin"); got != appOrigin {
-		t.Fatalf("Origin = %q, want %q", got, appOrigin)
+	if got := request.Header.Get("Origin"); got != AppOrigin {
+		t.Fatalf("Origin = %q, want %q", got, AppOrigin)
 	}
-	if got := request.Header.Get("Referer"); got != appOrigin+"/" {
-		t.Fatalf("Referer = %q, want %q", got, appOrigin+"/")
+	if got := request.Header.Get("Referer"); got != AppOrigin+"/" {
+		t.Fatalf("Referer = %q, want %q", got, AppOrigin+"/")
 	}
 
 	scheme, value, ok := strings.Cut(request.Header.Get("Authorization"), " ")
@@ -106,16 +103,16 @@ func TestRefreshCredentialsUsesAppOrigin(t *testing.T) {
 }
 
 func TestExtractCookieValue(t *testing.T) {
-	cookies := "HSID=ALqRa_fZCerZVJzYF; SSID=Asj5yorYk-Zr-smiU; SAPISID=ehxTF4-jACAOIp6k/Ax2l7oysalHiZneAB; OTHER=value"
+	cookies := "HSID=test-hsid-cookie; SSID=test-ssid-cookie; SAPISID=test-sapisid-cookie; OTHER=value"
 
 	tests := []struct {
 		name   string
 		cookie string
 		want   string
 	}{
-		{"Extract SAPISID", "SAPISID", "ehxTF4-jACAOIp6k/Ax2l7oysalHiZneAB"},
-		{"Extract HSID", "HSID", "ALqRa_fZCerZVJzYF"},
-		{"Extract SSID", "SSID", "Asj5yorYk-Zr-smiU"},
+		{"Extract SAPISID", "SAPISID", "test-sapisid-cookie"},
+		{"Extract HSID", "HSID", "test-hsid-cookie"},
+		{"Extract SSID", "SSID", "test-ssid-cookie"},
 		{"Non-existent cookie", "NOTFOUND", ""},
 	}
 
@@ -165,16 +162,16 @@ func TestValidateNotebookLMPageURL(t *testing.T) {
 		},
 		{
 			name:     "app host accepted",
-			finalURL: appOrigin + "/notebook/notebook-1",
+			finalURL: AppOrigin + "/notebook/notebook-1",
 		},
 		{
 			name:     "account chooser rejected",
-			finalURL: "https://accounts.google.com/AccountChooser?continue=" + appOrigin,
+			finalURL: "https://accounts.google.com/AccountChooser?continue=" + AppOrigin,
 			wantErr:  true,
 		},
 		{
 			name:     "legacy login host rejected as final URL",
-			finalURL: "https://notebooklm.google.com/login?continue=" + appOrigin,
+			finalURL: "https://notebooklm.google.com/login?continue=" + AppOrigin,
 			wantErr:  true,
 		},
 		{

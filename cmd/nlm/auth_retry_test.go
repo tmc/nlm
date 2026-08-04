@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tmc/nlm/internal/auth"
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/nlmauth"
 	"github.com/tmc/nlm/notebooklm"
 )
 
@@ -128,11 +128,11 @@ func TestRefreshNotebookLMPageStateUpdatesStoredSessionState(t *testing.T) {
 	}
 
 	orig := extractNotebookLMPageState
-	extractNotebookLMPageState = func(cookies string) (auth.NotebookLMPageState, error) {
+	extractNotebookLMPageState = func(cookies string) (nlmauth.NotebookLMPageState, error) {
 		if cookies != "cookie-a" {
 			t.Fatalf("cookies = %q, want cookie-a", cookies)
 		}
-		return auth.NotebookLMPageState{
+		return nlmauth.NotebookLMPageState{
 			GSessionID: "gsession-new",
 			SessionID:  "session-new",
 			BLParam:    "bl-new",
