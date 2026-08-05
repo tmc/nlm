@@ -108,7 +108,15 @@ const (
 	// notebook. Keep this bounded, but do not reject a live request merely
 	// because its first parsed chunk takes longer than a minute.
 	chatInitialResponseTimeout = 5 * time.Minute
-	chatProgressTimeout        = 120 * time.Second
+	chatProgressTimeout        = 5 * time.Minute
+
+	// chatIdleTimeout bounds the gap between socket reads; the server may
+	// think for minutes before sending anything at all.
+	chatIdleTimeout = 5 * time.Minute
+
+	// chatTotalTimeout bounds the entire request. It must exceed the sum of
+	// a full initial wait plus streaming time so it only catches runaways.
+	chatTotalTimeout = 15 * time.Minute
 )
 
 type chatStreamTimeoutError struct {
@@ -433,7 +441,7 @@ func (c *Client) doChatStreamed(ctx context.Context, req ChatRequest, callback f
 	// Required header for chat endpoint (observed in HAR capture)
 	httpReq.Header.Set("x-goog-ext-353267353-jspb", "[null,null,null,282611]")
 
-	client := httpClientWithTimeout(5 * time.Minute)
+	client := httpClientWithTimeout(chatTotalTimeout)
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("chat request: %w", err)
@@ -453,7 +461,7 @@ func (c *Client) doChatStreamed(ctx context.Context, req ChatRequest, callback f
 	}
 
 	// Wrap body with idle timeout for streaming.
-	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
+	idleBody := newIdleTimeoutReader(resp.Body, chatIdleTimeout)
 	defer idleBody.Close()
 	return c.parseChatResponse(idleBody, callback)
 }
@@ -482,7 +490,7 @@ func (c *Client) doChatStreamedChunked(ctx context.Context, req ChatRequest, cal
 	// Use a long total timeout for initial connection, but rely on
 	// idle timeout for the streaming body — the server may think for
 	// minutes before responding, but should send data regularly once started.
-	client := httpClientWithTimeout(5 * time.Minute)
+	client := httpClientWithTimeout(chatTotalTimeout)
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return fmt.Errorf("chat request: %w", err)
@@ -497,7 +505,7 @@ func (c *Client) doChatStreamedChunked(ctx context.Context, req ChatRequest, cal
 	// Wrap body with an idle timeout for blocked reads, then enforce a separate
 	// deadline for parsed response progress. The server can keep a connection
 	// alive with framing bytes that never produce a chat chunk.
-	idleBody := newIdleTimeoutReader(resp.Body, 120*time.Second)
+	idleBody := newIdleTimeoutReader(resp.Body, chatIdleTimeout)
 	defer idleBody.Close()
 
 	return c.parseChatResponseChunkedWithProgressTimeout(
