@@ -189,29 +189,41 @@ func (c *Client) ChatWithHistory(ctx context.Context, req ChatRequest) (string, 
 }
 
 // resolveSourceIDs fills in source IDs from the project if not provided.
-func (c *Client) resolveSourceIDs(ctx context.Context, projectID string, sourceIDs []string) []string {
+//
+// A chat that cannot enumerate the notebook's sources must not proceed: the
+// server accepts an empty selection and answers from no sources at all, so the
+// model produces a fluent, ungrounded reply explaining that the sources "are
+// not selected" — which is true, because none were sent. That looked like
+// server-side retrieval failure and was indistinguishable from a real answer.
+// Report the error instead.
+func (c *Client) resolveSourceIDs(ctx context.Context, projectID string, sourceIDs []string) ([]string, error) {
 	if len(sourceIDs) > 0 || c.config.SkipSources {
-		return sourceIDs
+		return sourceIDs, nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, sourceResolveTimeout)
 	defer cancel()
 	project, err := c.GetProject(ctx, projectID)
 	if err != nil {
-		if c.config.Debug {
-			fmt.Fprintf(os.Stderr, "DEBUG: failed to get project sources: %v\n", err)
-		}
-		return sourceIDs
+		return nil, fmt.Errorf("list notebook sources for chat: %w", err)
 	}
 	for _, source := range project.Sources {
 		if source.SourceId != nil {
 			sourceIDs = append(sourceIDs, source.SourceId.SourceId)
 		}
 	}
+	if len(sourceIDs) == 0 {
+		return nil, fmt.Errorf("notebook %s has no sources to chat with", projectID)
+	}
 	if c.config.Debug {
 		fmt.Fprintf(os.Stderr, "DEBUG: using %d sources for chat\n", len(sourceIDs))
 	}
-	return sourceIDs
+	return sourceIDs, nil
 }
+
+// sourceResolveTimeout bounds the source lookup that precedes a chat. It is
+// generous because failing here aborts the chat: a slow lookup should not turn
+// into an error the caller cannot distinguish from a broken notebook.
+const sourceResolveTimeout = 30 * time.Second
 
 type chatWireHistoryEntry struct {
 	Content string
@@ -237,8 +249,12 @@ type chatWireRequest struct {
 	SequenceNumber   int32
 }
 
-func (c *Client) buildChatWireRequest(ctx context.Context, req ChatRequest) *chatWireRequest {
-	req.SourceIDs = c.resolveSourceIDs(ctx, req.ProjectID, req.SourceIDs)
+func (c *Client) buildChatWireRequest(ctx context.Context, req ChatRequest) (*chatWireRequest, error) {
+	sourceIDs, err := c.resolveSourceIDs(ctx, req.ProjectID, req.SourceIDs)
+	if err != nil {
+		return nil, err
+	}
+	req.SourceIDs = sourceIDs
 
 	if req.ConversationID == "" {
 		req.ConversationID = uuid.New().String()
@@ -264,7 +280,7 @@ func (c *Client) buildChatWireRequest(ctx context.Context, req ChatRequest) *cha
 		ConversationID: req.ConversationID,
 		NotebookID:     req.ProjectID,
 		SequenceNumber: int32(req.SeqNum),
-	}
+	}, nil
 }
 
 func buildChatWireArgs(req *chatWireRequest) []interface{} {
@@ -329,7 +345,10 @@ func nilIfEmpty(s string) interface{} {
 // buildChatArgs builds the inner JSON args for a chat request.
 // Wire format: [[[[source_ids]]],prompt,history,[2,null,[1],[1]],conv_id,null,null,notebook_id,seq_num]
 func (c *Client) buildChatArgs(ctx context.Context, req ChatRequest) (string, error) {
-	wireReq := c.buildChatWireRequest(ctx, req)
+	wireReq, err := c.buildChatWireRequest(ctx, req)
+	if err != nil {
+		return "", err
+	}
 	sources := make([]*pb.ChatSourceSelection, 0, len(wireReq.SourceIDs))
 	for _, sourceID := range wireReq.SourceIDs {
 		sources = append(sources, &pb.ChatSourceSelection{Source: &pb.SourceIdList{SourceId: sourceID}})
@@ -468,7 +487,10 @@ func (c *Client) doChatStreamed(ctx context.Context, req ChatRequest, callback f
 
 // doChatStreamedChunked sends a chat request and streams phase-aware ChatChunks via callback.
 func (c *Client) doChatStreamedChunked(ctx context.Context, req ChatRequest, callback func(ChatChunk) bool) error {
-	sourceIDs := c.resolveSourceIDs(ctx, req.ProjectID, req.SourceIDs)
+	sourceIDs, err := c.resolveSourceIDs(ctx, req.ProjectID, req.SourceIDs)
+	if err != nil {
+		return err
+	}
 	req.SourceIDs = sourceIDs
 
 	body, err := c.buildChatRequestBody(ctx, req)
@@ -1249,7 +1271,10 @@ func (c *Client) SetChatConfig(ctx context.Context, projectID string, goal ChatG
 
 // GenerateReportSuggestions generates report-section suggestions for a notebook.
 func (c *Client) GenerateReportSuggestions(ctx context.Context, projectID string) (*pb.GenerateReportSuggestionsResponse, error) {
-	sourceIDs := c.resolveSourceIDs(ctx, projectID, nil)
+	sourceIDs, err := c.resolveSourceIDs(ctx, projectID, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	// Build source refs in wire format: [["src1"],["src2"],...]
 	var sourceRefs []interface{}
