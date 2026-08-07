@@ -354,10 +354,10 @@ func NewWithConfig(authToken, cookies string, serviceConfig ServiceConfig, optio
 // Do executes a NotebookLM RPC call
 func (c *Client) Do(ctx context.Context, call Call) (json.RawMessage, error) {
 	if c.Config.Debug {
-		fmt.Printf("\n=== RPC Call ===\n")
-		fmt.Printf("ID: %s\n", call.ID)
-		fmt.Printf("NotebookID: %s\n", call.NotebookID)
-		fmt.Printf("Args:\n")
+		fmt.Fprintf(os.Stderr, "\n=== RPC Call ===\n")
+		fmt.Fprintf(os.Stderr, "ID: %s\n", call.ID)
+		fmt.Fprintf(os.Stderr, "NotebookID: %s\n", call.NotebookID)
+		fmt.Fprintf(os.Stderr, "Args:\n")
 		debugDump(call.Args)
 	}
 
@@ -381,7 +381,7 @@ func (c *Client) Do(ctx context.Context, call Call) (json.RawMessage, error) {
 	}
 
 	if c.Config.Debug {
-		fmt.Printf("\nRPC Request:\n")
+		fmt.Fprintf(os.Stderr, "\nRPC Request:\n")
 		debugDump(rpc)
 	}
 
@@ -391,22 +391,23 @@ func (c *Client) Do(ctx context.Context, call Call) (json.RawMessage, error) {
 	}
 
 	if c.Config.Debug {
-		fmt.Printf("\nRPC Response:\n")
+		fmt.Fprintf(os.Stderr, "\nRPC Response:\n")
 		debugDump(resp)
 	}
 
 	return resp.Data, nil
 }
 
-// debugDump prints v as indented JSON. RPC arguments and responses are wire
-// data, so JSON shows them in the shape they travel in; values that do not
-// marshal fall back to Go syntax.
+// debugDump prints v as indented JSON to stderr. RPC arguments and responses
+// are wire data, so JSON shows them in the shape they travel in; values that do
+// not marshal fall back to Go syntax. Debug output stays off stdout so it never
+// interleaves with command output a caller is parsing.
 func debugDump(v any) {
 	if b, err := json.MarshalIndent(v, "", "  "); err == nil {
-		fmt.Printf("%s\n", b)
+		fmt.Fprintf(os.Stderr, "%s\n", b)
 		return
 	}
-	fmt.Printf("%+v\n", v)
+	fmt.Fprintf(os.Stderr, "%+v\n", v)
 }
 
 // Heartbeat sends a heartbeat to keep the session alive

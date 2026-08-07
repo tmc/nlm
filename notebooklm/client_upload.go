@@ -861,15 +861,15 @@ func (c *Client) AddYouTubeSource(ctx context.Context, projectID, youtubeURL str
 	}
 
 	if c.rpc.Config.Debug {
-		fmt.Printf("=== AddYouTubeSource ===\n")
-		fmt.Printf("Project ID: %s\n", projectID)
-		fmt.Printf("YouTube URL: %s\n", sourceURL)
+		fmt.Fprintf(os.Stderr, "=== AddYouTubeSource ===\n")
+		fmt.Fprintf(os.Stderr, "Project ID: %s\n", projectID)
+		fmt.Fprintf(os.Stderr, "YouTube URL: %s\n", sourceURL)
 	}
 
 	payload := buildYouTubeSourcePayload(projectID, sourceURL)
 
 	if c.rpc.Config.Debug {
-		fmt.Printf("\nPayload Structure:\n")
+		fmt.Fprintf(os.Stderr, "\nPayload Structure:\n")
 	}
 
 	resp, err := c.rpc.Do(ctx, rpc.Call{
@@ -882,7 +882,7 @@ func (c *Client) AddYouTubeSource(ctx context.Context, projectID, youtubeURL str
 	}
 
 	if c.rpc.Config.Debug {
-		fmt.Printf("\nRaw Response:\n%s\n", string(resp))
+		fmt.Fprintf(os.Stderr, "\nRaw Response:\n%s\n", string(resp))
 	}
 
 	if len(resp) == 0 {
