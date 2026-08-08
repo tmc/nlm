@@ -757,9 +757,18 @@ func formatSourceStatus(src *pb.Source) string {
 	return "ok"
 }
 
+// formatSourceType names a source's type for the listing. The server buckets
+// uploaded PDFs under SOURCE_TYPE_GOOGLE_SLIDES while reporting
+// mime_type=application/pdf, so reading the enum alone labels every PDF
+// "gslides" and sends readers looking for a Slides conversion that never
+// happened. The mime type is the more specific fact; prefer it when the two
+// disagree.
 func formatSourceType(src *pb.Source) string {
 	if src.Metadata == nil {
 		return "-"
+	}
+	if src.Metadata.GetMimeType() == "application/pdf" {
+		return "pdf"
 	}
 	switch src.Metadata.GetSourceType() {
 	case 0, 1:
