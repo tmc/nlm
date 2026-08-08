@@ -73,7 +73,7 @@ func friendlyError(err error) string {
 	prefix := strings.TrimSuffix(full, suffix)
 	prefix = strings.TrimRight(prefix, ": ")
 
-	msg := friendlyAPIMessage(apiErr)
+	msg := friendlyAPIMessage(apiErr, prefix)
 	if prefix == "" {
 		return msg
 	}
@@ -116,8 +116,10 @@ func friendlyTypedError(err, target error, msg string) string {
 
 // friendlyAPIMessage returns a human-readable description for an APIError.
 // Prefers ErrorCode.Description (from the dictionary) over raw Message, and
-// never surfaces the numeric code to the user.
-func friendlyAPIMessage(apiErr *batchexecute.APIError) string {
+// never surfaces the numeric code to the user. op is the wrapping context of
+// the error chain (e.g. "add YouTube source"); it is used to narrow codes
+// that arrive from the server without a diagnostic.
+func friendlyAPIMessage(apiErr *batchexecute.APIError, op string) string {
 	if apiErr.ErrorCode != nil {
 		switch apiErr.ErrorCode.Type {
 		case batchexecute.ErrorTypeAuthentication:
@@ -138,6 +140,9 @@ func friendlyAPIMessage(apiErr *batchexecute.APIError) string {
 	// for a state reason.") is too vague to act on. Replace with a list of
 	// the actually-observed causes so users know what to check.
 	if apiErr.ErrorCode != nil && apiErr.ErrorCode.Code == 9 {
+		if strings.Contains(op, "YouTube") {
+			return "server rejected the video (code 9). Check that the video is public and has captions. You can also save its transcript and add it with `nlm source add <notebook> transcript.txt`. The server does not return a diagnostic for this code, so the cause and whether retrying will help are unknown."
+		}
 		return "server rejected the request (code 9). Common causes: source content too large for one upload (split with `nlm sync` or `--chunk`), notebook at the 300-source cap (check with `nlm list-sources`), or transient server policy. The server does not return a diagnostic for this code."
 	}
 	if apiErr.ErrorCode != nil && apiErr.ErrorCode.Description != "" {

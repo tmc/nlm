@@ -184,6 +184,22 @@ func TestFriendlyError(t *testing.T) {
 			wantNotContain: []string{"notebook source cap reached", "Operation was rejected"},
 		},
 		{
+			// Offer relevant import checks without inferring a permanent failure
+			// from a server response that contains no diagnostic.
+			name: "code 9 on a YouTube add preserves uncertainty",
+			err: fmt.Errorf("add YouTube source: execute rpc: %w",
+				&batchexecute.APIError{
+					ErrorCode: &batchexecute.ErrorCode{
+						Code:        9,
+						Type:        batchexecute.ErrorTypeInvalidInput,
+						Message:     "Failed precondition",
+						Description: "Operation was rejected for a state reason.",
+					},
+				}),
+			wantContains:   []string{"add YouTube source", "code 9", "public", "captions", "transcript", "unknown"},
+			wantNotContain: []string{"300-source cap", "transient server policy", "not transient", "will fail again"},
+		},
+		{
 			// Regression: errors.Join'd parallel-upload failures used to get
 			// only one friendly rewrite — the others surfaced raw. Each
 			// branch of a join must be rewritten independently, joined with
