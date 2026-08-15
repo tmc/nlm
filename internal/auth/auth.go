@@ -23,6 +23,7 @@ const appOrigin = "https://notebook.google.com"
 
 type BrowserAuth struct {
 	debug           bool
+	visible         bool
 	tempDir         string
 	chromeCmd       *exec.Cmd
 	cancel          context.CancelFunc
@@ -94,6 +95,7 @@ type Options struct {
 	KeepOpenSeconds   int    // Keep browser open for N seconds after auth
 	RemoteCDPURL      string // Remote CDP WebSocket URL (e.g. "ws://localhost:9222")
 	AuthUser          string // Google account index for multi-account profiles (e.g. "1")
+	VisibleBrowser    bool   // Force a headed browser without enabling debug logging
 }
 
 type Option func(*Options)
@@ -110,6 +112,7 @@ func WithCheckNotebooks() Option             { return func(o *Options) { o.Check
 func WithKeepOpenSeconds(seconds int) Option { return func(o *Options) { o.KeepOpenSeconds = seconds } }
 func WithRemoteCDPURL(url string) Option     { return func(o *Options) { o.RemoteCDPURL = url } }
 func WithAuthUser(authUser string) Option    { return func(o *Options) { o.AuthUser = authUser } }
+func WithVisibleBrowser() Option             { return func(o *Options) { o.VisibleBrowser = true } }
 
 func defaultBrowserAuthOptions() *Options {
 	return &Options{
@@ -222,7 +225,7 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 			chromedp.NoFirstRun,
 			chromedp.NoDefaultBrowserCheck,
 			chromedp.UserDataDir(userDataDir),
-			chromedp.Flag("headless", !ba.debug),
+			chromedp.Flag("headless", !(ba.debug || ba.visible)),
 			chromedp.Flag("window-size", "1280,800"),
 			chromedp.Flag("new-window", true),
 			chromedp.Flag("no-first-run", true),
@@ -510,6 +513,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 
 	// Store keep-open setting in the struct
 	ba.keepOpenSeconds = o.KeepOpenSeconds
+	ba.visible = o.VisibleBrowser
 
 	// If a remote CDP URL is provided, connect to it directly
 	if o.RemoteCDPURL != "" {
@@ -733,7 +737,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.UserDataDir(ba.tempDir),
-		chromedp.Flag("headless", !ba.debug),
+		chromedp.Flag("headless", !(ba.debug || ba.visible)),
 		chromedp.Flag("window-size", "1280,800"),
 		chromedp.Flag("new-window", true),
 		chromedp.Flag("no-first-run", true),

@@ -17,6 +17,10 @@ import (
 
 var extractNotebookLMPageState = auth.ExtractNotebookLMPageState
 
+var getBrowserAuthData = func(debug bool, opts ...auth.Option) (*auth.AuthData, error) {
+	return auth.New(debug).GetAuthData(opts...)
+}
+
 // maskProfileName masks sensitive profile names in debug output
 func maskProfileName(profile string) string {
 	if profile == "" {
@@ -150,8 +154,6 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	// Use the debug flag from options if set, otherwise use the global debug flag
 	useDebug := opts.Debug || globals.debug
 
-	a := auth.New(useDebug)
-
 	// Prepare options for auth call
 	// Custom options
 	authOpts := []auth.Option{auth.WithScanBeforeAuth(), auth.WithTargetURL(opts.TargetURL)}
@@ -184,7 +186,11 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	}
 
 	// Get auth data (use GetAuthData to capture session ID and BL param)
-	authData, err := a.GetAuthData(authOpts...)
+	authData, err := getBrowserAuthData(useDebug, authOpts...)
+	if err != nil && !useDebug && opts.RemoteCDPURL == "" && shouldRetryAuthVisibly(err) {
+		fmt.Fprintln(os.Stderr, "nlm: headless authentication failed; retrying with a visible browser...")
+		authData, err = getBrowserAuthData(false, visibleAuthRetryOptions(authOpts, opts.KeepOpenSeconds)...)
+	}
 	if err != nil {
 		return "", "", fmt.Errorf("browser auth failed: %w", err)
 	}
@@ -197,6 +203,33 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		return "", "", err
 	}
 	return authToken, cookies, nil
+}
+
+func visibleAuthRetryOptions(base []auth.Option, keepOpenSeconds int) []auth.Option {
+	opts := append([]auth.Option{}, base...)
+	opts = append(opts, auth.WithVisibleBrowser())
+	if keepOpenSeconds == 0 {
+		opts = append(opts, auth.WithKeepOpenSeconds(30))
+	}
+	return opts
+}
+
+func shouldRetryAuthVisibly(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	for _, prelaunchFailure := range []string{
+		"scan profiles",
+		"no valid browser profiles",
+		"create temp dir",
+		"copy profile",
+	} {
+		if strings.Contains(message, prelaunchFailure) {
+			return false
+		}
+	}
+	return true
 }
 
 // printAuthEnv writes POSIX `export KEY=value` lines for the current session
