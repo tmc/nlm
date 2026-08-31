@@ -1808,6 +1808,20 @@ type chatResult struct {
 	Citations []notebooklm.Citation // raw citation metadata for persistence / re-rendering
 	FollowUps []string
 	Rich      *pb.RichDocument // answer-body span tree; nil when the stream carried none
+	Revised   bool             // a server revision landed inside already-streamed output; the live stream differs from Answer
+}
+
+// staleStreamOutputError returns the stale-output error (exit 8) for a
+// finished chat whose live stream was revised after text had already been
+// written to a captured (non-terminal) stdout. Interactive terminals keep
+// exit 0 — the notice was visible and the scrollback is not a document.
+// JSONL mode keeps exit 0 too: its done event carries the exact answer and
+// a revised flag, so the capture is self-repairing.
+func staleStreamOutputError(res chatResult, jsonl bool, notebookID, conversationID string) error {
+	if !res.Revised || jsonl || isTerminal(os.Stdout) {
+		return nil
+	}
+	return staleOutputError{notebookID: notebookID, conversationID: conversationID}
 }
 
 func streamChatResponse(c *notebooklm.Client, req notebooklm.ChatRequest, opts chatRenderOptions) (chatResult, error) {
@@ -1858,6 +1872,7 @@ func streamChatResponse(c *notebooklm.Client, req notebooklm.ChatRequest, opts c
 		Citations: persistableCitations(renderer.Citations(), resolveTitle),
 		FollowUps: renderer.FollowUps(),
 		Rich:      renderer.Rich(),
+		Revised:   renderer.StreamRevised(),
 	}, err
 }
 
@@ -2190,7 +2205,7 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 	// Tell the user how to continue this conversation.
 	printContinuationHint(os.Stderr, projectID, convID, isNewConversation)
 
-	return nil
+	return staleStreamOutputError(res, opts.Render.jsonl(), projectID, convID)
 }
 
 // printContinuationHint writes a muted one-line nudge to stderr telling the
@@ -2614,7 +2629,10 @@ func oneShotChat(c *notebooklm.Client, notebookID, prompt string, opts chatOptio
 		})
 	}
 	session.UpdatedAt = time.Now()
-	return saveChatSession(session)
+	if err := saveChatSession(session); err != nil {
+		return err
+	}
+	return staleStreamOutputError(res, opts.Render.jsonl(), notebookID, session.ConversationID)
 }
 
 // readPromptFile returns the prompt text from path, or from stdin when path is "-".
@@ -2696,7 +2714,10 @@ func oneShotChatInConv(c *notebooklm.Client, notebookID, conversationID, prompt 
 		})
 	}
 	session.UpdatedAt = time.Now()
-	return saveChatSession(session)
+	if err := saveChatSession(session); err != nil {
+		return err
+	}
+	return staleStreamOutputError(res, opts.Render.jsonl(), notebookID, conversationID)
 }
 
 // interactiveChatWithConv starts or resumes an interactive chat with a specific conversation ID.
@@ -2896,6 +2917,30 @@ func mergeChatHistory(session *chatSession, rich map[string]*pb.RichDocument, ci
 		}
 	}
 	return changed, richCount, citationCount
+}
+
+// chatShowLast replays the notebook's most recently updated saved
+// conversation, so recovering the exact answer after a stale-output exit
+// (exit 8) is one obvious command — no conversation-id parse from stderr, no
+// store glob. Under concurrent chats "most recent" is racy; automation that
+// interleaves conversations should pass the explicit id instead.
+func chatShowLast(notebookID string, opts chatRenderOptions) error {
+	records, err := loadNotebookSessionRecords(notebookID)
+	if err != nil {
+		return fmt.Errorf("load local sessions: %w", err)
+	}
+	var last *chatSession
+	for _, record := range records {
+		if last == nil || record.Session.UpdatedAt.After(last.UpdatedAt) {
+			last = record.Session
+		}
+	}
+	if last == nil {
+		return fmt.Errorf("no local chat sessions for notebook %s", notebookID)
+	}
+	fmt.Fprintf(os.Stderr, "nlm: showing conversation %s (updated %s)\n",
+		last.ConversationID, last.UpdatedAt.Format(time.RFC3339))
+	return chatShow(notebookID, last.ConversationID, opts)
 }
 
 // chatShow renders a conversation with full citation modes. It prefers the

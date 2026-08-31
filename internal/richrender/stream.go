@@ -87,6 +87,7 @@ type StreamRenderer struct {
 	status               io.Writer
 	showThinking         bool
 	verbose              bool
+	streamRevised        bool // a server revision touched already-emitted answer output; the live stream may differ from the exact buffer
 	jsonl                bool // when true, emit typed JSON-lines events on r.out instead of human output
 	jsonlIncludeThinking bool // when true, thinking chunks are emitted as JSON-lines events (otherwise skipped)
 	citationMode         CitationMode
@@ -106,13 +107,13 @@ type StreamRenderer struct {
 	followUps            []string
 	rich                 *pb.RichDocument // last answer chunk's span tree (cumulative); nil when the stream carried none
 
-	// flushedLen tracks bytes already streamed to r.out so re-renders don't
-	// double-print; the answer always streams live now, so it just advances
-	// with each answer chunk.
+	// flushedLen is the high-water mark of answer offsets already streamed
+	// to r.out; only bytes past it are ever printed, so a snapshot revision
+	// can never re-emit (duplicate) already-flushed text.
 	flushedLen int
 
-	// jsonl bookkeeping: last emitted absolute answer offset so we only
-	// emit delta text per event, and track which citations have been emitted.
+	// jsonl bookkeeping: same high-water mark for emitted answer events,
+	// and which citations have been emitted.
 	jsonlAnswerEmitted int
 	jsonlThinkingSeen  string
 	jsonlCitationsSeen int
@@ -158,13 +159,33 @@ func (r *StreamRenderer) WriteChunk(chunk notebooklm.ChatChunk) {
 		r.lastThinkingLen = len("  [thinking] ") + len(display)
 	case notebooklm.ChatChunkAnswer:
 		r.clearThinkingLine()
-		r.answerBuf.WriteString(chunk.Text)
 		// The answer always streams live to stdout; citations render as a
-		// trailing list at Finish. (Earlier modes buffered or held a tail
-		// window to splice inline superscripts; that path corrupted answers
-		// with multibyte text and was removed.)
-		fmt.Fprint(r.out, chunk.Text)
-		r.flushedLen += len(chunk.Text)
+		// trailing list at Finish. When the producer carries the cumulative
+		// snapshot (Full), stream monotonically by offset: the wire delta
+		// (Text) restarts at the divergence point when the server revises
+		// earlier text, and re-printing from there duplicates everything
+		// after it — while bytes already written cannot be unwritten. So
+		// only offsets past flushedLen are printed; a revision inside the
+		// flushed range leaves that span at its old rendering and sets
+		// streamRevised so Finish can say so. The buffer tracks the
+		// snapshot and stays exact regardless. Producers without Full
+		// (persisted re-render, non-streamed fallback) pass full text in
+		// Text and keep plain append semantics.
+		if chunk.Full != "" {
+			if len(chunk.Full)-len(chunk.Text) < r.flushedLen {
+				r.streamRevised = true
+			}
+			if len(chunk.Full) > r.flushedLen {
+				fmt.Fprint(r.out, chunk.Full[r.flushedLen:])
+				r.flushedLen = len(chunk.Full)
+			}
+			r.answerBuf.Reset()
+			r.answerBuf.WriteString(chunk.Full)
+		} else {
+			r.answerBuf.WriteString(chunk.Text)
+			fmt.Fprint(r.out, chunk.Text)
+			r.flushedLen += len(chunk.Text)
+		}
 		if len(chunk.Citations) > 0 {
 			r.citations = chunk.Citations
 		}
@@ -178,9 +199,10 @@ func (r *StreamRenderer) WriteChunk(chunk notebooklm.ChatChunk) {
 }
 
 // writeChunkJSONL emits chat-stream events as newline-delimited JSON on r.out.
-// Answer text is emitted as deltas so shell consumers can pipeline without
-// waiting for the full response. Thinking chunks arrive as cumulative
-// snapshots; only emit when the snapshot differs from what we last emitted.
+// Answer text is emitted as monotone snapshot extensions so shell consumers
+// can pipeline without waiting for the full response; the done event carries
+// the exact full answer. Thinking chunks arrive as cumulative snapshots; only
+// emit when the snapshot differs from what we last emitted.
 func (r *StreamRenderer) writeChunkJSONL(chunk notebooklm.ChatChunk) {
 	switch chunk.Phase {
 	case notebooklm.ChatChunkThinking:
@@ -197,13 +219,33 @@ func (r *StreamRenderer) writeChunkJSONL(chunk notebooklm.ChatChunk) {
 			"text":  chunk.Text,
 		})
 	case notebooklm.ChatChunkAnswer:
-		r.answerBuf.WriteString(chunk.Text)
-		if chunk.Text != "" {
-			r.emitJSONLEvent(map[string]any{
-				"phase": "answer",
-				"text":  chunk.Text,
-			})
-			r.jsonlAnswerEmitted += len(chunk.Text)
+		// See WriteChunk: emit monotone extensions of the cumulative
+		// snapshot, never the raw wire delta — a delta that restarts at a
+		// revision would make concatenating consumers duplicate the tail.
+		// A revision inside the emitted range leaves that span stale in the
+		// event stream; the done event carries the exact answer.
+		if chunk.Full != "" {
+			if len(chunk.Full)-len(chunk.Text) < r.jsonlAnswerEmitted {
+				r.streamRevised = true
+			}
+			if len(chunk.Full) > r.jsonlAnswerEmitted {
+				r.emitJSONLEvent(map[string]any{
+					"phase": "answer",
+					"text":  chunk.Full[r.jsonlAnswerEmitted:],
+				})
+				r.jsonlAnswerEmitted = len(chunk.Full)
+			}
+			r.answerBuf.Reset()
+			r.answerBuf.WriteString(chunk.Full)
+		} else {
+			r.answerBuf.WriteString(chunk.Text)
+			if chunk.Text != "" {
+				r.emitJSONLEvent(map[string]any{
+					"phase": "answer",
+					"text":  chunk.Text,
+				})
+				r.jsonlAnswerEmitted += len(chunk.Text)
+			}
 		}
 		if len(chunk.Citations) > 0 {
 			r.citations = chunk.Citations
@@ -283,12 +325,25 @@ func (r *StreamRenderer) Finish() {
 				"text":  f,
 			})
 		}
-		r.emitJSONLEvent(map[string]any{
-			"phase": "done",
-		})
+		// The done event carries the authoritative full answer. The answer
+		// events are monotone extensions, so when a revision touched an
+		// already-emitted span (revised: true) their concatenation holds
+		// that span at its old rendering; consumers that need exact bytes
+		// read this field instead.
+		done := map[string]any{
+			"phase":  "done",
+			"answer": r.answerBuf.String(),
+		}
+		if r.streamRevised {
+			done["revised"] = true
+		}
+		r.emitJSONLEvent(done)
 		return
 	}
 	r.clearThinkingLine()
+	if r.streamRevised {
+		fmt.Fprintf(r.status, "%snlm: the server revised earlier answer text while streaming; the streamed text may differ from the final answer (the saved conversation holds the exact text)%s\n", ansiGrey, ansiReset)
+	}
 	if r.loadSource != nil && len(r.citations) > 0 {
 		r.resolvedLocations = resolveCitationLocations(r.loadSource, r.citations, r.debug)
 	}
@@ -590,6 +645,14 @@ func (r *StreamRenderer) Answer() string {
 // Thinking returns the latest cumulative thinking trace.
 func (r *StreamRenderer) Thinking() string {
 	return r.thinking
+}
+
+// StreamRevised reports whether a server revision landed inside answer
+// output that had already been emitted, leaving the live stream (or the
+// concatenation of JSONL answer events) different from the exact answer
+// returned by Answer.
+func (r *StreamRenderer) StreamRevised() bool {
+	return r.streamRevised
 }
 
 // Rich returns the answer-body span tree from the last answer chunk (the

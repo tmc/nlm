@@ -51,6 +51,100 @@ func TestChatStreamRendererThinkingReplacesCumulativeSnapshots(t *testing.T) {
 	}
 }
 
+// Answer deltas restart at the divergence point when the server revises
+// earlier text, so the accumulated answer must track the cumulative snapshot
+// (Full), not a concatenation of deltas — that duplicates the tail.
+func TestChatStreamRendererAnswerRevisionReplacesFromFullSnapshot(t *testing.T) {
+	chunks := []notebooklm.ChatChunk{
+		{Phase: notebooklm.ChatChunkAnswer, Text: "Section one.", Full: "Section one."},
+		{Phase: notebooklm.ChatChunkAnswer, Text: " Section two.", Full: "Section one. Section two."},
+		// Revision: the server changed "one" → "1", so the delta re-emits
+		// everything after the divergence point.
+		{Phase: notebooklm.ChatChunkAnswer, Text: "1. Section two. Section three.", Full: "Section 1. Section two. Section three."},
+	}
+	const want = "Section 1. Section two. Section three."
+
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
+	for _, c := range chunks {
+		r.WriteChunk(c)
+	}
+	r.Finish()
+	if got := r.Answer(); got != want {
+		t.Fatalf("Answer() = %q, want %q", got, want)
+	}
+
+	var jout, jstatus bytes.Buffer
+	jr := newChatStreamRenderer(&jout, &jstatus, false, false, citationModeOff)
+	jr.jsonl = true
+	for _, c := range chunks {
+		jr.WriteChunk(c)
+	}
+	jr.Finish()
+	if got := jr.Answer(); got != want {
+		t.Fatalf("jsonl Answer() = %q, want %q", got, want)
+	}
+}
+
+// A revision to already-streamed text must not re-emit the tail: output is
+// monotone by offset, the revised span keeps its old rendering, the buffer
+// stays exact, and Finish notes the divergence on the status stream.
+func TestChatStreamRendererAnswerStreamsMonotoneOnRevision(t *testing.T) {
+	chunks := []notebooklm.ChatChunk{
+		{Phase: notebooklm.ChatChunkAnswer, Text: "Section one.", Full: "Section one."},
+		{Phase: notebooklm.ChatChunkAnswer, Text: " Section two.", Full: "Section one. Section two."},
+		{Phase: notebooklm.ChatChunkAnswer, Text: "1. Section two. Section three.", Full: "Section 1. Section two. Section three."},
+	}
+	const want = "Section 1. Section two. Section three."
+
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
+	for _, c := range chunks {
+		r.WriteChunk(c)
+	}
+	r.Finish()
+
+	// The first 25 bytes streamed before the revision and keep their old
+	// rendering; everything past them streams from the revised snapshot.
+	wantOut := "Section one. Section two." + want[len("Section one. Section two."):]
+	if got := out.String(); got != wantOut {
+		t.Fatalf("streamed output = %q, want %q", got, wantOut)
+	}
+	if got := r.Answer(); got != want {
+		t.Fatalf("Answer() = %q, want %q", got, want)
+	}
+	if !strings.Contains(status.String(), "revised") {
+		t.Fatalf("status = %q, want a revision notice", status.String())
+	}
+}
+
+// The JSONL done event carries the authoritative full answer and flags a
+// revision, since concatenating the monotone answer events keeps a revised
+// span at its old rendering.
+func TestChatStreamRendererJSONLDoneCarriesAuthoritativeAnswer(t *testing.T) {
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
+	r.jsonl = true
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkAnswer, Text: "Section one.", Full: "Section one."})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkAnswer, Text: "1. Section two.", Full: "Section 1. Section two."})
+	r.Finish()
+
+	events := parseJSONLEvents(t, out.String())
+	if got := events[1]["text"]; got != "ection two." {
+		t.Fatalf("second answer event = %q, want monotone extension %q", got, "ection two.")
+	}
+	done := events[len(events)-1]
+	if done["phase"] != "done" {
+		t.Fatalf("last event phase = %v, want done", done["phase"])
+	}
+	if got := done["answer"]; got != "Section 1. Section two." {
+		t.Fatalf("done answer = %q, want %q", got, "Section 1. Section two.")
+	}
+	if done["revised"] != true {
+		t.Fatalf("done revised = %v, want true", done["revised"])
+	}
+}
+
 func TestChatStreamRendererThinkingModes(t *testing.T) {
 	t.Run("header-only", func(t *testing.T) {
 		var out bytes.Buffer

@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -118,6 +120,8 @@ func TestExitCodeFor(t *testing.T) {
 		{"errPrecondition wrapped", fmt.Errorf("validate: %w", errPrecondition), exitPrecondition},
 		{"errNotFound", errNotFound, exitNotFound},
 		{"errNotFound wrapped", fmt.Errorf("lookup: %w", errNotFound), exitNotFound},
+		{"errStaleOutput", errStaleOutput, exitStaleOutput},
+		{"staleOutputError", staleOutputError{notebookID: "nb", conversationID: "conv"}, exitStaleOutput},
 	}
 
 	for _, tt := range tests {
@@ -170,11 +174,36 @@ func TestExitCodeName(t *testing.T) {
 		{exitPrecondition, "precondition"},
 		{exitTransient, "transient"},
 		{exitBusy, "busy"},
+		{exitStaleOutput, "stale-output"},
 		{99, ""},
 	}
 	for _, tt := range tests {
 		if got := exitCodeName(tt.code); got != tt.want {
 			t.Errorf("exitCodeName(%d) = %q, want %q", tt.code, got, tt.want)
 		}
+	}
+}
+
+// staleStreamOutputError fires only for a captured stdout: revised chats on a
+// terminal or in JSONL mode (whose done event carries the exact answer) exit 0.
+func TestStaleStreamOutputError(t *testing.T) {
+	if isTerminal(os.Stdout) {
+		t.Skip("test requires non-terminal stdout")
+	}
+	err := staleStreamOutputError(chatResult{Revised: true}, false, "nb1", "conv1")
+	if !errors.Is(err, errStaleOutput) {
+		t.Fatalf("revised piped chat error = %v, want errStaleOutput", err)
+	}
+	if got := exitCodeFor(err); got != exitStaleOutput {
+		t.Fatalf("exit code = %d, want %d", got, exitStaleOutput)
+	}
+	if msg := err.Error(); !strings.Contains(msg, "nlm chat-show nb1 conv1") {
+		t.Fatalf("error message %q lacks the chat-show replay command", msg)
+	}
+	if err := staleStreamOutputError(chatResult{Revised: true}, true, "nb1", "conv1"); err != nil {
+		t.Fatalf("jsonl mode error = %v, want nil", err)
+	}
+	if err := staleStreamOutputError(chatResult{}, false, "nb1", "conv1"); err != nil {
+		t.Fatalf("unrevised chat error = %v, want nil", err)
 	}
 }

@@ -272,7 +272,7 @@ func compareCommandParityPhase2(t *testing.T, baseline, current commandParityGol
 		}
 		normalizePhase6UnknownCase(t, &got, want)
 		normalizePhase6IgnoredArgumentCases(&got, want)
-		if !phase4CommandPaths[want.Path] && !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
+		if !phase4CommandPaths[want.Path] && !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] && !postRoadmapCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 4 and Phase 5", want.Path)
 			}
@@ -319,7 +319,7 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 		}
 		normalizePhase6UnknownCase(t, &got, want)
 		normalizePhase6IgnoredArgumentCases(&got, want)
-		if !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
+		if !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] && !postRoadmapCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside Phase 5 and prototext", want.Path)
 			}
@@ -368,7 +368,7 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 		}
 		normalizePhase6UnknownCase(t, &got, want)
 		normalizePhase6IgnoredArgumentCases(&got, want)
-		if !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] {
+		if !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] && !postRoadmapCommandPaths[want.Path] {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%s changed outside the prototext paths", want.Path)
 			}
@@ -460,6 +460,15 @@ func helpLineForPaths(line string, paths map[string]bool) bool {
 var phase4CommandPaths = map[string]bool{
 	"source read":  true,
 	"source check": true,
+}
+
+// postRoadmapCommandPaths lists commands whose help text legitimately gained
+// content after the CLI-consistency roadmap froze its phase baselines. The
+// phase comparisons mask their help/usage the same way they mask authorized
+// phase paths; argument-case semantics still must match the frozen baseline.
+var postRoadmapCommandPaths = map[string]bool{
+	"chat show": true, // --last (recovery path for the stale-output exit 8)
+	"chat-show": true,
 }
 
 var phase5CommandPaths = map[string]bool{

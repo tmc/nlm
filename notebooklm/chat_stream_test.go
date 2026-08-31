@@ -48,6 +48,44 @@ func TestParseChatResponseChunked(t *testing.T) {
 	}
 }
 
+// A cumulative snapshot that revises earlier text (rather than extending the
+// previous snapshot) makes the prefix delta restart mid-document, so
+// concatenating Text duplicates the tail. Every answer chunk must carry the
+// authoritative snapshot in Full, and a snapshot that shrinks must still be
+// delivered even though its delta is empty.
+func TestParseChatResponseChunkedRevisionCarriesFullSnapshot(t *testing.T) {
+	snapshots := []string{
+		"Intro [2, 3] and the tail.",
+		"Intro [2-5] and the tail. More.",
+		"Intro [2-5] and",
+	}
+	stream := mockChatStream(t, snapshots...)
+
+	var got []ChatChunk
+	c := &Client{}
+	err := c.parseChatResponseChunked(strings.NewReader(stream), nil, func(chunk ChatChunk) bool {
+		got = append(got, chunk)
+		return true
+	})
+	if err != nil {
+		t.Fatalf("parseChatResponseChunked() error = %v", err)
+	}
+	if len(got) != len(snapshots) {
+		t.Fatalf("got %d chunks, want %d: %#v", len(got), len(snapshots), got)
+	}
+	for i, chunk := range got {
+		if chunk.Full != snapshots[i] {
+			t.Errorf("chunk %d Full = %q, want %q", i, chunk.Full, snapshots[i])
+		}
+	}
+	if want := "-5] and the tail. More."; got[1].Text != want {
+		t.Errorf("revision delta = %q, want %q", got[1].Text, want)
+	}
+	if got[2].Text != "" {
+		t.Errorf("shrink delta = %q, want empty", got[2].Text)
+	}
+}
+
 func TestParseChatResponseChunkedUsesWirePhaseForBoldAnswer(t *testing.T) {
 	stream := mockChatStreamPayloads(t,
 		mockChatPayload("**Thinking**\nWorking", chatWirePhaseThinking),

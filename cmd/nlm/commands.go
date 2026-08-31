@@ -818,6 +818,24 @@ var errPrecondition = errors.New("precondition failed")
 // to exit 4.
 var errNotFound = errors.New("not found")
 
+// errStaleOutput marks a completed chat whose streamed stdout no longer
+// matches the exact answer: the server revised text that had already
+// streamed, and bytes cannot be unwritten. The exact answer was saved. It
+// maps to exit 8 so a pipeline capturing stdout fails loudly instead of
+// shipping a plausible-but-wrong document.
+var errStaleOutput = errors.New("streamed output is stale")
+
+type staleOutputError struct {
+	notebookID     string
+	conversationID string
+}
+
+func (e staleOutputError) Error() string {
+	return fmt.Sprintf("the answer was revised while it streamed and the streamed output differs from the exact saved answer; replay it with 'nlm chat-show %s %s'", e.notebookID, e.conversationID)
+}
+
+func (staleOutputError) Is(target error) bool { return target == errStaleOutput }
+
 func validateCommandArgs(cmd *command, cmdName string, args []string, opts globalOptions) error {
 	_, err := parseBoundCommand(cmd, cmdName, args, opts)
 	return err

@@ -368,6 +368,7 @@ prints `nlm: exit-class=<name> (exit N)` to stderr:
 | 5 | precondition | Permanent precondition (source-cap, quota, deleted) | stop; retry will not help |
 | 6 | transient | Rate-limit, 5xx, network | retry with backoff |
 | 7 | busy | Resource still generating / polling incomplete | sleep and poll |
+| 8 | stale-output | Chat succeeded but the server revised text after it streamed, so captured stdout differs from the exact saved answer | replay with `nlm chat-show <notebook> <conversation>` (the id is on stderr) or `nlm chat show <notebook> --last` |
 
 ## Selected Flags
 

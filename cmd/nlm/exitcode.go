@@ -18,6 +18,7 @@ import (
 //	5 permanent precondition (source-cap reached, quota exhausted, deleted)
 //	6 transient server / network / 5xx / rate limit
 //	7 resource busy / still generating (poll-in-progress)
+//	8 stale output (captured stdout differs from the exact saved answer)
 const (
 	exitSuccess      = 0
 	exitGeneric      = 1
@@ -27,6 +28,7 @@ const (
 	exitPrecondition = 5
 	exitTransient    = 6
 	exitBusy         = 7
+	exitStaleOutput  = 8
 )
 
 // exitCodeName returns a short, stable, machine-parseable name for a
@@ -47,6 +49,8 @@ func exitCodeName(code int) string {
 		return "transient"
 	case exitBusy:
 		return "busy"
+	case exitStaleOutput:
+		return "stale-output"
 	default:
 		return ""
 	}
@@ -73,6 +77,9 @@ func exitCodeFor(err error) int {
 	}
 	if errors.Is(err, errNotFound) {
 		return exitNotFound
+	}
+	if errors.Is(err, errStaleOutput) {
+		return exitStaleOutput
 	}
 
 	// Typed api-layer sentinels for states batchexecute cannot disambiguate.

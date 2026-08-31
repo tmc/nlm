@@ -23,6 +23,7 @@ type chatArgs struct {
 type chatShowArgs struct {
 	NotebookID     string
 	ConversationID string
+	Last           bool
 	Options        chatRenderOptions
 }
 
@@ -77,6 +78,7 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 		flagSpec{Name: "open", Description: "open HTML"},
 		flagSpec{Name: "include-follow-ups", Description: "include follow-up prompts"},
 		flagSpec{Name: "backfill", Description: "backfill saved conversation"},
+		flagSpec{Name: "last", Description: "show the most recent conversation"},
 	)
 	configureTypedCommandSpecWithUsage(
 		showSpec,
@@ -310,6 +312,9 @@ func decodeChatShow(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	return func(_ context.Context, _ *notebooklm.Client) error {
+		if args.Last {
+			return chatShowLast(args.NotebookID, args.Options)
+		}
 		if args.ConversationID == "" {
 			return chatShowNotebook(args.NotebookID, args.Options)
 		}
@@ -344,20 +349,32 @@ func decodeChatShowArgs(parsed parsedCommand) (chatShowArgs, error) {
 	if err != nil {
 		return chatShowArgs{}, err
 	}
-	if len(positionals) == 1 && options.Format == "" {
+	last, err := parsedBoolFlag(parsed, "last", false)
+	if err != nil {
+		return chatShowArgs{}, err
+	}
+	if last && len(positionals) == 2 {
+		return chatShowArgs{}, fmt.Errorf("--last cannot be combined with a conversation id")
+	}
+	// One positional without --last renders the whole notebook, which is
+	// HTML-only; --last selects a single conversation and keeps the full
+	// format/backfill surface.
+	wholeNotebook := len(positionals) == 1 && !last
+	if wholeNotebook && options.Format == "" {
 		options.Format = "html"
 	}
 	if err := validateChatFormat(&options); err != nil {
 		return chatShowArgs{}, err
 	}
-	if len(positionals) == 1 && options.Format != "html" {
+	if wholeNotebook && options.Format != "html" {
 		return chatShowArgs{}, fmt.Errorf("whole-notebook render requires --format=html")
 	}
-	if len(positionals) == 1 && options.Backfill {
+	if wholeNotebook && options.Backfill {
 		return chatShowArgs{}, fmt.Errorf("--backfill requires a conversation id")
 	}
 	args := chatShowArgs{
 		NotebookID: positionals[0],
+		Last:       last,
 		Options:    options,
 	}
 	if len(positionals) == 2 {

@@ -92,6 +92,7 @@ type ExcerptRun struct {
 // ChatChunk is a parsed chunk from the chat stream with phase metadata.
 type ChatChunk struct {
 	Text      string           // The text content (delta for answer, full replacement for thinking)
+	Full      string           // For answer chunks: the full cumulative answer snapshot Text was diffed against. When the server revises earlier text, the delta restarts mid-document, so accumulating Text is lossy; Full is authoritative. Empty from producers that only supply Text.
 	Header    string           // For thinking chunks: the bold header line only
 	Phase     ChatChunkPhase   // Whether this is thinking or answer
 	Citations []Citation       // Source citations (populated on final/near-final chunks)
@@ -141,25 +142,34 @@ func IsChatStreamTimeout(err error) bool {
 
 // GenerateFreeFormStreamed generates a complete answer using the streaming endpoint.
 func (c *Client) GenerateFreeFormStreamed(ctx context.Context, projectID string, prompt string, sourceIDs []string) (*pb.GenerateFreeFormStreamedResponse, error) {
-	var resp strings.Builder
+	// Track the cumulative snapshot rather than concatenating deltas:
+	// a mid-stream revision restarts the delta and duplicates the tail.
+	var full string
 	err := c.StreamChat(ctx, ChatRequest{
 		ProjectID: projectID,
 		Prompt:    prompt,
 		SourceIDs: sourceIDs,
-	}, answerOnlyCallback(func(chunk string) bool {
-		resp.WriteString(chunk)
+	}, func(chunk ChatChunk) bool {
+		if chunk.Phase == ChatChunkAnswer && chunk.Full != "" {
+			full = chunk.Full
+		}
 		return true
-	}))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("generate free form streamed: %w", err)
 	}
 	return &pb.GenerateFreeFormStreamedResponse{
-		Chunk:   resp.String(),
+		Chunk:   full,
 		IsFinal: true,
 	}, nil
 }
 
-// GenerateFreeFormStreamedWithCallback streams the response and calls the callback for each chunk.
+// GenerateFreeFormStreamedWithCallback streams the response and calls the
+// callback for each answer chunk. Chunks are display deltas; when the server
+// revises earlier text mid-stream, a delta re-emits everything after the
+// divergence point, so concatenating chunks can duplicate text. Callers that
+// reconstruct the full answer should use [Client.StreamChat] and track
+// [ChatChunk.Full] instead.
 func (c *Client) GenerateFreeFormStreamedWithCallback(ctx context.Context, projectID string, prompt string, sourceIDs []string, callback func(chunk string) bool) error {
 	return c.StreamChat(ctx, ChatRequest{
 		ProjectID: projectID,
@@ -712,8 +722,11 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 
 		// The server sends cumulative text. Find the longest common
 		// prefix with what we already emitted and only send the new
-		// suffix. This handles citation consolidation where the server
-		// revises earlier text (e.g. "[2, 3]" → "[2-5]").
+		// suffix. The delta is for live display only: when the server
+		// revises earlier text (e.g. "[2, 3]" → "[2-5]"), the delta
+		// restarts at the divergence point and concatenating deltas
+		// duplicates everything after it. Consumers reconstructing the
+		// answer must use Full, the snapshot itself.
 		commonLen := 0
 		limit := len(lastAnswer)
 		if len(text) < limit {
@@ -722,17 +735,19 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 		for commonLen < limit && text[commonLen] == lastAnswer[commonLen] {
 			commonLen++
 		}
+		// Deliver even when delta is empty (the snapshot shrank): text is
+		// known to differ from lastAnswer here, and consumers tracking Full
+		// need the corrected snapshot.
 		delta := text[commonLen:]
-		if delta != "" {
-			if !callback(ChatChunk{
-				Text:      delta,
-				Phase:     ChatChunkAnswer,
-				Citations: payload.Citations,
-				FollowUps: payload.FollowUps,
-				Rich:      payload.Rich,
-			}) {
-				return false
-			}
+		if !callback(ChatChunk{
+			Text:      delta,
+			Full:      text,
+			Phase:     ChatChunkAnswer,
+			Citations: payload.Citations,
+			FollowUps: payload.FollowUps,
+			Rich:      payload.Rich,
+		}) {
+			return false
 		}
 		lastAnswer = text
 		return true
