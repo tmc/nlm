@@ -127,19 +127,15 @@ func defaultBrowserAuthOptions() *Options {
 func (ba *BrowserAuth) authViaRemoteCDP(remoteCDPURL, targetURL string) (token, cookies string, err error) {
 	ba.isRemote = true
 
-	if ba.debug {
-		fmt.Fprintf(os.Stderr, "Connecting to remote CDP at %s\n", remoteCDPURL)
-	}
+	ba.debugf("connecting to remote CDP at %s", remoteCDPURL)
 
 	allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), remoteCDPURL)
 	defer allocCancel()
 
-	ctx, ctxCancel := chromedp.NewContext(allocCtx)
+	ctx, ctxCancel := newChromeContext(allocCtx, ba.debug)
 	defer ctxCancel()
 
-	if ba.debug {
-		fmt.Fprintf(os.Stderr, "Connected. Navigating to %s\n", targetURL)
-	}
+	ba.debugf("connected; navigating to %s", targetURL)
 
 	return ba.extractAuthDataForURL(ctx, targetURL)
 }
@@ -174,26 +170,20 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 
 	// Try each profile
 	for _, profile := range profiles {
-		if ba.debug {
-			fmt.Printf("Trying profile: %s [%s]\n", profile.Name, profile.Browser)
-		}
+		ba.debugf("trying profile %s [%s]", profile.Name, profile.Browser)
 
 		// Clean up previous attempts
 		ba.cleanup()
 
 		// Check if we should use original profile directory
 		useOriginal := os.Getenv("NLM_USE_ORIGINAL_PROFILE")
-		if ba.debug {
-			fmt.Printf("NLM_USE_ORIGINAL_PROFILE=%s\n", useOriginal)
-		}
+		ba.debugf("NLM_USE_ORIGINAL_PROFILE=%s", useOriginal)
 
 		var userDataDir string
 		if useOriginal == "1" {
 			// Use parent directory of the profile path for session continuity
 			userDataDir = filepath.Dir(profile.Path)
-			if ba.debug {
-				fmt.Printf("Using original profile directory: %s\n", userDataDir)
-			}
+			ba.debugf("using original profile directory %s", userDataDir)
 		} else {
 			// Create a temporary directory and copy the profile data
 			tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
@@ -205,9 +195,7 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 
 			// Copy the entire profile directory to temp location
 			if err := ba.copyProfileDataFromPath(profile.Path); err != nil {
-				if ba.debug {
-					fmt.Printf("Error copying profile %s: %v\n", profile.Name, err)
-				}
+				ba.debugf("copy profile %s: %v", profile.Name, err)
 				os.RemoveAll(tempDir)
 				continue
 			}
@@ -254,30 +242,20 @@ func (ba *BrowserAuth) tryMultipleProfiles(targetURL string) (token, cookies str
 
 		allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 		ba.cancel = allocCancel
-		ctx, cancel = chromedp.NewContext(allocCtx)
+		ctx, cancel = newChromeContext(allocCtx, ba.debug)
 		defer cancel()
 
 		// Use a longer timeout (45 seconds) to give more time for login processes
 		ctx, cancel = context.WithTimeout(ctx, 45*time.Second)
 		defer cancel()
 
-		if ba.debug {
-			ctx, _ = chromedp.NewContext(ctx, chromedp.WithLogf(func(format string, args ...interface{}) {
-				fmt.Printf("ChromeDP: "+format+"\n", args...)
-			}))
-		}
-
 		token, cookies, err = ba.extractAuthDataForURL(ctx, targetURL)
 		if err == nil && token != "" {
-			if ba.debug {
-				fmt.Printf("Successfully authenticated with profile: %s [%s]\n", profile.Name, profile.Browser)
-			}
+			ba.debugf("authenticated with profile %s [%s]", profile.Name, profile.Browser)
 			return token, cookies, nil
 		}
 
-		if ba.debug {
-			fmt.Printf("Profile %s [%s] could not authenticate: %v\n", profile.Name, profile.Browser, err)
-		}
+		ba.debugf("profile %s [%s] could not authenticate: %v", profile.Name, profile.Browser, err)
 	}
 
 	return "", "", fmt.Errorf("no profiles could authenticate")
@@ -605,7 +583,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 					allocCtx, allocCancel := chromedp.NewExecAllocator(authCtx, opts...)
 					defer allocCancel()
 
-					ctx, ctxCancel := chromedp.NewContext(allocCtx)
+					ctx, ctxCancel := newChromeContext(allocCtx, ba.debug)
 					defer ctxCancel()
 
 					// Try to authenticate
@@ -703,10 +681,8 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 	// If no exact match, use the first profile (most recently used)
 	if selectedProfile == nil && len(profiles) > 0 {
 		selectedProfile = &profiles[0]
-		if ba.debug {
-			fmt.Printf("Profile '%s' not found, using most recently used profile: %s [%s]\n",
-				o.ProfileName, selectedProfile.Name, selectedProfile.Browser)
-		}
+		ba.debugf("profile %q not found; using most recently used profile %s [%s]",
+			o.ProfileName, selectedProfile.Name, selectedProfile.Browser)
 	}
 
 	if selectedProfile == nil {
@@ -746,17 +722,11 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), chromeOpts...)
 	ba.cancel = allocCancel
-	ctx, cancel = chromedp.NewContext(allocCtx)
+	ctx, cancel = newChromeContext(allocCtx, ba.debug)
 	defer cancel()
 
 	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-
-	if ba.debug {
-		ctx, _ = chromedp.NewContext(ctx, chromedp.WithLogf(func(format string, args ...interface{}) {
-			fmt.Printf("ChromeDP: "+format+"\n", args...)
-		}))
-	}
 
 	return ba.extractAuthDataForURL(ctx, o.TargetURL)
 }
@@ -775,24 +745,18 @@ func (ba *BrowserAuth) copyProfileData(profileName string) error {
 
 		if _, err := os.Stat(canarySourceDir); err == nil {
 			sourceDir = canarySourceDir
-			if ba.debug {
-				fmt.Printf("Using Chrome Canary profile: %s\n", sourceDir)
-			}
+			ba.debugf("using Chrome Canary profile %s", sourceDir)
 		} else if profileName == "Default" {
 			// If still not found and this is Default, try to find any recent profile
 			// Try to find the most recently used profile
 			profiles, _ := ba.scanProfiles()
 			if len(profiles) > 0 {
 				sourceDir = profiles[0].Path
-				if ba.debug {
-					fmt.Printf("Profile 'Default' not found, using most recently used profile: %s [%s]\n",
-						profiles[0].Name, profiles[0].Browser)
-				}
+				ba.debugf("profile \"Default\" not found; using most recently used profile %s [%s]",
+					profiles[0].Name, profiles[0].Browser)
 			} else if foundProfile := findMostRecentProfile(profilePath); foundProfile != "" {
 				sourceDir = foundProfile
-				if ba.debug {
-					fmt.Printf("Profile 'Default' not found, using most recently used profile: %s\n", sourceDir)
-				}
+				ba.debugf("profile \"Default\" not found; using most recently used profile %s", sourceDir)
 			}
 		}
 	}
@@ -802,9 +766,7 @@ func (ba *BrowserAuth) copyProfileData(profileName string) error {
 
 // copyProfileDataFromPath copies profile data from a specific path
 func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
-	if ba.debug {
-		fmt.Printf("Copying profile data from: %s\n", sourceDir)
-	}
+	ba.debugf("copying profile data from %s", sourceDir)
 
 	// Create Default profile directory
 	defaultDir := filepath.Join(ba.tempDir, "Default")
@@ -835,17 +797,13 @@ func (ba *BrowserAuth) copyProfileDataFromPath(sourceDir string) error {
 		}
 
 		if err := copyFile(srcPath, dstPath); err != nil {
-			if ba.debug {
-				fmt.Printf("Warning: Failed to copy %s: %v\n", file, err)
-			}
+			ba.debugf("copy %s: %v", file, err)
 			continue
 		}
 		copiedCount++
 	}
 
-	if ba.debug {
-		fmt.Printf("Copied %d essential files for authentication\n", copiedCount)
-	}
+	ba.debugf("copied %d essential files for authentication", copiedCount)
 
 	// Create minimal Local State file
 	localState := `{"os_crypt":{"encrypted_key":""}}`
@@ -918,10 +876,8 @@ func (ba *BrowserAuth) startChromeExec() (string, error) {
 		return "", fmt.Errorf("chrome not found")
 	}
 
-	if ba.debug {
-		fmt.Printf("Starting Chrome from: %s\n", chromePath)
-		fmt.Printf("Using profile: %s\n", ba.tempDir)
-	}
+	ba.debugf("starting Chrome from %s", chromePath)
+	ba.debugf("using profile directory %s", ba.tempDir)
 
 	ba.chromeCmd = exec.Command(chromePath,
 		fmt.Sprintf("--remote-debugging-port=%s", debugPort),
@@ -951,7 +907,7 @@ func (ba *BrowserAuth) startChromeExec() (string, error) {
 }
 
 func (ba *BrowserAuth) waitForDebugger(debugURL string) error {
-	fmt.Println("Waiting for Chrome debugger...")
+	statusf("waiting for Chrome debugger...")
 
 	timeout := time.After(20 * time.Second)
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -965,11 +921,8 @@ func (ba *BrowserAuth) waitForDebugger(debugURL string) error {
 			resp, err := http.Get(debugURL + "/json/version")
 			if err == nil {
 				resp.Body.Close()
-				fmt.Println("Chrome debugger ready")
+				statusf("Chrome debugger ready")
 				return nil
-			}
-			if ba.debug {
-				fmt.Printf(".")
 			}
 		}
 	}
@@ -1024,7 +977,7 @@ func copyDirectoryRecursiveWithCount(src, dst string, debug bool, fileCount, dir
 			// Create destination directory
 			if err := os.MkdirAll(dstPath, 0755); err != nil {
 				if debug {
-					fmt.Printf("Failed to create directory %s: %v\n", dstPath, err)
+					debugf("create directory %s: %v", dstPath, err)
 				}
 				continue
 			}
@@ -1036,7 +989,7 @@ func copyDirectoryRecursiveWithCount(src, dst string, debug bool, fileCount, dir
 			// Recursively copy subdirectory
 			if err := copyDirectoryRecursiveWithCount(srcPath, dstPath, debug, fileCount, dirCount); err != nil {
 				if debug {
-					fmt.Printf("Failed to copy subdirectory %s: %v\n", srcPath, err)
+					debugf("copy subdirectory %s: %v", srcPath, err)
 				}
 				continue
 			}
@@ -1119,15 +1072,12 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 		}
 	`, nil)); err != nil {
 		// Don't fail if anti-detection script fails, just log it
-		if ba.debug {
-			fmt.Printf("Anti-detection script failed: %v\n", err)
-		}
+		ba.debugf("anti-detection script failed: %v", err)
 	}
 
 	// If keep-open is set, give user time to manually authenticate BEFORE checking
 	if ba.keepOpenSeconds > 0 {
-		fmt.Printf("\n⏳ Browser opened. You have %d seconds to manually log in if needed...\n", ba.keepOpenSeconds)
-		fmt.Printf("  If already logged in, just wait for automatic authentication.\n\n")
+		statusf("browser open; you have %d seconds to log in manually if needed", ba.keepOpenSeconds)
 		time.Sleep(time.Duration(ba.keepOpenSeconds) * time.Second)
 	}
 
@@ -1135,17 +1085,13 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 	var currentURL string
 	if err := chromedp.Run(ctx, chromedp.Location(&currentURL)); err == nil {
 		// Log the initial URL we landed on
-		if ba.debug {
-			fmt.Printf("Initial navigation landed on: %s\n", currentURL)
-		}
+		ba.debugf("initial navigation landed on %s", currentURL)
 
 		// If we immediately landed on an auth page, this profile is likely not authenticated
 		if strings.Contains(currentURL, "accounts.google.com") ||
 			strings.Contains(currentURL, "signin") ||
 			strings.Contains(currentURL, "login") {
-			if ba.debug {
-				fmt.Printf("Redirected to auth page: %s\n", currentURL)
-			}
+			ba.debugf("redirected to auth page %s", currentURL)
 
 			return "", "", fmt.Errorf("redirected to authentication page - not logged in")
 		}
@@ -1185,10 +1131,8 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 				}
 
 				if ba.debug {
-					// Show seconds remaining from ctx at end of this:
 					deadline, _ := ctx.Deadline()
-					remaining := time.Until(deadline).Seconds()
-					fmt.Printf("   Auth check failed: %v (%.1f seconds remaining)\n", err, remaining)
+					debugf("auth check failed: %v (%.1f seconds remaining)", err, time.Until(deadline).Seconds())
 				}
 				continue
 			}
@@ -1199,9 +1143,7 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 				// Get the final URL to confirm we're on the right page
 				var successURL string
 				if err := chromedp.Run(ctx, chromedp.Location(&successURL)); err == nil {
-					if ba.debug {
-						fmt.Printf("Successful authentication URL: %s\n", successURL)
-					}
+					ba.debugf("authenticated at %s", successURL)
 
 					// Double-check we're not on a login page (shouldn't happen with our improved checks)
 					if strings.Contains(successURL, "accounts.google.com") ||
@@ -1211,25 +1153,19 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 				}
 
 				// Authentication successful - perform graceful shutdown
-				if ba.debug {
-					fmt.Printf("✓ Authentication successful!\n")
-				}
+				ba.debugf("authentication successful")
 
 				// Gracefully close the browser to avoid crash detection (skip for remote CDP sessions)
 				if !ba.isRemote {
 					if err := ba.gracefulShutdown(ctx); err != nil {
-						if ba.debug {
-							fmt.Printf("Warning: graceful shutdown failed: %v\n", err)
-						}
+						ba.debugf("graceful shutdown failed: %v", err)
 					}
 				}
 
 				return token, cookies, nil
 			}
 
-			if ba.debug {
-				fmt.Println("Waiting for auth data...")
-			}
+			ba.debugf("waiting for auth data...")
 		}
 	}
 }
@@ -1257,9 +1193,7 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 	)
 	if err != nil {
 		// If there's an error evaluating, just continue
-		if ba.debug {
-			fmt.Printf("Error checking if on signin page: %v\n", err)
-		}
+		ba.debugf("check for signin page: %v", err)
 	}
 
 	if isSigninPage {
@@ -1356,22 +1290,18 @@ func (ba *BrowserAuth) tryExtractAuth(ctx context.Context) (token, cookies strin
 		} catch (_) {}
 		return "";
 	})()`, &signalerAuth)); err != nil {
-		if ba.debug {
-			fmt.Printf("Warning: extract signaler authorization failed: %v\n", err)
-		}
+		ba.debugf("extract signaler authorization: %v", err)
 	}
 	ba.signalerAuth = strings.TrimSpace(signalerAuth)
 
-	if ba.debug {
-		if sessionID != "" {
-			fmt.Printf("Extracted session ID: %s\n", sessionID)
-		}
-		if blParam != "" {
-			fmt.Printf("Extracted BL parameter: %s\n", blParam)
-		}
-		if ba.signalerAuth != "" {
-			fmt.Printf("Extracted signaler authorization (%d bytes)\n", len(ba.signalerAuth))
-		}
+	if sessionID != "" {
+		ba.debugf("extracted session id %s", sessionID)
+	}
+	if blParam != "" {
+		ba.debugf("extracted build label %s", blParam)
+	}
+	if ba.signalerAuth != "" {
+		ba.debugf("extracted signaler authorization (%d bytes)", len(ba.signalerAuth))
 	}
 	if err != nil {
 		return "", "", fmt.Errorf("extract auth data: %w", err)
@@ -1453,7 +1383,7 @@ func (ba *BrowserAuth) DownloadWithBrowser(urlToDownload string, profileName str
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	defer allocCancel()
 
-	ctx, cancel := chromedp.NewContext(allocCtx)
+	ctx, cancel := newChromeContext(allocCtx, ba.debug)
 	defer cancel()
 
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
@@ -1509,7 +1439,7 @@ func (ba *BrowserAuth) ReadTextWithRemoteBrowser(urlToRead, remoteCDPURL string)
 	allocCtx, allocCancel := chromedp.NewRemoteAllocator(context.Background(), remoteCDPURL)
 	defer allocCancel()
 
-	ctx, cancel := chromedp.NewContext(allocCtx)
+	ctx, cancel := newChromeContext(allocCtx, ba.debug)
 	defer cancel()
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
