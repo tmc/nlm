@@ -1,0 +1,48 @@
+# The auth transcripts from section 3 of docs/dev/auth-ux-spec.md, asserted
+# byte for byte (\A...\z anchors the whole stream, not a line).
+#
+# The browser and the server are replaced by the hooks in scripthooks.go,
+# which are compiled in under the nlmscripttest tag and stay inert unless
+# their environment variables are set. A private HOME keeps the credentials
+# this file writes out of the other script tests.
+
+env HOME=$HOME/auth-ux
+
+# Explicit auth, success: what it is doing, with which profile, and where the
+# credentials landed. Nothing else, and nothing on stdout.
+env NLM_TEST_BROWSER_AUTH=ok
+exec ./nlm_test auth
+! stdout .
+stderr '\Anlm: authenticating via browser \(profile Default\)\.\.\.\nnlm: credentials written to ~/\.nlm/env\n\z'
+
+# Silent refresh inside a command, success: exactly one stderr line, printed
+# before the browser runs, and the command result alone on stdout.
+# The credentials the login above wrote are now on disk; naming them here
+# keeps this case independent of how the stored file is read.
+env NLM_AUTH_TOKEN=test-token
+env NLM_COOKIES=test-cookies
+env NLM_TEST_INTERACTIVE=1
+env NLM_TEST_COMMAND_RESULTS=401,ok:9a7e49c1-2e6f-4caa-a0b3-b6c365820062
+exec ./nlm_test notebook create retro-aim
+stdout '\A9a7e49c1-2e6f-4caa-a0b3-b6c365820062\n\z'
+stderr '\Anlm: session expired, re-authenticating via browser \(profile Default\)\.\.\.\n\z'
+
+# Browser login failed: one line naming the cause in user terms, one naming
+# the next thing to try, and the auth-failed class.
+env 'NLM_TEST_PROFILES=Default,Profile 3'
+env 'NLM_TEST_BROWSER_AUTH=fail:insufficient cookies data'
+! exec ./nlm_test auth
+stderr '\Anlm: authenticating via browser \(profile Default\)\.\.\.\nnlm: login failed: profile Default has no notebook\.google\.com cookies\nnlm: try: nlm auth --profile "Profile 3", or nlm auth --cdp-url ws://localhost:9222\nnlm: exit-class=auth-failed \(exit 9\)\n\z'
+
+# Non-interactive, expired: no browser, one line naming both ways forward,
+# and the auth class (exit 3).
+env NLM_TEST_INTERACTIVE=0
+env NLM_TEST_BROWSER_AUTH=ok
+env NLM_TEST_COMMAND_RESULTS=401
+! exec ./nlm_test notebook list
+! stdout .
+stderr '\Anlm: session expired; run `nlm auth` in a terminal \(or set NLM_AUTH_TOKEN and NLM_COOKIES\)\nnlm: exit-class=auth \(exit 3\)\n\z'
+
+# R2: every line nlm writes to stderr carries the nlm: prefix. The pattern
+# matches only a stream made entirely of such lines.
+stderr '\A(nlm: [^\n]*\n)*\z'

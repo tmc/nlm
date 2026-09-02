@@ -87,7 +87,7 @@ func (ba *BrowserAuth) Cleanup() {
 type Options struct {
 	ProfileName       string
 	TryAllProfiles    bool
-	ScanBeforeAuth    bool
+	ListProfiles      bool
 	TargetURL         string
 	PreferredBrowsers []string
 	CheckNotebooks    bool
@@ -100,9 +100,11 @@ type Option func(*Options)
 
 func WithProfileName(p string) Option { return func(o *Options) { o.ProfileName = p } }
 func WithTryAllProfiles() Option      { return func(o *Options) { o.TryAllProfiles = true } }
-func WithScanBeforeAuth() Option      { return func(o *Options) { o.ScanBeforeAuth = true } }
 func WithTargetURL(url string) Option { return func(o *Options) { o.TargetURL = url } }
-func WithoutScanBeforeAuth() Option   { return func(o *Options) { o.ScanBeforeAuth = false } }
+
+// WithListProfiles prints the browser-profile inventory before authenticating.
+// Without it the inventory stays out of the way of the command's own output.
+func WithListProfiles() Option { return func(o *Options) { o.ListProfiles = true } }
 func WithPreferredBrowsers(browsers []string) Option {
 	return func(o *Options) { o.PreferredBrowsers = browsers }
 }
@@ -115,7 +117,7 @@ func defaultBrowserAuthOptions() *Options {
 	return &Options{
 		ProfileName:       "Default",
 		TryAllProfiles:    false,
-		ScanBeforeAuth:    true, // Default to showing profile information
+		ListProfiles:      false,
 		TargetURL:         appOrigin,
 		PreferredBrowsers: []string{},
 		CheckNotebooks:    false,
@@ -504,158 +506,20 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		}
 	}
 
-	// If scan is requested, show available profiles
-	if o.ScanBeforeAuth {
-		profiles, err := ba.scanProfilesForDomain(targetDomain)
-		if err != nil {
-			return "", "", fmt.Errorf("scan profiles: %w", err)
-		}
+	profiles, err := ba.scanProfilesForDomain(targetDomain)
+	if err != nil {
+		return "", "", fmt.Errorf("scan profiles: %w", err)
+	}
+	sortProfilesByLastUsed(profiles)
+	if o.CheckNotebooks {
+		profiles = ba.checkNotebookAccess(profiles, o.TargetURL, o.AuthUser)
+	}
+	selectedProfile := selectProfile(profiles, o.ProfileName)
 
-		// If requested, check notebooks for each profile that has valid cookies
-		if o.CheckNotebooks {
-			fmt.Fprintln(os.Stderr, "Checking notebook access for profiles...")
-
-			// Create a pool of profiles to check
-			var profilesToCheck []ProfileInfo
-			for _, p := range profiles {
-				if p.HasTargetCookies {
-					profilesToCheck = append(profilesToCheck, p)
-				}
-			}
-
-			// Check a maximum of 5 profiles to avoid taking too long
-			maxToCheck := 5
-			if len(profilesToCheck) > maxToCheck {
-				profilesToCheck = profilesToCheck[:maxToCheck]
-			}
-
-			// Process each profile to check for notebook access
-			updatedProfiles := make([]ProfileInfo, 0, len(profiles))
-			for _, p := range profiles {
-				// Only check profiles with target cookies that are in our check list
-				shouldCheck := false
-				for _, check := range profilesToCheck {
-					if p.Path == check.Path {
-						shouldCheck = true
-						break
-					}
-				}
-
-				if shouldCheck {
-					fmt.Fprintf(os.Stderr, "  Checking notebooks for %s [%s]...", p.Name, p.Browser)
-
-					// Set up a temporary Chrome instance to authenticate
-					tempDir, err := os.MkdirTemp("", "nlm-notebook-check-*")
-					if err != nil {
-						fmt.Fprintln(os.Stderr, " Error: could not create temp dir")
-						updatedProfiles = append(updatedProfiles, p)
-						continue
-					}
-
-					// Create a temporary BrowserAuth
-					tempAuth := &BrowserAuth{
-						debug:   false,
-						tempDir: tempDir,
-					}
-					defer os.RemoveAll(tempDir)
-
-					// Copy profile data
-					err = tempAuth.copyProfileDataFromPath(p.Path)
-					if err != nil {
-						fmt.Fprintln(os.Stderr, " Error: could not copy profile data")
-						updatedProfiles = append(updatedProfiles, p)
-						continue
-					}
-
-					// Try to authenticate
-					authCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-
-					// Set up Chrome
-					opts := []chromedp.ExecAllocatorOption{
-						chromedp.NoFirstRun,
-						chromedp.NoDefaultBrowserCheck,
-						chromedp.DisableGPU,
-						chromedp.Flag("disable-extensions", true),
-						chromedp.Flag("headless", true),
-						chromedp.UserDataDir(tempDir),
-					}
-
-					allocCtx, allocCancel := chromedp.NewExecAllocator(authCtx, opts...)
-					defer allocCancel()
-
-					ctx, ctxCancel := newChromeContext(allocCtx, ba.debug)
-					defer ctxCancel()
-
-					// Try to authenticate
-					token, cookies, err := tempAuth.extractAuthDataForURL(ctx, o.TargetURL)
-					cancel()
-
-					if err != nil || token == "" {
-						fmt.Fprintln(os.Stderr, " Not authenticated")
-						updatedProfiles = append(updatedProfiles, p)
-						continue
-					}
-
-					// Store auth data
-					profile := p
-					profile.AuthToken = token
-					profile.AuthCookies = cookies
-
-					// Try to get notebooks
-					notebookCount, err := countNotebooks(token, cookies, o.AuthUser)
-					if err != nil {
-						fmt.Fprintln(os.Stderr, " Error counting notebooks")
-						updatedProfiles = append(updatedProfiles, profile)
-						continue
-					}
-
-					profile.NotebookCount = notebookCount
-					fmt.Fprintf(os.Stderr, " Found %d notebooks\n", notebookCount)
-					updatedProfiles = append(updatedProfiles, profile)
-				} else {
-					// Skip notebook check for this profile
-					updatedProfiles = append(updatedProfiles, p)
-				}
-			}
-
-			// Replace profiles with updated ones
-			profiles = updatedProfiles
-		}
-
-		// Show profile information
-		fmt.Fprintln(os.Stderr, "Available browser profiles:")
-		fmt.Fprintln(os.Stderr, "===========================")
-		for _, p := range profiles {
-			cookieStatus := ""
-			if targetDomain != "" {
-				if p.HasTargetCookies {
-					cookieStatus = fmt.Sprintf(" [✓ Has %s cookies]", targetDomain)
-				} else {
-					cookieStatus = fmt.Sprintf(" [✗ No %s cookies]", targetDomain)
-				}
-			}
-
-			notebookStatus := ""
-			if p.NotebookCount > 0 {
-				notebookStatus = fmt.Sprintf(" [%d notebooks]", p.NotebookCount)
-			}
-
-			fmt.Fprintf(os.Stderr, "%d. %s [%s] - Last used: %s (%d files, %.1f MB)%s%s\n",
-				1, p.Name, p.Browser,
-				p.LastUsed.Format("2006-01-02 15:04:05"),
-				len(p.Files),
-				float64(p.Size)/(1024*1024),
-				cookieStatus,
-				notebookStatus)
-		}
-		fmt.Fprintln(os.Stderr, "===========================")
-
-		if o.TryAllProfiles {
-			fmt.Fprintln(os.Stderr, "Will try profiles in order shown above...")
-		} else {
-			fmt.Fprintf(os.Stderr, "Using profile: %s\n", o.ProfileName)
-		}
-		fmt.Fprintln(os.Stderr)
+	// The inventory is printed only when the user asked to see it: it is a
+	// dozen rows of browser trivia in front of a one-line command result.
+	if o.wantProfileTable(ba.debug) {
+		printProfileTable(os.Stderr, profiles, targetDomain, selectedProfile, o.TryAllProfiles)
 	}
 
 	// If trying all profiles, try to find one that works
@@ -663,30 +527,12 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		return ba.tryMultipleProfiles(o.TargetURL)
 	}
 
-	// Find the actual profile to use (similar to multi-profile approach)
-	profiles, err := ba.scanProfiles()
-	if err != nil {
-		return "", "", fmt.Errorf("scan profiles: %w", err)
+	if selectedProfile == nil {
+		return "", "", fmt.Errorf("no valid browser profiles found")
 	}
-
-	// Find the profile that matches the requested name
-	var selectedProfile *ProfileInfo
-	for _, p := range profiles {
-		if p.Name == o.ProfileName {
-			selectedProfile = &p
-			break
-		}
-	}
-
-	// If no exact match, use the first profile (most recently used)
-	if selectedProfile == nil && len(profiles) > 0 {
-		selectedProfile = &profiles[0]
+	if selectedProfile.Name != o.ProfileName {
 		ba.debugf("profile %q not found; using most recently used profile %s [%s]",
 			o.ProfileName, selectedProfile.Name, selectedProfile.Browser)
-	}
-
-	if selectedProfile == nil {
-		return "", "", fmt.Errorf("no valid profiles found")
 	}
 
 	// Create a temporary directory and copy profile data to preserve encryption keys

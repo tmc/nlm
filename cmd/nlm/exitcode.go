@@ -13,12 +13,13 @@ import (
 //	0 success
 //	1 generic error (default for unclassified failures)
 //	2 bad arguments (flag parser, malformed input)
-//	3 auth required / auth failed
+//	3 auth required or expired (no login was attempted)
 //	4 not found (notebook, source, artifact)
 //	5 permanent precondition (source-cap reached, quota exhausted, deleted)
 //	6 transient server / network / 5xx / rate limit
 //	7 resource busy / still generating (poll-in-progress)
 //	8 stale output (captured stdout differs from the exact saved answer)
+//	9 auth failed (a browser or CDP login was attempted and did not succeed)
 const (
 	exitSuccess      = 0
 	exitGeneric      = 1
@@ -29,6 +30,7 @@ const (
 	exitTransient    = 6
 	exitBusy         = 7
 	exitStaleOutput  = 8
+	exitAuthFailed   = 9
 )
 
 // exitCodeName returns a short, stable, machine-parseable name for a
@@ -51,6 +53,8 @@ func exitCodeName(code int) string {
 		return "busy"
 	case exitStaleOutput:
 		return "stale-output"
+	case exitAuthFailed:
+		return "auth-failed"
 	default:
 		return ""
 	}
@@ -80,6 +84,16 @@ func exitCodeFor(err error) int {
 	}
 	if errors.Is(err, errStaleOutput) {
 		return exitStaleOutput
+	}
+	// A login that was attempted and failed is distinct from auth that was
+	// required and never tried: the failure carries a cause the user can act
+	// on, and the underlying 401 would otherwise classify it as plain auth.
+	var loginErr *authFailedError
+	if errors.As(err, &loginErr) {
+		return exitAuthFailed
+	}
+	if errors.Is(err, errAuthRequired) {
+		return exitAuth
 	}
 
 	// Typed api-layer sentinels for states batchexecute cannot disambiguate.

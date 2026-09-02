@@ -47,6 +47,6 @@ stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
 env NLM_AUTH_TOKEN=invalid-token
 env NLM_COOKIES=invalid-cookies
 ! exec ./nlm_test list
-stderr 'API error|Authentication|Unauthenticated|execute rpc'
+stderr 'API error|Authentication|Unauthenticated|session expired|execute rpc'
 ! stderr 'panic'
 ! stderr 'runtime error'

@@ -42,5 +42,5 @@ stderr 'print-env'
 env NLM_AUTH_TOKEN=bad-token
 env NLM_COOKIES=bad-cookie
 ! exec ./nlm_test list
-! stderr 'launching browser'
+! stderr 're-authenticating via browser'
 ! stderr 'retrying authentication'

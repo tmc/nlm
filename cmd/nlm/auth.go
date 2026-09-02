@@ -16,22 +16,10 @@ import (
 
 var extractNotebookLMPageState = nlmauth.ExtractNotebookLMPageState
 
-// maskProfileName masks sensitive profile names in debug output
-func maskProfileName(profile string) string {
-	if profile == "" {
-		return ""
-	}
-	if len(profile) > 8 {
-		return profile[:4] + "****" + profile[len(profile)-4:]
-	} else if len(profile) > 2 {
-		return profile[:2] + "****"
-	}
-	return "****"
-}
-
 // authOptions contains the CLI options for the auth command
 type authOptions struct {
 	TryAllProfiles  bool
+	ListProfiles    bool // Print the browser-profile inventory before authenticating
 	ProfileName     string
 	TargetURL       string
 	CheckNotebooks  bool
@@ -43,7 +31,31 @@ type authOptions struct {
 	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
 }
 
+// authNarration selects the status lines the auth path writes to stderr.
+type authNarration int
+
+const (
+	// narrateAuth is explicit `nlm auth`: it says what it is doing, with
+	// which profile, and where the credentials landed.
+	narrateAuth authNarration = iota
+
+	// narrateSilent is a refresh inside another command. The 401 was already
+	// announced at the point it was detected, so nothing more is printed and
+	// the command's own result stays alone on stdout.
+	narrateSilent
+)
+
+// getAuthData obtains credentials from a browser profile. It is a variable so
+// the script tests can replace the browser with a scripted outcome.
+var getAuthData = func(a *auth.BrowserAuth, opts ...auth.Option) (*auth.AuthData, error) {
+	return a.GetAuthData(opts...)
+}
+
 func handleAuthWithOptions(args []string, globals globalOptions) (string, string, error) {
+	return runAuth(args, globals, narrateAuth)
+}
+
+func runAuth(args []string, globals globalOptions, narration authNarration) (string, string, error) {
 	command, ok := lookupCommand("auth")
 	if !ok {
 		return "", "", fmt.Errorf("auth command not found")
@@ -52,7 +64,9 @@ func handleAuthWithOptions(args []string, globals globalOptions) (string, string
 	if err != nil {
 		return "", "", err
 	}
-	return handleDecodedAuth(decodeAuthArgs(parsed))
+	decoded := decodeAuthArgs(parsed)
+	decoded.Narration = narration
+	return handleDecodedAuth(decoded)
 }
 
 func handleDecodedAuth(args authArgs) (string, string, error) {
@@ -78,7 +92,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	isTty := term.IsTerminal(int(os.Stdin.Fd()))
 
 	if globals.debug {
-		fmt.Fprintf(os.Stderr, "Input is from a TTY: %v\n", isTty)
+		fmt.Fprintf(os.Stderr, "nlm: debug: stdin is a TTY: %v\n", isTty)
 	}
 
 	// Look for 'login' command which forces browser auth
@@ -87,7 +101,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		if arg == "login" {
 			forceBrowser = true
 			if globals.debug {
-				fmt.Fprintf(os.Stderr, "Found 'login' command, forcing browser authentication\n")
+				fmt.Fprintf(os.Stderr, "nlm: debug: login subcommand forces browser authentication\n")
 			}
 			break
 		}
@@ -106,14 +120,14 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 
 			if len(input) > 0 {
 				if globals.debug {
-					fmt.Fprintf(os.Stderr, "Parsing auth info from stdin input (%d bytes)\n", len(input))
+					fmt.Fprintf(os.Stderr, "nlm: debug: parsing auth info from stdin (%d bytes)\n", len(input))
 				}
 				return detectAuthInfo(string(input))
 			} else if globals.debug {
-				fmt.Fprintf(os.Stderr, "Stdin is not a TTY but has no data, proceeding to browser auth\n")
+				fmt.Fprintf(os.Stderr, "nlm: debug: stdin is not a TTY but has no data; using browser auth\n")
 			}
 		} else if globals.debug {
-			fmt.Fprintf(os.Stderr, "Stdin is not a TTY but is a character device, proceeding to browser auth\n")
+			fmt.Fprintf(os.Stderr, "nlm: debug: stdin is a character device; using browser auth\n")
 		}
 	}
 
@@ -135,15 +149,16 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		return "", "", nil
 	}
 
-	// Show what we're going to do based on options
-	if opts.RemoteCDPURL != "" {
-		fmt.Fprintf(os.Stderr, "nlm: connecting to remote CDP session at %s\n", opts.RemoteCDPURL)
-	} else if opts.TryAllProfiles {
-		fmt.Fprintf(os.Stderr, "nlm: trying all browser profiles to find one with valid authentication...\n")
-	} else {
-		// Mask potentially sensitive profile name
-		maskedProfile := maskProfileName(opts.ProfileName)
-		fmt.Fprintf(os.Stderr, "nlm: launching browser to login... (profile:%v)\n", maskedProfile)
+	// Say what is about to happen, before the browser window appears.
+	if args.Narration == narrateAuth {
+		switch {
+		case opts.RemoteCDPURL != "":
+			fmt.Fprintf(os.Stderr, "nlm: authenticating via remote CDP session at %s...\n", opts.RemoteCDPURL)
+		case opts.TryAllProfiles:
+			fmt.Fprintf(os.Stderr, "nlm: authenticating via browser (trying all profiles)...\n")
+		default:
+			fmt.Fprintf(os.Stderr, "nlm: authenticating via browser (profile %s)...\n", opts.ProfileName)
+		}
 	}
 
 	// Use the debug flag from options if set, otherwise use the global debug flag
@@ -153,11 +168,15 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 
 	// Prepare options for auth call
 	// Custom options
-	authOpts := []auth.Option{auth.WithScanBeforeAuth(), auth.WithTargetURL(opts.TargetURL)}
+	authOpts := []auth.Option{auth.WithTargetURL(opts.TargetURL)}
+
+	if opts.ListProfiles {
+		authOpts = append(authOpts, auth.WithListProfiles())
+	}
 
 	// Add more verbose output for login command
 	if isLoginCommand && useDebug {
-		fmt.Fprintf(os.Stderr, "Using explicit login mode with browser authentication\n")
+		fmt.Fprintf(os.Stderr, "nlm: debug: explicit login mode; using browser authentication\n")
 	}
 
 	if opts.TryAllProfiles {
@@ -183,9 +202,9 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	}
 
 	// Get auth data (use GetAuthData to capture session ID and BL param)
-	authData, err := a.GetAuthData(authOpts...)
+	authData, err := getAuthData(a, authOpts...)
 	if err != nil {
-		return "", "", fmt.Errorf("browser auth failed: %w", err)
+		return "", "", loginFailure(err, opts.ProfileName, opts.RemoteCDPURL, opts.TargetURL, useDebug)
 	}
 
 	authToken, cookies, err := persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam, opts.AuthUser)
@@ -195,7 +214,39 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	if err := persistSignalerAuthorization(authData.SignalerAuth); err != nil {
 		return "", "", err
 	}
+	if args.Narration == narrateAuth {
+		reportCredentialsWritten()
+	}
 	return authToken, cookies, nil
+}
+
+// reportCredentialsWritten names the file the credentials landed in. Only
+// explicit `nlm auth` prints it: during a silent refresh the path is noise
+// between the user's command and its result.
+func reportCredentialsWritten() {
+	fmt.Fprintf(os.Stderr, "nlm: credentials written to %s\n", displayPath(storedEnvPath()))
+}
+
+// storedEnvPath returns the credential file path, or the bare file name if
+// the home directory cannot be determined.
+func storedEnvPath() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".nlm", "env")
+	}
+	return filepath.Join(homeDir, ".nlm", "env")
+}
+
+// displayPath shortens a path under the home directory to ~ form.
+func displayPath(path string) string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil || homeDir == "" {
+		return path
+	}
+	if rest, ok := strings.CutPrefix(path, homeDir+string(filepath.Separator)); ok {
+		return "~" + string(filepath.Separator) + rest
+	}
+	return path
 }
 
 // printAuthEnv writes POSIX `export KEY=value` lines for the current session
@@ -269,7 +320,12 @@ func detectAuthInfo(cmd string) (string, string, error) {
 		return "", "", fmt.Errorf("no auth token found")
 	}
 	authToken := atMatch[1]
-	return persistAuthToDisk(cookies, authToken, "", "", "", "")
+	authToken, cookies, err := persistAuthToDisk(cookies, authToken, "", "", "", "")
+	if err != nil {
+		return "", "", err
+	}
+	reportCredentialsWritten()
+	return authToken, cookies, nil
 }
 
 func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, authUser string) (string, string, error) {
@@ -318,7 +374,6 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, auth
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "nlm: auth info written to %s\n", envFile)
 	return authToken, cookies, nil
 }
 
@@ -533,9 +588,9 @@ func reharvestCachedBrowserProfile(debugFlag bool) (string, string, error) {
 	if !ok {
 		return "", "", fmt.Errorf("cached browser profile not found")
 	}
-	return handleAuthWithOptions([]string{"login"}, globalOptions{
+	return runAuth([]string{"login"}, globalOptions{
 		chromeProfile: profile,
 		authUser:      authUser,
 		debug:         debugFlag,
-	})
+	}, narrateSilent)
 }

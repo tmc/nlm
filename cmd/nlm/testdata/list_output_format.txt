@@ -11,7 +11,7 @@ stderr 'Authentication required'
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test ls
-stderr 'API error|Authentication|execute rpc'
+stderr 'API error|Authentication|session expired|execute rpc'
 # When API calls fail, we shouldn't see the formatted output
 
 # Test with mock successful API call (when implementation is ready)

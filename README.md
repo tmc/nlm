@@ -363,12 +363,13 @@ prints `nlm: exit-class=<name> (exit N)` to stderr:
 | 0 | success | Ran to completion | continue |
 | 1 | generic | Unclassified error | inspect stderr |
 | 2 | bad-args | Bad invocation (missing arg, unknown flag) | fix the command |
-| 3 | auth | Auth required / auth expired | `nlm auth login` and retry |
+| 3 | auth | Auth required or expired; no login was attempted | `nlm auth login` and retry |
 | 4 | not-found | Notebook / source / artifact does not exist | stop; target is wrong |
 | 5 | precondition | Permanent precondition (source-cap, quota, deleted) | stop; retry will not help |
 | 6 | transient | Rate-limit, 5xx, network | retry with backoff |
 | 7 | busy | Resource still generating / polling incomplete | sleep and poll |
 | 8 | stale-output | Chat succeeded but the server revised text after it streamed, so captured stdout differs from the exact saved answer | replay with `nlm chat-show <notebook> <conversation>` (the id is on stderr) or `nlm chat show <notebook> --last` |
+| 9 | auth-failed | A browser or CDP login was attempted and failed | fix the profile, or `nlm auth --cdp-url ws://localhost:9222` |
 
 ## Selected Flags
 

@@ -224,6 +224,8 @@ func TestRefreshNotebookLMSignalerAuthorizationUsesStoredValue(t *testing.T) {
 }
 
 func TestRunReharvestsCachedBrowserProfile(t *testing.T) {
+	allowBrowserAuth(t, true)
+
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("NLM_AUTO_REFRESH", "")
@@ -302,6 +304,101 @@ func TestRunDoesNotReharvestEnvironmentOnlyCredentials(t *testing.T) {
 	if attempts != 1 {
 		t.Fatalf("attempts = %d, want 1", attempts)
 	}
+}
+
+// TestRunAnnouncesRefreshBeforeBrowser pins the ordering and the line budget
+// of a successful silent refresh: one stderr line, naming the profile, written
+// at the moment the 401 was detected and before any browser work starts.
+func TestRunAnnouncesRefreshBeforeBrowser(t *testing.T) {
+	allowBrowserAuth(t, true)
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("NLM_AUTO_REFRESH", "")
+	if err := os.MkdirAll(filepath.Join(home, ".nlm"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".nlm", "env"), []byte(
+		"NLM_BROWSER_PROFILE=\"Work\"\n",
+	), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	oldToken, oldCookies := authToken, cookies
+	oldDebug := debug
+	oldReharvest := reharvestBrowserCredentials
+	defer func() {
+		authToken, cookies = oldToken, oldCookies
+		debug = oldDebug
+		reharvestBrowserCredentials = oldReharvest
+	}()
+	authToken, cookies = "old-token", "old-cookies"
+	debug = false
+
+	var announcedBeforeBrowser bool
+	stderr := captureStderr(t, func(written func() string) {
+		reharvestBrowserCredentials = func(bool) (string, string, error) {
+			announcedBeforeBrowser = written() != ""
+			return "new-token", "new-cookies", nil
+		}
+		attempts := 0
+		cmd := testCommand("auth-order-test", func(*notebooklm.Client) error {
+			attempts++
+			if attempts == 1 {
+				return batchexecute.ErrUnauthorized
+			}
+			return nil
+		})
+		if err := run(invocation{name: cmd.name, cmd: cmd}); err != nil {
+			t.Errorf("run() error = %v", err)
+		}
+	})
+
+	if !announcedBeforeBrowser {
+		t.Error("browser re-harvest ran before the session-expired line was printed")
+	}
+	want := "nlm: session expired, re-authenticating via browser (profile Work)...\n"
+	if stderr != want {
+		t.Errorf("stderr = %q, want exactly %q", stderr, want)
+	}
+}
+
+// captureStderr redirects os.Stderr to a temporary file for the duration of f
+// and returns everything written to it. f receives a function reporting what
+// has been written so far, which a file (unlike a pipe) can answer without
+// draining a reader concurrently.
+func captureStderr(t *testing.T, f func(written func() string)) string {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "stderr")
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create capture file: %v", err)
+	}
+	defer file.Close()
+
+	saved := os.Stderr
+	os.Stderr = file
+	defer func() { os.Stderr = saved }()
+
+	read := func() string {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read capture file: %v", err)
+		}
+		return string(data)
+	}
+	f(read)
+	return read()
+}
+
+// allowBrowserAuth stubs the interactivity gate. Tests run without a
+// terminal, which would otherwise refuse to open a browser.
+func allowBrowserAuth(t *testing.T, allowed bool) {
+	t.Helper()
+	old := browserAuthAllowed
+	browserAuthAllowed = func() bool { return allowed }
+	t.Cleanup(func() { browserAuthAllowed = old })
 }
 
 func testCommand(name string, run func(*notebooklm.Client) error) *command {

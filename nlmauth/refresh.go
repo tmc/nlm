@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -120,9 +121,7 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 	}
 
 	if r.debug {
-		fmt.Printf("=== Credential Refresh Response ===\n")
-		fmt.Printf("Status: %s\n", resp.Status)
-		fmt.Printf("Body: %s\n", string(body))
+		fmt.Fprintf(os.Stderr, "credential refresh response: %s: %s\n", resp.Status, body)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -130,7 +129,7 @@ func (r *RefreshClient) RefreshCredentials(gsessionID string) error {
 	}
 
 	if r.debug {
-		fmt.Println("Credentials refreshed successfully")
+		fmt.Fprintln(os.Stderr, "credentials refreshed successfully")
 	}
 
 	return nil

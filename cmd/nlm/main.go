@@ -48,6 +48,13 @@ var (
 
 var reharvestBrowserCredentials = reharvestCachedBrowserProfile
 
+// runCommandCall runs a decoded command against the client. It is a variable
+// so the script tests can drive the auth path with scripted server answers
+// instead of a network.
+var runCommandCall = func(call commandCall, client *notebooklm.Client) error {
+	return call(context.Background(), client)
+}
+
 // chatSession represents a persistent chat conversation
 type chatSession struct {
 	NotebookID     string          `json:"notebook_id"`
@@ -270,6 +277,9 @@ func printCommandUsageForPath(path string) {
 
 func reportRunError(stderr io.Writer, err error) int {
 	fmt.Fprintf(stderr, "nlm: %s\n", friendlyError(err))
+	if hint := errorHint(err); hint != "" {
+		fmt.Fprintf(stderr, "nlm: %s\n", hint)
+	}
 	code := exitCodeFor(err)
 	if name := exitCodeName(code); name != "" {
 		fmt.Fprintf(stderr, "nlm: exit-class=%s (exit %d)\n", name, code)
@@ -358,20 +368,10 @@ func run(inv invocation) error {
 		}
 	}
 
-	// Silent retry is only safe when there is a cached browser profile we can
-	// reuse. In env-var-only mode (fresh CI machine) the credentials are
-	// fixed for this process lifetime and re-running browser auth cannot
-	// help — surface the 401 immediately.
-	maxAttempts := 1
-	if autoRefreshEnabled() && hasCachedBrowserProfile() {
-		maxAttempts = 2
-	}
-
-	for i := 0; i < maxAttempts; i++ {
-		if i > 0 {
-			fmt.Fprintln(os.Stderr, "nlm: authentication expired, refreshing credentials...")
-		}
-
+	// A 401 may be recoverable: re-harvest the credentials from the cached
+	// browser profile once, then retry. Everything else is reported as-is.
+	refreshed := false
+	for {
 		client := newNotebookLMClient(
 			notebooklm.Credentials{AuthToken: authToken, Cookies: cookies},
 			commandOptions,
@@ -382,11 +382,8 @@ func run(inv invocation) error {
 				fmt.Fprintf(os.Stderr, "nlm: using direct RPC for audio/video operations\n")
 			}
 		}
-		cmdErr := call(context.Background(), client)
+		cmdErr := runCommandCall(call, client)
 		if cmdErr == nil {
-			if i > 0 {
-				fmt.Fprintln(os.Stderr, "nlm: authentication refreshed successfully")
-			}
 			return nil
 		} else if !isAuthenticationError(cmdErr) {
 			return cmdErr
@@ -394,23 +391,35 @@ func run(inv invocation) error {
 
 		// Authentication error detected.
 		if debug {
-			fmt.Fprintf(os.Stderr, "nlm: detected authentication error: %v\n", cmdErr)
+			fmt.Fprintf(os.Stderr, "nlm: debug: authentication error: %v\n", cmdErr)
 		}
 
-		// Last attempt — surface an actionable message and return the
-		// underlying error so callers still see the full server context.
-		if i == maxAttempts-1 {
+		// One refresh per process: a 401 that survives fresh credentials is
+		// not an expiry, so retrying it again would only repeat the browser.
+		if refreshed {
 			return cmdErr
 		}
+		refreshed = true
+
+		// Refreshing means opening a browser. That needs a profile to
+		// re-harvest and a user to watch it: in env-var-only mode (a fresh CI
+		// machine) the credentials are fixed for this process lifetime, and
+		// with no terminal nobody can complete a Google sign-in.
+		profile, _, cached := cachedBrowserProfile()
+		if !autoRefreshEnabled() || !cached || !browserAuthAllowed() {
+			return &authRequiredError{cause: cmdErr}
+		}
+
+		// Announce the refresh here, where the 401 was detected, so the
+		// browser window that is about to appear has already been explained.
+		// This is the only line a successful silent refresh prints.
+		fmt.Fprintf(os.Stderr, "nlm: session expired, re-authenticating via browser (profile %s)...\n", profile)
 
 		var authErr error
 		if authToken, cookies, authErr = reharvestBrowserCredentials(debug); authErr != nil {
-			fmt.Fprintf(os.Stderr, "nlm: authentication refresh failed: %v\n", authErr)
-			fmt.Fprintln(os.Stderr, "nlm: cached browser session is no longer usable. Run `nlm auth login` after signing into Google, or re-export NLM_AUTH_TOKEN / NLM_COOKIES.")
-			return authErr
+			return loginFailure(authErr, profile, os.Getenv("NLM_CDP_URL"), notebookLMURL, debug)
 		}
 	}
-	return fmt.Errorf("nlm: authentication failed")
 }
 
 // isAuthenticationError checks if an error is related to authentication

@@ -28,7 +28,7 @@ env NLM_COOKIES=invalid-cookies
 ! stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
 ! stderr 'nlm: authentication required'
 # Should show API errors because invalid tokens cause API failure
-stderr 'API error|Authentication|execute rpc'
+stderr 'API error|Authentication|session expired|execute rpc'
 
 # Test short alias without auth
 env NLM_AUTH_TOKEN=

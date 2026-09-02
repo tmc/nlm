@@ -16,6 +16,10 @@ type authArgs struct {
 	Globals   globalOptions
 	Raw       []string
 	FlagError error
+
+	// Narration selects the status lines written to stderr; the zero value
+	// is explicit `nlm auth`.
+	Narration authNarration
 }
 
 func configureAuthCommandSpec(specs map[commandID]*commandSpec) {
@@ -69,6 +73,7 @@ func rejectExtraAuthArguments(parsed parsedCommand) error {
 func authFlagSpecs() []flagSpec {
 	return []flagSpec{
 		{Name: "all", Aliases: []string{"a"}, Description: "try all profiles"},
+		{Name: "list-profiles", Description: "list browser profiles"},
 		{Name: "profile", Aliases: []string{"p"}, Value: "string", Description: "browser profile"},
 		{Name: "url", Aliases: []string{"u"}, Value: "string", Description: "target URL"},
 		{Name: "notebooks", Aliases: []string{"n"}, Description: "check notebooks"},
@@ -92,7 +97,7 @@ func decodeAuth(parsed parsedCommand) (commandCall, error) {
 func decodeAuthArgs(parsed parsedCommand) authArgs {
 	options := authOptions{
 		ProfileName: parsed.globals.chromeProfile,
-		TargetURL:   "https://notebook.google.com",
+		TargetURL:   notebookLMURL,
 		Debug:       parsed.globals.debug,
 	}
 	if parsed.globals.authUserSet {
@@ -137,6 +142,8 @@ func setAuthOption(options *authOptions, flag parsedFlag) error {
 	switch flag.Name {
 	case "all":
 		return setAuthBool(flag, &options.TryAllProfiles)
+	case "list-profiles":
+		return setAuthBool(flag, &options.ListProfiles)
 	case "profile":
 		options.ProfileName = flag.Value
 	case "url":

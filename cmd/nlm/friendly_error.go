@@ -34,6 +34,16 @@ func friendlyError(err error) string {
 			return strings.Join(parts, "\n")
 		}
 	}
+	// The auth-path errors already read as user-facing text, and their
+	// causes (a 401, a chromedp failure) must not be appended to it.
+	var authReq *authRequiredError
+	if errors.As(err, &authReq) {
+		return authReq.Error()
+	}
+	var loginErr *authFailedError
+	if errors.As(err, &loginErr) {
+		return loginErr.Error()
+	}
 	if errors.Is(err, notebooklm.ErrAuthExpired) {
 		return friendlyTypedError(err, notebooklm.ErrAuthExpired, "authentication expired; run 'nlm auth' to re-authenticate")
 	}

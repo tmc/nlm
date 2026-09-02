@@ -23,7 +23,9 @@ var (
 
 func TestMain(m *testing.M) {
 	// Build the nlm binary for testing
-	cmd := exec.Command("go", "build", "-o", "nlm_test", ".")
+	// The nlmscripttest tag adds the auth hooks the transcript tests drive;
+	// they are inert unless their environment variables are set.
+	cmd := exec.Command("go", "build", "-tags", "nlmscripttest", "-o", "nlm_test", ".")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		panic("failed to build nlm for testing: " + err.Error() + "\n" + string(output))
