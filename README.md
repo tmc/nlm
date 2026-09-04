@@ -370,6 +370,24 @@ prints `nlm: exit-class=<name> (exit N)` to stderr:
 | 7 | busy | Resource still generating / polling incomplete | sleep and poll |
 | 8 | stale-output | Chat succeeded but the server revised text after it streamed, so captured stdout differs from the exact saved answer | replay with `nlm chat-show <notebook> <conversation>` (the id is on stderr) or `nlm chat show <notebook> --last` |
 | 9 | auth-failed | A browser or CDP login was attempted and failed | fix the profile, or `nlm auth --cdp-url ws://localhost:9222` |
+| 10 | runaway-output | A client-side guard stopped a degenerate chat stream (size cap or repeated-block detection) | treat the partial stdout as unusable; retry with a narrower prompt or source selection |
+
+### Chat output guards
+
+Chat streams are unbounded on the wire: a degenerate model keeps emitting
+until the client stops reading. `nlm chat` and `nlm generate-chat` therefore
+stop a stream that exceeds 1 MiB of answer text, or that repeats the same
+large block over and over, and exit 10. Text already written to stdout is
+kept but marked `--- nlm: INCOMPLETE response ... ---` (an `aborted` event
+under `--citations json`); citations and follow-ups are not rendered and the
+partial text is not saved as an assistant answer, so `chat show` never
+replays it as one. The conversation id is still saved and printed, so a
+follow-up with `--conversation` works.
+
+| Variable | Effect |
+|----------|--------|
+| `NLM_MAX_CHAT_BYTES` | Answer byte cap; `off` or `0` disables it (default 1048576) |
+| `NLM_CHAT_REPEAT_GUARD` | `off` disables runaway-repetition detection |
 
 ## Selected Flags
 

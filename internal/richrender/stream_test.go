@@ -739,3 +739,63 @@ func TestChatStreamRendererJSONLGatesThinking(t *testing.T) {
 		t.Fatalf("expected answer + citation events, got %+v", events)
 	}
 }
+
+// A guard-truncated stream must be marked incomplete on stdout itself (the
+// captured artifact), and must not render the trailing citation list or
+// follow-ups: resolving citations against a partial answer would present it
+// as a finished one.
+func TestChatStreamRendererAbortMarksIncompleteAndSkipsCitations(t *testing.T) {
+	var out, status bytes.Buffer
+	r := NewStreamRenderer(&out, &status, StreamOptions{
+		Mode: CitationModeList,
+		LoadSource: func(string) (notebooklm.LoadSourceText, error) {
+			t.Fatal("citation resolution ran for an aborted stream")
+			return notebooklm.LoadSourceText{}, nil
+		},
+	})
+	r.WriteChunk(notebooklm.ChatChunk{
+		Phase:     notebooklm.ChatChunkAnswer,
+		Text:      "Partial answer.",
+		Full:      "Partial answer.",
+		Citations: []notebooklm.Citation{{SourceID: "abc", SourceIndex: 1}},
+		FollowUps: []string{"Ask something else"},
+	})
+	r.Abort("the model repeated a 128-byte block 40 times")
+	r.Finish()
+
+	got := out.String()
+	if !strings.HasPrefix(got, "Partial answer.") {
+		t.Fatalf("stdout = %q, want the streamed text preserved", got)
+	}
+	if !strings.Contains(got, "INCOMPLETE") {
+		t.Fatalf("stdout = %q, want an incompleteness marker on stdout", got)
+	}
+	if strings.Contains(status.String(), "Citations:") {
+		t.Fatalf("status = %q, want no citation list", status.String())
+	}
+	if strings.Contains(status.String(), "Ask something else") {
+		t.Fatalf("status = %q, want no follow-ups", status.String())
+	}
+}
+
+func TestChatStreamRendererAbortJSONLEmitsAbortedEvent(t *testing.T) {
+	var out, status bytes.Buffer
+	r := NewStreamRenderer(&out, &status, StreamOptions{Mode: CitationModeJSON, JSONL: true})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkAnswer, Text: "Partial.", Full: "Partial."})
+	r.Abort("answer exceeded the 1048576-byte limit")
+	r.Finish()
+
+	var last map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(out.String()), "\n") {
+		last = map[string]any{}
+		if err := json.Unmarshal([]byte(line), &last); err != nil {
+			t.Fatalf("event %q: %v", line, err)
+		}
+	}
+	if last["phase"] != "aborted" {
+		t.Fatalf("final event = %v, want phase aborted", last)
+	}
+	if last["incomplete"] != true || last["answer"] != "Partial." {
+		t.Fatalf("aborted event = %v", last)
+	}
+}

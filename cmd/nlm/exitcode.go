@@ -20,6 +20,7 @@ import (
 //	7 resource busy / still generating (poll-in-progress)
 //	8 stale output (captured stdout differs from the exact saved answer)
 //	9 auth failed (a browser or CDP login was attempted and did not succeed)
+//	10 runaway output (a client-side guard stopped a degenerate chat stream)
 const (
 	exitSuccess      = 0
 	exitGeneric      = 1
@@ -31,6 +32,7 @@ const (
 	exitBusy         = 7
 	exitStaleOutput  = 8
 	exitAuthFailed   = 9
+	exitRunaway      = 10
 )
 
 // exitCodeName returns a short, stable, machine-parseable name for a
@@ -55,6 +57,8 @@ func exitCodeName(code int) string {
 		return "stale-output"
 	case exitAuthFailed:
 		return "auth-failed"
+	case exitRunaway:
+		return "runaway-output"
 	default:
 		return ""
 	}
@@ -88,6 +92,12 @@ func exitCodeFor(err error) int {
 	// A login that was attempted and failed is distinct from auth that was
 	// required and never tried: the failure carries a cause the user can act
 	// on, and the underlying 401 would otherwise classify it as plain auth.
+	// A stream the client itself stopped is not a server failure; report the
+	// guard's own class rather than whatever the cancelled transport returned.
+	var runaway *runawayOutputError
+	if errors.As(err, &runaway) {
+		return exitRunaway
+	}
 	var loginErr *authFailedError
 	if errors.As(err, &loginErr) {
 		return exitAuthFailed

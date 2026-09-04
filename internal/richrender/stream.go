@@ -119,6 +119,12 @@ type StreamRenderer struct {
 	jsonlCitationsSeen int
 	jsonlSourceBodies  map[string]notebooklm.LoadSourceText // per-source cache for lazy JSONL resolution ("" body = negative)
 	jsonlLoadFailed    map[string]bool
+
+	// aborted is the reason a client-side guard cut the stream short. When
+	// set, Finish renders an incompleteness marker instead of the trailing
+	// citation list: a guard-truncated answer is not a finished answer, and
+	// resolving citations against it would dress it up as one.
+	aborted string
 }
 
 func newChatStreamRenderer(out, status io.Writer, showThinking, verbose bool, mode CitationMode) *StreamRenderer {
@@ -316,8 +322,18 @@ func (r *StreamRenderer) emitJSONLEvent(event map[string]any) {
 	fmt.Fprintln(r.out, string(buf))
 }
 
+// Abort records that a client-side guard stopped the stream, with the reason
+// to surface at Finish. It does not itself write anything.
+func (r *StreamRenderer) Abort(reason string) {
+	r.aborted = reason
+}
+
 // Finish emits any trailing citations, follow-ups, and completion event.
 func (r *StreamRenderer) Finish() {
+	if r.aborted != "" {
+		r.finishAborted()
+		return
+	}
 	if r.jsonl {
 		for _, f := range r.followUps {
 			r.emitJSONLEvent(map[string]any{
@@ -351,6 +367,27 @@ func (r *StreamRenderer) Finish() {
 		render(r)
 	}
 	r.printFollowUps()
+}
+
+// finishAborted closes out a stream that a client-side guard cut short. The
+// partial answer stays where it is — bytes already written cannot be unwritten
+// — but it is marked incomplete on stdout itself (the captured artifact), not
+// only on stderr, and none of the completion rendering runs: no citation
+// resolution, no citation list, no follow-ups. Callers additionally decline to
+// persist the partial turn as an assistant answer.
+func (r *StreamRenderer) finishAborted() {
+	if r.jsonl {
+		r.emitJSONLEvent(map[string]any{
+			"phase":      "aborted",
+			"reason":     r.aborted,
+			"incomplete": true,
+			"answer":     r.answerBuf.String(),
+		})
+		return
+	}
+	r.clearThinkingLine()
+	fmt.Fprintf(r.out, "\n--- nlm: INCOMPLETE response, stopped by client guard: %s ---\n", r.aborted)
+	fmt.Fprintf(r.status, "%snlm: citations and follow-ups were not rendered for this truncated response%s\n", ansiGrey, ansiReset)
 }
 
 // citationRenderers maps a render mode to the function that emits its trailing

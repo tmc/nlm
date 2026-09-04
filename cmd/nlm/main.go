@@ -1818,6 +1818,11 @@ type chatResult struct {
 	FollowUps []string
 	Rich      *pb.RichDocument // answer-body span tree; nil when the stream carried none
 	Revised   bool             // a server revision landed inside already-streamed output; the live stream differs from Answer
+
+	// Incomplete marks an answer that a client-side guard truncated. Such an
+	// answer is partial by construction: callers must not persist it as a
+	// finished assistant turn or treat the command as successful.
+	Incomplete bool
 }
 
 // staleStreamOutputError returns the stale-output error (exit 8) for a
@@ -1867,13 +1872,58 @@ func streamChatResponse(c *notebooklm.Client, req notebooklm.ChatRequest, opts c
 	responseReceived, stopWaiting := startInitialChatResponseWaiter(os.Stderr, 30*time.Second)
 	defer stopWaiting()
 
-	err := c.StreamChat(context.Background(), req, func(chunk notebooklm.ChatChunk) bool {
+	// Bound the stream client-side. The guard counts the answer bytes the
+	// server delivered, not the bytes the renderer flushed: a stream that
+	// revises earlier text delivers more than the answer's length, and both
+	// growth shapes must be capped.
+	guard := newStreamGuard(os.Getenv)
+	ctx, cancelStream := context.WithCancel(context.Background())
+	defer cancelStream()
+	var (
+		answer    string // cumulative upstream answer text
+		delivered int    // total answer bytes received across chunks
+		guardErr  *runawayOutputError
+	)
+
+	err := c.StreamChat(ctx, req, func(chunk notebooklm.ChatChunk) bool {
 		responseReceived()
 		renderer.WriteChunk(chunk)
+		if chunk.Phase != notebooklm.ChatChunkAnswer {
+			return true
+		}
+		if chunk.Full != "" {
+			answer = chunk.Full
+		} else {
+			answer += chunk.Text
+		}
+		delivered += len(chunk.Text)
+		if err := guard.check(answer); err != nil {
+			guardErr = err.(*runawayOutputError)
+		} else if err := guard.checkDelivered(delivered); err != nil {
+			guardErr = err.(*runawayOutputError)
+		}
+		if guardErr != nil {
+			// Stop the upstream stream promptly: refuse further chunks and
+			// cancel the request context so the transport tears down too.
+			renderer.Abort(guardErr.detail)
+			cancelStream()
+			return false
+		}
 		return true
 	})
 
 	renderer.Finish()
+
+	if guardErr != nil {
+		// The guard's verdict wins over whatever the transport reports after
+		// cancellation (context canceled, unexpected EOF, ...): the client
+		// chose to stop, and the caller must see why.
+		return chatResult{
+			Answer:     renderer.Answer(),
+			Thinking:   renderer.Thinking(),
+			Incomplete: true,
+		}, guardErr
+	}
 
 	return chatResult{
 		Answer:    renderer.Answer(),
@@ -2151,6 +2201,22 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 	chatReq.SeqNum = seqNum
 
 	res, streamErr := streamChatResponse(c, chatReq, opts.Render)
+	if isRunawayOutput(streamErr) {
+		// A guard-truncated answer is not an answer: skip the non-streaming
+		// fallback (it would refetch the same runaway) and persist only the
+		// user's turn, so --conversation still works but no partial text is
+		// ever replayed as a completed assistant message.
+		reportRunawayOutput(os.Stderr, streamErr, len(res.Answer))
+		_ = saveChatSession(&chatSession{
+			NotebookID:     projectID,
+			ConversationID: convID,
+			Messages:       []storedMessage{{Role: "user", Content: prompt, Timestamp: time.Now()}},
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		})
+		printContinuationHint(os.Stderr, projectID, convID, isNewConversation)
+		return streamErr
+	}
 	if streamErr != nil {
 		if notebooklm.IsChatStreamTimeout(streamErr) {
 			return fmt.Errorf("generate chat: %w; the streaming RPC produced no usable response; check 'nlm auth status' and 'nlm sources %s'", streamErr, projectID)
@@ -2609,6 +2675,10 @@ func oneShotChat(c *notebooklm.Client, notebookID, prompt string, opts chatOptio
 	}
 
 	res, err := streamChatResponse(c, chatReq, opts.Render)
+	if isRunawayOutput(err) {
+		reportRunawayOutput(os.Stderr, err, len(res.Answer))
+		return err
+	}
 	if err != nil {
 		response, chatErr := c.ChatWithHistory(context.Background(), chatReq)
 		if chatErr != nil {
@@ -2698,6 +2768,10 @@ func oneShotChatInConv(c *notebooklm.Client, notebookID, conversationID, prompt 
 		SeqNum:         len(session.Messages)/2 + 1,
 	}
 	res, err := streamChatResponse(c, chatReq, opts.Render)
+	if isRunawayOutput(err) {
+		reportRunawayOutput(os.Stderr, err, len(res.Answer))
+		return err
+	}
 	if err != nil {
 		response, chatErr := c.ChatWithHistory(context.Background(), chatReq)
 		if chatErr != nil {
@@ -3968,6 +4042,10 @@ func runInteractiveChat(c *notebooklm.Client, session *chatSession, sourceIDs []
 		fmt.Println()
 		res, err := streamChatResponse(c, chatReq, opts.Render)
 
+		if isRunawayOutput(err) {
+			reportRunawayOutput(os.Stderr, err, len(res.Answer))
+			continue
+		}
 		if err != nil {
 			response, chatErr := c.ChatWithHistory(context.Background(), chatReq)
 			if chatErr != nil {
