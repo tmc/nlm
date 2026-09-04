@@ -152,7 +152,10 @@ func (m *storedMessage) UnmarshalJSON(data []byte) error {
 }
 
 func main() {
-	os.Exit(runCLI(os.Args[1:], os.Getenv, os.Stdout, os.Stderr))
+	stopCleanup := installInterruptCleanup(os.Stderr)
+	code := runCLI(os.Args[1:], os.Getenv, os.Stdout, os.Stderr)
+	stopCleanup()
+	os.Exit(code)
 }
 
 func prepareRuntime(stderr io.Writer, globals globalOptions) {
