@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/tools/txtar"
 )
@@ -251,8 +252,9 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		// Skip only when the hash is unchanged and the remote source is still
 		// present under the expected title.
 		if !opts.Force && exists && !hc.changed(chunkName, hash) {
-
+			mu.Lock()
 			out.emit(event{Action: "skip", Name: chunkName, Reason: "unchanged"})
+			mu.Unlock()
 			continue
 		}
 
@@ -330,13 +332,15 @@ wait:
 // shared state is updated under mu.
 func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, data []byte, hash string, existing Source, exists bool, labelIDs []string, hc *hashCache, sc *sourceCache, out *outputWriter, mu *sync.Mutex) error {
 	if !exists {
-		newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
+		newID, err := c.AddSource(ctx, notebookID, chunkName, bytes.NewReader(data))
 		if err != nil {
 			return &uploadError{name: chunkName, err: err}
 		}
 		for _, id := range labelIDs {
 			if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, id, newID); err != nil {
-				cleanupErr := c.DeleteSources(ctx, notebookID, []string{newID})
+				cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+				defer cancel()
+				cleanupErr := c.DeleteSources(cleanupCtx, notebookID, []string{newID})
 				return errors.Join(fmt.Errorf("attach label to %q: %w", chunkName, err), cleanupErr)
 			}
 		}
@@ -355,9 +359,11 @@ func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, da
 		return fmt.Errorf("rename %q: %w", chunkName, err)
 	}
 
-	newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
+	newID, err := c.AddSource(ctx, notebookID, chunkName, bytes.NewReader(data))
 	if err != nil {
-		if restoreErr := c.RenameSource(ctx, existing.ID, chunkName); restoreErr != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if restoreErr := c.RenameSource(cleanupCtx, existing.ID, chunkName); restoreErr != nil {
 			return fmt.Errorf("upload %q failed (%v); restore original title: %w", chunkName, err, restoreErr)
 		}
 		return &uploadError{name: chunkName, err: err}
@@ -366,8 +372,10 @@ func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, da
 	for _, lid := range labelIDs {
 		if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, lid, newID); err != nil {
 			// Remove the incomplete replacement so a retry finds the original.
-			cleanupErr := c.DeleteSources(ctx, notebookID, []string{newID})
-			renameErr := c.RenameSource(ctx, existing.ID, chunkName)
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+			defer cancel()
+			cleanupErr := c.DeleteSources(cleanupCtx, notebookID, []string{newID})
+			renameErr := c.RenameSource(cleanupCtx, existing.ID, chunkName)
 			return errors.Join(fmt.Errorf("attach label %s to %q: %w", lid, chunkName, err), cleanupErr, renameErr)
 		}
 	}
@@ -746,8 +754,18 @@ func isBinary(data []byte) bool {
 // isPartOf reports whether title is the base name or a chunk part of it.
 // Matches "name" and "name (ptN)" for any N.
 func isPartOf(title, name string) bool {
+	if title == name {
+		return true
+	}
+	title = strings.TrimSuffix(title, " [old]")
+	if title == name {
+		return true
+	}
 	for strings.HasSuffix(title, " (split1)") || strings.HasSuffix(title, " (split2)") {
 		title = title[:len(title)-len(" (split1)")]
+		if title == name {
+			return true
+		}
 	}
 
 	if title == name {

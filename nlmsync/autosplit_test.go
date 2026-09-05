@@ -232,3 +232,23 @@ func TestAutoSplitPartialRetry(t *testing.T) {
 		}
 	}
 }
+
+func TestRunRecoversAbandonedReplacementLabels(t *testing.T) {
+	for _, auto := range []bool{false, true} {
+		t.Run(fmt.Sprint(auto), func(t *testing.T) {
+			setupTestHome(t)
+			path := filepath.Join(t.TempDir(), "a.txt")
+			if err := os.WriteFile(path, []byte("new content"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			c := newRejectingClient()
+			c.sources[0].Title = "test [old]"
+			if err := Run(context.Background(), c, "nb", []string{path}, Options{Name: "test", AutoSplit: auto}, io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			if len(c.sources) != 1 || c.sources[0].Title != "test" || len(c.labelsBySource[c.sources[0].ID]) == 0 {
+				t.Fatalf("recovery: %v labels=%v", c.sources, c.labelsBySource)
+			}
+		})
+	}
+}
