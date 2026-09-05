@@ -169,6 +169,7 @@ func configureSourceAddSpec(spec *commandSpec) {
 
 func configureSourceSyncSpec(spec *commandSpec) {
 	spec.Flags = []flagSpec{
+		{Name: "auto-split", Description: "split rejected uploads into smaller parts"},
 		{Name: "name", Aliases: []string{"n"}, Value: "name", Description: "source name"},
 		{Name: "force", Description: "force upload"},
 		{Name: "dry-run", Description: "preview changes"},
@@ -276,6 +277,7 @@ func decodeSourceSync(parsed parsedCommand) (commandCall, error) {
 	}
 	return func(ctx context.Context, client *notebooklm.Client) error {
 		syncOpts := nlmsync.Options{
+			AutoSplit:        args.Options.AutoSplit,
 			MaxBytes:         args.Options.MaxBytes,
 			Name:             args.Options.Name,
 			Force:            args.Options.Force,
@@ -298,6 +300,11 @@ func decodeSourceSyncArgs(parsed parsedCommand) (sourceSyncArgs, error) {
 	}
 	notebookID := positionals[0]
 	rawPaths := positionals[1:]
+	autoSplit, err := parsedBoolFlag(parsed, "auto-split", false)
+	if err != nil {
+		return sourceSyncArgs{}, err
+	}
+
 	force, err := parsedBoolFlag(parsed, "force", parsed.globals.force)
 	if err != nil {
 		return sourceSyncArgs{}, err
@@ -336,6 +343,7 @@ func decodeSourceSyncArgs(parsed parsedCommand) (sourceSyncArgs, error) {
 		NotebookID: notebookID,
 		Paths:      paths,
 		Options: syncOptions{
+			AutoSplit:        autoSplit,
 			Name:             parsedStringFlag(parsed, "name", parsed.globals.sourceName),
 			Force:            force,
 			DryRun:           dryRun,

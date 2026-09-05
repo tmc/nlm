@@ -17,6 +17,7 @@ type sourceAddOptions struct {
 }
 
 type syncOptions struct {
+	AutoSplit        bool
 	Name             string
 	Force            bool
 	DryRun           bool

@@ -44,6 +44,7 @@ type LabelPreserver interface {
 
 // Options controls sync behavior.
 type Options struct {
+	AutoSplit        bool     // split rejected uploads into smaller parts
 	MaxBytes         int      // chunk threshold; 0 means 5120000
 	Name             string   // source name; required if ambiguous
 	Force            bool     // re-upload even if hash unchanged
@@ -201,6 +202,10 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		}
 	}
 
+	if opts.AutoSplit {
+		return runAutoSplit(ctx, c, notebookID, name, names, chunks, sources, labelIDs, opts, hc, sc, &outputWriter{w: w, json: opts.JSON})
+	}
+
 	// Repair labels on unchanged parts too, before starting upload workers.
 	for i, chunkName := range names {
 		existing, exists := byTitle[chunkName]
@@ -327,7 +332,7 @@ func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, da
 	if !exists {
 		newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
 		if err != nil {
-			return fmt.Errorf("upload %q: %w", chunkName, err)
+			return &uploadError{name: chunkName, err: err}
 		}
 		for _, id := range labelIDs {
 			if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, id, newID); err != nil {
@@ -352,8 +357,10 @@ func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, da
 
 	newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
 	if err != nil {
-		_ = c.RenameSource(ctx, existing.ID, chunkName)
-		return fmt.Errorf("upload %q: %w", chunkName, err)
+		if restoreErr := c.RenameSource(ctx, existing.ID, chunkName); restoreErr != nil {
+			return fmt.Errorf("upload %q failed (%v); restore original title: %w", chunkName, err, restoreErr)
+		}
+		return &uploadError{name: chunkName, err: err}
 	}
 
 	for _, lid := range labelIDs {
@@ -739,6 +746,10 @@ func isBinary(data []byte) bool {
 // isPartOf reports whether title is the base name or a chunk part of it.
 // Matches "name" and "name (ptN)" for any N.
 func isPartOf(title, name string) bool {
+	for strings.HasSuffix(title, " (split1)") || strings.HasSuffix(title, " (split2)") {
+		title = title[:len(title)-len(" (split1)")]
+	}
+
 	if title == name {
 		return true
 	}
@@ -791,6 +802,8 @@ func (o *outputWriter) emit(e event) {
 		return
 	}
 	switch e.Action {
+	case "split":
+		fmt.Fprintf(os.Stderr, "  split: %s (%d bytes): %s\n", e.Name, e.Bytes, e.Reason)
 	case "skip":
 		fmt.Fprintf(os.Stderr, "  skip: %s (%s)\n", e.Name, e.Reason)
 	case "upload":

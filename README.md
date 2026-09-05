@@ -185,6 +185,10 @@ nlm source read --format=markdown <source-id> [notebook-id]
 nlm source delete <notebook-id> <source-id>
 ```
 
+Use `nlm sync --auto-split <notebook-id> .` to split rejected uploads into
+smaller txtar parts. This mode uploads serially, retains the split layout on
+later runs, and stops splitting failed parts at 4 KiB.
+
 `source sync` carries the combined labels of a named source’s existing parts
 to every resulting part, including when chunk sizes change. Label read or
 attachment failures stop the affected replacement or removal before deleting

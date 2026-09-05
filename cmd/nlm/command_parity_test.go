@@ -467,9 +467,11 @@ var phase4CommandPaths = map[string]bool{
 // phase comparisons mask their help/usage the same way they mask authorized
 // phase paths; argument-case semantics still must match the frozen baseline.
 var postRoadmapCommandPaths = map[string]bool{
-	"chat show": true, // --last (recovery path for the stale-output exit 8)
-	"chat-show": true,
-	"auth":      true, // --list-profiles (the inventory is no longer printed by default)
+	"sync":        true, // opt-in adaptive upload splitting
+	"source sync": true,
+	"chat show":   true, // --last (recovery path for the stale-output exit 8)
+	"chat-show":   true,
+	"auth":        true, // --list-profiles (the inventory is no longer printed by default)
 }
 
 var phase5CommandPaths = map[string]bool{
