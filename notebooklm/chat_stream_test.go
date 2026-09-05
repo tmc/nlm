@@ -765,3 +765,19 @@ func TestParseChatResponseChunkedNoTrailingNewline(t *testing.T) {
 		t.Fatalf("got %q, want %q", got.String(), "Answer")
 	}
 }
+
+func TestParseChatResponseChunkedUnicodeRevision(t *testing.T) {
+	c := New(Credentials{})
+	var chunks []ChatChunk
+	if err := c.parseChatResponseChunked(strings.NewReader(mockChatStream(t, "é", "ê")), nil, func(chunk ChatChunk) bool {
+		if chunk.Phase == ChatChunkAnswer {
+			chunks = append(chunks, chunk)
+		}
+		return true
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(chunks) != 2 || chunks[1].Text != "ê" {
+		t.Fatalf("revision chunks = %#v", chunks)
+	}
+}

@@ -799,3 +799,17 @@ func TestChatStreamRendererAbortJSONLEmitsAbortedEvent(t *testing.T) {
 		t.Fatalf("aborted event = %v", last)
 	}
 }
+
+func TestStreamRevisionKeepsUTF8(t *testing.T) {
+	var out, status bytes.Buffer
+	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkAnswer, Text: "a", Full: "a"})
+	r.WriteChunk(notebooklm.ChatChunk{Phase: notebooklm.ChatChunkAnswer, Text: "éz", Full: "éz"})
+	r.Finish()
+	if got := out.String(); got != "az" {
+		t.Fatalf("output = %q, want valid UTF-8 suffix %q", got, "az")
+	}
+	if r.Answer() != "éz" || !r.StreamRevised() {
+		t.Fatal("lost authoritative revision")
+	}
+}

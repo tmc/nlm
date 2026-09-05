@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
 	"github.com/tmc/nlm/notebooklm"
@@ -182,7 +183,12 @@ func (r *StreamRenderer) WriteChunk(chunk notebooklm.ChatChunk) {
 				r.streamRevised = true
 			}
 			if len(chunk.Full) > r.flushedLen {
-				fmt.Fprint(r.out, chunk.Full[r.flushedLen:])
+				// The old byte offset can fall inside a rune after revision.
+				start := r.flushedLen
+				for start < len(chunk.Full) && !utf8.RuneStart(chunk.Full[start]) {
+					start++
+				}
+				fmt.Fprint(r.out, chunk.Full[start:])
 				r.flushedLen = len(chunk.Full)
 			}
 			r.answerBuf.Reset()

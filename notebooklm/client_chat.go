@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/tmc/nlm/gen/method"
@@ -738,6 +739,10 @@ func (c *Client) parseChatResponseChunked(r io.Reader, sourceIDs []string, callb
 		// Deliver even when delta is empty (the snapshot shrank): text is
 		// known to differ from lastAnswer here, and consumers tracking Full
 		// need the corrected snapshot.
+		// A byte prefix can end inside a revised multi-byte character.
+		for commonLen > 0 && commonLen < len(text) && !utf8.RuneStart(text[commonLen]) {
+			commonLen--
+		}
 		delta := text[commonLen:]
 		if !callback(ChatChunk{
 			Text:      delta,
