@@ -7,3 +7,15 @@ pid: 21528
 ITERM_SESSION_ID: w15t0p10:69D29FB3-0ECB-4BFE-9356-36943BCE03D1
 session: 6b92056d-c81e-411b-a8e6-39eadb041655
 session_url: https://claude.ai/code/session_01SszBaDEeqgppMm2NZK9eke
+
+History audit rewrite
+commit: 96cd8221805fd11e09a6db89704f8ba0966a59a0
+date: 2026-09-02T15:11:12-07:00
+agent: Codex
+model: GPT-6
+claude-code version (installed): 2.1.257
+codex-cli: 0.153.3
+tty: none
+pid: 39840 (note writer)
+ITERM_SESSION_ID: w16t0p5:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+Original provenance above retained by notes.rewriteRef.
