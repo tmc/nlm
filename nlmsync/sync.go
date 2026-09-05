@@ -176,6 +176,46 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		byTitle[s.Title] = s
 	}
 
+	// Chunk boundaries can move between syncs. Labels belong to the named
+	// source family, so snapshot their union before replacing any part.
+	var labelIDs []string
+	labelsBySource := make(map[string]map[string]bool)
+	if lp, ok := c.(LabelPreserver); ok && !opts.DryRun {
+		seen := make(map[string]bool)
+		for _, source := range sources {
+			if !isPartOf(source.Title, name) {
+				continue
+			}
+			ids, err := lp.LabelsForSource(ctx, notebookID, source.ID)
+			if err != nil {
+				return fmt.Errorf("read labels for %q: %w", source.Title, err)
+			}
+			labelsBySource[source.ID] = make(map[string]bool)
+			for _, id := range ids {
+				labelsBySource[source.ID][id] = true
+				if !seen[id] {
+					seen[id] = true
+					labelIDs = append(labelIDs, id)
+				}
+			}
+		}
+	}
+
+	// Repair labels on unchanged parts too, before starting upload workers.
+	for i, chunkName := range names {
+		existing, exists := byTitle[chunkName]
+		if opts.Force || !exists || hc.changed(chunkName, hashes[i]) {
+			continue
+		}
+		for _, id := range labelIDs {
+			if !labelsBySource[existing.ID][id] {
+				if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, id, existing.ID); err != nil {
+					return fmt.Errorf("attach label to %q: %w", chunkName, err)
+				}
+			}
+		}
+	}
+
 	out := &outputWriter{w: w, json: opts.JSON}
 
 	// Plan: walk all chunks once and decide each chunk's action up front so
@@ -206,6 +246,7 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		// Skip only when the hash is unchanged and the remote source is still
 		// present under the expected title.
 		if !opts.Force && exists && !hc.changed(chunkName, hash) {
+
 			out.emit(event{Action: "skip", Name: chunkName, Reason: "unchanged"})
 			continue
 		}
@@ -237,7 +278,7 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if err := uploadChunk(ctx, c, notebookID, chunkName, data, hash, existing, exists, hc, sc, out, &mu); err != nil {
+			if err := uploadChunk(ctx, c, notebookID, chunkName, data, hash, existing, exists, labelIDs, hc, sc, out, &mu); err != nil {
 				errsMu.Lock()
 				errs = append(errs, err)
 				errsMu.Unlock()
@@ -282,12 +323,19 @@ wait:
 // uploadChunk uploads or replaces a single chunk. It is safe to call from
 // multiple goroutines because each chunk targets a unique remote name and
 // shared state is updated under mu.
-func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, data []byte, hash string, existing Source, exists bool, hc *hashCache, sc *sourceCache, out *outputWriter, mu *sync.Mutex) error {
+func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, data []byte, hash string, existing Source, exists bool, labelIDs []string, hc *hashCache, sc *sourceCache, out *outputWriter, mu *sync.Mutex) error {
 	if !exists {
 		newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
 		if err != nil {
 			return fmt.Errorf("upload %q: %w", chunkName, err)
 		}
+		for _, id := range labelIDs {
+			if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, id, newID); err != nil {
+				cleanupErr := c.DeleteSources(ctx, notebookID, []string{newID})
+				return errors.Join(fmt.Errorf("attach label to %q: %w", chunkName, err), cleanupErr)
+			}
+		}
+
 		mu.Lock()
 		_ = hc.save(chunkName, hash)
 		sc.append(notebookID, Source{ID: newID, Title: chunkName})
@@ -296,20 +344,10 @@ func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, da
 		return nil
 	}
 
-	// Gap-free replacement: rename old → upload new → delete old.
+	// Keep the old source until the replacement has all its labels.
 	oldName := chunkName + " [old]"
 	if err := c.RenameSource(ctx, existing.ID, oldName); err != nil {
 		return fmt.Errorf("rename %q: %w", chunkName, err)
-	}
-
-	// Snapshot labels before delete; reattach after upload succeeds.
-	var labelIDs []string
-	if lp, ok := c.(LabelPreserver); ok {
-		if got, err := lp.LabelsForSource(ctx, notebookID, existing.ID); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: read labels for %s: %v\n", existing.ID, err)
-		} else {
-			labelIDs = got
-		}
 	}
 
 	newID, err := c.AddSource(ctx, notebookID, chunkName, strings.NewReader(string(data)))
@@ -318,23 +356,16 @@ func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, da
 		return fmt.Errorf("upload %q: %w", chunkName, err)
 	}
 
-	if err := c.DeleteSources(ctx, notebookID, []string{existing.ID}); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: uploaded %s but failed to delete old %s: %v\n", newID, existing.ID, err)
+	for _, lid := range labelIDs {
+		if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, lid, newID); err != nil {
+			// Remove the incomplete replacement so a retry finds the original.
+			cleanupErr := c.DeleteSources(ctx, notebookID, []string{newID})
+			renameErr := c.RenameSource(ctx, existing.ID, chunkName)
+			return errors.Join(fmt.Errorf("attach label %s to %q: %w", lid, chunkName, err), cleanupErr, renameErr)
+		}
 	}
-
-	if len(labelIDs) > 0 {
-		lp := c.(LabelPreserver)
-		attached := 0
-		for _, lid := range labelIDs {
-			if err := lp.AttachLabelSource(ctx, notebookID, lid, newID); err != nil {
-				fmt.Fprintf(os.Stderr, "warning: attach label %s to %s: %v\n", lid, newID, err)
-				continue
-			}
-			attached++
-		}
-		if attached > 0 {
-			fmt.Fprintf(os.Stderr, "  preserved %d label assignment(s) on %s\n", attached, chunkName)
-		}
+	if err := c.DeleteSources(ctx, notebookID, []string{existing.ID}); err != nil {
+		return fmt.Errorf("delete old source %q: %w", chunkName, err)
 	}
 
 	mu.Lock()

@@ -982,7 +982,7 @@ func (a *syncClientAdapter) RenameSource(ctx context.Context, sourceID string, t
 }
 
 func (a *syncClientAdapter) LabelsForSource(ctx context.Context, notebookID, sourceID string) ([]string, error) {
-	return labelsForSource(context.Background(), a.client, notebookID, sourceID)
+	return labelsForSource(ctx, a.client, notebookID, sourceID)
 }
 
 func (a *syncClientAdapter) AttachLabelSource(ctx context.Context, notebookID, labelID, sourceID string) error {

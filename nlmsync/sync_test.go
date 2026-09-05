@@ -133,6 +133,8 @@ func TestRunReplaceSource(t *testing.T) {
 // before delete and reattach to the new ID.
 type fakeLabelClient struct {
 	*fakeClient
+	readErr        error
+	attachErr      error
 	labelsBySource map[string][]string // sourceID -> []labelID
 	attachCalls    []struct {
 		labelID  string
@@ -143,7 +145,7 @@ type fakeLabelClient struct {
 func (f *fakeLabelClient) LabelsForSource(_ context.Context, _, sourceID string) ([]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]string(nil), f.labelsBySource[sourceID]...), nil
+	return append([]string(nil), f.labelsBySource[sourceID]...), f.readErr
 }
 
 func (f *fakeLabelClient) AttachLabelSource(_ context.Context, _, labelID, sourceID string) error {
@@ -153,6 +155,14 @@ func (f *fakeLabelClient) AttachLabelSource(_ context.Context, _, labelID, sourc
 		labelID  string
 		sourceID string
 	}{labelID, sourceID})
+	if f.attachErr != nil {
+		return f.attachErr
+	}
+	for _, id := range f.deleted {
+		if id == "old-123" && sourceID == "src-test" {
+			return fmt.Errorf("old source deleted before attach")
+		}
+	}
 	f.labelsBySource[sourceID] = append(f.labelsBySource[sourceID], labelID)
 	return nil
 }
@@ -927,5 +937,159 @@ func TestResolveName(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("resolveName(%q, %v) = %q, want %q", tt.name, tt.paths, got, tt.want)
 		}
+	}
+}
+
+func TestRunLabelFailure(t *testing.T) {
+	for _, stage := range []string{"read", "attach"} {
+		t.Run(stage, func(t *testing.T) {
+			setupTestHome(t)
+			path := filepath.Join(t.TempDir(), "a.txt")
+			if err := os.WriteFile(path, []byte("updated"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			fc := &fakeLabelClient{fakeClient: &fakeClient{sources: []Source{{ID: "old-123", Title: "test"}}}, labelsBySource: map[string][]string{"old-123": {"label"}}}
+			if stage == "read" {
+				fc.readErr = fmt.Errorf("read failed")
+			} else {
+				fc.attachErr = fmt.Errorf("attach failed")
+			}
+			var out bytes.Buffer
+			err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test", JSON: true}, &out)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			for _, id := range fc.deleted {
+				if id == "old-123" {
+					t.Fatal("deleted labeled original")
+				}
+			}
+			if stage == "read" && (len(fc.renamed) != 0 || len(fc.uploaded) != 0) {
+				t.Fatal("mutated source after failed read")
+			}
+			if stage == "attach" && (len(fc.deleted) != 1 || fc.deleted[0] != "src-test" || fc.renamed[len(fc.renamed)-1].title != "test") {
+				t.Fatal("replacement not rolled back")
+			}
+			if out.Len() != 0 {
+				t.Fatalf("reported success: %s", &out)
+			}
+		})
+	}
+}
+
+func TestRunOrphanLabels(t *testing.T) {
+	setupTestHome(t)
+	path := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(path, []byte("updated"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fc := &fakeLabelClient{fakeClient: &fakeClient{sources: []Source{{ID: "orphan", Title: "test (pt2)"}}}, labelsBySource: map[string][]string{"orphan": {"label"}}}
+	if err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if len(fc.attachCalls) != 1 || fc.attachCalls[0].sourceID != "src-test" || fc.attachCalls[0].labelID != "label" {
+		t.Fatalf("attachments = %v", fc.attachCalls)
+	}
+	if len(fc.deleted) != 1 || fc.deleted[0] != "orphan" {
+		t.Fatalf("deleted = %v", fc.deleted)
+	}
+}
+
+func TestRunOrphanLabelFailure(t *testing.T) {
+	for _, stage := range []string{"read", "attach"} {
+		t.Run(stage, func(t *testing.T) {
+			setupTestHome(t)
+			path := filepath.Join(t.TempDir(), "a.txt")
+			if err := os.WriteFile(path, []byte("updated"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			fc := &fakeLabelClient{fakeClient: &fakeClient{sources: []Source{{ID: "orphan", Title: "test (pt2)"}}}, labelsBySource: map[string][]string{"orphan": {"label"}}}
+			if stage == "read" {
+				fc.readErr = fmt.Errorf("read failed")
+			} else {
+				fc.attachErr = fmt.Errorf("attach failed")
+			}
+			if err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test"}, io.Discard); err == nil {
+				t.Fatal("expected error")
+			}
+			for _, id := range fc.deleted {
+				if id == "orphan" {
+					t.Fatal("deleted labeled orphan")
+				}
+			}
+		})
+	}
+}
+
+func TestRunChangedChunkSizeLabels(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		oldSize, newSize int
+	}{
+		{"grow", 2000, 220}, {"shrink", 220, 2000}, {"move boundaries", 250, 300},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setupTestHome(t)
+			path := filepath.Join(t.TempDir(), "a.txt")
+			if err := os.WriteFile(path, []byte(strings.Repeat("content line\n", 60)), 0600); err != nil {
+				t.Fatal(err)
+			}
+			_, oldNames, err := Pack([]string{path}, Options{Name: "test", MaxBytes: tc.oldSize})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, names, err := Pack([]string{path}, Options{Name: "test", MaxBytes: tc.newSize})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fc := &fakeLabelClient{fakeClient: &fakeClient{}, labelsBySource: map[string][]string{}}
+			for i, name := range oldNames {
+				id := fmt.Sprintf("old-%d", i)
+				fc.sources = append(fc.sources, Source{ID: id, Title: name})
+				fc.labelsBySource[id] = []string{fmt.Sprintf("label-%d", i), "shared"}
+			}
+			fc.sources = append(fc.sources, Source{ID: "unrelated", Title: "other"})
+			fc.labelsBySource["unrelated"] = []string{"other-label"}
+			if err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test", MaxBytes: tc.newSize}, io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range names {
+				got := fc.labelsBySource["src-"+name]
+				if len(got) != len(oldNames)+1 {
+					t.Fatalf("%s labels = %v, want %d unique family labels", name, got, len(oldNames)+1)
+				}
+				for _, label := range got {
+					if label == "other-label" {
+						t.Fatal("copied unrelated label")
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRunUnchangedPartLabels(t *testing.T) {
+	setupTestHome(t)
+	path := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(path, []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fc := &fakeLabelClient{fakeClient: &fakeClient{}, labelsBySource: map[string][]string{}}
+	if err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	fc.sources = append(fc.sources, Source{ID: "orphan", Title: "test (pt2)"})
+	fc.labelsBySource["orphan"] = []string{"label"}
+	if err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test", DryRun: true}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if len(fc.attachCalls) != 0 || len(fc.deleted) != 0 {
+		t.Fatal("dry run changed labels or sources")
+	}
+	if err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if len(fc.uploaded) != 1 || len(fc.attachCalls) != 1 || fc.attachCalls[0].sourceID != "src-test" {
+		t.Fatalf("unchanged part not labeled: uploads=%d attachments=%v", len(fc.uploaded), fc.attachCalls)
 	}
 }

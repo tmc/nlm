@@ -185,6 +185,11 @@ nlm source read --format=markdown <source-id> [notebook-id]
 nlm source delete <notebook-id> <source-id>
 ```
 
+`source sync` carries the combined labels of a named source’s existing parts
+to every resulting part, including when chunk sizes change. Label read or
+attachment failures stop the affected replacement or removal before deleting
+the labeled source.
+
 When you pass `-` to `source add`, all of stdin becomes one source. To add a
 list of URLs or paths, compose with `xargs` as shown above.
 
