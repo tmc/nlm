@@ -185,10 +185,10 @@ func fetchNotebookLMPage(cookies string) ([]byte, string, error) {
 			if len(via) >= 10 {
 				return fmt.Errorf("too many redirects")
 			}
-			if len(via) > 0 {
-				req.Header.Set("Cookie", via[0].Header.Get("Cookie"))
-			}
-			return nil
+			// Validate before following the redirect, while credentials have
+			// not yet left the process. The default client preserves cookies
+			// for same-origin requests.
+			return validateNotebookLMPageURL(req.URL.String())
 		},
 	}
 
@@ -234,7 +234,7 @@ func validateNotebookLMPageURL(finalURL string) error {
 	if err != nil {
 		return fmt.Errorf("parse notebooklm app origin: %w", err)
 	}
-	if !strings.EqualFold(u.Host, origin.Host) {
+	if !strings.EqualFold(u.Host, origin.Host) || !strings.EqualFold(u.Scheme, origin.Scheme) {
 		return fmt.Errorf("unexpected notebooklm final url %q", finalURL)
 	}
 	return nil

@@ -198,3 +198,26 @@ func TestValidateNotebookLMPageURL(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchPageRejectsCrossOriginRedirect(t *testing.T) {
+	for _, target := range []string{"https://example.com/", "http://notebook.google.com/"} {
+		t.Run(target, func(t *testing.T) {
+			old := http.DefaultTransport
+			t.Cleanup(func() { http.DefaultTransport = old })
+			calls := 0
+			http.DefaultTransport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return &http.Response{StatusCode: http.StatusFound, Header: http.Header{"Location": []string{target}}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+				}
+				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("page")), Request: req}, nil
+			})
+			if _, _, err := fetchNotebookLMPage("SID=secret"); err == nil {
+				t.Fatal("accepted cross-origin redirect")
+			}
+			if calls != 1 {
+				t.Fatalf("followed redirect with credentials: %d requests", calls)
+			}
+		})
+	}
+}
