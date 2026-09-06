@@ -62,10 +62,6 @@ var getAuthData = func(a *auth.BrowserAuth, opts ...auth.Option) (*auth.AuthData
 	return a.GetAuthData(opts...)
 }
 
-func handleAuthWithOptions(args []string, globals globalOptions) (string, string, error) {
-	return runAuth(args, globals, narrateAuth)
-}
-
 func runAuth(args []string, globals globalOptions, narration authNarration) (string, string, error) {
 	command, ok := lookupCommand("auth")
 	if !ok {
@@ -678,7 +674,7 @@ func cachedBrowserProfile() (profile, authUser string, ok bool) {
 
 // reharvestCachedBrowserProfile obtains a fresh token and cookies from the
 // exact browser profile recorded by the last successful login. The explicit
-// login argument prevents handleAuthWithOptions from inspecting command stdin,
+// login argument prevents runAuth from inspecting command stdin,
 // which may belong to the command being retried.
 func reharvestCachedBrowserProfile(debugFlag bool) (string, string, error) {
 	profile, authUser, ok := cachedBrowserProfile()
