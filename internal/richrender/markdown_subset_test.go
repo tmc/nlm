@@ -155,3 +155,18 @@ func TestFollowUpInsideCodePreserved(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestMarkdownExternalLinks(t *testing.T) {
+	content := "[Discord message](https://discord.com/channels/1/2/3) and <https://example.test/a>.\n\nhttps://example.test/b.\n\n`https://example.test/code`\n\n[javascript](javascript:alert(1))"
+	body := answerBodies(renderToString(t, ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content}}}, RenderContext{}))
+	for _, want := range []string{`href="https://discord.com/channels/1/2/3"`, `href="https://example.test/a"`, `href="https://example.test/b"`, `<code>https://example.test/code</code>`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %s in %s", want, body)
+		}
+	}
+	for _, bad := range []string{`href="javascript:`, `href="https://example.test/code"`, `href="https://example.test/b."`} {
+		if strings.Contains(body, bad) {
+			t.Errorf("unexpected %s", bad)
+		}
+	}
+}

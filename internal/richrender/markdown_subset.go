@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	markdownInlineRE   = regexp.MustCompile(`\*\*[^*\n]+\*\*|\*[^*\n]+\*|` + "`[^`\n]+`" + `|\$\$[^$]+\$\$|\$[^$\n]+\$|\[[0-9][0-9,\s-]*\]`)
+	markdownInlineRE   = regexp.MustCompile(`\[[^\]\n]+\]\(https?://[^\s<>]+\)|<https?://[^<>\s]+>|https?://[^\s<>` + "`" + `]+|\*\*[^*\n]+\*\*|\*[^*\n]+\*|` + "`[^`\n]+`" + `|\$\$[^$]+\$\$|\$[^$\n]+\$|\[[0-9][0-9,\s-]*\]`)
 	markdownHeadingRE  = regexp.MustCompile(`^\s*(#{1,6})\s+`)
 	markdownListRE     = regexp.MustCompile(`^(\s*)([-+*]|\d+\.)\s+`)
 	markdownSignalRE   = regexp.MustCompile(`(?m)^\s*(?:#{1,6}\s+|[-+*]\s+|\d+\.\s+|---\s*$|` + "```" + `)|\*\*[^*\n]+\*\*|\*[^*\n]+\*|` + "`[^`\n]+`")
@@ -44,7 +44,7 @@ func withoutChatFollowUps(doc ChatDocument) ChatDocument {
 }
 
 func hasMarkdownSubset(content string) bool {
-	return !looksLikeJSON(content) && markdownSignalRE.MatchString(content)
+	return !looksLikeJSON(content) && (markdownSignalRE.MatchString(content) || strings.Contains(content, "https://") || strings.Contains(content, "http://"))
 }
 
 func richMarkdownOverlayNodes(projected []richBlockOut, markdown string, byIndex map[int]htmlMarker) []answerNode {
@@ -221,6 +221,29 @@ func plainMarkdownInlineNodes(text string, msgIdx int, byIndex map[int]htmlMarke
 		}
 		token := text[match[0]:match[1]]
 		switch {
+		case strings.HasPrefix(token, "http://") || strings.HasPrefix(token, "https://") || strings.HasPrefix(token, "<http") || strings.Contains(token, "](http"):
+			label, href := token, token
+			tail := ""
+			if strings.HasPrefix(token, "[") {
+				at := strings.Index(token, "](")
+				label, href = token[1:at], token[at+2:len(token)-1]
+			} else if strings.HasPrefix(token, "<") {
+				label, href = token[1:len(token)-1], token[1:len(token)-1]
+			} else {
+				href = strings.TrimRight(token, ".,;:!?")
+				for strings.HasSuffix(href, ")") && strings.Count(href, ")") > strings.Count(href, "(") {
+					href = strings.TrimSuffix(href, ")")
+				}
+				label, tail = href, token[len(href):]
+			}
+			if link, ok := safeExcerptLink(href); ok {
+				out = append(out, answerNode{Tag: "a", Class: "source-link", Href: link, Text: label})
+			} else {
+				out = append(out, answerNode{Text: token})
+			}
+			if tail != "" {
+				out = append(out, answerNode{Text: tail})
+			}
 		case strings.HasPrefix(token, "["):
 			out = append(out, markerNodes(msgIdx, token[1:len(token)-1], byIndex)...)
 		case strings.HasPrefix(token, "$"):
