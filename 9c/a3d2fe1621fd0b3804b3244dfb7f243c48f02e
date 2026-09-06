@@ -19,3 +19,14 @@ tty: none
 pid: 39840 (note writer)
 ITERM_SESSION_ID: w16t0p5:B6FEEF9E-F20C-450E-B07B-98D5500434C1
 Original provenance above retained by notes.rewriteRef.
+
+History ordering repair
+commit: 9ca3d2fe1621fd0b3804b3244dfb7f243c48f02e
+date: 2026-09-05T16:04:05-07:00
+agent: Codex
+model: GPT-6 (exact runtime identifier unavailable)
+claude-code: 2.1.257 (Claude Code)
+tty: not a tty
+pid: 43253
+ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+original commit: 4a49f762625fa28e30cf6f3a3c4986f8d7876d8a
