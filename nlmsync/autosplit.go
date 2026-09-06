@@ -13,11 +13,14 @@ import (
 )
 
 type uploadError struct {
-	name string
-	err  error
+	name  string
+	bytes int
+	err   error
 }
 
-func (e *uploadError) Error() string { return fmt.Sprintf("upload %q: %v", e.name, e.err) }
+func (e *uploadError) Error() string {
+	return fmt.Sprintf("upload %q (%d bytes): %v", e.name, e.bytes, e.err)
+}
 func (e *uploadError) Unwrap() error { return e.err }
 
 // Only server failures are candidates for splitting. Authentication, quota,

@@ -336,8 +336,11 @@ func TestRunJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if r := readResult(t, buf.Bytes()); r.Status != "complete" || !r.CleanupComplete || r.Readiness != "unchecked" {
+		t.Fatalf("unexpected result: %+v", r)
+	}
 	var ev event
-	if err := json.Unmarshal([]byte(strings.TrimSpace(buf.String())), &ev); err != nil {
+	if err := json.NewDecoder(&buf).Decode(&ev); err != nil {
 		t.Fatalf("expected NDJSON output, got %q: %v", buf.String(), err)
 	}
 	if ev.Action != "upload" {
@@ -970,7 +973,7 @@ func TestRunLabelFailure(t *testing.T) {
 			if stage == "attach" && (len(fc.deleted) != 1 || fc.deleted[0] != "src-test" || fc.renamed[len(fc.renamed)-1].title != "test") {
 				t.Fatal("replacement not rolled back")
 			}
-			if out.Len() != 0 {
+			if strings.Contains(out.String(), `"status":"complete"`) || strings.Contains(out.String(), `"action":"replace"`) {
 				t.Fatalf("reported success: %s", &out)
 			}
 		})

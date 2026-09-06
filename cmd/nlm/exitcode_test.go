@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/nlmsync"
 	"github.com/tmc/nlm/notebooklm"
 )
 
@@ -205,5 +206,15 @@ func TestStaleStreamOutputError(t *testing.T) {
 	}
 	if err := staleStreamOutputError(chatResult{}, false, "nb1", "conv1"); err != nil {
 		t.Fatalf("unrevised chat error = %v, want nil", err)
+	}
+}
+
+func TestIncompleteSyncExitCode(t *testing.T) {
+	for _, code := range []int{7, 9, 13, 16} {
+		cause := apiErrorWithCode(code)
+		err := &nlmsync.IncompleteError{Name: "manual", Receipt: "attempt.json", Err: cause}
+		if got, want := exitCodeFor(err), exitCodeFor(cause); got != want {
+			t.Errorf("code %d: wrapped exit = %d, want %d", code, got, want)
+		}
 	}
 }

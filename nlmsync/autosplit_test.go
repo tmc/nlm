@@ -3,6 +3,7 @@ package nlmsync
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -175,7 +176,7 @@ func TestAutoSplitDryRunAndCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := Run(ctx, c, "nb", []string{path}, Options{Name: "test", AutoSplit: true}, io.Discard); err != context.Canceled {
+	if err := Run(ctx, c, "nb", []string{path}, Options{Name: "test", AutoSplit: true}, io.Discard); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error = %v", err)
 	}
 	if c.attempts != 0 {

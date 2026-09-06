@@ -965,8 +965,9 @@ func (a *syncClientAdapter) ListSources(ctx context.Context, notebookID string) 
 	var sources []nlmsync.Source
 	for _, src := range p.Sources {
 		sources = append(sources, nlmsync.Source{
-			ID:    src.SourceId.GetSourceId(),
-			Title: strings.TrimSpace(src.Title),
+			ID:     src.SourceId.GetSourceId(),
+			Title:  strings.TrimSpace(src.Title),
+			Status: formatSourceStatus(src),
 		})
 	}
 	return sources, nil

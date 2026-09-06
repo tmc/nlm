@@ -23,8 +23,9 @@ import (
 
 // Source is a notebook source as returned by the server.
 type Source struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status,omitempty"` // server status, when available
 }
 
 // Client is the set of notebook operations that sync needs.
@@ -160,6 +161,16 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		hashes[i] = fmt.Sprintf("%x", h)
 	}
 
+	out := &outputWriter{w: w, json: opts.JSON}
+	receipt, err := newSyncReceipt(notebookID, name, names, hashes, chunks, opts)
+	if err != nil {
+		return fmt.Errorf("record sync attempt: %w", err)
+	}
+	out.receipt = receipt
+	return out.finish(runSync(ctx, c, notebookID, name, names, hashes, chunks, opts, out))
+}
+
+func runSync(ctx context.Context, c Client, notebookID, name string, names, hashes []string, chunks [][]byte, opts Options, out *outputWriter) error {
 	// Load caches.
 	hc := newHashCache(notebookID)
 	sc := newSourceCache()
@@ -171,6 +182,10 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 		return fmt.Errorf("list sources: %w", err)
 	}
 	_ = sc.save(notebookID, sources)
+
+	if err := checkSourceFamily(sources, name); err != nil {
+		return err
+	}
 
 	// Build title→source index.
 	byTitle := make(map[string]Source)
@@ -204,7 +219,7 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 	}
 
 	if opts.AutoSplit {
-		return runAutoSplit(ctx, c, notebookID, name, names, chunks, sources, labelIDs, opts, hc, sc, &outputWriter{w: w, json: opts.JSON})
+		return runAutoSplit(ctx, c, notebookID, name, names, chunks, sources, labelIDs, opts, hc, sc, out)
 	}
 
 	// Repair labels on unchanged parts too, before starting upload workers.
@@ -221,8 +236,6 @@ func Run(ctx context.Context, c Client, notebookID string, paths []string, opts 
 			}
 		}
 	}
-
-	out := &outputWriter{w: w, json: opts.JSON}
 
 	// Plan: walk all chunks once and decide each chunk's action up front so
 	// skip/dry-run output stays ordered. Real uploads run concurrently with
@@ -330,11 +343,18 @@ wait:
 // uploadChunk uploads or replaces a single chunk. It is safe to call from
 // multiple goroutines because each chunk targets a unique remote name and
 // shared state is updated under mu.
-func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, data []byte, hash string, existing Source, exists bool, labelIDs []string, hc *hashCache, sc *sourceCache, out *outputWriter, mu *sync.Mutex) error {
+func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, data []byte, hash string, existing Source, exists bool, labelIDs []string, hc *hashCache, sc *sourceCache, out *outputWriter, mu *sync.Mutex) (err error) {
+	defer func() {
+		if err != nil {
+			mu.Lock()
+			out.emit(event{Action: "error", Name: chunkName, Bytes: len(data), Reason: err.Error()})
+			mu.Unlock()
+		}
+	}()
 	if !exists {
 		newID, err := c.AddSource(ctx, notebookID, chunkName, bytes.NewReader(data))
 		if err != nil {
-			return &uploadError{name: chunkName, err: err}
+			return &uploadError{name: chunkName, bytes: len(data), err: err}
 		}
 		for _, id := range labelIDs {
 			if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, id, newID); err != nil {
@@ -364,9 +384,9 @@ func uploadChunk(ctx context.Context, c Client, notebookID, chunkName string, da
 		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 		defer cancel()
 		if restoreErr := c.RenameSource(cleanupCtx, existing.ID, chunkName); restoreErr != nil {
-			return fmt.Errorf("upload %q failed (%v); restore original title: %w", chunkName, err, restoreErr)
+			return fmt.Errorf("upload %q (%d bytes) failed (%v); restore original title: %w", chunkName, len(data), err, restoreErr)
 		}
-		return &uploadError{name: chunkName, err: err}
+		return &uploadError{name: chunkName, bytes: len(data), err: err}
 	}
 
 	for _, lid := range labelIDs {
@@ -809,14 +829,24 @@ type event struct {
 }
 
 type outputWriter struct {
-	w    io.Writer
-	json bool
+	w       io.Writer
+	json    bool
+	receipt *syncReceipt
+	err     error
 }
 
 func (o *outputWriter) emit(e event) {
+	if o.receipt != nil {
+		o.receipt.Operations = append(o.receipt.Operations, e)
+		if err := o.receipt.save(); err != nil && o.err == nil {
+			o.err = fmt.Errorf("record sync progress: %w", err)
+		}
+	}
 	if o.json {
 		data, _ := json.Marshal(e)
-		fmt.Fprintln(o.w, string(data))
+		if _, err := fmt.Fprintln(o.w, string(data)); err != nil && o.err == nil {
+			o.err = fmt.Errorf("write sync progress: %w", err)
+		}
 		return
 	}
 	switch e.Action {
