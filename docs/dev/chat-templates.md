@@ -102,3 +102,6 @@ IDs match. Excerpt text is preserved without guessing table rows or decoding
 literal escape sequences; trimming and the configured length limit still apply.
 Hovering or focusing a passage action highlights just that occurrence, including
 all of its formatting fragments; clicking scrolls to the first fragment.
+
+The desktop source rail flows with the page rather than using a height-limited
+scroll region, so later citation cards remain reachable by ordinary scrolling.

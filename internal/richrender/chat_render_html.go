@@ -840,7 +840,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 }
 
 /* Sources rail beside the answer: an at-a-glance index. */
-.rail { position: sticky; top: 20px; display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - 40px); overflow-y: auto; }
+.rail { display: flex; flex-direction: column; gap: 10px; }
 .rail .rail-head { font-size: 11px; font-weight: 650; letter-spacing: 0.09em; text-transform: uppercase; color: var(--faint); }
 .rail .empty { color: var(--faint); font-size: 13px; font-style: italic; }
 .ref {
@@ -1382,7 +1382,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 
       var markers = (msg.markers || []).slice().sort(function (a, b) { return a.index - b.index; });
 
-      // Two-column: answer on the left, a sticky Sources rail on the right.
+      // Two-column: answer on the left, Sources rail on the right.
       var grid = el("div", "assistant-grid");
       var main = el("div");
       // The reasoning trace is server-rendered (escaped) into a
