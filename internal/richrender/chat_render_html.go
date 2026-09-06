@@ -228,9 +228,8 @@ func buildHTMLPayload(doc ChatDocument, ctx RenderContext) htmlPayload {
 
 // buildMarkers groups a turn's citations by marker index into one htmlMarker per
 // [N], preserving first-seen order. Each marker carries a validated grounded
-// Span (the reply-span range in the answer the client underlines) when the
-// group's citations agree on a real, in-range, marker-free range; otherwise Span
-// is nil and the client underlines just the [N] token.
+// ranges for every real, in-range, marker-free occurrence. Zero-width mappings
+// retain their numbered links without inventing a grounded passage.
 func buildMarkers(m ChatMessage, ctx RenderContext, budget int) []htmlMarker {
 	if len(m.Citations) == 0 {
 		return nil
@@ -255,12 +254,17 @@ func buildCitationMarkers(citations []notebooklm.Citation, ctx RenderContext, bu
 	locations := ctx.citationLocations(citations)
 	order, groups := groupCitationsByIndex(citations)
 
+	type sourcePassage struct {
+		source, parent, excerpt string
+		start, end              int
+		confidence              float64
+	}
 	markers := make([]htmlMarker, 0, len(order))
 	for _, idx := range order {
 		hm := htmlMarker{Index: idx}
-		seenSources := make(map[string]bool)
+		seenSources := make(map[sourcePassage]bool)
 		for _, c := range groups[idx] {
-			key := c.SourceID + "\x00" + c.ParentSourceID
+			key := sourcePassage{c.SourceID, c.ParentSourceID, c.Excerpt, c.SourceStart, c.SourceEnd, c.Confidence}
 			if seenSources[key] {
 				continue
 			}
@@ -320,6 +324,7 @@ func alignHTMLCitations(content string, citations []notebooklm.Citation) []noteb
 	}
 
 	out := append([]notebooklm.Citation(nil), citations...)
+	visible := markdownVisibleRunes(content)
 	for i, occurrence := range occurrences {
 		group := out[occurrence.start:occurrence.end]
 		indices := tokens[i].indices
@@ -336,7 +341,7 @@ func alignHTMLCitations(content string, citations []notebooklm.Citation) []noteb
 
 		if needsAlignment {
 			width := occurrence.endChar - occurrence.startChar
-			start, end := answerRangeBeforeToken(content, tokens[i].start, width)
+			start, end := answerRangeBeforeToken(content, tokens[i].start, width, visible)
 			if !answerRangeHasText(content, start, end) {
 				start = end
 			}
@@ -438,14 +443,14 @@ func sameCitationIndices(group []notebooklm.Citation, indices []int) bool {
 	return true
 }
 
-// answerRangeBeforeToken returns a UTF-16 range of width code units ending at
-// the last non-space character before tokenStart. The server range width is
-// stable even though its absolute offsets index marker-free rich text.
-func answerRangeBeforeToken(content string, tokenStart, width int) (int, int) {
+// answerRangeBeforeToken returns the Markdown range containing width visible
+// UTF-16 units before tokenStart. Formatting delimiters do not consume the
+// server span width; the answer renderer removes them after alignment.
+func answerRangeBeforeToken(content string, tokenStart, width int, visible []bool) (int, int) {
 	runes := []rune(content)
 	u16 := newUTF16RuneMap(content)
 	endRune := u16.rune(tokenStart)
-	for endRune > 0 && unicode.IsSpace(runes[endRune-1]) {
+	for endRune > 0 && (unicode.IsSpace(runes[endRune-1]) || !visible[endRune-1]) {
 		endRune--
 	}
 	runeToU16 := make([]int, len(runes)+1)
@@ -456,11 +461,14 @@ func answerRangeBeforeToken(content string, tokenStart, width int) (int, int) {
 	}
 	runeToU16[len(runes)] = at
 	end := runeToU16[endRune]
-	start := end - width
-	if start < 0 {
-		start = 0
+	startRune := endRune
+	for startRune > 0 && width > 0 {
+		startRune--
+		if visible[startRune] {
+			width -= utf16.RuneLen(runes[startRune])
+		}
 	}
-	return start, end
+	return runeToU16[startRune], end
 }
 
 func answerRangeHasText(content string, start, end int) bool {
@@ -859,7 +867,8 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 }
 .ref:hover .ref-excerpt, .ref.active .ref-excerpt { border-left-color: var(--accent); }
 .ref-excerpt + .ref-excerpt { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
-.ref-actions { display: flex; gap: 7px; margin-top: 9px; }
+.ref-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.ref-unavailable { font-size: 12px; color: var(--muted); align-self: center; }
 .ref-action {
   appearance: none; border: 1px solid var(--line-strong); border-radius: 6px;
   background: var(--panel); color: var(--accent-strong); cursor: pointer;
@@ -885,7 +894,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   scroll-margin-top: 20px;
   transition: background 500ms ease;
 }
-.cite-entry.flash { background: var(--accent-tint); }
+.cite-entry.flash, .cite-entry.active { background: var(--accent-tint); }
 .cite-num {
   font-family: var(--mono); font-size: 13px; font-weight: 700;
   color: var(--accent-strong); padding-top: 1px;
@@ -1060,26 +1069,29 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   // inline link and dismisses when the pointer leaves. A short close delay lets
   // the pointer cross the gap into the card to scroll a long excerpt.
   var spanEls = {};   // markerKey -> grounded passages and inline [N] links
-  var groundEls = {}; // markerKey -> grounded passages, in document order
+  var passageEls = {}; // markerKey -> distinct occurrences, in document order
   var railEls = {};   // markerKey -> rail entry element
+  var entryEls = {};  // markerKey -> full citation entry
   function keyOf(msgIdx, markerIdx) { return msgIdx + ":" + markerIdx; }
 
-  var activeKey = null;
-  // setActive cross-lights a marker's inline [N] link(s) and its rail entry, so
-  // hovering either surface highlights both — the reply_span ↔ [N] ↔ rail link
-  // made visible.
-  function setActive(key) {
-    if (activeKey === key) return;
+  var activeKeys = [];
+  function setActive(keys) {
+    if (!Array.isArray(keys)) keys = [keys];
     clearActive();
-    activeKey = key;
-    (spanEls[key] || []).forEach(function (s) { s.classList.add("active"); });
-    if (railEls[key]) railEls[key].classList.add("active");
+    activeKeys = keys;
+    activeKeys.forEach(function (key) {
+      (spanEls[key] || []).forEach(function (s) { s.classList.add("active"); });
+      if (railEls[key]) railEls[key].classList.add("active");
+      if (entryEls[key]) entryEls[key].classList.add("active");
+    });
   }
   function clearActive() {
-    if (activeKey == null) return;
-    (spanEls[activeKey] || []).forEach(function (s) { s.classList.remove("active"); });
-    if (railEls[activeKey]) railEls[activeKey].classList.remove("active");
-    activeKey = null;
+    activeKeys.forEach(function (key) {
+      (spanEls[key] || []).forEach(function (s) { s.classList.remove("active"); });
+      if (railEls[key]) railEls[key].classList.remove("active");
+      if (entryEls[key]) entryEls[key].classList.remove("active");
+    });
+    activeKeys = [];
   }
 
   var hideTimer = null;
@@ -1145,15 +1157,30 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 
     // Grounded passages: underline hover-previews the marker's sources.
     container.querySelectorAll('.grounded[data-cite]').forEach(function (s) {
-      var marker = known[parseInt(s.getAttribute("data-cite"), 10)];
-      if (!marker) return;
-      var key = keyOf(msgIdx, marker.index);
-      s.setAttribute("aria-label", "Grounded by citation " + marker.index);
-      s.addEventListener("mouseenter", function () { showCard(s, marker, key); });
+      var indices = (s.dataset.cites || s.dataset.cite).split(" ").map(Number);
+      var markers = indices.map(function (index) { return known[index]; }).filter(Boolean);
+      if (!markers.length) return;
+      var keys = markers.map(function (marker) { return keyOf(msgIdx, marker.index); });
+      var preview = { sources: [] };
+      markers.forEach(function (marker) {
+        preview.sources = preview.sources.concat(marker.sources);
+        var key = keyOf(msgIdx, marker.index);
+        (spanEls[key] || (spanEls[key] = [])).push(s);
+        var occurrence = (s.dataset.passages || "").split(" ").find(function (id) {
+          return id.split(":")[0] === String(marker.index);
+        }) || marker.index + ":1";
+        var passages = passageEls[key] || (passageEls[key] = []);
+        var passage = passages.find(function (p) { return p.id === occurrence; });
+        if (!passage) {
+          passage = {id: occurrence, element: s, elements: []};
+          passages.push(passage);
+        }
+        passage.elements.push(s);
+      });
+      s.setAttribute("aria-label", "Grounded by citations " + indices.join(", "));
+      s.addEventListener("mouseenter", function () { showCard(s, preview, keys); });
       s.addEventListener("mouseleave", function () { hideCard(); });
-      s.addEventListener("click", function (event) { touchPreview(event, s, marker, key); });
-      (spanEls[key] || (spanEls[key] = [])).push(s);
-      (groundEls[key] || (groundEls[key] = [])).push(s);
+      s.addEventListener("click", function (event) { touchPreview(event, s, preview, keys); });
     });
 
     // Inline [N] links: a plain anchor jump to the citation entry, plus a
@@ -1198,6 +1225,10 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   function citationEntry(msgIdx, marker) {
     var entry = el("div", "cite-entry");
     entry.id = citeId(msgIdx, marker.index);
+    var key = keyOf(msgIdx, marker.index);
+    entryEls[key] = entry;
+    entry.addEventListener("mouseenter", function () { setActive(key); });
+    entry.addEventListener("mouseleave", clearActive);
 
     var marker_lbl = el("div", "cite-num");
     marker_lbl.textContent = "[" + marker.index + "]";
@@ -1228,7 +1259,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 
   // Build a compact rail entry for a marker: its [N], the sources' titles, and a
   // per-source excerpt line. The entry and its Details action jump to the full
-  // citation; Passage jumps to the first grounded answer span. Both explicit
+  // citation; each Passage action jumps to one grounded occurrence. These
   // controls are native keyboard and touch targets.
   function railEntry(msgIdx, marker) {
     var key = keyOf(msgIdx, marker.index);
@@ -1264,18 +1295,33 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     });
     actions.appendChild(detail);
 
-    var passage = el("button", "ref-action", "Passage");
-    passage.type = "button";
-    passage.setAttribute("aria-label", "Jump to passage grounded by citation " + marker.index);
-    if (!(groundEls[key] || []).length) {
-      passage.disabled = true;
-      passage.title = "No grounded passage is available";
+    var passages = passageEls[key] || [];
+    if (!passages.length) {
+      var unavailable = el("span", "ref-unavailable", "No grounded passage");
+      actions.appendChild(unavailable);
     }
-    passage.addEventListener("click", function (ev) {
-      ev.stopPropagation();
-      jumpToPassage(key);
+    passages.forEach(function (target, index) {
+      var label = passages.length === 1 ? "Passage" : "Passage " + (index + 1);
+      var passage = el("button", "ref-action", label);
+      passage.type = "button";
+      passage.setAttribute("aria-label", "Jump to passage " + (index + 1) + " of " + passages.length + " grounded by citation " + marker.index);
+      function highlight() {
+        closeCard();
+        activeKeys = [key];
+        target.elements.forEach(function (s) { s.classList.add("active"); });
+        if (railEls[key]) railEls[key].classList.add("active");
+        if (entryEls[key]) entryEls[key].classList.add("active");
+      }
+      passage.addEventListener("mouseenter", highlight);
+      passage.addEventListener("mouseleave", clearActive);
+      passage.addEventListener("focus", highlight);
+      passage.addEventListener("blur", clearActive);
+      passage.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        jumpToPassage(key, index);
+      });
+      actions.appendChild(passage);
     });
-    actions.appendChild(passage);
     entry.appendChild(actions);
 
     entry.tabIndex = 0;
@@ -1289,7 +1335,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       jumpTo(citeId(msgIdx, marker.index));
     });
     entry.addEventListener("keydown", function (ev) {
-      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); jumpTo(citeId(msgIdx, marker.index)); }
+      if (ev.target === entry && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); jumpTo(citeId(msgIdx, marker.index)); }
     });
     railEls[key] = entry;
     return entry;
@@ -1305,12 +1351,11 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     flashEntry(target);
   }
 
-  // jumpToPassage uses the first grounded span when a marker has several. The
-  // complete set remains cross-lit on hover; choosing one deterministic target
-  // keeps repeated taps and keyboard activation predictable.
-  function jumpToPassage(key) {
-    var target = (groundEls[key] || [])[0];
-    if (!target) return;
+  // Each target is an occurrence, not a fragment split by inline formatting.
+  function jumpToPassage(key, index) {
+    var passage = (passageEls[key] || [])[index];
+    if (!passage) return;
+    var target = passage.element;
     target.scrollIntoView({ block: "center", behavior: "smooth" });
     target.classList.remove("flash");
     void target.offsetWidth;

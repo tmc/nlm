@@ -499,7 +499,8 @@ article{min-width:0;overflow-wrap:anywhere}pre,table{display:block;max-width:100
     });
   });
   document.querySelectorAll(".note-passage").forEach(function (button) {
-    var target = document.querySelector('.grounded[data-cite="' + button.dataset.cite + '"]');
+    var target = document.querySelector('.grounded[data-cite="' + button.dataset.cite + '"]') ||
+      document.querySelector('.grounded[data-cites~="' + button.dataset.cite + '"]');
     button.setAttribute("aria-label", "Jump to passage grounded by citation " + button.dataset.cite);
     if (!target) {
       button.disabled = true;
@@ -512,7 +513,12 @@ article{min-width:0;overflow-wrap:anywhere}pre,table{display:block;max-width:100
     });
   });
   document.querySelectorAll(".citelink[data-cite],.grounded[data-cite]").forEach(function (target) {
-    wirePreview(target, byIndex[parseInt(target.dataset.cite, 10)], true);
+    var indices = (target.dataset.cites || target.dataset.cite).split(" ").map(Number);
+    var sources = [];
+    indices.forEach(function (index) {
+      if (byIndex[index]) sources = sources.concat(byIndex[index].sources);
+    });
+    wirePreview(target, {sources: sources}, true);
   });
   document.querySelectorAll(".note-ref[data-cite]").forEach(function (entry) {
     var marker = byIndex[parseInt(entry.dataset.cite, 10)];

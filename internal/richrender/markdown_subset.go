@@ -317,3 +317,47 @@ func insideMarkdownFence(text string) bool {
 	}
 	return fence != ""
 }
+
+// markdownVisibleRunes excludes the delimiters handled by the inline renderer.
+// Citation widths count visible text, not the Markdown added around that text.
+func markdownVisibleRunes(content string) []bool {
+	visible := make([]bool, len([]rune(content)))
+	for i := range visible {
+		visible[i] = true
+	}
+	byteRune := make(map[int]int)
+	i := 0
+	for at := range content {
+		byteRune[at] = i
+		i++
+	}
+	byteRune[len(content)] = i
+	for _, loc := range markdownInlineRE.FindAllStringIndex(content, -1) {
+		token := content[loc[0]:loc[1]]
+		left, right := 0, 0
+		switch {
+		case strings.HasPrefix(token, "**"):
+			left, right = 2, 2
+		case strings.HasPrefix(token, "*") || strings.HasPrefix(token, "` + '`' + `"):
+			left, right = 1, 1
+		case strings.HasPrefix(token, "[") && strings.Contains(token, "](http"):
+			left, right = 1, len(token)-strings.Index(token, "](")
+		case strings.HasPrefix(token, "<http"):
+			left, right = 1, 1
+		}
+		if left > 0 && strings.HasPrefix(token, "*") {
+			for j, shown := range markdownVisibleRunes(token[left : len(token)-right]) {
+				if !shown {
+					visible[byteRune[loc[0]]+left+j] = false
+				}
+			}
+		}
+		for j := byteRune[loc[0]]; j < byteRune[loc[0]+left]; j++ {
+			visible[j] = false
+		}
+		for j := byteRune[loc[1]-right]; j < byteRune[loc[1]]; j++ {
+			visible[j] = false
+		}
+	}
+	return visible
+}

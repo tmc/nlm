@@ -558,10 +558,10 @@ func TestRenderChatHTMLRailNavigation(t *testing.T) {
 	html := renderToString(t, doc, RenderContext{})
 	for _, want := range []string{
 		`var detail = el("a", "ref-action", "Details");`,
-		`var passage = el("button", "ref-action", "Passage");`,
+		`var passage = el("button", "ref-action", label);`,
 		`passage.type = "button";`,
-		`function jumpToPassage(key)`,
-		`var target = (groundEls[key] || [])[0];`,
+		`function jumpToPassage(key, index)`,
+		`var target = passage.element;`,
 		`target.scrollIntoView({ block: "center", behavior: "smooth" });`,
 	} {
 		if !strings.Contains(html, want) {

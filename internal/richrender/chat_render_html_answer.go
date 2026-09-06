@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -34,14 +35,16 @@ import (
 // rendered inside it. Class/DataMsg/DataCite/Href are attribute values, all
 // escaped by the template when set.
 type answerNode struct {
-	Tag      string // "" → text leaf; else element name (p, ul, li, span, a, hr, h4, div)
-	Class    string // class attribute; "" → omit
-	Href     string // href attribute (for <a>); "" → omit
-	DataMsg  string // data-msg attribute; "" → omit
-	DataCite string // data-cite attribute; "" → omit
-	Start    int    // first number of an ordered list; 0 → default
-	Text     string // text content for a leaf/inline node (auto-escaped)
-	Children []answerNode
+	Tag          string // "" → text leaf; else element name (p, ul, li, span, a, hr, h4, div)
+	Class        string // class attribute; "" → omit
+	Href         string // href attribute (for <a>); "" → omit
+	DataMsg      string // data-msg attribute; "" → omit
+	DataCite     string // data-cite attribute; "" → omit
+	DataPassages string // citation:occurrence pairs for repeated grounding
+	DataCites    string // all grounding indices, when more than one
+	Start        int    // first number of an ordered list; 0 → default
+	Text         string // text content for a leaf/inline node (auto-escaped)
+	Children     []answerNode
 }
 
 // renderAnswerBody renders one assistant turn's answer to escaped HTML. When the
@@ -102,14 +105,16 @@ func renderAnswerNode(sb *strings.Builder, n answerNode) error {
 		inner = template.HTML(cb.String())
 	}
 	return t.Execute(sb, elemData{
-		Class:    n.Class,
-		Href:     n.Href,
-		DataMsg:  n.DataMsg,
-		DataCite: n.DataCite,
-		Start:    n.Start,
-		Text:     n.Text,
-		HasKids:  len(n.Children) > 0,
-		Inner:    inner,
+		Class:        n.Class,
+		Href:         n.Href,
+		DataMsg:      n.DataMsg,
+		DataCite:     n.DataCite,
+		DataCites:    n.DataCites,
+		DataPassages: n.DataPassages,
+		Start:        n.Start,
+		Text:         n.Text,
+		HasKids:      len(n.Children) > 0,
+		Inner:        inner,
 	})
 }
 
@@ -117,14 +122,16 @@ func renderAnswerNode(sb *strings.Builder, n answerNode) error {
 // Text are server-derived and auto-escaped by the fixed-tag templates; Inner is
 // the already-rendered (and already-escaped) child HTML.
 type elemData struct {
-	Class    string
-	Href     string
-	DataMsg  string
-	DataCite string
-	Start    int
-	Text     string
-	HasKids  bool
-	Inner    template.HTML
+	Class        string
+	Href         string
+	DataMsg      string
+	DataCite     string
+	DataPassages string // citation:occurrence pairs for repeated grounding
+	DataCites    string
+	Start        int
+	Text         string
+	HasKids      bool
+	Inner        template.HTML
 }
 
 // answerNodes projects a turn into the top-level answer nodes. It chooses the
@@ -175,7 +182,7 @@ func groundMarkdownNodes(nodes []answerNode, content string, markers []htmlMarke
 				out = append(out, node)
 				continue
 			}
-			if node.Text == "" || node.Tag == "a" {
+			if node.Text == "" || node.Class == "citelink" {
 				out = append(out, node)
 				continue
 			}
@@ -188,14 +195,13 @@ func groundMarkdownNodes(nodes []answerNode, content string, markers []htmlMarke
 			end := start + len(text)
 			at = end
 			if node.Class == "math-display" {
-				if marker := groundedMarker(start, end, markers); marker != nil {
-					out = append(out, answerNode{
-						Tag:      "span",
-						Class:    "grounded",
-						DataMsg:  strconv.Itoa(msgIdx),
-						DataCite: strconv.Itoa(marker.Index),
-						Children: []answerNode{node},
-					})
+				indices := groundingIndices(start, end, markers)
+				if len(indices) > 0 {
+					wrapper := groundedNode(msgIdx, nil, 0, 0, indices[0])
+					wrapper.DataCites = multipleCitationIndices(indices)
+					wrapper.DataPassages = groundingPassages(start, end, markers)
+					wrapper.Children = []answerNode{node}
+					out = append(out, wrapper)
 				} else {
 					out = append(out, node)
 				}
@@ -214,21 +220,6 @@ func groundMarkdownNodes(nodes []answerNode, content string, markers []htmlMarke
 	return walk(nodes)
 }
 
-func groundedMarker(start, end int, markers []htmlMarker) *htmlMarker {
-	for i := range markers {
-		spans := markers[i].Spans
-		if len(spans) == 0 && markers[i].Span != nil {
-			spans = []htmlSpan{*markers[i].Span}
-		}
-		for _, span := range spans {
-			if max(start, span.Start) < min(end, span.End) {
-				return &markers[i]
-			}
-		}
-	}
-	return nil
-}
-
 func indexRunes(haystack, needle []rune, start int) int {
 	if len(needle) == 0 {
 		return start
@@ -242,7 +233,7 @@ func indexRunes(haystack, needle []rune, start int) int {
 }
 
 func groundedTextNodes(msgIdx int, runes []rune, start, end int, markers []htmlMarker) []answerNode {
-	var segs []answerSeg
+	bounds := []int{start, end}
 	for i := range markers {
 		spans := markers[i].Spans
 		if len(spans) == 0 && markers[i].Span != nil {
@@ -251,27 +242,80 @@ func groundedTextNodes(msgIdx int, runes []rune, start, end int, markers []htmlM
 		for _, span := range spans {
 			a, b := max(start, span.Start), min(end, span.End)
 			if a < b {
-				segs = append(segs, answerSeg{start: a, end: b, grounded: &markers[i]})
+				bounds = append(bounds, a, b)
 			}
 		}
 	}
-	sortSegs(segs)
+	slices.Sort(bounds)
+	bounds = slices.Compact(bounds)
 	var out []answerNode
-	at := start
-	for _, seg := range segs {
-		if seg.start < at {
+	for i := 1; i < len(bounds); i++ {
+		a, b := bounds[i-1], bounds[i]
+		indices := groundingIndices(a, b, markers)
+		if len(indices) == 0 {
+			out = append(out, textNode(runes, a, b))
 			continue
 		}
-		if at < seg.start {
-			out = append(out, textNode(runes, at, seg.start))
-		}
-		out = append(out, groundedNode(msgIdx, runes, seg.start, seg.end, seg.grounded.Index))
-		at = seg.end
-	}
-	if at < end {
-		out = append(out, textNode(runes, at, end))
+		n := groundedNode(msgIdx, runes, a, b, indices[0])
+		n.DataCites = multipleCitationIndices(indices)
+		n.DataPassages = groundingPassages(a, b, markers)
+		out = append(out, n)
 	}
 	return out
+}
+
+// groundingPassages identifies occurrences before Markdown divides a passage
+// into separate emphasis, code, or link nodes. Those fragments share one target.
+func groundingPassages(start, end int, markers []htmlMarker) string {
+	var ids []string
+	repeated := false
+	for _, marker := range markers {
+		spans := marker.Spans
+		if len(spans) == 0 && marker.Span != nil {
+			spans = []htmlSpan{*marker.Span}
+		}
+		for i, span := range spans {
+			if span.Start < end && start < span.End {
+				ids = append(ids, strconv.Itoa(marker.Index)+":"+strconv.Itoa(i+1))
+				repeated = repeated || len(spans) > 1
+			}
+		}
+	}
+	if !repeated {
+		return ""
+	}
+	return strings.Join(ids, " ")
+}
+
+func multipleCitationIndices(indices []int) string {
+	if len(indices) < 2 {
+		return ""
+	}
+	var ids []string
+	for _, index := range indices {
+		ids = append(ids, strconv.Itoa(index))
+	}
+	return strings.Join(ids, " ")
+}
+
+// groundingIndices returns every marker covering the interval. Splitting at
+// span boundaries before calling it preserves both shared and partial overlaps.
+func groundingIndices(start, end int, markers []htmlMarker) []int {
+	var indices []int
+	for _, marker := range markers {
+		spans := marker.Spans
+		if len(spans) == 0 && marker.Span != nil {
+			spans = []htmlSpan{*marker.Span}
+		}
+		for _, span := range spans {
+			if span.Start < end && start < span.End {
+				indices = append(indices, marker.Index)
+				break
+			}
+		}
+	}
+	slices.Sort(indices)
+	return slices.Compact(indices)
 }
 
 // translateMarkerSpans returns a copy of markers whose grounded Spans are mapped
@@ -508,7 +552,7 @@ func inlineNodes(msgIdx int, runes []rune, start, end int, content string, marke
 	if end <= start {
 		return nil
 	}
-	segs := answerSegments(runes, start, end, content, markers)
+	segs := markerTokens(runes, start, end)
 
 	var out []answerNode
 	cur := start
@@ -517,23 +561,19 @@ func inlineNodes(msgIdx int, runes []rune, start, end int, content string, marke
 			continue
 		}
 		if s.start > cur {
-			out = append(out, textNode(runes, cur, s.start))
+			out = append(out, groundedTextNodes(msgIdx, runes, cur, s.start, markers)...)
 		}
 		if s.math != "" {
 			math := answerNode{Text: s.math}
-			if s.mathGrounded != nil {
-				math = answerNode{
-					Tag:      "span",
-					Class:    "grounded",
-					DataMsg:  strconv.Itoa(msgIdx),
-					DataCite: strconv.Itoa(s.mathGrounded.Index),
-					Text:     s.math,
-				}
+			if indices := groundingIndices(s.start, s.end, markers); len(indices) > 0 {
+				math = groundedNode(msgIdx, nil, 0, 0, indices[0])
+				math.DataCites = multipleCitationIndices(indices)
+				math.DataPassages = groundingPassages(s.start, s.end, markers)
+				math.Text = s.math
 			}
 			lift := mathCitationLift{inner: s.inner, close: s.mathClose}
 			out = append(out, liftedMathCitationNodes(math, lift, msgIdx, byIndex)...)
-		} else if s.grounded != nil {
-			out = append(out, groundedNode(msgIdx, runes, s.start, s.end, s.grounded.Index))
+
 		} else if s.mathClose != "" {
 			out = append(out, answerNode{Text: s.mathClose})
 			out = append(out, markerNodes(msgIdx, s.inner, byIndex)...)
@@ -543,7 +583,7 @@ func inlineNodes(msgIdx int, runes []rune, start, end int, content string, marke
 		cur = s.end
 	}
 	if cur < end {
-		out = append(out, textNode(runes, cur, end))
+		out = append(out, groundedTextNodes(msgIdx, runes, cur, end, markers)...)
 	}
 	return out
 }
@@ -552,55 +592,10 @@ func inlineNodes(msgIdx int, runes []rune, start, end int, content string, marke
 // non-nil) or a literal [N] marker token (inner is the bracket body). start/end
 // are rune offsets into content.
 type answerSeg struct {
-	start, end   int
-	grounded     *htmlMarker // set → underline this range
-	inner        string      // set → the [N] token's inner text, e.g. "1" or "1-4"
-	mathClose    string      // set → lift marker after this closing math delimiter
-	math         string      // set → cleaned display-math token
-	mathGrounded *htmlMarker // set → ground the cleaned display-math token
-}
-
-// answerSegments collects the grounded-span and [N]-marker segments that fall
-// within [start,end), sorted by start. A grounded span is placed only when it is
-// valid (end>start, inside the block range) — the same shape the Go payload
-// already validated globally, re-checked against this block's bounds. Marker
-// tokens are found by scanning the content slice with htmlMarkerRe and mapping
-// byte offsets back to rune offsets. A display-math lift expands its marker
-// segment to cover the whole equation; any grounded span contained in that
-// equation moves onto the cleaned math node. Other grounded spans and marker
-// tokens do not overlap.
-func answerSegments(runes []rune, start, end int, content string, markers []htmlMarker) []answerSeg {
-	var segs []answerSeg
-	for i := range markers {
-		spans := markers[i].Spans
-		if len(spans) == 0 && markers[i].Span != nil {
-			spans = []htmlSpan{*markers[i].Span}
-		}
-		for _, sp := range spans {
-			if sp.End <= sp.Start || sp.Start < start || sp.End > end {
-				continue
-			}
-			segs = append(segs, answerSeg{start: sp.Start, end: sp.End, grounded: &markers[i]})
-		}
-	}
-	for _, tok := range markerTokens(runes, start, end) {
-		if tok.math != "" {
-			kept := segs[:0]
-			for _, seg := range segs {
-				if seg.grounded != nil && seg.start >= tok.start && seg.end <= tok.end {
-					if tok.mathGrounded == nil {
-						tok.mathGrounded = seg.grounded
-					}
-					continue
-				}
-				kept = append(kept, seg)
-			}
-			segs = kept
-		}
-		segs = append(segs, tok)
-	}
-	sortSegs(segs)
-	return segs
+	start, end int
+	inner      string // set → the [N] token's inner text, e.g. "1" or "1-4"
+	mathClose  string // set → lift marker after this closing math delimiter
+	math       string // set → cleaned display-math token
 }
 
 // markerTokens finds every [N] marker token whose rune range lies within
@@ -631,19 +626,6 @@ func markerTokens(runes []rune, start, end int) []answerSeg {
 		out = append(out, seg)
 	}
 	return out
-}
-
-// sortSegs orders segments by start, then end, stably enough for rendering.
-func sortSegs(segs []answerSeg) {
-	for i := 1; i < len(segs); i++ {
-		for j := i; j > 0; j-- {
-			a, b := segs[j-1], segs[j]
-			if a.start < b.start || (a.start == b.start && a.end <= b.end) {
-				break
-			}
-			segs[j-1], segs[j] = segs[j], segs[j-1]
-		}
-	}
 }
 
 // textNode wraps a content rune slice as a plain text node (auto-escaped by the
@@ -788,6 +770,8 @@ const elemBlockSource = `<TAG` +
 	`{{if .Href}} href="{{.Href}}"{{end}}` +
 	`{{if .DataMsg}} data-msg="{{.DataMsg}}"{{end}}` +
 	`{{if .DataCite}} data-cite="{{.DataCite}}"{{end}}` +
+	`{{if .DataCites}} data-cites="{{.DataCites}}"{{end}}` +
+	`{{if .DataPassages}} data-passages="{{.DataPassages}}"{{end}}` +
 	`{{if .Start}} start="{{.Start}}"{{end}}>` +
 	`{{if .HasKids}}{{.Inner}}{{else}}{{.Text}}{{end}}` +
 	`</TAG>`

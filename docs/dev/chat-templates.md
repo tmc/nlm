@@ -80,3 +80,21 @@ missing metadata is filled from matching server turns. Repeating backfill does
 not duplicate turns. The current history request returns at most 20 recent
 messages, so recovery cannot guarantee turns older than that window. An empty
 server response is an error and leaves the saved conversation unchanged.
+
+### HTML citation markup
+
+The native HTML renderer keeps `citelink`, `grounded`, `data-msg`, and
+`data-cite` on citation links and grounded passages. When a passage has several
+grounding citations, `data-cite` remains its first index and `data-cites` lists
+all indices separated by spaces. Consumers should read `data-cites` when present.
+The preview and highlighting include every associated citation.
+
+For repeated grounding, `data-passages` contains `citation:occurrence` pairs,
+with occurrences numbered from one within each citation. Fragments created by
+inline formatting share an occurrence. Each distinct occurrence gets a sidebar
+passage action; a zero-width annotation gets no invented passage target.
+Distinct source excerpts under one citation are retained even when their source
+IDs match. Excerpt text is preserved without guessing table rows or decoding
+literal escape sequences; trimming and the configured length limit still apply.
+Hovering or focusing a passage action highlights just that occurrence, including
+all of its formatting fragments; clicking scrolls to the first fragment.
