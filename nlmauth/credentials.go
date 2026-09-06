@@ -52,7 +52,10 @@ func Load() (Credentials, error) {
 		Cookies:   os.Getenv("NLM_COOKIES"),
 		AuthUser:  os.Getenv("NLM_AUTHUSER"),
 	}
-	if creds.AuthToken == "" || creds.Cookies == "" || creds.AuthUser == "" {
+	if creds.AuthToken != "" && creds.Cookies != "" {
+		return creds, nil
+	}
+	if creds.AuthToken == "" || creds.Cookies == "" {
 		stored, err := LoadSession()
 		if err != nil {
 			return Credentials{}, err
@@ -73,17 +76,31 @@ func Load() (Credentials, error) {
 	return creds, nil
 }
 
-// LoadSession returns the session persisted in the shared store. A missing
-// store is not an error: it yields the zero Session.
+// LoadSession returns the current identity's session from the configured store.
+// A missing identity is not an error: it yields the zero Session.
 func LoadSession() (Session, error) {
-	path, err := storePath()
+	store, err := OpenStore()
 	if err != nil {
 		return Session{}, err
 	}
-	values, err := readEnvFile(path)
+	// List adopts a legacy store before reading its current selection.
+	if _, err := store.List(); err != nil {
+		return Session{}, err
+	}
+	name, err := CurrentIdentity()
 	if err != nil {
 		return Session{}, err
 	}
+	session, err := store.Get(name)
+	if errors.Is(err, ErrNoCredentials) {
+		return Session{}, nil
+	}
+	return session, err
+}
+
+// sessionFromValues builds a Session from raw store keys. A key that is absent
+// yields an empty field, which is how every reader already treats it.
+func sessionFromValues(values map[string]string) Session {
 	return Session{
 		Credentials: Credentials{
 			AuthToken: values["NLM_AUTH_TOKEN"],
@@ -94,12 +111,46 @@ func LoadSession() (Session, error) {
 		SessionID:      values["NLM_SESSION_ID"],
 		BLParam:        values["NLM_BL_PARAM"],
 		SignalerAuth:   values["NLM_SIGNALER_AUTH"],
-	}, nil
+	}
 }
 
-// Save writes s to the shared store, creating $HOME/.nlm (0700) if needed. The
-// store is written with 0600 permissions.
+// Save writes s as the current identity, creating $HOME/.nlm (0700) if needed.
+//
+// Two files are written: the identity itself, through the configured store,
+// and $HOME/.nlm/env, which remains the compatibility mirror of the current
+// identity for everything that reads the store path directly. Files are written with 0600 permissions.
 func Save(s Session) error {
+	name, err := CurrentIdentity()
+	if err != nil {
+		return err
+	}
+	return SaveIdentity(name, s)
+}
+
+// SaveIdentity writes s as the named identity. When name is the current
+// identity, the compatibility mirror is refreshed too; when it is not, the
+// mirror is left alone, so authenticating a second identity cannot disturb the
+// session the rest of the system is using.
+func SaveIdentity(name string, s Session) error {
+	store, err := OpenStore()
+	if err != nil {
+		return err
+	}
+	if err := store.Set(name, s); err != nil {
+		return err
+	}
+	current, err := CurrentIdentity()
+	if err != nil {
+		return err
+	}
+	if current != name {
+		return nil
+	}
+	return saveMirror(s)
+}
+
+// saveMirror writes the current identity to $HOME/.nlm/env.
+func saveMirror(s Session) error {
 	path, err := storePath()
 	if err != nil {
 		return err
@@ -107,6 +158,11 @@ func Save(s Session) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return fmt.Errorf("nlmauth: create store directory: %w", err)
 	}
+	return writeSessionFile(path, s)
+}
+
+// writeSessionFile writes s to path in the KEY="value" store format.
+func writeSessionFile(path string, s Session) error {
 	content := fmt.Sprintf(
 		"NLM_COOKIES=%q\nNLM_AUTH_TOKEN=%q\nNLM_BROWSER_PROFILE=%q\nNLM_SESSION_ID=%q\nNLM_BL_PARAM=%q\nNLM_SIGNALER_AUTH=%q\nNLM_AUTHUSER=%q\n",
 		s.Cookies,
