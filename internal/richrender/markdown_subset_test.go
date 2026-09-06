@@ -170,3 +170,38 @@ func TestMarkdownExternalLinks(t *testing.T) {
 		}
 	}
 }
+
+func TestMarkdownOrderedListStart(t *testing.T) {
+	content := "1. First\n\n   - Detail\n\n2. Second\n\n   - Detail\n\n3. Third"
+	body := answerBodies(renderToString(t, ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content}}}, RenderContext{}))
+	for _, want := range []string{"<ol>", `<ol start="2">`, `<ol start="3">`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in %s", want, body)
+		}
+	}
+}
+
+func TestMarkdownWrappedListItem(t *testing.T) {
+	content := "1. First line\n   continued [1]\n2. Second item"
+	doc := ChatDocument{Messages: []ChatMessage{{
+		Role: "assistant", Content: content,
+		Citations: []notebooklm.Citation{{SourceIndex: 1, SourceID: "one"}},
+	}}}
+	body := answerBodies(renderToString(t, doc, RenderContext{}))
+	if strings.Count(body, "<ol>") != 1 || strings.Count(body, "<li>") != 2 || !strings.Contains(body, "First line\n   continued ") {
+		t.Fatalf("wrapped item split: %s", body)
+	}
+	if !strings.Contains(body, `href="#cite-0-1"`) {
+		t.Fatal("wrapped item lost citation")
+	}
+}
+
+func TestMarkdownCodeInsideEmphasis(t *testing.T) {
+	content := "**The `example.go` file** and *the `value` field*"
+	body := answerBodies(renderToString(t, ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content}}}, RenderContext{}))
+	for _, want := range []string{"<strong>The <code>example.go</code> file</strong>", "<em>the <code>value</code> field</em>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %s in %s", want, body)
+		}
+	}
+}

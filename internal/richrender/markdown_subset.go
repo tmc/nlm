@@ -2,6 +2,7 @@ package richrender
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -23,6 +24,7 @@ type markdownSubsetBlock struct {
 	kind         blockKind
 	headingLevel int
 	ordered      bool
+	start        int
 	text         string
 	items        []string
 	nestings     []int
@@ -105,7 +107,11 @@ func markdownSubsetOverlayNodes(projected []richBlockOut, markdown string, byInd
 			if opts.orderedLists && block.ordered {
 				tag = "ol"
 			}
-			out = append(out, answerNode{Tag: tag, Children: items})
+			node := answerNode{Tag: tag, Children: items}
+			if tag == "ol" && block.start > 1 {
+				node.Start = block.start
+			}
+			out = append(out, node)
 		default:
 			tag := "p"
 			if block.headingLevel != 0 {
@@ -199,10 +205,21 @@ func parseMarkdownSubsetBlocks(markdown string) []markdownSubsetBlock {
 			if list == nil || list.ordered != ordered {
 				flushList()
 				list = &markdownSubsetBlock{kind: blockList, ordered: ordered}
+				if ordered {
+					list.start, _ = strconv.Atoi(strings.TrimSuffix(match[2], "."))
+				}
 			}
 			list.items = append(list.items, markdownListRE.ReplaceAllString(line, ""))
 			list.nestings = append(list.nestings, len(strings.ReplaceAll(match[1], "\t", "  "))/2)
 		default:
+			if list != nil {
+				indent := len(line) - len(strings.TrimLeft(line, " \t"))
+				last := len(list.items) - 1
+				if indent > 2*list.nestings[last] {
+					list.items[last] += "\n" + line
+					continue
+				}
+			}
 			flushList()
 			paragraph = append(paragraph, line)
 		}
@@ -249,9 +266,9 @@ func plainMarkdownInlineNodes(text string, msgIdx int, byIndex map[int]htmlMarke
 		case strings.HasPrefix(token, "$"):
 			out = append(out, noteMathCitationNodes(token, msgIdx, byIndex)...)
 		case strings.HasPrefix(token, "**"):
-			out = append(out, answerNode{Tag: "strong", Children: markerTextNodes(token[2:len(token)-2], msgIdx, byIndex)})
+			out = append(out, answerNode{Tag: "strong", Children: plainMarkdownInlineNodes(token[2:len(token)-2], msgIdx, byIndex)})
 		case strings.HasPrefix(token, "*"):
-			out = append(out, answerNode{Tag: "em", Children: markerTextNodes(token[1:len(token)-1], msgIdx, byIndex)})
+			out = append(out, answerNode{Tag: "em", Children: plainMarkdownInlineNodes(token[1:len(token)-1], msgIdx, byIndex)})
 		default:
 			out = append(out, answerNode{Tag: "code", Children: markerTextNodes(token[1:len(token)-1], msgIdx, byIndex)})
 		}

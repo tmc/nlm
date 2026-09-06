@@ -39,6 +39,7 @@ type answerNode struct {
 	Href     string // href attribute (for <a>); "" → omit
 	DataMsg  string // data-msg attribute; "" → omit
 	DataCite string // data-cite attribute; "" → omit
+	Start    int    // first number of an ordered list; 0 → default
 	Text     string // text content for a leaf/inline node (auto-escaped)
 	Children []answerNode
 }
@@ -105,6 +106,7 @@ func renderAnswerNode(sb *strings.Builder, n answerNode) error {
 		Href:     n.Href,
 		DataMsg:  n.DataMsg,
 		DataCite: n.DataCite,
+		Start:    n.Start,
 		Text:     n.Text,
 		HasKids:  len(n.Children) > 0,
 		Inner:    inner,
@@ -119,6 +121,7 @@ type elemData struct {
 	Href     string
 	DataMsg  string
 	DataCite string
+	Start    int
 	Text     string
 	HasKids  bool
 	Inner    template.HTML
@@ -784,6 +787,7 @@ const elemBlockSource = `<TAG` +
 	`{{if .Class}} class="{{.Class}}"{{end}}` +
 	`{{if .Href}} href="{{.Href}}"{{end}}` +
 	`{{if .DataMsg}} data-msg="{{.DataMsg}}"{{end}}` +
-	`{{if .DataCite}} data-cite="{{.DataCite}}"{{end}}>` +
+	`{{if .DataCite}} data-cite="{{.DataCite}}"{{end}}` +
+	`{{if .Start}} start="{{.Start}}"{{end}}>` +
 	`{{if .HasKids}}{{.Inner}}{{else}}{{.Text}}{{end}}` +
 	`</TAG>`
