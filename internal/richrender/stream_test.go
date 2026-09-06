@@ -10,6 +10,56 @@ import (
 	"github.com/tmc/nlm/notebooklm"
 )
 
+func TestChatStreamRendererJSONLCitationTitles(t *testing.T) {
+	tests := []struct {
+		name   string
+		title  string
+		titles map[string]string
+		want   string
+	}{
+		{"parent", "", map[string]string{"parent": "Guide", "chunk": "Chunk"}, "Guide"},
+		{"chunk fallback", "", map[string]string{"chunk": "Legacy guide"}, "Legacy guide"},
+		{"server title", "Original guide", map[string]string{"parent": "Renamed guide"}, "Original guide"},
+		{"missing source", "", map[string]string{}, ""},
+		{"offline", "", nil, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out bytes.Buffer
+			r := newChatStreamRenderer(&out, io.Discard, false, false, citationModeJSON)
+			r.jsonl = true
+			if tt.titles != nil {
+				r.resolveTitle = func(id string) string { return tt.titles[id] }
+			}
+			r.WriteChunk(notebooklm.ChatChunk{
+				Phase: notebooklm.ChatChunkAnswer,
+				Text:  "A claim.",
+				Citations: []notebooklm.Citation{{
+					SourceIndex: 1, SourceID: "chunk", ParentSourceID: "parent",
+					Title: tt.title, StartChar: 0, EndChar: 8,
+				}},
+			})
+			r.Finish()
+			var citations []map[string]any
+			for _, event := range parseJSONLEvents(t, out.String()) {
+				if event["phase"] == "citation" {
+					citations = append(citations, event)
+				}
+			}
+			if len(citations) != 1 {
+				t.Fatalf("got %d citation events, want 1", len(citations))
+			}
+			c := citations[0]
+			if c["title"] != tt.want {
+				t.Errorf("title = %q, want %q", c["title"], tt.want)
+			}
+			if c["source_id"] != "chunk" || c["parent_source_id"] != "parent" || c["start_char"] != float64(0) || c["end_char"] != float64(8) {
+				t.Errorf("title lookup changed citation identity or range: %v", c)
+			}
+		})
+	}
+}
+
 func TestChatStreamRendererNonTTYDropsThinkingOutput(t *testing.T) {
 	var out bytes.Buffer
 	var status bytes.Buffer
