@@ -15,7 +15,7 @@ type chatRenderOptions struct {
 	HideConfidence   bool // --citation-confidence=off: drop the (p=) column from the citation list
 	HideSpans        bool // --citation-spans=off: drop the trailing [chars N-M] from citation rows
 	IncludeFollowUps bool // --include-follow-ups: retain generated trailing prompts in HTML
-	Backfill         bool // --backfill: persist missing citations and rich trees from server history
+	Backfill         bool // --backfill: restore available server turns and missing metadata
 
 	// Whole-document output format for chat-show: "" (text, default),
 	// "markdown", or "html". Templates apply to Markdown; Open applies to HTML.

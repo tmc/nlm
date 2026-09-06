@@ -56,3 +56,17 @@ an existing option such as `--backfill` was explicitly requested.
 Copyable layouts are in `docs/examples/chat-templates/`: `transcript.tmpl`,
 `answers.tmpl`, and `report.tmpl`. This feature applies to saved-chat rendering;
 `generate-chat` and `generate-report` keep their existing output behavior.
+
+## Saved history
+
+Continuing `generate-chat` appends each exchange to its saved conversation,
+including local reasoning and citation metadata. A short conversation ID is
+expanded from the saved full ID before consulting the server.
+
+For an older incomplete local conversation, `chat show --backfill` merges the
+available server turns before rendering and saves only that conversation file.
+Existing local text, reasoning, timestamps, citations, and rich trees are retained;
+missing metadata is filled from matching server turns. Repeating backfill does
+not duplicate turns. The current history request returns at most 20 recent
+messages, so recovery cannot guarantee turns older than that window. An empty
+server response is an error and leaves the saved conversation unchanged.

@@ -542,7 +542,7 @@ func TestMergeChatHistory(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			session := &chatSession{Messages: []storedMessage{test.message}}
-			changed, richCount, citationCount := mergeChatHistory(session, test.rich, test.citations)
+			changed, _, richCount, citationCount := mergeChatHistory(session, []notebooklm.ChatMessage{{Role: 2, Content: "answer", Rich: test.rich[key], Citations: test.citations[key]}})
 			if changed != test.wantChanged || richCount != test.wantRich || citationCount != test.wantCit {
 				t.Fatalf("merge = %v,%d,%d, want %v,%d,%d", changed, richCount, citationCount, test.wantChanged, test.wantRich, test.wantCit)
 			}
