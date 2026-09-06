@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/tmc/nlm/internal/authuser"
+	"github.com/tmc/nlm/nlmauth"
 	"github.com/tmc/nlm/notebooklm"
 )
 
@@ -38,6 +39,18 @@ func configureAuthCommandSpec(specs map[commandID]*commandSpec) {
 
 func authCommandForms() []commandForm {
 	return []commandForm{
+		{
+			Parts:  []operandSpec{operandSpec{Literal: "list"}},
+			Hidden: true,
+		},
+		{
+			Parts:  []operandSpec{operandSpec{Literal: "use"}, withPlaceholder(requiredOperand("identity"), "identity")},
+			Hidden: true,
+		},
+		{
+			Parts:  []operandSpec{operandSpec{Literal: "remove"}, withPlaceholder(requiredOperand("identity"), "identity")},
+			Hidden: true,
+		},
 		{
 			Parts: []operandSpec{
 				operandSpec{Literal: "login"},
@@ -83,6 +96,7 @@ func authFlagSpecs() []flagSpec {
 		{Name: "keep-open", Aliases: []string{"k"}, Value: "int", Description: "keep browser open"},
 		{Name: "cdp-url", Aliases: []string{"c"}, Value: "string", Description: "remote CDP URL"},
 		{Name: "authuser", Aliases: []string{"au"}, Value: "string", Description: "Google account index"},
+		{Name: "as", Value: "name", Description: "store the session as this identity"},
 	}
 }
 
@@ -100,19 +114,45 @@ func decodeAuthArgs(parsed parsedCommand) authArgs {
 		TargetURL:   notebookLMURL,
 		Debug:       parsed.globals.debug,
 	}
-	if parsed.globals.authUserSet {
+	authUserSet := parsed.globals.authUserSet
+	if authUserSet {
 		options.AuthUser = authuser.Normalize(parsed.globals.authUser)
 	}
 
 	flagError := parsed.flagError
 	if flagError == nil {
 		for _, flag := range parsed.flagOccurrences {
+			if flag.Name == "authuser" {
+				authUserSet = true
+			}
 			if err := setAuthOption(&options, flag); err != nil {
 				flagError = err
 				break
 			}
 		}
 	}
+
+	// Without an explicit -authuser, re-login stays on the account the last
+	// login used. The account is inherited from the identity being written:
+	// for -as it is that identity's stored index, and otherwise the value
+	// loadStoredEnv has already published in the environment. Reharvesting
+	// without it would silently move a multi-account user back to account 0
+	// and overwrite the stored index with the default; taking it from the
+	// environment for -as would instead hand a new identity the current
+	// identity's account.
+	if !authUserSet {
+		if options.Identity != "" {
+			options.AuthUser = authuser.Normalize(storedIdentityValues(options.Identity)["NLM_AUTHUSER"])
+		} else {
+			options.AuthUser = authuser.Normalize(os.Getenv("NLM_AUTHUSER"))
+		}
+	}
+
+	if names := parsed.Args["identity"]; len(names) > 0 {
+		options.IdentityOperand = names[0]
+	}
+	options.Subcommand = authSubcommand(parsed)
+	options.Login = authCommandForms()[parsed.Form].Parts[0].Literal == "login"
 
 	remaining := append([]string(nil), parsed.Args["profile"]...)
 	if !options.TryAllProfiles && options.ProfileName == "" && len(remaining) > 0 {
@@ -121,7 +161,11 @@ func decodeAuthArgs(parsed parsedCommand) authArgs {
 	}
 	if !options.TryAllProfiles && options.ProfileName == "" {
 		options.ProfileName = "Default"
-		if profile := os.Getenv("NLM_BROWSER_PROFILE"); profile != "" {
+		profile := os.Getenv("NLM_BROWSER_PROFILE")
+		if options.Identity != "" {
+			profile = storedIdentityValues(options.Identity)["NLM_BROWSER_PROFILE"]
+		}
+		if profile != "" {
 			options.ProfileName = profile
 		}
 	}
@@ -165,7 +209,12 @@ func setAuthOption(options *authOptions, flag parsedFlag) error {
 	case "cdp-url":
 		options.RemoteCDPURL = flag.Value
 	case "authuser":
-		options.AuthUser = flag.Value
+		options.AuthUser = authuser.Normalize(flag.Value)
+	case "as":
+		if err := nlmauth.ValidateIdentityName(flag.Value); err != nil {
+			return err
+		}
+		options.Identity = flag.Value
 	}
 	return nil
 }
@@ -177,4 +226,19 @@ func setAuthBool(flag parsedFlag, dst *bool) error {
 	}
 	*dst = value
 	return nil
+}
+
+// authSubcommand names the identity-management verb an invocation selected, if
+// any. The verbs are literals in the command forms; this reads back which one
+// matched so handleDecodedAuth can act before the browser paths.
+func authSubcommand(parsed parsedCommand) string {
+	forms := authCommandForms()
+	if parsed.Form < 0 || parsed.Form >= len(forms) || len(forms[parsed.Form].Parts) == 0 {
+		return ""
+	}
+	switch verb := forms[parsed.Form].Parts[0].Literal; verb {
+	case "list", "use", "remove":
+		return verb
+	}
+	return ""
 }

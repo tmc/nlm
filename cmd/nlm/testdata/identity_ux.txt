@@ -1,0 +1,49 @@
+# Named identities, asserted byte for byte.
+#
+# The browser and server are replaced by the hooks
+# in scripthooks.go, compiled in under the nlmscripttest tag. A private HOME
+# keeps the identities this file writes out of the other script tests.
+
+env HOME=$HOME/identity-ux
+
+# A fresh installation has no identities and says so instead of printing an
+# empty table.
+exec ./nlm_test auth list
+stdout '\Ano identities stored; run ''nlm auth login'' to create one\n\z'
+
+# Logging in under a name stores that name, and says which one, so a second
+# account is visibly separate from the first.
+env NLM_TEST_BROWSER_AUTH=ok
+exec ./nlm_test auth login --as work --authuser 3
+stderr '\Anlm: authenticating via browser \(profile Default, account 3\)\.\.\.\nnlm: credentials written to identity work\n\z'
+
+# A second identity inherits nothing from the first: --as personal is a login
+# for personal's account, not a re-login for work's.
+exec ./nlm_test auth login --as personal
+stderr '\Anlm: authenticating via browser \(profile Default\)\.\.\.\nnlm: credentials written to identity personal\n\z'
+
+# The first identity stored on a fresh machine became current; a later one
+# does not steal the selection.
+exec ./nlm_test auth list
+stdout 'work +Default +3 +current'
+stdout 'personal +Default +- *'
+
+# Naming an identity that does not exist is a usage error, and names the ones
+# that do rather than leaving the user guessing.
+! exec ./nlm_test --identity nope auth list
+stderr 'unknown identity "nope"; stored identities: personal, work'
+
+exec ./nlm_test auth use personal
+stderr '\Anlm: current identity is now personal\n\z'
+
+# Removing the current identity moves the selection rather than leaving the
+# removed session in place.
+exec ./nlm_test auth remove personal
+stderr '\Anlm: removed identity personal\nnlm: current identity is now work\n\z'
+
+# Deleting the final identity must not recreate an empty default identity.
+exec ./nlm_test auth remove work
+exec ./nlm_test auth list
+stdout '\Ano identities stored; run ''nlm auth login'' to create one\n\z'
+! exists $HOME/.nlm/env
+! exists $HOME/.nlm/current

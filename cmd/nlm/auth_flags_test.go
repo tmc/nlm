@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"testing"
 )
 
@@ -26,10 +25,34 @@ func TestParseAuthFlagsInterleaved(t *testing.T) {
 	}
 }
 
-func TestParseAuthFlagsDoesNotInheritAuthUser(t *testing.T) {
+// A re-login with no -authuser stays on the account the last login used. The
+// environment carries it: loadStoredEnv publishes ~/.nlm/env before dispatch.
+func TestParseAuthFlagsInheritsStoredAuthUser(t *testing.T) {
 	t.Setenv("NLM_AUTHUSER", "1")
 
-	args := parseAuthCommandForTest(t, nil, globalOptions{authUser: os.Getenv("NLM_AUTHUSER")})
+	args := parseAuthCommandForTest(t, nil, globalOptions{})
+	if args.Options.AuthUser != "1" {
+		t.Fatalf("AuthUser = %q, want 1", args.Options.AuthUser)
+	}
+}
+
+// The default account is spelled as the absence of an index, never as 0, so a
+// stored 0 must not become an explicit authuser=0 on the wire.
+func TestParseAuthFlagsDoesNotInheritDefaultAuthUser(t *testing.T) {
+	t.Setenv("NLM_AUTHUSER", "0")
+
+	args := parseAuthCommandForTest(t, nil, globalOptions{})
+	if args.Options.AuthUser != "" {
+		t.Fatalf("AuthUser = %q, want empty", args.Options.AuthUser)
+	}
+}
+
+// An explicit -authuser 0 selects the default account, clearing an inherited
+// index rather than being ignored.
+func TestParseAuthFlagsExplicitZeroClearsAuthUser(t *testing.T) {
+	t.Setenv("NLM_AUTHUSER", "3")
+
+	args := parseAuthCommandForTest(t, []string{"--authuser", "0"}, globalOptions{})
 	if args.Options.AuthUser != "" {
 		t.Fatalf("AuthUser = %q, want empty", args.Options.AuthUser)
 	}

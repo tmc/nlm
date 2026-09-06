@@ -15,6 +15,19 @@ exec ./nlm_test auth
 ! stdout .
 stderr '\Anlm: authenticating via browser \(profile Default\)\.\.\.\nnlm: credentials written to ~/\.nlm/env\n\z'
 
+# A re-login with no -authuser stays on the account the last login used, and
+# says which one, so a multi-account user can see the identity the browser is
+# about to open. The index is inherited from the stored session, not retyped.
+env NLM_AUTHUSER=3
+exec ./nlm_test auth
+stderr '\Anlm: authenticating via browser \(profile Default, account 3\)\.\.\.\nnlm: credentials written to ~/\.nlm/env\n\z'
+
+# The default account is the absence of an index: -authuser 0 clears an
+# inherited one instead of naming account 0.
+exec ./nlm_test auth --authuser 0
+stderr '\Anlm: authenticating via browser \(profile Default\)\.\.\.\nnlm: credentials written to ~/\.nlm/env\n\z'
+env NLM_AUTHUSER=
+
 # Silent refresh inside a command, success: exactly one stderr line, printed
 # before the browser runs, and the command result alone on stdout.
 # The credentials the login above wrote are now on disk; naming them here

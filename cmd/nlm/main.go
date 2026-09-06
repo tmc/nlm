@@ -173,8 +173,16 @@ func prepareRuntime(stderr io.Writer, globals globalOptions) {
 		}
 	}
 
-	// Load stored environment variables
-	loadStoredEnv()
+	// Publish the selected identity, then fill anything it did not supply
+	// from the compatibility mirror. Order matters: explicit environment
+	// values win over the identity, and the identity wins over the mirror.
+	if globals.authToken != "" && globals.cookies != "" {
+		envCredentialsOnce.Do(func() { envCredentials = true })
+	}
+	publishIdentityEnv(globals)
+	if !environmentCredentials() {
+		loadStoredEnv()
+	}
 	if authUser == "" {
 		authUser = os.Getenv("NLM_AUTHUSER")
 	}
@@ -294,6 +302,9 @@ func reportRunError(stderr io.Writer, err error) int {
 // validateArgs validates command arguments without requiring authentication
 
 func run(inv invocation) error {
+	if identityResolveErr != nil {
+		return identityResolveErr
+	}
 	if authToken == "" {
 		authToken = os.Getenv("NLM_AUTH_TOKEN")
 	}
@@ -408,7 +419,7 @@ func run(inv invocation) error {
 		// re-harvest and a user to watch it: in env-var-only mode (a fresh CI
 		// machine) the credentials are fixed for this process lifetime, and
 		// with no terminal nobody can complete a Google sign-in.
-		profile, _, cached := cachedBrowserProfile()
+		profile, profileAuthUser, cached := cachedBrowserProfile()
 		if !autoRefreshEnabled() || !cached || !browserAuthAllowed() {
 			return &authRequiredError{cause: cmdErr}
 		}
@@ -416,7 +427,7 @@ func run(inv invocation) error {
 		// Announce the refresh here, where the 401 was detected, so the
 		// browser window that is about to appear has already been explained.
 		// This is the only line a successful silent refresh prints.
-		fmt.Fprintf(os.Stderr, "nlm: session expired, re-authenticating via browser (profile %s)...\n", profile)
+		fmt.Fprintf(os.Stderr, "nlm: session expired, re-authenticating via browser (%s)...\n", browserIdentity(profile, profileAuthUser))
 
 		var authErr error
 		if authToken, cookies, authErr = reharvestBrowserCredentials(debug); authErr != nil {

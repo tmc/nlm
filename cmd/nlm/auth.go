@@ -29,6 +29,17 @@ type authOptions struct {
 	KeepOpenSeconds int
 	RemoteCDPURL    string
 	AuthUser        string // Google account index (0, 1, 2, ...) for multi-account profiles
+
+	// Identity is the name the harvested session is stored as (--as). Empty
+	// means the current identity, which is what a single-identity user has.
+	Identity string
+	Login    bool // explicit login subcommand
+
+	// Subcommand is the identity-management verb, if any: list, use, remove.
+	Subcommand string
+
+	// IdentityOperand is the identity named by "use" and "remove".
+	IdentityOperand string
 }
 
 // authNarration selects the status lines the auth path writes to stderr.
@@ -89,23 +100,29 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		}
 	}
 
+	// Identity management never opens a browser and never reads stdin, so it
+	// runs before the paths that do.
+	if args.FlagError == nil {
+		switch args.Options.Subcommand {
+		case "list":
+			return "", "", listIdentities(os.Stdout)
+		case "use":
+			return "", "", useIdentityCommand(args.Options.IdentityOperand)
+		case "remove":
+			return "", "", removeIdentityCommand(args.Options.IdentityOperand)
+		}
+	}
+
 	isTty := term.IsTerminal(int(os.Stdin.Fd()))
 
 	if globals.debug {
 		fmt.Fprintf(os.Stderr, "nlm: debug: stdin is a TTY: %v\n", isTty)
 	}
 
-	// Look for 'login' command which forces browser auth
-	forceBrowser := false
-	for _, arg := range raw {
-		if arg == "login" {
-			forceBrowser = true
-			if globals.debug {
-				fmt.Fprintf(os.Stderr, "nlm: debug: login subcommand forces browser authentication\n")
-			}
-			break
-		}
+	if args.FlagError != nil {
+		return "", "", fmt.Errorf("error parsing auth flags: %w", args.FlagError)
 	}
+	forceBrowser := args.Options.Login
 
 	// Only parse from stdin if it's not a TTY and we're not forcing browser auth
 	if !isTty && !forceBrowser {
@@ -122,7 +139,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 				if globals.debug {
 					fmt.Fprintf(os.Stderr, "nlm: debug: parsing auth info from stdin (%d bytes)\n", len(input))
 				}
-				return detectAuthInfo(string(input))
+				return detectAuthInfo(string(input), args.Options.Identity)
 			} else if globals.debug {
 				fmt.Fprintf(os.Stderr, "nlm: debug: stdin is not a TTY but has no data; using browser auth\n")
 			}
@@ -131,18 +148,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		}
 	}
 
-	// Check for login subcommand which explicitly indicates browser auth
-	isLoginCommand := false
-	for _, arg := range raw {
-		if arg == "login" {
-			isLoginCommand = true
-			break
-		}
-	}
-
-	if args.FlagError != nil {
-		return "", "", fmt.Errorf("error parsing auth flags: %w", args.FlagError)
-	}
+	isLoginCommand := args.Options.Login
 	opts := &args.Options
 	if opts.Help {
 		printCommandHelpForPath("auth")
@@ -157,7 +163,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		case opts.TryAllProfiles:
 			fmt.Fprintf(os.Stderr, "nlm: authenticating via browser (trying all profiles)...\n")
 		default:
-			fmt.Fprintf(os.Stderr, "nlm: authenticating via browser (profile %s)...\n", opts.ProfileName)
+			fmt.Fprintf(os.Stderr, "nlm: authenticating via browser (%s)...\n", browserIdentity(opts.ProfileName, opts.AuthUser))
 		}
 	}
 
@@ -207,7 +213,7 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		return "", "", loginFailure(err, opts.ProfileName, opts.RemoteCDPURL, opts.TargetURL, useDebug)
 	}
 
-	authToken, cookies, err := persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam, opts.AuthUser)
+	authToken, cookies, err := persistAuthToDisk(authData.Cookies, authData.Token, opts.ProfileName, authData.SessionID, authData.BLParam, opts.AuthUser, opts.Identity)
 	if err != nil {
 		return "", "", err
 	}
@@ -215,15 +221,30 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 		return "", "", err
 	}
 	if args.Narration == narrateAuth {
-		reportCredentialsWritten()
+		reportCredentialsWritten(opts.Identity)
 	}
 	return authToken, cookies, nil
+}
+
+// browserIdentity names the browser profile a login will read, and the Google
+// account within it when that is not the profile's default. Both halves matter
+// to a multi-account user: the profile picks the cookie jar, the account index
+// picks the identity inside it.
+func browserIdentity(profileName, authUser string) string {
+	if authUser := authuser.Normalize(authUser); authUser != "" {
+		return fmt.Sprintf("profile %s, account %s", profileName, authUser)
+	}
+	return "profile " + profileName
 }
 
 // reportCredentialsWritten names the file the credentials landed in. Only
 // explicit `nlm auth` prints it: during a silent refresh the path is noise
 // between the user's command and its result.
-func reportCredentialsWritten() {
+func reportCredentialsWritten(identity string) {
+	if identity != "" {
+		fmt.Fprintf(os.Stderr, "nlm: credentials written to identity %s\n", identity)
+		return
+	}
 	fmt.Fprintf(os.Stderr, "nlm: credentials written to %s\n", displayPath(storedEnvPath()))
 }
 
@@ -304,7 +325,7 @@ func shellQuote(s string) string {
 	return b.String()
 }
 
-func detectAuthInfo(cmd string) (string, string, error) {
+func detectAuthInfo(cmd, identity string) (string, string, error) {
 	// Extract cookies
 	cookieRe := regexp.MustCompile(`-H ['"]cookie: ([^'"]+)['"]`)
 	cookieMatch := cookieRe.FindStringSubmatch(cmd)
@@ -320,31 +341,47 @@ func detectAuthInfo(cmd string) (string, string, error) {
 		return "", "", fmt.Errorf("no auth token found")
 	}
 	authToken := atMatch[1]
-	authToken, cookies, err := persistAuthToDisk(cookies, authToken, "", "", "", "")
+	authToken, cookies, err := persistAuthToDisk(cookies, authToken, "", "", "", "", identity)
 	if err != nil {
 		return "", "", err
 	}
-	reportCredentialsWritten()
+	reportCredentialsWritten(identity)
 	return authToken, cookies, nil
 }
 
-func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, authUser string) (string, string, error) {
+// persistAuthToDisk writes a harvested session. identity names the identity to
+// write; empty means the current one, which is the single-identity case.
+func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, authUser, identity string) (string, string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", "", fmt.Errorf("get home dir: %w", err)
 	}
 
+	// Defaults come from the identity being written, not from whichever
+	// identity is current: a login for "work" must not inherit "personal"'s
+	// profile, session id, or build label.
+	if identity == "" {
+		identity = activeIdentity
+	}
 	existing := readStoredEnv()
+	value := os.Getenv
+	if identity != "" {
+		existing = storedIdentityValues(identity)
+		// Environment values may have come from another selected identity.
+		if identity != activeIdentity {
+			value = func(string) string { return "" }
+		}
+	}
 	if profileName == "" {
-		profileName = firstNonEmpty(os.Getenv("NLM_BROWSER_PROFILE"), existing["NLM_BROWSER_PROFILE"])
+		profileName = firstNonEmpty(value("NLM_BROWSER_PROFILE"), existing["NLM_BROWSER_PROFILE"])
 	}
 	if sessionID == "" {
-		sessionID = firstNonEmpty(os.Getenv("NLM_SESSION_ID"), existing["NLM_SESSION_ID"])
+		sessionID = firstNonEmpty(value("NLM_SESSION_ID"), existing["NLM_SESSION_ID"])
 	}
 	if blParam == "" {
-		blParam = firstNonEmpty(os.Getenv("NLM_BL_PARAM"), existing["NLM_BL_PARAM"])
+		blParam = firstNonEmpty(value("NLM_BL_PARAM"), existing["NLM_BL_PARAM"])
 	}
-	signalerAuth := firstNonEmpty(os.Getenv("NLM_SIGNALER_AUTH"), existing["NLM_SIGNALER_AUTH"])
+	signalerAuth := firstNonEmpty(value("NLM_SIGNALER_AUTH"), existing["NLM_SIGNALER_AUTH"])
 	authUser = authuser.Normalize(authUser)
 
 	// Create .nlm directory if it doesn't exist
@@ -364,7 +401,20 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, auth
 		"NLM_SIGNALER_AUTH":   signalerAuth,
 		"NLM_AUTHUSER":        authUser,
 	}
-	if err := writeStoredEnvFile(envFile, values); err != nil {
+	if identity != "" {
+		// Writing a named identity touches only that identity. The mirror and
+		// every other identity are left exactly as they were (R5).
+		if err := nlmauth.SaveIdentity(identity, sessionFromStoredValues(values)); err != nil {
+			return "", "", err
+		}
+		// An installation with no usable current identity has just acquired
+		// one. Adopting it here is what makes the first `nlm auth login --as
+		// work` on a fresh machine leave a working default behind, instead of
+		// a stored identity nothing selects.
+		if err := adoptIdentityIfUnset(identity); err != nil {
+			return "", "", err
+		}
+	} else if err := writeStoredEnvFile(envFile, values); err != nil {
 		return "", "", err
 	}
 
@@ -375,6 +425,43 @@ func persistAuthToDisk(cookies, authToken, profileName, sessionID, blParam, auth
 	}
 
 	return authToken, cookies, nil
+}
+
+// storedIdentityValues returns a named identity's stored values in the same
+// shape readStoredEnv uses, or nothing when the identity does not exist yet.
+func storedIdentityValues(identity string) map[string]string {
+	store, err := nlmauth.OpenStore()
+	if err != nil {
+		return nil
+	}
+	session, err := store.Get(identity)
+	if err != nil {
+		return nil
+	}
+	return map[string]string{
+		"NLM_COOKIES":         session.Cookies,
+		"NLM_AUTH_TOKEN":      session.AuthToken,
+		"NLM_BROWSER_PROFILE": session.BrowserProfile,
+		"NLM_SESSION_ID":      session.SessionID,
+		"NLM_BL_PARAM":        session.BLParam,
+		"NLM_SIGNALER_AUTH":   session.SignalerAuth,
+		"NLM_AUTHUSER":        session.AuthUser,
+	}
+}
+
+// sessionFromStoredValues is the inverse: store keys to a session.
+func sessionFromStoredValues(values map[string]string) nlmauth.Session {
+	return nlmauth.Session{
+		Credentials: nlmauth.Credentials{
+			AuthToken: values["NLM_AUTH_TOKEN"],
+			Cookies:   values["NLM_COOKIES"],
+			AuthUser:  values["NLM_AUTHUSER"],
+		},
+		BrowserProfile: values["NLM_BROWSER_PROFILE"],
+		SessionID:      values["NLM_SESSION_ID"],
+		BLParam:        values["NLM_BL_PARAM"],
+		SignalerAuth:   values["NLM_SIGNALER_AUTH"],
+	}
 }
 
 func persistSignalerAuthorization(authz string) error {
@@ -408,6 +495,9 @@ func persistSignalerAuthorization(authz string) error {
 }
 
 func writeStoredEnvFile(path string, values map[string]string) error {
+	if activeIdentity != "" {
+		return nlmauth.SaveIdentity(activeIdentity, sessionFromStoredValues(values))
+	}
 	// The store location and file format are owned by nlmauth.Save; path is
 	// retained for call-site compatibility and is always $HOME/.nlm/env.
 	_ = path
@@ -436,6 +526,9 @@ func loadStoredEnv() {
 }
 
 func readStoredEnv() map[string]string {
+	if activeIdentity != "" {
+		return storedIdentityValues(activeIdentity)
+	}
 	s, err := nlmauth.LoadSession()
 	if err != nil || s == (nlmauth.Session{}) {
 		return nil
@@ -495,7 +588,7 @@ func refreshCredentials(debugFlag bool) error {
 	if err != nil {
 		return fmt.Errorf("refresh notebooklm page state: %w", err)
 	}
-	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam, ""); err != nil {
+	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam, authUser, activeIdentity); err != nil {
 		return fmt.Errorf("persist notebooklm page state: %w", err)
 	}
 	gsessionID := state.GSessionID
@@ -537,7 +630,7 @@ func refreshNotebookLMPageState(debugFlag bool) error {
 			fmt.Fprintf(os.Stderr, "nlm: build label: %s\n", state.BLParam)
 		}
 	}
-	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam, ""); err != nil {
+	if _, _, err := persistAuthToDisk(cookies, authToken, "", state.SessionID, state.BLParam, authUser, activeIdentity); err != nil {
 		return fmt.Errorf("persist notebooklm page state: %w", err)
 	}
 	return nil
@@ -575,7 +668,11 @@ func cachedBrowserProfile() (profile, authUser string, ok bool) {
 	if profile == "" {
 		return "", "", false
 	}
-	authUser = authuser.Normalize(firstNonEmpty(os.Getenv("NLM_AUTHUSER"), stored["NLM_AUTHUSER"]))
+	account, set := os.LookupEnv("NLM_AUTHUSER")
+	if !set {
+		account = stored["NLM_AUTHUSER"]
+	}
+	authUser = authuser.Normalize(account)
 	return profile, authUser, true
 }
 
@@ -591,6 +688,31 @@ func reharvestCachedBrowserProfile(debugFlag bool) (string, string, error) {
 	return runAuth([]string{"login"}, globalOptions{
 		chromeProfile: profile,
 		authUser:      authUser,
+		authUserSet:   true,
 		debug:         debugFlag,
 	}, narrateSilent)
+}
+
+// adoptIdentityIfUnset makes identity current when nothing usable is current
+// yet. An existing selection is never overridden: `nlm auth login --as other`
+// refreshes that identity's credentials, it does not switch to it.
+func adoptIdentityIfUnset(identity string) error {
+	store, err := nlmauth.OpenStore()
+	if err != nil {
+		return err
+	}
+	current, err := nlmauth.CurrentIdentity()
+	if err == nil && current != "" && current != identity {
+		if session, err := store.Get(current); err == nil && session.Cookies != "" {
+			return nil
+		}
+	}
+	if err := nlmauth.SetCurrentIdentity(identity); err != nil {
+		return err
+	}
+	session, err := store.Get(identity)
+	if err != nil {
+		return err
+	}
+	return nlmauth.SaveIdentity(identity, session)
 }

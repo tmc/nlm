@@ -27,6 +27,7 @@ func TestGlobalFlagInventory(t *testing.T) {
 		"debug-field-mapping",
 		"debug-parsing",
 		"experimental",
+		"identity",
 		"version",
 	}
 	if !slices.Equal(got, want) {

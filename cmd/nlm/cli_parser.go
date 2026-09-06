@@ -15,6 +15,8 @@ type globalOptions struct {
 	cookies              string
 	authUser             string
 	authUserSet          bool
+	identity             string
+	identitySet          bool
 	debug                bool
 	debugDumpPayload     bool
 	debugParsing         bool
@@ -92,6 +94,7 @@ func defaultGlobalOptions(env func(string) string) globalOptions {
 		authToken:     env("NLM_AUTH_TOKEN"),
 		cookies:       env("NLM_COOKIES"),
 		authUser:      env("NLM_AUTHUSER"),
+		identity:      env("NLM_IDENTITY"),
 		debug:         env("NLM_DEBUG") == "true",
 	}
 }
@@ -113,6 +116,7 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.StringVar(&opts.authToken, "auth", opts.authToken, "auth token (or set NLM_AUTH_TOKEN)")
 	flags.StringVar(&opts.cookies, "cookies", opts.cookies, "cookies for authentication (or set NLM_COOKIES)")
 	flags.StringVar(&opts.authUser, "authuser", opts.authUser, "Google account index for multi-account profiles")
+	flags.StringVar(&opts.identity, "identity", opts.identity, "stored identity to run as (or set NLM_IDENTITY)")
 }
 
 func parseInvocation(args []string, env func(string) string, stdout, stderr io.Writer) (invocation, error) {
@@ -126,8 +130,11 @@ func parseInvocation(args []string, env func(string) string, stdout, stderr io.W
 		return inv, fmt.Errorf("%w: %v", errBadArgs, err)
 	}
 	flags.Visit(func(f *flag.Flag) {
-		if f.Name == "authuser" {
+		switch f.Name {
+		case "authuser":
 			opts.authUserSet = true
+		case "identity":
+			opts.identitySet = true
 		}
 	})
 	inv.globals = opts
