@@ -790,6 +790,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 .card {
   position: absolute; z-index: 40;
   width: min(420px, 90vw);
+  max-height: calc(100vh - 24px); overflow-y: auto;
   background: var(--panel);
   border: 1px solid var(--line-strong);
   border-radius: 10px;
@@ -914,10 +915,8 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 @media (max-width: 860px) {
   .wrap { max-width: 100%; padding: 24px 18px 72px; }
   .assistant-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
-  .rail {
-    position: static; top: auto; max-height: none; overflow: visible;
-    padding-top: 18px; border-top: 1px solid var(--line);
-  }
+  /* The full citation section remains available below the answer. */
+  .rail { display: none; }
 }
 @media (max-width: 520px) {
   .wrap { padding: 18px 12px 56px; }
@@ -995,12 +994,12 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       parent.appendChild(anchor);
     });
   }
-  function fmtConf(c) { return "p=" + c.confidence.toFixed(2); }
+  function fmtConf(c) { return "score " + c.confidence.toFixed(2); }
 
   function confPill(c) {
     if (!c.hasConf) return null;
     var p = el("span", "pill" + (c.weak ? " weak" : ""), fmtConf(c));
-    p.title = c.weak ? "weak confidence" : "confidence";
+    p.title = "Source grounding score returned by NotebookLM, not the probability that the claim is true.";
     return p;
   }
 
@@ -1059,6 +1058,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     if (r.bottom + ch + 12 > window.innerHeight && r.top - ch - 6 > 0) {
       top = window.scrollY + r.top - ch - 6;
     }
+    top = Math.max(window.scrollY + 12, Math.min(top, window.scrollY + window.innerHeight - ch - 12));
     card.style.left = left + "px";
     card.style.top = top + "px";
   }
@@ -1280,7 +1280,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       // this marker. Hovering it raises the same preview card.
       var ex = el("span", "ref-excerpt");
       appendExcerpt(ex, c);
-      ex.title = (c.title || c.handle || "source") + (c.hasConf ? " · p=" + c.confidence.toFixed(2) : "");
+      ex.title = (c.title || c.handle || "source") + (c.hasConf ? " · " + fmtConf(c) : "");
       entry.appendChild(ex);
     });
 

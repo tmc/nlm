@@ -89,6 +89,10 @@ grounding citations, `data-cite` remains its first index and `data-cites` lists
 all indices separated by spaces. Consumers should read `data-cites` when present.
 The preview and highlighting include every associated citation.
 
+On narrow screens the duplicate source rail is hidden; numbered links still
+reach the full citation section. Source scores are labeled as grounding scores,
+not probabilities that the cited claims are true.
+
 For repeated grounding, `data-passages` contains `citation:occurrence` pairs,
 with occurrences numbered from one within each citation. Fragments created by
 inline formatting share an occurrence. Each distinct occurrence gets a sidebar
