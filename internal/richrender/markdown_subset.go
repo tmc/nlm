@@ -11,7 +11,7 @@ var (
 	markdownHeadingRE  = regexp.MustCompile(`^\s*(#{1,6})\s+`)
 	markdownListRE     = regexp.MustCompile(`^(\s*)([-+*]|\d+\.)\s+`)
 	markdownSignalRE   = regexp.MustCompile(`(?m)^\s*(?:#{1,6}\s+|[-+*]\s+|\d+\.\s+|---\s*$|` + "```" + `)|\*\*[^*\n]+\*\*|\*[^*\n]+\*|` + "`[^`\n]+`")
-	trailingFollowUpRE = regexp.MustCompile(`(?s)\n\n(?:---[^\S\n]*\n+)?(?:[\p{So}\p{Sk}][\x{FE0E}\x{FE0F}]?\s*)?(?:(?i:\*\*Next Steps?\*\*|Next Steps?)\s*:\s*)?Would you like\b[^?]*\?\s*$`)
+	trailingFollowUpRE = regexp.MustCompile(`(?s)\n\n(?:---[^\S\n]*\n+)?(?:[\p{So}\p{Sk}][\x{FE0E}\x{FE0F}]?\s*)?(?:(?i:\*\*Next Steps?\*\*|Next Steps?)\s*:\s*)?(?:\*\*)?Would you like\b[^?]*\?(?:\*\*)?\s*$`)
 )
 
 type markdownSubsetOptions struct {

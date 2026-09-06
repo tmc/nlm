@@ -171,6 +171,17 @@ func TestMarkdownExternalLinks(t *testing.T) {
 	}
 }
 
+func TestBoldChatFollowUp(t *testing.T) {
+	content := "Answer.\n\n---\n\n🧭 **Would you like me to make a report?**"
+	doc := ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content}}}
+	if got := withoutChatFollowUps(doc).Messages[0].Content; got != "Answer." {
+		t.Fatalf("trimmed answer = %q", got)
+	}
+	if !strings.Contains(answerBodies(renderToString(t, doc, RenderContext{IncludeFollowUps: true})), "Would you like") {
+		t.Fatal("explicit follow-up missing")
+	}
+}
+
 func TestMarkdownOrderedListStart(t *testing.T) {
 	content := "1. First\n\n   - Detail\n\n2. Second\n\n   - Detail\n\n3. Third"
 	body := answerBodies(renderToString(t, ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content}}}, RenderContext{}))
