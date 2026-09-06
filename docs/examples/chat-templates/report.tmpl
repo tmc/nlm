@@ -1,0 +1,11 @@
+---
+title: {{quote .Vars.title}}
+author: {{quote .Vars.author}}
+---
+
+# {{.Vars.title}}
+
+{{range .Conversations}}{{range .Messages}}{{if eq .Role "assistant"}}{{.Content}}
+
+{{.CitationsMarkdown}}
+{{end}}{{end}}{{end}}

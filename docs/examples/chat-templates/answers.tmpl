@@ -1,0 +1,4 @@
+{{range .Conversations}}{{range .Messages}}{{if eq .Role "assistant"}}{{.Content}}
+
+{{.CitationsMarkdown}}
+{{end}}{{end}}{{end}}
