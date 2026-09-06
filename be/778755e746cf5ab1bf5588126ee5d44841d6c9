@@ -7,3 +7,14 @@ claude: 2.1.257 (Claude Code)
 tty: not a tty
 pid: 32832
 ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+
+History ordering repair
+commit: be778755e746cf5ab1bf5588126ee5d44841d6c9
+date: 2026-09-06T13:49:38-07:00
+agent: Codex
+model: GPT-6 (exact runtime identifier unavailable)
+claude-code: 2.1.257 (Claude Code)
+tty: not a tty
+pid: 43253
+ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+original commit: 453188eb57d0595d8745367f1c872cbc82aa7d9b
