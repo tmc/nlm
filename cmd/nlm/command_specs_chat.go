@@ -73,6 +73,8 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 
 	showSpec := specs["chat-show"]
 	showSpec.Flags = append(chatShowRenderFlagSpecs(),
+		flagSpec{Name: "template", Value: "file", Description: "Markdown template file"},
+		flagSpec{Name: "template-var", Value: "key=value", Description: "template metadata (repeatable)"},
 		flagSpec{Name: "format", Value: "fmt", Description: "output format"},
 		flagSpec{Name: "out", Value: "file", Description: "output file"},
 		flagSpec{Name: "open", Description: "open HTML"},
@@ -312,6 +314,9 @@ func decodeChatShow(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	return func(_ context.Context, _ *notebooklm.Client) error {
+		if err := prepareChatTemplate(&args.Options); err != nil {
+			return err
+		}
 		if args.Last {
 			return chatShowLast(args.NotebookID, args.Options)
 		}
@@ -334,6 +339,18 @@ func decodeChatShowArgs(parsed parsedCommand) (chatShowArgs, error) {
 	options.Client, err = decodeCommandClientOptions(parsed)
 	if err != nil {
 		return chatShowArgs{}, err
+	}
+	options.TemplateFile = parsedStringFlag(parsed, "template", "")
+	options.TemplateVars = make(map[string]string)
+	for _, value := range parsed.Flags["template-var"] {
+		key, value, ok := strings.Cut(value, "=")
+		if !ok || key == "" {
+			return chatShowArgs{}, fmt.Errorf("--template-var requires a nonempty key=value")
+		}
+		options.TemplateVars[key] = value
+	}
+	if options.TemplateFile != "" && parsed.globals.jsonOutput {
+		return chatShowArgs{}, fmt.Errorf("--template cannot be combined with --json")
 	}
 	options.Format = parsedStringFlag(parsed, "format", options.Format)
 	options.OutFile = parsedStringFlag(parsed, "out", options.OutFile)
@@ -360,14 +377,14 @@ func decodeChatShowArgs(parsed parsedCommand) (chatShowArgs, error) {
 	// HTML-only; --last selects a single conversation and keeps the full
 	// format/backfill surface.
 	wholeNotebook := len(positionals) == 1 && !last
-	if wholeNotebook && options.Format == "" {
+	if wholeNotebook && options.Format == "" && options.TemplateFile == "" {
 		options.Format = "html"
 	}
 	if err := validateChatFormat(&options); err != nil {
 		return chatShowArgs{}, err
 	}
-	if wholeNotebook && options.Format != "html" {
-		return chatShowArgs{}, fmt.Errorf("whole-notebook render requires --format=html")
+	if wholeNotebook && options.Format != "html" && options.Format != "markdown" {
+		return chatShowArgs{}, fmt.Errorf("whole-notebook render requires --format=html or markdown")
 	}
 	if wholeNotebook && options.Backfill {
 		return chatShowArgs{}, fmt.Errorf("--backfill requires a conversation id")

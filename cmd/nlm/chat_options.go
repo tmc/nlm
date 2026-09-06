@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/tmc/nlm/internal/richrender"
 )
 
 type chatRenderOptions struct {
@@ -17,10 +18,13 @@ type chatRenderOptions struct {
 	Backfill         bool // --backfill: persist missing citations and rich trees from server history
 
 	// Whole-document output format for chat-show: "" (text, default),
-	// "markdown", or "html". OutFile and Open apply to html.
-	Format  string
-	OutFile string // --out FILE: write html here; "-" writes to stdout
-	Open    bool   // --open: open the written html file in the browser
+	// "markdown", or "html". Templates apply to Markdown; Open applies to HTML.
+	TemplateFile string
+	TemplateVars map[string]string
+	Template     *richrender.MarkdownTemplate
+	Format       string
+	OutFile      string // --out FILE: write Markdown or HTML; "-" writes to stdout
+	Open         bool   // --open: open the written html file in the browser
 
 	Client commandClientOptions
 }
@@ -72,9 +76,15 @@ func chatRenderOptionsFromGlobals(globals globalOptions) chatRenderOptions {
 
 // validateChatFormat normalizes and checks the --format/--out/--open trio.
 // Format defaults to "text"; markdown and html are the alternates. --out and
-// --open only apply to html; using them with another format is a usage error
+// --open applies to HTML; --out applies to HTML and Markdown. An invalid pair is a usage error
 // rather than a silent no-op.
 func validateChatFormat(opts *chatRenderOptions) error {
+	if opts.TemplateFile != "" && opts.Format == "" {
+		opts.Format = "markdown"
+	}
+	if opts.TemplateFile == "" && len(opts.TemplateVars) > 0 {
+		return fmt.Errorf("--template-var requires --template")
+	}
 	switch opts.Format {
 	case "", "text":
 		opts.Format = "text"
@@ -85,9 +95,12 @@ func validateChatFormat(opts *chatRenderOptions) error {
 	default:
 		return fmt.Errorf("unknown --format %q (want text, markdown, or html)", opts.Format)
 	}
+	if opts.TemplateFile != "" && (opts.Format != "markdown" || opts.jsonl()) {
+		return fmt.Errorf("--template requires Markdown output without JSON modes")
+	}
 	if opts.Format != "html" {
-		if opts.OutFile != "" {
-			return fmt.Errorf("--out only applies to --format=html")
+		if opts.OutFile != "" && opts.Format != "markdown" {
+			return fmt.Errorf("--out requires --format=html or markdown")
 		}
 		if opts.Open {
 			return fmt.Errorf("--open only applies to --format=html")

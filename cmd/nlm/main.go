@@ -3244,7 +3244,7 @@ func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptio
 
 	switch opts.Format {
 	case "markdown":
-		return renderChatMarkdown(os.Stdout, doc, ctx)
+		return renderChatMarkdownToDestination([]chatDocument{doc}, ctx, opts)
 	case "html":
 		return renderChatHTMLToDestination(doc, ctx, opts)
 	default: // "text"

@@ -1,0 +1,59 @@
+env HOME=$HOME/template-test
+mkdir $HOME/.nlm
+cp old.json $HOME/.nlm/chat-nb-old.json
+cp new.json $HOME/.nlm/chat-nb-new.json
+
+exec $NLM_TEST_BINARY chat show nb old --template report.tmpl --template-var title=Old --template-var title=Report
+stdout '\A# Report\nold: saved old answer\n\z'
+
+exec $NLM_TEST_BINARY chat show nb --last --template report.tmpl --template-var title=Latest --out latest.md
+cmp latest.md expected-latest.md
+
+exec $NLM_TEST_BINARY chat-show nb --template report.tmpl --template-var title=Notebook --out all.md
+cmp all.md expected-all.md
+
+exec $NLM_TEST_BINARY chat show nb old --format markdown --out ordinary.md
+exec $NLM_TEST_BINARY chat show nb old --format markdown
+cmp stdout ordinary.md
+
+! exec $NLM_TEST_BINARY chat show nb old --template missing.tmpl
+stderr 'read template'
+! exec $NLM_TEST_BINARY chat show missing absent --template bad.tmpl
+stderr 'parse template'
+! stderr 'no local session'
+
+cp expected-all.md protected.md
+! exec $NLM_TEST_BINARY chat show nb old --template runtime-error.tmpl --out protected.md
+cmp protected.md expected-all.md
+! stdout .
+
+! exec $NLM_TEST_BINARY chat show nb old --template-var title=Report
+stderr 'usage:'
+! exec $NLM_TEST_BINARY chat show nb old --template report.tmpl --format html
+stderr 'usage:'
+! exec $NLM_TEST_BINARY chat show nb old --template report.tmpl --open
+stderr 'usage:'
+! exec $NLM_TEST_BINARY chat show nb old --template report.tmpl --citations json
+stderr 'usage:'
+! exec $NLM_TEST_BINARY chat show nb old --template report.tmpl --template-var =bad
+stderr 'usage:'
+
+-- old.json --
+{"notebook_id":"nb","conversation_id":"old","updated_at":"2026-09-01T00:00:00Z","messages":[{"role":"assistant","content":"saved old answer"}]}
+-- new.json --
+{"notebook_id":"nb","conversation_id":"new","updated_at":"2026-09-02T00:00:00Z","messages":[{"role":"assistant","content":"saved new answer"}]}
+-- report.tmpl --
+# {{.Vars.title}}
+{{range .Conversations}}{{.ID}}: {{range .Messages}}{{.Content}}{{end}}
+{{end -}}
+-- bad.tmpl --
+{{
+-- runtime-error.tmpl --
+partial {{.Missing}}
+-- expected-latest.md --
+# Latest
+new: saved new answer
+-- expected-all.md --
+# Notebook
+new: saved new answer
+old: saved old answer

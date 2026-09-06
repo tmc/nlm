@@ -172,6 +172,13 @@ func chatShowNotebook(notebookID string, opts chatRenderOptions) error {
 		})
 	}
 	ctx := notebookChatRenderContext(notebookID, opts)
+	if opts.Format == "markdown" {
+		conversations := make([]chatDocument, len(docs))
+		for i := range docs {
+			conversations[i] = docs[i].Document
+		}
+		return renderChatMarkdownToDestination(conversations, ctx, opts)
+	}
 	return renderNotebookHTMLToDestination(notebookID, docs, ctx, opts)
 }
 
