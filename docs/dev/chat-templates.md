@@ -57,6 +57,16 @@ Copyable layouts are in `docs/examples/chat-templates/`: `transcript.tmpl`,
 `answers.tmpl`, and `report.tmpl`. This feature applies to saved-chat rendering;
 `generate-chat` and `generate-report` keep their existing output behavior.
 
+## External rendering tools
+
+Keep application-specific enrichment in the consuming tool. For example, a
+report generator can resolve message IDs against its own archive and emit
+ordinary Markdown links. `nlm` renders complete HTTP(S) links in HTML but does
+not resolve Discord IDs or read Discord archives. The citation metadata above
+is available to custom templates and external report processors.
+
+Templates currently produce Markdown, not HTML fragments or page shells.
+
 ## Saved history
 
 Continuing `generate-chat` appends each exchange to its saved conversation,
