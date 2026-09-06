@@ -1,0 +1,21 @@
+commit: 3ba5e245408a46c9530ca031371f351a47d30ed0
+date: 2026-09-05T13:44:00-07:00
+agent: Codex
+model: GPT-6
+claude-code version (installed): 2.1.257
+codex-cli: 0.153.3
+tty: none
+pid: 65056 (note writer)
+ITERM_SESSION_ID: w16t0p5:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+
+History audit rewrite
+commit: 7855612fc1e7e3b8e1aebd7aea57eccbc828c0f4
+date: 2026-09-05T13:44:00-07:00
+agent: Codex
+model: GPT-6
+claude-code version (installed): 2.1.257
+codex-cli: 0.153.3
+tty: none
+pid: 39840 (note writer)
+ITERM_SESSION_ID: w16t0p5:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+Original provenance above retained by notes.rewriteRef.
