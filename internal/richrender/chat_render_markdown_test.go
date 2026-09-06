@@ -227,69 +227,15 @@ func TestTruncateVsClipExcerpt(t *testing.T) {
 	}
 }
 
-func TestDecodeNumberedExcerpt(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{
-			name: "numbered export",
-			in:   `tail\n440\t\n441\t    Parameters\n442\t    ----------`,
-			want: "tail\n440\t\n441\t    Parameters\n442\t    ----------",
-		},
-		{
-			name: "real whitespace",
-			in:   "line one\n\tline two",
-			want: "line one\n\tline two",
-		},
-		{
-			name: "code escapes",
-			in:   `fmt.Print("\\n"); strings.Contains(s, "\\t")`,
-			want: `fmt.Print("\\n"); strings.Contains(s, "\\t")`,
-		},
-		{
-			name: "single numbered example",
-			in:   `syntax: \n12\t means a numbered line`,
-			want: `syntax: \n12\t means a numbered line`,
-		},
-		{
-			name: "hostile markup",
-			in:   `</script>\n1\tbad\n2\tonload=alert(1)`,
-			want: "</script>\n1\tbad\n2\tonload=alert(1)",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := decodeNumberedExcerpt(tt.in); got != tt.want {
-				t.Errorf("decodeNumberedExcerpt = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFormatFlattenedExcerptTable(t *testing.T) {
-	in := "What's insideModuleWhat it does" +
-		"siphon.materialsSellmeier models" +
-		"siphon.waveguideExact solver" +
-		"siphon.fdmodeSemi-vectorial solver"
-	want := "What's inside Module What it does\n" +
-		"siphon.materials\tSellmeier models\n" +
-		"siphon.waveguide\tExact solver\n" +
-		"siphon.fdmode\tSemi-vectorial solver"
-	if got := formatFlattenedExcerptTable(in); got != want {
-		t.Errorf("formatFlattenedExcerptTable = %q, want %q", got, want)
-	}
-
-	for _, in := range []string{
-		"ordinary prose",
-		"one package.Name identifier",
-		`fmt.Print("\\n") and strings.Contains(s, "\\t")`,
-		"three sentences. Still prose. No shared prefix.",
-		"Use siphon.one, then siphon.two, and finally siphon.three.",
+func TestExcerptTextPreserved(t *testing.T) {
+	for _, text := range []string{
+		"Read links.csv. Review notes. Check logs.",
+		"Visit https://github.com/example/project. Inspect a hub. Keep this stub.",
+		"ModuleWhat it doessiphon.materialsSellmeier modelssiphon.waveguideExact solversiphon.fdmodeSemi-vectorial solver",
+		`literal escapes: \n440\tfirst\n441\tsecond`,
 	} {
-		if got := formatFlattenedExcerptTable(in); got != in {
-			t.Errorf("formatFlattenedExcerptTable changed %q to %q", in, got)
+		if got := clipExcerpt(text, 1000); got != text {
+			t.Errorf("excerpt changed from %q to %q", text, got)
 		}
 	}
 }

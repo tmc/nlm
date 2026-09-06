@@ -239,7 +239,7 @@ func TestRenderChatHTMLEscaping(t *testing.T) {
 	// If the excerpt's </script> had closed the block early, decode would have
 	// failed or lost content. Assert the literal text round-trips intact.
 	src := p.Messages[0].Markers[0].Sources[0]
-	if src.Excerpt != "a & b <hr> </script>\n1\tbad\n2\tonload=alert(3)" {
+	if src.Excerpt != `a & b <hr> </script>\n1\tbad\n2\tonload=alert(3)` {
 		t.Errorf("excerpt round-trip = %q", src.Excerpt)
 	}
 	if src.Title != `<img src=x onerror=alert(2)> & co` {

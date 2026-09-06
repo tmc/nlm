@@ -567,7 +567,7 @@ func buildCitation(c notebooklm.Citation, ctx RenderContext, locations map[citat
 }
 
 func buildExcerptRuns(runs []notebooklm.ExcerptRun, flat, clipped string, budget int) []htmlExcerptRun {
-	if len(runs) == 0 || decodeNumberedExcerpt(flat) != flat || formatFlattenedExcerptTable(flat) != flat {
+	if len(runs) == 0 {
 		return nil
 	}
 	var joined strings.Builder
