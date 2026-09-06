@@ -50,6 +50,9 @@ nlm chat <notebook-id> "summarize the key findings"
 Homebrew formula (`brew install tmc/tap/nlm`) are planned so the single binary
 can be fetched without Go.
 
+[v0.2.0 candidate notes and upgrade guidance](docs/releases/v0.2.0.md)
+cover the changes prepared for the next release.
+
 ## Go package
 
 The high-level client is importable as `github.com/tmc/nlm/notebooklm`:
