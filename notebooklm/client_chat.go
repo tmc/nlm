@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1074,7 +1075,8 @@ func conversationIDsFromProto(resp *pb.GetConversationsResponse) []string {
 	return ids
 }
 
-// GetConversationHistory retrieves the message history for a specific conversation.
+// GetConversationHistory retrieves up to 20 recent messages for a conversation,
+// in chronological order.
 func (c *Client) GetConversationHistory(ctx context.Context, projectID, conversationID string) ([]ChatMessage, error) {
 	req := &pb.GetConversationHistoryRequest{
 		Context:        conversationRequestContext(),
@@ -1093,7 +1095,9 @@ func (c *Client) GetConversationHistory(ctx context.Context, projectID, conversa
 	if err := c.unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("parse conversation history: %w", err)
 	}
-	return conversationMessagesFromProto(&response, raw), nil
+	messages := conversationMessagesFromProto(&response, raw)
+	slices.Reverse(messages) // the history RPC returns newest first
+	return messages, nil
 }
 
 func conversationRequestContext() *pb.RequestContext {

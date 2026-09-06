@@ -2221,13 +2221,9 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 		// user's turn, so --conversation still works but no partial text is
 		// ever replayed as a completed assistant message.
 		reportRunawayOutput(os.Stderr, streamErr, len(res.Answer))
-		_ = saveChatSession(&chatSession{
-			NotebookID:     projectID,
-			ConversationID: convID,
-			Messages:       []storedMessage{{Role: "user", Content: prompt, Timestamp: time.Now()}},
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
-		})
+		if err := saveGeneratedChatTurn(projectID, convID, history, prompt, chatResult{}); err != nil {
+			return fmt.Errorf("%w; save conversation: %v", streamErr, err)
+		}
 		printContinuationHint(os.Stderr, projectID, convID, isNewConversation)
 		return streamErr
 	}
@@ -2262,34 +2258,9 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 		return fmt.Errorf("%s; check 'nlm sources %s' for source state, re-run with -debug for details", hint, projectID)
 	}
 
-	// Save to local session so future --conversation calls can continue.
-	session := &chatSession{
-		NotebookID:     projectID,
-		ConversationID: convID,
-		Messages: []storedMessage{
-			{Role: "user", Content: prompt, Timestamp: time.Now()},
-		},
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+	if err := saveGeneratedChatTurn(projectID, convID, history, prompt, res); err != nil {
+		return fmt.Errorf("save conversation: %w", err)
 	}
-	answer := strings.TrimSpace(res.Answer)
-	thinking := strings.TrimSpace(res.Thinking)
-	// Persist whichever channel produced content. When the parser misclassifies
-	// the response as thinking-only, promote the trace into Content so chat-show
-	// can replay it and downstream callers can chain --conversation correctly.
-	if answer == "" && thinking != "" {
-		answer = thinking
-	}
-	if answer != "" {
-		session.Messages = append(session.Messages, storedMessage{
-			Role: "assistant", Content: answer, Timestamp: time.Now(),
-			Thinking:  res.Thinking,
-			Citations: res.Citations,
-			Rich:      res.Rich,
-		})
-	}
-	// Best-effort save; don't fail the command.
-	_ = saveChatSession(session)
 
 	// Tell the user how to continue this conversation.
 	printContinuationHint(os.Stderr, projectID, convID, isNewConversation)
@@ -2917,6 +2888,9 @@ func resolveConversationID(c conversationHistoryClient, notebookID, partial stri
 	if len(partial) >= 36 {
 		return partial // already full UUID
 	}
+	if session, err := loadChatSessionByConversation(notebookID, partial); err == nil && len(session.ConversationID) >= 36 {
+		return session.ConversationID
+	}
 	convIDs, err := c.GetConversations(context.Background(), notebookID)
 	if err != nil {
 		return partial
@@ -2932,6 +2906,8 @@ func resolveConversationID(c conversationHistoryClient, notebookID, partial stri
 func loadChatSessionByConversation(notebookID, conversationID string) (*chatSession, error) {
 	if session, err := loadChatSessionForConv(notebookID, conversationID); err == nil {
 		return session, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
 	}
 
 	sessions, _ := listLocalChatSessions(notebookID)
