@@ -47,3 +47,5 @@ nlm uses session cookies extracted from the browser via Chrome DevTools Protocol
 - [Test Conventions](test-conventions.md) — `testdata/` vs `docs/captures/`, fixture-skip pattern, encoder guard comments
 - [HTTP Capture](http-capture.md) — Testing framework for recording and replaying HTTP
 - [Rich Types & Proto Alignment](rich-types-and-proto-alignment.md) — Go-team review gaps + remediation plan; preserving the rich span tree and protobuf alignment, extracting `cmd/nlm` logic into packages
+- [Auth UX Spec](auth-ux-spec.md) — What nlm prints between "credentials expired" and "the command ran"; golden transcripts
+- [Multiple Profiles](multi-profile-design.md) — Design for carrying more than one NotebookLM identity through the CLI: selection and credential storage

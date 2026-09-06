@@ -21,7 +21,11 @@
 //	})
 //
 // Load resolves credentials from the environment (NLM_AUTH_TOKEN, NLM_COOKIES,
-// NLM_AUTHUSER), falling back to the shared store at $HOME/.nlm/env for any
-// field left empty. Save writes a full [Session] back to that store, and
-// Refresh renews an expiring session in place.
+// NLM_AUTHUSER). A complete environment session takes precedence; otherwise
+// missing fields come from the current stored identity. Save writes a full
+// [Session] to that identity and its $HOME/.nlm/env compatibility mirror.
+// Refresh renews the current stored session in place.
+//
+// [OpenStore] supports named sessions in local files. Use [SaveIdentity] to
+// update another identity without changing the current selection.
 package nlmauth
