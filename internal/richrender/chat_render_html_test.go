@@ -717,10 +717,7 @@ func TestRenderChatHTMLRichStructure(t *testing.T) {
 	}
 }
 
-// TestRenderChatHTMLFlatFallback pins the fallback: an answer whose content
-// carries newlines (even with a rich tree present) renders as ONE flat block —
-// no tree structure — so its literal [N] markers and any Markdown pass through
-// unchanged. The markers still become links; the structure does not.
+// Markdown with newlines takes precedence over a stale rich layout.
 func TestRenderChatHTMLFlatFallback(t *testing.T) {
 	doc := structuredAnswerDoc()
 	// Give the content a newline: the tree render must not fire.
@@ -731,22 +728,10 @@ func TestRenderChatHTMLFlatFallback(t *testing.T) {
 	html := renderToString(t, doc, RenderContext{})
 	body := answerBody(t, html, 0)
 
-	// One flat block, no structural tags.
-	if !strings.HasPrefix(body, `<div class="answer-block">`) {
-		t.Errorf("newline answer should be a flat block, got %q", body)
-	}
-	for _, tag := range []string{"<h4>", "<ul>", "<li", "<hr>"} {
-		if strings.Contains(body, tag) {
-			t.Errorf("flat fallback leaked structural tag %q: %q", tag, body)
+	for _, want := range []string{"<p>Line one.</p>", "<ul><li>a markdown bullet</li></ul>"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q: %s", want, body)
 		}
-	}
-	// The literal Markdown bullet survives verbatim (escaped text, not a <ul>).
-	if !strings.Contains(body, "- a markdown bullet") {
-		t.Errorf("markdown bullet not preserved verbatim: %q", body)
-	}
-	// The newline is preserved verbatim (the block is white-space:pre-wrap).
-	if !strings.Contains(body, "Line one.\n") {
-		t.Errorf("newline collapsed in flat answer: %q", body)
 	}
 	// The [1] marker still becomes a link.
 	if !strings.Contains(body, `<a class="citelink" href="#cite-0-1" data-msg="0" data-cite="1">1</a>`) {

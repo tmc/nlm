@@ -141,7 +141,7 @@ func answerNodes(msgIdx int, m ChatMessage, markers []htmlMarker) []answerNode {
 			return nodes
 		}
 	}
-	if m.Rich == nil && hasMarkdownSubset(m.Content) {
+	if hasMarkdownSubset(m.Content) {
 		nodes := chatMarkdownSubsetNodes(msgIdx, m.Content, byIndex)
 		return groundMarkdownNodes(nodes, m.Content, markers, msgIdx)
 	}
@@ -749,20 +749,21 @@ func markersByIndex(markers []htmlMarker) map[int]htmlMarker {
 // HTML. This map is the closed vocabulary of tags the renderer may produce.
 var elemTemplates = func() map[string]*template.Template {
 	m := map[string]string{
-		"p":      elemBlockSource,
-		"h3":     elemBlockSource,
-		"h4":     elemBlockSource,
-		"ul":     elemBlockSource,
-		"ol":     elemBlockSource,
-		"li":     elemBlockSource,
-		"div":    elemBlockSource,
-		"span":   elemBlockSource,
-		"a":      elemBlockSource,
-		"em":     elemBlockSource,
-		"strong": elemBlockSource,
-		"sup":    elemBlockSource,
-		"code":   elemBlockSource,
-		"pre":    elemBlockSource,
+		"p":          elemBlockSource,
+		"h3":         elemBlockSource,
+		"h4":         elemBlockSource,
+		"ul":         elemBlockSource,
+		"ol":         elemBlockSource,
+		"li":         elemBlockSource,
+		"div":        elemBlockSource,
+		"span":       elemBlockSource,
+		"a":          elemBlockSource,
+		"em":         elemBlockSource,
+		"strong":     elemBlockSource,
+		"sup":        elemBlockSource,
+		"code":       elemBlockSource,
+		"pre":        elemBlockSource,
+		"blockquote": elemBlockSource,
 	}
 	out := make(map[string]*template.Template, len(m))
 	for tag, src := range m {

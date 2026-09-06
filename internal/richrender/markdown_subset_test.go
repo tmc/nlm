@@ -127,3 +127,31 @@ func answerBodies(html string) string {
 		html = html[j+len("</template>"):]
 	}
 }
+
+func TestMarkdownWithRichMetadata(t *testing.T) {
+	content := "### Findings\n\n**Evidence** [1].\n\n- first\n\n> a quotation\n\n---\n🕵️ Would you like to trace the exact DNS logs?"
+	doc := ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content, Rich: &RichDocument{}, Citations: []notebooklm.Citation{{SourceIndex: 1, SourceID: "one"}}}}}
+	body := answerBodies(renderToString(t, doc, RenderContext{}))
+	for _, want := range []string{"<h3>Findings</h3>", "<strong>Evidence</strong>", "<ul>", "<blockquote>", `data-cite="1"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "Would you like") {
+		t.Fatal("follow-up retained")
+	}
+	if !strings.Contains(answerBodies(renderToString(t, doc, RenderContext{IncludeFollowUps: true})), "Would you like") {
+		t.Fatal("explicit follow-up omitted")
+	}
+	if doc.Messages[0].Content != content {
+		t.Fatal("input mutated")
+	}
+}
+
+func TestFollowUpInsideCodePreserved(t *testing.T) {
+	content := "Example:\n\n```text\n\nWould you like to continue?"
+	doc := ChatDocument{Messages: []ChatMessage{{Role: "assistant", Content: content}}}
+	if got := withoutChatFollowUps(doc).Messages[0].Content; got != content {
+		t.Fatalf("got %q", got)
+	}
+}

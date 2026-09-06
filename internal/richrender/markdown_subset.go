@@ -10,7 +10,7 @@ var (
 	markdownHeadingRE  = regexp.MustCompile(`^\s*(#{1,6})\s+`)
 	markdownListRE     = regexp.MustCompile(`^(\s*)([-+*]|\d+\.)\s+`)
 	markdownSignalRE   = regexp.MustCompile(`(?m)^\s*(?:#{1,6}\s+|[-+*]\s+|\d+\.\s+|---\s*$|` + "```" + `)|\*\*[^*\n]+\*\*|\*[^*\n]+\*|` + "`[^`\n]+`")
-	trailingFollowUpRE = regexp.MustCompile(`(?s)\n\n(?:---\s*\n\n)?(?:[\p{So}\p{Sk}]\s*)?(?:(?i:\*\*Next Steps?\*\*|Next Steps?)\s*:\s*)?Would you like\b[^?]*\?\s*$`)
+	trailingFollowUpRE = regexp.MustCompile(`(?s)\n\n(?:---[^\S\n]*\n+)?(?:[\p{So}\p{Sk}][\x{FE0E}\x{FE0F}]?\s*)?(?:(?i:\*\*Next Steps?\*\*|Next Steps?)\s*:\s*)?Would you like\b[^?]*\?\s*$`)
 )
 
 type markdownSubsetOptions struct {
@@ -26,6 +26,7 @@ type markdownSubsetBlock struct {
 	text         string
 	items        []string
 	nestings     []int
+	quote        bool
 }
 
 func withoutChatFollowUps(doc ChatDocument) ChatDocument {
@@ -33,8 +34,10 @@ func withoutChatFollowUps(doc ChatDocument) ChatDocument {
 	out.Messages = append([]ChatMessage(nil), doc.Messages...)
 	for i := range out.Messages {
 		m := &out.Messages[i]
-		if m.Role == "assistant" && m.Rich == nil {
-			m.Content = trailingFollowUpRE.ReplaceAllString(m.Content, "")
+		if m.Role == "assistant" && !shouldReflowFromTree(m.Rich, m.Content) {
+			if loc := trailingFollowUpRE.FindStringIndex(m.Content); loc != nil && !insideMarkdownFence(m.Content[:loc[0]]) {
+				m.Content = m.Content[:loc[0]]
+			}
 		}
 	}
 	return out
@@ -70,6 +73,10 @@ func markdownSubsetOverlayNodes(projected []richBlockOut, markdown string, byInd
 		var tree richBlockOut
 		if i < len(projected) {
 			tree = projected[i]
+		}
+		if block.quote {
+			out = append(out, answerNode{Tag: "blockquote", Children: chatMarkdownSubsetNodes(opts.msgIdx, block.text, byIndex)})
+			continue
 		}
 		switch block.kind {
 		case blockSeparator:
@@ -160,6 +167,15 @@ func parseMarkdownSubsetBlocks(markdown string) []markdownSubsetBlock {
 				code = append(code, lines[i])
 			}
 			out = append(out, markdownSubsetBlock{kind: blockCodeBlock, text: strings.Join(code, "\n")})
+		case strings.HasPrefix(trimmed, ">"):
+			flushParagraph()
+			flushList()
+			var quote []string
+			for ; i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), ">"); i++ {
+				quote = append(quote, strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(lines[i]), ">"), " "))
+			}
+			i--
+			out = append(out, markdownSubsetBlock{quote: true, text: strings.Join(quote, "\n")})
 		case trimmed == "":
 			flushParagraph()
 			flushList()
@@ -238,4 +254,26 @@ func markerTextNodes(text string, msgIdx int, byIndex map[int]htmlMarker) []answ
 		out = append(out, answerNode{Text: text[at:]})
 	}
 	return out
+}
+
+// insideMarkdownFence protects quoted examples from follow-up suppression.
+func insideMarkdownFence(text string) bool {
+	fence := ""
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if fence != "" {
+			if strings.HasPrefix(line, fence) && strings.Trim(line, string(fence[0])+" \t") == "" {
+				fence = ""
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "```") || strings.HasPrefix(line, "~~~") {
+			end := 0
+			for end < len(line) && line[end] == line[0] {
+				end++
+			}
+			fence = line[:end]
+		}
+	}
+	return fence != ""
 }
