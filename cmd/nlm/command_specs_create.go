@@ -171,7 +171,11 @@ func appCreateCall(args appCreateArgs) commandCall {
 		}
 		var sourceIDs []string
 		if !args.Options.Selectors.empty() {
-			sourceIDs, err = resolveSourceSelectorsWithOptions(client, args.NotebookID, args.Options.Selectors)
+			selected, err := resolveSourceSelectorsWithOptions(client, args.NotebookID, args.Options.Selectors)
+			if err != nil {
+				return err
+			}
+			sourceIDs, err = selected.sourceIDs()
 			if err != nil {
 				return err
 			}
@@ -259,7 +263,11 @@ func decodeSlidesCreate(parsed parsedCommand) (commandCall, error) {
 		var sourceIDs []string
 		var err error
 		if !args.Options.Selectors.empty() {
-			sourceIDs, err = resolveSourceSelectorsWithOptions(client, args.NotebookID, args.Options.Selectors)
+			selected, err := resolveSourceSelectorsWithOptions(client, args.NotebookID, args.Options.Selectors)
+			if err != nil {
+				return err
+			}
+			sourceIDs, err = selected.sourceIDs()
 			if err != nil {
 				return err
 			}

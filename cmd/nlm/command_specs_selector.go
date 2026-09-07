@@ -67,8 +67,11 @@ func decodeSourceGuide(parsed parsedCommand) (commandCall, error) {
 	return func(_ context.Context, client *notebooklm.Client) error {
 		sourceIDs := args.SourceIDs
 		if len(sourceIDs) == 0 {
-			var err error
-			sourceIDs, err = resolveSourceSelectorsWithOptions(client, args.NotebookID, args.Selectors)
+			selected, err := resolveSourceSelectorsWithOptions(client, args.NotebookID, args.Selectors)
+			if err != nil {
+				return err
+			}
+			sourceIDs, err = selected.sourceIDs()
 			if err != nil {
 				return err
 			}

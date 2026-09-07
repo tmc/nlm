@@ -74,7 +74,7 @@ func TestInteractiveChatEndsOnEOF(t *testing.T) {
 	old := os.Stdin
 	os.Stdin = input
 	defer func() { os.Stdin = old }()
-	if err := runInteractiveChat(nil, &chatSession{NotebookID: "nb", ConversationID: "conv"}, nil, chatOptions{}); err != nil {
+	if err := runInteractiveChat(nil, &chatSession{NotebookID: "nb", ConversationID: "conv"}, selection{}, chatOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }

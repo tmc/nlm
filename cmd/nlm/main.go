@@ -2196,7 +2196,11 @@ func newListWriter(w *os.File) (io.Writer, func() error) {
 func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts generateChatOptions) error {
 	fmt.Fprintf(os.Stderr, "Generating response for: %s\n", prompt)
 
-	sourceIDs, err := resolveSourceSelectorsWithOptions(c, projectID, opts.Selectors)
+	selected, err := resolveSourceSelectorsWithOptions(c, projectID, opts.Selectors)
+	if err != nil {
+		return err
+	}
+	sourceIDs, err := selected.sourceIDs()
 	if err != nil {
 		return err
 	}
@@ -2426,7 +2430,11 @@ func createReport(c *notebooklm.Client, notebookID, reportType string, extra []s
 		instructions = strings.Join(extra[1:], " ")
 	}
 
-	flagIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	if err != nil {
+		return err
+	}
+	flagIDs, err := selected.sourceIDs()
 	if err != nil {
 		return err
 	}
@@ -2467,7 +2475,11 @@ func generateReport(c *notebooklm.Client, notebookID string, opts reportOptions)
 		}
 	}
 
-	flagIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	if err != nil {
+		return err
+	}
+	flagIDs, err := selected.sourceIDs()
 	if err != nil {
 		return err
 	}
@@ -2633,7 +2645,11 @@ func isConversationID(s string) bool {
 
 // oneShotChat sends a single prompt and streams the response without entering interactive mode.
 func oneShotChat(c *notebooklm.Client, notebookID, prompt string, opts chatOptions) error {
-	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	if err != nil {
+		return err
+	}
+	sourceIDs, err := selected.sourceIDs()
 	if err != nil {
 		return err
 	}
@@ -2733,7 +2749,11 @@ func readPromptFile(path string) (string, error) {
 // Mirrors oneShotChat but preserves the server-side conversation ID so callers
 // can chain turns via automation.
 func oneShotChatInConv(c *notebooklm.Client, notebookID, conversationID, prompt string, opts chatOptions) error {
-	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	if err != nil {
+		return err
+	}
+	sourceIDs, err := selected.sourceIDs()
 	if err != nil {
 		return err
 	}
@@ -2799,7 +2819,7 @@ func oneShotChatInConv(c *notebooklm.Client, notebookID, conversationID, prompt 
 
 // interactiveChatWithConv starts or resumes an interactive chat with a specific conversation ID.
 func interactiveChatWithConv(c *notebooklm.Client, notebookID, conversationID string, opts chatOptions) error {
-	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -2842,7 +2862,7 @@ func interactiveChatWithConv(c *notebooklm.Client, notebookID, conversationID st
 	// Override the conversation ID (the loaded session might have an old one)
 	session.ConversationID = conversationID
 
-	return runInteractiveChat(c, session, sourceIDs, opts)
+	return runInteractiveChat(c, session, selected, opts)
 }
 
 // printChatHistory prints conversation history, trying the server first then
@@ -3771,7 +3791,7 @@ func getFallbackResponse(input, notebookID string) string {
 
 // interactiveChat starts a new or resumes the default interactive chat session for a notebook.
 func interactiveChat(c *notebooklm.Client, notebookID string, opts chatOptions) error {
-	sourceIDs, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
+	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
 		return err
 	}
@@ -3788,12 +3808,16 @@ func interactiveChat(c *notebooklm.Client, notebookID string, opts chatOptions) 
 	if session.ConversationID == "" {
 		session.ConversationID = uuid.New().String()
 	}
-	return runInteractiveChat(c, session, sourceIDs, opts)
+	return runInteractiveChat(c, session, selected, opts)
 }
 
 // runInteractiveChat runs the interactive chat loop with the given session.
-// sourceIDs, when non-empty, scopes every request in the loop to that subset.
-func runInteractiveChat(c *notebooklm.Client, session *chatSession, sourceIDs []string, opts chatOptions) error {
+// An explicit selection scopes every request in the loop to that subset.
+func runInteractiveChat(c *notebooklm.Client, session *chatSession, selected selection, opts chatOptions) error {
+	sourceIDs, err := selected.sourceIDs()
+	if err != nil {
+		return err
+	}
 	notebookID := session.NotebookID
 
 	fmt.Println("\nNotebookLM Interactive Chat")

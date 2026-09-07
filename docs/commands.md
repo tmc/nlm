@@ -268,3 +268,22 @@ also want reasoning events in the JSON-lines stream.
 ## Sharing
 
 ## Other
+
+### Source selection consumers
+
+An omitted selector keeps the command's default scope. An explicit selector
+that resolves to no sources errors before generation or mutation. The CLI
+checks this boundary; direct library callers retain the empty-means-all API.
+
+| Resolver caller | Source scope |
+| --- | --- |
+| `generateFreeFormChat` | Chat request |
+| `createReport` | Selection plus report suggestion IDs |
+| `generateReport` | Selection plus each section's suggestion IDs |
+| `oneShotChat` | Single chat request |
+| `oneShotChatInConv` | Single request in an existing conversation |
+| `interactiveChat` | Every request in the interactive loop |
+| `interactiveChatWithConv` | Every request in the chosen conversation |
+| `appCreateCall` | App artifact sources, including mind maps |
+| `decodeSlidesCreate` | Slide deck sources |
+| `decodeSourceGuide` | Source guides selected by flags |

@@ -147,7 +147,7 @@ func TestResolveSelectorIDs(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v\nstatus: %s", err, buf.String())
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got.IDs, tt.want) {
 				t.Fatalf("got %v\nwant %v\nstatus:\n%s", got, tt.want, buf.String())
 			}
 			for _, sub := range tt.wantStatusContains {
