@@ -58,6 +58,12 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 	}
 	active := make(map[string]bool)
 	var mu sync.Mutex
+	markActive := func(name string) {
+		mu.Lock()
+		active[name] = true
+		mu.Unlock()
+	}
+	sem := make(chan struct{}, opts.parallel()-1)
 	var visit func(string, []byte) error
 	visit = func(name string, data []byte) error {
 		if err := ctx.Err(); err != nil {
@@ -84,7 +90,7 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 						}
 					}
 				}
-				active[name] = true
+				markActive(name)
 				out.emit(event{Action: "skip", Name: name, Reason: "unchanged"})
 				return nil
 			}
@@ -93,7 +99,7 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 				if exists {
 					action = "replace"
 				}
-				active[name] = true
+				markActive(name)
 				out.emit(event{Action: action, Name: name, Bytes: len(data), DryRun: true})
 				return nil
 			}
@@ -103,7 +109,7 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 			}
 			err := uploadChunkWithRetry(ctx, c, notebookID, name, data, hash, existing, exists, labels, hc, sc, out, &mu, attempts)
 			if err == nil {
-				active[name] = true
+				markActive(name)
 				return nil
 			}
 			if len(data) <= 4096 || !canSplit(err) {
@@ -121,12 +127,30 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 		if err != nil {
 			return fmt.Errorf("split %q: %w", name, err)
 		}
+		// Halves are independent: they carry distinct names and distinct
+		// bytes, so they upload (and split further) concurrently. Both run
+		// to completion even when one fails, so a failure does not strand
+		// its sibling's subtree half-uploaded.
+		var wg sync.WaitGroup
+		errs := make([]error, len(parts))
 		for i, part := range parts {
-			if err := visit(splitChildName(name, i+1), part); err != nil {
-				return err
+			select {
+			case sem <- struct{}{}:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					defer func() { <-sem }()
+					errs[i] = visit(splitChildName(name, i+1), part)
+				}()
+			default:
+				// A parent must not wait for a slot held by a child
+				// that itself needs a slot to finish splitting.
+				// Keep working here when every worker is busy.
+				errs[i] = visit(splitChildName(name, i+1), part)
 			}
 		}
-		return nil
+		wg.Wait()
+		return errors.Join(errs...)
 	}
 	for i, name := range names {
 		if err := visit(name, chunks[i]); err != nil {

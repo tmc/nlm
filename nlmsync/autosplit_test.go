@@ -8,8 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/tmc/nlm/internal/batchexecute"
 	"golang.org/x/tools/txtar"
@@ -18,7 +21,10 @@ import (
 type rejectingClient struct {
 	rejectName string
 	*fakeLabelClient
-	limit    int
+	limit int
+	// Parts upload concurrently, so the fake's own bookkeeping needs a lock
+	// of its own; the embedded fakeClient guards only its fields.
+	mu       sync.Mutex
 	failure  error
 	attempts int
 	content  map[string][]byte
@@ -29,19 +35,24 @@ func (c *rejectingClient) AddSource(ctx context.Context, nb, name string, r io.R
 	if err != nil {
 		return "", err
 	}
+	c.mu.Lock()
 	c.attempts++
-	if name == c.rejectName {
+	reject, limit, failure := name == c.rejectName, c.limit, c.failure
+	c.mu.Unlock()
+	if reject {
 		return "", &batchexecute.APIError{HTTPStatus: 403}
 	}
-	if len(data) > c.limit {
-		if c.failure != nil {
-			return "", c.failure
+	if len(data) > limit {
+		if failure != nil {
+			return "", failure
 		}
 		return "", &batchexecute.APIError{HTTPStatus: 500}
 	}
 	id, err := c.fakeClient.AddSource(ctx, nb, name, bytes.NewReader(data))
 	if err == nil {
+		c.mu.Lock()
 		c.content[id] = data
+		c.mu.Unlock()
 	}
 	return id, err
 }
@@ -86,8 +97,12 @@ func TestAutoSplitRun(t *testing.T) {
 	if len(c.sources) < 2 || !strings.Contains(out.String(), `"action":"split"`) {
 		t.Fatalf("no split: sources=%v output=%s", c.sources, &out)
 	}
+	// Parts upload concurrently, so the client's source order reflects
+	// completion order; leaf titles sort into content order.
+	parts := append([]Source(nil), c.sources...)
+	sort.Slice(parts, func(i, j int) bool { return parts[i].Title < parts[j].Title })
 	var restored []byte
-	for _, s := range c.sources {
+	for _, s := range parts {
 		if len(c.labelsBySource[s.ID]) != 1 {
 			t.Fatalf("labels missing on %s", s.Title)
 		}
@@ -253,5 +268,23 @@ func TestRunRecoversAbandonedReplacementLabels(t *testing.T) {
 				t.Fatalf("recovery: %v labels=%v", c.sources, c.labelsBySource)
 			}
 		})
+	}
+}
+
+func TestAutoSplitNestedSerial(t *testing.T) {
+	setupTestHome(t)
+	path := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(path, []byte(strings.Repeat("text\n", 6000)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := newRejectingClient()
+	c.failure = &batchexecute.APIError{HTTPStatus: 413}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := Run(ctx, c, "nb", []string{path}, Options{Name: "test", AutoSplit: true, Parallel: -1}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.content) < 4 {
+		t.Fatalf("got %d leaves, want nested splits", len(c.content))
 	}
 }

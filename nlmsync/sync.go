@@ -834,10 +834,16 @@ type outputWriter struct {
 	w       io.Writer
 	json    bool
 	receipt *syncReceipt
-	err     error
+	// Parts upload concurrently, so emit serializes on the writer's own
+	// lock: the receipt, the error field and the output stream are shared
+	// by every goroutine, and callers hold different locks (or none).
+	mu  sync.Mutex
+	err error
 }
 
 func (o *outputWriter) emit(e event) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
 	if o.receipt != nil {
 		o.receipt.Operations = append(o.receipt.Operations, e)
 		if err := o.receipt.save(); err != nil && o.err == nil {
