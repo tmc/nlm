@@ -3,7 +3,7 @@
 
 # Test sources with authentication but without network (should fail with auth required)
 ! exec ./nlm_test sources 7eb1d238-7d15-4a26-a072-944157d7eab7
-stderr 'Authentication required'
+stderr 'authentication required'
 
 # Test with mock authentication environment
 env NLM_AUTH_TOKEN=mock-token-123

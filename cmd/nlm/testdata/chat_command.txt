@@ -9,12 +9,12 @@ stderr 'usage: nlm chat \[flags\] <notebook-id> \[conversation-id \| prompt\.\.\
 
 # Test chat with a prompt argument (should require auth)
 ! exec ./nlm_test chat notebook123 extra
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test chat without authentication (should fail)
 ! exec ./nlm_test chat notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test chat with empty notebook ID (should start chat with empty ID)
@@ -27,17 +27,17 @@ stdout 'Notebook: ""'
 # === CROSS-COMMAND VALIDATION ===
 # Test that chat command works with debug flag (may find stored auth or require auth)
 exec ./nlm_test -debug chat notebook123
-stdout 'NotebookLM Interactive Chat|Authentication required'
+stdout 'NotebookLM Interactive Chat|authentication required'
 ! stderr 'panic'
 
 # Test that chat command works with chunked flag (may find stored auth or require auth)
 exec ./nlm_test -chunked chat notebook123  
-stdout 'NotebookLM Interactive Chat|Authentication required'
+stdout 'NotebookLM Interactive Chat|authentication required'
 ! stderr 'panic'
 
 # Test that chat command works with combined flags
 exec ./nlm_test -debug -chunked chat notebook123
-stdout 'NotebookLM Interactive Chat|Authentication required'
+stdout 'NotebookLM Interactive Chat|authentication required'
 ! stderr 'panic'
 
 # === SPECIAL CHARACTER HANDLING ===
@@ -58,7 +58,7 @@ stdout 'Notebook: notebook-unicode'
 # === ERROR RECOVERY ===
 # Test that commands don't leave the CLI in a bad state after errors
 exec ./nlm_test chat invalid-notebook
-stdout 'NotebookLM Interactive Chat|Authentication required'
+stdout 'NotebookLM Interactive Chat|authentication required'
 exec ./nlm_test help
 stderr 'Usage: nlm <command>'
 ! stderr 'panic'

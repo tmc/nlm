@@ -9,7 +9,7 @@ stderr 'usage: nlm share <notebook-id>'
 
 # Test share without authentication
 ! exec ./nlm_test share notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === SHARE-PRIVATE COMMAND ===
@@ -20,7 +20,7 @@ stderr 'usage: nlm share-private <notebook-id>'
 
 # Test share-private without authentication
 ! exec ./nlm_test share-private notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === SHARE-DETAILS COMMAND ===
@@ -31,5 +31,5 @@ stderr 'usage: nlm share-details <share-id>'
 
 # Test share-details without authentication
 ! exec ./nlm_test share-details share123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

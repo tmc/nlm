@@ -15,5 +15,5 @@ stderr 'usage: nlm audio-list \[flags\] <notebook-id>'
 
 # Test audio-list without authentication (should fail)
 ! exec ./nlm_test audio-list notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

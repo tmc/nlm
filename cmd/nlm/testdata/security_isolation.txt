@@ -18,11 +18,11 @@ exec ./nlm_test help
 ! stderr 'secret123'
 ! stderr 'private-api-key'
 
-# Test 2: Authentication required for commands without valid credentials
+# Test 2: authentication required for commands without valid credentials
 env NLM_AUTH_TOKEN=''
 env NLM_COOKIES=''
 ! exec ./nlm_test ls
-stderr 'Authentication required'
+stderr 'authentication required'
 # (env var names appear in the hint text now — only values must stay secret)
 
 # Test 3: Debug mode security - ensure debug doesn't leak credentials in auth messages
@@ -31,7 +31,7 @@ env NLM_COOKIES=''
 ! exec ./nlm_test -debug ls
 # Debug output should not show credential values (even if empty)
 stderr 'debug mode enabled'
-stderr 'Authentication required'
+stderr 'authentication required'
 # (env var names appear in the hint text now — only values must stay secret)
 
 # Test 4: Token handling security - real tokens not exposed when API fails

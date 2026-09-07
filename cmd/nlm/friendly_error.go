@@ -172,7 +172,7 @@ func friendlyAuthenticationError(err error) string {
 	full := err.Error()
 	lower := strings.ToLower(full)
 	if strings.Contains(lower, "authentication required") {
-		return "authentication required; run `nlm auth` first, or export NLM_AUTH_TOKEN and NLM_COOKIES"
+		return "authentication required; run `nlm auth` in a terminal (or set NLM_AUTH_TOKEN and NLM_COOKIES)"
 	}
 	for _, marker := range []string{": batchexecute error", ": http error", ": unauthorized"} {
 		if i := strings.Index(lower, marker); i > 0 {

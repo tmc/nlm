@@ -9,11 +9,11 @@ stderr 'usage: nlm generate-chat'
 ! stderr 'panic'
 
 ! exec ./nlm_test generate-chat notebook123 hello
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 ! exec ./nlm_test generate-chat notebook123 hello world extra
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 exec ./nlm_test help

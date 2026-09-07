@@ -3,7 +3,7 @@
 
 # Test list command without authentication (basic validation)
 ! exec ./nlm_test ls
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test list command with valid credentials (mock API response)

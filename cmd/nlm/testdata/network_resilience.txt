@@ -2,20 +2,20 @@
 
 # Test 1: Commands without authentication should show auth errors (no network calls)
 ! exec ./nlm_test list
-stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 
 # Test 2: Commands with partial authentication should still require auth
 env NLM_AUTH_TOKEN=test-token
 ! exec ./nlm_test list
-stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 
 env NLM_COOKIES=test-cookies
 env NLM_AUTH_TOKEN=
 ! exec ./nlm_test create test-notebook
-stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 
 # Test 3: Unset auth values should require auth
 env NLM_AUTH_TOKEN=
 env NLM_COOKIES=
 ! exec ./nlm_test sources notebook123
-stderr 'Authentication required'
+stderr 'authentication required'

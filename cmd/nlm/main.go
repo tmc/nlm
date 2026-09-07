@@ -354,9 +354,17 @@ func run(inv invocation) error {
 	}
 
 	// Check authentication.
+	loggedIn := false
 	if !entry.spec.noAuth && (authToken == "" || cookies == "") {
-		fmt.Fprintf(os.Stderr, "nlm: Authentication required for '%s'. Run 'nlm auth' first, or export NLM_AUTH_TOKEN and NLM_COOKIES (see 'nlm auth --print-env').\n", cmdName)
-		return fmt.Errorf("authentication required")
+		if !browserAuthAllowed() {
+			return fmt.Errorf("authentication required; run `nlm auth` in a terminal (or set NLM_AUTH_TOKEN and NLM_COOKIES)")
+		}
+		fmt.Fprintln(os.Stderr, "nlm: welcome! Sign in to NotebookLM in the browser; this command will continue automatically.")
+		authToken, cookies, err = runAuth([]string{"login"}, inv.globals, narrateAuth)
+		if err != nil {
+			return err
+		}
+		loggedIn = true
 	}
 
 	var opts []notebooklm.Option
@@ -384,7 +392,7 @@ func run(inv invocation) error {
 
 	// A 401 may be recoverable: re-harvest the credentials from the cached
 	// browser profile once, then retry. Everything else is reported as-is.
-	refreshed := false
+	refreshed := loggedIn
 	for {
 		client := newNotebookLMClient(
 			notebooklm.Credentials{AuthToken: authToken, Cookies: cookies},

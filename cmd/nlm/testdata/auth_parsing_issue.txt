@@ -4,7 +4,7 @@
 
 # Test list command without auth - should show clean auth error and exit
 ! exec ./nlm_test ls
-stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 stderr 'nlm: authentication required'
 # Should NOT show parsing errors or debug output to stderr
 ! stderr 'parse response'
@@ -15,7 +15,7 @@ stderr 'nlm: authentication required'
 
 # Test list command with a local limit flag - should still reach the auth check
 ! exec ./nlm_test ls --limit 5
-stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 stderr 'nlm: authentication required'
 ! stderr 'invalid arguments'
 
@@ -25,7 +25,7 @@ env NLM_AUTH_TOKEN=invalid-token
 env NLM_COOKIES=invalid-cookies
 ! exec ./nlm_test ls
 # Should not show the auth required message since tokens are provided
-! stderr 'Authentication required for.*ls.*Run.*nlm auth.*first'
+! stderr 'authentication required; run `nlm auth`'
 ! stderr 'nlm: authentication required'
 # Should show API errors because invalid tokens cause API failure
 stderr 'API error|Authentication|session expired|execute rpc'
@@ -34,7 +34,7 @@ stderr 'API error|Authentication|session expired|execute rpc'
 env NLM_AUTH_TOKEN=
 env NLM_COOKIES=
 ! exec ./nlm_test list
-stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 stderr 'nlm: authentication required'
 ! stderr 'parse response'
 ! stderr 'beprotojson'

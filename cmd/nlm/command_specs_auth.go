@@ -160,7 +160,7 @@ func decodeAuthArgs(parsed parsedCommand) authArgs {
 		remaining = remaining[1:]
 	}
 	if !options.TryAllProfiles && options.ProfileName == "" {
-		options.ProfileName = "Default"
+		options.ProfileName = "nlm"
 		profile := os.Getenv("NLM_BROWSER_PROFILE")
 		if options.Identity != "" {
 			profile = storedIdentityValues(options.Identity)["NLM_BROWSER_PROFILE"]

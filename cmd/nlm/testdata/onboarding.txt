@@ -1,0 +1,43 @@
+# Fresh installs explain sign-in, save credentials, and resume the command.
+env HOME=$HOME/onboarding
+env NLM_TEST_INTERACTIVE=0
+env 'NLM_TEST_BROWSER_AUTH=fail:browser must not open'
+! exec ./nlm_test ls
+! stdout .
+stderr '\Anlm: authentication required; run `nlm auth` in a terminal \(or set NLM_AUTH_TOKEN and NLM_COOKIES\)\nnlm: exit-class=auth \(exit 3\)\n\z'
+
+# Argument errors and help must not start onboarding.
+env NLM_TEST_INTERACTIVE=1
+! exec ./nlm_test ls --unknown
+! stderr 'welcome|login failed'
+exec ./nlm_test ls --help
+! stderr 'welcome|login failed|deprecated'
+
+# Successful login resumes the requested command and persists the session.
+env NLM_TEST_BROWSER_AUTH=ok
+env NLM_TEST_COMMAND_RESULTS=ok:notebook-result
+exec ./nlm_test ls
+stdout '\Anotebook-result\n\z'
+stderr '\Anlm: welcome! Sign in to NotebookLM in the browser; this command will continue automatically\.\nnlm: authenticating via browser \(profile nlm\)\.\.\.\nnlm: credentials written to ~/\.nlm/env\n\z'
+exists $HOME/.nlm/env
+
+# Next invocation uses the saved session without another login.
+env 'NLM_TEST_BROWSER_AUTH=fail:browser must not open'
+exec ./nlm_test ls
+stdout '\Anotebook-result\n\z'
+! stderr .
+
+# Failed first login prints a cause and exits without running the command.
+env HOME=$HOME/failed
+env NLM_TEST_BROWSER_AUTH=fail:could-not-login
+! exec ./nlm_test ls
+! stdout .
+stderr 'login failed'
+stderr 'exit-class=auth-failed \(exit 9\)'
+
+# A rejected new session must not open another browser.
+env NLM_TEST_BROWSER_AUTH=ok
+env NLM_TEST_COMMAND_RESULTS=401
+! exec ./nlm_test ls
+! stdout .
+! stderr 'session expired, re-authenticating'

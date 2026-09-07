@@ -24,4 +24,4 @@ stderr 'Usage: nlm <command>'
 
 # Capture-backed video creation remains available.
 ! exec ./nlm_test video create notebook123 'Summarize the sources'
-stderr 'Authentication required'
+stderr 'authentication required'

@@ -9,7 +9,7 @@ stderr 'usage: nlm get-artifact <artifact-id>'
 
 # Test get-artifact without authentication
 ! exec ./nlm_test get-artifact artifact123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === LIST-ARTIFACTS COMMAND ===
@@ -20,7 +20,7 @@ stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 
 # Test list-artifacts without authentication
 ! exec ./nlm_test list-artifacts notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === DELETE-ARTIFACT COMMAND ===
@@ -31,5 +31,5 @@ stderr 'usage: nlm delete-artifact \[flags\] <artifact-id>'
 
 # Test delete-artifact without authentication
 ! exec ./nlm_test delete-artifact artifact123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

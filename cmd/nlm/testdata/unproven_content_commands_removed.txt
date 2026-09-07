@@ -47,7 +47,7 @@ stderr 'Usage: nlm <command>'
 
 # The capture-backed app-artifact mindmap commands remain available.
 ! exec ./nlm_test mindmap-create notebook123 'Map architecture'
-stderr 'Authentication required'
+stderr 'authentication required'
 
 ! exec ./nlm_test mindmap create notebook123 'Map architecture'
-stderr 'Authentication required'
+stderr 'authentication required'

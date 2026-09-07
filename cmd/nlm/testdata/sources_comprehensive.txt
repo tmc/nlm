@@ -11,11 +11,11 @@ stderr 'usage: nlm sources \[flags\] <notebook-id>'
 
 # Test sources command with invalid notebook ID format
 ! exec ./nlm_test sources invalid-id-format
-stderr 'Authentication required'
+stderr 'authentication required'
 
 # Test sources command with non-existent notebook ID
 ! exec ./nlm_test sources 00000000-0000-0000-0000-000000000000
-stderr 'Authentication required'
+stderr 'authentication required'
 
 # Mock authentication environment for validation tests
 env NLM_AUTH_TOKEN=mock-token-123

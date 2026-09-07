@@ -15,5 +15,5 @@ stderr 'usage: nlm artifacts \[flags\] <notebook-id>'
 
 # Test artifacts without authentication (should fail)
 ! exec ./nlm_test artifacts notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

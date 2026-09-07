@@ -15,18 +15,18 @@ stdout '\Ano identities stored; run ''nlm auth login'' to create one\n\z'
 # account is visibly separate from the first.
 env NLM_TEST_BROWSER_AUTH=ok
 exec ./nlm_test auth login --as work --authuser 3
-stderr '\Anlm: authenticating via browser \(profile Default, account 3\)\.\.\.\nnlm: credentials written to identity work\n\z'
+stderr '\Anlm: authenticating via browser \(profile nlm, account 3\)\.\.\.\nnlm: credentials written to identity work\n\z'
 
 # A second identity inherits nothing from the first: --as personal is a login
 # for personal's account, not a re-login for work's.
 exec ./nlm_test auth login --as personal
-stderr '\Anlm: authenticating via browser \(profile Default\)\.\.\.\nnlm: credentials written to identity personal\n\z'
+stderr '\Anlm: authenticating via browser \(profile nlm\)\.\.\.\nnlm: credentials written to identity personal\n\z'
 
 # The first identity stored on a fresh machine became current; a later one
 # does not steal the selection.
 exec ./nlm_test auth list
-stdout 'work +Default +3 +current'
-stdout 'personal +Default +- *'
+stdout 'work +nlm +3 +current'
+stdout 'personal +nlm +- *'
 
 # Naming an identity that does not exist is a usage error, and names the ones
 # that do rather than leaving the user guessing.

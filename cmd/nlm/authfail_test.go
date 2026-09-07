@@ -197,6 +197,11 @@ func TestLoginFailureCause(t *testing.T) {
 			want: "timed out waiting for profile Default to authenticate",
 		},
 		{
+			name: "browser startup timeout",
+			err:  errors.New("failed to load page: websocket url timeout reached"),
+			want: "the browser did not become ready for sign-in",
+		},
+		{
 			name: "no profiles",
 			err:  errors.New("no valid browser profiles found"),
 			want: "no browser profile has a signed-in notebook.google.com session",

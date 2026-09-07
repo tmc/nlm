@@ -18,6 +18,6 @@ stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 # then fall through to the auth check (evidence the maxArgs=-1 change
 # took effect — prior code would have rejected 3+ positional args).
 ! exec ./nlm_test add notebook123 https://a/x https://b/y
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'usage: nlm add'
 ! stderr 'panic'

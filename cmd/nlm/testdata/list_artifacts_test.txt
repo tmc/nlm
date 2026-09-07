@@ -9,7 +9,7 @@ stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 
 # Test list-artifacts with empty string as argument (passes validation, fails auth)
 ! exec ./nlm_test list-artifacts ""
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test list-artifacts with too many arguments
@@ -25,12 +25,12 @@ stderr 'usage: nlm list-artifacts \[flags\] <notebook-id>'
 # === AUTHENTICATION REQUIREMENTS ===
 # Test list-artifacts without authentication
 ! exec ./nlm_test list-artifacts notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test list-artifacts with valid notebook ID format but no auth
 ! exec ./nlm_test list-artifacts abcd1234-5678-90ef-ghij-klmnopqrstuv
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === COMMAND RECOGNITION ===
@@ -73,12 +73,12 @@ stderr 'Usage: nlm <command>'
 # === SPECIAL CHARACTERS IN NOTEBOOK ID ===
 # Test list-artifacts with special characters (should pass validation but fail auth)
 ! exec ./nlm_test list-artifacts notebook-123_test
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test list-artifacts with dots in notebook ID (should pass validation but fail auth)
 ! exec ./nlm_test list-artifacts notebook.123.test
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === HELP INTEGRATION ===
@@ -107,15 +107,15 @@ stderr 'Usage: nlm <command>'
 # === EDGE CASES ===
 # Test with very long notebook ID (should pass validation but fail auth)
 ! exec ./nlm_test list-artifacts this-is-a-very-long-notebook-id-that-might-cause-issues-but-should-still-be-validated-properly
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test with numeric notebook ID (should pass validation but fail auth)
 ! exec ./nlm_test list-artifacts 123456789
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test with single character notebook ID (should pass validation but fail auth)
 ! exec ./nlm_test list-artifacts a
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

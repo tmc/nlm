@@ -9,12 +9,12 @@ stderr 'invalid arguments'
 
 # Test list without authentication
 ! exec ./nlm_test list
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test list with limit flag without authentication
 ! exec ./nlm_test ls --limit 5
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test list with invalid zero limit
@@ -31,12 +31,12 @@ stderr 'usage: nlm create <title>'
 
 # Test create with empty title
 ! exec ./nlm_test create ""
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test create without authentication
 ! exec ./nlm_test create TestNotebook
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === RM COMMAND ===
@@ -52,7 +52,7 @@ stderr 'usage: nlm rm \[flags\] <notebook-id>'
 
 # Test rm without authentication
 ! exec ./nlm_test rm notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === ANALYTICS COMMAND ===
@@ -63,7 +63,7 @@ stderr 'usage: nlm analytics \[flags\] <notebook-id>'
 
 # Test analytics without authentication
 ! exec ./nlm_test analytics notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === LIST-FEATURED COMMAND ===
@@ -74,5 +74,5 @@ stderr 'invalid arguments'
 
 # Test list-featured without authentication
 ! exec ./nlm_test list-featured
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

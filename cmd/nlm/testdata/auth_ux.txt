@@ -7,6 +7,7 @@
 # this file writes out of the other script tests.
 
 env HOME=$HOME/auth-ux
+env NLM_BROWSER_PROFILE=Default
 
 # Explicit auth, success: what it is doing, with which profile, and where the
 # credentials landed. Nothing else, and nothing on stdout.

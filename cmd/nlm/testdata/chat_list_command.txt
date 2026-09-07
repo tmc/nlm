@@ -7,7 +7,7 @@
 # Test chat-list with no arguments (should succeed without auth)
 exec ./nlm_test chat-list
 ! stderr 'panic'
-! stderr 'Authentication required'
+! stderr 'authentication required'
 
 # In non-TTY mode (txtar's exec pipe) the decorative dashed separator row
 # must not appear on stdout. It would break `chat-list | cut -f1` piping.

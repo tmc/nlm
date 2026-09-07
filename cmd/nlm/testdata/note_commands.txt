@@ -14,7 +14,7 @@ stderr 'usage: nlm notes \[flags\] <notebook-id>'
 
 # Test notes without authentication
 ! exec ./nlm_test notes notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === NEW-NOTE COMMAND ===
@@ -30,7 +30,7 @@ stderr 'usage: nlm new-note <notebook-id> <title>'
 
 # Test new-note without authentication
 ! exec ./nlm_test new-note notebook123 NoteTitle
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === UPDATE-NOTE COMMAND ===
@@ -54,7 +54,7 @@ stderr 'usage: nlm update-note <notebook-id> <note-id> <content> <title>'
 
 # Test update-note without authentication
 ! exec ./nlm_test update-note notebook123 note456 content title
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === RM-NOTE COMMAND ===
@@ -70,5 +70,5 @@ stderr 'usage: nlm rm-note \[flags\] <notebook-id> <note-id>'
 
 # Test rm-note without authentication
 ! exec ./nlm_test rm-note notebook123 note123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

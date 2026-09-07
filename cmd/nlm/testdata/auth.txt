@@ -11,33 +11,33 @@ stderr 'Usage: nlm <command>'
 
 # Skip auth command test as it tries to launch browser
 # ! exec ./nlm_test auth
-# ! stderr 'Authentication required'
+# ! stderr 'authentication required'
 
 # Commands that SHOULD require auth - these should show auth warning
 # but continue (the actual API calls will fail gracefully)
 ! exec ./nlm_test list
-stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 
 ! exec ./nlm_test create test-notebook  
-stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 
 ! exec ./nlm_test sources notebook123
-stderr 'Authentication required for.*sources.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 
 # Test that providing auth tokens suppresses the warning but fails on API call
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=test-cookies
 ! exec ./nlm_test list
-! stderr 'Authentication required'
+! stderr 'authentication required'
 stderr 'API error|Authentication|session expired|execute rpc'
 
 # Test partial auth still shows warning
 env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=
 ! exec ./nlm_test list
-stderr 'Authentication required'
+stderr 'authentication required'
 
 env NLM_AUTH_TOKEN=
 env NLM_COOKIES=test-cookies  
 ! exec ./nlm_test list
-stderr 'Authentication required'
+stderr 'authentication required'

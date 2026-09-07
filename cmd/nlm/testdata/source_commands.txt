@@ -14,7 +14,7 @@ stderr 'usage: nlm sources \[flags\] <notebook-id>'
 
 # Test sources without authentication
 ! exec ./nlm_test sources notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === ADD COMMAND ===
@@ -30,7 +30,7 @@ stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 
 # Test add without authentication
 ! exec ./nlm_test add notebook123 test.txt
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === RM-SOURCE COMMAND ===
@@ -46,7 +46,7 @@ stderr 'usage: nlm rm-source \[flags\] <notebook-id> <source-id\|-\|a,b,c>'
 
 # Test rm-source without authentication
 ! exec ./nlm_test rm-source notebook123 source456
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === RENAME-SOURCE COMMAND ===
@@ -62,7 +62,7 @@ stderr 'usage: nlm rename-source <source-id> <new-name>'
 
 # Test rename-source without authentication
 ! exec ./nlm_test rename-source source123 NewName
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === REFRESH-SOURCE COMMAND ===
@@ -73,7 +73,7 @@ stderr 'usage: nlm refresh-source <notebook-id> <source-id>'
 
 # Test refresh-source without authentication
 ! exec ./nlm_test refresh-source notebook123 source123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === CHECK-SOURCE COMMAND ===
@@ -84,7 +84,7 @@ stderr 'usage: nlm check-source <source-id>'
 
 # Test check-source without authentication
 ! exec ./nlm_test check-source source123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === DISCOVER-SOURCES COMMAND ===
@@ -100,5 +100,5 @@ stderr 'usage: nlm discover-sources \[flags\] <notebook-id> <query>'
 
 # Test discover-sources without authentication
 ! exec ./nlm_test discover-sources notebook123 query
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

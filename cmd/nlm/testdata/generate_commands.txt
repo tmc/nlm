@@ -14,7 +14,7 @@ stderr 'usage: nlm generate-guide <notebook-id>'
 
 # Test generate-guide without authentication (should fail)
 ! exec ./nlm_test generate-guide notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === GENERATE-CHAT COMMAND ===
@@ -30,20 +30,20 @@ stderr 'usage: nlm generate-chat \[flags\] <notebook-id> \[prompt\.\.\.\]'
 
 # Test generate-chat without authentication
 ! exec ./nlm_test generate-chat notebook123 prompt
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test generate-chat with multi-word prompt parsing
 ! exec ./nlm_test generate-chat notebook123 prompt with spaces
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test generate-chat with thinking flag
 ! exec ./nlm_test -thinking generate-chat notebook123 prompt
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test generate-chat with verbose thinking flag
 ! exec ./nlm_test -verbose generate-chat notebook123 prompt
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'

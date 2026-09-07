@@ -45,15 +45,15 @@ env NLM_AUTH_TOKEN=
 env NLM_COOKIES=
 
 ! exec ./nlm_test share test-notebook
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 ! exec ./nlm_test share-private test-notebook
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 ! exec ./nlm_test share-details test-share-id
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test with partial authentication (missing token)
@@ -61,7 +61,7 @@ env NLM_AUTH_TOKEN=
 env NLM_COOKIES=test-cookies
 
 ! exec ./nlm_test share test-notebook
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test with partial authentication (missing cookies)
@@ -69,7 +69,7 @@ env NLM_AUTH_TOKEN=test-token
 env NLM_COOKIES=
 
 ! exec ./nlm_test share test-notebook
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # === EDGE CASE TESTS ===
@@ -79,7 +79,7 @@ env NLM_AUTH_TOKEN=
 env NLM_COOKIES=
 
 ! exec ./nlm_test share ''
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Note: Additional functional tests with mock authentication can be added

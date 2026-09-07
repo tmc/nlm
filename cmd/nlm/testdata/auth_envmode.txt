@@ -28,11 +28,11 @@ stderr 'NLM_COOKIES'
 env NLM_AUTH_TOKEN=
 env NLM_COOKIES=
 ! exec ./nlm_test list
-stderr 'Authentication required'
+stderr 'authentication required'
 stderr 'nlm auth'
 stderr 'NLM_AUTH_TOKEN'
 stderr 'NLM_COOKIES'
-stderr 'print-env'
+stderr 'in a terminal'
 
 # Env-var-only mode never retries browser auth on a bad token — the
 # single attempt returns the session-expired hint instead of chaining

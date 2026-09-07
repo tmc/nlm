@@ -4,7 +4,7 @@
 # === HEARTBEAT COMMAND ===
 # Test hb (heartbeat) without authentication
 ! exec ./nlm_test hb
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test hb with extra arguments (should fail with usage)

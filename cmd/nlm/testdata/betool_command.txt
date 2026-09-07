@@ -54,7 +54,7 @@ stderr 'at most one input file'
 # A missing input file is reported clearly (does not require auth).
 ! exec ./nlm_test betool decode-request does-not-exist.txt
 stderr 'read does-not-exist.txt'
-! stderr 'Authentication required'
+! stderr 'authentication required'
 
 # --proto/--verify only apply to decode modes.
 ! exec ./nlm_test betool encode-request --proto

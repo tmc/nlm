@@ -171,6 +171,21 @@ func handleDecodedAuth(args authArgs) (string, string, error) {
 	// Prepare options for auth call
 	// Custom options
 	authOpts := []auth.Option{auth.WithTargetURL(opts.TargetURL)}
+	if opts.ProfileName == "nlm" && opts.RemoteCDPURL == "" && !opts.TryAllProfiles {
+		identity := firstNonEmpty(opts.Identity, activeIdentity, nlmauth.DefaultIdentity)
+		if err := nlmauth.ValidateIdentityName(identity); err != nil {
+			return "", "", err
+		}
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", "", fmt.Errorf("locate browser profile: %w", err)
+		}
+		profileDir := filepath.Join(home, ".nlm", "browser", identity)
+		authOpts = append(authOpts, func(o *auth.Options) { o.UserDataDir = profileDir })
+	}
+	if browserAuthAllowed() && opts.RemoteCDPURL == "" && !opts.TryAllProfiles {
+		authOpts = append(authOpts, func(o *auth.Options) { o.InteractiveLogin = true })
+	}
 
 	if opts.ListProfiles {
 		authOpts = append(authOpts, auth.WithListProfiles())

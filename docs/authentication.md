@@ -7,13 +7,21 @@ nlm authenticates with Google NotebookLM using session cookies extracted from yo
 
 ## Browser-based auth (recommended)
 
-The `auth` command launches a headless browser, opens NotebookLM, and extracts session cookies:
+On a fresh machine, run `nlm ls` in a terminal. nlm opens a visible browser
+and waits up to five minutes for you to sign in to Google and open NotebookLM.
+It saves your session and continues with the notebook list automatically.
+A supported browser must be installed. nlm uses its own persistent browser
+profile in `~/.nlm/browser/default`; it does not scan or copy personal browser
+profiles during default sign-in. Named nlm identities use separate directories.
+
+To sign in explicitly:
 
 ```bash
 nlm auth
 ```
 
-This opens your default Chrome/Brave profile. To use a specific profile:
+This opens nlm's browser profile. To import an existing personal browser profile
+instead (which may require macOS permission to read that browser's data):
 
 ```bash
 nlm auth --profile "Work"
@@ -25,7 +33,7 @@ To try all discovered profiles:
 nlm auth --all
 ```
 
-Credentials are saved to `~/.config/nlm/.env` and loaded automatically on subsequent runs.
+Credentials are saved to `~/.nlm/env` and loaded automatically on subsequent runs.
 
 ### Supported browsers
 
@@ -33,7 +41,9 @@ Credentials are saved to `~/.config/nlm/.env` and loaded automatically on subseq
 - Brave Browser
 - Chrome Canary
 
-The auth flow uses Chrome DevTools Protocol (CDP) to automate cookie extraction. You must be signed in to your Google account in the selected profile.
+The auth flow uses Chrome DevTools Protocol (CDP) to capture the completed
+session. Sign in to your Google account when the browser opens. Later commands
+reuse the saved credentials; refreshes can reuse the browser session.
 
 ### CDP URL
 
@@ -42,6 +52,10 @@ If you have a browser already running with remote debugging enabled, you can con
 ```bash
 nlm auth --cdp-url ws://localhost:9222
 ```
+
+Commands run without a terminal or display, or with `NLM_NONINTERACTIVE=1`,
+print an authentication hint and exit with code 3 when credentials are missing.
+They do not open a browser. Explicit `nlm auth` can still connect via CDP.
 
 ## Manual auth
 

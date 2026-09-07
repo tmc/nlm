@@ -88,9 +88,16 @@ func loginFailure(cause error, profile, cdpURL, targetURL string, debug bool) *a
 	if debug {
 		message += ": " + cause.Error()
 	}
+	hint := loginFailureHint(profile, cdpURL, targetURL)
+	switch loginFailureCause(cause, profile, cdpURL) {
+	case "no supported browser found (Chrome, Chrome Canary, or Brave)":
+		hint = "install Brave or Chrome, then run `nlm auth` in a terminal"
+	case "the browser did not become ready for sign-in":
+		hint = "try: open Brave or Chrome and finish any startup dialogs, then run `nlm auth`; or use `nlm auth --cdp-url ws://localhost:9222`"
+	}
 	return &authFailedError{
 		message: message,
-		hint:    loginFailureHint(profile, cdpURL, targetURL),
+		hint:    hint,
 		cause:   cause,
 	}
 }
@@ -111,6 +118,8 @@ func loginFailureCause(cause error, profile, cdpURL string) string {
 	switch {
 	case cdpURL != "" && contains("connection refused", "no such host", "websocket", "dial tcp", "timeout"):
 		return fmt.Sprintf("CDP endpoint %s is unreachable", cdpURL)
+	case contains("websocket url timeout"):
+		return "the browser did not become ready for sign-in"
 	case contains("no valid browser profiles", "no profiles could authenticate", "no browser profile"):
 		return "no browser profile has a signed-in notebook.google.com session"
 	case contains("not logged in", "authentication page", "sign in", "signin"):
@@ -132,6 +141,9 @@ func loginFailureCause(cause error, profile, cdpURL string) string {
 // has cookies for the target, or attaching to a browser over CDP (R17).
 func loginFailureHint(profile, cdpURL, targetURL string) string {
 	const cdp = "nlm auth --cdp-url ws://localhost:9222"
+	if profile == "nlm" && cdpURL == "" {
+		return "try: nlm auth to sign in again, or " + cdp
+	}
 	if cdpURL != "" {
 		return fmt.Sprintf("try: start the browser with --remote-debugging-port=9222, or nlm auth --profile %q", profile)
 	}

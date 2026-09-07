@@ -31,12 +31,12 @@ stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 # Without auth, commands should show auth error before attempting network
 
 ! exec ./nlm_test list
-stderr 'Authentication required for.*list.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 ! stderr 'network'
 ! stderr 'timeout'
 
 ! exec ./nlm_test create test-notebook
-stderr 'Authentication required for.*create.*Run.*nlm auth.*first'
+stderr 'authentication required; run `nlm auth`'
 ! stderr 'network'
 ! stderr 'timeout'
 

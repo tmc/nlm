@@ -10,12 +10,12 @@ stderr 'usage: nlm audio-download <notebook-id> \[filename\]'
 
 # Test audio-download with valid single argument (should require auth)
 ! exec ./nlm_test audio-download notebook123
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test audio-download with both arguments (should require auth)
 ! exec ./nlm_test audio-download notebook123 output.wav
-stderr 'Authentication required'
+stderr 'authentication required'
 ! stderr 'panic'
 
 # Test audio-download with too many arguments (should fail with usage)

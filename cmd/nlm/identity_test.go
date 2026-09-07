@@ -82,7 +82,7 @@ func TestNamedLoginDoesNotInheritOtherIdentity(t *testing.T) {
 	t.Setenv("NLM_BL_PARAM", "other-build")
 	t.Setenv("NLM_SIGNALER_AUTH", "other-signaler")
 	args := parseAuthCommandForTest(t, []string{"login", "--as", "work"}, globalOptions{})
-	if args.Options.ProfileName != "Default" {
+	if args.Options.ProfileName != "nlm" {
 		t.Fatalf("profile = %q", args.Options.ProfileName)
 	}
 	if _, _, err := persistAuthToDisk("work", "work", "Default", "", "", "", "work"); err != nil {

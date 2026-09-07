@@ -20,7 +20,7 @@ rather than chasing every possible feature.
 
 | Feature | Notes |
 |---|---|
-| Browser authentication | `nlm auth login` extracts credentials from an already signed-in Chrome, Brave, or Edge profile — no DevTools copy-paste |
+| Browser authentication | `nlm ls` opens a browser for sign-in on first use and saves the session |
 | Interactive & scriptable chat | Streaming `nlm chat` REPL with persistent sessions and slash commands (`/history`, `/new`, `/fork`, `/file`); pass a prompt for one-shot/script use |
 | Source selection by name, label, or regex | `--source-match`, `--source-exclude`, `--label-match`, `--label-exclude` |
 | Sources: files, URLs, text, stdin | `nlm source add`; PDFs upload via Google's resumable protocol |
@@ -41,8 +41,7 @@ rather than chasing every possible feature.
 
 ```bash
 go install github.com/tmc/nlm/cmd/nlm@latest
-nlm auth login
-nlm notebook list
+nlm ls
 nlm chat <notebook-id> "summarize the key findings"
 ```
 
@@ -90,11 +89,16 @@ documented Go surface over a best-effort private-RPC implementation.
 
 ## Authentication
 
-`nlm auth login` uses chromedp to launch Chrome, Brave, or Edge headlessly,
-opens NotebookLM, extracts the `SNlM0e` token and browser cookies, and stores
-them in `~/.nlm/env`. It requires a browser profile that is already signed into
-Google. It does **not** perform unattended SSO on a fresh machine with no
-signed-in browser session.
+On a fresh install, run `nlm ls` in a terminal. nlm opens a browser,
+waits up to five minutes for you to sign in to Google and open NotebookLM,
+saves credentials in `~/.nlm/env`, then lists your notebooks. Install Brave,
+Chrome, or another supported Chromium browser first. By default, nlm keeps its
+own browser profile in `~/.nlm/browser/default`, without reading or copying your
+personal browser profile. Named nlm identities have separate browser directories.
+
+Run `nlm auth login` to sign in explicitly. Without a terminal or display,
+commands print the login command and exit with code 3 without opening a browser.
+You can also supply `NLM_AUTH_TOKEN` and `NLM_COOKIES` in automation.
 
 ```bash
 nlm auth login
@@ -112,7 +116,9 @@ nlm auth login -keep-open 30 -debug
 nlm auth login -cdp-url ws://localhost:9222
 ```
 
-`-profile` selects a named browser profile. `-all` probes all available
+`-profile nlm` selects nlm's own browser profile. Other `-profile` values import
+a named browser profile and may require macOS permission to read its data.
+`-all` probes all available
 profiles, and `-authuser N` selects the Google account index within a
 multi-account session. Commands also accept `--authuser N`, or you can export
 `NLM_AUTHUSER=N`.

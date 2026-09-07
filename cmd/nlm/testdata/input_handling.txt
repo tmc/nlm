@@ -7,7 +7,7 @@ stderr 'usage: nlm add \[flags\] <notebook-id> <source\.\.\.>'
 
 # Test add without authentication should fail before network
 ! exec ./nlm_test add notebook123 test.txt
-stderr 'Authentication required'
+stderr 'authentication required'
 
 # Test add with single argument
 ! exec ./nlm_test add notebook123
