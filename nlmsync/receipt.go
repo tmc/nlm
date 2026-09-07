@@ -155,15 +155,17 @@ func checkSourceFamily(sources []Source, name string) (map[string]bool, error) {
 	broken := make(map[string]bool)
 	var errs []error
 	for _, source := range sources {
-		if !isPartOf(source.Title, name) {
+		identity, old, owned := parsePart(source.Title, name)
+		if !owned || old {
 			continue
 		}
-		if id, ok := seen[source.Title]; ok {
+		canonical := identity.title(name)
+		if id, ok := seen[canonical]; ok {
 			errs = append(errs, fmt.Errorf("duplicate part %q: sources %s and %s", source.Title, id, source.ID))
 		}
-		seen[source.Title] = source.ID
+		seen[canonical] = source.ID
 		if source.Status == "error" {
-			broken[source.Title] = true
+			broken[canonical] = true
 		}
 	}
 	return broken, errors.Join(errs...)

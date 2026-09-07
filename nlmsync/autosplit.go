@@ -51,7 +51,7 @@ func canSplit(err error) bool {
 // runAutoSplit keeps a binary tree of part names on the server. Existing
 // descendants preserve the split layout on the next run without a local
 // manifest. Old parents are removed only after every leaf succeeds.
-func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names []string, chunks [][]byte, sources []Source, labels []string, broken map[string]bool, opts Options, hc *hashCache, sc *sourceCache, out *outputWriter) error {
+func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names []string, chunks [][]byte, sources []Source, plan *labelPlan, broken map[string]bool, opts Options, hc *hashCache, sc *sourceCache, out *outputWriter) error {
 	byTitle := make(map[string]Source)
 	for _, s := range sources {
 		byTitle[s.Title] = s
@@ -64,8 +64,8 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 		mu.Unlock()
 	}
 	sem := make(chan struct{}, opts.parallel()-1)
-	var visit func(string, []byte) error
-	visit = func(name string, data []byte) error {
+	var visit func(string, []byte, []string, bool) error
+	visit = func(name string, data []byte, inherited []string, consolidating bool) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -73,25 +73,33 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 		hash := fmt.Sprintf("%x", sha256.Sum256(data))
 		split := false
 		for title := range byTitle {
-			if splitDescendant(title, name) {
+			if partDescendant(base, title, name) {
 				split = true
 				break
 			}
 		}
-		if len(data) <= 4096 {
+		hasDescendants := split
+		if len(data) <= 4096 || consolidating {
 			split = false
+		}
+		labels := plan.labels(name, inherited, (hasDescendants && !split) || (name == base && plan.familyCollapse))
+		if consolidating {
+			labels = unionLabels(labels, inherited)
 		}
 		if !split {
 			if !opts.Force && exists && !broken[name] && !hc.changed(name, hash) {
 				if !opts.DryRun {
-					for _, label := range labels {
+					for _, label := range missingLabels(labels, plan.bySource[existing.ID]) {
 						if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, label, existing.ID); err != nil {
 							return fmt.Errorf("attach label to %q: %w", name, err)
 						}
 					}
 				}
+				if opts.DryRun {
+					emitLabelPlan(out, name, existing.ID, missingLabels(labels, plan.bySource[existing.ID]))
+				}
 				markActive(name)
-				out.emit(event{Action: "skip", Name: name, Reason: "unchanged"})
+				out.emit(event{Action: "skip", Name: name, Reason: "unchanged", DryRun: opts.DryRun})
 				return nil
 			}
 			if opts.DryRun {
@@ -101,6 +109,7 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 				}
 				markActive(name)
 				out.emit(event{Action: action, Name: name, Bytes: len(data), DryRun: true})
+				emitLabelPlan(out, name, "", labels)
 				return nil
 			}
 			attempts := uploadAttempts
@@ -140,20 +149,20 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 				go func() {
 					defer wg.Done()
 					defer func() { <-sem }()
-					errs[i] = visit(splitChildName(name, i+1), part)
+					errs[i] = visit(partChild(base, name, i+1), part, labels, consolidating)
 				}()
 			default:
 				// A parent must not wait for a slot held by a child
 				// that itself needs a slot to finish splitting.
 				// Keep working here when every worker is busy.
-				errs[i] = visit(splitChildName(name, i+1), part)
+				errs[i] = visit(partChild(base, name, i+1), part, labels, consolidating)
 			}
 		}
 		wg.Wait()
 		return errors.Join(errs...)
 	}
 	for i, name := range names {
-		if err := visit(name, chunks[i]); err != nil {
+		if err := visit(name, chunks[i], nil, plan.familyCollapse); err != nil {
 			return err
 		}
 	}
@@ -245,17 +254,4 @@ func splitArchive(data []byte) ([][]byte, error) {
 		parts = append(parts, part)
 	}
 	return parts, nil
-}
-
-func splitDescendant(title, parent string) bool {
-	for {
-		trimmed, ok := trimSplitSuffix(title)
-		if !ok {
-			return false
-		}
-		if trimmed == parent {
-			return true
-		}
-		title = trimmed
-	}
 }

@@ -6,4 +6,8 @@
 // patterns and any .nlmignore file, packed into txtar bundles sized to the
 // server's per-source limits, and reconciled against the notebook's existing
 // sources so unchanged content is skipped and orphaned sources are removed.
+//
+// Run preserves labels per source and requires LabelPreserver unless
+// Options.NoLabels explicitly disables label planning. Dry runs use the same
+// label checks without issuing remote mutations.
 package nlmsync

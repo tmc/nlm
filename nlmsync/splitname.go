@@ -1,68 +1,80 @@
 package nlmsync
 
-import (
-	"strings"
-)
+import "strings"
 
-// A split part keeps its chunk number and adds one letter per split level in
-// a group of its own: the halves of "name (pt3)" are "name (pt3) (a)" and
-// "name (pt3) (b)", and the halves of those are "name (pt3) (aa)" and
-// "name (pt3) (ab)". The first chunk carries no number of its own, so its
-// halves are "name (pt1) (a)" and "name (pt1) (b)".
-//
-// One letter group replaces the repeated " (split1) (split2)" chain, so even
-// a deep tree stays short and readable, and the parent chain is still
-// recoverable from the title alone — a later run rebuilds the split layout
-// without a local manifest.
-const (
-	ptPrefix   = " (pt"
-	firstChunk = " (pt1)"
-)
-
-// splitChildName names the i-th (1-based) half of name.
-func splitChildName(name string, i int) string {
-	base, chunk, letters := splitTitle(name)
-	if chunk == "" {
-		chunk = firstChunk
-	}
-	return base + chunk + " (" + letters + string(rune('a'+i-1)) + ")"
+// partIdentity is relative to a literal family base. Chunk 1 has a bare
+// canonical title; split paths always include their chunk number.
+type partIdentity struct {
+	chunk string
+	path  string
 }
 
-// splitTitle decomposes a part title into the family base, its chunk suffix
-// (" (ptN)", empty for the bare first chunk) and its split letters (empty
-// for a part that has not been split).
-func splitTitle(title string) (base, chunk, letters string) {
-	base = title
-	if group, rest, ok := trailingGroup(base); ok && isLetters(group) {
-		// Letters are a split path only behind a chunk number: sync writes
-		// them that way, and a family name may legitimately end in a word
-		// group of its own ("notes (draft)").
-		if inner, outer, ok := trailingGroup(rest); ok && isChunkGroup(inner) {
-			return outer, " (" + inner + ")", group
+func (p partIdentity) title(base string) string {
+	if p.path != "" {
+		return base + " (pt" + p.chunk + ") (" + p.path + ")"
+	}
+	if p.chunk == "1" {
+		return base
+	}
+	return base + " (pt" + p.chunk + ")"
+}
+
+func parsePart(title, base string) (partIdentity, bool, bool) {
+	p := partIdentity{chunk: "1"}
+	if !strings.HasPrefix(title, base) {
+		return p, false, false
+	}
+	rest := strings.TrimPrefix(title, base)
+	old := strings.HasSuffix(rest, " [old]")
+	if old {
+		rest = strings.TrimSuffix(rest, " [old]")
+	}
+	numbered := false
+	if strings.HasPrefix(rest, " (pt") {
+		end := strings.IndexByte(rest, ')')
+		if end < 0 {
+			return p, old, false
 		}
-		return title, "", ""
+		digits := rest[4:end]
+		if !isDigits(digits) || digits[0] == '0' {
+			return p, old, false
+		}
+		p.chunk = digits
+		numbered = true
+		rest = rest[end+1:]
 	}
-	if group, rest, ok := trailingGroup(base); ok && isChunkGroup(group) {
-		return rest, " (" + group + ")", ""
+	if rest == "" {
+		return p, old, true
 	}
-	return title, "", ""
+	if numbered && strings.HasPrefix(rest, " (") && strings.HasSuffix(rest, ")") && isLetters(rest[2:len(rest)-1]) {
+		p.path = rest[2 : len(rest)-1]
+		return p, old, true
+	}
+	for rest != "" {
+		switch {
+		case strings.HasPrefix(rest, " (split1)"):
+			p.path += "a"
+			rest = strings.TrimPrefix(rest, " (split1)")
+		case strings.HasPrefix(rest, " (split2)"):
+			p.path += "b"
+			rest = strings.TrimPrefix(rest, " (split2)")
+		default:
+			return p, old, false
+		}
+	}
+	return p, old, true
 }
 
-// isChunkGroup reports whether a "(...)" group is a chunk number, "pt3".
-func isChunkGroup(group string) bool {
-	return strings.HasPrefix(group, "pt") && isDigits(group[2:])
+func partChild(base, name string, i int) string {
+	p, _, _ := parsePart(name, base)
+	p.path += string(rune('a' + i - 1))
+	return p.title(base)
 }
 
-// trailingGroup splits a trailing "(...)" group off title.
-func trailingGroup(title string) (group, rest string, ok bool) {
-	if !strings.HasSuffix(title, ")") {
-		return "", title, false
-	}
-	idx := strings.LastIndex(title, " (")
-	if idx < 0 {
-		return "", title, false
-	}
-	return title[idx+2 : len(title)-1], title[:idx], true
+func partDescendant(base, title, parent string) bool {
+	child, old, ok := parsePart(title, base)
+	ancestor, _, valid := parsePart(parent, base)
+	return ok && valid && !old && child.chunk == ancestor.chunk && len(child.path) > len(ancestor.path) && strings.HasPrefix(child.path, ancestor.path)
 }
 
 func isLetters(s string) bool {
@@ -70,7 +82,7 @@ func isLetters(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		if c < 'a' || c > 'z' {
+		if c < 'a' || c > 'b' {
 			return false
 		}
 	}
@@ -87,26 +99,4 @@ func isDigits(s string) bool {
 		}
 	}
 	return true
-}
-
-// trimSplitSuffix removes one split level from title, in either the current
-// letter-group form or the legacy one-suffix-per-level " (split1)" form. It
-// reports whether anything was trimmed. Dropping the last letter off the
-// first chunk yields the bare family name, since that chunk carries no
-// number of its own.
-func trimSplitSuffix(title string) (string, bool) {
-	base, chunk, letters := splitTitle(title)
-	if letters == "" {
-		if strings.HasSuffix(title, " (split1)") || strings.HasSuffix(title, " (split2)") {
-			return title[:len(title)-len(" (split1)")], true
-		}
-		return title, false
-	}
-	if letters = letters[:len(letters)-1]; letters != "" {
-		return base + chunk + " (" + letters + ")", true
-	}
-	if chunk == firstChunk {
-		return base, true
-	}
-	return base + chunk, true
 }

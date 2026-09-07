@@ -306,3 +306,31 @@ Report suggestion IDs are added after resolution, then all exclusions apply
 again using the same source and label snapshot. Suggestions cannot rescue an
 empty selector or restore an excluded source. Results follow notebook source
 order for the snapshot used by the command.
+
+### Sync label preservation
+
+Sync reads each owned part's labels before remote mutations, including during
+a dry run. Replacements keep their own labels, including an empty set. New
+split descendants inherit the live parent's labels; existing siblings retain
+their own assignments. An unchanged part issues no redundant attach calls.
+
+Ownership is parsed relative to the literal `--name`. Canonical chunk numbers
+are positive without leading zeros, and split paths contain only `a` and `b`.
+Legacy `split1`/`split2` chains are recognized. A bare root and its `pt1` alias
+cannot coexist. Other parenthesized lookalikes are left untouched.
+
+A stranded `part [old]` is a recovery donor. Sync transfers and verifies its
+labels before deleting it. If it is the only copy, sync restores its canonical
+title before evaluating the normal content update. A complete subtree may
+collapse into its ancestor, which receives the donors' label union before
+cleanup. Other ambiguous labeled rechunking fails before mutation; `--force`
+does not bypass that error. Detach the labels or use a fresh family name.
+General partition provenance is deferred.
+
+Dry runs report label IDs and existing source IDs or planned part names, plus
+the inheritance rule for contingent splits. They issue no remote mutations.
+A client without `nlmsync.LabelPreserver` cannot establish that labels are
+empty, so sync fails in both modes. Library callers may explicitly set
+`Options.NoLabels` to omit all label planning and preservation. This bypasses
+label reads even when the client supports them. With preservation enabled, a
+label-read failure stops sync before mutation.

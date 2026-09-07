@@ -1,0 +1,218 @@
+package nlmsync
+
+import (
+	"context"
+	"fmt"
+	"sort"
+)
+
+// labelPlan is built before mutations. Maps used by upload workers are then
+// immutable; each part receives its own labels or a specified donor union.
+type labelPlan struct {
+	base           string
+	byTitle        map[string][]string
+	bySource       map[string][]string
+	renames        []Source
+	recoveries     []Source
+	canonical      map[string]Source
+	familyCollapse bool
+}
+
+func unionLabels(sets ...[]string) []string {
+	seen := make(map[string]bool)
+	for _, set := range sets {
+		for _, id := range set {
+			if id != "" {
+				seen[id] = true
+			}
+		}
+	}
+	var ids []string
+	for id := range seen {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func missingLabels(want, have []string) []string {
+	seen := make(map[string]bool)
+	for _, id := range have {
+		seen[id] = true
+	}
+	var missing []string
+	for _, id := range want {
+		if !seen[id] {
+			missing = append(missing, id)
+		}
+	}
+	return missing
+}
+
+func planLabels(ctx context.Context, c Client, notebookID, base string, names []string, sources []Source, opts Options) (*labelPlan, error) {
+	p := &labelPlan{base: base, byTitle: make(map[string][]string), bySource: make(map[string][]string), canonical: make(map[string]Source)}
+	lp, capable := c.(LabelPreserver)
+	if !opts.NoLabels && !capable {
+		return nil, fmt.Errorf("cannot plan labels: client lacks LabelPreserver; set Options.NoLabels to explicitly omit label preservation")
+	}
+	chunks := make(map[string]bool)
+	for _, source := range sources {
+		identity, old, owned := parsePart(source.Title, base)
+		if !owned {
+			continue
+		}
+		name := identity.title(base)
+		chunks[identity.chunk] = true
+		var ids []string
+		if !opts.NoLabels {
+			var err error
+			ids, err = lp.LabelsForSource(ctx, notebookID, source.ID)
+			if err != nil {
+				return nil, fmt.Errorf("read labels for %q: %w", source.Title, err)
+			}
+		}
+		p.bySource[source.ID] = unionLabels(ids)
+		if old {
+			p.recoveries = append(p.recoveries, source)
+			continue
+		}
+		p.byTitle[name] = p.bySource[source.ID]
+		if name != source.Title {
+			p.renames = append(p.renames, Source{ID: source.ID, Title: name})
+		}
+		source.Title = name
+		p.canonical[name] = source
+	}
+	// Recovery donors take precedence even over an empty canonical leaf.
+	for _, old := range p.recoveries {
+		identity, _, _ := parsePart(old.Title, base)
+		name := identity.title(base)
+		p.byTitle[name] = unionLabels(p.byTitle[name], p.bySource[old.ID])
+		if _, ok := p.canonical[name]; !ok {
+			old.Title = name
+			p.canonical[name] = old
+			p.renames = append(p.renames, old)
+		}
+	}
+	hasLabels := false
+	for _, ids := range p.byTitle {
+		hasLabels = hasLabels || len(ids) > 0
+	}
+	if len(names) == 1 {
+		for chunk := range chunks {
+			if chunk != "1" {
+				p.familyCollapse = true
+			}
+		}
+	} else if hasLabels && len(chunks) > 0 {
+		expected := make(map[string]bool)
+		for _, name := range names {
+			id, _, _ := parsePart(name, base)
+			expected[id.chunk] = true
+		}
+		same := len(expected) == len(chunks)
+		for chunk := range chunks {
+			same = same && expected[chunk]
+		}
+		if !same {
+			return nil, fmt.Errorf("ambiguous labeled rechunk of %q (%v): detach labels or sync into a fresh family name", base, sortedPartNames(p.byTitle))
+		}
+	}
+	return p, nil
+}
+
+func sortedPartNames(parts map[string][]string) []string {
+	var names []string
+	for name := range parts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func (p *labelPlan) labels(name string, inherited []string, collapse bool) []string {
+	if collapse {
+		sets := [][]string{inherited}
+		for _, title := range sortedPartNames(p.byTitle) {
+			if title == name || partDescendant(p.base, title, name) || (name == p.base && p.familyCollapse) {
+				sets = append(sets, p.byTitle[title])
+			}
+		}
+		return unionLabels(sets...)
+	}
+	if ids, ok := p.byTitle[name]; ok {
+		return ids
+	}
+	return inherited
+}
+
+func emitLabelPlan(out *outputWriter, name, sourceID string, ids []string) {
+	for _, id := range ids {
+		out.emit(event{Action: "label", Name: name, SourceID: sourceID, LabelID: id, DryRun: true})
+	}
+}
+
+// recover transfers labels before deleting a stranded replacement donor. All
+// reads used to authorize the plan have already succeeded in planLabels.
+func (p *labelPlan) recover(ctx context.Context, c Client, notebookID string, sources []Source, opts Options, sc *sourceCache, out *outputWriter) ([]Source, error) {
+	for _, source := range p.renames {
+		if !opts.DryRun {
+			if err := c.RenameSource(ctx, source.ID, source.Title); err != nil {
+				return nil, fmt.Errorf("restore canonical title %q: %w", source.Title, err)
+			}
+		}
+		out.emit(event{Action: "rename", Name: source.Title, SourceID: source.ID, Reason: "canonical identity", DryRun: opts.DryRun})
+	}
+	removed := make(map[string]bool)
+	for _, old := range p.recoveries {
+		identity, _, _ := parsePart(old.Title, p.base)
+		name := identity.title(p.base)
+		target := p.canonical[name]
+		if target.ID == old.ID {
+			continue
+		}
+		missing := missingLabels(p.byTitle[name], p.bySource[target.ID])
+		if opts.DryRun {
+			emitLabelPlan(out, name, target.ID, missing)
+		} else if !opts.NoLabels {
+			lp := c.(LabelPreserver)
+			for _, id := range missing {
+				if err := lp.AttachLabelSource(ctx, notebookID, id, target.ID); err != nil {
+					return nil, fmt.Errorf("recover label %s for %q: %w", id, name, err)
+				}
+			}
+			have, err := lp.LabelsForSource(ctx, notebookID, target.ID)
+			if err != nil {
+				return nil, fmt.Errorf("verify recovered labels for %q: %w", name, err)
+			}
+			if len(missingLabels(p.byTitle[name], have)) > 0 {
+				return nil, fmt.Errorf("verify recovered labels for %q: assignments missing", name)
+			}
+		}
+		if !opts.DryRun {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			if err := c.DeleteSources(ctx, notebookID, []string{old.ID}); err != nil {
+				return nil, fmt.Errorf("delete recovery donor %q: %w", old.Title, err)
+			}
+		}
+		out.emit(event{Action: "delete", Name: old.Title, OldID: old.ID, Reason: "labels recovered", DryRun: opts.DryRun})
+		removed[old.ID] = true
+		p.bySource[target.ID] = p.byTitle[name]
+	}
+	var result []Source
+	for _, source := range sources {
+		if removed[source.ID] {
+			continue
+		}
+		if identity, _, ok := parsePart(source.Title, p.base); ok {
+			source.Title = identity.title(p.base)
+		}
+		result = append(result, source)
+	}
+	if !opts.DryRun {
+		_ = sc.save(notebookID, result)
+	}
+	return result, nil
+}

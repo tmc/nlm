@@ -36,8 +36,8 @@ type Client interface {
 	RenameSource(ctx context.Context, sourceID string, title string) error
 }
 
-// LabelPreserver is an optional capability: clients that implement it let
-// sync carry label assignments across the replace path. The two-call shape
+// LabelPreserver lets sync carry label assignments across the replace path.
+// Run requires this capability unless Options.NoLabels is set. The two-call shape
 // matches the underlying RPCs (read all labels, attach one source per call).
 type LabelPreserver interface {
 	LabelsForSource(ctx context.Context, notebookID, sourceID string) ([]string, error)
@@ -46,6 +46,7 @@ type LabelPreserver interface {
 
 // Options controls sync behavior.
 type Options struct {
+	NoLabels         bool     // explicitly omit label planning and preservation
 	AutoSplit        bool     // split rejected uploads into smaller parts
 	MaxBytes         int      // chunk threshold; 0 means 5120000
 	Name             string   // source name; required if ambiguous
@@ -188,54 +189,34 @@ func runSync(ctx context.Context, c Client, notebookID, name string, names, hash
 		return err
 	}
 
-	// Build title→source index.
+	labels, err := planLabels(ctx, c, notebookID, name, names, sources, opts)
+	if err != nil {
+		return err
+	}
+	// A recovery source can itself be failed; restoring its title does not
+	// make a matching cached hash a reason to skip the repair.
+	for title, source := range labels.canonical {
+		if source.Status == "error" {
+			broken[title] = true
+		}
+	}
+	sources, err = labels.recover(ctx, c, notebookID, sources, opts, sc, out)
+	if err != nil {
+		return err
+	}
 	byTitle := make(map[string]Source)
-	for _, s := range sources {
-		byTitle[s.Title] = s
+	for _, source := range sources {
+		byTitle[source.Title] = source
 	}
-
-	// Chunk boundaries can move between syncs. Labels belong to the named
-	// source family, so snapshot their union before replacing any part.
-	var labelIDs []string
-	labelsBySource := make(map[string]map[string]bool)
-	if lp, ok := c.(LabelPreserver); ok && !opts.DryRun {
-		seen := make(map[string]bool)
-		for _, source := range sources {
-			if !isPartOf(source.Title, name) {
-				continue
-			}
-			ids, err := lp.LabelsForSource(ctx, notebookID, source.ID)
-			if err != nil {
-				return fmt.Errorf("read labels for %q: %w", source.Title, err)
-			}
-			labelsBySource[source.ID] = make(map[string]bool)
-			for _, id := range ids {
-				labelsBySource[source.ID][id] = true
-				if !seen[id] {
-					seen[id] = true
-					labelIDs = append(labelIDs, id)
-				}
-			}
-		}
-	}
-
 	if opts.AutoSplit {
-		return runAutoSplit(ctx, c, notebookID, name, names, chunks, sources, labelIDs, broken, opts, hc, sc, out)
+		if opts.DryRun {
+			out.emit(event{Action: "inherit", Name: name, Reason: "initial plan only; contingent splits inherit their parent's labels", DryRun: true})
+		}
+		return runAutoSplit(ctx, c, notebookID, name, names, chunks, sources, labels, broken, opts, hc, sc, out)
 	}
-
-	// Repair labels on unchanged parts too, before starting upload workers.
-	for i, chunkName := range names {
-		existing, exists := byTitle[chunkName]
-		if opts.Force || !exists || broken[chunkName] || hc.changed(chunkName, hashes[i]) {
-			continue
-		}
-		for _, id := range labelIDs {
-			if !labelsBySource[existing.ID][id] {
-				if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, id, existing.ID); err != nil {
-					return fmt.Errorf("attach label to %q: %w", chunkName, err)
-				}
-			}
-		}
+	// Non-autosplit parts replace their complete existing subtrees.
+	for _, chunkName := range names {
+		labels.byTitle[chunkName] = labels.labels(chunkName, nil, true)
 	}
 
 	// Plan: walk all chunks once and decide each chunk's action up front so
@@ -262,12 +243,26 @@ func runSync(ctx context.Context, c Client, notebookID, name string, names, hash
 		chunkName := names[i]
 		hash := hashes[i]
 		existing, exists := byTitle[chunkName]
+		labelIDs := labels.byTitle[chunkName]
 
 		// Skip only when the hash is unchanged and the remote source is still
 		// present under the expected title.
 		if !opts.Force && exists && !broken[chunkName] && !hc.changed(chunkName, hash) {
+			missing := missingLabels(labelIDs, labels.bySource[existing.ID])
+			if opts.DryRun {
+				emitLabelPlan(out, chunkName, existing.ID, missing)
+			} else {
+				for _, id := range missing {
+					if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, id, existing.ID); err != nil {
+						errsMu.Lock()
+						errs = append(errs, fmt.Errorf("attach label to %q: %w", chunkName, err))
+						errsMu.Unlock()
+						goto wait
+					}
+				}
+			}
 			mu.Lock()
-			out.emit(event{Action: "skip", Name: chunkName, Reason: "unchanged"})
+			out.emit(event{Action: "skip", Name: chunkName, Reason: "unchanged", DryRun: opts.DryRun})
 			mu.Unlock()
 			continue
 		}
@@ -278,6 +273,7 @@ func runSync(ctx context.Context, c Client, notebookID, name string, names, hash
 				action = "replace"
 			}
 			out.emit(event{Action: action, Name: chunkName, Bytes: len(data), DryRun: true})
+			emitLabelPlan(out, chunkName, "", labelIDs)
 			continue
 		}
 
@@ -328,7 +324,7 @@ wait:
 			continue
 		}
 		if opts.DryRun {
-			out.emit(event{Action: "delete", Name: title, OldID: src.ID, Reason: "orphan"})
+			out.emit(event{Action: "delete", Name: title, OldID: src.ID, Reason: "orphan", DryRun: true})
 			continue
 		}
 		if err := c.DeleteSources(ctx, notebookID, []string{src.ID}); err != nil {
@@ -773,36 +769,10 @@ func isBinary(data []byte) bool {
 }
 
 // isPartOf reports whether title is the base name or a chunk part of it.
-// Matches "name" and "name (ptN)" for any N.
+// It also recognizes canonical split paths, legacy paths, and recovery donors.
 func isPartOf(title, name string) bool {
-	if title == name {
-		return true
-	}
-	title = strings.TrimSuffix(title, " [old]")
-	if title == name {
-		return true
-	}
-	for {
-		trimmed, ok := trimSplitSuffix(title)
-		if !ok {
-			break
-		}
-		title = trimmed
-		if title == name {
-			return true
-		}
-	}
-
-	if !strings.HasPrefix(title, name+" (pt") || !strings.HasSuffix(title, ")") {
-		return false
-	}
-	mid := title[len(name)+4 : len(title)-1]
-	for _, c := range mid {
-		if c < '0' || c > '9' {
-			return false
-		}
-	}
-	return len(mid) > 0
+	_, _, ok := parsePart(title, name)
+	return ok
 }
 
 // chunkNames returns the names for n chunks.
@@ -821,6 +791,7 @@ func chunkNames(name string, n int) []string {
 
 // event is an NDJSON progress event.
 type event struct {
+	LabelID  string `json:"label_id,omitempty"`
 	Action   string `json:"action"`
 	Name     string `json:"name"`
 	SourceID string `json:"source_id,omitempty"`
@@ -858,6 +829,10 @@ func (o *outputWriter) emit(e event) {
 		return
 	}
 	switch e.Action {
+	case "label":
+		fmt.Fprintf(os.Stderr, "  would attach label %s: %s %s\n", e.LabelID, e.Name, e.SourceID)
+	case "inherit", "rename":
+		fmt.Fprintf(os.Stderr, "  %s: %s (%s)\n", e.Action, e.Name, e.Reason)
 	case "split":
 		fmt.Fprintf(os.Stderr, "  split: %s (%d bytes): %s\n", e.Name, e.Bytes, e.Reason)
 	case "skip":

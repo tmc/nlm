@@ -38,6 +38,14 @@ type fakeClient struct {
 	deleted []string
 }
 
+// fakeClient models a notebook whose label snapshot is known to be empty.
+func (f *fakeClient) LabelsForSource(context.Context, string, string) ([]string, error) {
+	return nil, nil
+}
+func (f *fakeClient) AttachLabelSource(context.Context, string, string, string) error {
+	return fmt.Errorf("unexpected label attachment on empty-label client")
+}
+
 func (f *fakeClient) ListSources(_ context.Context, _ string) ([]Source, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -207,14 +215,14 @@ func TestRunReplacePreservesLabels(t *testing.T) {
 	}
 }
 
-func TestRunReplaceWithoutLabelPreserverIsBackcompat(t *testing.T) {
+func TestRunReplaceWithLabelsOptOut(t *testing.T) {
 	setupTestHome(t)
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("updated"), 0o644)
 
 	fc := &fakeClient{sources: []Source{{ID: "old-123", Title: "test"}}}
 	var buf bytes.Buffer
-	if err := Run(context.Background(), fc, "nb-123", []string{dir}, Options{Name: "test", Force: true}, &buf); err != nil {
+	if err := Run(context.Background(), struct{ Client }{fc}, "nb-123", []string{dir}, Options{Name: "test", Force: true, NoLabels: true}, &buf); err != nil {
 		t.Fatal(err)
 	}
 	if len(fc.uploaded) != 1 || len(fc.deleted) != 1 {
@@ -1056,7 +1064,17 @@ func TestRunChangedChunkSizeLabels(t *testing.T) {
 			}
 			fc.sources = append(fc.sources, Source{ID: "unrelated", Title: "other"})
 			fc.labelsBySource["unrelated"] = []string{"other-label"}
-			if err := Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test", MaxBytes: tc.newSize}, io.Discard); err != nil {
+			err = Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test", MaxBytes: tc.newSize}, io.Discard)
+			if len(names) > 1 {
+				if err == nil || !strings.Contains(err.Error(), "ambiguous labeled rechunk") {
+					t.Fatalf("error=%v", err)
+				}
+				if len(fc.uploaded)+len(fc.deleted)+len(fc.renamed)+len(fc.attachCalls) != 0 {
+					t.Fatal("ambiguous rechunk mutated sources")
+				}
+				return
+			}
+			if err != nil {
 				t.Fatal(err)
 			}
 			for _, name := range names {
