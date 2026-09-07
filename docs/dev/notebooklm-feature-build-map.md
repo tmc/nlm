@@ -15,6 +15,27 @@ The rule for this file is conservative: build from repo-backed or current
 bundle-backed evidence, and require a HAR capture where the wire shape is
 not already verified.
 
+## Audit follow-up (2026-09-07)
+
+The request and response roundtrips in
+`internal/betool/youtube_delta_test.go` cover more wire shapes than the
+original feature inventory below. They establish serialization, with these
+remaining requirements before exposing user commands:
+
+- Feedback: `SubmitFeedbackTurn.opaque_number` and the values in
+  `SubmitFeedbackSignal` have unconfirmed meanings. Capture both rating
+  directions and establish those values before mapping `good|bad` to them.
+- Revision: `TestTailRequestVariantsRoundTrip` covers slide-indexed
+  instructions, and `TestArtifactMutationResponsesRoundTrip` covers the
+  artifact response. Verify a revision through completion and inspect the
+  changed slides before exposing this as a general artifact revision command.
+- Copy: `CopyProjectResponse` preserves an observed status value, not a new
+  notebook ID. Establish the status meaning and identify the resulting
+  notebook in a successful copy workflow before promising a clone command.
+
+Generated service methods without an `arg_format` now return an error before
+sending a request. This prevents empty requests while capture work remains.
+
 ## Implemented
 
 ### 1. Generic AppArtifact generation

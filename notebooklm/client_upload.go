@@ -223,9 +223,8 @@ func (c *Client) MutateSource(ctx context.Context, sourceID string, updates *pb.
 			Title: &pb.MutateSourceTitle{Title: updates.GetTitle()},
 		}},
 	}
-	// Bypass the service client: its generated encoder uses argbuilder and
-	// produces the wrong wire format. Use the HAR-verified encoder from
-	// internal/method.
+	// Preserve the three-argument request used by this path. The generated
+	// encoder supports the separate four-argument form with browser context.
 	resp, err := c.rpc.Do(ctx, rpc.Call{
 		ID:         rpc.RPCMutateSource,
 		NotebookID: rpc.NotebookIDFromMessage(req),
