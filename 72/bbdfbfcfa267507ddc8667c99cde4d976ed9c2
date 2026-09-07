@@ -1,0 +1,38 @@
+commit: 72bbdfbfcfa267507ddc8667c99cde4d976ed9c2
+date: 2026-08-31T01:15:41-07:00
+agent: Codex
+model: GPT-6 (exact runtime identifier unavailable)
+codex: codex-cli 0.153.4
+claude: 2.1.257 (Claude Code)
+tty: not a tty
+pid: 72414
+ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+
+Rewritten from: 26770ac0064bc8fc81c80367280b1e75739a87c0
+Original local provenance:
+committed 2026-08-31 01:15:45 -0700 via claude-code model=claude-fable-5 tty=not a tty
+none pid=70926 ITERM_SESSION_ID=w2t2p13:CB19AAE9-4CA6-43EE-9678-7DDC3951CEFA
+
+committed 2026-08-31 01:34:57 -0700 via claude-code model=claude-fable-5 tty=not a tty
+none pid=56050 ITERM_SESSION_ID=w2t2p13:CB19AAE9-4CA6-43EE-9678-7DDC3951CEFA
+
+committed 2026-08-31 01:49:24 -0700 via claude-code model=claude-fable-5 tty=not a tty
+none pid=45291 ITERM_SESSION_ID=w2t2p13:CB19AAE9-4CA6-43EE-9678-7DDC3951CEFA
+
+committed 2026-08-31 03:57:42 -0700 via claude-code model=claude-fable-5 tty=not a tty
+none pid=32574 ITERM_SESSION_ID=w2t2p13:CB19AAE9-4CA6-43EE-9678-7DDC3951CEFA
+
+committed 2026-08-31 03:57:56 -0700 via claude-code model=claude-fable-5 tty=not a tty
+none pid=33195 ITERM_SESSION_ID=w2t2p13:CB19AAE9-4CA6-43EE-9678-7DDC3951CEFA
+
+History audit rewrite
+commit: 26770ac0064bc8fc81c80367280b1e75739a87c0
+date: 2026-08-31T01:15:41-07:00
+agent: Codex
+model: GPT-6
+claude-code version (installed): 2.1.257
+codex-cli: 0.153.3
+tty: none
+pid: 39840 (note writer)
+ITERM_SESSION_ID: w16t0p5:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+Original provenance above retained by notes.rewriteRef.
