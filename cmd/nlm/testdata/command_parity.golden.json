@@ -3984,7 +3984,7 @@
       "summary": "List all notebooks",
       "args_usage": "[flags]",
       "hidden": false,
-      "help": "nlm: 'ls' is deprecated; use 'notebook list'\nUsage: nlm ls [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm ls\n  nlm notebook list --all\n  nlm ls --limit 25\n",
+      "help": "Usage: nlm ls [flags]\n\nFlags:\n  --all          Show all notebooks when stdout is a terminal\n  --limit \u003cn\u003e    Show at most n notebooks (default: 10 on TTY, all when piped)\n  --json         Emit NDJSON instead of a table\n\nExamples:\n  nlm ls\n  nlm notebook list --all\n  nlm ls --limit 25\n",
       "cases": [
         {
           "args": [],

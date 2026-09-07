@@ -387,9 +387,9 @@ func TestCompatibilityCommandsWarn(t *testing.T) {
 		wantWarn string
 	}{
 		{
-			name:     "ls warning",
-			args:     []string{"ls"},
-			wantWarn: "nlm: 'ls' is deprecated; use 'notebook list'",
+			name:     "list warning",
+			args:     []string{"list"},
+			wantWarn: "nlm: 'list' is deprecated; use 'notebook list'",
 		},
 		{
 			name:     "sources warning",

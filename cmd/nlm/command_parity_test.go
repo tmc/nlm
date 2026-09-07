@@ -202,6 +202,10 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
+		// The short list alias remains a supported entry point for onboarding.
+		if got.Path == "ls" {
+			want.Help = strings.TrimPrefix(want.Help, "nlm: 'ls' is deprecated; use 'notebook list'\n")
+		}
 		normalizePhase6UnknownCase(t, &got, want)
 		normalizePhase6IgnoredArgumentCases(&got, want)
 		if phase4CommandPaths[want.Path] || phase5CommandPaths[want.Path] || prototextCommandPaths[want.Path] || phase6OwnershipCommandPaths[want.Path] {
@@ -270,6 +274,10 @@ func compareCommandParityPhase2(t *testing.T, baseline, current commandParityGol
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
 		}
+		// The short list alias remains a supported entry point for onboarding.
+		if got.Path == "ls" {
+			want.Help = strings.TrimPrefix(want.Help, "nlm: 'ls' is deprecated; use 'notebook list'\n")
+		}
 		normalizePhase6UnknownCase(t, &got, want)
 		normalizePhase6IgnoredArgumentCases(&got, want)
 		if !phase4CommandPaths[want.Path] && !phase5CommandPaths[want.Path] && !prototextCommandPaths[want.Path] && !phase6OwnershipCommandPaths[want.Path] && !postRoadmapCommandPaths[want.Path] {
@@ -316,6 +324,10 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 		got, want := current.Commands[i], baseline.Commands[i]
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
+		}
+		// The short list alias remains a supported entry point for onboarding.
+		if got.Path == "ls" {
+			want.Help = strings.TrimPrefix(want.Help, "nlm: 'ls' is deprecated; use 'notebook list'\n")
 		}
 		normalizePhase6UnknownCase(t, &got, want)
 		normalizePhase6IgnoredArgumentCases(&got, want)
@@ -365,6 +377,10 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 		got, want := current.Commands[i], baseline.Commands[i]
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
+		}
+		// The short list alias remains a supported entry point for onboarding.
+		if got.Path == "ls" {
+			want.Help = strings.TrimPrefix(want.Help, "nlm: 'ls' is deprecated; use 'notebook list'\n")
 		}
 		normalizePhase6UnknownCase(t, &got, want)
 		normalizePhase6IgnoredArgumentCases(&got, want)

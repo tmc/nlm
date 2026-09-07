@@ -766,7 +766,7 @@ func shouldShowInHelp(cmd *command) bool {
 }
 
 func warnCompatibilityCommand(name string, cmd *command) {
-	if cmd.surface != surfaceCompatibility {
+	if cmd.surface != surfaceCompatibility || name == "ls" {
 		return
 	}
 	replacement := ""
