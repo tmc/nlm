@@ -288,3 +288,23 @@ func TestAutoSplitNestedSerial(t *testing.T) {
 		t.Fatalf("got %d leaves, want nested splits", len(c.content))
 	}
 }
+
+func TestBalancePoint(t *testing.T) {
+	file := func(n int) txtar.File { return txtar.File{Data: make([]byte, n)} }
+	for _, tt := range []struct {
+		name  string
+		files []txtar.File
+		want  int
+	}{
+		{"even", []txtar.File{file(10), file(10), file(10), file(10)}, 2},
+		{"dominant first", []txtar.File{file(100), file(1), file(1)}, 1},
+		{"dominant last", []txtar.File{file(1), file(1), file(100)}, 2},
+		{"two members", []txtar.File{file(1), file(100)}, 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := balancePoint(tt.files); got != tt.want {
+				t.Errorf("balancePoint = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}

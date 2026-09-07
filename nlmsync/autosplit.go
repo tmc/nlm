@@ -174,6 +174,31 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 
 // splitArchive splits members rather than slicing txtar syntax. A sole member
 // is decoded, split, and quoted again so each child is independently readable.
+// balancePoint returns the member index that most evenly divides the archive
+// by bytes. Cutting at the midpoint of the member *count* leaves one half
+// carrying a dominant member, so a single large file drags the whole subtree
+// through one failing upload per member it is peeled away from; balancing on
+// size reaches uploadable halves in log(n) levels instead. The result is
+// always in [1, len(files)-1], so both halves keep at least one member.
+func balancePoint(files []txtar.File) int {
+	total := 0
+	for _, f := range files {
+		total += len(f.Data)
+	}
+	best, bestDiff, running := 1, -1, 0
+	for i := 0; i < len(files)-1; i++ {
+		running += len(files[i].Data)
+		diff := total - 2*running
+		if diff < 0 {
+			diff = -diff
+		}
+		if bestDiff < 0 || diff < bestDiff {
+			best, bestDiff = i+1, diff
+		}
+	}
+	return best
+}
+
 func splitArchive(data []byte) ([][]byte, error) {
 	ar := txtar.Parse(data)
 	if len(ar.Files) == 0 {
@@ -189,8 +214,7 @@ func splitArchive(data []byte) ([][]byte, error) {
 	}
 	var groups [][]txtar.File
 	if len(files) > 1 {
-		mid := len(files) / 2
-		groups = [][]txtar.File{files[:mid], files[mid:]}
+		groups = [][]txtar.File{files[:balancePoint(files)], files[balancePoint(files):]}
 	} else {
 		f := files[0]
 		if len(f.Data) < 2 {
