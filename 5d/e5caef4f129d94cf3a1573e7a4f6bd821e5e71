@@ -1,0 +1,75 @@
+commit: 5de5caef4f129d94cf3a1573e7a4f6bd821e5e71
+date: 2026-09-02T15:14:34-07:00
+agent: Codex
+model: GPT-6 (exact runtime identifier unavailable)
+codex: codex-cli 0.153.4
+claude: 2.1.257 (Claude Code)
+tty: not a tty
+pid: 78583
+ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+
+Rewritten from: 4551db659caf6c39f4eb197194f60d58e3750403
+Original local provenance:
+commit: e67c911c0534a34772d3bbc37c3d801cf1612842
+date: 2026-09-02T15:14:39-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 25810
+ITERM_SESSION_ID: w15t0p10:69D29FB3-0ECB-4BFE-9356-36943BCE03D1
+session: 6b92056d-c81e-411b-a8e6-39eadb041655
+session_url: https://claude.ai/code/session_01SszBaDEeqgppMm2NZK9eke
+
+commit: 1e10bae3f265dc479a4fe90fa00a55dd886d09bf
+date: 2026-09-02T15:18:45-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 33250
+ITERM_SESSION_ID: w15t0p10:69D29FB3-0ECB-4BFE-9356-36943BCE03D1
+session: 6b92056d-c81e-411b-a8e6-39eadb041655
+session_url: https://claude.ai/code/session_01SszBaDEeqgppMm2NZK9eke
+
+commit: 67a92b76c38350628956a2a851e5f1a551f8dd32
+date: 2026-09-02T15:19:09-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+pid: 34098
+ITERM_SESSION_ID: w15t0p10:69D29FB3-0ECB-4BFE-9356-36943BCE03D1
+session: 6b92056d-c81e-411b-a8e6-39eadb041655
+session_url: https://claude.ai/code/session_01SszBaDEeqgppMm2NZK9eke
+
+commit: e96057576f7cb58fbcccce4cdef99b74c73c9fb5
+date: 2026-09-02T22:29:21Z
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+none
+pid: 58721
+ITERM_SESSION_ID: w15t0p10:69D29FB3-0ECB-4BFE-9356-36943BCE03D1
+session: 6b92056d-c81e-411b-a8e6-39eadb041655
+session_url: https://claude.ai/code/session_01SszBaDEeqgppMm2NZK9eke
+
+commit: 393f8431ab5ccc03487ae4c5a65ee5454dd6730f
+date: 2026-09-02T22:34:07Z
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5
+tty: not a tty
+none
+pid: 69737
+ITERM_SESSION_ID: w15t0p10:69D29FB3-0ECB-4BFE-9356-36943BCE03D1
+session: 6b92056d-c81e-411b-a8e6-39eadb041655
+session_url: https://claude.ai/code/session_01SszBaDEeqgppMm2NZK9eke
+
+History audit rewrite
+commit: 4551db659caf6c39f4eb197194f60d58e3750403
+date: 2026-09-02T15:14:34-07:00
+agent: Codex
+model: GPT-6
+claude-code version (installed): 2.1.257
+codex-cli: 0.153.3
+tty: none
+pid: 39840 (note writer)
+ITERM_SESSION_ID: w16t0p5:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+Original provenance above retained by notes.rewriteRef.
