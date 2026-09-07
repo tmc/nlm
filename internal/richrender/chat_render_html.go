@@ -840,7 +840,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 }
 
 /* Sources rail beside the answer: an at-a-glance index. */
-.rail { display: flex; flex-direction: column; gap: 10px; }
+.rail > .ref, .rail > .empty { margin-top: 10px; }
 .rail .rail-head { font-size: 11px; font-weight: 650; letter-spacing: 0.09em; text-transform: uppercase; color: var(--faint); }
 .rail .empty { color: var(--faint); font-size: 13px; font-style: italic; }
 .ref {
@@ -879,6 +879,15 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   border-color: var(--accent); background: var(--accent-tint);
 }
 .ref-action:disabled { color: var(--faint); cursor: default; background: #f7f7f8; }
+
+.message-picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 18px 0 26px; }
+.message-picker select { flex: 1 1 240px; min-width: 0; max-width: 100%; padding: 8px; font: inherit; }
+.turn { scroll-margin-top: 20px; }
+.turn-nav { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; font-size: 13px; }
+.turn-nav a { color: var(--accent-strong); }
+summary.rail-head, summary.citations-head { cursor: pointer; }
+summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-strong); }
+.citations:not([open]) .citations-head { margin-bottom: 0; }
 
 /* Citations section at the bottom of an assistant turn. */
 .citations {
@@ -1201,10 +1210,9 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   function citeId(msgIdx, idx) { return "cite-" + msgIdx + "-" + idx; }
 
   // wireLink attaches a hover/focus preview to an inline [N] link. The click is a
-  // plain anchor jump to the citation entry (the href), so the citation is
-  // reachable with or without JS; hover/focus raises the card only as a
-  // convenience preview. No pinning — the entry it jumps to shows every source —
-  // so the link stays a simple, keyboard-native anchor.
+  // native anchor jump to the citation entry after opening its details.
+  // Hover/focus raises the card as a convenience preview; the entry lists
+  // every source under the marker.
   function wireLink(a, msgIdx, marker) {
     var key = keyOf(msgIdx, marker.index);
     a.setAttribute("aria-haspopup", "dialog");
@@ -1347,7 +1355,8 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   function jumpTo(id) {
     var target = document.getElementById(id);
     if (!target) return;
-    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    revealCitation(target);
+    target.scrollIntoView({ block: "center", behavior: "auto" });
     flashEntry(target);
   }
 
@@ -1357,6 +1366,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     if (!passage) return;
     var target = passage.element;
     target.scrollIntoView({ block: "center", behavior: "smooth" });
+    revealCitation(target);
     target.classList.remove("flash");
     void target.offsetWidth;
     target.classList.add("flash");
@@ -1370,12 +1380,52 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
     header.appendChild(el("div", "sub", count + " message" + (count === 1 ? "" : "s")));
     root.appendChild(header);
 
+    if (count > 1) {
+      var picker = el("nav", "message-picker");
+      picker.setAttribute("aria-label", "Conversation messages");
+      var label = el("label", "", "Go to message");
+      label.htmlFor = "message-select";
+      var select = el("select");
+      select.id = "message-select";
+      data.messages.forEach(function (msg, i) {
+        var text = (msg.content || "").replace(/\s+/g, " ").trim();
+        var option = el("option", "", (i + 1) + ". " + (msg.role === "user" ? "You" : "Assistant") + (text ? ": " + text.slice(0, 80) : ""));
+        option.value = "message-" + i;
+        select.appendChild(option);
+      });
+      select.addEventListener("change", function () {
+        location.hash = select.value;
+        var target = document.getElementById(select.value);
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ block: "start" });
+      });
+      picker.appendChild(label);
+      picker.appendChild(select);
+      root.appendChild(picker);
+    }
+
     data.messages.forEach(function (msg, msgIdx) {
       var turn = el("div", "turn " + (msg.role === "user" ? "user" : "assistant"));
-      turn.appendChild(el("div", "role", msg.role === "user" ? "You" : "Assistant"));
+      turn.id = "message-" + msgIdx;
+      turn.tabIndex = -1;
+      turn.appendChild(el("div", "role", (msg.role === "user" ? "You" : "Assistant") + " · " + (msgIdx + 1) + " of " + count));
+      if (count > 1) {
+        var nav = el("nav", "turn-nav");
+        nav.setAttribute("aria-label", "Message " + (msgIdx + 1) + " navigation");
+        function link(text, href) {
+          var a = el("a", "", text);
+          a.href = href;
+          nav.appendChild(a);
+        }
+        if (msgIdx > 0) link("Previous message", "#message-" + (msgIdx - 1));
+        if (msgIdx + 1 < count) link("Next message", "#message-" + (msgIdx + 1));
+        link("All messages", "#message-select");
+        turn.appendChild(nav);
+      }
 
       if (msg.role === "user") {
         turn.appendChild(el("div", "bubble user", msg.content));
+        if (nav) turn.appendChild(nav.cloneNode(true));
         root.appendChild(turn);
         return;
       }
@@ -1397,8 +1447,9 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
       main.appendChild(renderAnswer(msgIdx, msg));
       grid.appendChild(main);
 
-      var rail = el("div", "rail");
-      rail.appendChild(el("div", "rail-head", "Sources"));
+      var rail = el("details", "rail");
+      rail.open = true;
+      rail.appendChild(el("summary", "rail-head", "Sources (" + markers.length + ")"));
       if (markers.length === 0) {
         rail.appendChild(el("div", "empty", "No citations for this turn."));
       } else {
@@ -1409,12 +1460,13 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 
       // Full Citations section at the bottom (jump target for [N] and rail).
       if (markers.length > 0) {
-        var section = el("section", "citations");
+        var section = el("details", "citations");
         section.setAttribute("aria-label", "Citations");
-        section.appendChild(el("h2", "citations-head", "Citations"));
+        section.appendChild(el("summary", "citations-head", "Citations (" + markers.length + ")"));
         markers.forEach(function (m) { section.appendChild(citationEntry(msgIdx, m)); });
         turn.appendChild(section);
       }
+      if (nav) turn.appendChild(nav.cloneNode(true));
       root.appendChild(turn);
     });
   }
@@ -1429,8 +1481,13 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 
   // flashEntry briefly highlights a citation entry so the eye lands on the right
   // one after a jump.
+  function revealCitation(target) {
+    var section = target && target.closest("details.citations");
+    if (section) section.open = true;
+  }
   function flashEntry(target) {
     if (!target || !target.classList.contains("cite-entry")) return;
+    revealCitation(target);
     target.classList.remove("flash");
     void target.offsetWidth; // restart the transition
     target.classList.add("flash");
@@ -1438,11 +1495,19 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
   }
   // An inline [N] link's default anchor jump (the href) sets the hash; flash the
   // target so a jump via keyboard or a copied link still lands visibly.
-  window.addEventListener("hashchange", function () {
-    flashEntry(document.getElementById(location.hash.slice(1)));
-  });
+  function followHash() {
+    var target = document.getElementById(location.hash.slice(1));
+    if (!target) return;
+    if (target.classList.contains("cite-entry")) jumpTo(target.id);
+    else target.scrollIntoView({ block: "start" });
+    var turn = target.closest(".turn");
+    var select = document.getElementById("message-select");
+    if (turn && select) select.value = turn.id;
+  }
+  window.addEventListener("hashchange", followHash);
 
   render();
+  followHash();
 })();
 </script>
 {{if .HasMath}}<!-- MathJax support -->
