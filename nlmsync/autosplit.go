@@ -97,12 +97,22 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 				out.emit(event{Action: action, Name: name, Bytes: len(data), DryRun: true})
 				return nil
 			}
-			err := uploadChunk(ctx, c, notebookID, name, data, hash, existing, exists, labels, hc, sc, out, &mu)
+			attempts := uploadAttempts
+			if len(data) > 4096 {
+				attempts = uploadSplitAttempts
+			}
+			err := uploadChunkWithRetry(ctx, c, notebookID, name, data, hash, existing, exists, labels, hc, sc, out, &mu, attempts)
 			if err == nil {
 				active[name] = true
 				return nil
 			}
 			if len(data) <= 4096 || !canSplit(err) {
+				return err
+			}
+			// A rejected upload can still leave a source behind that the
+			// server later marks failed. Sweep it before splitting, or a
+			// deep split strands one dead source per level.
+			if err := discardFailedPart(ctx, c, notebookID, name, existing.ID, sc, out, &mu); err != nil {
 				return err
 			}
 			out.emit(event{Action: "split", Name: name, Bytes: len(data), Reason: err.Error()})

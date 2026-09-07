@@ -18,6 +18,9 @@ import (
 func setupTestHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
+	delay := uploadRetryDelay
+	uploadRetryDelay = 0
+	t.Cleanup(func() { uploadRetryDelay = delay })
 }
 
 type fakeClient struct {

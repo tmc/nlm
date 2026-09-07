@@ -299,7 +299,7 @@ func runSync(ctx context.Context, c Client, notebookID, name string, names, hash
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			if err := uploadChunk(ctx, c, notebookID, chunkName, data, hash, existing, exists, labelIDs, hc, sc, out, &mu); err != nil {
+			if err := uploadChunkWithRetry(ctx, c, notebookID, chunkName, data, hash, existing, exists, labelIDs, hc, sc, out, &mu, uploadAttempts); err != nil {
 				errsMu.Lock()
 				errs = append(errs, err)
 				errsMu.Unlock()

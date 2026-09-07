@@ -129,7 +129,7 @@ func TestAutoSplitFailures(t *testing.T) {
 		limit        int
 		wantAttempts int
 	}{
-		{"disabled", false, nil, 5000, 1},
+		{"disabled", false, nil, 5000, uploadAttempts},
 		{"authentication", true, &batchexecute.APIError{HTTPStatus: 401}, 5000, 1},
 		{"rate limit", true, &batchexecute.APIError{HTTPStatus: 429}, 5000, 1},
 		{"transport", true, fmt.Errorf("connection refused"), 5000, 1},
@@ -151,7 +151,9 @@ func TestAutoSplitFailures(t *testing.T) {
 			if tc.wantAttempts > 0 && c.attempts != tc.wantAttempts {
 				t.Fatalf("attempts=%d", c.attempts)
 			}
-			if c.attempts > 10 {
+			// Each level may also retry, so the bound covers the whole
+			// tree of attempts, not one attempt per split.
+			if c.attempts > 24 {
 				t.Fatalf("unbounded splitting: %d", c.attempts)
 			}
 			if len(c.sources) != 1 || c.sources[0].ID != "original" || c.sources[0].Title != "test" || len(c.labelsBySource["original"]) != 1 {
