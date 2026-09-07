@@ -81,9 +81,9 @@ func TestResolveSelectorIDs(t *testing.T) {
 			name:     "label-ids include unioned with label-match",
 			opts:     selectorOptions{LabelMatch: "^Testing$", LabelIDs: "lbl-rpc"},
 			labelIDs: []string{"lbl-rpc"},
-			// Order follows the labels slice (Testing first, then RPC); src-impl-1
-			// appears once via the dedup map even though both labels include it.
-			want: []string{"src-impl-1", "src-impl-2", "src-spec-2"},
+			// Source snapshot order wins over label order; duplicate membership
+			// still yields one source.
+			want: []string{"src-spec-2", "src-impl-1", "src-impl-2"},
 		},
 		{
 			name:    "label-exclude removes tagged sources",
@@ -115,7 +115,7 @@ func TestResolveSelectorIDs(t *testing.T) {
 			name:    "source-ids unioned with source-match",
 			opts:    selectorOptions{SourceIDs: "src-impl-2", SourceMatch: "^spec/"},
 			flagIDs: []string{"src-impl-2"},
-			want:    []string{"src-impl-2", "src-spec-1", "src-spec-2", "src-draft-1"},
+			want:    []string{"src-spec-1", "src-spec-2", "src-impl-2", "src-draft-1"},
 		},
 		{
 			name: "exclusions only with empty include list still returns all-minus",

@@ -18,7 +18,6 @@ func TestSelectorShapeErrorsBeforeRPC(t *testing.T) {
 		{"mixed", selectorOptions{SourceMatch: "foo", LabelMatch: "bar"}},
 		{"invalid mode", selectorOptions{Mode: "bogus", SourceIDs: "s"}},
 		{"mode alone", selectorOptions{Mode: "union"}},
-		{"intersect unavailable", selectorOptions{Mode: "intersect", SourceIDs: "s"}},
 		{"invalid regex", selectorOptions{SourceMatch: "["}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

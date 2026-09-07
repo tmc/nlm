@@ -288,10 +288,10 @@ checks this boundary; direct library callers retain the empty-means-all API.
 | `decodeSlidesCreate` | Slide deck sources |
 | `decodeSourceGuide` | Source guides selected by flags |
 
-Mixed source and label includes require an explicit `--selector-mode=union`.
-This permanently requests the union of active include dimensions; an omitted
-dimension never widens that union to all sources. `intersect` is reserved but
-not yet accepted. Invalid modes and mixed includes without a mode fail before
+Mixed source and label includes require an explicit `--selector-mode=union|intersect`.
+Explicit `union` permanently requests the union of active include dimensions;
+an omitted dimension never widens that union to all sources. `intersect`
+requires matches in both dimensions. Filters within a dimension OR together. Invalid modes and mixed includes without a mode fail before
 any RPC. Positional source-guide IDs cannot be combined with selectors.
 
 `--label-none` selects sources with no label and unions with other label
@@ -301,3 +301,8 @@ select labeled sources. Repeated scalar regex flags are last-wins. At most one
 input may read stdin, including prompt files and report topics. Invalid regexes
 fail before network reads. Unknown caller-supplied IDs are errors, including
 partly unknown lists; stale source IDs in server label membership are ignored.
+
+Report suggestion IDs are added after resolution, then all exclusions apply
+again using the same source and label snapshot. Suggestions cannot rescue an
+empty selector or restore an excluded source. Results follow notebook source
+order for the snapshot used by the command.

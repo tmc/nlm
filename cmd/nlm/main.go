@@ -2434,10 +2434,6 @@ func createReport(c *notebooklm.Client, notebookID, reportType string, extra []s
 	if err != nil {
 		return err
 	}
-	flagIDs, err := selected.sourceIDs()
-	if err != nil {
-		return err
-	}
 
 	// Try to match reportType against suggestions for targeted source_ids.
 	var suggestionIDs []string
@@ -2455,7 +2451,10 @@ func createReport(c *notebooklm.Client, notebookID, reportType string, extra []s
 		}
 	}
 
-	sourceIDs := unionIDs(flagIDs, suggestionIDs)
+	sourceIDs, err := selected.withSuggestions(suggestionIDs)
+	if err != nil {
+		return err
+	}
 
 	artifactID, err := c.CreateReport(context.Background(), notebookID, reportType, description, instructions, sourceIDs...)
 	if err != nil {
@@ -2474,10 +2473,6 @@ func generateReport(c *notebooklm.Client, notebookID string, opts reportOptions)
 	}
 
 	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
-	if err != nil {
-		return err
-	}
-	flagIDs, err := selected.sourceIDs()
 	if err != nil {
 		return err
 	}
@@ -2518,10 +2513,14 @@ func generateReport(c *notebooklm.Client, notebookID string, opts reportOptions)
 		if opts.Prompt == "" && s.GetPrompt() != "" {
 			prompt = s.GetPrompt()
 		}
+		sourceIDs, err := selected.withSuggestions(reportSuggestionSourceIDs(s))
+		if err != nil {
+			return err
+		}
 		chatReq := notebooklm.ChatRequest{
 			ProjectID: notebookID,
 			Prompt:    prompt,
-			SourceIDs: unionIDs(flagIDs, reportSuggestionSourceIDs(s)),
+			SourceIDs: sourceIDs,
 		}
 		res, err := streamChatResponse(c, chatReq, opts.Render)
 		if err != nil {

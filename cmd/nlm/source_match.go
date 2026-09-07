@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -14,6 +15,8 @@ import (
 type selection struct {
 	Explicit bool
 	IDs      []string
+	excluded map[string]bool
+	known    map[string]bool
 }
 
 // sourceIDs adapts a CLI selection to the library's empty-means-all contract.
@@ -25,6 +28,25 @@ func (s selection) sourceIDs() ([]string, error) {
 		return nil, fmt.Errorf("selectors resolved to empty set")
 	}
 	return s.IDs, nil
+}
+
+// withSuggestions composes report inputs using the same exclusion snapshot
+// as resolution. Suggestion IDs cannot restore a source explicitly excluded.
+func (s selection) withSuggestions(ids []string) ([]string, error) {
+	if _, err := s.sourceIDs(); err != nil {
+		return nil, err
+	}
+	out := selection{Explicit: s.Explicit}
+	for _, id := range unionIDs(s.IDs, ids) {
+		if s.excluded[id] || (s.known != nil && !s.known[id]) {
+			continue
+		}
+		out.IDs = append(out.IDs, id)
+	}
+	if !s.Explicit {
+		return out.IDs, nil
+	}
+	return out.sourceIDs()
 }
 
 type selectorOptions struct {
@@ -87,14 +109,12 @@ func (opts selectorOptions) validate() error {
 		return fmt.Errorf("--selector-mode requires selectors")
 	}
 	switch opts.Mode {
-	case "", "union":
-	case "intersect":
-		return fmt.Errorf("--selector-mode=intersect is not available yet")
+	case "", "union", "intersect":
 	default:
 		return fmt.Errorf("invalid --selector-mode %q", opts.Mode)
 	}
 	if opts.Mode == "" && (opts.SourceIDs != "" || opts.SourceMatch != "") && (opts.LabelIDs != "" || opts.LabelMatch != "" || opts.LabelNone) {
-		return fmt.Errorf("mixed source and label includes require --selector-mode: union combines matches; intersect narrows to both (not available yet)")
+		return fmt.Errorf("mixed source and label includes require --selector-mode: union combines matches; intersect narrows to both")
 	}
 	for _, flag := range []struct{ name, expr string }{
 		{"--source-match", opts.SourceMatch}, {"--source-exclude", opts.SourceExclude},
@@ -166,36 +186,25 @@ type sourceSummary struct {
 	Title string
 }
 
-// resolveSelectorIDs is the pure resolution logic. statusW receives the
-// human-readable explanations (one line per active selector). Returns the
-// final ID list with order-preserved de-duplication.
-func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs, flagLabelExcludeIDs []string, sources []sourceSummary, labels []notebooklm.Label, statusW interface{ Write([]byte) (int, error) }) (selection, error) {
+// resolveSelectorIDs resolves against one source and label snapshot. Results
+// follow source order, and only a final empty selection is an error.
+func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs, flagLabelExcludeIDs []string, sources []sourceSummary, labels []notebooklm.Label, statusW io.Writer) (selection, error) {
 	if err := opts.validate(); err != nil {
 		return selection{}, err
 	}
 	if opts.empty() {
 		return selection{}, nil
 	}
-	sourceMatchRE, err := compileSelectorRegex("--source-match", opts.SourceMatch)
-	if err != nil {
-		return selection{}, err
-	}
-	sourceExcludeRE, err := compileSelectorRegex("--source-exclude", opts.SourceExclude)
-	if err != nil {
-		return selection{}, err
-	}
-	labelMatchRE, err := compileSelectorRegex("--label-match", opts.LabelMatch)
-	if err != nil {
-		return selection{}, err
-	}
-	labelExcludeRE, err := compileSelectorRegex("--label-exclude", opts.LabelExclude)
-	if err != nil {
-		return selection{}, err
-	}
+	sourceMatchRE, _ := compileSelectorRegex("--source-match", opts.SourceMatch)
+	sourceExcludeRE, _ := compileSelectorRegex("--source-exclude", opts.SourceExclude)
+	labelMatchRE, _ := compileSelectorRegex("--label-match", opts.LabelMatch)
+	labelExcludeRE, _ := compileSelectorRegex("--label-exclude", opts.LabelExclude)
 
 	knownSources := make(map[string]bool)
 	for _, source := range sources {
-		knownSources[source.ID] = true
+		if source.ID != "" {
+			knownSources[source.ID] = true
+		}
 	}
 	knownLabels := make(map[string]bool)
 	for _, label := range labels {
@@ -221,52 +230,26 @@ func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs, flagLabelEx
 		}
 	}
 
-	includeAll := opts.SourceIDs == "" &&
-		opts.LabelIDs == "" &&
-		sourceMatchRE == nil &&
-		labelMatchRE == nil && !opts.LabelNone
-	// When only excludes are set, the include set is "all known sources".
-	hasOnlyExcludes := includeAll && (sourceExcludeRE != nil || labelExcludeRE != nil || opts.LabelExcludeIDs != "")
-
-	includeSet := make(map[string]bool)
-	var includeOrder []string
-	add := func(id string) {
-		if id == "" || !knownSources[id] || includeSet[id] {
-			return
-		}
-		includeSet[id] = true
-		includeOrder = append(includeOrder, id)
+	sourceActive := opts.SourceIDs != "" || opts.SourceMatch != ""
+	labelActive := opts.LabelIDs != "" || opts.LabelMatch != "" || opts.LabelNone
+	sourceSet := make(map[string]bool)
+	for _, id := range flagIDs {
+		sourceSet[id] = true
 	}
-
-	if hasOnlyExcludes {
-		for _, s := range sources {
-			add(s.ID)
-		}
-	} else if !includeAll {
-		for _, id := range flagIDs {
-			add(id)
-		}
-		if sourceMatchRE != nil {
-			matched := matchSources(sources, sourceMatchRE)
-
-			fmt.Fprintf(statusW, "--source-match %q: %d source(s)\n", opts.SourceMatch, len(matched))
-			for _, m := range matched {
-				fmt.Fprintf(statusW, "  %s\n", m.Title)
-				add(m.ID)
-			}
-		}
-		if len(flagLabelIDs) > 0 || labelMatchRE != nil {
-			labelHits := matchLabels(labels, flagLabelIDs, labelMatchRE)
-
-			for _, l := range labelHits {
-				fmt.Fprintf(statusW, "label %q (%s): %d source(s)\n", l.Name, l.LabelID, len(l.SourceIDs))
-				for _, id := range l.SourceIDs {
-					add(id)
-				}
-			}
+	if sourceMatchRE != nil {
+		matched := matchSources(sources, sourceMatchRE)
+		fmt.Fprintf(statusW, "--source-match %q: %d source(s)\n", opts.SourceMatch, len(matched))
+		for _, source := range matched {
+			sourceSet[source.ID] = true
 		}
 	}
-
+	labelSet := make(map[string]bool)
+	for _, label := range matchLabels(labels, flagLabelIDs, labelMatchRE) {
+		fmt.Fprintf(statusW, "label %q (%s): %d source(s)\n", label.Name, label.LabelID, len(label.SourceIDs))
+		for _, id := range label.SourceIDs {
+			labelSet[id] = true
+		}
+	}
 	if opts.LabelNone {
 		labeled := make(map[string]bool)
 		for _, label := range labels {
@@ -276,46 +259,40 @@ func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs, flagLabelEx
 		}
 		for _, source := range sources {
 			if !labeled[source.ID] {
-				add(source.ID)
+				labelSet[source.ID] = true
 			}
 		}
 	}
-
-	excludeIDs := make(map[string]bool)
+	excluded := make(map[string]bool)
 	if sourceExcludeRE != nil {
-		excluded := matchSources(sources, sourceExcludeRE)
-		fmt.Fprintf(statusW, "--source-exclude %q: %d source(s)\n", opts.SourceExclude, len(excluded))
-		for _, e := range excluded {
-			excludeIDs[e.ID] = true
+		matches := matchSources(sources, sourceExcludeRE)
+		fmt.Fprintf(statusW, "--source-exclude %q: %d source(s)\n", opts.SourceExclude, len(matches))
+		for _, source := range matches {
+			excluded[source.ID] = true
 		}
 	}
-	if labelExcludeRE != nil || len(flagLabelExcludeIDs) > 0 {
-		excludedLabels := matchLabels(labels, flagLabelExcludeIDs, labelExcludeRE)
-		for _, l := range excludedLabels {
-			fmt.Fprintf(statusW, "--label-exclude %q matched label %q: %d source(s)\n", opts.LabelExclude, l.Name, len(l.SourceIDs))
-			for _, id := range l.SourceIDs {
-				excludeIDs[id] = true
-			}
+	for _, label := range matchLabels(labels, flagLabelExcludeIDs, labelExcludeRE) {
+		for _, id := range label.SourceIDs {
+			excluded[id] = true
 		}
 	}
-
-	if len(excludeIDs) == 0 {
-		if len(includeOrder) == 0 {
-			return selection{}, fmt.Errorf("selectors resolved to empty set")
+	result := selection{Explicit: true, known: knownSources, excluded: excluded}
+	seen := make(map[string]bool)
+	for _, source := range sources {
+		id := source.ID
+		include := (!sourceActive || sourceSet[id]) && (!labelActive || labelSet[id])
+		if opts.Mode == "union" && (sourceActive || labelActive) {
+			include = sourceSet[id] || labelSet[id]
 		}
-		return selection{Explicit: true, IDs: includeOrder}, nil
-	}
-	out := make([]string, 0, len(includeOrder))
-	for _, id := range includeOrder {
-		if excludeIDs[id] {
-			continue
+		if include && knownSources[id] && !excluded[id] && !seen[id] {
+			result.IDs = append(result.IDs, id)
+			seen[id] = true
 		}
-		out = append(out, id)
 	}
-	if len(out) == 0 {
-		return selection{}, fmt.Errorf("selectors resolved to empty set after exclusions")
+	if len(result.IDs) == 0 {
+		return selection{}, fmt.Errorf("selectors resolved to empty set after exclusions (source IDs %q, source match %q, label IDs %q, label match %q, label-none %t, source exclude %q, label exclude %q, label exclude IDs %q)", opts.SourceIDs, opts.SourceMatch, opts.LabelIDs, opts.LabelMatch, opts.LabelNone, opts.SourceExclude, opts.LabelExclude, opts.LabelExcludeIDs)
 	}
-	return selection{Explicit: true, IDs: out}, nil
+	return result, nil
 }
 
 func compileSelectorRegex(flag, expr string) (*regexp.Regexp, error) {
@@ -353,25 +330,4 @@ func matchLabels(labels []notebooklm.Label, includeIDs []string, re *regexp.Rege
 		}
 	}
 	return out
-}
-
-func listAvailableSources(w interface{ Write([]byte) (int, error) }, flag, expr string, sources []sourceSummary) {
-	fmt.Fprintf(w, "%s %q matched no sources. Available titles:\n", flag, expr)
-	for _, s := range sources {
-		fmt.Fprintf(w, "  %s\n", s.Title)
-	}
-}
-
-func listAvailableLabels(w interface{ Write([]byte) (int, error) }, opts selectorOptions, labels []notebooklm.Label) {
-	switch {
-	case opts.LabelMatch != "" && len(opts.LabelIDs) > 0:
-		fmt.Fprintf(w, "--label-ids/--label-match matched no labels. Available labels:\n")
-	case opts.LabelMatch != "":
-		fmt.Fprintf(w, "--label-match %q matched no labels. Available labels:\n", opts.LabelMatch)
-	default:
-		fmt.Fprintf(w, "--label-ids matched no labels. Available labels:\n")
-	}
-	for _, l := range labels {
-		fmt.Fprintf(w, "  %s (%s)\n", l.Name, l.LabelID)
-	}
 }

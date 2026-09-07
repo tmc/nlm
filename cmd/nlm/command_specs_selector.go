@@ -17,7 +17,7 @@ type sourceGuideArgs struct {
 
 func selectorFlagSpecs() []flagSpec {
 	return []flagSpec{
-		{Name: "selector-mode", Value: "mode", Description: "include combination: union (intersect not yet available)"},
+		{Name: "selector-mode", Value: "mode", Description: "include combination: union or intersect"},
 		{Name: "source-ids", Value: "ids", Description: "source IDs"},
 		{Name: "source-match", Value: "regexp", Description: "source title match"},
 		{Name: "source-exclude", Value: "regexp", Description: "source exclusion"},
