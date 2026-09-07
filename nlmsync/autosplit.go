@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/tmc/nlm/internal/batchexecute"
@@ -113,7 +112,7 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 			return fmt.Errorf("split %q: %w", name, err)
 		}
 		for i, part := range parts {
-			if err := visit(fmt.Sprintf("%s (split%d)", name, i+1), part); err != nil {
+			if err := visit(splitChildName(name, i+1), part); err != nil {
 				return err
 			}
 		}
@@ -191,11 +190,14 @@ func splitArchive(data []byte) ([][]byte, error) {
 }
 
 func splitDescendant(title, parent string) bool {
-	for strings.HasSuffix(title, " (split1)") || strings.HasSuffix(title, " (split2)") {
-		title = title[:len(title)-len(" (split1)")]
-		if title == parent {
+	for {
+		trimmed, ok := trimSplitSuffix(title)
+		if !ok {
+			return false
+		}
+		if trimmed == parent {
 			return true
 		}
+		title = trimmed
 	}
-	return false
 }

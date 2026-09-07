@@ -206,7 +206,7 @@ func TestAutoSplitPartialRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := newRejectingClient()
-	c.rejectName = "test (split2)"
+	c.rejectName = "test (pt1) (b)"
 	opts := Options{Name: "test", AutoSplit: true}
 	if err := Run(context.Background(), c, "nb", []string{path}, opts, io.Discard); err == nil {
 		t.Fatal("expected failure")

@@ -781,16 +781,17 @@ func isPartOf(title, name string) bool {
 	if title == name {
 		return true
 	}
-	for strings.HasSuffix(title, " (split1)") || strings.HasSuffix(title, " (split2)") {
-		title = title[:len(title)-len(" (split1)")]
+	for {
+		trimmed, ok := trimSplitSuffix(title)
+		if !ok {
+			break
+		}
+		title = trimmed
 		if title == name {
 			return true
 		}
 	}
 
-	if title == name {
-		return true
-	}
 	if !strings.HasPrefix(title, name+" (pt") || !strings.HasSuffix(title, ")") {
 		return false
 	}
