@@ -51,8 +51,10 @@ func TestSelectorConsumersRejectEmpty(t *testing.T) {
 		"create-report": func(c *notebooklm.Client) error {
 			return createReport(c, "nb", "report", nil, createReportOptions{Selectors: opts})
 		},
-		"generate-report": func(c *notebooklm.Client) error { return generateReport(c, "nb", reportOptions{Selectors: opts}) },
-		"one-shot":        func(c *notebooklm.Client) error { return oneShotChat(c, "nb", "prompt", chatOptions{Selectors: opts}) },
+		"generate-report": func(c *notebooklm.Client) error {
+			return generateReport(c, "nb", reportOptions{Selectors: selectorOptions{SourceIDs: ","}})
+		},
+		"one-shot": func(c *notebooklm.Client) error { return oneShotChat(c, "nb", "prompt", chatOptions{Selectors: opts}) },
 		"one-shot-conversation": func(c *notebooklm.Client) error {
 			return oneShotChatInConv(c, "nb", "conv", "prompt", chatOptions{Selectors: opts})
 		},

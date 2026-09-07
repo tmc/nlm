@@ -21,6 +21,8 @@ func selectorFlagSpecs() []flagSpec {
 		{Name: "source-ids", Value: "ids", Description: "source IDs"},
 		{Name: "source-match", Value: "regexp", Description: "source title match"},
 		{Name: "source-exclude", Value: "regexp", Description: "source exclusion"},
+		{Name: "label-none", Description: "include sources carrying no label"},
+		{Name: "label-exclude-ids", Value: "ids", Description: "exclude by label IDs (or stdin with -)"},
 		{Name: "label-ids", Value: "ids", Description: "label IDs"},
 		{Name: "label-match", Value: "regexp", Description: "label name match"},
 		{Name: "label-exclude", Value: "regexp", Description: "label exclusion"},
@@ -30,6 +32,8 @@ func selectorFlagSpecs() []flagSpec {
 func decodeSelectorOptions(parsed parsedCommand) selectorOptions {
 	opts := selectorOptionsFromGlobals(parsed.globals)
 	opts.Mode = parsedStringFlag(parsed, "selector-mode", "")
+	opts.LabelNone, _ = parsedBoolFlag(parsed, "label-none", false)
+	opts.LabelExcludeIDs = parsedStringFlag(parsed, "label-exclude-ids", "")
 	opts.SourceIDs = parsedStringFlag(parsed, "source-ids", opts.SourceIDs)
 	opts.SourceMatch = parsedStringFlag(parsed, "source-match", opts.SourceMatch)
 	opts.SourceExclude = parsedStringFlag(parsed, "source-exclude", opts.SourceExclude)

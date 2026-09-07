@@ -199,6 +199,7 @@ func compareCommandParityPhase1(t *testing.T, baseline, current commandParityGol
 	}
 	for i := range baseline.Commands {
 		got, want := current.Commands[i], baseline.Commands[i]
+		got.Help = strings.ReplaceAll(got.Help, "  --label-none            Include sources carrying no label\n  --label-exclude-ids <ids> Exclude by label IDs (or - for stdin)\n  Regex flags are last-wins; use --label-match . to select labeled sources.\n", "")
 		got.Help = strings.ReplaceAll(got.Help, "  --selector-mode <mode>  Mixed includes require union; intersect is not yet available\n", "")
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
@@ -272,6 +273,7 @@ func compareCommandParityPhase2(t *testing.T, baseline, current commandParityGol
 	}
 	for i := range baseline.Commands {
 		got, want := current.Commands[i], baseline.Commands[i]
+		got.Help = strings.ReplaceAll(got.Help, "  --label-none            Include sources carrying no label\n  --label-exclude-ids <ids> Exclude by label IDs (or - for stdin)\n  Regex flags are last-wins; use --label-match . to select labeled sources.\n", "")
 		got.Help = strings.ReplaceAll(got.Help, "  --selector-mode <mode>  Mixed includes require union; intersect is not yet available\n", "")
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
@@ -324,6 +326,7 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 	}
 	for i := range baseline.Commands {
 		got, want := current.Commands[i], baseline.Commands[i]
+		got.Help = strings.ReplaceAll(got.Help, "  --label-none            Include sources carrying no label\n  --label-exclude-ids <ids> Exclude by label IDs (or - for stdin)\n  Regex flags are last-wins; use --label-match . to select labeled sources.\n", "")
 		got.Help = strings.ReplaceAll(got.Help, "  --selector-mode <mode>  Mixed includes require union; intersect is not yet available\n", "")
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)
@@ -378,6 +381,7 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 	}
 	for i := range baseline.Commands {
 		got, want := current.Commands[i], baseline.Commands[i]
+		got.Help = strings.ReplaceAll(got.Help, "  --label-none            Include sources carrying no label\n  --label-exclude-ids <ids> Exclude by label IDs (or - for stdin)\n  Regex flags are last-wins; use --label-match . to select labeled sources.\n", "")
 		got.Help = strings.ReplaceAll(got.Help, "  --selector-mode <mode>  Mixed includes require union; intersect is not yet available\n", "")
 		if got.Path != want.Path {
 			t.Fatalf("command %d path changed: got %q, want %q", i, got.Path, want.Path)

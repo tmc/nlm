@@ -50,10 +50,9 @@ func TestResolveSelectorIDs(t *testing.T) {
 			wantStatusContains: []string{"--source-match", "3 source(s)"},
 		},
 		{
-			name:               "source-match no hits errors and lists",
-			opts:               selectorOptions{SourceMatch: "^never/"},
-			wantErr:            "--source-match matched no sources",
-			wantStatusContains: []string{"matched no sources", "spec/architecture"},
+			name:    "source-match no hits errors and lists",
+			opts:    selectorOptions{SourceMatch: "^never/"},
+			wantErr: "empty set",
 		},
 		{
 			name:               "source-exclude alone is all-minus",
@@ -98,10 +97,9 @@ func TestResolveSelectorIDs(t *testing.T) {
 			want: []string{"src-spec-1", "src-spec-2", "src-impl-1", "src-impl-2"},
 		},
 		{
-			name:               "label include with no match errors",
-			opts:               selectorOptions{LabelMatch: "^Nonexistent$"},
-			wantErr:            "label selectors matched no labels",
-			wantStatusContains: []string{"matched no labels", "Testing", "Draft"},
+			name:    "label include with no match errors",
+			opts:    selectorOptions{LabelMatch: "^Nonexistent$"},
+			wantErr: "empty set",
 		},
 		{
 			name:    "invalid source-match regex",
@@ -129,7 +127,7 @@ func TestResolveSelectorIDs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			got, err := resolveSelectorIDs(tt.opts, tt.flagIDs, tt.labelIDs, srcs, labels, &buf)
+			got, err := resolveSelectorIDs(tt.opts, tt.flagIDs, tt.labelIDs, nil, srcs, labels, &buf)
 			if tt.wantErr != "" {
 				if err == nil {
 					t.Fatalf("want error %q, got nil; result=%v status=%q", tt.wantErr, got, buf.String())

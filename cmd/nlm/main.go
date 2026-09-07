@@ -2467,6 +2467,11 @@ func createReport(c *notebooklm.Client, notebookID, reportType string, extra []s
 }
 
 func generateReport(c *notebooklm.Client, notebookID string, opts reportOptions) error {
+	if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice == 0 {
+		if err := opts.Selectors.validateStdin(true); err != nil {
+			return err
+		}
+	}
 
 	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {

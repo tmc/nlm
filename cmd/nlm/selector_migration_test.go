@@ -54,7 +54,7 @@ func TestSelectorUnionActiveDimensions(t *testing.T) {
 		{"excludes", selectorOptions{Mode: "union", SourceExclude: "other"}, []string{"s1", "s2"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := resolveSelectorIDs(tt.opts, nil, nil, sources, labels, io.Discard)
+			got, err := resolveSelectorIDs(tt.opts, nil, nil, nil, sources, labels, io.Discard)
 			if err != nil || !reflect.DeepEqual(got.IDs, tt.want) {
 				t.Fatalf("got %+v, %v; want %v", got, err, tt.want)
 			}

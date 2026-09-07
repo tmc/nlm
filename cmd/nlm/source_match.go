@@ -28,13 +28,15 @@ func (s selection) sourceIDs() ([]string, error) {
 }
 
 type selectorOptions struct {
-	Mode          string
-	SourceIDs     string
-	SourceMatch   string
-	SourceExclude string
-	LabelIDs      string
-	LabelMatch    string
-	LabelExclude  string
+	Mode            string
+	LabelNone       bool
+	LabelExcludeIDs string
+	SourceIDs       string
+	SourceMatch     string
+	SourceExclude   string
+	LabelIDs        string
+	LabelMatch      string
+	LabelExclude    string
 }
 
 func selectorOptionsFromGlobals(globals globalOptions) selectorOptions {
@@ -49,7 +51,7 @@ func selectorOptionsFromGlobals(globals globalOptions) selectorOptions {
 }
 
 func (opts selectorOptions) empty() bool {
-	return opts.Mode == "" && opts.SourceIDs == "" &&
+	return !opts.LabelNone && opts.LabelExcludeIDs == "" && opts.Mode == "" && opts.SourceIDs == "" &&
 		opts.SourceMatch == "" &&
 		opts.SourceExclude == "" &&
 		opts.LabelIDs == "" &&
@@ -57,8 +59,28 @@ func (opts selectorOptions) empty() bool {
 		opts.LabelExclude == ""
 }
 
+// validateStdin reserves stdin for at most one input before any reader runs.
+func (opts selectorOptions) validateStdin(other bool) error {
+	n := 0
+	if other {
+		n++
+	}
+	for _, value := range []string{opts.SourceIDs, opts.LabelIDs, opts.LabelExcludeIDs} {
+		if value == "-" {
+			n++
+		}
+	}
+	if n > 1 {
+		return fmt.Errorf("at most one stdin consumer is allowed")
+	}
+	return nil
+}
+
 // validate checks input shape before stdin or RPCs are touched.
 func (opts selectorOptions) validate() error {
+	if err := opts.validateStdin(false); err != nil {
+		return err
+	}
 	withoutMode := opts
 	withoutMode.Mode = ""
 	if opts.Mode != "" && withoutMode.empty() {
@@ -71,7 +93,7 @@ func (opts selectorOptions) validate() error {
 	default:
 		return fmt.Errorf("invalid --selector-mode %q", opts.Mode)
 	}
-	if opts.Mode == "" && (opts.SourceIDs != "" || opts.SourceMatch != "") && (opts.LabelIDs != "" || opts.LabelMatch != "") {
+	if opts.Mode == "" && (opts.SourceIDs != "" || opts.SourceMatch != "") && (opts.LabelIDs != "" || opts.LabelMatch != "" || opts.LabelNone) {
 		return fmt.Errorf("mixed source and label includes require --selector-mode: union combines matches; intersect narrows to both (not available yet)")
 	}
 	for _, flag := range []struct{ name, expr string }{
@@ -98,8 +120,17 @@ func resolveSourceSelectorsWithOptions(c *notebooklm.Client, notebookID string, 
 		return selection{}, fmt.Errorf("--label-ids: %w", err)
 	}
 
-	needsLabels := len(flagLabelIDs) > 0 || opts.LabelMatch != "" || opts.LabelExclude != ""
-	needsSources := opts.SourceMatch != "" || opts.SourceExclude != "" || needsLabels
+	flagLabelExcludeIDs, err := resolveIDList(opts.LabelExcludeIDs)
+	if err != nil {
+		return selection{}, fmt.Errorf("--label-exclude-ids: %w", err)
+	}
+	// An empty explicit ID input alone cannot select anything, even on a
+	// nonempty notebook. Reject before fetching the source universe.
+	if opts.SourceIDs != "" && len(flagIDs) == 0 && opts.SourceMatch == "" && opts.LabelIDs == "" && opts.LabelMatch == "" && !opts.LabelNone {
+		return selection{}, fmt.Errorf("--source-ids: selectors resolved to empty set")
+	}
+	needsLabels := opts.LabelIDs != "" || opts.LabelMatch != "" || opts.LabelExclude != "" || opts.LabelExcludeIDs != "" || opts.LabelNone
+	needsSources := !opts.empty()
 
 	var labels []notebooklm.Label
 	var sources []sourceSummary
@@ -124,7 +155,7 @@ func resolveSourceSelectorsWithOptions(c *notebooklm.Client, notebookID string, 
 		labels = ls
 	}
 
-	return resolveSelectorIDs(opts, flagIDs, flagLabelIDs, sources, labels, os.Stderr)
+	return resolveSelectorIDs(opts, flagIDs, flagLabelIDs, flagLabelExcludeIDs, sources, labels, os.Stderr)
 }
 
 // sourceSummary is the projection of a source needed by selector resolution.
@@ -138,7 +169,7 @@ type sourceSummary struct {
 // resolveSelectorIDs is the pure resolution logic. statusW receives the
 // human-readable explanations (one line per active selector). Returns the
 // final ID list with order-preserved de-duplication.
-func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, sources []sourceSummary, labels []notebooklm.Label, statusW interface{ Write([]byte) (int, error) }) (selection, error) {
+func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs, flagLabelExcludeIDs []string, sources []sourceSummary, labels []notebooklm.Label, statusW interface{ Write([]byte) (int, error) }) (selection, error) {
 	if err := opts.validate(); err != nil {
 		return selection{}, err
 	}
@@ -162,17 +193,45 @@ func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, so
 		return selection{}, err
 	}
 
+	knownSources := make(map[string]bool)
+	for _, source := range sources {
+		knownSources[source.ID] = true
+	}
+	knownLabels := make(map[string]bool)
+	for _, label := range labels {
+		knownLabels[label.LabelID] = true
+	}
+	for _, input := range []struct {
+		name  string
+		ids   []string
+		known map[string]bool
+	}{
+		{"--source-ids", flagIDs, knownSources},
+		{"--label-ids", flagLabelIDs, knownLabels},
+		{"--label-exclude-ids", flagLabelExcludeIDs, knownLabels},
+	} {
+		var unknown []string
+		for _, id := range input.ids {
+			if !input.known[id] {
+				unknown = append(unknown, id)
+			}
+		}
+		if len(unknown) > 0 {
+			return selection{}, fmt.Errorf("%s: unknown IDs: %s", input.name, strings.Join(unknown, ", "))
+		}
+	}
+
 	includeAll := opts.SourceIDs == "" &&
 		opts.LabelIDs == "" &&
 		sourceMatchRE == nil &&
-		labelMatchRE == nil
+		labelMatchRE == nil && !opts.LabelNone
 	// When only excludes are set, the include set is "all known sources".
-	hasOnlyExcludes := includeAll && (sourceExcludeRE != nil || labelExcludeRE != nil)
+	hasOnlyExcludes := includeAll && (sourceExcludeRE != nil || labelExcludeRE != nil || opts.LabelExcludeIDs != "")
 
 	includeSet := make(map[string]bool)
 	var includeOrder []string
 	add := func(id string) {
-		if id == "" || includeSet[id] {
+		if id == "" || !knownSources[id] || includeSet[id] {
 			return
 		}
 		includeSet[id] = true
@@ -189,10 +248,7 @@ func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, so
 		}
 		if sourceMatchRE != nil {
 			matched := matchSources(sources, sourceMatchRE)
-			if len(matched) == 0 {
-				listAvailableSources(statusW, "--source-match", opts.SourceMatch, sources)
-				return selection{}, fmt.Errorf("--source-match matched no sources")
-			}
+
 			fmt.Fprintf(statusW, "--source-match %q: %d source(s)\n", opts.SourceMatch, len(matched))
 			for _, m := range matched {
 				fmt.Fprintf(statusW, "  %s\n", m.Title)
@@ -201,15 +257,26 @@ func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, so
 		}
 		if len(flagLabelIDs) > 0 || labelMatchRE != nil {
 			labelHits := matchLabels(labels, flagLabelIDs, labelMatchRE)
-			if len(labelHits) == 0 && (len(flagLabelIDs) > 0 || labelMatchRE != nil) {
-				listAvailableLabels(statusW, opts, labels)
-				return selection{}, fmt.Errorf("label selectors matched no labels")
-			}
+
 			for _, l := range labelHits {
 				fmt.Fprintf(statusW, "label %q (%s): %d source(s)\n", l.Name, l.LabelID, len(l.SourceIDs))
 				for _, id := range l.SourceIDs {
 					add(id)
 				}
+			}
+		}
+	}
+
+	if opts.LabelNone {
+		labeled := make(map[string]bool)
+		for _, label := range labels {
+			for _, id := range label.SourceIDs {
+				labeled[id] = true
+			}
+		}
+		for _, source := range sources {
+			if !labeled[source.ID] {
+				add(source.ID)
 			}
 		}
 	}
@@ -222,8 +289,8 @@ func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, so
 			excludeIDs[e.ID] = true
 		}
 	}
-	if labelExcludeRE != nil {
-		excludedLabels := matchLabels(labels, nil, labelExcludeRE)
+	if labelExcludeRE != nil || len(flagLabelExcludeIDs) > 0 {
+		excludedLabels := matchLabels(labels, flagLabelExcludeIDs, labelExcludeRE)
 		for _, l := range excludedLabels {
 			fmt.Fprintf(statusW, "--label-exclude %q matched label %q: %d source(s)\n", opts.LabelExclude, l.Name, len(l.SourceIDs))
 			for _, id := range l.SourceIDs {

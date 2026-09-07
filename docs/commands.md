@@ -293,3 +293,11 @@ This permanently requests the union of active include dimensions; an omitted
 dimension never widens that union to all sources. `intersect` is reserved but
 not yet accepted. Invalid modes and mixed includes without a mode fail before
 any RPC. Positional source-guide IDs cannot be combined with selectors.
+
+`--label-none` selects sources with no label and unions with other label
+includes. `--label-exclude-ids` excludes by label ID; `--label-exclude` remains
+a name regex. There is no `--label-exclude-none`; use `--label-match .` to
+select labeled sources. Repeated scalar regex flags are last-wins. At most one
+input may read stdin, including prompt files and report topics. Invalid regexes
+fail before network reads. Unknown caller-supplied IDs are errors, including
+partly unknown lists; stale source IDs in server label membership are ignored.

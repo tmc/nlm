@@ -463,6 +463,17 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 		parsed.flagError = flagError
 		for _, flag := range flagSpecs {
 			if flag.Name == "selector-mode" {
+				for _, name := range []string{"selector-mode", "source-ids", "source-match", "source-exclude", "label-ids", "label-match", "label-exclude", "label-exclude-ids"} {
+					if values := parsed.Flags[name]; len(values) > 0 && strings.TrimSpace(values[len(values)-1]) == "" {
+						return parsedCommand{}, fmt.Errorf("--%s requires a nonempty value", name)
+					}
+				}
+				if _, err := parsedBoolFlag(parsed, "label-none", false); err != nil {
+					return parsedCommand{}, err
+				}
+				if err := decodeSelectorOptions(parsed).validateStdin(parsedStringFlag(parsed, "prompt-file", globals.promptFile) == "-"); err != nil {
+					return parsedCommand{}, err
+				}
 				if err := decodeSelectorOptions(parsed).validate(); err != nil {
 					return parsedCommand{}, err
 				}
