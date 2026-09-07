@@ -1,0 +1,14 @@
+commit: 034026ac43866c61fbf43796dec7b9a9331f313b
+date: 2026-08-05T03:01:45-07:00
+agent: Codex
+model: GPT-6 (exact runtime identifier unavailable)
+codex: codex-cli 0.153.4
+claude: 2.1.257 (Claude Code)
+tty: not a tty
+pid: 72414
+ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+
+Rewritten from: a1904fc993e6275ec0fdd929d5966a12d3310e02
+Original local provenance:
+committed 2026-08-05 by claude-code (model claude-fable-5, tty not a tty
+n/a, pid 40395, ITERM_SESSION_ID=w1t2p11:E416C445-C94F-4A1A-AEB1-D470E9CD0E52)
