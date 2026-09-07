@@ -287,3 +287,9 @@ checks this boundary; direct library callers retain the empty-means-all API.
 | `appCreateCall` | App artifact sources, including mind maps |
 | `decodeSlidesCreate` | Slide deck sources |
 | `decodeSourceGuide` | Source guides selected by flags |
+
+Mixed source and label includes require an explicit `--selector-mode=union`.
+This permanently requests the union of active include dimensions; an omitted
+dimension never widens that union to all sources. `intersect` is reserved but
+not yet accepted. Invalid modes and mixed includes without a mode fail before
+any RPC. Positional source-guide IDs cannot be combined with selectors.

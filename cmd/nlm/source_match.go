@@ -28,6 +28,7 @@ func (s selection) sourceIDs() ([]string, error) {
 }
 
 type selectorOptions struct {
+	Mode          string
 	SourceIDs     string
 	SourceMatch   string
 	SourceExclude string
@@ -48,7 +49,7 @@ func selectorOptionsFromGlobals(globals globalOptions) selectorOptions {
 }
 
 func (opts selectorOptions) empty() bool {
-	return opts.SourceIDs == "" &&
+	return opts.Mode == "" && opts.SourceIDs == "" &&
 		opts.SourceMatch == "" &&
 		opts.SourceExclude == "" &&
 		opts.LabelIDs == "" &&
@@ -56,7 +57,38 @@ func (opts selectorOptions) empty() bool {
 		opts.LabelExclude == ""
 }
 
+// validate checks input shape before stdin or RPCs are touched.
+func (opts selectorOptions) validate() error {
+	withoutMode := opts
+	withoutMode.Mode = ""
+	if opts.Mode != "" && withoutMode.empty() {
+		return fmt.Errorf("--selector-mode requires selectors")
+	}
+	switch opts.Mode {
+	case "", "union":
+	case "intersect":
+		return fmt.Errorf("--selector-mode=intersect is not available yet")
+	default:
+		return fmt.Errorf("invalid --selector-mode %q", opts.Mode)
+	}
+	if opts.Mode == "" && (opts.SourceIDs != "" || opts.SourceMatch != "") && (opts.LabelIDs != "" || opts.LabelMatch != "") {
+		return fmt.Errorf("mixed source and label includes require --selector-mode: union combines matches; intersect narrows to both (not available yet)")
+	}
+	for _, flag := range []struct{ name, expr string }{
+		{"--source-match", opts.SourceMatch}, {"--source-exclude", opts.SourceExclude},
+		{"--label-match", opts.LabelMatch}, {"--label-exclude", opts.LabelExclude},
+	} {
+		if _, err := compileSelectorRegex(flag.name, flag.expr); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func resolveSourceSelectorsWithOptions(c *notebooklm.Client, notebookID string, opts selectorOptions) (selection, error) {
+	if err := opts.validate(); err != nil {
+		return selection{}, err
+	}
 	flagIDs, err := resolveIDList(opts.SourceIDs)
 	if err != nil {
 		return selection{}, fmt.Errorf("--source-ids: %w", err)
@@ -107,6 +139,9 @@ type sourceSummary struct {
 // human-readable explanations (one line per active selector). Returns the
 // final ID list with order-preserved de-duplication.
 func resolveSelectorIDs(opts selectorOptions, flagIDs, flagLabelIDs []string, sources []sourceSummary, labels []notebooklm.Label, statusW interface{ Write([]byte) (int, error) }) (selection, error) {
+	if err := opts.validate(); err != nil {
+		return selection{}, err
+	}
 	if opts.empty() {
 		return selection{}, nil
 	}

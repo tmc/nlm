@@ -2467,13 +2467,6 @@ func createReport(c *notebooklm.Client, notebookID, reportType string, extra []s
 }
 
 func generateReport(c *notebooklm.Client, notebookID string, opts reportOptions) error {
-	// Optionally set notebook instructions.
-	if opts.Instructions != "" {
-		fmt.Fprintf(os.Stderr, "Setting instructions...\n")
-		if err := c.SetInstructions(context.Background(), notebookID, opts.Instructions); err != nil {
-			return fmt.Errorf("set instructions: %w", err)
-		}
-	}
 
 	selected, err := resolveSourceSelectorsWithOptions(c, notebookID, opts.Selectors)
 	if err != nil {
@@ -2482,6 +2475,14 @@ func generateReport(c *notebooklm.Client, notebookID string, opts reportOptions)
 	flagIDs, err := selected.sourceIDs()
 	if err != nil {
 		return err
+	}
+
+	// Optionally set notebook instructions.
+	if opts.Instructions != "" {
+		fmt.Fprintf(os.Stderr, "Setting instructions...\n")
+		if err := c.SetInstructions(context.Background(), notebookID, opts.Instructions); err != nil {
+			return fmt.Errorf("set instructions: %w", err)
+		}
 	}
 
 	// Read suggestions from stdin or API.

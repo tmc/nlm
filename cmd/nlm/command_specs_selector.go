@@ -17,6 +17,7 @@ type sourceGuideArgs struct {
 
 func selectorFlagSpecs() []flagSpec {
 	return []flagSpec{
+		{Name: "selector-mode", Value: "mode", Description: "include combination: union (intersect not yet available)"},
 		{Name: "source-ids", Value: "ids", Description: "source IDs"},
 		{Name: "source-match", Value: "regexp", Description: "source title match"},
 		{Name: "source-exclude", Value: "regexp", Description: "source exclusion"},
@@ -28,6 +29,7 @@ func selectorFlagSpecs() []flagSpec {
 
 func decodeSelectorOptions(parsed parsedCommand) selectorOptions {
 	opts := selectorOptionsFromGlobals(parsed.globals)
+	opts.Mode = parsedStringFlag(parsed, "selector-mode", "")
 	opts.SourceIDs = parsedStringFlag(parsed, "source-ids", opts.SourceIDs)
 	opts.SourceMatch = parsedStringFlag(parsed, "source-match", opts.SourceMatch)
 	opts.SourceExclude = parsedStringFlag(parsed, "source-exclude", opts.SourceExclude)
@@ -87,6 +89,9 @@ func decodeSourceGuideArgs(parsed parsedCommand) (sourceGuideArgs, error) {
 	}
 	selectors := decodeSelectorOptions(parsed)
 	sourceIDs := append([]string(nil), positionals[1:]...)
+	if len(sourceIDs) > 0 && !selectors.empty() {
+		return sourceGuideArgs{}, fmt.Errorf("positional source IDs cannot be combined with selectors")
+	}
 	if len(sourceIDs) == 0 && selectors.empty() {
 		return sourceGuideArgs{}, fmt.Errorf("missing source ids or selectors")
 	}

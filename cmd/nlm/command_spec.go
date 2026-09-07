@@ -461,6 +461,14 @@ func parseCommandSpec(spec *commandSpec, surface *commandSurfaceSpec, args []str
 		parsed.raw = raw
 		parsed.flagOccurrences = occurrences
 		parsed.flagError = flagError
+		for _, flag := range flagSpecs {
+			if flag.Name == "selector-mode" {
+				if err := decodeSelectorOptions(parsed).validate(); err != nil {
+					return parsedCommand{}, err
+				}
+				break
+			}
+		}
 		valid := true
 		for _, constraint := range form.Constraints {
 			if err := constraint.Check(parsed); err != nil {
