@@ -107,16 +107,12 @@ func New{{.Service.GoName}}Client(authToken, cookies string, opts ...batchexecut
 
 // {{.GoName}} calls the {{.GoName}} RPC method.
 func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *{{$pkgName}}.{{.Input.GoIdent.GoName}}) (*{{if eq .Output.GoIdent.GoName "Empty"}}emptypb.Empty{{else}}{{$pkgName}}.{{.Output.GoIdent.GoName}}{{end}}, error) {
-	{{- if $rpcID }}
+	{{- if and $rpcID $argFormat }}
 	// Build the RPC call
 	call := rpc.Call{
 		ID: "{{$rpcID}}",
 		NotebookID: rpc.NotebookIDFromMessage(req),
-		{{- if $argFormat }}
 		Args: method.Encode{{.GoName}}Args(req),
-		{{- else }}
-		Args: []interface{}{}, // TODO: implement argument encoding
-		{{- end }}
 	}
 	
 	// Execute the RPC
@@ -136,6 +132,8 @@ func (c *{{$service.GoName}}Client) {{.GoName}}(ctx context.Context, req *{{$pkg
 	}
 	
 	return &result, nil
+	{{- else if $rpcID }}
+	return nil, fmt.Errorf("{{.GoName}}: argument format not defined in proto")
 	{{- else }}
 	// No RPC ID defined for this method
 	return nil, fmt.Errorf("{{.GoName}}: RPC ID not defined in proto")

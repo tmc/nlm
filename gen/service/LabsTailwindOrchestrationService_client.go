@@ -121,50 +121,12 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateArtifact(ctx context.Cont
 
 // RenameArtifact calls the RenameArtifact RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) RenameArtifact(ctx context.Context, req *notebooklmv1alpha1.RenameArtifactRequest) (*notebooklmv1alpha1.Artifact, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "rc3d8d",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("RenameArtifact: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.Artifact
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("RenameArtifact: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("RenameArtifact: argument format not defined in proto")
 }
 
 // DeleteArtifact calls the DeleteArtifact RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) DeleteArtifact(ctx context.Context, req *notebooklmv1alpha1.DeleteArtifactRequest) (*emptypb.Empty, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "V5N4be",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("DeleteArtifact: %w", err)
-	}
-
-	// Decode the response
-	var result emptypb.Empty
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("DeleteArtifact: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("DeleteArtifact: argument format not defined in proto")
 }
 
 // ListArtifacts calls the ListArtifacts RPC method.
@@ -409,26 +371,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RefreshSource(ctx context.Conte
 
 // CreateAudioOverview calls the CreateAudioOverview RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) CreateAudioOverview(ctx context.Context, req *notebooklmv1alpha1.CreateAudioOverviewRequest) (*notebooklmv1alpha1.Artifact, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "R7cb6c",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("CreateAudioOverview: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.Artifact
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("CreateAudioOverview: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("CreateAudioOverview: argument format not defined in proto")
 }
 
 // GetAudioOverview calls the GetAudioOverview RPC method.
@@ -481,26 +424,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteAudioOverview(ctx context
 
 // CreateVideoOverview calls the CreateVideoOverview RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) CreateVideoOverview(ctx context.Context, req *notebooklmv1alpha1.CreateVideoOverviewRequest) (*notebooklmv1alpha1.Artifact, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "R7cb6c",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("CreateVideoOverview: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.Artifact
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("CreateVideoOverview: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("CreateVideoOverview: argument format not defined in proto")
 }
 
 // CreateUniversalArtifact calls the CreateUniversalArtifact RPC method.
@@ -817,26 +741,7 @@ func (c *LabsTailwindOrchestrationServiceClient) RemoveRecentlyViewedProject(ctx
 
 // GenerateFreeFormStreamed calls the GenerateFreeFormStreamed RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GenerateFreeFormStreamed(ctx context.Context, req *notebooklmv1alpha1.GenerateFreeFormStreamedRequest) (*notebooklmv1alpha1.GenerateFreeFormStreamedResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "laWbsf",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("GenerateFreeFormStreamed: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.GenerateFreeFormStreamedResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("GenerateFreeFormStreamed: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("GenerateFreeFormStreamed: argument format not defined in proto")
 }
 
 // GenerateFreeFormStreamedWire calls the GenerateFreeFormStreamedWire RPC method.
@@ -1201,26 +1106,7 @@ func (c *LabsTailwindOrchestrationServiceClient) MutateAccount(ctx context.Conte
 
 // AddFileSource calls the AddFileSource RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) AddFileSource(ctx context.Context, req *notebooklmv1alpha1.AddFileSourceRequest) (*notebooklmv1alpha1.AddFileSourceResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "o4cbdc",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("AddFileSource: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.AddFileSourceResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("AddFileSource: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("AddFileSource: argument format not defined in proto")
 }
 
 // DeleteChatTurns calls the DeleteChatTurns RPC method.
@@ -1393,26 +1279,7 @@ func (c *LabsTailwindOrchestrationServiceClient) DeleteDeepResearch(ctx context.
 
 // BulkImportFromResearch calls the BulkImportFromResearch RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) BulkImportFromResearch(ctx context.Context, req *notebooklmv1alpha1.BulkImportFromResearchRequest) (*notebooklmv1alpha1.BulkImportFromResearchResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "LBwxtb",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("BulkImportFromResearch: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.BulkImportFromResearchResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("BulkImportFromResearch: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("BulkImportFromResearch: argument format not defined in proto")
 }
 
 // BulkImportFromResearchWire calls the BulkImportFromResearchWire RPC method.
@@ -1513,26 +1380,7 @@ func (c *LabsTailwindOrchestrationServiceClient) LogEvent(ctx context.Context, r
 
 // ReportContent calls the ReportContent RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) ReportContent(ctx context.Context, req *notebooklmv1alpha1.ReportContentRequest) (*notebooklmv1alpha1.ReportContentResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "OmVMXc",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("ReportContent: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.ReportContentResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("ReportContent: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("ReportContent: argument format not defined in proto")
 }
 
 // ReviseArtifact calls the ReviseArtifact RPC method.
@@ -1681,26 +1529,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpsertArtifactUserState(ctx con
 
 // GetArtifactUserState calls the GetArtifactUserState RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GetArtifactUserState(ctx context.Context, req *notebooklmv1alpha1.GetArtifactUserStateRequest) (*notebooklmv1alpha1.GetArtifactUserStateResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "ulBSjf",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("GetArtifactUserState: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.GetArtifactUserStateResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("GetArtifactUserState: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("GetArtifactUserState: argument format not defined in proto")
 }
 
 // CreateLabel calls the CreateLabel RPC method.
@@ -1825,26 +1654,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateArtifact(ctx context.Co
 
 // CancelDiscoverSourcesJob calls the CancelDiscoverSourcesJob RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) CancelDiscoverSourcesJob(ctx context.Context, req *notebooklmv1alpha1.CancelDiscoverSourcesJobRequest) (*emptypb.Empty, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "Zbrupe",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("CancelDiscoverSourcesJob: %w", err)
-	}
-
-	// Decode the response
-	var result emptypb.Empty
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("CancelDiscoverSourcesJob: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("CancelDiscoverSourcesJob: argument format not defined in proto")
 }
 
 // CancelGeneration calls the CancelGeneration RPC method.
@@ -1873,50 +1683,12 @@ func (c *LabsTailwindOrchestrationServiceClient) CancelGeneration(ctx context.Co
 
 // ExportToDrive calls the ExportToDrive RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) ExportToDrive(ctx context.Context, req *notebooklmv1alpha1.ExportToDriveRequest) (*notebooklmv1alpha1.ExportToDriveResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "Krh3pd",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("ExportToDrive: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.ExportToDriveResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("ExportToDrive: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("ExportToDrive: argument format not defined in proto")
 }
 
 // UpdateFeaturedNotebookStatus calls the UpdateFeaturedNotebookStatus RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) UpdateFeaturedNotebookStatus(ctx context.Context, req *notebooklmv1alpha1.UpdateFeaturedNotebookStatusRequest) (*emptypb.Empty, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "DemIHe",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("UpdateFeaturedNotebookStatus: %w", err)
-	}
-
-	// Decode the response
-	var result emptypb.Empty
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("UpdateFeaturedNotebookStatus: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("UpdateFeaturedNotebookStatus: argument format not defined in proto")
 }
 
 // ListModelOptions calls the ListModelOptions RPC method.
@@ -1969,26 +1741,7 @@ func (c *LabsTailwindOrchestrationServiceClient) UpdateProjectUserState(ctx cont
 
 // ExecuteWritingFunction calls the ExecuteWritingFunction RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) ExecuteWritingFunction(ctx context.Context, req *notebooklmv1alpha1.ExecuteWritingFunctionRequest) (*notebooklmv1alpha1.ExecuteWritingFunctionResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "likKIe",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("ExecuteWritingFunction: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.ExecuteWritingFunctionResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("ExecuteWritingFunction: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("ExecuteWritingFunction: argument format not defined in proto")
 }
 
 // ListExpertIntelligenceContent calls the ListExpertIntelligenceContent RPC method.
@@ -2041,26 +1794,7 @@ func (c *LabsTailwindOrchestrationServiceClient) GenerateAccessToken(ctx context
 
 // GetMagicView calls the GetMagicView RPC method.
 func (c *LabsTailwindOrchestrationServiceClient) GetMagicView(ctx context.Context, req *notebooklmv1alpha1.GetMagicViewRequest) (*notebooklmv1alpha1.GetMagicViewResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "rtY7md",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("GetMagicView: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.GetMagicViewResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("GetMagicView: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("GetMagicView: argument format not defined in proto")
 }
 
 // CopyProject calls the CopyProject RPC method.

@@ -120,24 +120,5 @@ func (c *LabsTailwindSharingServiceClient) ShareProject(ctx context.Context, req
 
 // CreateAccessRequest calls the CreateAccessRequest RPC method.
 func (c *LabsTailwindSharingServiceClient) CreateAccessRequest(ctx context.Context, req *notebooklmv1alpha1.CreateAccessRequestRequest) (*notebooklmv1alpha1.CreateAccessRequestResponse, error) {
-	// Build the RPC call
-	call := rpc.Call{
-		ID:         "n3dkHd",
-		NotebookID: rpc.NotebookIDFromMessage(req),
-		Args:       []interface{}{}, // TODO: implement argument encoding
-	}
-
-	// Execute the RPC
-	resp, err := c.rpcClient.Do(ctx, call)
-	if err != nil {
-		return nil, fmt.Errorf("CreateAccessRequest: %w", err)
-	}
-
-	// Decode the response
-	var result notebooklmv1alpha1.CreateAccessRequestResponse
-	if err := c.unmarshal(resp, &result); err != nil {
-		return nil, fmt.Errorf("CreateAccessRequest: unmarshal response: %w", err)
-	}
-
-	return &result, nil
+	return nil, fmt.Errorf("CreateAccessRequest: argument format not defined in proto")
 }
