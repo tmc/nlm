@@ -58,3 +58,13 @@ func chromeLogf(debug bool) func(string, ...interface{}) {
 	}
 	return debugf
 }
+
+// browserDebugWriter prefixes browser process diagnostics like CDP messages.
+type browserDebugWriter struct{}
+
+func (browserDebugWriter) Write(p []byte) (int, error) {
+	for _, line := range strings.Split(strings.TrimSuffix(string(p), "\n"), "\n") {
+		debugf("%s", line)
+	}
+	return len(p), nil
+}

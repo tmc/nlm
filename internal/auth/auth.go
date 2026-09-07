@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -22,18 +24,19 @@ import (
 const appOrigin = "https://notebook.google.com"
 
 type BrowserAuth struct {
-	debug           bool
-	tempDir         string
-	chromeCmd       *exec.Cmd
-	cancel          context.CancelFunc
-	useExec         bool
-	isRemote        bool   // Connected to remote CDP session (skip shutdown)
-	keepOpenSeconds int    // Keep browser open for N seconds after auth
-	sessionID       string // Captured session ID for Jules API
-	blParam         string // Build label parameter for Jules API
-	signalerAuth    string // Captured signaler Authorization header for punctual APIs
-	sourcePath      string // Source path parameter for Jules API
-	rtParam         string // RT parameter for Jules API
+	debug            bool
+	tempDir          string
+	chromeCmd        *exec.Cmd
+	cancel           context.CancelFunc
+	useExec          bool
+	isRemote         bool   // Connected to remote CDP session (skip shutdown)
+	interactiveLogin bool   // Allow the user to complete sign-in in a visible browser
+	keepOpenSeconds  int    // Keep browser open for N seconds after auth
+	sessionID        string // Captured session ID for Jules API
+	blParam          string // Build label parameter for Jules API
+	signalerAuth     string // Captured signaler Authorization header for punctual APIs
+	sourcePath       string // Source path parameter for Jules API
+	rtParam          string // RT parameter for Jules API
 }
 
 // AuthData holds authentication information extracted from the browser
@@ -85,6 +88,8 @@ func (ba *BrowserAuth) Cleanup() {
 }
 
 type Options struct {
+	UserDataDir       string // Use this owned directory without scanning or copying browser profiles
+	InteractiveLogin  bool   // Show the browser and wait up to five minutes for sign-in
 	ProfileName       string
 	TryAllProfiles    bool
 	ListProfiles      bool
@@ -490,6 +495,7 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 
 	// Store keep-open setting in the struct
 	ba.keepOpenSeconds = o.KeepOpenSeconds
+	ba.interactiveLogin = o.InteractiveLogin
 
 	// If a remote CDP URL is provided, connect to it directly
 	if o.RemoteCDPURL != "" {
@@ -506,64 +512,103 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 		}
 	}
 
-	profiles, err := ba.scanProfilesForDomain(targetDomain)
-	if err != nil {
-		return "", "", fmt.Errorf("scan profiles: %w", err)
+	selectedProfile := &ProfileInfo{Name: o.ProfileName, Browser: "Brave"}
+	if o.UserDataDir == "" || o.ListProfiles || o.CheckNotebooks || o.TryAllProfiles {
+		profiles, err := ba.scanProfilesForDomain(targetDomain)
+		if err != nil {
+			return "", "", fmt.Errorf("scan profiles: %w", err)
+		}
+		sortProfilesByLastUsed(profiles)
+		if o.CheckNotebooks {
+			profiles = ba.checkNotebookAccess(profiles, o.TargetURL, o.AuthUser)
+		}
+		if o.UserDataDir == "" {
+			selectedProfile = selectProfile(profiles, o.ProfileName)
+		}
+		if o.wantProfileTable(ba.debug) {
+			printProfileTable(os.Stderr, profiles, targetDomain, selectedProfile, o.TryAllProfiles)
+		}
+		if o.TryAllProfiles {
+			return ba.tryMultipleProfiles(o.TargetURL)
+		}
 	}
-	sortProfilesByLastUsed(profiles)
-	if o.CheckNotebooks {
-		profiles = ba.checkNotebookAccess(profiles, o.TargetURL, o.AuthUser)
-	}
-	selectedProfile := selectProfile(profiles, o.ProfileName)
-
-	// The inventory is printed only when the user asked to see it: it is a
-	// dozen rows of browser trivia in front of a one-line command result.
-	if o.wantProfileTable(ba.debug) {
-		printProfileTable(os.Stderr, profiles, targetDomain, selectedProfile, o.TryAllProfiles)
-	}
-
-	// If trying all profiles, try to find one that works
-	if o.TryAllProfiles {
-		return ba.tryMultipleProfiles(o.TargetURL)
-	}
-
 	if selectedProfile == nil {
 		return "", "", fmt.Errorf("no valid browser profiles found")
 	}
-	if selectedProfile.Name != o.ProfileName {
-		ba.debugf("profile %q not found; using most recently used profile %s [%s]",
-			o.ProfileName, selectedProfile.Name, selectedProfile.Browser)
+	browserPath := getBrowserPathForProfile(selectedProfile.Browser)
+	if browserPath == "" {
+		return "", "", fmt.Errorf("could not find browser")
 	}
 
-	// Create a temporary directory and copy profile data to preserve encryption keys
-	tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
-	if err != nil {
-		return "", "", fmt.Errorf("create temp dir: %w", err)
-	}
-	ba.tempDir = tempDir
-
-	// Copy the profile data
-	if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
-		return "", "", fmt.Errorf("copy profile: %w", err)
+	userDataDir := o.UserDataDir
+	if userDataDir == "" {
+		tempDir, err := os.MkdirTemp("", "nlm-chrome-*")
+		if err != nil {
+			return "", "", fmt.Errorf("create temp dir: %w", err)
+		}
+		ba.tempDir = tempDir
+		userDataDir = tempDir
+		if err := ba.copyProfileDataFromPath(selectedProfile.Path); err != nil {
+			return "", "", fmt.Errorf("copy profile: %w", err)
+		}
+	} else if err := os.MkdirAll(userDataDir, 0700); err != nil {
+		return "", "", fmt.Errorf("create browser profile: %w", err)
 	}
 
 	var ctx context.Context
 	var cancel context.CancelFunc
 
+	// Port 0 enables Chromium's automation mode, which can reject manual
+	// Google sign-in. Use a specific loopback port for an interactive browser.
+	debugPort := "0"
+	if o.InteractiveLogin {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return "", "", fmt.Errorf("choose browser debugging port: %w", err)
+		}
+		debugPort = fmt.Sprint(listener.Addr().(*net.TCPAddr).Port)
+		if err := listener.Close(); err != nil {
+			return "", "", fmt.Errorf("release browser debugging port: %w", err)
+		}
+	}
+
 	// Use chromedp.ExecAllocator approach with minimal automation flags
 	chromeOpts := []chromedp.ExecAllocatorOption{
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
-		chromedp.UserDataDir(ba.tempDir),
-		chromedp.Flag("headless", !ba.debug),
+		chromedp.UserDataDir(userDataDir),
+		chromedp.Flag("headless", !ba.debug && !o.InteractiveLogin),
 		chromedp.Flag("window-size", "1280,800"),
 		chromedp.Flag("new-window", true),
 		chromedp.Flag("no-first-run", true),
 		chromedp.Flag("disable-default-apps", true),
-		chromedp.Flag("remote-debugging-port", "0"), // Use random port
+		chromedp.Flag("remote-debugging-port", debugPort),
 
 		// Use the appropriate browser executable for this profile type
-		chromedp.ExecPath(getBrowserPathForProfile(selectedProfile.Browser)),
+		chromedp.ExecPath(browserPath),
+	}
+
+	if o.UserDataDir != "" {
+		// Chromium's default crash directory ignores --user-data-dir.
+		// Keep crash reporting out of the user's personal browser profile too.
+		chromeOpts = append(chromeOpts, chromedp.Flag("breakpad-dump-location", filepath.Join(userDataDir, "Crashpad")))
+		// The owned profile does not use another browser's encryption key.
+		// Avoid a system keychain prompt before the browser can start CDP.
+		chromeOpts = append(chromeOpts, chromedp.Flag("use-mock-keychain", true))
+	}
+
+	// The login process must not try to update the installed browser under
+	// nlm's TCC identity. This flag affects only this Brave invocation.
+	chromeOpts = append(chromeOpts, chromedp.Flag("disable-brave-update", true))
+	if runtime.GOOS == "darwin" {
+		// Chromium clones its application bundle to survive an in-place update.
+		// A short-lived login browser does not need that update helper.
+		chromeOpts = append(chromeOpts, chromedp.Flag("disable-features", "MacAppCodeSignClone"))
+	}
+
+	ba.debugf("launching %s", browserPath)
+	if ba.debug {
+		chromeOpts = append(chromeOpts, chromedp.CombinedOutput(browserDebugWriter{}))
 	}
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), chromeOpts...)
@@ -571,7 +616,11 @@ func (ba *BrowserAuth) GetAuth(opts ...Option) (token, cookies string, err error
 	ctx, cancel = newChromeContext(allocCtx, ba.debug)
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
+	timeout := 60 * time.Second
+	if o.InteractiveLogin {
+		timeout = 5 * time.Minute
+	}
+	ctx, cancel = context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	return ba.extractAuthDataForURL(ctx, o.TargetURL)
@@ -857,27 +906,10 @@ func copyDirectoryRecursiveWithCount(src, dst string, debug bool, fileCount, dir
 
 // gracefulShutdown performs a graceful browser shutdown to avoid crash detection
 func (ba *BrowserAuth) gracefulShutdown(ctx context.Context) error {
-	// First try to close all tabs gracefully using JavaScript
-	err := chromedp.Run(ctx,
-		chromedp.Evaluate(`
-			// Try to close the window gracefully
-			if (window.close) {
-				window.close();
-			}
-			// Set a flag that we're closing normally
-			window.localStorage.setItem('normal_shutdown', 'true');
-		`, nil),
-	)
-
-	// Give the browser a moment to process the close
-	time.Sleep(100 * time.Millisecond)
-
-	// Now cancel the context which will close the browser
-	if ba.cancel != nil {
-		ba.cancel()
-	}
-
-	return err
+	// Browser.close flushes the owned profile's cookies before the process exits.
+	closeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return chromedp.Cancel(closeCtx)
 }
 
 func (ba *BrowserAuth) extractAuthData(ctx context.Context) (token, cookies string, err error) {
@@ -893,34 +925,6 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 		return "", "", fmt.Errorf("failed to load page: %w", err)
 	}
 
-	// Execute anti-detection JavaScript to hide automation traces
-	if err := chromedp.Run(ctx, chromedp.Evaluate(`
-		// Hide webdriver property
-		delete window.navigator.webdriver;
-
-		// Override the plugins property to look normal
-		Object.defineProperty(navigator, 'plugins', {
-			get: () => Array.from({length: Math.floor(Math.random() * 5) + 1}, () => ({}))
-		});
-
-		// Override permissions property
-		const originalQuery = window.navigator.permissions.query;
-		window.navigator.permissions.query = (parameters) => (
-			parameters.name === 'notifications' ?
-				Promise.resolve({ state: Notification.permission }) :
-				originalQuery(parameters)
-		);
-
-		// Override chrome runtime if it exists
-		if (window.chrome && window.chrome.runtime) {
-			delete window.chrome.runtime.onConnect;
-			delete window.chrome.runtime.onMessage;
-		}
-	`, nil)); err != nil {
-		// Don't fail if anti-detection script fails, just log it
-		ba.debugf("anti-detection script failed: %v", err)
-	}
-
 	// If keep-open is set, give user time to manually authenticate BEFORE checking
 	if ba.keepOpenSeconds > 0 {
 		statusf("browser open; you have %d seconds to log in manually if needed", ba.keepOpenSeconds)
@@ -929,7 +933,7 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 
 	// First check if we're already on a login page, which would indicate authentication failure
 	var currentURL string
-	if err := chromedp.Run(ctx, chromedp.Location(&currentURL)); err == nil {
+	if err := chromedp.Run(ctx, chromedp.Location(&currentURL)); err == nil && !ba.interactiveLogin {
 		// Log the initial URL we landed on
 		ba.debugf("initial navigation landed on %s", currentURL)
 
@@ -944,7 +948,11 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 	}
 
 	// Create timeout context for polling - increased timeout for better success with Brave
-	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	pollTimeout := 30 * time.Second
+	if ba.interactiveLogin {
+		pollTimeout = 5 * time.Minute
+	}
+	pollCtx, cancel := context.WithTimeout(ctx, pollTimeout)
 	defer cancel()
 
 	ticker := time.NewTicker(2 * time.Second)
@@ -971,7 +979,7 @@ func (ba *BrowserAuth) extractAuthDataForURL(ctx context.Context, targetURL stri
 					authFailCount++
 
 					// If we've had too many clear auth failures, give up earlier
-					if authFailCount >= maxAuthFailures {
+					if authFailCount >= maxAuthFailures && !ba.interactiveLogin {
 						return "", "", fmt.Errorf("definitive authentication failure: %w", err)
 					}
 				}
