@@ -97,7 +97,7 @@ func TestSyncReceiptDamagedFamily(t *testing.T) {
 			c := &fakeClient{sources: []Source{{ID: "good", Title: "test"}, {ID: "bad", Title: "test", Status: "error"}}}
 			var out bytes.Buffer
 			err := Run(context.Background(), c, "nb", []string{path}, Options{Name: "test", AutoSplit: auto, JSON: true}, &out)
-			if err == nil || !strings.Contains(err.Error(), "duplicate part") || !strings.Contains(err.Error(), "status error") {
+			if err == nil || !strings.Contains(err.Error(), "duplicate part") {
 				t.Fatalf("error = %v", err)
 			}
 			if len(c.uploaded)+len(c.renamed)+len(c.deleted) != 0 {
@@ -217,5 +217,35 @@ func TestSyncReceiptInterrupted(t *testing.T) {
 	}
 	if r := readResult(t, data); r.Status != "in-progress" || r.CleanupComplete {
 		t.Fatalf("interrupted attempt reported completion: %+v", r)
+	}
+}
+
+// A part the server marks failed carries no usable content. Sync must
+// re-upload it instead of refusing to run: refusing wedged the family,
+// because the sync that would have repaired it stopped on the same check.
+func TestSyncRepairsFailedPart(t *testing.T) {
+	for _, auto := range []bool{false, true} {
+		t.Run(fmt.Sprint(auto), func(t *testing.T) {
+			setupTestHome(t)
+			path := filepath.Join(t.TempDir(), "a.txt")
+			if err := os.WriteFile(path, []byte("text"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			opts := Options{Name: "test", AutoSplit: auto}
+			c := &fakeClient{}
+			if err := Run(context.Background(), c, "nb", []string{path}, opts, io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			for i := range c.sources {
+				c.sources[i].Status = "error"
+			}
+			uploads := len(c.uploaded)
+			if err := Run(context.Background(), c, "nb", []string{path}, opts, io.Discard); err != nil {
+				t.Fatalf("repair sync: %v", err)
+			}
+			if len(c.uploaded) == uploads {
+				t.Fatal("failed part not re-uploaded")
+			}
+		})
 	}
 }

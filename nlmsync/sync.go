@@ -183,7 +183,8 @@ func runSync(ctx context.Context, c Client, notebookID, name string, names, hash
 	}
 	_ = sc.save(notebookID, sources)
 
-	if err := checkSourceFamily(sources, name); err != nil {
+	broken, err := checkSourceFamily(sources, name)
+	if err != nil {
 		return err
 	}
 
@@ -219,13 +220,13 @@ func runSync(ctx context.Context, c Client, notebookID, name string, names, hash
 	}
 
 	if opts.AutoSplit {
-		return runAutoSplit(ctx, c, notebookID, name, names, chunks, sources, labelIDs, opts, hc, sc, out)
+		return runAutoSplit(ctx, c, notebookID, name, names, chunks, sources, labelIDs, broken, opts, hc, sc, out)
 	}
 
 	// Repair labels on unchanged parts too, before starting upload workers.
 	for i, chunkName := range names {
 		existing, exists := byTitle[chunkName]
-		if opts.Force || !exists || hc.changed(chunkName, hashes[i]) {
+		if opts.Force || !exists || broken[chunkName] || hc.changed(chunkName, hashes[i]) {
 			continue
 		}
 		for _, id := range labelIDs {
@@ -264,7 +265,7 @@ func runSync(ctx context.Context, c Client, notebookID, name string, names, hash
 
 		// Skip only when the hash is unchanged and the remote source is still
 		// present under the expected title.
-		if !opts.Force && exists && !hc.changed(chunkName, hash) {
+		if !opts.Force && exists && !broken[chunkName] && !hc.changed(chunkName, hash) {
 			mu.Lock()
 			out.emit(event{Action: "skip", Name: chunkName, Reason: "unchanged"})
 			mu.Unlock()

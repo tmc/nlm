@@ -51,7 +51,7 @@ func canSplit(err error) bool {
 // runAutoSplit keeps a binary tree of part names on the server. Existing
 // descendants preserve the split layout on the next run without a local
 // manifest. Old parents are removed only after every leaf succeeds.
-func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names []string, chunks [][]byte, sources []Source, labels []string, opts Options, hc *hashCache, sc *sourceCache, out *outputWriter) error {
+func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names []string, chunks [][]byte, sources []Source, labels []string, broken map[string]bool, opts Options, hc *hashCache, sc *sourceCache, out *outputWriter) error {
 	byTitle := make(map[string]Source)
 	for _, s := range sources {
 		byTitle[s.Title] = s
@@ -76,7 +76,7 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 			split = false
 		}
 		if !split {
-			if !opts.Force && exists && !hc.changed(name, hash) {
+			if !opts.Force && exists && !broken[name] && !hc.changed(name, hash) {
 				if !opts.DryRun {
 					for _, label := range labels {
 						if err := c.(LabelPreserver).AttachLabelSource(ctx, notebookID, label, existing.ID); err != nil {

@@ -143,8 +143,16 @@ func (o *outputWriter) finish(runErr error) error {
 	return nil
 }
 
-func checkSourceFamily(sources []Source, name string) error {
+// checkSourceFamily inspects the parts of a source family already on the
+// server. Duplicate titles are fatal: the sync cannot tell which source a
+// part names. A part the server marks failed is not fatal — it holds no
+// usable content, so it is reported as broken and the sync re-uploads it
+// rather than refusing to run. Refusing left a family that had lost an
+// upload permanently wedged, because every later sync (including one that
+// would have repaired it) stopped on the same check.
+func checkSourceFamily(sources []Source, name string) (map[string]bool, error) {
 	seen := make(map[string]string)
+	broken := make(map[string]bool)
 	var errs []error
 	for _, source := range sources {
 		if !isPartOf(source.Title, name) {
@@ -155,8 +163,8 @@ func checkSourceFamily(sources []Source, name string) error {
 		}
 		seen[source.Title] = source.ID
 		if source.Status == "error" {
-			errs = append(errs, fmt.Errorf("part %q: source %s has server status error", source.Title, source.ID))
+			broken[source.Title] = true
 		}
 	}
-	return errors.Join(errs...)
+	return broken, errors.Join(errs...)
 }
