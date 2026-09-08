@@ -730,6 +730,12 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 .answer hr { border: 0; border-top: 1px solid var(--line); margin: 1.2em 0; }
 .answer .answer-block { white-space: pre-wrap; }
 .answer pre, .answer table { display: block; max-width: 100%; overflow-x: auto; }
+.answer table { border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+.answer th, .answer td { border: 1px solid var(--line); padding: 8px 10px; vertical-align: top; min-width: 90px; }
+.answer th { background: var(--panel); font-weight: 650; }
+.answer .align-left { text-align: left; }
+.answer .align-center { text-align: center; }
+.answer .align-right { text-align: right; }
 .math-display-row {
   display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
   align-items: center; width: 100%; max-width: 100%; margin: .9em 0;

@@ -749,6 +749,12 @@ var elemTemplates = func() map[string]*template.Template {
 		"code":       elemBlockSource,
 		"pre":        elemBlockSource,
 		"blockquote": elemBlockSource,
+		"table":      elemBlockSource,
+		"thead":      elemBlockSource,
+		"tbody":      elemBlockSource,
+		"tr":         elemBlockSource,
+		"th":         elemBlockSource,
+		"td":         elemBlockSource,
 	}
 	out := make(map[string]*template.Template, len(m))
 	for tag, src := range m {

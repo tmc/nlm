@@ -28,6 +28,8 @@ type markdownSubsetBlock struct {
 	text         string
 	items        []string
 	nestings     []int
+	rows         [][]string
+	alignment    []string
 	quote        bool
 }
 
@@ -46,7 +48,7 @@ func withoutChatFollowUps(doc ChatDocument) ChatDocument {
 }
 
 func hasMarkdownSubset(content string) bool {
-	return !looksLikeJSON(content) && (markdownSignalRE.MatchString(content) || strings.Contains(content, "https://") || strings.Contains(content, "http://"))
+	return !looksLikeJSON(content) && (hasMarkdownTable(content) || markdownSignalRE.MatchString(content) || strings.Contains(content, "https://") || strings.Contains(content, "http://"))
 }
 
 func richMarkdownOverlayNodes(projected []richBlockOut, markdown string, byIndex map[int]htmlMarker) []answerNode {
@@ -78,6 +80,10 @@ func markdownSubsetOverlayNodes(projected []richBlockOut, markdown string, byInd
 		}
 		if block.quote {
 			out = append(out, answerNode{Tag: "blockquote", Children: chatMarkdownSubsetNodes(opts.msgIdx, block.text, byIndex)})
+			continue
+		}
+		if len(block.rows) > 0 {
+			out = append(out, markdownTableNodes(block, opts.msgIdx, byIndex))
 			continue
 		}
 		switch block.kind {
@@ -162,6 +168,25 @@ func parseMarkdownSubsetBlocks(markdown string) []markdownSubsetBlock {
 	}
 	lines := strings.Split(strings.ReplaceAll(markdown, "\r\n", "\n"), "\n")
 	for i := 0; i < len(lines); i++ {
+		if header, alignment := markdownTableHeader(lines, i); header != nil {
+			flushParagraph()
+			flushList()
+			block := markdownSubsetBlock{rows: [][]string{header}, alignment: alignment}
+			i++ // The delimiter row has no visible content.
+			for i+1 < len(lines) {
+				row := markdownTableRow(lines[i+1])
+				if len(row) == 0 || len(row) > len(header) {
+					break
+				}
+				for len(row) < len(header) {
+					row = append(row, "")
+				}
+				block.rows = append(block.rows, row)
+				i++
+			}
+			out = append(out, block)
+			continue
+		}
 		line := lines[i]
 		trimmed := strings.TrimSpace(line)
 		switch {
