@@ -1,0 +1,58 @@
+/* Technical report layout. Citation markup and controls are shared with chats. */
+:root { --ground: #fff; --panel: #f8f9fa; --ink: #20262d; --muted: #64707c; --faint: #727e89; --line: #e0e5e9; --accent: #297b91; --accent-strong: #165e73; --accent-tint: #eef6f8; }
+body { margin: 0; padding-left: 248px; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 48px 52px 96px; }
+header.doc { padding-bottom: 24px; margin-bottom: 24px; border-bottom: 2px solid var(--ink); }
+header.doc h1 { font-size: 30px; font-weight: 650; letter-spacing: -.035em; line-height: 1.2; }
+header.doc .sub { margin-top: 12px; font-size: 12px; }
+.conversation-nav { position: fixed; inset: 0 auto 0 0; width: 248px; box-sizing: border-box; padding: 34px 20px; background: #fbfcfd; border-right: 1px solid var(--line); z-index: 30; }
+.reader-brand { display: flex; justify-content: space-between; margin: 0 6px 34px; font-size: 11px; letter-spacing: .1em; font-weight: 650; }
+.reader-origin { font-weight: 400; letter-spacing: 0; color: var(--muted); }
+.message-index > summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 8px 6px; }
+.message-list { max-height: calc(100dvh - 145px); overflow-y: auto; padding: 6px 0 20px; }
+.message-item { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; padding: 12px 8px; margin: 2px 0; text-decoration: none; color: var(--muted); border-left: 2px solid transparent; }
+.message-item:hover { color: var(--ink); background: #f1f4f6; }
+.message-item[aria-current] { color: var(--accent-strong); border-left-color: var(--accent); background: var(--accent-tint); }
+.message-number { color: var(--faint); font: 11px/1.6 var(--mono); }
+.message-preview { font-size: 12px; line-height: 1.6; }
+.turn { scroll-margin-top: 24px; }
+.turn.user { margin: 0 0 18px; }
+.turn.assistant { margin-bottom: 42px; }
+.turn.assistant > .role { color: var(--muted); font-size: 10px; letter-spacing: .12em; margin-bottom: 14px; }
+.report-request { font-size: 12px; color: var(--muted); }
+.report-request > summary { cursor: pointer; padding: 6px 0; }
+.request-text { margin: 10px 0 4px; border-left: 2px solid var(--line); padding: 4px 16px; white-space: pre-wrap; font-size: 13px; line-height: 1.7; }
+.assistant-grid { display: block; }
+.answer { font-size: 16px; line-height: 1.8; }
+.answer h3 { font-size: 22px; letter-spacing: -.02em; margin-top: 28px; }
+.answer h4 { font-size: 17px; }
+.answer .table-scroll { max-width: 100%; overflow-x: auto; margin: 18px 0; }
+.answer .table-scroll table { display: table; width: 100%; min-width: 480px; margin: 0; font-size: 14px; line-height: 1.65; }
+.answer th, .answer td { padding: 12px 14px; }
+.answer th { background: #f5f7f9; }
+.table-scroll.scrollable::before { content: "Scroll sideways for more columns"; display: block; font-size: 11px; color: var(--muted); padding-bottom: 8px; }
+.rail { display: block; margin-top: 22px; }
+.rail > summary { display: list-item; width: fit-content; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; color: var(--muted); }
+.rail[open] { position: fixed; inset: 16px 16px 16px auto; width: 340px; max-width: calc(100vw - 32px); box-sizing: border-box; overflow-y: auto; margin: 0; padding: 16px; background: white; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 12px 50px #00000018; z-index: 40; }
+.rail[open] > summary { position: sticky; top: -16px; z-index: 1; background: white; width: auto; padding: 16px 10px; margin: -16px -16px 14px; border: 0; border-bottom: 1px solid var(--line); border-radius: 6px 6px 0 0; }
+.rail[open] > summary::after { content: " · Close"; text-transform: none; letter-spacing: 0; }
+.citations { margin-top: 14px; padding-top: 14px; }
+.citations-head { font-size: 11px; letter-spacing: .04em; }
+.cite-entry { scroll-margin-top: 24px; }
+.section-nav { display: flex; flex-wrap: wrap; gap: 18px; margin: 18px 0 0; font-size: 11px; }
+.section-nav a { color: var(--muted); text-decoration: none; }
+.section-nav a:hover { color: var(--ink); text-decoration: underline; }
+@media (max-width: 1000px) { body { padding-left: 220px; } .conversation-nav { width: 220px; } .wrap { padding: 36px 28px 72px; } }
+@media (max-width: 700px) {
+  body { padding-left: 0; }
+  .conversation-nav { position: sticky; inset: auto; top: 0; width: auto; padding: 6px 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .reader-brand { display: none; }
+  .message-index > summary { font-size: 13px; padding: 10px 4px; }
+  .message-list { max-height: 55dvh; padding-bottom: 8px; }
+  .wrap { padding: 26px 20px 64px; }
+  header.doc h1 { font-size: 25px; }
+  .answer { font-size: 15px; }
+  .rail[open] { inset: 64px 10px 10px; width: auto; max-width: none; }
+  .turn, .cite-entry { scroll-margin-top: 80px; }
+  .section-nav a { font-size: 12px; min-height: 44px; padding: 10px 0; }
+}

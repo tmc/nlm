@@ -644,7 +644,7 @@ func safeExcerptLink(link string) (string, bool) {
 // already HTML-escaped. The inline script builds the reader from the blob.
 var chatHTMLTemplate = template.Must(template.New("chat").Parse(chatHTMLSource))
 
-const chatHTMLSource = `<!doctype html>
+var chatHTMLSource = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -673,7 +673,7 @@ const chatHTMLSource = `<!doctype html>
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-html, body { max-width: 100%; overflow-x: hidden; }
+html, body { max-width: 100%; overflow-x: clip; }
 body {
   margin: 0;
   background: var(--ground);
@@ -886,9 +886,7 @@ header.doc .sub { color: var(--muted); font-size: 13px; }
 }
 .ref-action:disabled { color: var(--faint); cursor: default; background: #f7f7f8; }
 
-.message-picker { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 18px 0 26px; }
-.message-picker select { flex: 1 1 240px; min-width: 0; max-width: 100%; padding: 8px; font: inherit; }
-.turn { scroll-margin-top: 20px; }
+.turn { scroll-margin-top: 24px; }
 .turn-nav { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; font-size: 13px; }
 .turn-nav a { color: var(--accent-strong); }
 summary.rail-head, summary.citations-head { cursor: pointer; }
@@ -907,7 +905,7 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
 .cite-entry {
   display: grid; grid-template-columns: 44px 1fr; gap: 8px;
   padding: 10px 8px; border-radius: var(--radius);
-  scroll-margin-top: 20px;
+  scroll-margin-top: 24px;
   transition: background 500ms ease;
 }
 .cite-entry.flash, .cite-entry.active { background: var(--accent-tint); }
@@ -930,8 +928,6 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
 @media (max-width: 860px) {
   .wrap { max-width: 100%; padding: 24px 18px 72px; }
   .assistant-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
-  /* The full citation section remains available below the answer. */
-  .rail { display: none; }
 }
 @media (max-width: 520px) {
   .wrap { padding: 18px 12px 56px; }
@@ -958,6 +954,7 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
   }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+` + chatReaderCSS + `
 </style>
 </head>
 <body>
@@ -1362,7 +1359,7 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
     var target = document.getElementById(id);
     if (!target) return;
     revealCitation(target);
-    target.scrollIntoView({ block: "center", behavior: "auto" });
+    target.scrollIntoView({ block: "start", behavior: "auto" });
     flashEntry(target);
   }
 
@@ -1386,30 +1383,6 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
     header.appendChild(el("div", "sub", count + " message" + (count === 1 ? "" : "s")));
     root.appendChild(header);
 
-    if (count > 1) {
-      var picker = el("nav", "message-picker");
-      picker.setAttribute("aria-label", "Conversation messages");
-      var label = el("label", "", "Go to message");
-      label.htmlFor = "message-select";
-      var select = el("select");
-      select.id = "message-select";
-      data.messages.forEach(function (msg, i) {
-        var text = (msg.content || "").replace(/\s+/g, " ").trim();
-        var option = el("option", "", (i + 1) + ". " + (msg.role === "user" ? "You" : "Assistant") + (text ? ": " + text.slice(0, 80) : ""));
-        option.value = "message-" + i;
-        select.appendChild(option);
-      });
-      select.addEventListener("change", function () {
-        location.hash = select.value;
-        var target = document.getElementById(select.value);
-        target.focus({ preventScroll: true });
-        target.scrollIntoView({ block: "start" });
-      });
-      picker.appendChild(label);
-      picker.appendChild(select);
-      root.appendChild(picker);
-    }
-
     data.messages.forEach(function (msg, msgIdx) {
       var turn = el("div", "turn " + (msg.role === "user" ? "user" : "assistant"));
       turn.id = "message-" + msgIdx;
@@ -1425,7 +1398,7 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
         }
         if (msgIdx > 0) link("Previous message", "#message-" + (msgIdx - 1));
         if (msgIdx + 1 < count) link("Next message", "#message-" + (msgIdx + 1));
-        link("All messages", "#message-select");
+        link("Messages", "#message-navigation");
         turn.appendChild(nav);
       }
 
@@ -1454,7 +1427,7 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
       grid.appendChild(main);
 
       var rail = el("details", "rail");
-      rail.open = true;
+      rail.open = false;
       rail.appendChild(el("summary", "rail-head", "Sources (" + markers.length + ")"));
       if (markers.length === 0) {
         rail.appendChild(el("div", "empty", "No citations for this turn."));
@@ -1504,15 +1477,15 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
   function followHash() {
     var target = document.getElementById(location.hash.slice(1));
     if (!target) return;
+    var request = target.querySelector(".report-request");
+    if (request) request.open = true;
     if (target.classList.contains("cite-entry")) jumpTo(target.id);
     else target.scrollIntoView({ block: "start" });
-    var turn = target.closest(".turn");
-    var select = document.getElementById("message-select");
-    if (turn && select) select.value = turn.id;
   }
   window.addEventListener("hashchange", followHash);
 
   render();
+` + chatReaderScript + `
   followHash();
 })();
 </script>

@@ -135,11 +135,11 @@ func TestRenderChatHTMLMobileInteraction(t *testing.T) {
 		{name: "tap away", want: `if (pinnedAnchor && !card.contains(event.target)) closeCard();`},
 		{name: "close affordance", want: `close.setAttribute("aria-label", "Close citation preview")`},
 		{name: "desktop hover retained", want: `a.addEventListener("mouseenter", function () { showCard(a, marker, key); });`},
-		{name: "compact rail hidden", want: `.rail { display: none; }`},
+		{name: "phone source panel", want: `.rail[open] { inset: 64px 10px 10px; width: auto; max-width: none; }`},
 		{name: "phone card", want: `position: fixed; left: 10px !important; right: 10px; top: auto !important;`},
 		{name: "touch target", want: `height: 44px; transform: translateY(-50%);`},
 		{name: "math scroll", want: `grid-column: 2; min-width: 0; max-width: 100%; overflow-x: auto;`},
-		{name: "page overflow guarded", want: `html, body { max-width: 100%; overflow-x: hidden; }`},
+		{name: "page overflow guarded", want: `html, body { max-width: 100%; overflow-x: clip; }`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
