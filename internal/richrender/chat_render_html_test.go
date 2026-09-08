@@ -135,7 +135,7 @@ func TestRenderChatHTMLMobileInteraction(t *testing.T) {
 		{name: "tap away", want: `if (pinnedAnchor && !card.contains(event.target)) closeCard();`},
 		{name: "close affordance", want: `close.setAttribute("aria-label", "Close citation preview")`},
 		{name: "desktop hover retained", want: `a.addEventListener("mouseenter", function () { showCard(a, marker, key); });`},
-		{name: "phone source panel", want: `.rail[open] { inset: 64px 10px 10px; width: auto; max-width: none; }`},
+		{name: "inline sources", want: `.rail[open] > summary { margin-bottom: 14px; }`},
 		{name: "phone card", want: `position: fixed; left: 10px !important; right: 10px; top: auto !important;`},
 		{name: "touch target", want: `height: 44px; transform: translateY(-50%);`},
 		{name: "math scroll", want: `grid-column: 2; min-width: 0; max-width: 100%; overflow-x: auto;`},

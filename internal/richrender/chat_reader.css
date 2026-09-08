@@ -33,9 +33,7 @@ header.doc .sub { margin-top: 12px; font-size: 12px; }
 .table-scroll.scrollable::before { content: "Scroll sideways for more columns"; display: block; font-size: 11px; color: var(--muted); padding-bottom: 8px; }
 .rail { display: block; margin-top: 22px; }
 .rail > summary { display: list-item; width: fit-content; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; color: var(--muted); }
-.rail[open] { position: fixed; inset: 16px 16px 16px auto; width: 340px; max-width: calc(100vw - 32px); box-sizing: border-box; overflow-y: auto; margin: 0; padding: 16px; background: white; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 12px 50px #00000018; z-index: 40; }
-.rail[open] > summary { position: sticky; top: -16px; z-index: 1; background: white; width: auto; padding: 16px 10px; margin: -16px -16px 14px; border: 0; border-bottom: 1px solid var(--line); border-radius: 6px 6px 0 0; }
-.rail[open] > summary::after { content: " · Close"; text-transform: none; letter-spacing: 0; }
+.rail[open] > summary { margin-bottom: 14px; }
 .citations { margin-top: 14px; padding-top: 14px; }
 .citations-head { font-size: 11px; letter-spacing: .04em; }
 .cite-entry { scroll-margin-top: 24px; }
@@ -52,7 +50,14 @@ header.doc .sub { margin-top: 12px; font-size: 12px; }
   .wrap { padding: 26px 20px 64px; }
   header.doc h1 { font-size: 25px; }
   .answer { font-size: 15px; }
-  .rail[open] { inset: 64px 10px 10px; width: auto; max-width: none; }
   .turn, .cite-entry { scroll-margin-top: 80px; }
   .section-nav a { font-size: 12px; min-height: 44px; padding: 10px 0; }
 }
+
+/* Inline citation summaries expand independently without moving the reader. */
+.rail > .ref { padding: 8px 12px; margin-top: 6px; }
+.ref > summary.ref-head { display: list-item; cursor: pointer; margin: 0; font-size: 13px; }
+.ref > summary .ref-marker { margin-right: 8px; }
+.ref > summary .ref-title { font-size: 13px; font-weight: 500; }
+.ref > summary .pill { margin-left: 8px; }
+.ref[open] > summary { margin-bottom: 10px; }

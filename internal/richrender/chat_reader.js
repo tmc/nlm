@@ -134,11 +134,6 @@
   mobile.addEventListener("change", function () { index.open = !mobile.matches; update(); });
   update();
   var rails = Array.from(document.querySelectorAll("details.rail"));
-  rails.forEach(function (rail) {
-    rail.addEventListener("toggle", function () {
-      if (rail.open) rails.forEach(function (other) { if (other !== rail) other.open = false; });
-    });
-  });
   document.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") return;
     rails.forEach(function (rail) {

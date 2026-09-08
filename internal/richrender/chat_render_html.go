@@ -1268,14 +1268,14 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
     return entry;
   }
 
-  // Build a compact rail entry for a marker: its [N], the sources' titles, and a
-  // per-source excerpt line. The entry and its Details action jump to the full
+  // Build an expandable inline entry for a marker: its [N], source title,
+  // and per-source excerpts. The entry and its Details action jump to the full
   // citation; each Passage action jumps to one grounded occurrence. These
   // controls are native keyboard and touch targets.
   function railEntry(msgIdx, marker) {
     var key = keyOf(msgIdx, marker.index);
-    var entry = el("div", "ref");
-    var head = el("div", "ref-head");
+    var entry = el("details", "ref");
+    var head = el("summary", "ref-head");
     head.appendChild(el("span", "ref-marker", "[" + marker.index + "]"));
     var primary = marker.sources[0] || {};
     head.appendChild(el("span", "ref-title", primary.title || primary.handle || "source"));
@@ -1335,19 +1335,8 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
     });
     entry.appendChild(actions);
 
-    entry.tabIndex = 0;
-    entry.setAttribute("aria-label", "Jump to citation " + marker.index + " details");
-    entry.addEventListener("mouseenter", function () { showCard(entry, marker, key); });
-    entry.addEventListener("mouseleave", function () { hideCard(); });
-    entry.addEventListener("focus", function () { showCard(entry, marker, key); });
-    entry.addEventListener("blur", function () { hideCard(); });
-    entry.addEventListener("click", function (event) {
-      if (touchPreview(event, entry, marker, key)) return;
-      jumpTo(citeId(msgIdx, marker.index));
-    });
-    entry.addEventListener("keydown", function (ev) {
-      if (ev.target === entry && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); jumpTo(citeId(msgIdx, marker.index)); }
-    });
+    entry.addEventListener("mouseenter", function () { setActive(key); });
+    entry.addEventListener("mouseleave", clearActive);
     railEls[key] = entry;
     return entry;
   }
@@ -1427,8 +1416,8 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
       grid.appendChild(main);
 
       var rail = el("details", "rail");
-      rail.open = false;
-      rail.appendChild(el("summary", "rail-head", "Sources (" + markers.length + ")"));
+      rail.open = markers.length > 0;
+      rail.appendChild(el("summary", "rail-head", "Citations (" + markers.length + ")"));
       if (markers.length === 0) {
         rail.appendChild(el("div", "empty", "No citations for this turn."));
       } else {
@@ -1441,7 +1430,7 @@ summary.rail-head:hover, summary.citations-head:hover { color: var(--accent-stro
       if (markers.length > 0) {
         var section = el("details", "citations");
         section.setAttribute("aria-label", "Citations");
-        section.appendChild(el("summary", "citations-head", "Citations (" + markers.length + ")"));
+        section.appendChild(el("summary", "citations-head", "Citation details (" + markers.length + ")"));
         markers.forEach(function (m) { section.appendChild(citationEntry(msgIdx, m)); });
         turn.appendChild(section);
       }
