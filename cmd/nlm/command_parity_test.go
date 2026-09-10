@@ -76,33 +76,64 @@ func TestCommandParityGolden(t *testing.T) {
 	}
 }
 
+// labelOpsCommandPaths are the label attach/detach surfaces reworked after
+// the parity baselines were frozen: attach grew multi-source operands and
+// selector flags, and detach is new. The baselines assert that the CLI
+// migrations preserved behavior, so later feature work on these paths is
+// dropped from both sides before comparing rather than smuggled in as an
+// exception inside the per-command diff.
+var labelOpsCommandPaths = map[string]bool{
+	"label attach": true,
+	"label-attach": true,
+	"label detach": true,
+	"label-detach": true,
+}
+
+// withoutLabelOpsCommands returns g with the label attach/detach entries
+// removed, keeping the remaining commands index-aligned across baselines.
+func withoutLabelOpsCommands(g commandParityGolden) commandParityGolden {
+	out := g
+	out.Commands = nil
+	for _, cmd := range g.Commands {
+		if !labelOpsCommandPaths[cmd.Path] {
+			out.Commands = append(out.Commands, cmd)
+		}
+	}
+	return out
+}
+
 func TestCommandParityPhase1Baseline(t *testing.T) {
 	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase1.golden.json"))
 	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	baseline, current = withoutLabelOpsCommands(baseline), withoutLabelOpsCommands(current)
 	compareCommandParityPhase1(t, baseline, current)
 }
 
 func TestCommandParityPhase2Baseline(t *testing.T) {
 	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase2.golden.json"))
 	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	baseline, current = withoutLabelOpsCommands(baseline), withoutLabelOpsCommands(current)
 	compareCommandParityPhase2(t, baseline, current)
 }
 
 func TestCommandParityPhase4Baseline(t *testing.T) {
 	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase4.golden.json"))
 	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	baseline, current = withoutLabelOpsCommands(baseline), withoutLabelOpsCommands(current)
 	compareCommandParityPhase4(t, baseline, current)
 }
 
 func TestCommandParityPhase5Baseline(t *testing.T) {
 	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase5.golden.json"))
 	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	baseline, current = withoutLabelOpsCommands(baseline), withoutLabelOpsCommands(current)
 	compareCommandParityPhase5(t, baseline, current)
 }
 
 func TestCommandParityPhase6UnknownFlags(t *testing.T) {
 	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase5.golden.json"))
 	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	baseline, current = withoutLabelOpsCommands(baseline), withoutLabelOpsCommands(current)
 	if len(baseline.Commands) != len(current.Commands) {
 		t.Fatalf("command count changed: got %d, want %d", len(current.Commands), len(baseline.Commands))
 	}
@@ -127,6 +158,7 @@ func TestCommandParityPhase6UnknownFlags(t *testing.T) {
 func TestCommandParityPhase6IgnoredArguments(t *testing.T) {
 	baseline := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.phase5.golden.json"))
 	current := readCommandParityGolden(t, filepath.Join("testdata", "command_parity.golden.json"))
+	baseline, current = withoutLabelOpsCommands(baseline), withoutLabelOpsCommands(current)
 	if len(baseline.Commands) != len(current.Commands) {
 		t.Fatalf("command count changed: got %d, want %d", len(current.Commands), len(baseline.Commands))
 	}
@@ -359,8 +391,7 @@ func compareCommandParityPhase4(t *testing.T, baseline, current commandParityGol
 
 func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGolden) {
 	t.Helper()
-	if filterHelpLines(filterHelpLines(current.RootHelp, prototextCommandPaths), phase6OwnershipCommandPaths) !=
-		filterHelpLines(filterHelpLines(baseline.RootHelp, prototextCommandPaths), phase6OwnershipCommandPaths) {
+	if filterPhase5HelpLines(current.RootHelp) != filterPhase5HelpLines(baseline.RootHelp) {
 		t.Error("root help differs outside the prototext paths")
 	}
 	if len(current.SectionHelp) != len(baseline.SectionHelp) {
@@ -371,8 +402,7 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 		if got.Name != want.Name {
 			t.Fatalf("section %d name changed: got %q, want %q", i, got.Name, want.Name)
 		}
-		if filterHelpLines(filterHelpLines(got.Help, prototextCommandPaths), phase6OwnershipCommandPaths) !=
-			filterHelpLines(filterHelpLines(want.Help, prototextCommandPaths), phase6OwnershipCommandPaths) {
+		if filterPhase5HelpLines(got.Help) != filterPhase5HelpLines(want.Help) {
 			t.Errorf("%s section help differs outside the prototext paths", want.Name)
 		}
 	}
@@ -415,7 +445,8 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 func filterPhase1HelpLines(help string) string {
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
-		if !helpLineForPaths(line, inventoryCommandPaths) &&
+		if !helpLineForPaths(line, labelOpsCommandPaths) &&
+			!helpLineForPaths(line, inventoryCommandPaths) &&
 			!helpLineForPaths(line, phase4CommandPaths) &&
 			!helpLineForPaths(line, phase5CommandPaths) &&
 			!helpLineForPaths(line, prototextCommandPaths) &&
@@ -429,7 +460,8 @@ func filterPhase1HelpLines(help string) string {
 func filterLaterPhaseHelpLines(help string) string {
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
-		if !helpLineForPaths(line, phase4CommandPaths) &&
+		if !helpLineForPaths(line, labelOpsCommandPaths) &&
+			!helpLineForPaths(line, phase4CommandPaths) &&
 			!helpLineForPaths(line, phase5CommandPaths) &&
 			!helpLineForPaths(line, prototextCommandPaths) &&
 			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
@@ -439,10 +471,20 @@ func filterLaterPhaseHelpLines(help string) string {
 	return strings.Join(kept, "\n")
 }
 
+// filterPhase5HelpLines drops the command lines Phase 5 does not govern:
+// the prototext and Phase 6 ownership paths, plus the label attach/detach
+// surfaces reworked after the baselines were frozen.
+func filterPhase5HelpLines(help string) string {
+	help = filterHelpLines(help, prototextCommandPaths)
+	help = filterHelpLines(help, phase6OwnershipCommandPaths)
+	return filterHelpLines(help, labelOpsCommandPaths)
+}
+
 func filterLaterThanPhase4HelpLines(help string) string {
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
-		if !helpLineForPaths(line, phase5CommandPaths) &&
+		if !helpLineForPaths(line, labelOpsCommandPaths) &&
+			!helpLineForPaths(line, phase5CommandPaths) &&
 			!helpLineForPaths(line, prototextCommandPaths) &&
 			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
 			kept = append(kept, line)
@@ -491,8 +533,10 @@ var phase4CommandPaths = map[string]bool{
 // phase comparisons mask their help/usage the same way they mask authorized
 // phase paths; argument-case semantics still must match the frozen baseline.
 var postRoadmapCommandPaths = map[string]bool{
-	"sync":        true, // opt-in adaptive upload splitting
+	"sync":        true, // opt-in adaptive upload splitting, then ingest-time labeling
 	"source sync": true,
+	"source add":  true, // ingest-time labeling (--label/--create-label)
+	"add":         true,
 	"chat show":   true, // --last (recovery path for the stale-output exit 8)
 	"chat-show":   true,
 	"auth":        true, // --list-profiles (the inventory is no longer printed by default)

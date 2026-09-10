@@ -14,6 +14,10 @@ type sourceAddOptions struct {
 	// parts are named "<name> (pt2)", "<name> (pt3)", ... Matches the
 	// naming scheme `nlm sync` uses for bundle chunks.
 	Chunk int
+	// LabelID, if set, is attached to every source the invocation creates,
+	// including the parts a --chunk split mints. Resolved from --label
+	// before any upload runs.
+	LabelID string
 }
 
 type syncOptions struct {

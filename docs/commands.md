@@ -85,7 +85,8 @@ specification.
 | `nlm label delete <notebook-id> <label-id> [<label-id>...]` | Delete one or more labels by ID |
 | `nlm label unlabeled [flags] <notebook-id>` | Apply existing labels to currently-unlabeled sources |
 | `nlm label relabel-all [flags] <notebook-id>` | Re-cluster everything (UI's "Relabel all") |
-| `nlm label attach <notebook-id> <label-id\|name> <source-id\|name>` | Attach a source to a label (single source per call) |
+| `nlm label attach [flags] <notebook-id> <label-id\|name> [<source-id\|name>...]` | Add sources to a label |
+| `nlm label detach [flags] <notebook-id> <label-id\|name> [<source-id\|name>...]` | Remove sources from a label |
 
 ### Create
 

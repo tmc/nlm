@@ -49,6 +49,7 @@ var groupedCommandSurfaces = []groupedCommandSurface{
 	{ID: "label-unlabeled", Path: "label unlabeled"},
 	{ID: "label-relabel-all", Path: "label relabel-all"},
 	{ID: "label-attach", Path: "label attach"},
+	{ID: "label-detach", Path: "label detach"},
 
 	{ID: "artifacts", Path: "artifact list"},
 	{ID: "get-artifact", Path: "artifact get"},

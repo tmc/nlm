@@ -11,6 +11,7 @@ import (
 type labelNotebookArgs struct {
 	NotebookID string
 	JSON       bool
+	Members    bool
 }
 
 type labelCreateArgs struct {
@@ -35,12 +36,6 @@ type labelEmojiArgs struct {
 type labelDeleteArgs struct {
 	NotebookID string
 	LabelIDs   []string
-}
-
-type labelAttachArgs struct {
-	NotebookID string
-	Label      string
-	Source     string
 }
 
 func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
@@ -124,14 +119,32 @@ func configureLabelCommandSpecs(specs map[commandID]*commandSpec) {
 		},
 	)
 	configureTypedCommandSpecWithUsage(specs["label-attach"],
-		commandFormOf(
-			requiredOperand("notebook"),
-			withPlaceholder(requiredOperand("label"), "label-id|name"),
-			withPlaceholder(requiredOperand("source"), "source-id|name"),
-		),
+		[]commandForm{{
+			Parts: []operandSpec{
+				requiredOperand("notebook"),
+				withPlaceholder(requiredOperand("label"), "label-id|name"),
+				withUsage(remainingOperand("sources"), "[<source-id|name>...]"),
+			},
+			Constraints: []constraint{constraintFunc(validateLabelApplyCommand)},
+		}},
 		decodeLabelAttach,
 		func(path string) {
-			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <label-id|name> <source-id|name>\n\n", path)
+			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <label-id|name> and at least one source or selector\n\n", path)
+			printCommandHelpForPath(path)
+		},
+	)
+	configureTypedCommandSpecWithUsage(specs["label-detach"],
+		[]commandForm{{
+			Parts: []operandSpec{
+				requiredOperand("notebook"),
+				withPlaceholder(requiredOperand("label"), "label-id|name"),
+				withUsage(remainingOperand("sources"), "[<source-id|name>...]"),
+			},
+			Constraints: []constraint{constraintFunc(validateLabelApplyCommand)},
+		}},
+		decodeLabelDetach,
+		func(path string) {
+			fmt.Fprintf(os.Stderr, "nlm: %s requires <notebook-id> <label-id|name> and at least one source or selector\n\n", path)
 			printCommandHelpForPath(path)
 		},
 	)
@@ -146,6 +159,13 @@ func decodeLabelList(parsed parsedCommand) (commandCall, error) {
 		labels, err := client.GetLabels(ctx, args.NotebookID)
 		if err != nil {
 			return err
+		}
+		if args.Members && !args.JSON {
+			titles, err := sourceTitles(ctx, client, args.NotebookID)
+			if err != nil {
+				return err
+			}
+			return renderLabelMembers(os.Stdout, os.Stderr, labels, titles, isTerminal(os.Stdout))
 		}
 		return renderLabelList(os.Stdout, os.Stderr, labels, isTerminal(os.Stdout), args.JSON)
 	}, nil
@@ -285,7 +305,27 @@ func decodeLabelRelabelAll(parsed parsedCommand) (commandCall, error) {
 	}, nil
 }
 
+// validateLabelApplyCommand rejects an attach or detach that names no
+// sources and sets no selectors, before any RPC is made.
+func validateLabelApplyCommand(parsed parsedCommand) error {
+	if len(parsed.Args["sources"]) > 0 {
+		return nil
+	}
+	if !decodeSelectorOptions(parsed).empty() {
+		return nil
+	}
+	return fmt.Errorf("no sources selected; pass source IDs or names, '-' for a newline-delimited list on stdin, or selector flags")
+}
+
 func decodeLabelAttach(parsed parsedCommand) (commandCall, error) {
+	return decodeLabelApply(parsed, false)
+}
+
+func decodeLabelDetach(parsed parsedCommand) (commandCall, error) {
+	return decodeLabelApply(parsed, true)
+}
+
+func decodeLabelApply(parsed parsedCommand, detach bool) (commandCall, error) {
 	notebookID, err := parsedArgument(parsed, "notebook")
 	if err != nil {
 		return nil, err
@@ -294,25 +334,37 @@ func decodeLabelAttach(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	source, err := parsedArgument(parsed, "source")
+	sources := append([]string(nil), parsed.Args["sources"]...)
+	jsonOutput, err := parsedBoolFlag(parsed, "json", parsed.globals.jsonOutput)
 	if err != nil {
 		return nil, err
 	}
-	args := labelAttachArgs{NotebookID: notebookID, Label: label, Source: source}
+	dryRun, err := parsedBoolFlag(parsed, "dry-run", parsed.globals.dryRun)
+	if err != nil {
+		return nil, err
+	}
+	opts := labelApplyOptions{
+		NotebookID: notebookID,
+		Label:      label,
+		Sources:    sources,
+		Selectors:  decodeSelectorOptions(parsed),
+		Detach:     detach,
+		DryRun:     dryRun,
+		JSON:       jsonOutput,
+	}
+	if !detach {
+		if opts.Exclusive, err = parsedBoolFlag(parsed, "exclusive", false); err != nil {
+			return nil, err
+		}
+		if opts.Create, err = parsedBoolFlag(parsed, "create", false); err != nil {
+			return nil, err
+		}
+	}
+	if err := opts.Selectors.validate(); err != nil {
+		return nil, err
+	}
 	return func(ctx context.Context, client *notebooklm.Client) error {
-		labelID, err := resolveLabelArg(client, args.NotebookID, args.Label)
-		if err != nil {
-			return err
-		}
-		sourceID, err := resolveSourceArg(client, args.NotebookID, args.Source)
-		if err != nil {
-			return err
-		}
-		if err := client.AttachLabelSource(ctx, args.NotebookID, labelID, sourceID); err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stderr, "Attached source %s to label %s\n", sourceID, labelID)
-		return nil
+		return runLabelApply(ctx, client, opts)
 	}, nil
 }
 
@@ -325,5 +377,9 @@ func decodeLabelNotebook(parsed parsedCommand) (labelNotebookArgs, error) {
 	if err != nil {
 		return labelNotebookArgs{}, err
 	}
-	return labelNotebookArgs{NotebookID: notebookID, JSON: jsonOutput}, nil
+	members, err := parsedBoolFlag(parsed, "sources", false)
+	if err != nil {
+		return labelNotebookArgs{}, err
+	}
+	return labelNotebookArgs{NotebookID: notebookID, JSON: jsonOutput, Members: members}, nil
 }

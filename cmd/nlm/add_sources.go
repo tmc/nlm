@@ -180,6 +180,12 @@ func addSources(c *notebooklm.Client, notebookID string, inputs []string, opts s
 			}
 			fmt.Println(id)
 		}
+		if opts.LabelID != "" {
+			if err := attachLabelsToSources(context.Background(), c, notebookID, ids, []string{opts.LabelID}); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "  labeled %d source(s)\n", len(ids))
+		}
 		if opts.ReplaceSourceID != "" {
 			replaceUploadedSource(context.Background(), c, notebookID, opts.ReplaceSourceID, ids)
 		}

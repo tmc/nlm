@@ -225,3 +225,53 @@ func parseSourceCommand(path string, values []string, globals globalOptions) (pa
 	}
 	return parseCommandSpec(command.spec, command.surfaceSpec, values, globals)
 }
+
+// TestParseIngestLabelFlags covers --label/--create-label on both ingest
+// commands. Resolution to a label ID happens at run time against the
+// notebook, so decoding only carries the raw argument through.
+func TestParseIngestLabelFlags(t *testing.T) {
+	for _, tt := range []struct {
+		path       string
+		args       []string
+		wantLabel  string
+		wantCreate bool
+		wantErr    string
+	}{
+		{path: "source add", args: []string{"--label", "triage", "nb", "x"}, wantLabel: "triage"},
+		{path: "source add", args: []string{"--label", "triage", "--create-label", "nb", "x"}, wantLabel: "triage", wantCreate: true},
+		{path: "source add", args: []string{"--create-label", "nb", "x"}, wantErr: "--create-label requires --label"},
+		{path: "source add", args: []string{"nb", "x"}},
+		{path: "source sync", args: []string{"--label", "repo: nlm", "nb", "."}, wantLabel: "repo: nlm"},
+		{path: "source sync", args: []string{"--label", "repo: nlm", "--create-label", "nb", "."}, wantLabel: "repo: nlm", wantCreate: true},
+		{path: "source sync", args: []string{"--create-label", "nb", "."}, wantErr: "--create-label requires --label"},
+	} {
+		t.Run(tt.path+" "+strings.Join(tt.args, " "), func(t *testing.T) {
+			var label string
+			var create bool
+			parsed, err := parseSourceCommand(tt.path, tt.args, globalOptions{})
+			if err == nil {
+				if tt.path == "source add" {
+					var got sourceAddArgs
+					got, err = decodeSourceAddArgs(parsed)
+					label, create = got.Label, got.CreateLabel
+				} else {
+					var got sourceSyncArgs
+					got, err = decodeSourceSyncArgs(parsed)
+					label, create = got.Label, got.CreateLabel
+				}
+			}
+			if tt.wantErr != "" {
+				if err == nil || err.Error() != tt.wantErr {
+					t.Fatalf("error = %v, want %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if label != tt.wantLabel || create != tt.wantCreate {
+				t.Fatalf("label = %q, create = %v; want %q, %v", label, create, tt.wantLabel, tt.wantCreate)
+			}
+		})
+	}
+}

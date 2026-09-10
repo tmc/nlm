@@ -53,15 +53,19 @@ type sourceReadArgs struct {
 }
 
 type sourceAddArgs struct {
-	NotebookID string
-	Inputs     []string
-	Options    sourceAddOptions
+	NotebookID  string
+	Inputs      []string
+	Options     sourceAddOptions
+	Label       string
+	CreateLabel bool
 }
 
 type sourceSyncArgs struct {
-	NotebookID string
-	Paths      []string
-	Options    syncOptions
+	NotebookID  string
+	Paths       []string
+	Options     syncOptions
+	Label       string
+	CreateLabel bool
 }
 
 type sourcePackArgs struct {
@@ -152,6 +156,8 @@ func configureSourceAddSpec(spec *commandSpec) {
 		{Name: "replace", Value: "source-id", Description: "source to replace"},
 		{Name: "pre-process", Value: "command", Description: "pre-process command"},
 		{Name: "chunk", Value: "bytes", Description: "chunk size"},
+		{Name: "label", Value: "label-id|name", Description: "attach this label to every source added"},
+		{Name: "create-label", Description: "create --label if the notebook has no label by that name"},
 	}
 	configureTypedCommandSpecWithUsage(spec,
 		[]commandForm{{
@@ -179,6 +185,8 @@ func configureSourceSyncSpec(spec *commandSpec) {
 		{Name: "include-untracked", Description: "include untracked files"},
 		{Name: "parallel", Value: "n", Description: "parallel uploads"},
 		{Name: "pre-process", Value: "command", Description: "pre-process command"},
+		{Name: "label", Value: "label-id|name", Description: "attach this label to every part of the synced family"},
+		{Name: "create-label", Description: "create --label if the notebook has no label by that name"},
 	}
 	configureTypedCommandSpecWithUsage(spec,
 		[]commandForm{{
@@ -226,12 +234,21 @@ func decodeSourceAdd(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, client *notebooklm.Client) error {
+	return func(ctx context.Context, client *notebooklm.Client) error {
 		inputs, err := addSourceInputs(args.Inputs)
 		if err != nil {
 			return err
 		}
-		return addSources(client, args.NotebookID, inputs, args.Options)
+		opts := args.Options
+		if args.Label != "" {
+			// Resolve before uploading: a typo should fail before any
+			// source lands, not after.
+			opts.LabelID, err = resolveIngestLabel(ctx, client, args.NotebookID, args.Label, args.CreateLabel)
+			if err != nil {
+				return err
+			}
+		}
+		return addSources(client, args.NotebookID, inputs, opts)
 	}, nil
 }
 
@@ -262,7 +279,15 @@ func decodeSourceAddArgs(parsed parsedCommand) (sourceAddArgs, error) {
 	if opts.ReplaceSourceID != "" && len(inputs) != 1 {
 		return sourceAddArgs{}, fmt.Errorf("--replace requires exactly one source")
 	}
-	return sourceAddArgs{NotebookID: notebookID, Inputs: inputs, Options: opts}, nil
+	createLabel, err := parsedBoolFlag(parsed, "create-label", false)
+	if err != nil {
+		return sourceAddArgs{}, err
+	}
+	label := parsedStringFlag(parsed, "label", "")
+	if label == "" && createLabel {
+		return sourceAddArgs{}, fmt.Errorf("--create-label requires --label")
+	}
+	return sourceAddArgs{NotebookID: notebookID, Inputs: inputs, Options: opts, Label: label, CreateLabel: createLabel}, nil
 }
 
 func validateSourceSyncCommand(parsed parsedCommand) error {
@@ -276,7 +301,16 @@ func decodeSourceSync(parsed parsedCommand) (commandCall, error) {
 		return nil, err
 	}
 	return func(ctx context.Context, client *notebooklm.Client) error {
+		var seed []string
+		if args.Label != "" {
+			id, err := resolveIngestLabel(ctx, client, args.NotebookID, args.Label, args.CreateLabel)
+			if err != nil {
+				return err
+			}
+			seed = []string{id}
+		}
 		syncOpts := nlmsync.Options{
+			Labels:           seed,
 			AutoSplit:        args.Options.AutoSplit,
 			MaxBytes:         args.Options.MaxBytes,
 			Name:             args.Options.Name,
@@ -339,9 +373,19 @@ func decodeSourceSyncArgs(parsed parsedCommand) (sourceSyncArgs, error) {
 	case paths[0] == "-":
 		paths = nil
 	}
+	createLabel, err := parsedBoolFlag(parsed, "create-label", false)
+	if err != nil {
+		return sourceSyncArgs{}, err
+	}
+	label := parsedStringFlag(parsed, "label", "")
+	if label == "" && createLabel {
+		return sourceSyncArgs{}, fmt.Errorf("--create-label requires --label")
+	}
 	return sourceSyncArgs{
-		NotebookID: notebookID,
-		Paths:      paths,
+		NotebookID:  notebookID,
+		Paths:       paths,
+		Label:       label,
+		CreateLabel: createLabel,
 		Options: syncOptions{
 			AutoSplit:        autoSplit,
 			Name:             parsedStringFlag(parsed, "name", parsed.globals.sourceName),

@@ -8,13 +8,13 @@ import (
 )
 
 func TestCommandSpecsCoverRegistry(t *testing.T) {
-	if got, want := len(commandSpecs), 87; got != want {
+	if got, want := len(commandSpecs), 88; got != want {
 		t.Fatalf("command specs = %d, want %d", got, want)
 	}
-	if got, want := len(groupedCommandSurfaces), 57; got != want {
+	if got, want := len(groupedCommandSurfaces), 58; got != want {
 		t.Fatalf("grouped surfaces = %d, want %d", got, want)
 	}
-	if got, want := len(commands), 144; got != want {
+	if got, want := len(commands), 146; got != want {
 		t.Fatalf("bound commands = %d, want %d", got, want)
 	}
 
@@ -178,7 +178,8 @@ var phase2InventorySynopses = map[commandID]string{
 	"add":                 "[flags] <notebook-id> <source...>",
 	"sync":                "[flags] <notebook-id> [path...]",
 	"sync-pack":           "[flags] [path...]",
-	"label-attach":        "<notebook-id> <label-id|name> <source-id|name>",
+	"label-attach":        "[flags] <notebook-id> <label-id|name> [<source-id|name>...]",
+	"label-detach":        "[flags] <notebook-id> <label-id|name> [<source-id|name>...]",
 	"app-create":          "[flags] <notebook-id> <instructions...>",
 	"mindmap-create":      "[flags] <notebook-id> <instructions...>",
 	"create-audio":        "[flags] <notebook-id> <instructions...>",

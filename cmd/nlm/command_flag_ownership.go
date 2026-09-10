@@ -46,6 +46,8 @@ func configureCommandFlagOwnership(specs map[commandID]*commandSpec) {
 		"label-create",
 		"label-unlabeled",
 		"label-relabel-all",
+		"label-attach",
+		"label-detach",
 		"artifacts",
 		"guidebooks",
 		"audio-suggestions",
@@ -102,6 +104,28 @@ func configureCommandFlagOwnership(specs map[commandID]*commandSpec) {
 		Name:        "force",
 		Description: "refresh cached source guides",
 	}, "source-guide")
+
+	// label attach and detach select sources the same way source-guide does,
+	// so they carry the selector flags plus a dry run.
+	addOwnedFlag(specs, flagSpec{
+		Name:        "dry-run",
+		Description: "report the changes without making them",
+	}, "label-attach", "label-detach")
+	for _, flag := range selectorFlagSpecs() {
+		addOwnedFlag(specs, flag, "label-attach", "label-detach")
+	}
+	addOwnedFlag(specs, flagSpec{
+		Name:        "sources",
+		Description: "list one row per label member, with source IDs",
+	}, "label-list")
+	addOwnedFlag(specs, flagSpec{
+		Name:        "exclusive",
+		Description: "remove every other label from the selected sources",
+	}, "label-attach")
+	addOwnedFlag(specs, flagSpec{
+		Name:        "create",
+		Description: "create the label if the notebook has no label by that name",
+	}, "label-attach")
 
 	for _, spec := range specs {
 		if spec.noClient {

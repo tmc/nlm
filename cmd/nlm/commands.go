@@ -162,7 +162,11 @@ var commandSpecs = []*commandSpec{
 	},
 	{
 		ID:      "label-attach",
-		Summary: "Attach a source to a label (single source per call)", Section: "Label",
+		Summary: "Add sources to a label", Section: "Label",
+	},
+	{
+		ID:      "label-detach",
+		Summary: "Remove sources from a label", Section: "Label",
 	},
 
 	// Create operations
@@ -398,6 +402,7 @@ var compatibilityCommands = map[string]bool{
 	"label-unlabeled":      true,
 	"label-relabel-all":    true,
 	"label-attach":         true,
+	"label-detach":         true,
 	"get-artifact":         true,
 	"artifacts":            true,
 	"update-artifact":      true,
@@ -456,6 +461,7 @@ var compatibilityReplacements = map[string]string{
 	"label-unlabeled":      "label unlabeled",
 	"label-relabel-all":    "label relabel-all",
 	"label-attach":         "label attach",
+	"label-detach":         "label detach",
 	"artifacts":            "artifact list",
 	"list-artifacts":       "artifact list",
 	"get-artifact":         "artifact get",
