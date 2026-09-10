@@ -10,6 +10,7 @@ import (
 // immutable; each part receives its own labels or a specified donor union.
 type labelPlan struct {
 	base           string
+	seed           []string
 	byTitle        map[string][]string
 	bySource       map[string][]string
 	renames        []Source
@@ -50,7 +51,10 @@ func missingLabels(want, have []string) []string {
 }
 
 func planLabels(ctx context.Context, c Client, notebookID, base string, names []string, sources []Source, opts Options) (*labelPlan, error) {
-	p := &labelPlan{base: base, byTitle: make(map[string][]string), bySource: make(map[string][]string), canonical: make(map[string]Source)}
+	if opts.NoLabels && len(opts.Labels) > 0 {
+		return nil, fmt.Errorf("cannot seed labels with NoLabels set")
+	}
+	p := &labelPlan{base: base, seed: unionLabels(opts.Labels), byTitle: make(map[string][]string), bySource: make(map[string][]string), canonical: make(map[string]Source)}
 	lp, capable := c.(LabelPreserver)
 	if !opts.NoLabels && !capable {
 		return nil, fmt.Errorf("cannot plan labels: client lacks LabelPreserver; set Options.NoLabels to explicitly omit label preservation")
@@ -130,9 +134,13 @@ func sortedPartNames(parts map[string][]string) []string {
 	return names
 }
 
+// labels returns the label IDs a part should carry: its own inherited set
+// (or, when collapsing a family, the union across its descendants) plus the
+// seed from Options.Labels. Seeding at this single point covers every attach
+// site, so parts minted by auto-splitting inherit the seed too.
 func (p *labelPlan) labels(name string, inherited []string, collapse bool) []string {
 	if collapse {
-		sets := [][]string{inherited}
+		sets := [][]string{inherited, p.seed}
 		for _, title := range sortedPartNames(p.byTitle) {
 			if title == name || partDescendant(p.base, title, name) || (name == p.base && p.familyCollapse) {
 				sets = append(sets, p.byTitle[title])
@@ -141,9 +149,15 @@ func (p *labelPlan) labels(name string, inherited []string, collapse bool) []str
 		return unionLabels(sets...)
 	}
 	if ids, ok := p.byTitle[name]; ok {
-		return ids
+		if len(p.seed) == 0 {
+			return ids
+		}
+		return unionLabels(ids, p.seed)
 	}
-	return inherited
+	if len(p.seed) == 0 {
+		return inherited
+	}
+	return unionLabels(inherited, p.seed)
 }
 
 func emitLabelPlan(out *outputWriter, name, sourceID string, ids []string) {

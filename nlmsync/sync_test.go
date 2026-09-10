@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -1115,5 +1116,41 @@ func TestRunUnchangedPartLabels(t *testing.T) {
 	}
 	if len(fc.uploaded) != 1 || len(fc.attachCalls) != 1 || fc.attachCalls[0].sourceID != "src-test" {
 		t.Fatalf("unchanged part not labeled: uploads=%d attachments=%v", len(fc.uploaded), fc.attachCalls)
+	}
+}
+
+// TestRunSeedsLabelOnNewSource covers Options.Labels through Run: a source
+// the sync creates carries the seed, and a re-sync of that source keeps both
+// the seed and the labels it picked up in between.
+func TestRunSeedsLabelOnNewSource(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("hello"), 0o644)
+
+	fc := &fakeLabelClient{fakeClient: &fakeClient{}, labelsBySource: map[string][]string{}}
+	var buf bytes.Buffer
+	opts := Options{Name: "test", Labels: []string{"seed"}}
+	if err := Run(context.Background(), fc, "nb-123", []string{dir}, opts, &buf); err != nil {
+		t.Fatal(err)
+	}
+	if len(fc.attachCalls) != 1 || fc.attachCalls[0].labelID != "seed" || fc.attachCalls[0].sourceID != "src-test" {
+		t.Fatalf("attach calls = %+v, want one seed attach to src-test", fc.attachCalls)
+	}
+
+	// Re-sync the same content after an autolabel run tagged the source.
+	fc.attachCalls = nil
+	fc.sources = []Source{{ID: "src-test", Title: "test"}}
+	fc.labelsBySource["src-test"] = []string{"Miscellaneous", "seed"}
+	buf.Reset()
+	opts.Force = true
+	if err := Run(context.Background(), fc, "nb-123", []string{dir}, opts, &buf); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, call := range fc.attachCalls {
+		got = append(got, call.labelID)
+	}
+	if !reflect.DeepEqual(got, []string{"Miscellaneous", "seed"}) {
+		t.Fatalf("re-sync attached %v, want [Miscellaneous seed]", got)
 	}
 }

@@ -47,6 +47,7 @@ type LabelPreserver interface {
 // Options controls sync behavior.
 type Options struct {
 	NoLabels         bool     // explicitly omit label planning and preservation
+	Labels           []string // label IDs attached to every part of the family, including parts minted by auto-splitting
 	AutoSplit        bool     // split rejected uploads into smaller parts
 	MaxBytes         int      // chunk threshold; 0 means 5120000
 	Name             string   // source name; required if ambiguous

@@ -463,3 +463,41 @@ func TestLiteralBaseSync(t *testing.T) {
 		})
 	}
 }
+
+// TestSeedLabels covers Options.Labels: every part of the family carries the
+// seed, including parts that inherit nothing and parts minted by a split,
+// and the seed never displaces a part's own labels.
+func TestSeedLabels(t *testing.T) {
+	setupTestHome(t)
+	sources := []Source{{ID: "parent", Title: "test"}, {ID: "a", Title: "test (pt1) (a)"}}
+	c := &labelClient{sources: sources, labels: map[string][]string{"a": {"A"}}}
+	opts := Options{Labels: []string{"seed"}}
+	plan, err := planLabels(context.Background(), c, "nb", "test", []string{"test"}, sources, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		name            string
+		inherited, want []string
+	}{
+		{"test (pt1) (a)", nil, []string{"A", "seed"}},
+		{"test (pt1) (b)", nil, []string{"seed"}},
+		{"test (pt1) (b) (c)", []string{"X"}, []string{"X", "seed"}},
+	} {
+		if got := plan.labels(tt.name, tt.inherited, false); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s=%v want %v", tt.name, got, tt.want)
+		}
+	}
+	if got := plan.labels("test", nil, true); !reflect.DeepEqual(got, []string{"A", "seed"}) {
+		t.Errorf("collapsed=%v", got)
+	}
+}
+
+func TestSeedLabelsRejectedWithNoLabels(t *testing.T) {
+	setupTestHome(t)
+	c := &labelClient{}
+	_, err := planLabels(context.Background(), c, "nb", "test", []string{"test"}, nil, Options{NoLabels: true, Labels: []string{"seed"}})
+	if err == nil {
+		t.Fatal("planLabels(NoLabels+Labels) = nil error")
+	}
+}
