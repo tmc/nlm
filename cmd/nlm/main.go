@@ -2985,11 +2985,8 @@ func loadChatSessionByConversation(notebookID, conversationID string) (*chatSess
 		return nil, err
 	}
 
-	sessions, _ := listLocalChatSessions(notebookID)
-	for i := range sessions {
-		if sessions[i].ConversationID == conversationID || strings.HasPrefix(sessions[i].ConversationID, conversationID) {
-			return &sessions[i], nil
-		}
+	if session, err := findLocalChatSession(notebookID, conversationID); err == nil {
+		return session, nil
 	}
 
 	legacy, err := loadChatSession(notebookID)
@@ -3326,8 +3323,8 @@ func listChatConversations(c *notebooklm.Client, notebookID string, jsonOutput b
 	}
 
 	// Also get local sessions for this notebook
-	localSessions, _ := listLocalChatSessions(notebookID)
-	localByConv := make(map[string]*chatSession)
+	localSessions, _ := listLocalChatSessionSummaries(notebookID)
+	localByConv := make(map[string]*chatSessionSummary)
 	for i := range localSessions {
 		if localSessions[i].ConversationID != "" {
 			localByConv[localSessions[i].ConversationID] = &localSessions[i]
@@ -3345,7 +3342,7 @@ func listChatConversations(c *notebooklm.Client, notebookID string, jsonOutput b
 			}
 			if local, ok := localByConv[id]; ok {
 				rec.Status = "synced"
-				rec.MessageCount = len(local.Messages)
+				rec.MessageCount = local.MessageCount
 				rec.LastUpdated = local.UpdatedAt.Format(time.RFC3339)
 			}
 			if err := enc.Encode(rec); err != nil {
@@ -3358,7 +3355,7 @@ func listChatConversations(c *notebooklm.Client, notebookID string, jsonOutput b
 			}
 			rec := chatConversationRecord{
 				ConversationID: s.ConversationID,
-				MessageCount:   len(s.Messages),
+				MessageCount:   s.MessageCount,
 				Status:         "local",
 				LastUpdated:    s.UpdatedAt.Format(time.RFC3339),
 			}
@@ -3387,7 +3384,7 @@ func listChatConversations(c *notebooklm.Client, notebookID string, jsonOutput b
 		status := "server"
 		lastUpdated := "-"
 		if local, ok := localByConv[id]; ok {
-			msgs = fmt.Sprintf("%d", len(local.Messages))
+			msgs = fmt.Sprintf("%d", local.MessageCount)
 			status = "synced"
 			lastUpdated = local.UpdatedAt.Format("Jan 2 15:04")
 		}
@@ -3406,7 +3403,7 @@ func listChatConversations(c *notebooklm.Client, notebookID string, jsonOutput b
 				short = short[:8]
 			}
 			fmt.Fprintf(w, "%s\t%d\t%s\t%s\n",
-				short, len(s.Messages), "local", s.UpdatedAt.Format("Jan 2 15:04"))
+				short, s.MessageCount, "local", s.UpdatedAt.Format("Jan 2 15:04"))
 		}
 	}
 
@@ -3641,38 +3638,6 @@ func loadChatSessionForConv(notebookID, conversationID string) (*chatSession, er
 	return &session, nil
 }
 
-// listLocalChatSessions returns all local chat sessions for a given notebook ID.
-// If notebookID is empty, returns sessions for all notebooks.
-func listLocalChatSessions(notebookID string) ([]chatSession, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-	nlmDir := filepath.Join(homeDir, ".nlm")
-	entries, err := os.ReadDir(nlmDir)
-	if err != nil {
-		return nil, nil
-	}
-	var sessions []chatSession
-	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), "chat-") || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(nlmDir, entry.Name()))
-		if err != nil {
-			continue
-		}
-		var session chatSession
-		if err := json.Unmarshal(data, &session); err != nil {
-			continue
-		}
-		if notebookID == "" || session.NotebookID == notebookID {
-			sessions = append(sessions, session)
-		}
-	}
-	return sessions, nil
-}
-
 func loadChatSession(notebookID string) (*chatSession, error) {
 	path := getChatSessionPath(notebookID)
 	data, err := os.ReadFile(path)
@@ -3719,7 +3684,7 @@ func saveChatSessionForConversation(session *chatSession) error {
 
 func listChatSessions(jsonOutput bool) error {
 	_ = jsonOutput
-	sessions, err := listLocalChatSessions("")
+	sessions, err := listLocalChatSessionSummaries("")
 	if err != nil {
 		return err
 	}
@@ -3752,7 +3717,7 @@ func listChatSessions(jsonOutput bool) error {
 		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
 			session.NotebookID,
 			convShort,
-			len(session.Messages),
+			session.MessageCount,
 			session.UpdatedAt.Format("Jan 2 15:04"))
 	}
 
