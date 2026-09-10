@@ -3689,14 +3689,21 @@ message MutateLabelEntry {
     // wrapped as ["uuid"] (SourceIdList, the same wrapper Label.sources uses).
     LabelNameChange name = 1;
     repeated SourceIdList sources = 2;
-    repeated SourceIdList alternate_sources = 3;
+    // CONFIRMED remove: a live probe (2026-09-10) sent one source id here
+    // against a label holding it, and the label subsequently read back without
+    // that source. The server honors only the first element of sources and of
+    // removed_sources, and ignores sources entirely when both are present, so
+    // each attach or detach is its own request.
+    repeated SourceIdList removed_sources = 3;
     // CONFIRMED add: a capture attaches a project id here and a later read of
     // the same collection shows that project as a member.
     repeated SourceIdList add_projects = 4;
     // Same shape as add_projects at the next slot. A capture sends it against
     // a collection that already contains the project, and no later read of
     // that collection was captured, so the effect is UNOBSERVED. Removal is
-    // the obvious reading but is not confirmed, so the slot is left unnamed.
+    // the obvious reading — it would make projects pair (add, remove) the way
+    // sources do at fields 2 and 3 — but no capture confirms it, so the slot
+    // is left unnamed.
     repeated SourceIdList unknown_5 = 5;
 }
 

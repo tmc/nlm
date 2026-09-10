@@ -1329,7 +1329,6 @@ type SourceMetadata struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to MetadataType:
-	//
 	//	*SourceMetadata_GoogleDocs
 	//	*SourceMetadata_Youtube
 	MetadataType          isSourceMetadata_MetadataType `protobuf_oneof:"metadata_type"`

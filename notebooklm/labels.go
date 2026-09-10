@@ -162,11 +162,15 @@ func (c *Client) SetLabelEmoji(ctx context.Context, projectID, labelID, emoji st
 }
 
 // AttachLabelSource adds a source to a label without changing the label's
-// name or emoji. The wire shape carries exactly one source ID per call:
-// when the UI assigns one source to N labels, it fires N concurrent le8sX
-// calls. HAR captures from 2026-04-26 show two parallel calls at the same
-// timestamp differing only in label_id. Bulk
-// or remove forms have not been observed.
+// name or emoji. Attaching is additive in both directions: the source keeps
+// every other label it already carries, and the label keeps its other
+// sources. Use [Client.DetachLabelSource] to remove one.
+//
+// The wire carries exactly one source ID per call. A live probe sent two IDs
+// and the server applied only the first, so callers labelling N sources must
+// make N calls; the UI does the same, firing them concurrently. Reads are
+// eventually consistent, so a [Client.GetLabels] immediately after a write
+// may still show the old set.
 //
 // Wire request: [[2], project_id, label_id, [[null, [[source_id]]]]].
 func (c *Client) AttachLabelSource(ctx context.Context, projectID, labelID, sourceID string) error {
@@ -179,6 +183,29 @@ func (c *Client) AttachLabelSource(ctx context.Context, projectID, labelID, sour
 		LabelId:   labelID,
 		Mutation: &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{
 			Sources: []*pb.SourceIdList{{SourceId: sourceID}},
+		}},
+	})
+}
+
+// DetachLabelSource removes a source from a label, leaving the label and its
+// other sources in place. Detaching a source the label does not hold is a
+// silent no-op.
+//
+// Like [Client.AttachLabelSource] this carries one source ID per call, and
+// the two cannot be combined: a probe that sent an add and a remove in one
+// request had the remove applied and the add dropped.
+//
+// Wire request: [[2], project_id, label_id, [[null, null, [[source_id]]]]].
+func (c *Client) DetachLabelSource(ctx context.Context, projectID, labelID, sourceID string) error {
+	if sourceID == "" {
+		return fmt.Errorf("source ID required")
+	}
+	return c.mutateLabelProto(ctx, &pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: projectID,
+		LabelId:   labelID,
+		Mutation: &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{
+			RemovedSources: []*pb.SourceIdList{{SourceId: sourceID}},
 		}},
 	})
 }

@@ -292,10 +292,9 @@ var (
 	// The argument encoding format for the RPC
 	// Can contain placeholders that map to request message fields
 	// Examples:
-	//
-	//	"[null, %limit%]" - simple format with one field
-	//	"[null, %limit%, null, %options%]" - format with multiple fields
-	//	"[[%sources%], %project_id%]" - nested format
+	//   "[null, %limit%]" - simple format with one field
+	//   "[null, %limit%, null, %options%]" - format with multiple fields
+	//   "[[%sources%], %project_id%]" - nested format
 	//
 	// optional string arg_format = 51001;
 	E_ArgFormat = &file_notebooklm_v1alpha1_rpc_extensions_proto_extTypes[1]
@@ -318,10 +317,8 @@ var (
 	E_RequiresSources = &file_notebooklm_v1alpha1_rpc_extensions_proto_extTypes[5]
 	// Custom request format for gRPC-style endpoints
 	// Can use special tokens like:
-	//
-	//	"%all_sources%" - array of all source IDs from the notebook
-	//	"%prompt%" - the user's prompt/query
-	//
+	//   "%all_sources%" - array of all source IDs from the notebook
+	//   "%prompt%" - the user's prompt/query
 	// Example: "[[%all_sources%], %prompt%, null, [2]]"
 	//
 	// optional string grpc_arg_format = 51006;
@@ -332,11 +329,10 @@ var (
 var (
 	// How to encode this field in batchexecute format
 	// Examples:
-	//
-	//	"array" - encode as array even if single value
-	//	"string" - always encode as string
-	//	"number" - encode as number
-	//	"null_if_empty" - encode as null if field is empty/zero
+	//   "array" - encode as array even if single value
+	//   "string" - always encode as string
+	//   "number" - encode as number
+	//   "null_if_empty" - encode as null if field is empty/zero
 	//
 	// optional string batchexecute_encoding = 51010;
 	E_BatchexecuteEncoding = &file_notebooklm_v1alpha1_rpc_extensions_proto_extTypes[7]

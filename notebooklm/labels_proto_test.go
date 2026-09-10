@@ -138,4 +138,14 @@ func TestMutateLabelEncoders(t *testing.T) {
 	if !reflect.DeepEqual(attach, wantAttach) {
 		t.Fatalf("attach args = %#v, want %#v", attach, wantAttach)
 	}
+	detach := method.EncodeMutateLabelArgs(&pb.MutateLabelRequest{
+		Context:   &pb.RequestContext{Version: proto.Int32(2)},
+		ProjectId: "project-1",
+		LabelId:   "label-1",
+		Mutation:  &pb.MutateLabelMutation{Entry: &pb.MutateLabelEntry{RemovedSources: []*pb.SourceIdList{{SourceId: "src-1"}}}},
+	})
+	wantDetach := []interface{}{[]interface{}{float64(2)}, "project-1", "label-1", []interface{}{[]interface{}{nil, nil, []interface{}{[]interface{}{"src-1"}}}}}
+	if !reflect.DeepEqual(detach, wantDetach) {
+		t.Fatalf("detach args = %#v, want %#v", detach, wantDetach)
+	}
 }
