@@ -152,6 +152,20 @@ func resolveSourceSelectorsWithOptions(c *notebooklm.Client, notebookID string, 
 	needsLabels := opts.LabelIDs != "" || opts.LabelMatch != "" || opts.LabelExclude != "" || opts.LabelExcludeIDs != "" || opts.LabelNone
 	needsSources := !opts.empty()
 
+	// The two snapshots are independent, and each costs a round trip that
+	// runs for seconds on a large notebook, so fetch them together.
+	type labelFetch struct {
+		labels []notebooklm.Label
+		err    error
+	}
+	labelCh := make(chan labelFetch, 1)
+	if needsLabels {
+		go func() {
+			ls, lerr := c.GetLabels(context.Background(), notebookID)
+			labelCh <- labelFetch{ls, lerr}
+		}()
+	}
+
 	var labels []notebooklm.Label
 	var sources []sourceSummary
 	if needsSources {
@@ -168,11 +182,11 @@ func resolveSourceSelectorsWithOptions(c *notebooklm.Client, notebookID string, 
 		}
 	}
 	if needsLabels {
-		ls, lerr := c.GetLabels(context.Background(), notebookID)
-		if lerr != nil {
-			return selection{}, fmt.Errorf("list labels for selectors: %w", lerr)
+		got := <-labelCh
+		if got.err != nil {
+			return selection{}, fmt.Errorf("list labels for selectors: %w", got.err)
 		}
-		labels = ls
+		labels = got.labels
 	}
 
 	return resolveSelectorIDs(opts, flagIDs, flagLabelIDs, flagLabelExcludeIDs, sources, labels, os.Stderr)

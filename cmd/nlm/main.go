@@ -687,6 +687,18 @@ func uploadNotebookCoverImage(c *notebooklm.Client, notebookID, imagePath string
 
 // Source operations
 func listSources(c *notebooklm.Client, notebookID string, jsonOutput bool) error {
+	// The label view does not depend on the source list, so fetch both at
+	// once. Each call runs for seconds on a large notebook, and run in
+	// sequence they simply added up.
+	labelsCh := make(chan []notebooklm.Label, 1)
+	go func() {
+		labels, err := c.GetLabels(context.Background(), notebookID)
+		if err != nil {
+			labels = nil
+		}
+		labelsCh <- labels
+	}()
+
 	p, err := c.GetProject(context.Background(), notebookID)
 	if err != nil {
 		return fmt.Errorf("list sources: %w", err)
@@ -697,13 +709,13 @@ func listSources(c *notebooklm.Client, notebookID string, jsonOutput bool) error
 	// strictly-additive view.
 	labelsBySource := make(map[string][]string)
 	hasAnyLabels := false
-	if labels, err := c.GetLabels(context.Background(), notebookID); err == nil {
+	if labels := <-labelsCh; len(labels) > 0 {
 		for _, l := range labels {
 			for _, sid := range l.SourceIDs {
 				labelsBySource[sid] = append(labelsBySource[sid], l.Name)
 			}
 		}
-		hasAnyLabels = len(labels) > 0
+		hasAnyLabels = true
 	}
 
 	if jsonOutput {

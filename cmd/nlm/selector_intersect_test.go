@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/url"
 	"reflect"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	pb "github.com/tmc/nlm/gen/notebooklm/v1alpha1"
@@ -45,6 +47,7 @@ func TestSelectorIntersection(t *testing.T) {
 }
 
 type selectorTransport struct {
+	mu        sync.Mutex
 	t         *testing.T
 	responses map[string]string
 	calls     []string
@@ -52,6 +55,8 @@ type selectorTransport struct {
 }
 
 func (tr *selectorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
 	id := req.URL.Query().Get("rpcids")
 	tr.calls = append(tr.calls, id)
 	body, _ := io.ReadAll(req.Body)
@@ -98,7 +103,8 @@ func TestEmptyLabelSelectionStopsGenerativeConsumers(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "empty set") {
 				t.Fatalf("error=%v", err)
 			}
-			if !reflect.DeepEqual(tr.calls, []string{"rLM1Ne", "I3xc3c"}) {
+			slices.Sort(tr.calls) // Source and label lookups may complete in either order.
+			if !reflect.DeepEqual(tr.calls, []string{"I3xc3c", "rLM1Ne"}) {
 				t.Fatalf("calls=%v", tr.calls)
 			}
 		})
