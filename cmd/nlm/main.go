@@ -1870,7 +1870,16 @@ func streamChatResponse(c *notebooklm.Client, req notebooklm.ChatRequest, opts c
 	if opts.ThinkingJSONL {
 		mode = citationModeJSON
 	}
-	resolveTitle := notebookSourceTitles(c, req.ProjectID)
+	// One source list serves both the request and the citation titles. A
+	// chat with no explicit selection is grounded by listing the notebook,
+	// and the renderer then listed it again to name the cited sources: two
+	// identical calls per turn, and on a large notebook the second one --
+	// several seconds -- landed after the answer had finished printing.
+	srcIndex := newNotebookSourceIndex(c, req.ProjectID)
+	if len(req.SourceIDs) == 0 && !opts.Client.SkipSources {
+		req.SourceIDs = srcIndex.sourceIDs()
+	}
+	resolveTitle := srcIndex.titleFunc()
 	var loadSource func(string) (notebooklm.LoadSourceText, error)
 	// Only --resolve-citations needs source bodies now (for txtar file:line).
 	// Excerpts ship inline on the citation, so they need no loader.
@@ -2103,6 +2112,7 @@ type notebookSourceIndex struct {
 	c         *notebooklm.Client
 	projectID string
 	titles    map[string]string // nil until titles are loaded
+	order     []string          // source IDs in notebook order; set by a live fetch only
 	absent    map[string]bool   // source IDs a live fetch confirmed the notebook lacks
 	loaded    bool              // titles were loaded, from cache or server
 	mapped    bool              // titles came from a live fetch, so absence is authoritative
@@ -2149,9 +2159,11 @@ func (idx *notebookSourceIndex) fetch() {
 		return
 	}
 	idx.titles = make(map[string]string, len(proj.Sources))
+	idx.order = make([]string, 0, len(proj.Sources))
 	for _, s := range proj.Sources {
 		if id := s.GetSourceId().GetSourceId(); id != "" {
 			idx.titles[id] = s.GetTitle()
+			idx.order = append(idx.order, id)
 		}
 	}
 	idx.mapped = true
@@ -2205,15 +2217,35 @@ func (idx *notebookSourceIndex) removed(sourceID string) bool {
 	return false
 }
 
-// notebookSourceTitles adapts a source index to the bare title lookup the
-// live-stream renderer and persistableCitations use. Returns nil when no index
-// is available so existing nil-checks keep working.
-func notebookSourceTitles(c *notebooklm.Client, projectID string) func(string) string {
-	idx := newNotebookSourceIndex(c, projectID)
+// sourceIDs returns the notebook's source IDs in notebook order. It always
+// fetches: a chat must be grounded on the notebook as it is now, and a cached
+// list would silently omit a source added since the fetch. Returns nil when
+// the list is unavailable, leaving the caller's empty selection to be resolved
+// -- and its failure reported -- downstream.
+func (idx *notebookSourceIndex) sourceIDs() []string {
+	if idx == nil {
+		return nil
+	}
+	if !idx.mapped {
+		idx.loaded = true
+		idx.fetch()
+	}
+	return idx.order
+}
+
+// titleFunc adapts an index to the bare title lookup the live-stream renderer
+// and persistableCitations use. Returns nil when no index is available so
+// existing nil-checks keep working.
+func (idx *notebookSourceIndex) titleFunc() func(string) string {
 	if idx == nil {
 		return nil
 	}
 	return idx.title
+}
+
+// notebookSourceTitles returns the title lookup for a notebook.
+func notebookSourceTitles(c *notebooklm.Client, projectID string) func(string) string {
+	return newNotebookSourceIndex(c, projectID).titleFunc()
 }
 
 func isTerminal(f *os.File) bool {

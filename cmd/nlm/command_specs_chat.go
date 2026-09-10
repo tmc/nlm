@@ -503,6 +503,13 @@ func decodeChatRenderOptions(parsed parsedCommand) (chatRenderOptions, error) {
 	if err != nil {
 		return chatRenderOptions{}, err
 	}
+	// The client options travel with the render options because streaming a
+	// chat consults them: --skip-sources decides whether the notebook's
+	// source list is fetched at all.
+	options.Client, err = decodeCommandClientOptions(parsed)
+	if err != nil {
+		return chatRenderOptions{}, err
+	}
 	return options, nil
 }
 
