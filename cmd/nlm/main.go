@@ -2102,9 +2102,11 @@ func printStreamFallback(out io.Writer, streamed, full string, jsonl bool) {
 type notebookSourceIndex struct {
 	c         *notebooklm.Client
 	projectID string
-	titles    map[string]string // nil until a successful fetch
-	loaded    bool              // a fetch was attempted
-	mapped    bool              // the fetch succeeded and titles is populated
+	titles    map[string]string // nil until titles are loaded
+	absent    map[string]bool   // source IDs a live fetch confirmed the notebook lacks
+	loaded    bool              // titles were loaded, from cache or server
+	mapped    bool              // titles came from a live fetch, so absence is authoritative
+	refetched bool              // a cached load was already upgraded to a live fetch
 }
 
 // newNotebookSourceIndex returns a lazy index, or nil when no client/notebook is
@@ -2117,14 +2119,31 @@ func newNotebookSourceIndex(c *notebooklm.Client, projectID string) *notebookSou
 	return &notebookSourceIndex{c: c, projectID: projectID}
 }
 
-// load fetches the source list at most once. Failures are suppressed (leaving
-// mapped=false) so a renderer degrades to the citation's own data rather than
-// erroring on an unauthed or offline replay.
+// load fills the title map at most once, from the on-disk cache when it holds
+// a fresh entry and otherwise from the server. Failures are suppressed
+// (leaving mapped=false) so a renderer degrades to the citation's own data
+// rather than erroring on an unauthed or offline replay.
 func (idx *notebookSourceIndex) load() {
 	if idx.loaded {
 		return
 	}
 	idx.loaded = true
+	if titles, absent := loadSourceTitles(idx.projectID); titles != nil {
+		// A cached list records the notebook's membership as of the
+		// fetch, so it answers titles directly, and the absent set
+		// answers the removed hint for sources a fetch already
+		// confirmed gone. An ID in neither is unknown -- it may have
+		// been added since -- and refetch resolves it.
+		idx.titles, idx.absent = titles, absent
+		return
+	}
+	idx.fetch()
+}
+
+// fetch loads the source list from the server, replacing any cached view. A
+// failure leaves mapped false so a renderer degrades rather than erroring.
+func (idx *notebookSourceIndex) fetch() {
+	idx.refetched = true
 	proj, err := idx.c.GetProject(context.Background(), idx.projectID)
 	if err != nil {
 		return
@@ -2136,6 +2155,7 @@ func (idx *notebookSourceIndex) load() {
 		}
 	}
 	idx.mapped = true
+	saveSourceTitles(idx.projectID, idx.titles, idx.absent)
 }
 
 // title returns the notebook title for sourceID, or "" when the source has no
@@ -2153,15 +2173,36 @@ func (idx *notebookSourceIndex) title(sourceID string) string {
 // false when the list is unavailable (offline / fetch failed), so a renderer
 // never mislabels a source as removed on incomplete information.
 func (idx *notebookSourceIndex) removed(sourceID string) bool {
-	if idx == nil {
+	if idx == nil || sourceID == "" {
 		return false
 	}
 	idx.load()
-	if !idx.mapped {
+	if _, ok := idx.titles[sourceID]; ok {
 		return false
 	}
-	_, ok := idx.titles[sourceID]
-	return !ok
+	if idx.mapped {
+		// A live list that omits the ID settles it. Record the absence
+		// so a later render answers from the cache.
+		if !idx.absent[sourceID] {
+			if idx.absent == nil {
+				idx.absent = make(map[string]bool)
+			}
+			idx.absent[sourceID] = true
+			saveSourceTitles(idx.projectID, idx.titles, idx.absent)
+		}
+		return true
+	}
+	if idx.absent[sourceID] {
+		return true
+	}
+	if !idx.refetched {
+		// Cached view, and this ID is in neither map: it was either
+		// removed after the fetch or added after it. Only the server
+		// can tell, and one refetch settles every remaining ID.
+		idx.fetch()
+		return idx.removed(sourceID)
+	}
+	return false
 }
 
 // notebookSourceTitles adapts a source index to the bare title lookup the
