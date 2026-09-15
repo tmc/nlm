@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // labelPlan is built before mutations. Maps used by upload workers are then
@@ -125,9 +126,20 @@ func planLabels(ctx context.Context, c Client, notebookID, base string, names []
 		}
 	}
 	if len(lost) > 0 {
-		return nil, fmt.Errorf("ambiguous labeled rechunk of %q (%v): detach labels or sync into a fresh family name", base, lost)
+		return nil, fmt.Errorf("ambiguous labeled rechunk of %q: %s would be dropped, and their labels have no donor; detach labels or sync into a fresh family name", base, briefParts(lost))
 	}
 	return p, nil
+}
+
+// briefParts renders a part list for an error message. A wide family strands
+// dozens of parts, and dumping every name buries the remedy that follows it,
+// so name a few and count the rest.
+func briefParts(names []string) string {
+	const show = 3
+	if len(names) <= show {
+		return strings.Join(names, ", ")
+	}
+	return fmt.Sprintf("%s and %d more labeled parts", strings.Join(names[:show], ", "), len(names)-show)
 }
 
 // commonLabels returns the labels every existing part of a family carries.
