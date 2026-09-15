@@ -13,6 +13,7 @@ type labelPlan struct {
 	seed           []string
 	byTitle        map[string][]string
 	bySource       map[string][]string
+	common         []string
 	renames        []Source
 	recoveries     []Source
 	canonical      map[string]Source
@@ -98,31 +99,60 @@ func planLabels(ctx context.Context, c Client, notebookID, base string, names []
 			p.renames = append(p.renames, old)
 		}
 	}
-	hasLabels := false
-	for _, ids := range p.byTitle {
-		hasLabels = hasLabels || len(ids) > 0
-	}
+	p.common = commonLabels(p.byTitle)
 	if len(names) == 1 {
 		for chunk := range chunks {
 			if chunk != "1" {
 				p.familyCollapse = true
 			}
 		}
-	} else if hasLabels && len(chunks) > 0 {
-		expected := make(map[string]bool)
-		for _, name := range names {
-			id, _, _ := parsePart(name, base)
-			expected[id.chunk] = true
-		}
-		same := len(expected) == len(chunks)
-		for chunk := range chunks {
-			same = same && expected[chunk]
-		}
-		if !same {
-			return nil, fmt.Errorf("ambiguous labeled rechunk of %q (%v): detach labels or sync into a fresh family name", base, sortedPartNames(p.byTitle))
+		return p, nil
+	}
+	expected := make(map[string]bool)
+	for _, name := range names {
+		id, _, _ := parsePart(name, base)
+		expected[id.chunk] = true
+	}
+	// A chunk that keeps its slot keeps its labels, so a family that only
+	// gains chunks needs no donor evidence: nothing is deleted and nothing
+	// has to be attributed. Only a labeled chunk that disappears would lose
+	// its assignments to a donor the manifest cannot identify.
+	var lost []string
+	for _, name := range sortedPartNames(p.byTitle) {
+		id, _, _ := parsePart(name, base)
+		if len(p.byTitle[name]) > 0 && !expected[id.chunk] {
+			lost = append(lost, name)
 		}
 	}
+	if len(lost) > 0 {
+		return nil, fmt.Errorf("ambiguous labeled rechunk of %q (%v): detach labels or sync into a fresh family name", base, lost)
+	}
 	return p, nil
+}
+
+// commonLabels returns the labels every existing part of a family carries.
+// A part minted by a later sync joins a classification the family already
+// agrees on; it never inherits a label only some siblings hold.
+func commonLabels(byTitle map[string][]string) []string {
+	names := sortedPartNames(byTitle)
+	if len(names) == 0 {
+		return nil
+	}
+	common := byTitle[names[0]]
+	for _, name := range names[1:] {
+		have := make(map[string]bool, len(byTitle[name]))
+		for _, id := range byTitle[name] {
+			have[id] = true
+		}
+		var keep []string
+		for _, id := range common {
+			if have[id] {
+				keep = append(keep, id)
+			}
+		}
+		common = keep
+	}
+	return unionLabels(common)
 }
 
 func sortedPartNames(parts map[string][]string) []string {
@@ -140,7 +170,7 @@ func sortedPartNames(parts map[string][]string) []string {
 // site, so parts minted by auto-splitting inherit the seed too.
 func (p *labelPlan) labels(name string, inherited []string, collapse bool) []string {
 	if collapse {
-		sets := [][]string{inherited, p.seed}
+		sets := [][]string{inherited, p.seed, p.common}
 		for _, title := range sortedPartNames(p.byTitle) {
 			if title == name || partDescendant(p.base, title, name) || (name == p.base && p.familyCollapse) {
 				sets = append(sets, p.byTitle[title])
@@ -154,10 +184,10 @@ func (p *labelPlan) labels(name string, inherited []string, collapse bool) []str
 		}
 		return unionLabels(ids, p.seed)
 	}
-	if len(p.seed) == 0 {
+	if len(p.seed) == 0 && len(p.common) == 0 {
 		return inherited
 	}
-	return unionLabels(inherited, p.seed)
+	return unionLabels(inherited, p.seed, p.common)
 }
 
 func emitLabelPlan(out *outputWriter, name, sourceID string, ids []string) {

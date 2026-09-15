@@ -300,8 +300,13 @@ authorize *deletions* on stale evidence. So:
   The survivor takes their label union, and the donors are deleted only after
   it carries them. A member crossing a boundary between two differently
   labeled donors in this case yields both labels.
-- **Everything else:** an ambiguous rechunk of a family **whose parts carry
-  labels** is a **pre-mutation error** naming the parts. There is no
+- **Identifiable now:** a family that only **gains** chunks. Every existing
+  chunk keeps its slot, so no part is deleted and no assignment has to be
+  attributed to a donor: existing parts keep their own labels and each new
+  part takes the labels **every** existing part carries, never one only some
+  siblings hold.
+- **Everything else — a rechunk that drops a labeled chunk:** a
+  **pre-mutation error** naming the parts whose labels have no donor. There is no
   self-healing "re-run once" instruction — an identical re-run reproduces the
   same error — and **no `--force` escape**: `Options.Force` today means only
   "ignore unchanged hashes" and supplies no donor evidence. The caller's
@@ -441,6 +446,9 @@ Selector resolution (`resolveSelectorIDs`, table-driven):
   re-uploaded. **[R4]**
 - An ambiguous labeled rechunk errors before mutation, and the error repeats
   identically on re-run (no false self-healing instruction). **[R4]**
+- A labeled family growing from one part to several syncs without error, and
+  every part — old and new — ends up carrying the family's shared labels.
+  **[R4]**
 - Dry run emits exact planned label IDs and targets, and issues zero
   Add/Rename/Delete/Attach calls; an unchanged execution issues zero attach
   calls.

@@ -1066,7 +1066,9 @@ func TestRunChangedChunkSizeLabels(t *testing.T) {
 			fc.sources = append(fc.sources, Source{ID: "unrelated", Title: "other"})
 			fc.labelsBySource["unrelated"] = []string{"other-label"}
 			err = Run(context.Background(), fc, "nb", []string{path}, Options{Name: "test", MaxBytes: tc.newSize}, io.Discard)
-			if len(names) > 1 {
+			// Losing a chunk strands its labels; keeping every existing slot
+			// and adding more strands nothing.
+			if len(names) > 1 && len(names) < len(oldNames) {
 				if err == nil || !strings.Contains(err.Error(), "ambiguous labeled rechunk") {
 					t.Fatalf("error=%v", err)
 				}

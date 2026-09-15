@@ -350,10 +350,24 @@ func TestAmbiguousRechunkRepeatsWithoutMutation(t *testing.T) {
 	if err := os.WriteFile(path, []byte(strings.Repeat("data\n", 500)), 0600); err != nil {
 		t.Fatal(err)
 	}
-	c := &labelClient{sources: []Source{{ID: "a", Title: "test"}}, labels: map[string][]string{"a": {"A"}}}
+	// Existing parts outnumber the planned ones, so the dropped chunks would
+	// lose their labels to a donor no stored state identifies.
+	_, wide, err := Pack([]string{path}, Options{Name: "test", MaxBytes: 400})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wide) < 3 {
+		t.Fatalf("parts=%v", wide)
+	}
+	c := &labelClient{labels: map[string][]string{}}
+	for i, name := range wide {
+		id := fmt.Sprintf("s%d", i)
+		c.sources = append(c.sources, Source{ID: id, Title: name})
+		c.labels[id] = []string{"A"}
+	}
 	for _, dry := range []bool{false, true} {
 		for i := 0; i < 2; i++ {
-			err := Run(context.Background(), c, "nb", []string{path}, Options{Name: "test", MaxBytes: 400, Force: true, DryRun: dry}, io.Discard)
+			err := Run(context.Background(), c, "nb", []string{path}, Options{Name: "test", MaxBytes: 900, Force: true, DryRun: dry}, io.Discard)
 			if err == nil || !strings.Contains(err.Error(), "ambiguous labeled rechunk") {
 				t.Fatalf("error=%v", err)
 			}
@@ -362,9 +376,41 @@ func TestAmbiguousRechunkRepeatsWithoutMutation(t *testing.T) {
 			}
 		}
 	}
-	c.labels["a"] = nil
-	if err := Run(context.Background(), c, "nb", []string{path}, Options{Name: "test", MaxBytes: 400}, io.Discard); err != nil {
+	for id := range c.labels {
+		c.labels[id] = nil
+	}
+	if err := Run(context.Background(), c, "nb", []string{path}, Options{Name: "test", MaxBytes: 900}, io.Discard); err != nil {
 		t.Fatalf("unlabeled rechunk: %v", err)
+	}
+}
+
+// TestGrowingRechunkKeepsFamilyLabels covers the other half: a family that
+// only gains chunks deletes nothing, so it syncs and the new parts join the
+// classification every existing part already shares.
+func TestGrowingRechunkKeepsFamilyLabels(t *testing.T) {
+	setupTestHome(t)
+	path := labelInput(t)
+	if err := os.WriteFile(path, []byte(strings.Repeat("data\n", 500)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, names, err := Pack([]string{path}, Options{Name: "test", MaxBytes: 900})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) < 2 {
+		t.Fatalf("parts=%v", names)
+	}
+	c := &labelClient{sources: []Source{{ID: "a", Title: "test"}}, labels: map[string][]string{"a": {"A"}}}
+	if err := Run(context.Background(), c, "nb", []string{path}, Options{Name: "test", MaxBytes: 900}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range c.sources {
+		if len(c.labels[source.ID]) != 1 || c.labels[source.ID][0] != "A" {
+			t.Fatalf("%s labels=%v, want [A]", source.Title, c.labels[source.ID])
+		}
+	}
+	if len(c.sources) != len(names) {
+		t.Fatalf("sources=%d, want %d", len(c.sources), len(names))
 	}
 }
 

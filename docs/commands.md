@@ -324,9 +324,11 @@ A stranded `part [old]` is a recovery donor. Sync transfers and verifies its
 labels before deleting it. If it is the only copy, sync restores its canonical
 title before evaluating the normal content update. A complete subtree may
 collapse into its ancestor, which receives the donors' label union before
-cleanup. Other ambiguous labeled rechunking fails before mutation; `--force`
-does not bypass that error. Detach the labels or use a fresh family name.
-General partition provenance is deferred.
+cleanup. A family that only gains chunks deletes nothing, so it syncs: the
+parts it already had keep their own labels and each new part joins the labels
+every existing part shares. Rechunking that drops a labeled chunk fails before
+mutation; `--force` does not bypass that error. Detach the labels or use a
+fresh family name. General partition provenance is deferred.
 
 Dry runs report label IDs and existing source IDs or planned part names, plus
 the inheritance rule for contingent splits. They issue no remote mutations.
