@@ -198,8 +198,10 @@ func TestStaleStreamOutputError(t *testing.T) {
 	if got := exitCodeFor(err); got != exitStaleOutput {
 		t.Fatalf("exit code = %d, want %d", got, exitStaleOutput)
 	}
-	if msg := err.Error(); !strings.Contains(msg, "nlm chat-show nb1 conv1") {
-		t.Fatalf("error message %q lacks the chat-show replay command", msg)
+	// The replay hint must name a runnable command: `chat-show` still works
+	// but warns that it is deprecated, so the message teaches `chat show`.
+	if msg := err.Error(); !strings.Contains(msg, "nlm chat show nb1 conv1") {
+		t.Fatalf("error message %q lacks the chat show replay command", msg)
 	}
 	if err := staleStreamOutputError(chatResult{Revised: true}, true, "nb1", "conv1"); err != nil {
 		t.Fatalf("jsonl mode error = %v, want nil", err)

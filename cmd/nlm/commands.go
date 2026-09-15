@@ -837,7 +837,7 @@ type staleOutputError struct {
 }
 
 func (e staleOutputError) Error() string {
-	return fmt.Sprintf("the answer was revised while it streamed and the streamed output differs from the exact saved answer; replay it with 'nlm chat-show %s %s'", e.notebookID, e.conversationID)
+	return fmt.Sprintf("the answer was revised while it streamed and the streamed output differs from the exact saved answer; the exact answer was saved — print it with 'nlm chat show %s %s'", e.notebookID, e.conversationID)
 }
 
 func (staleOutputError) Is(target error) bool { return target == errStaleOutput }
