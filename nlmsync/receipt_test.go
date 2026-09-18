@@ -249,3 +249,54 @@ func TestSyncRepairsFailedPart(t *testing.T) {
 		})
 	}
 }
+
+// A sync that fails before its first write can be retried as a no-op; one
+// that fails after leaves the family carrying a mix of revisions. Only the
+// second warrants the torn-write class, so the receipt and the error have to
+// tell them apart.
+func TestSyncReceiptPartial(t *testing.T) {
+	setupTestHome(t)
+	dir := t.TempDir()
+	// Two chunks: the first uploads, the second is rejected by name, so the
+	// family ends up half-written.
+	for _, name := range []string{"a.txt", "b.txt"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(strings.Repeat("text\n", 300)), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := newRejectingClient()
+	c.sources = nil
+	c.rejectName = "test (pt2)"
+	var out bytes.Buffer
+	err := Run(context.Background(), c, "nb", []string{dir}, Options{Name: "test", MaxBytes: 1000, JSON: true, Parallel: -1}, &out)
+	var incomplete *IncompleteError
+	if !errors.As(err, &incomplete) {
+		t.Fatalf("error = %v, want *IncompleteError", err)
+	}
+	if !incomplete.Partial {
+		t.Fatalf("Partial = false after %d uploads: %v", len(c.uploaded), err)
+	}
+	if !strings.Contains(incomplete.Error(), "mixed revisions") {
+		t.Errorf("message %q does not report mixed revisions", incomplete.Error())
+	}
+	if r := readResult(t, out.Bytes()); !r.Partial {
+		t.Errorf("receipt partial = false, want true: %+v", r)
+	}
+
+	// Nothing uploaded: the notebook is untouched and a retry is a no-op.
+	c2 := &fakeClient{sources: []Source{{ID: "good", Title: "test"}, {ID: "bad", Title: "test", Status: "error"}}}
+	out.Reset()
+	err = Run(context.Background(), c2, "nb", []string{filepath.Join(dir, "a.txt")}, Options{Name: "test", JSON: true}, &out)
+	if !errors.As(err, &incomplete) {
+		t.Fatalf("error = %v, want *IncompleteError", err)
+	}
+	if incomplete.Partial {
+		t.Error("Partial = true with no uploads")
+	}
+	if !strings.Contains(incomplete.Error(), "no sources were modified") {
+		t.Errorf("message %q does not say the notebook is unchanged", incomplete.Error())
+	}
+	if r := readResult(t, out.Bytes()); r.Partial {
+		t.Error("receipt partial = true with no uploads")
+	}
+}

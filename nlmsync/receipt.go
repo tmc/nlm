@@ -10,16 +10,26 @@ import (
 	"time"
 )
 
-// IncompleteError reports a sync that did not finish. Some remote operations
-// may have succeeded; the receipt records the operations observed by this run.
-// Unwrap preserves the underlying upload, authentication, or transport error.
+// IncompleteError reports a sync that did not finish. Unwrap preserves the
+// underlying upload, authentication, or transport error.
+//
+// Partial distinguishes the two failures a caller has to handle differently.
+// A sync that failed before its first write left the notebook exactly as it
+// found it, so re-running it is safe and the failure is a retryable no-op. A
+// sync that failed after one succeeded left the family carrying a mix of
+// revisions, and a script that aborts there (under `set -e`, say) leaves the
+// notebook stale in a way no later step will notice.
 type IncompleteError struct {
 	Name    string
 	Receipt string
+	Partial bool
 	Err     error
 }
 
 func (e *IncompleteError) Error() string {
+	if !e.Partial {
+		return fmt.Sprintf("sync family %q failed; no sources were modified (receipt %s): %v", e.Name, e.Receipt, e.Err)
+	}
 	return fmt.Sprintf("sync family %q incomplete; sources may contain mixed revisions (receipt %s): %v", e.Name, e.Receipt, e.Err)
 }
 
@@ -40,6 +50,7 @@ type syncReceipt struct {
 	Name            string        `json:"name"`
 	Started         time.Time     `json:"started"`
 	Status          string        `json:"status"`
+	Partial         bool          `json:"partial"`
 	Readiness       string        `json:"readiness"`
 	CleanupComplete bool          `json:"cleanup_complete"`
 	MaxBytes        int           `json:"max_bytes"`
@@ -110,6 +121,21 @@ func (r *syncReceipt) save() error {
 	return os.Rename(f.Name(), r.Path)
 }
 
+// mutated reports whether this attempt changed the notebook. Dry-run and
+// planning events describe work that was never sent.
+func (r *syncReceipt) mutated() bool {
+	for _, op := range r.Operations {
+		if op.DryRun {
+			continue
+		}
+		switch op.Action {
+		case "upload", "replace", "delete", "rename":
+			return true
+		}
+	}
+	return false
+}
+
 func (o *outputWriter) finish(runErr error) error {
 	r := o.receipt
 	r.CleanupComplete = runErr == nil && !r.DryRun
@@ -120,6 +146,7 @@ func (o *outputWriter) finish(runErr error) error {
 	}
 	if err != nil {
 		r.Status = "incomplete"
+		r.Partial = r.mutated()
 		r.Error = err.Error()
 	}
 	if saveErr := r.save(); saveErr != nil {
@@ -138,7 +165,7 @@ func (o *outputWriter) finish(runErr error) error {
 		fmt.Fprintf(os.Stderr, "  family: %s: %s (indexing readiness unchecked; receipt %s)\n", r.Name, r.Status, r.Path)
 	}
 	if err != nil {
-		return &IncompleteError{Name: r.Name, Receipt: r.Path, Err: err}
+		return &IncompleteError{Name: r.Name, Receipt: r.Path, Partial: r.Partial, Err: err}
 	}
 	return nil
 }

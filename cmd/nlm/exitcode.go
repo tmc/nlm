@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/tmc/nlm/internal/batchexecute"
+	"github.com/tmc/nlm/nlmsync"
 	"github.com/tmc/nlm/notebooklm"
 )
 
@@ -21,6 +22,8 @@ import (
 //	8 stale output (captured stdout differs from the exact saved answer)
 //	9 auth failed (a browser or CDP login was attempted and did not succeed)
 //	10 runaway output (a client-side guard stopped a degenerate chat stream)
+//	11 partial write (a sync failed after changing the notebook; the family
+//	   now carries a mix of revisions and a retry is not a no-op)
 const (
 	exitSuccess      = 0
 	exitGeneric      = 1
@@ -33,6 +36,7 @@ const (
 	exitStaleOutput  = 8
 	exitAuthFailed   = 9
 	exitRunaway      = 10
+	exitPartialWrite = 11
 )
 
 // exitCodeName returns a short, stable, machine-parseable name for a
@@ -59,6 +63,8 @@ func exitCodeName(code int) string {
 		return "auth-failed"
 	case exitRunaway:
 		return "runaway-output"
+	case exitPartialWrite:
+		return "partial-write"
 	default:
 		return ""
 	}
@@ -113,6 +119,16 @@ func exitCodeFor(err error) int {
 	// failure as if it were one.
 	if errors.Is(err, errEmptyChatResponse) {
 		return exitTransient
+	}
+
+	// A sync that failed after it had already written reports the torn state
+	// rather than the cause: the caller cannot retry it as a no-op, and the
+	// notebook is stale in a way no later step will notice. This is checked
+	// after the auth classes on purpose — credentials that expired mid-sync
+	// still need a human, and the receipt records the torn family either way.
+	var incomplete *nlmsync.IncompleteError
+	if errors.As(err, &incomplete) && incomplete.Partial {
+		return exitPartialWrite
 	}
 
 	// Typed api-layer sentinels for states batchexecute cannot disambiguate.

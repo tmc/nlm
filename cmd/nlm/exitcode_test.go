@@ -220,3 +220,33 @@ func TestIncompleteSyncExitCode(t *testing.T) {
 		}
 	}
 }
+
+// A sync that wrote before it failed left the family carrying a mix of
+// revisions. Scripts need to tell that from a failure that changed nothing,
+// which they can retry as a no-op, so it gets its own exit class.
+func TestPartialSyncExitCode(t *testing.T) {
+	cause := apiErrorWithCode(9)
+	partial := &nlmsync.IncompleteError{Name: "upstream", Receipt: "attempt.json", Partial: true, Err: cause}
+	if got := exitCodeFor(partial); got != exitPartialWrite {
+		t.Errorf("partial sync exit = %d, want %d", got, exitPartialWrite)
+	}
+	if got := exitCodeName(exitPartialWrite); got != "partial-write" {
+		t.Errorf("exit class = %q, want partial-write", got)
+	}
+	if msg := partial.Error(); !strings.Contains(msg, "mixed revisions") {
+		t.Errorf("partial message %q does not report mixed revisions", msg)
+	}
+	clean := &nlmsync.IncompleteError{Name: "upstream", Receipt: "attempt.json", Err: cause}
+	if got := exitCodeFor(clean); got != exitCodeFor(cause) {
+		t.Errorf("no-op sync exit = %d, want the cause's %d", got, exitCodeFor(cause))
+	}
+	if msg := clean.Error(); !strings.Contains(msg, "no sources were modified") {
+		t.Errorf("no-op message %q does not say the notebook is unchanged", msg)
+	}
+	// Credentials that expired mid-sync still need a human, so auth outranks
+	// the torn-write class.
+	expired := &nlmsync.IncompleteError{Name: "upstream", Receipt: "attempt.json", Partial: true, Err: errAuthRequired}
+	if got := exitCodeFor(expired); got != exitAuth {
+		t.Errorf("expired-auth partial sync exit = %d, want %d", got, exitAuth)
+	}
+}

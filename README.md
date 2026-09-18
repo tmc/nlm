@@ -389,6 +389,7 @@ prints `nlm: exit-class=<name> (exit N)` to stderr:
 | 8 | stale-output | Chat succeeded but the server revised text after it streamed, so captured stdout differs from the exact saved answer | replay with `nlm chat-show <notebook> <conversation>` (the id is on stderr) or `nlm chat show <notebook> latest` |
 | 9 | auth-failed | A browser or CDP login was attempted and failed | fix the profile, or `nlm auth --cdp-url ws://localhost:9222` |
 | 10 | runaway-output | A client-side guard stopped a degenerate chat stream (size cap or repeated-block detection) | treat the partial stdout as unusable; retry with a narrower prompt or source selection |
+| 11 | partial-write | A sync failed after it had already uploaded, so the family carries a mix of revisions | re-run the same sync to converge; do not treat it as a no-op |
 
 ### Chat output guards
 
