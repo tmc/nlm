@@ -254,21 +254,10 @@ func buildCitationMarkers(citations []notebooklm.Citation, ctx RenderContext, bu
 	locations := ctx.citationLocations(citations)
 	order, groups := groupCitationsByIndex(citations)
 
-	type sourcePassage struct {
-		source, parent, excerpt string
-		start, end              int
-		confidence              float64
-	}
 	markers := make([]htmlMarker, 0, len(order))
 	for _, idx := range order {
 		hm := htmlMarker{Index: idx}
-		seenSources := make(map[sourcePassage]bool)
-		for _, c := range groups[idx] {
-			key := sourcePassage{c.SourceID, c.ParentSourceID, c.Excerpt, c.SourceStart, c.SourceEnd, c.Confidence}
-			if seenSources[key] {
-				continue
-			}
-			seenSources[key] = true
+		for _, c := range dedupeCitationPassages(groups[idx]) {
 			hm.Sources = append(hm.Sources, buildCitation(c, ctx, locations, budget))
 		}
 		hm.Spans = groundedSpans(groups[idx], u16Len, markerRanges)

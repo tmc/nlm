@@ -423,9 +423,9 @@ func TestChatStreamRendererCitationPerSourceConfidence(t *testing.T) {
 	}
 }
 
-// TestChatStreamRendererCitationMixedSpan checks the span guard: sources under
-// one marker share the answer span, so a payload that somehow splits it drops
-// the span from the header rather than asserting one. Per-source confidence is
+// TestChatStreamRendererCitationMixedSpan checks a marker whose sources carry
+// differing answer spans: the first span heads the group and the rest are
+// counted, rather than the span silently dropping. Per-source confidence is
 // unaffected — it still renders on every row.
 func TestChatStreamRendererCitationMixedSpan(t *testing.T) {
 	var status bytes.Buffer
@@ -436,12 +436,37 @@ func TestChatStreamRendererCitationMixedSpan(t *testing.T) {
 	}
 	r.renderCitationList()
 	s := status.String()
-	if strings.Contains(s, "answer ") {
-		t.Fatalf("mixed answer span should drop from the header: %q", s)
+	if !strings.Contains(s, "[1] answer 5-9 +1 more") {
+		t.Fatalf("differing answer spans should head the marker with a count: %q", s)
 	}
 	// Per-source confidence still renders on the rows.
 	if !strings.Contains(s, "p=0.82") {
 		t.Fatalf("per-source confidence should still render for a mixed-span group: %q", s)
+	}
+}
+
+// TestChatStreamRendererCitationRepeatedMarker checks the collapse that keeps a
+// marker used many times in one answer from printing the same row many times.
+// The server sends one citation per appearance of [n], every one naming the
+// same source passage and differing only in its answer span, so the passage
+// prints once and the extra appearances are counted on the header.
+func TestChatStreamRendererCitationRepeatedMarker(t *testing.T) {
+	var status bytes.Buffer
+	r := newChatStreamRenderer(io.Discard, &status, false, false, citationModeList)
+	for _, span := range [][2]int{{5, 9}, {20, 30}, {41, 41}} {
+		r.citations = append(r.citations, notebooklm.Citation{
+			SourceIndex: 1, SourceID: "aaaaaaaa-1", Title: "Alpha",
+			StartChar: span[0], EndChar: span[1],
+			SourceStart: 100, SourceEnd: 200, Excerpt: "x", Confidence: 0.82,
+		})
+	}
+	r.renderCitationList()
+	s := status.String()
+	if n := strings.Count(s, "aaaaaaaa"); n != 1 {
+		t.Fatalf("one passage should print one row, got %d:\n%s", n, s)
+	}
+	if !strings.Contains(s, "[1] answer 5-9 +2 more") {
+		t.Fatalf("the repeated appearances should be counted on the header: %q", s)
 	}
 }
 

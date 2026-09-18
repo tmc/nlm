@@ -437,13 +437,15 @@ func (r *StreamRenderer) renderCitationList() {
 }
 
 // renderCitationGroup prints one marker: a header line with the answer span,
-// then one row per source. Each source row leads with that source's own
+// then one row per source passage. The server sends a citation per appearance
+// of the marker in the answer, all naming the same passage, so the rows are
+// collapsed by passage and the extra appearances are counted on the header. Each source row leads with that source's own
 // confidence (amber below weakConfidence) — never hoisted to the header,
 // because a marker's sources have independent, usually differing scores. In the
 // expanded view each source's locator and excerpt follow on indented lines.
 func (r *StreamRenderer) renderCitationGroup(idx int, group []notebooklm.Citation, expanded bool) {
 	fmt.Fprintf(r.status, "  %s\n", r.citationMarkerHeader(idx, group))
-	for _, c := range group {
+	for _, c := range dedupeCitationPassages(group) {
 		if row := r.citationSourceRow(c, expanded); row != "" {
 			fmt.Fprintf(r.status, "      %s\n", row)
 		}
@@ -456,16 +458,21 @@ func (r *StreamRenderer) renderCitationGroup(idx int, group []notebooklm.Citatio
 // citationMarkerHeader formats the "[n] answer N-M" line that heads a marker's
 // group. The answer span is the only per-marker property (it locates the [n]
 // claim in the answer text); it is labeled "answer" so it is never confused
-// with a source offset. All sources under a marker share it. When showSpans is
-// off, or the sources somehow disagree on the span, only "[n]" prints.
+// with a source offset. A marker that appears in several places in the answer
+// carries one span per appearance: the first prints, the rest as "+N more".
+// When showSpans is off, or no citation carried a span, only "[n]" prints.
 func (r *StreamRenderer) citationMarkerHeader(idx int, group []notebooklm.Citation) string {
 	header := fmt.Sprintf("[%d]", idx)
-	if r.showSpans {
-		if start, end, ok := uniformSpan(group); ok {
-			if span := formatAnswerSpan(start, end); span != "" {
-				header += " " + span
-			}
-		}
+	if !r.showSpans {
+		return header
+	}
+	spans := answerSpans(group)
+	if len(spans) == 0 {
+		return header
+	}
+	header += " " + formatAnswerSpan(spans[0][0], spans[0][1])
+	if n := len(spans) - 1; n > 0 {
+		header += fmt.Sprintf(" +%d more", n)
 	}
 	return header
 }
@@ -527,19 +534,6 @@ func (r *StreamRenderer) citationSourceLocator(c notebooklm.Citation) string {
 		return ""
 	}
 	return formatSourceSpan(c.SourceStart, c.SourceEnd)
-}
-
-// uniformSpan returns the group's shared answer-span range and ok=true when
-// every member agrees, else ok=false. All sources under one marker cite the
-// same answer claim, so they share this span; the guard is defensive against a
-// payload that ever splits it (in which case only "[n]" heads the group).
-func uniformSpan(group []notebooklm.Citation) (int, int, bool) {
-	for _, c := range group[1:] {
-		if c.StartChar != group[0].StartChar || c.EndChar != group[0].EndChar {
-			return 0, 0, false
-		}
-	}
-	return group[0].StartChar, group[0].EndChar, true
 }
 
 // printCitationExcerpt renders the verbatim cited excerpt beneath a source row

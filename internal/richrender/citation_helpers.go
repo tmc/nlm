@@ -47,7 +47,7 @@ func formatSourceSpan(start, end int) string {
 // is no real span: a negative range, an inverted range, or the zero value
 // (0,0), which is the "no span metadata" sentinel and must not render as "N 0".
 func formatLabeledSpan(label string, start, end int) string {
-	if start < 0 || end < start || (start == 0 && end == 0) {
+	if !hasSpan(start, end) {
 		return ""
 	}
 	if end == start {
@@ -95,4 +95,63 @@ func clipRunes(s string, max int) string {
 
 func collapseWhitespace(s string) string {
 	return strings.Join(strings.Fields(s), " ")
+}
+
+// citationPassage identifies the source passage a citation row renders. A
+// marker that appears several times in the answer carries one citation per
+// appearance, every one of them naming the same passage, so rows keyed this way
+// collapse to a single row. The answer span is deliberately not part of the
+// key: it varies per appearance and belongs to the marker, not to the row.
+type citationPassage struct {
+	source, parent, excerpt string
+	start, end              int
+	confidence              float64
+}
+
+// passageOf returns c's source-passage key.
+func passageOf(c notebooklm.Citation) citationPassage {
+	return citationPassage{c.SourceID, c.ParentSourceID, c.Excerpt, c.SourceStart, c.SourceEnd, c.Confidence}
+}
+
+// dedupeCitationPassages returns the citations of one marker's group with
+// repeated passages dropped, keeping first-seen order. The server sends a
+// citation per appearance of the marker, so a marker used fourteen times yields
+// fourteen identical rows; only the answer span differs, and that is reported
+// on the marker header instead.
+func dedupeCitationPassages(group []notebooklm.Citation) []notebooklm.Citation {
+	out := make([]notebooklm.Citation, 0, len(group))
+	seen := make(map[citationPassage]bool, len(group))
+	for _, c := range group {
+		key := passageOf(c)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, c)
+	}
+	return out
+}
+
+// answerSpans returns the distinct answer spans a marker's group carries, in
+// first-seen order: one per place the marker appears in the answer. Spans with
+// no metadata (the (0,0) sentinel, negative or inverted ranges) are dropped, so
+// an empty result means the group located nothing.
+func answerSpans(group []notebooklm.Citation) [][2]int {
+	var spans [][2]int
+	seen := map[[2]int]bool{}
+	for _, c := range group {
+		span := [2]int{c.StartChar, c.EndChar}
+		if seen[span] || !hasSpan(c.StartChar, c.EndChar) {
+			continue
+		}
+		seen[span] = true
+		spans = append(spans, span)
+	}
+	return spans
+}
+
+// hasSpan reports whether start-end is a real range rather than the "no span
+// metadata" zero value or a malformed one.
+func hasSpan(start, end int) bool {
+	return start >= 0 && end >= start && !(start == 0 && end == 0)
 }

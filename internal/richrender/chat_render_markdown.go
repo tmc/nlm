@@ -39,9 +39,11 @@ func renderChatMarkdown(out io.Writer, doc ChatDocument, ctx RenderContext) erro
 	return bw.err
 }
 
-// renderMarkdownScan writes the marker-first citation table. One row per source;
-// the # and answer cells are blank on a marker's 2nd+ source rows so a
-// multi-source marker reads as one group. Confidence and the answer span honor
+// renderMarkdownScan writes the marker-first citation table. One row per source
+// passage; the # and answer cells are blank on a marker's 2nd+ source rows so a
+// multi-source marker reads as one group. A marker appearing in several places
+// in the answer shows its first span plus a "+N" count rather than one repeated
+// row per appearance. Confidence and the answer span honor
 // HideConfidence/HideSpans.
 func renderMarkdownScan(bw *markdownWriter, cites []notebooklm.Citation, ctx RenderContext) {
 	bw.line("#### Citations")
@@ -67,10 +69,13 @@ func renderMarkdownScan(bw *markdownWriter, cites []notebooklm.Citation, ctx Ren
 	for _, idx := range order {
 		group := groups[idx]
 		answer := ""
-		if start, end, ok := uniformSpan(group); ok {
-			answer = spanRange(start, end)
+		if spans := answerSpans(group); len(spans) > 0 {
+			answer = spanRange(spans[0][0], spans[0][1])
+			if n := len(spans) - 1; n > 0 {
+				answer += fmt.Sprintf(" +%d", n)
+			}
 		}
-		for row, c := range group {
+		for row, c := range dedupeCitationPassages(group) {
 			cells := []string{""}
 			if row == 0 {
 				cells[0] = fmt.Sprintf("%d", idx)
@@ -144,23 +149,31 @@ func writeBlockquote(bw *markdownWriter, s string) {
 }
 
 // auditGrounds renders the "[1] (p=0.87, answer 115–241) [3] (…)" tail: one
-// clause per marker the source grounds, honoring HideConfidence/HideSpans.
+// clause per marker the source grounds, honoring HideConfidence/HideSpans. A
+// marker appearing several times in the answer gets one clause carrying its
+// first span and a "+N" count, not a clause per appearance.
 func auditGrounds(group []notebooklm.Citation, ctx RenderContext) string {
 	var b strings.Builder
-	for i, c := range group {
+	order, byIndex := groupCitationsByIndex(group)
+	for i, idx := range order {
 		if i > 0 {
 			b.WriteString(" ")
 		}
-		fmt.Fprintf(&b, "[%d]", c.SourceIndex)
+		marker := byIndex[idx]
+		fmt.Fprintf(&b, "[%d]", idx)
 		var parts []string
 		if !ctx.HideConfidence {
-			if c.Confidence > 0 {
-				parts = append(parts, fmt.Sprintf("p=%.2f", c.Confidence))
+			if conf := marker[0].Confidence; conf > 0 {
+				parts = append(parts, fmt.Sprintf("p=%.2f", conf))
 			}
 		}
 		if !ctx.HideSpans {
-			if span := spanRange(c.StartChar, c.EndChar); span != "" {
-				parts = append(parts, "answer "+span)
+			if spans := answerSpans(marker); len(spans) > 0 {
+				span := "answer " + spanRange(spans[0][0], spans[0][1])
+				if n := len(spans) - 1; n > 0 {
+					span += fmt.Sprintf(" +%d", n)
+				}
+				parts = append(parts, span)
 			}
 		}
 		if len(parts) > 0 {

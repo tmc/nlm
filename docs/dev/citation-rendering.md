@@ -139,8 +139,13 @@ Citations
       p=0.95 codex:B149    apple
 ```
 
-- The marker heads its group with just the **answer span** (labeled).
-- One row per source, its **own** confidence first (amber below threshold).
+- The marker heads its group with just the **answer span** (labeled). A marker
+  used in several places in the answer carries one span per appearance; the
+  first prints and the rest count as `+N more`.
+- One row per **source passage**, its **own** confidence first (amber below
+  threshold). The server sends a citation per appearance of `[N]`, every one
+  naming the same passage, so the rows collapse by passage — a marker used
+  fourteen times prints one row, not fourteen identical ones.
 - `[N]` and each source handle are **OSC-8 hyperlinks** where supported; source
   handle opens the source, `[N]` jumps to it. Fall back to bracketed text.
 - Cited answer spans get a **styled underline** in the streamed answer itself
