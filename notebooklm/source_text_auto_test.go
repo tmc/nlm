@@ -14,29 +14,33 @@ func apiErrCode(code int) error {
 
 // TestShouldDescendOnAutoChunkError locks in that auto-chunk only re-splits on
 // retryable, payload-shaped server errors. A non-retryable state/policy
-// rejection (notably code 9 "Failed precondition") must NOT descend — that was
-// the cause of a tiny source re-submitting identical bytes down the whole
-// schedule before "failed at schedule floor".
+// rejection must NOT descend — that was the cause of a tiny source
+// re-submitting identical bytes down the whole schedule before "failed at
+// schedule floor". Code 9 "Failed precondition" is the one size-dependent
+// case: it is also what a too-large upload returns, so a large part descends
+// and a small one surfaces the error.
 func TestShouldDescendOnAutoChunkError(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name string
 		err  error
+		size int
 		want bool
 	}{
-		{"nil", nil, false},
-		{"cap reached", ErrSourceCapReached, false},
-		{"too large", ErrSourceTooLarge, false},
-		{"code 9 failed precondition (non-retryable)", apiErrCode(9), false},
-		{"code 7 permission denied", apiErrCode(7), false},
-		{"code 16 unauthenticated", apiErrCode(16), false},
-		{"code 13 internal (retryable, payload-shaped)", apiErrCode(13), true},
-		{"code 14 unavailable (retryable)", apiErrCode(14), true},
-		{"plain error descends as a last resort", fmt.Errorf("mystery"), true},
+		{"nil", nil, 8 << 20, false},
+		{"cap reached", ErrSourceCapReached, 8 << 20, false},
+		{"too large", ErrSourceTooLarge, 8 << 20, false},
+		{"code 9 on a small part", apiErrCode(9), 64 << 10, false},
+		{"code 9 on a large part", apiErrCode(9), 4829241, true},
+		{"code 7 permission denied", apiErrCode(7), 8 << 20, false},
+		{"code 16 unauthenticated", apiErrCode(16), 8 << 20, false},
+		{"code 13 internal (retryable, payload-shaped)", apiErrCode(13), 1024, true},
+		{"code 14 unavailable (retryable)", apiErrCode(14), 1024, true},
+		{"plain error descends as a last resort", fmt.Errorf("mystery"), 1024, true},
 	}
 	for _, tt := range tests {
-		if got := shouldDescendOnAutoChunkError(tt.err); got != tt.want {
+		if got := shouldDescendOnAutoChunkError(tt.err, tt.size); got != tt.want {
 			t.Errorf("%s: shouldDescendOnAutoChunkError = %v, want %v", tt.name, got, tt.want)
 		}
 	}

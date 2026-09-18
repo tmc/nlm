@@ -154,7 +154,7 @@ func (s *autoChunkState) uploadOne(part []byte, byteOffset, scheduleIdx int) err
 		}
 		return nil
 	}
-	if !shouldDescendOnAutoChunkError(err) {
+	if !shouldDescendOnAutoChunkError(err, len(part)) {
 		if s.progress != nil {
 			s.progress(AutoChunkProgress{
 				PartName:   name,
@@ -217,12 +217,21 @@ func autoChunkPartName(base string, idx int) string {
 	return fmt.Sprintf("%s (pt%d)", base, idx+1)
 }
 
+// preconditionDescendFloor is the part size at or above which a code-9
+// rejection is read as "too much content for one upload". Below it, code 9
+// describes a notebook state no reshaping of the request can cure, so the
+// error surfaces instead of grinding a small source down to the schedule
+// floor. Measured in the field: a 4.8 MB archive was rejected with code 9,
+// and the same content uploaded cleanly in parts under 1.5 MB.
+const preconditionDescendFloor = 1 << 20
+
 // shouldDescendOnAutoChunkError reports whether err looks like a server-side
 // rejection that might be cured by uploading less content per request. We
 // descend on anything that isn't clearly a permanent client problem, so any
 // new server error mode we don't yet recognize will at least get a chance to
-// resolve via splitting before surfacing.
-func shouldDescendOnAutoChunkError(err error) bool {
+// resolve via splitting before surfacing. size is the rejected part's length,
+// which decides the ambiguous code-9 case.
+func shouldDescendOnAutoChunkError(err error, size int) bool {
 	if err == nil {
 		return false
 	}
@@ -246,14 +255,14 @@ func shouldDescendOnAutoChunkError(err error) bool {
 				batchexecute.ErrorTypeRateLimit:
 				return false
 			}
-			// A non-retryable error is a state/policy rejection (e.g. code 9
-			// "Failed precondition": notebook at the source limit, an upstream
-			// service refusing the content), not a payload-size problem.
-			// Re-splitting can't cure it — every smaller part is rejected the
-			// same way — so surface it once instead of grinding the whole
-			// schedule down to the 4 KiB floor on a tiny source.
+			// A non-retryable error is usually a state/policy rejection
+			// (e.g. notebook at the source limit), not a payload-size
+			// problem, and re-splitting can't cure it — every smaller part
+			// is rejected the same way. Code 9 ("Failed precondition") is
+			// the exception: it is also what a too-large upload returns, so
+			// above preconditionDescendFloor a smaller part is worth trying.
 			if !apiErr.ErrorCode.Retryable {
-				return false
+				return apiErr.ErrorCode.Code == 9 && size >= preconditionDescendFloor
 			}
 		}
 	}

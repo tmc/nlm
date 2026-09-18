@@ -201,15 +201,29 @@ func TestAutoSplitDryRunAndCancellation(t *testing.T) {
 	}
 }
 
+// Code 9 is the one size-dependent case: the server returns it both for a
+// notebook at the source cap, which splitting cannot cure, and for an archive
+// it will not take whole, which halving does cure. Field measurement: a
+// 4,829,241-byte part was rejected with code 9 and the same content uploaded
+// as four parts under 1.5 MB.
 func TestAutoSplitErrorCodes(t *testing.T) {
 	for _, tc := range []struct {
 		code int
+		size int
 		want bool
-	}{{7, false}, {8, false}, {9, false}, {13, true}, {14, true}, {16, false}} {
-		t.Run(fmt.Sprint(tc.code), func(t *testing.T) {
+	}{
+		{7, 8 << 20, false},
+		{8, 8 << 20, false},
+		{9, 4829241, true},
+		{9, 64 << 10, false},
+		{13, 8 << 20, true},
+		{14, 8 << 20, true},
+		{16, 8 << 20, false},
+	} {
+		t.Run(fmt.Sprintf("%d/%d", tc.code, tc.size), func(t *testing.T) {
 			code, _ := batchexecute.GetErrorCode(tc.code)
 			err := &uploadError{err: &batchexecute.APIError{ErrorCode: code}}
-			if got := canSplit(err); got != tc.want {
+			if got := canSplit(err, tc.size); got != tc.want {
 				t.Fatalf("canSplit = %v, want %v", got, tc.want)
 			}
 		})
@@ -306,5 +320,35 @@ func TestBalancePoint(t *testing.T) {
 				t.Errorf("balancePoint = %d, want %d", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestAutoSplitPreconditionRejection covers the field report that --auto-split
+// did not rescue an upload the server rejected with code 9: canSplit read the
+// code's non-retryable flag and gave up, so the whole family failed while the
+// same content synced fine under a smaller --max-bytes. Parts at or above the
+// floor now halve until they land.
+func TestAutoSplitPreconditionRejection(t *testing.T) {
+	setupTestHome(t)
+	path := filepath.Join(t.TempDir(), "a.txt")
+	// Large enough that the first two levels stay above the split floor.
+	if err := os.WriteFile(path, []byte(strings.Repeat("iroh spec line\n", 400000)), 0600); err != nil {
+		t.Fatal(err)
+	}
+	code, _ := batchexecute.GetErrorCode(9)
+	c := newRejectingClient()
+	c.failure = &batchexecute.APIError{ErrorCode: code}
+	c.limit = 2 << 20
+	opts := Options{Name: "test", AutoSplit: true, MaxBytes: 8 << 20}
+	if err := Run(context.Background(), c, "nb", []string{path}, opts, io.Discard); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(c.sources) < 2 {
+		t.Fatalf("sources = %d, want the family split into parts: %v", len(c.sources), c.sources)
+	}
+	for _, s := range c.sources {
+		if len(c.content[s.ID]) > c.limit {
+			t.Fatalf("part %q is %d bytes, above the server limit %d", s.Title, len(c.content[s.ID]), c.limit)
+		}
 	}
 }

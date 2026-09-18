@@ -22,9 +22,21 @@ func (e *uploadError) Error() string {
 }
 func (e *uploadError) Unwrap() error { return e.err }
 
+// preconditionSplitFloor is the part size at or above which a code-9
+// rejection is read as "too much content for one upload" rather than as a
+// notebook-level state the caller cannot reshape away. Code 9 ("Failed
+// precondition") carries no diagnostic and covers both: a notebook at the
+// source cap, where splitting only adds more doomed uploads, and an archive
+// the server will not take whole, where halving is the documented remedy.
+// Size is the only signal that separates them. Measured: a 4,829,241-byte
+// archive was rejected with code 9, and the same content uploaded cleanly as
+// four parts under --max-bytes 1500000.
+const preconditionSplitFloor = 1 << 20
+
 // Only server failures are candidates for splitting. Authentication, quota,
-// cancellation, and local transport failures need a different remedy.
-func canSplit(err error) bool {
+// cancellation, and local transport failures need a different remedy. size is
+// the rejected part's length, which decides the ambiguous code-9 case.
+func canSplit(err error, size int) bool {
 	var upload *uploadError
 	var api *batchexecute.APIError
 	if !errors.As(err, &upload) || !errors.As(upload.err, &api) {
@@ -43,7 +55,10 @@ func canSplit(err error) bool {
 			batchexecute.ErrorTypeRateLimit, batchexecute.ErrorTypeResourceExhausted:
 			return false
 		}
-		return api.ErrorCode.Retryable
+		if api.ErrorCode.Retryable {
+			return true
+		}
+		return api.ErrorCode.Code == 9 && size >= preconditionSplitFloor
 	}
 	return api.HTTPStatus >= 500
 }
@@ -121,7 +136,7 @@ func runAutoSplit(ctx context.Context, c Client, notebookID, base string, names 
 				markActive(name)
 				return nil
 			}
-			if len(data) <= 4096 || !canSplit(err) {
+			if len(data) <= 4096 || !canSplit(err, len(data)) {
 				return err
 			}
 			// A rejected upload can still leave a source behind that the

@@ -153,7 +153,7 @@ func friendlyAPIMessage(apiErr *batchexecute.APIError, op string) string {
 		if strings.Contains(op, "YouTube") {
 			return "server rejected the video (code 9). Check that the video is public and has captions. You can also save its transcript and add it with `nlm source add <notebook> transcript.txt`. The server does not return a diagnostic for this code, so the cause and whether retrying will help are unknown."
 		}
-		return "server rejected the request (code 9). Common causes: source content too large for one upload (retry with `nlm sync --auto-split`, which re-splits rejected parts, or lower `--max-bytes`), notebook at the 300-source cap (check with `nlm source list`), or transient server policy. The size that trips this is not a fixed threshold — the same bytes can be rejected once and accepted later, so halving the chunk is more reliable than retrying. The server does not return a diagnostic for this code."
+		return "server rejected the request (code 9). Common causes: source content too large for one upload (`nlm sync --auto-split` halves a rejected part of 1 MB or more and retries; below that it reports the rejection, so lower `--max-bytes` to force smaller parts), notebook at the 300-source cap (check with `nlm source list`), or transient server policy. The size that trips this is not a fixed threshold — the same bytes can be rejected once and accepted later, so halving the chunk is more reliable than retrying. The server does not return a diagnostic for this code."
 	}
 	if apiErr.ErrorCode != nil && apiErr.ErrorCode.Description != "" {
 		return apiErr.ErrorCode.Description
