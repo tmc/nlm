@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/tmc/nlm/notebooklm"
@@ -42,6 +43,7 @@ func loadNotebookSessionRecords(notebookID string) ([]localChatSessionRecord, er
 	}
 	root := filepath.Join(homeDir, ".nlm")
 
+	prefix := chatSessionFilePrefix(notebookID)
 	var records []localChatSessionRecord
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -51,6 +53,14 @@ func loadNotebookSessionRecords(notebookID string) ([]localChatSessionRecord, er
 			return walkErr
 		}
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			return nil
+		}
+		// Sessions in the flat store are named chat-<notebook>[-<conv8>].json,
+		// so the notebook filter is a filename match. Reading the rest to
+		// learn they belong to another notebook is what made this slow: a
+		// store with 7,900 sessions took 25s to find the 10 that matched.
+		// The nested legacy store has no such guarantee, so it is still read.
+		if filepath.Dir(path) == root && !strings.HasPrefix(entry.Name(), prefix) {
 			return nil
 		}
 		data, err := os.ReadFile(path)

@@ -52,6 +52,18 @@ func TestLoadNotebookSessions(t *testing.T) {
 				Messages:       []storedMessage{{Role: "user", Content: "other notebook"}},
 			},
 		},
+		{
+			// The filename is authoritative in the flat store, so this file
+			// is never opened: a scan that reads every session to learn which
+			// notebook it belongs to costs a full pass over the store.
+			name: "chat-mislabeled.json",
+			session: chatSession{
+				NotebookID:     "nb",
+				ConversationID: "mislabeled",
+				Messages:       []storedMessage{{Role: "user", Content: "wrong filename"}},
+				UpdatedAt:      now.Add(time.Hour),
+			},
+		},
 	}
 	for _, item := range sessions {
 		path := filepath.Join(home, ".nlm", item.name)
