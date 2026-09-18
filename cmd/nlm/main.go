@@ -254,10 +254,19 @@ func runCLI(args []string, env func(string) string, stdout, stderr io.Writer) in
 		printCommandHelp(inv.name, inv.cmd)
 		return 0
 	}
-
-	if err := run(inv); err != nil {
+	stopLogging, err := configureLogger(inv.globals, stderr)
+	if err != nil {
 		return reportRunError(stderr, err)
 	}
+	defer stopLogging()
+
+	started := time.Now()
+	logger.Debug("run command", "command", inv.name)
+	if err := run(inv); err != nil {
+		logger.Error("command failed", "command", inv.name, "elapsed", time.Since(started), "error", err)
+		return reportRunError(stderr, err)
+	}
+	logger.Debug("command finished", "command", inv.name, "elapsed", time.Since(started))
 	return 0
 }
 
@@ -2166,8 +2175,11 @@ func (idx *notebookSourceIndex) load() {
 // failure leaves mapped false so a renderer degrades rather than erroring.
 func (idx *notebookSourceIndex) fetch() {
 	idx.refetched = true
+	started := time.Now()
+	logger.Debug("fetch notebook sources", "notebook_id", idx.projectID)
 	proj, err := idx.c.GetProject(context.Background(), idx.projectID)
 	if err != nil {
+		logger.Warn("fetch notebook sources failed", "notebook_id", idx.projectID, "elapsed", time.Since(started), "error", err)
 		return
 	}
 	idx.titles = make(map[string]string, len(proj.Sources))
@@ -2180,6 +2192,7 @@ func (idx *notebookSourceIndex) fetch() {
 	}
 	idx.mapped = true
 	saveSourceTitles(idx.projectID, idx.titles, idx.absent)
+	logger.Debug("fetched notebook sources", "notebook_id", idx.projectID, "sources", len(idx.order), "elapsed", time.Since(started))
 }
 
 // title returns the notebook title for sourceID, or "" when the source has no
@@ -3698,6 +3711,7 @@ func loadChatSession(notebookID string) (*chatSession, error) {
 }
 
 func saveChatSession(session *chatSession) error {
+	logger.Debug("save chat session", "notebook_id", session.NotebookID, "conversation_id", session.ConversationID, "messages", len(session.Messages))
 	data, err := json.MarshalIndent(session, "", "  ")
 	if err != nil {
 		return err

@@ -417,6 +417,8 @@ Run `nlm <command> -h` for per-command usage. Common flags:
 --cookies string     Browser cookies (SID, HSID, SSID)
 --profile string     Chrome profile to use
 --debug              Enable debug output
+--log-file path      Write structured slog diagnostics to path (`-` for stderr)
+--log-level level    Log level: debug, info, warn, or error
 --json               Emit output as JSON / JSON-lines
 --direct-rpc         Use direct RPC calls for audio/video operations
 --experimental       Enable experimental commands

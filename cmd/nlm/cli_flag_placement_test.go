@@ -28,6 +28,8 @@ func TestGlobalFlagInventory(t *testing.T) {
 		"debug-parsing",
 		"experimental",
 		"identity",
+		"log-file",
+		"log-level",
 		"version",
 	}
 	if !slices.Equal(got, want) {
@@ -44,27 +46,32 @@ func TestTrueGlobalFlagsAcceptedAnywhere(t *testing.T) {
 		{
 			name: "boolean before",
 			args: []string{"--debug", "betool", "help"},
-			want: globalOptions{debug: true},
+			want: globalOptions{debug: true, logLevel: "info"},
 		},
 		{
 			name: "boolean after",
 			args: []string{"betool", "help", "--debug"},
-			want: globalOptions{debug: true},
+			want: globalOptions{debug: true, logLevel: "info"},
 		},
 		{
 			name: "separated value before",
 			args: []string{"--auth", "token", "betool", "help"},
-			want: globalOptions{authToken: "token"},
+			want: globalOptions{authToken: "token", logLevel: "info"},
 		},
 		{
 			name: "attached value after",
 			args: []string{"betool", "help", "--auth=token"},
-			want: globalOptions{authToken: "token"},
+			want: globalOptions{authToken: "token", logLevel: "info"},
 		},
 		{
 			name: "authuser after",
 			args: []string{"betool", "help", "--authuser", "3"},
-			want: globalOptions{authUser: "3", authUserSet: true},
+			want: globalOptions{authUser: "3", authUserSet: true, logLevel: "info"},
+		},
+		{
+			name: "logging after",
+			args: []string{"betool", "help", "--log-file", "trace.log", "--log-level", "debug"},
+			want: globalOptions{logFile: "trace.log", logLevel: "debug"},
 		},
 	}
 	for _, test := range tests {
@@ -79,7 +86,9 @@ func TestTrueGlobalFlagsAcceptedAnywhere(t *testing.T) {
 			if inv.globals.debug != test.want.debug ||
 				inv.globals.authToken != test.want.authToken ||
 				inv.globals.authUser != test.want.authUser ||
-				inv.globals.authUserSet != test.want.authUserSet {
+				inv.globals.authUserSet != test.want.authUserSet ||
+				inv.globals.logFile != test.want.logFile ||
+				inv.globals.logLevel != test.want.logLevel {
 				t.Fatalf("globals = %+v, want selected fields %+v", inv.globals, test.want)
 			}
 		})

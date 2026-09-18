@@ -211,6 +211,8 @@ nlm mcp
 |------|-------------|
 | `-y` | Skip confirmation prompts |
 | `--debug` | Send request/response diagnostics to stderr |
+| `--log-file PATH` | Write structured `slog` diagnostics to PATH (`-` for stderr) |
+| `--log-level LEVEL` | Set structured log level: `debug`, `info`, `warn`, or `error` |
 | `--direct-rpc` | Use direct RPC path, required for media downloads |
 | `--authuser N` | Select Google account profile |
 | `--auth PATH` | Use explicit auth file |

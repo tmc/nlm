@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"flag"
 	"fmt"
 	"io"
@@ -21,6 +22,8 @@ type globalOptions struct {
 	debugDumpPayload     bool
 	debugParsing         bool
 	debugFieldMapping    bool
+	logFile              string // diagnostic log destination; empty disables logging, - is stderr
+	logLevel             string
 	chromeProfile        string
 	cdpURL               string
 	mimeType             string
@@ -96,6 +99,8 @@ func defaultGlobalOptions(env func(string) string) globalOptions {
 		authUser:      env("NLM_AUTHUSER"),
 		identity:      env("NLM_IDENTITY"),
 		debug:         env("NLM_DEBUG") == "true",
+		logFile:       env("NLM_LOG_FILE"),
+		logLevel:      cmp.Or(env("NLM_LOG_LEVEL"), "info"),
 	}
 }
 
@@ -113,6 +118,8 @@ func registerGlobalFlags(flags *flag.FlagSet, opts *globalOptions) {
 	flags.BoolVar(&opts.debugDumpPayload, "debug-dump-payload", false, "dump raw JSON payload and exit (unix-friendly)")
 	flags.BoolVar(&opts.debugParsing, "debug-parsing", false, "show detailed protobuf parsing information")
 	flags.BoolVar(&opts.debugFieldMapping, "debug-field-mapping", false, "show how JSON array positions map to protobuf fields")
+	flags.StringVar(&opts.logFile, "log-file", opts.logFile, "write diagnostics to this file, - for stderr (or set NLM_LOG_FILE)")
+	flags.StringVar(&opts.logLevel, "log-level", opts.logLevel, "level for --log-file: debug, info, warn, or error (or set NLM_LOG_LEVEL)")
 	flags.StringVar(&opts.authToken, "auth", opts.authToken, "auth token (or set NLM_AUTH_TOKEN)")
 	flags.StringVar(&opts.cookies, "cookies", opts.cookies, "cookies for authentication (or set NLM_COOKIES)")
 	flags.StringVar(&opts.authUser, "authuser", opts.authUser, "Google account index for multi-account profiles")
