@@ -297,6 +297,14 @@ nlm chat instructions get <notebook-id>
 nlm generate-chat <notebook-id> "summarize"
 ```
 
+A question asked without a source selector is answered against whatever the
+server picks, and that selection changes as a notebook grows: at eight sources
+an audit question was answered against four raw-upstream parts alone, and the
+model correctly reported that the files the question needed "are not present in
+the currently selected sources." Pin the selection with `--source-match` (or
+`--source-ids` / `--label-match`) in anything scripted, so the same question
+keeps the same meaning after the next sync.
+
 Under `--citations=json`, the chat stream emits JSON-lines events on stdout.
 Add `--thinking` to include reasoning traces:
 `{"phase":"thinking","text":...}`, `{"phase":"answer","text":...}`,
