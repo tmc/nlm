@@ -120,6 +120,7 @@ nlm generate-chat [flags] <notebook-id> <prompt>    # Streaming one-shot chat
 nlm chat list [notebook-id]                         # List conversations
 nlm chat history <notebook-id> <conversation-id>    # Server-side history
 nlm chat show <notebook-id> <conversation-id>       # Local transcript render
+nlm chat show <notebook-id> latest                  # ... of the newest saved conversation
 nlm chat delete <notebook-id>                       # Delete chat history
 nlm chat config <notebook-id> <setting> [value]     # Configure chat
 nlm chat instructions set <notebook-id> "prompt"    # Set instructions

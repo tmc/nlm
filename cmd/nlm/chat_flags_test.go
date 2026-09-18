@@ -224,6 +224,40 @@ func TestParseChatShowArgsResolveCitationsCompatibility(t *testing.T) {
 	}
 }
 
+// TestParseChatShowLatestOperand pins the "latest"/"last" conversation-id
+// operand: it selects the most recently updated saved conversation, exactly as
+// --last does, and keeps the single-conversation render surface rather than
+// falling back to the whole-notebook HTML switcher.
+func TestParseChatShowLatestOperand(t *testing.T) {
+	for _, operand := range []string{"latest", "last", "LATEST"} {
+		parsed := parseChatCommandForTest(t, "chat show", []string{"nb", operand}, globalOptions{})
+		args, err := decodeChatShowArgs(parsed)
+		if err != nil {
+			t.Fatalf("%q: %v", operand, err)
+		}
+		if !args.Last || args.ConversationID != "" {
+			t.Fatalf("%q: args = %+v, want Last with no conversation id", operand, args)
+		}
+		if args.Options.Format == "html" {
+			t.Fatalf("%q: format = html, want the single-conversation default", operand)
+		}
+	}
+	// The flag and the operand say the same thing, so pairing them is allowed.
+	parsed := parseChatCommandForTest(t, "chat show", []string{"nb", "latest", "--last"}, globalOptions{})
+	if _, err := decodeChatShowArgs(parsed); err != nil {
+		t.Fatalf("--last with the latest operand: %v", err)
+	}
+	// A conversation id still selects that conversation.
+	parsed = parseChatCommandForTest(t, "chat show", []string{"nb", "conv"}, globalOptions{})
+	args, err := decodeChatShowArgs(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if args.Last || args.ConversationID != "conv" {
+		t.Fatalf("args = %+v, want conversation conv", args)
+	}
+}
+
 func TestParseChatShowIncludeFollowUps(t *testing.T) {
 	parsed := parseChatCommandForTest(t, "chat show", []string{
 		"--format=html", "--include-follow-ups", "notebook", "conversation",

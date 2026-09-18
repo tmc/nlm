@@ -450,7 +450,8 @@ func filterPhase1HelpLines(help string) string {
 			!helpLineForPaths(line, phase4CommandPaths) &&
 			!helpLineForPaths(line, phase5CommandPaths) &&
 			!helpLineForPaths(line, prototextCommandPaths) &&
-			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
+			!helpLineForPaths(line, phase6OwnershipCommandPaths) &&
+			!helpLineForPaths(line, postRoadmapCommandPaths) {
 			kept = append(kept, line)
 		}
 	}
@@ -464,7 +465,8 @@ func filterLaterPhaseHelpLines(help string) string {
 			!helpLineForPaths(line, phase4CommandPaths) &&
 			!helpLineForPaths(line, phase5CommandPaths) &&
 			!helpLineForPaths(line, prototextCommandPaths) &&
-			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
+			!helpLineForPaths(line, phase6OwnershipCommandPaths) &&
+			!helpLineForPaths(line, postRoadmapCommandPaths) {
 			kept = append(kept, line)
 		}
 	}
@@ -472,11 +474,13 @@ func filterLaterPhaseHelpLines(help string) string {
 }
 
 // filterPhase5HelpLines drops the command lines Phase 5 does not govern:
-// the prototext and Phase 6 ownership paths, plus the label attach/detach
-// surfaces reworked after the baselines were frozen.
+// the prototext and Phase 6 ownership paths, the label attach/detach surfaces
+// reworked after the baselines were frozen, and the post-roadmap paths whose
+// synopsis grew an operand since.
 func filterPhase5HelpLines(help string) string {
 	help = filterHelpLines(help, prototextCommandPaths)
 	help = filterHelpLines(help, phase6OwnershipCommandPaths)
+	help = filterHelpLines(help, postRoadmapCommandPaths)
 	return filterHelpLines(help, labelOpsCommandPaths)
 }
 
@@ -486,7 +490,8 @@ func filterLaterThanPhase4HelpLines(help string) string {
 		if !helpLineForPaths(line, labelOpsCommandPaths) &&
 			!helpLineForPaths(line, phase5CommandPaths) &&
 			!helpLineForPaths(line, prototextCommandPaths) &&
-			!helpLineForPaths(line, phase6OwnershipCommandPaths) {
+			!helpLineForPaths(line, phase6OwnershipCommandPaths) &&
+			!helpLineForPaths(line, postRoadmapCommandPaths) {
 			kept = append(kept, line)
 		}
 	}

@@ -84,7 +84,7 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 	)
 	configureTypedCommandSpecWithUsage(
 		showSpec,
-		chatCommandForm("<notebook-id> [conversation-id]", validateChatShowCommand),
+		chatCommandForm("<notebook-id> [conversation-id | latest]", validateChatShowCommand),
 		decodeChatShow,
 		printChatShowErrorUsage,
 	)
@@ -303,6 +303,16 @@ func decodeChatArgs(parsed parsedCommand) (chatArgs, error) {
 	}, nil
 }
 
+// isLatestConversation reports whether a conversation-id operand is one of the
+// words that name the most recently updated saved conversation instead.
+func isLatestConversation(operand string) bool {
+	switch strings.ToLower(operand) {
+	case "latest", "last":
+		return true
+	}
+	return false
+}
+
 func validateChatShowCommand(parsed parsedCommand) error {
 	_, err := decodeChatShowArgs(parsed)
 	return err
@@ -369,6 +379,13 @@ func decodeChatShowArgs(parsed parsedCommand) (chatShowArgs, error) {
 	last, err := parsedBoolFlag(parsed, "last", false)
 	if err != nil {
 		return chatShowArgs{}, err
+	}
+	// "latest" and "last" stand in for a conversation id, so the recovery path
+	// reads as one command with no flag to remember. A conversation id is a
+	// UUID, so neither word can be one.
+	if len(positionals) == 2 && isLatestConversation(positionals[1]) {
+		last = true
+		positionals = positionals[:1]
 	}
 	if last && len(positionals) == 2 {
 		return chatShowArgs{}, fmt.Errorf("--last cannot be combined with a conversation id")

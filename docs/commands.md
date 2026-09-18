@@ -166,7 +166,7 @@ specification.
 | --- | --- |
 | `nlm chat list [flags] [notebook-id]` | List chat sessions (server-side when a notebook is given) |
 | `nlm chat history <notebook-id> <conversation-id>` | View conversation history |
-| `nlm chat show [flags] <notebook-id> [conversation-id]` | Render a local chat transcript (see --citations) |
+| `nlm chat show [flags] <notebook-id> [conversation-id \| latest]` | Render a local chat transcript (see --citations) |
 | `nlm chat delete [flags] <notebook-id>` | Delete server-side chat history |
 | `nlm chat config <notebook-id> goal default \| <notebook-id> goal custom <prompt...> \| <notebook-id> length <default\|longer\|shorter>` | Configure chat settings |
 | `nlm chat instructions set <notebook-id> "prompt"` | Set system instructions |

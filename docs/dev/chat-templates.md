@@ -9,8 +9,9 @@ nlm chat show NOTEBOOK CONVERSATION \
   --out report.md
 ```
 
-Use `--last` instead of a conversation ID for the newest saved chat. Omit both
-to render all saved conversations in the existing newest-first order.
+Use `--last`, or the conversation id `latest` (`last` works too), for the
+newest saved chat. Omit both to render all saved conversations in the existing
+newest-first order.
 `--template` implies Markdown; without `--out`, output goes to stdout.
 `--out -` also selects stdout. Ordinary `--format markdown` supports `--out`.
 

@@ -194,7 +194,7 @@ var phase2InventorySynopses = map[commandID]string{
 	"create-report":       "[flags] <notebook-id> <report-type> [description...]",
 	"generate-report":     "[flags] <notebook-id>",
 	"chat":                "[flags] <notebook-id> [conversation-id | prompt...]",
-	"chat-show":           "[flags] <notebook-id> [conversation-id]",
+	"chat-show":           "[flags] <notebook-id> [conversation-id | latest]",
 	"chat-config": "<notebook-id> goal default | <notebook-id> goal custom <prompt...> | " +
 		"<notebook-id> length <default|longer|shorter>",
 	"research": "[flags] <notebook-id> <query...>",

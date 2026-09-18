@@ -386,7 +386,7 @@ prints `nlm: exit-class=<name> (exit N)` to stderr:
 | 5 | precondition | Permanent precondition (source-cap, quota, deleted) | stop; retry will not help |
 | 6 | transient | Rate-limit, 5xx, network | retry with backoff |
 | 7 | busy | Resource still generating / polling incomplete | sleep and poll |
-| 8 | stale-output | Chat succeeded but the server revised text after it streamed, so captured stdout differs from the exact saved answer | replay with `nlm chat-show <notebook> <conversation>` (the id is on stderr) or `nlm chat show <notebook> --last` |
+| 8 | stale-output | Chat succeeded but the server revised text after it streamed, so captured stdout differs from the exact saved answer | replay with `nlm chat-show <notebook> <conversation>` (the id is on stderr) or `nlm chat show <notebook> latest` |
 | 9 | auth-failed | A browser or CDP login was attempted and failed | fix the profile, or `nlm auth --cdp-url ws://localhost:9222` |
 | 10 | runaway-output | A client-side guard stopped a degenerate chat stream (size cap or repeated-block detection) | treat the partial stdout as unusable; retry with a narrower prompt or source selection |
 
