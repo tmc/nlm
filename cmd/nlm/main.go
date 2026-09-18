@@ -2362,11 +2362,11 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 		// was rejected server-side, every source is in an error/indexing state,
 		// or the API returned an empty payload. Fail loudly with a hint rather
 		// than printing a misleading "(No response received)" and exiting 0.
-		hint := "nlm generate-chat: empty response from API"
+		detail := ""
 		if streamErr != nil {
-			hint = fmt.Sprintf("%s (stream error: %v)", hint, streamErr)
+			detail = fmt.Sprintf(" (stream error: %v)", streamErr)
 		}
-		return fmt.Errorf("%s; check 'nlm sources %s' for source state, re-run with -debug for details", hint, projectID)
+		return fmt.Errorf("generate chat: %w%s; %s", errEmptyChatResponse, detail, emptyChatResponseHint(prompt, projectID))
 	}
 
 	if err := saveGeneratedChatTurn(projectID, convID, history, prompt, res); err != nil {
@@ -2812,14 +2812,18 @@ func oneShotChat(c *notebooklm.Client, notebookID, prompt string, opts chatOptio
 	if response == "" {
 		response = strings.TrimSpace(res.Thinking)
 	}
-	if response != "" {
-		session.Messages = append(session.Messages, storedMessage{
-			Role: "assistant", Content: response, Timestamp: time.Now(),
-			Thinking:  res.Thinking,
-			Citations: res.Citations,
-			Rich:      res.Rich,
-		})
+	if response == "" {
+		// Empty stdout at exit 0 is the worst outcome for a script: the
+		// caller captures nothing and reports success. Fail with the same
+		// class generate-chat uses so a retry loop can act on it.
+		return fmt.Errorf("chat: %w; %s", errEmptyChatResponse, emptyChatResponseHint(prompt, notebookID))
 	}
+	session.Messages = append(session.Messages, storedMessage{
+		Role: "assistant", Content: response, Timestamp: time.Now(),
+		Thinking:  res.Thinking,
+		Citations: res.Citations,
+		Rich:      res.Rich,
+	})
 	session.UpdatedAt = time.Now()
 	if err := saveChatSession(session); err != nil {
 		return err
@@ -2905,14 +2909,16 @@ func oneShotChatInConv(c *notebooklm.Client, notebookID, conversationID, prompt 
 	if response == "" {
 		response = strings.TrimSpace(res.Thinking)
 	}
-	if response != "" {
-		session.Messages = append(session.Messages, storedMessage{
-			Role: "assistant", Content: response, Timestamp: time.Now(),
-			Thinking:  res.Thinking,
-			Citations: res.Citations,
-			Rich:      res.Rich,
-		})
+	if response == "" {
+		// See oneShotChat: an empty answer must not read as success.
+		return fmt.Errorf("chat: %w; %s", errEmptyChatResponse, emptyChatResponseHint(prompt, notebookID))
 	}
+	session.Messages = append(session.Messages, storedMessage{
+		Role: "assistant", Content: response, Timestamp: time.Now(),
+		Thinking:  res.Thinking,
+		Citations: res.Citations,
+		Rich:      res.Rich,
+	})
 	session.UpdatedAt = time.Now()
 	if err := saveChatSession(session); err != nil {
 		return err

@@ -106,6 +106,15 @@ func exitCodeFor(err error) int {
 		return exitAuth
 	}
 
+	// An empty chat answer is usually transient: the same prompt answers on a
+	// later attempt. Classifying it lets a caller retry on exit-class=transient
+	// instead of string-matching the message — and, importantly, stops a retry
+	// loop that only recognizes "empty response" from swallowing an auth
+	// failure as if it were one.
+	if errors.Is(err, errEmptyChatResponse) {
+		return exitTransient
+	}
+
 	// Typed api-layer sentinels for states batchexecute cannot disambiguate.
 	switch {
 	case errors.Is(err, notebooklm.ErrAuthExpired):
