@@ -184,3 +184,16 @@ func equalStringSlices(a, b []string) bool {
 	}
 	return true
 }
+
+func TestArgumentEncoderConcurrent(t *testing.T) {
+	encoder := NewArgumentEncoder()
+	for i := 0; i < 32; i++ {
+		t.Run("encode", func(t *testing.T) {
+			t.Parallel()
+			got, err := encoder.EncodeArgs(&notebooklm.CreateProjectRequest{Title: "title"}, "[%title%]")
+			if err != nil || len(got) != 1 || got[0] != "title" {
+				t.Errorf("EncodeArgs = %v, %v", got, err)
+			}
+		})
+	}
+}

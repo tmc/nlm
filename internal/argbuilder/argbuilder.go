@@ -18,17 +18,13 @@ var (
 	fieldPattern = regexp.MustCompile(`%([a-z0-9_]+)%`)
 )
 
-// ArgumentEncoder handles generic encoding of protobuf messages to RPC arguments
-type ArgumentEncoder struct {
-	// Cache of field accessors for performance
-	fieldCache map[string]map[string]protoreflect.FieldDescriptor
-}
+// ArgumentEncoder encodes protobuf messages to RPC arguments.
+// Its zero value is ready for use and safe for concurrent calls.
+type ArgumentEncoder struct{}
 
-// NewArgumentEncoder creates a new argument encoder
+// NewArgumentEncoder creates a new argument encoder.
 func NewArgumentEncoder() *ArgumentEncoder {
-	return &ArgumentEncoder{
-		fieldCache: make(map[string]map[string]protoreflect.FieldDescriptor),
-	}
+	return &ArgumentEncoder{}
 }
 
 // EncodeArgs takes a protobuf message and an arg_format string and returns encoded arguments
@@ -231,28 +227,18 @@ func (e *ArgumentEncoder) buildArgs(msg protoreflect.Message, tokens []Token) ([
 func (e *ArgumentEncoder) getFieldValue(msg protoreflect.Message, fieldName string) (interface{}, error) {
 	descriptor := msg.Descriptor()
 
-	// Cache field descriptors for performance
-	msgName := string(descriptor.FullName())
-	if e.fieldCache[msgName] == nil {
-		e.fieldCache[msgName] = make(map[string]protoreflect.FieldDescriptor)
-		fields := descriptor.Fields()
-		for i := 0; i < fields.Len(); i++ {
-			field := fields.Get(i)
-			// Store by both JSON name and proto name
-			e.fieldCache[msgName][field.JSONName()] = field
-			e.fieldCache[msgName][string(field.Name())] = field
-		}
+	// Protobuf descriptors already index immutable fields by both names.
+	// A second, mutable cache races when independent RPCs encode together.
+	fields := descriptor.Fields()
+	field := fields.ByName(protoreflect.Name(fieldName))
+	if field == nil {
+		field = fields.ByJSONName(fieldName)
 	}
-
-	// Try exact match first (proto field name)
-	field, ok := e.fieldCache[msgName][fieldName]
-	if !ok {
-		// Try converting to camelCase for JSON name
-		camelName := snakeToCamel(fieldName)
-		field, ok = e.fieldCache[msgName][camelName]
-		if !ok {
-			return nil, fmt.Errorf("field %s not found in %s", fieldName, msgName)
-		}
+	if field == nil {
+		field = fields.ByJSONName(snakeToCamel(fieldName))
+	}
+	if field == nil {
+		return nil, fmt.Errorf("field %s not found in %s", fieldName, descriptor.FullName())
 	}
 
 	value := msg.Get(field)
