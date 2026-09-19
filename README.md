@@ -297,6 +297,21 @@ nlm chat instructions get <notebook-id>
 nlm generate-chat <notebook-id> "summarize"
 ```
 
+Open a saved-conversation index, or keep it updated while `generate-chat` runs
+in another terminal:
+
+```bash
+nlm chat show --open <notebook-id>
+nlm chat show --live --open <notebook-id>
+nlm chat show --live=10m <notebook-id> <conversation-id>
+```
+
+The live view binds to localhost and stops on Ctrl-C or the supplied duration.
+It reads saved conversations and streaming sidecars without making RPCs.
+`--inline` writes the self-contained notebook bundle; `--rebuild` refreshes all
+cached body pages. `generate-chat --keep-partial` retains the streaming JSONL
+after completion. Failed or interrupted turns retain their partials by default.
+
 A question asked without a source selector is answered against whatever the
 server picks, and that selection changes as a notebook grows: at eight sources
 an audit question was answered against four raw-upstream parts alone, and the
@@ -309,7 +324,9 @@ Under `--citations=json`, the chat stream emits JSON-lines events on stdout.
 Add `--thinking` to include reasoning traces:
 `{"phase":"thinking","text":...}`, `{"phase":"answer","text":...}`,
 `{"phase":"citation","index":...,"source_id":...,"confidence":...}`,
-`{"phase":"followup","text":...}`, `{"phase":"done"}`.
+`{"phase":"followup","text":...}`, `{"phase":"done","answer":...}`.
+An answer event appends text; `{"phase":"revised","full":...}` replaces the
+answer accumulated so far. The `done` answer is authoritative.
 
 ### Research and Sharing
 
@@ -407,8 +424,8 @@ stop a stream that exceeds 1 MiB of answer text, or that repeats the same
 large block over and over, and exit 10. Text already written to stdout is
 kept but marked `--- nlm: INCOMPLETE response ... ---` (an `aborted` event
 under `--citations json`); citations and follow-ups are not rendered and the
-partial text is not saved as an assistant answer, so `chat show` never
-replays it as one. The conversation id is still saved and printed, so a
+partial text is not saved as an assistant answer. `chat show` labels available
+sidecar text as a partial answer and never replays it as a completed answer. The conversation id is still saved and printed, so a
 follow-up with `--conversation` works.
 
 | Variable | Effect |

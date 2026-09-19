@@ -150,6 +150,9 @@ func notebookDocumentFromSession(session *chatSession) chatDocument {
 }
 
 func chatShowNotebook(notebookID string, opts chatRenderOptions) error {
+	if opts.Format == "html" && !opts.Inline {
+		return chatShowIndex(notebookID, opts)
+	}
 	records, err := loadNotebookSessionRecords(notebookID)
 	if err != nil {
 		return fmt.Errorf("load local sessions: %w", err)
@@ -278,6 +281,7 @@ func renderNotebookHTMLToDestination(notebookID string, docs []notebookChatDocum
 	if err := renderNotebookHTML(&buf, docs, ctx); err != nil {
 		return err
 	}
+	fmt.Fprintf(os.Stderr, "nlm: inline bundle: %d bytes\n", buf.Len())
 	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write html: %w", err)
 	}

@@ -538,13 +538,14 @@ var phase4CommandPaths = map[string]bool{
 // phase comparisons mask their help/usage the same way they mask authorized
 // phase paths; argument-case semantics still must match the frozen baseline.
 var postRoadmapCommandPaths = map[string]bool{
-	"sync":        true, // opt-in adaptive upload splitting, then ingest-time labeling
-	"source sync": true,
-	"source add":  true, // ingest-time labeling (--label/--create-label)
-	"add":         true,
-	"chat show":   true, // --last (recovery path for the stale-output exit 8)
-	"chat-show":   true,
-	"auth":        true, // --list-profiles (the inventory is no longer printed by default)
+	"generate-chat": true, // --keep-partial for live viewers
+	"sync":          true, // opt-in adaptive upload splitting, then ingest-time labeling
+	"source sync":   true,
+	"source add":    true, // ingest-time labeling (--label/--create-label)
+	"add":           true,
+	"chat show":     true, // --last (recovery path for the stale-output exit 8)
+	"chat-show":     true,
+	"auth":          true, // --list-profiles (the inventory is no longer printed by default)
 }
 
 var phase5CommandPaths = map[string]bool{

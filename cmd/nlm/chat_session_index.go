@@ -201,13 +201,7 @@ func saveChatSummaryCache(cache map[string]chatSummaryCacheEntry) {
 	if err != nil {
 		return
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-	}
+	_ = writeChatSessionFile(path, data)
 }
 
 // listLocalChatSessionSummaries describes the stored sessions for notebookID,

@@ -1,0 +1,28 @@
+env HOME=$WORK/home
+mkdir $HOME/.nlm
+cp session.json $HOME/.nlm/chat-nb-conv.json
+cp partial.jsonl $HOME/.nlm/chat-nb-conv.partial.jsonl
+
+exec $NLM_TEST_BINARY chat show nb --out index.html
+exists index.html conv.html
+exec $NLM_TEST_BINARY chat show nb conv --format markdown
+stdout 'Partial answer'
+stdout 'revised answer'
+! stdout 'obsolete answer'
+cmp $HOME/.nlm/chat-nb-conv.json session.json
+
+exec $NLM_TEST_BINARY chat show nb --inline --out bundle.html
+exists bundle.html
+exec $NLM_TEST_BINARY chat show nb --live=20ms
+stderr 'serving http://127.0.0.1:'
+! exec $NLM_TEST_BINARY chat show nb --live --out bad.html
+stderr 'usage:'
+! exists bad.html
+! exec $NLM_TEST_BINARY chat show nb --live=0s
+stderr 'usage:'
+
+-- session.json --
+{"notebook_id":"nb","conversation_id":"conv","status":"running","status_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","messages":[{"role":"user","content":"question"}]}
+-- partial.jsonl --
+{"phase":"answer","text":"obsolete answer"}
+{"phase":"revised","full":"revised answer"}

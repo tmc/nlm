@@ -1944,6 +1944,7 @@ func streamChatResponse(c *notebooklm.Client, req notebooklm.ChatRequest, opts c
 	err := c.StreamChat(ctx, req, func(chunk notebooklm.ChatChunk) bool {
 		responseReceived()
 		renderer.WriteChunk(chunk)
+		opts.partial.chunk(chunk)
 		if chunk.Phase != notebooklm.ChatChunkAnswer {
 			return true
 		}
@@ -2331,6 +2332,19 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 		return fmt.Errorf("save pending conversation: %w", err)
 	}
 
+	partial, err := newChatPartial(projectID, convID)
+	if err != nil {
+		_ = setGeneratedChatStatus(projectID, convID, chatStatusError)
+		return fmt.Errorf("create chat partial: %w", err)
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			partial.close()
+		}
+	}()
+	opts.Render.partial = partial
+
 	res, streamErr := streamChatResponse(c, chatReq, opts.Render)
 	if isRunawayOutput(streamErr) {
 		// A guard-truncated answer is not an answer: skip the non-streaming
@@ -2380,6 +2394,11 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 
 	if err := saveGeneratedChatTurn(projectID, convID, history, prompt, res); err != nil {
 		return fmt.Errorf("save conversation: %w", err)
+	}
+
+	closed = true
+	if err := partial.finish(res.Answer, opts.Render.KeepPartial); err != nil {
+		return fmt.Errorf("finish chat partial: %w", err)
 	}
 
 	// Tell the user how to continue this conversation.
@@ -3341,6 +3360,10 @@ func chatShowWithClients(notebookID, conversationID string, opts chatRenderOptio
 			}
 		}
 		doc.Messages = append(doc.Messages, dm)
+	}
+
+	if err := appendChatPartial(&doc, session); err != nil {
+		return fmt.Errorf("read partial answer: %w", err)
 	}
 
 	ctx := chatRenderContext{

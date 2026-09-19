@@ -2,10 +2,18 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/tmc/nlm/internal/richrender"
 )
 
 type chatRenderOptions struct {
+	Live             bool
+	LiveDuration     time.Duration
+	Inline           bool
+	Rebuild          bool
+	partial          *chatPartial
+	KeepPartial      bool
 	ShowThinking     bool
 	ThinkingJSONL    bool
 	Verbose          bool
@@ -79,6 +87,17 @@ func chatRenderOptionsFromGlobals(globals globalOptions) chatRenderOptions {
 // --open applies to HTML; --out applies to HTML and Markdown. An invalid pair is a usage error
 // rather than a silent no-op.
 func validateChatFormat(opts *chatRenderOptions) error {
+	if opts.Live {
+		if opts.Format == "" {
+			opts.Format = "html"
+		}
+		if opts.OutFile != "" || opts.Inline || opts.Backfill {
+			return fmt.Errorf("--live cannot be combined with --out, --inline, or --backfill")
+		}
+	}
+	if (opts.Live || opts.Inline || opts.Rebuild) && opts.Format != "html" {
+		return fmt.Errorf("--live, --inline, and --rebuild require --format=html")
+	}
 	if opts.TemplateFile != "" && opts.Format == "" {
 		opts.Format = "markdown"
 	}

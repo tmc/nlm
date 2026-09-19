@@ -1,8 +1,46 @@
 # Chat index and live view
 
-Status: proposed. Covers `nlm chat show --format=html` with no conversation id
+Status: implemented for local saved conversations and `generate-chat` streams. Covers `nlm chat show --format=html` with no conversation id
 (the index), turn status (including "still generating"), a `--live` view, and
 the on-disk streaming that makes a live view possible.
+
+## Implementation and verification (2026-09-19)
+
+The CLI supports `chat show --live[=duration] [--open] <notebook> [<conversation>]`,
+`--inline`, `--rebuild`, and `generate-chat --keep-partial`. The live server reads
+saved metadata only; it does not hydrate citations through RPCs. Static index
+renders still honor explicit citation hydration options.
+
+Implementation details that refine the original proposal below:
+
+- `status_at` records a state transition. Heartbeats update only the sidecar;
+  the session JSON is not rewritten every 15 seconds. The generating timer
+  therefore continues from the turn's start.
+- A new sidecar replaces the previous file atomically. SSE readers detect a
+  replaced file or changed turn and reset their byte offset. Reconnects carry
+  the turn and byte offset in `Last-Event-ID`.
+- A reader can miss `done` when the writer removes the sidecar before the next
+  poll. Session completion also triggers a reload of the final rendered body.
+- Static body pages are cached by session mtime and rendering options. The
+  first render must materialize missing bodies; subsequent indexes reuse them.
+- The live page embeds the existing conversation renderer and shows partial
+  text separately. Revisions replace that partial text. An interrupted partial
+  can also be read with ordinary `chat show`, explicitly labeled and never
+  merged into saved history.
+
+Measured CLI wall times on notebook `08b54bf7`, this host: 3.772 s to build the
+index and missing body pages; 0.072 s on the next invocation. The proposed
+250 ms budget is met by this warm run, not by first-time body generation.
+These are two observations, not a repeated performance benchmark.
+
+Verification includes scripted CLI tests, SSE revision and reconnect tests,
+access-key rejection, incomplete-line replay, render-cache invalidation, and a
+Brave browser exercise with a scripted writer. The browser exercise clicked a
+conversation, observed an answer replacement, and verified the final rendered
+answer after sidecar removal. This does not qualify an authenticated NotebookLM
+stream against the live service.
+
+The remaining sections retain the design rationale and original targets.
 
 ## 1. What exists today
 
@@ -94,8 +132,8 @@ minutes of thinking with no output, so an idle sidecar is not evidence of
 death — the liveness signal is the writer's heartbeat line (§4.2), not answer
 text.
 
-The writer refreshes `status_at` on every sidecar flush, so a healthy long
-think keeps reading as `generating`.
+The writer emits sidecar heartbeats during a long think. `status_at` remains
+the state-transition time so the generating timer is stable.
 
 ### 3.3 Where it is set
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/tmc/nlm/notebooklm"
 )
@@ -45,6 +46,7 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 		[]flagSpec{
 			{Name: "conversation", Aliases: []string{"c"}, Value: "id", Description: "conversation ID"},
 			{Name: "web", Description: "use server-side conversation"},
+			{Name: "keep-partial", Description: "retain streaming events after completion"},
 			{Name: "prompt-file", Aliases: []string{"f"}, Value: "path", Description: "prompt file"},
 		},
 		append(chatRenderFlagSpecs(), selectorFlagSpecs()...)...,
@@ -80,6 +82,9 @@ func configureChatCommandSpecs(specs map[commandID]*commandSpec) {
 		flagSpec{Name: "open", Description: "open HTML"},
 		flagSpec{Name: "include-follow-ups", Description: "include follow-up prompts"},
 		flagSpec{Name: "backfill", Description: "backfill saved conversation"},
+		flagSpec{Name: "live", Value: "duration", OptionalValue: true, Description: "serve live HTML on localhost"},
+		flagSpec{Name: "inline", Description: "bundle conversations in one HTML file"},
+		flagSpec{Name: "rebuild", Description: "rebuild cached conversation pages"},
 		flagSpec{Name: "last", Description: "show the most recent conversation"},
 	)
 	configureTypedCommandSpecWithUsage(
@@ -323,9 +328,23 @@ func decodeChatShow(parsed parsedCommand) (commandCall, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(_ context.Context, _ *notebooklm.Client) error {
+	return func(ctx context.Context, _ *notebooklm.Client) error {
 		if err := prepareChatTemplate(&args.Options); err != nil {
 			return err
+		}
+		if args.Options.Live {
+			id := args.ConversationID
+			if args.Last {
+				rows, err := chatViewRows(args.NotebookID)
+				if err != nil {
+					return err
+				}
+				if len(rows) == 0 {
+					return fmt.Errorf("no local conversations")
+				}
+				id = rows[0].ID
+			}
+			return serveChatLive(ctx, args.NotebookID, id, args.Options)
 		}
 		if args.Last {
 			return chatShowLast(args.NotebookID, args.Options)
@@ -376,6 +395,23 @@ func decodeChatShowArgs(parsed parsedCommand) (chatShowArgs, error) {
 	if err != nil {
 		return chatShowArgs{}, err
 	}
+	if values, ok := parsed.Flags["live"]; ok {
+		options.Live = true
+		if value := values[len(values)-1]; value != "" && value != "true" {
+			options.LiveDuration, err = time.ParseDuration(value)
+			if err != nil || options.LiveDuration <= 0 {
+				return chatShowArgs{}, fmt.Errorf("--live needs a positive duration")
+			}
+		}
+	}
+	options.Inline, err = parsedBoolFlag(parsed, "inline", false)
+	if err != nil {
+		return chatShowArgs{}, err
+	}
+	options.Rebuild, err = parsedBoolFlag(parsed, "rebuild", false)
+	if err != nil {
+		return chatShowArgs{}, err
+	}
 	last, err := parsedBoolFlag(parsed, "last", false)
 	if err != nil {
 		return chatShowArgs{}, err
@@ -405,6 +441,9 @@ func decodeChatShowArgs(parsed parsedCommand) (chatShowArgs, error) {
 	}
 	if wholeNotebook && options.Backfill {
 		return chatShowArgs{}, fmt.Errorf("--backfill requires a conversation id")
+	}
+	if !wholeNotebook && (options.Inline || options.Rebuild) {
+		return chatShowArgs{}, fmt.Errorf("--inline and --rebuild require a notebook index")
 	}
 	args := chatShowArgs{
 		NotebookID: positionals[0],
@@ -491,6 +530,10 @@ func decodeGenerateReportArgs(parsed parsedCommand) (generateReportArgs, error) 
 func decodeChatRenderOptions(parsed parsedCommand) (chatRenderOptions, error) {
 	options := chatRenderOptionsFromGlobals(parsed.globals)
 	var err error
+	options.KeepPartial, err = parsedBoolFlag(parsed, "keep-partial", false)
+	if err != nil {
+		return chatRenderOptions{}, err
+	}
 	options.ShowThinking, err = parsedBoolFlag(parsed, "thinking", options.ShowThinking)
 	if err != nil {
 		return chatRenderOptions{}, err
