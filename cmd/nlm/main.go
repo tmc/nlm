@@ -59,6 +59,7 @@ var runCommandCall = func(call commandCall, client *notebooklm.Client) error {
 type chatSession struct {
 	NotebookID     string          `json:"notebook_id"`
 	ConversationID string          `json:"conversation_id,omitempty"`
+	Status         string          `json:"status,omitempty"` // running, complete, incomplete, or error
 	Messages       []storedMessage `json:"messages"`
 	SeqNum         int             `json:"seq_num,omitempty"`          // Next sequence number for this session
 	LastResponseID string          `json:"last_response_id,omitempty"` // ID of last assistant response (for threading)
@@ -2324,6 +2325,9 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 	chatReq.ConversationID = convID
 	chatReq.History = history
 	chatReq.SeqNum = seqNum
+	if err := beginGeneratedChatTurn(projectID, convID, history, prompt); err != nil {
+		return fmt.Errorf("save pending conversation: %w", err)
+	}
 
 	res, streamErr := streamChatResponse(c, chatReq, opts.Render)
 	if isRunawayOutput(streamErr) {
@@ -2332,7 +2336,7 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 		// user's turn, so --conversation still works but no partial text is
 		// ever replayed as a completed assistant message.
 		reportRunawayOutput(os.Stderr, streamErr, len(res.Answer))
-		if err := saveGeneratedChatTurn(projectID, convID, history, prompt, chatResult{}); err != nil {
+		if err := saveGeneratedChatTurn(projectID, convID, history, prompt, chatResult{Incomplete: true}); err != nil {
 			return fmt.Errorf("%w; save conversation: %v", streamErr, err)
 		}
 		printContinuationHint(os.Stderr, projectID, convID, isNewConversation)
@@ -2340,11 +2344,13 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 	}
 	if streamErr != nil {
 		if notebooklm.IsChatStreamTimeout(streamErr) {
+			_ = setGeneratedChatStatus(projectID, convID, chatStatusError)
 			return fmt.Errorf("generate chat: %w; the streaming RPC produced no usable response; check 'nlm auth status' and 'nlm sources %s'", streamErr, projectID)
 		}
 		// Fall back to non-streaming path (mirrors oneShotChat behavior).
 		response, chatErr := c.ChatWithHistory(context.Background(), chatReq)
 		if chatErr != nil {
+			_ = setGeneratedChatStatus(projectID, convID, chatStatusError)
 			return fmt.Errorf("generate chat: stream: %w; fallback: %v", streamErr, chatErr)
 		}
 		printStreamFallback(os.Stdout, res.Answer, response, opts.Render.jsonl())
@@ -2366,6 +2372,7 @@ func generateFreeFormChat(c *notebooklm.Client, projectID, prompt string, opts g
 		if streamErr != nil {
 			detail = fmt.Sprintf(" (stream error: %v)", streamErr)
 		}
+		_ = setGeneratedChatStatus(projectID, convID, chatStatusError)
 		return fmt.Errorf("generate chat: %w%s; %s", errEmptyChatResponse, detail, emptyChatResponseHint(prompt, projectID))
 	}
 

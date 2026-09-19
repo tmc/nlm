@@ -56,6 +56,33 @@ func TestSaveGeneratedChatTurn(t *testing.T) {
 	}
 }
 
+func TestBeginGeneratedChatTurnWritesRunningSession(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	if err := beginGeneratedChatTurn("nb", "conv", nil, "question"); err != nil {
+		t.Fatal(err)
+	}
+	session, err := loadChatSessionForConv("nb", "conv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session.Status != chatStatusRunning {
+		t.Fatalf("status = %q, want %q", session.Status, chatStatusRunning)
+	}
+	if len(session.Messages) != 1 || session.Messages[0].Content != "question" {
+		t.Fatalf("messages = %+v, want pending user turn", session.Messages)
+	}
+	if err := saveGeneratedChatTurn("nb", "conv", nil, "question", chatResult{Answer: "answer"}); err != nil {
+		t.Fatal(err)
+	}
+	session, err = loadChatSessionForConv("nb", "conv")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session.Status != chatStatusComplete || len(session.Messages) != 2 {
+		t.Fatalf("completed session = status %q, messages %d", session.Status, len(session.Messages))
+	}
+}
+
 func TestSaveGeneratedChatTurnFromServer(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	history := []notebooklm.ChatMessage{{Role: 2, Content: "old answer"}, {Role: 1, Content: "old question"}}
