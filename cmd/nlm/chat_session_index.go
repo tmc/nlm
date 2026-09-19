@@ -18,6 +18,10 @@ type chatSessionSummary struct {
 	NotebookID     string
 	ConversationID string
 	MessageCount   int
+	Title          string
+	Status         string
+	StatusAt       time.Time
+	WriterPID      int
 	UpdatedAt      time.Time
 }
 
@@ -89,8 +93,14 @@ func readChatSessionSummary(path string) (chatSessionSummary, error) {
 			err = dec.Decode(&summary.ConversationID)
 		case "updated_at":
 			err = dec.Decode(&summary.UpdatedAt)
+		case "status":
+			err = dec.Decode(&summary.Status)
+		case "status_at":
+			err = dec.Decode(&summary.StatusAt)
+		case "writer_pid":
+			err = dec.Decode(&summary.WriterPID)
 		case "messages":
-			summary.MessageCount, err = countJSONArray(dec)
+			summary.MessageCount, summary.Title, err = summarizeChatMessages(dec)
 		default:
 			var skip json.RawMessage
 			err = dec.Decode(&skip)
@@ -130,6 +140,11 @@ func countJSONArray(dec *json.Decoder) (int, error) {
 // size and modification time still match. A session file is only ever
 // rewritten whole, so those two identify its contents.
 type chatSummaryCacheEntry struct {
+	Version        int       `json:"version"`
+	Title          string    `json:"title"`
+	Status         string    `json:"status,omitempty"`
+	StatusAt       time.Time `json:"status_at,omitempty"`
+	WriterPID      int       `json:"writer_pid,omitempty"`
 	Size           int64     `json:"size"`
 	ModTime        time.Time `json:"mod_time"`
 	NotebookID     string    `json:"notebook_id"`
@@ -217,12 +232,13 @@ func listLocalChatSessionSummaries(notebookID string) ([]chatSessionSummary, err
 			continue
 		}
 		entry, ok := cache[path]
-		if !ok || entry.Size != info.Size() || !entry.ModTime.Equal(info.ModTime()) {
+		if !ok || entry.Version != 2 || entry.Size != info.Size() || !entry.ModTime.Equal(info.ModTime()) {
 			summary, err := readChatSessionSummary(path)
 			if err != nil {
 				continue
 			}
 			entry = chatSummaryCacheEntry{
+				Version: 2, Title: summary.Title, Status: summary.Status, StatusAt: summary.StatusAt, WriterPID: summary.WriterPID,
 				Size:           info.Size(),
 				ModTime:        info.ModTime(),
 				NotebookID:     summary.NotebookID,
@@ -237,6 +253,7 @@ func listLocalChatSessionSummaries(notebookID string) ([]chatSessionSummary, err
 			continue
 		}
 		summaries = append(summaries, chatSessionSummary{
+			Title: entry.Title, Status: entry.Status, StatusAt: entry.StatusAt, WriterPID: entry.WriterPID,
 			Path:           path,
 			NotebookID:     entry.NotebookID,
 			ConversationID: entry.ConversationID,
@@ -283,4 +300,37 @@ func findLocalChatSession(notebookID, conversationID string) (*chatSession, erro
 		}
 	}
 	return nil, os.ErrNotExist
+}
+
+func summarizeChatMessages(dec *json.Decoder) (int, string, error) {
+	tok, err := dec.Token()
+	if err != nil {
+		return 0, "", err
+	}
+	if tok != json.Delim('[') {
+		return 0, "", fmt.Errorf("expected messages array")
+	}
+	n, title := 0, ""
+	for dec.More() {
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			return n, title, err
+		}
+		n++
+		if title == "" {
+			var message struct{ Role, Content string }
+			if err := json.Unmarshal(raw, &message); err != nil {
+				return n, title, err
+			}
+			if message.Role == "user" {
+				text := []rune(strings.Join(strings.Fields(message.Content), " "))
+				if len(text) > 120 {
+					text = append(text[:120], '…')
+				}
+				title = string(text)
+			}
+		}
+	}
+	_, err = dec.Token()
+	return n, title, err
 }

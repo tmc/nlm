@@ -60,6 +60,8 @@ type chatSession struct {
 	NotebookID     string          `json:"notebook_id"`
 	ConversationID string          `json:"conversation_id,omitempty"`
 	Status         string          `json:"status,omitempty"` // running, complete, incomplete, or error
+	StatusAt       time.Time       `json:"status_at,omitempty"`
+	WriterPID      int             `json:"writer_pid,omitempty"`
 	Messages       []storedMessage `json:"messages"`
 	SeqNum         int             `json:"seq_num,omitempty"`          // Next sequence number for this session
 	LastResponseID string          `json:"last_response_id,omitempty"` // ID of last assistant response (for threading)
@@ -3730,13 +3732,13 @@ func saveChatSession(session *chatSession) error {
 		return err
 	}
 
-	if err := os.WriteFile(getChatSessionPath(session.NotebookID), data, 0600); err != nil {
+	if err := writeChatSessionFile(getChatSessionPath(session.NotebookID), data); err != nil {
 		return err
 	}
 	if session.ConversationID == "" {
 		return nil
 	}
-	return os.WriteFile(getChatSessionPathForConv(session.NotebookID, session.ConversationID), data, 0600)
+	return writeChatSessionFile(getChatSessionPathForConv(session.NotebookID, session.ConversationID), data)
 }
 
 // saveChatSessionForConversation updates only the selected conversation file.
@@ -3750,7 +3752,7 @@ func saveChatSessionForConversation(session *chatSession) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(getChatSessionPathForConv(session.NotebookID, session.ConversationID), data, 0600)
+	return writeChatSessionFile(getChatSessionPathForConv(session.NotebookID, session.ConversationID), data)
 }
 
 func listChatSessions(jsonOutput bool) error {
@@ -3772,9 +3774,9 @@ func listChatSessions(jsonOutput bool) error {
 	}
 
 	w, flush := newListWriter(os.Stdout)
-	fmt.Fprintln(w, "NOTEBOOK\tCONVERSATION\tMESSAGES\tLAST UPDATED")
+	fmt.Fprintln(w, "NOTEBOOK\tCONVERSATION\tMESSAGES\tLAST UPDATED\tSTATUS")
 	if isTTY {
-		fmt.Fprintln(w, "--------\t------------\t--------\t------------")
+		fmt.Fprintln(w, "--------\t------------\t--------\t------------\t------")
 	}
 
 	for _, session := range sessions {
@@ -3785,11 +3787,11 @@ func listChatSessions(jsonOutput bool) error {
 		if convShort == "" {
 			convShort = "-"
 		}
-		fmt.Fprintf(w, "%s\t%s\t%d\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\n",
 			session.NotebookID,
 			convShort,
 			session.MessageCount,
-			session.UpdatedAt.Format("Jan 2 15:04"))
+			session.UpdatedAt.Format("Jan 2 15:04"), resolveChatStatus(session.Status, session.StatusAt, session.WriterPID, session.Path, time.Now()))
 	}
 
 	return flush()

@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -36,6 +37,8 @@ func beginGeneratedChatTurn(notebookID, conversationID string, history []noteboo
 		session.Messages = append(session.Messages, storedMessage{Role: "user", Content: prompt, Timestamp: now})
 	}
 	session.Status = chatStatusRunning
+	session.StatusAt = now
+	session.WriterPID = os.Getpid()
 	session.UpdatedAt = now
 	return saveChatSession(session)
 }
@@ -68,6 +71,8 @@ func saveGeneratedChatTurn(notebookID, conversationID string, history []notebook
 			Thinking: result.Thinking, Citations: result.Citations, Rich: result.Rich,
 		})
 	}
+	session.StatusAt = now
+	session.WriterPID = 0
 	if result.Incomplete {
 		session.Status = chatStatusIncomplete
 	} else {
@@ -82,6 +87,29 @@ func setGeneratedChatStatus(notebookID, conversationID, status string) error {
 		return err
 	}
 	session.Status = status
+	session.StatusAt = time.Now()
+	session.WriterPID = 0
 	session.UpdatedAt = time.Now()
 	return saveChatSession(session)
+}
+
+// writeChatSessionFile replaces a session without exposing a truncated JSON file.
+func writeChatSessionFile(path string, data []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(path), ".chat-*.tmp")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path)
 }
