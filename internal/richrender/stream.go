@@ -115,7 +115,6 @@ type StreamRenderer struct {
 
 	// jsonl bookkeeping: same high-water mark for emitted answer events,
 	// and which citations have been emitted.
-	jsonlAnswerEmitted int
 	jsonlThinkingSeen  string
 	jsonlCitationsSeen int
 	jsonlSourceBodies  map[string]notebooklm.LoadSourceText // per-source cache for lazy JSONL resolution ("" body = negative)
@@ -231,32 +230,22 @@ func (r *StreamRenderer) writeChunkJSONL(chunk notebooklm.ChatChunk) {
 			"text":  chunk.Text,
 		})
 	case notebooklm.ChatChunkAnswer:
-		// See WriteChunk: emit monotone extensions of the cumulative
-		// snapshot, never the raw wire delta — a delta that restarts at a
-		// revision would make concatenating consumers duplicate the tail.
-		// A revision inside the emitted range leaves that span stale in the
-		// event stream; the done event carries the exact answer.
+		// A full snapshot may revise text already emitted. Announce the
+		// replacement so a reader never concatenates a restarted wire delta.
 		if chunk.Full != "" {
-			if len(chunk.Full)-len(chunk.Text) < r.jsonlAnswerEmitted {
+			previous := r.answerBuf.String()
+			if !strings.HasPrefix(chunk.Full, previous) {
 				r.streamRevised = true
-			}
-			if len(chunk.Full) > r.jsonlAnswerEmitted {
-				r.emitJSONLEvent(map[string]any{
-					"phase": "answer",
-					"text":  chunk.Full[r.jsonlAnswerEmitted:],
-				})
-				r.jsonlAnswerEmitted = len(chunk.Full)
+				r.emitJSONLEvent(map[string]any{"phase": "revised", "full": chunk.Full})
+			} else if len(chunk.Full) > len(previous) {
+				r.emitJSONLEvent(map[string]any{"phase": "answer", "text": chunk.Full[len(previous):]})
 			}
 			r.answerBuf.Reset()
 			r.answerBuf.WriteString(chunk.Full)
 		} else {
 			r.answerBuf.WriteString(chunk.Text)
 			if chunk.Text != "" {
-				r.emitJSONLEvent(map[string]any{
-					"phase": "answer",
-					"text":  chunk.Text,
-				})
-				r.jsonlAnswerEmitted += len(chunk.Text)
+				r.emitJSONLEvent(map[string]any{"phase": "answer", "text": chunk.Text})
 			}
 		}
 		if len(chunk.Citations) > 0 {
@@ -347,11 +336,8 @@ func (r *StreamRenderer) Finish() {
 				"text":  f,
 			})
 		}
-		// The done event carries the authoritative full answer. The answer
-		// events are monotone extensions, so when a revision touched an
-		// already-emitted span (revised: true) their concatenation holds
-		// that span at its old rendering; consumers that need exact bytes
-		// read this field instead.
+		// The done event carries the authoritative full answer, including
+		// for consumers that did not apply the revised events.
 		done := map[string]any{
 			"phase":  "done",
 			"answer": r.answerBuf.String(),

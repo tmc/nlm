@@ -168,9 +168,7 @@ func TestChatStreamRendererAnswerStreamsMonotoneOnRevision(t *testing.T) {
 	}
 }
 
-// The JSONL done event carries the authoritative full answer and flags a
-// revision, since concatenating the monotone answer events keeps a revised
-// span at its old rendering.
+// JSONL announces replacements and repeats the authoritative answer at done.
 func TestChatStreamRendererJSONLDoneCarriesAuthoritativeAnswer(t *testing.T) {
 	var out, status bytes.Buffer
 	r := newChatStreamRenderer(&out, &status, false, false, citationModeOff)
@@ -180,8 +178,8 @@ func TestChatStreamRendererJSONLDoneCarriesAuthoritativeAnswer(t *testing.T) {
 	r.Finish()
 
 	events := parseJSONLEvents(t, out.String())
-	if got := events[1]["text"]; got != "ection two." {
-		t.Fatalf("second answer event = %q, want monotone extension %q", got, "ection two.")
+	if events[1]["phase"] != "revised" || events[1]["full"] != "Section 1. Section two." {
+		t.Fatalf("revision event = %v", events[1])
 	}
 	done := events[len(events)-1]
 	if done["phase"] != "done" {
