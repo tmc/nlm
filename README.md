@@ -149,7 +149,7 @@ artifacts, and chat administration:
 ```bash
 nlm notebook list
 nlm source add <notebook-id> https://example.com
-nlm note create <notebook-id> "Title" "Body"
+nlm note create <notebook-id> "Title" --content "Body"
 nlm artifact list <notebook-id>
 nlm chat list <notebook-id>
 ```
@@ -217,9 +217,9 @@ emitted with protobuf field names for debugging.
 ```bash
 nlm note list <notebook-id>
 nlm note read <notebook-id> <note-id>
-nlm note create <notebook-id> "Title" "Content"
+nlm note create <notebook-id> "Title" --content "Content"
 nlm note create <notebook-id> "Title" < content.md
-nlm note update <notebook-id> <note-id> "Content" "Title"
+nlm note update <notebook-id> <note-id> --title "Title" --content "Content"
 nlm note delete <notebook-id> <note-id>
 ```
 

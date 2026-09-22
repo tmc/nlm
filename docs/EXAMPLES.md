@@ -63,7 +63,7 @@ nlm source add NOTEBOOK_ID "Remember to follow up on the API changes"
 ## Working with notes
 
 ```bash
-nlm note create NOTEBOOK_ID "Open questions" "Compare Q3 and Q4 assumptions"
+nlm note create NOTEBOOK_ID "Open questions" --content "Compare Q3 and Q4 assumptions"
 nlm note list NOTEBOOK_ID
 nlm note read NOTEBOOK_ID NOTE_ID
 
