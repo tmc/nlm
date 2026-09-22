@@ -277,11 +277,13 @@ func (c *Client) Execute(ctx context.Context, rpcs []RPC) (*Response, error) {
 	if c.config.Debug {
 		fmt.Printf("\nRequest Headers:\n")
 		for k, v := range req.Header {
-			if strings.ToLower(k) == "cookie" && len(v) > 0 {
-				// Mask cookie values for security
-				maskedCookies := maskCookieValues(v[0])
-				fmt.Printf("%s: [%s]\n", k, maskedCookies)
-			} else {
+			switch {
+			case strings.EqualFold(k, "cookie") && len(v) > 0:
+				fmt.Printf("%s: [%s]\n", k, maskCookieValues(v[0]))
+			case strings.EqualFold(k, "authorization") && len(v) > 0:
+				scheme, value, _ := strings.Cut(v[0], " ")
+				fmt.Printf("%s: [%s %s]\n", k, scheme, maskSensitiveValue(value))
+			default:
 				fmt.Printf("%s: %v\n", k, v)
 			}
 		}
