@@ -1,0 +1,44 @@
+commit: 956f83b7d2b24646659d40015bb1e3dc03b9b453
+date: 2026-09-03T23:50:13-07:00
+agent: Codex
+model: GPT-6 (exact runtime identifier unavailable)
+codex: codex-cli 0.153.4
+claude: 2.1.257 (Claude Code)
+tty: not a tty
+pid: 78583
+ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+
+Rewritten from: 820e2899902102e7e8c5bda2c7093859665dfbb8
+Original local provenance:
+date: 2026-09-03T23:50:20-07:00
+claude-code: 2.1.257 (Claude Code)
+model: claude-opus-5[1m]
+tty: not a tty
+pid: 2991
+iterm_session: w7t2p17:E0E80E3A-DE1F-4035-BE20-233EEB982B53
+session=f679125c-ca5c-4317-a57f-775e93929991
+session_url=https://claude.ai/code/session_01AVk1rNLr9ex7dMA3qVLE2A
+peer-request: C2C5DB46 generate-chat runaway report
+
+History audit rewrite
+commit: d5519620dea258799b991ad31c06dcd6d7528547
+date: 2026-09-03T23:50:13-07:00
+agent: Codex
+model: GPT-6
+claude-code version (installed): 2.1.257
+codex-cli: 0.153.3
+tty: none
+pid: 39840 (note writer)
+ITERM_SESSION_ID: w16t0p5:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+Original provenance above retained by notes.rewriteRef.
+
+History ordering repair
+commit: 820e2899902102e7e8c5bda2c7093859665dfbb8
+date: 2026-09-06T13:57:41-07:00
+agent: Codex
+model: GPT-6 (exact runtime identifier unavailable)
+claude-code: 2.1.257 (Claude Code)
+tty: not a tty
+pid: 43253
+ITERM_SESSION_ID: w16t0p2:B6FEEF9E-F20C-450E-B07B-98D5500434C1
+original commit: d5519620dea258799b991ad31c06dcd6d7528547
