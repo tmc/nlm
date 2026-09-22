@@ -603,12 +603,17 @@ func printExitCodes() {
 	fmt.Fprint(os.Stderr,
 		"Exit Codes:\n"+
 			"  0  success\n"+
+			"  1  unclassified error\n"+
 			"  2  bad arguments\n"+
 			"  3  authentication required or invalid\n"+
 			"  4  not found (notebook, source, artifact)\n"+
 			"  5  precondition failed (quota, source cap, wrong source type)\n"+
 			"  6  transient error (rate limit, 5xx, connection)\n"+
-			"  7  resource busy (still generating)\n")
+			"  7  resource busy (still generating)\n"+
+			"  8  stale output (answer revised after it streamed; replay with chat show)\n"+
+			"  9  authentication attempted and failed\n"+
+			" 10  runaway output (chat stream stopped by a client-side guard)\n"+
+			" 11  partial write (sync failed after changing the notebook; re-run it)\n")
 }
 
 // sectionForNoun resolves a user-supplied noun to a section name from

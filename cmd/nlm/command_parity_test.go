@@ -442,7 +442,15 @@ func compareCommandParityPhase5(t *testing.T, baseline, current commandParityGol
 	}
 }
 
+// withoutExitCodes drops the trailing exit-code table from root help. The
+// phase baselines pin the command inventory; the table is not part of it.
+func withoutExitCodes(help string) string {
+	before, _, _ := strings.Cut(help, "\nExit Codes:\n")
+	return before
+}
+
 func filterPhase1HelpLines(help string) string {
+	help = withoutExitCodes(help)
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
 		if !helpLineForPaths(line, labelOpsCommandPaths) &&
@@ -459,6 +467,7 @@ func filterPhase1HelpLines(help string) string {
 }
 
 func filterLaterPhaseHelpLines(help string) string {
+	help = withoutExitCodes(help)
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
 		if !helpLineForPaths(line, labelOpsCommandPaths) &&
@@ -478,13 +487,14 @@ func filterLaterPhaseHelpLines(help string) string {
 // reworked after the baselines were frozen, and the post-roadmap paths whose
 // synopsis grew an operand since.
 func filterPhase5HelpLines(help string) string {
-	help = filterHelpLines(help, prototextCommandPaths)
+	help = filterHelpLines(withoutExitCodes(help), prototextCommandPaths)
 	help = filterHelpLines(help, phase6OwnershipCommandPaths)
 	help = filterHelpLines(help, postRoadmapCommandPaths)
 	return filterHelpLines(help, labelOpsCommandPaths)
 }
 
 func filterLaterThanPhase4HelpLines(help string) string {
+	help = withoutExitCodes(help)
 	var kept []string
 	for _, line := range strings.Split(help, "\n") {
 		if !helpLineForPaths(line, labelOpsCommandPaths) &&
