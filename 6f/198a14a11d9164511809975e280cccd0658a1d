@@ -1,0 +1,9 @@
+commit: 7a0bd8016b630c938e41a73984e4e297ec0b6ff1
+date: 2026-09-22T16:34:30-07:00
+claude-code: 2.1.280 (Claude Code)
+model: claude-opus-5-5[1m]
+tty: not a tty
+pid: 70216
+ITERM_SESSION_ID: w19t0p7:A6BAFE4F-D6D4-4A1E-AF27-690FBF79E810
+session: e6999cb5-504e-404d-8af9-a087698c17b4
+context: go-team codebase/history audit cleanup of unpushed range
