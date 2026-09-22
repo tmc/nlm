@@ -1,14 +1,14 @@
 package notebooklm_test
 
 import (
+	"go/importer"
 	"go/token"
 	"go/types"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
-
-	"golang.org/x/tools/go/gcexportdata"
 )
 
 func TestPublicSurfaceHasNoInternalTypes(t *testing.T) {
@@ -19,16 +19,14 @@ func TestPublicSurfaceHasNoInternalTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	file, err := os.Open(strings.TrimSpace(string(output)))
-	if err != nil {
-		t.Fatal(err)
+	export := strings.TrimSpace(string(output))
+	lookup := func(path string) (io.ReadCloser, error) {
+		if path != packagePath {
+			return nil, os.ErrNotExist
+		}
+		return os.Open(export)
 	}
-	defer file.Close()
-	reader, err := gcexportdata.NewReader(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pkg, err := gcexportdata.Read(reader, token.NewFileSet(), make(map[string]*types.Package), packagePath)
+	pkg, err := importer.ForCompiler(token.NewFileSet(), "gc", lookup).Import(packagePath)
 	if err != nil {
 		t.Fatal(err)
 	}
